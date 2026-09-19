@@ -1,0 +1,14 @@
+import { invoke } from "@tauri-apps/api/core";
+import type { Bookmark } from "./types";
+
+export function createBookmark(spaceId: string, url: string): Promise<Bookmark> {
+  return invoke("create_bookmark", { spaceId, url });
+}
+
+export function listBookmarks(spaceId: string): Promise<Bookmark[]> {
+  return invoke("list_bookmarks", { spaceId });
+}
+
+export function fetchBookmarkMetadata(entityId: string, url: string): Promise<Bookmark> {
+  return invoke("fetch_bookmark_metadata", { entityId, url });
+}

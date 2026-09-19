@@ -1,0 +1,173 @@
+export interface Space {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Entity {
+  id: string;
+  spaceId: string;
+  type: string;
+  title: string;
+  icon: string | null;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface EntityPatch {
+  title?: string;
+  icon?: string;
+  pinned?: boolean;
+}
+
+export interface Relationship {
+  id: string;
+  fromEntityId: string;
+  toEntityId: string;
+  relationshipType: string;
+  fromBlockId: string | null;
+  toBlockId: string | null;
+  createdAt: string;
+}
+
+export interface RelationshipTypeInfo {
+  name: string;
+  inverseLabel: string;
+}
+
+export type RelationshipDirection = "from" | "to" | "both";
+
+export type AppError =
+  | { kind: "NotFound"; message: string }
+  | { kind: "UnknownRelationshipType"; message: string }
+  | { kind: "CardinalityViolation"; message: string }
+  | { kind: "Db"; message: string };
+
+export interface SearchHit {
+  entityId: string;
+  spaceId: string;
+  title: string;
+  type: string;
+  icon: string | null;
+}
+
+export interface Label {
+  id: string;
+  spaceId: string;
+  name: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface TaskStatus {
+  id: string;
+  name: string;
+  color: string;
+  doneness: number;
+  position: number;
+}
+
+export interface Task {
+  entity: Entity;
+  statusId: string;
+  startDate: string | null;
+  dueDate: string | null;
+}
+
+export interface Block {
+  id: string;
+  entityId: string;
+  position: number;
+  blockType: BlockType;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BlockType =
+  | "paragraph"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "quote"
+  | "code"
+  | "bulleted_list"
+  | "numbered_list"
+  | "image"
+  | "embed";
+
+export interface SessionOccurrence {
+  entity: Entity;
+  templateId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  cancelled: boolean;
+  location: string | null;
+  notes: string | null;
+}
+
+export interface OccurrenceOverride {
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  cancelled?: boolean;
+  location?: string | null;
+  notes?: string | null;
+}
+
+export interface Exam {
+  entity: Entity;
+  examDate: string | null;
+  weight: number | null;
+  grade: number | null;
+  status: string;
+}
+
+export interface IndexCard {
+  id: string;
+  deckEntityId: string;
+  front: string;
+  back: string;
+  boxLevel: number;
+  dueAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyBlock {
+  entity: Entity;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface Assignment {
+  entity: Entity;
+  dueDate: string | null;
+  status: string;
+  grade: number | null;
+}
+
+export interface FileEntity {
+  entity: Entity;
+  localPath: string | null;
+  provider: "google_drive" | "dropbox" | "icloud" | null;
+  url: string | null;
+  originalFilename: string | null;
+}
+
+export interface Bookmark {
+  entity: Entity;
+  url: string;
+  fetchedTitle: string | null;
+  faviconUrl: string | null;
+  previewImageUrl: string | null;
+  description: string | null;
+  metadataFetchedAt: string | null;
+}

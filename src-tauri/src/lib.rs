@@ -1,14 +1,84 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+mod commands;
+mod db;
+mod error;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            db::setup(app)?;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::spaces::create_space,
+            commands::spaces::list_spaces,
+            commands::entities::create_entity,
+            commands::entities::get_entity,
+            commands::entities::update_entity,
+            commands::entities::list_entities,
+            commands::entities::soft_delete_entity,
+            commands::entities::restore_entity,
+            commands::relationships::create_relationship,
+            commands::relationships::list_relationships,
+            commands::relationships::delete_relationship,
+            commands::relationships::list_relationship_types,
+            commands::search::search,
+            commands::labels::create_label,
+            commands::labels::list_labels,
+            commands::labels::delete_label,
+            commands::labels::attach_label,
+            commands::labels::detach_label,
+            commands::labels::list_labels_for_entity,
+            commands::tasks::list_task_statuses,
+            commands::tasks::create_task,
+            commands::tasks::create_subtask,
+            commands::tasks::list_subtasks,
+            commands::tasks::subtask_progress,
+            commands::tasks::list_tasks,
+            commands::tasks::update_task_status,
+            commands::tasks::update_task_dates,
+            commands::notes::create_note,
+            commands::notes::create_jot,
+            commands::notes::create_refinement,
+            commands::notes::list_blocks,
+            commands::notes::create_block,
+            commands::notes::update_block,
+            commands::notes::delete_block,
+            commands::notes::reorder_blocks,
+            commands::notes::render_page_markdown,
+            commands::courses::create_course,
+            commands::courses::list_courses,
+            commands::courses::create_semester,
+            commands::courses::list_semesters,
+            commands::courses::link_course_to_semester,
+            commands::sessions::create_session_template,
+            commands::sessions::generate_occurrences,
+            commands::sessions::create_one_off_session,
+            commands::sessions::override_occurrence,
+            commands::sessions::list_sessions,
+            commands::exams::create_exam,
+            commands::exams::list_exams,
+            commands::exams::update_exam,
+            commands::decks::create_deck,
+            commands::decks::list_decks,
+            commands::decks::create_card,
+            commands::decks::list_cards,
+            commands::decks::list_due_cards,
+            commands::decks::review_card,
+            commands::study_blocks::create_study_block,
+            commands::study_blocks::list_study_blocks,
+            commands::assignments::create_assignment,
+            commands::assignments::list_assignments,
+            commands::assignments::update_assignment_status,
+            commands::files::import_file,
+            commands::files::create_file_link,
+            commands::files::list_files,
+            commands::bookmarks::create_bookmark,
+            commands::bookmarks::list_bookmarks,
+            commands::bookmarks::fetch_bookmark_metadata,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
