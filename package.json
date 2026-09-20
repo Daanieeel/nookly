@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@oxlint/plugins": "1.83.0",
+    "@shadcn/lint": "^0.1.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
