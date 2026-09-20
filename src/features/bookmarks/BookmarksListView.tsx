@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createBookmark, fetchBookmarkMetadata, listBookmarks } from "@/lib/api/bookmarks";
+import { displayTitle } from "@/lib/entity-title";
 
 /// Paste-a-URL-first creation (§3.3 New Bookmark): the entity is created the moment
 /// a URL is submitted, and a placeholder card appears immediately at the top of the
@@ -87,7 +88,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
               <div className="flex items-center gap-1.5">
                 {b.faviconUrl && <img src={b.faviconUrl} alt="" className="size-4" />}
                 <span className="truncate text-sm font-medium">
-                  {b.fetchedTitle ?? b.entity.title}
+                  {b.fetchedTitle || displayTitle(b.entity)}
                 </span>
               </div>
               {b.description && (

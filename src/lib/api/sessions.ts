@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Entity, OccurrenceOverride, SessionOccurrence } from "./types";
+import type { BriefingSession, Entity, OccurrenceOverride, SessionOccurrence } from "./types";
 
 export function createSessionTemplate(
   spaceId: string,
@@ -59,4 +59,8 @@ export function overrideOccurrence(
 
 export function listSessions(spaceId: string): Promise<SessionOccurrence[]> {
   return invoke("list_sessions", { spaceId });
+}
+
+export function listSessionsToday(): Promise<BriefingSession[]> {
+  return invoke("list_sessions_today");
 }

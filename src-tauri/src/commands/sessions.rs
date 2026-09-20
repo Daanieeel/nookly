@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::sessions::{self, OccurrenceOverride, SessionOccurrence};
+use crate::db::sessions::{self, BriefingSession, OccurrenceOverride, SessionOccurrence};
 use crate::db::DbState;
 use crate::error::AppResult;
 use tauri::State;
@@ -73,4 +73,10 @@ pub fn override_occurrence(
 pub fn list_sessions(state: State<DbState>, space_id: String) -> AppResult<Vec<SessionOccurrence>> {
     let conn = state.0.lock().unwrap();
     sessions::list_sessions(&conn, &space_id)
+}
+
+#[tauri::command]
+pub fn list_sessions_today(state: State<DbState>) -> AppResult<Vec<BriefingSession>> {
+    let conn = state.0.lock().unwrap();
+    sessions::list_sessions_today(&conn)
 }

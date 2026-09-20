@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { softDeleteEntity, updateEntity } from "@/lib/api/entities";
 import type { Entity } from "@/lib/api/types";
+import { labelForType } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 export function EntityDetailLayout({
@@ -61,7 +62,8 @@ export function EntityDetailLayout({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
-            className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none"
+            placeholder={`Untitled ${labelForType(entity.type)}`}
+            className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground"
           />
           <Tooltip>
             <TooltipTrigger asChild>

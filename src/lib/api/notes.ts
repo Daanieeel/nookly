@@ -17,6 +17,10 @@ export function countJotsWithoutRefinement(spaceId: string): Promise<number> {
   return invoke("count_jots_without_refinement", { spaceId });
 }
 
+export function countJotsWithoutRefinementAllSpaces(): Promise<number> {
+  return invoke("count_jots_without_refinement_all_spaces");
+}
+
 export function listRecentNotes(spaceId: string, limit = 5): Promise<Entity[]> {
   return invoke("list_recent_notes", { spaceId, limit });
 }

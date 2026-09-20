@@ -254,6 +254,39 @@ pub fn list_sessions(conn: &Connection, space_id: &str) -> AppResult<Vec<Session
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Bespoke, narrow shape for the Dashboard briefing's Sessions clause — cross-Space,
+/// today only, with the linked Course's title pre-joined so the caller doesn't need
+/// a follow-up relationship lookup per session.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefingSession {
+    pub title: String,
+    pub start_time: String,
+    pub course_title: Option<String>,
+    pub space_id: String,
+}
+
+pub fn list_sessions_today(conn: &Connection) -> AppResult<Vec<BriefingSession>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.title, s.start_time, c.title AS course_title, e.space_id
+         FROM entities e
+         JOIN sessions s ON s.entity_id = e.id
+         LEFT JOIN relationships r ON r.from_entity_id = e.id AND r.relationship_type = 'session-course'
+         LEFT JOIN entities c ON c.id = r.to_entity_id
+         WHERE e.deleted_at IS NULL AND s.cancelled = 0 AND date(s.date) = date('now')
+         ORDER BY s.start_time ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(BriefingSession {
+            title: row.get("title")?,
+            start_time: row.get("start_time")?,
+            course_title: row.get("course_title")?,
+            space_id: row.get("space_id")?,
+        })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

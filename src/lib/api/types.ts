@@ -128,6 +128,13 @@ export interface SessionOccurrence {
   notes: string | null;
 }
 
+export interface BriefingSession {
+  title: string;
+  startTime: string;
+  courseTitle: string | null;
+  spaceId: string;
+}
+
 export interface OccurrenceOverride {
   date?: string;
   startTime?: string;

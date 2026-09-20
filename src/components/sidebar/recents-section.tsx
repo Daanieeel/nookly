@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/sidebar";
 import { getEntity } from "@/lib/api/entities";
 import type { Space } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
-import { cn } from "@/lib/utils";
 
 function RecentRow({
   entityId,
@@ -28,15 +28,16 @@ function RecentRow({
     queryKey: ["entity", entityId],
     queryFn: () => getEntity(entityId),
   });
-  if (!entity) return null;
+  // Trashed entities drop out of Recents entirely rather than rendering dimmed.
+  if (!entity || entity.deletedAt) return null;
   const space = spaces.find((s) => s.id === spaceId);
 
   return (
     <SidebarMenuItem>
       <SidebarMenuButton onClick={() => useNavStore.getState().openEntity(entity.id, spaceId)}>
-        <span className={cn("flex min-w-0 flex-1 items-center gap-2", entity.deletedAt && "opacity-50")}>
+        <span className="flex min-w-0 flex-1 items-center gap-2">
           <EntityIcon entity={entity} size={14} />
-          <span className="truncate">{entity.title}</span>
+          <span className="truncate">{displayTitle(entity)}</span>
         </span>
         {space && (
           <span
@@ -70,7 +71,12 @@ export function RecentsSection({ spaces }: { spaces: Space[] }) {
         <CollapsibleContent>
           <SidebarMenu>
             {recents.map((r) => (
-              <RecentRow key={r.entityId} entityId={r.entityId} spaceId={r.spaceId} spaces={spaces} />
+              <RecentRow
+                key={r.entityId}
+                entityId={r.entityId}
+                spaceId={r.spaceId}
+                spaces={spaces}
+              />
             ))}
           </SidebarMenu>
         </CollapsibleContent>

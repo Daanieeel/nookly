@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { createExam, listExams } from "@/lib/api/exams";
 import type { Entity, Exam } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 /// Date-forward, urgency-first (§2.3) — undated exams sink to the bottom, dated
@@ -85,7 +86,7 @@ export function ExamsListView({ spaceId }: { spaceId: string }) {
             className="flex items-center gap-2.5 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
           >
             <UrgencyDot examDate={exam.examDate} status={exam.status} />
-            <span className="min-w-0 flex-1 truncate">{exam.entity.title}</span>
+            <span className="min-w-0 flex-1 truncate">{displayTitle(exam.entity)}</span>
             {exam.examDate && (
               <span className="shrink-0 text-xs text-muted-foreground">{exam.examDate}</span>
             )}
@@ -126,7 +127,7 @@ function CreateExamDialog({
   const create = useMutation({
     mutationFn: () => {
       if (!course) throw new Error("pick a course");
-      return createExam(spaceId, `${course.title} Exam`, course.id, examDate || null, null);
+      return createExam(spaceId, `${displayTitle(course)} Exam`, course.id, examDate || null, null);
     },
     onSuccess: (exam) => {
       queryClient.invalidateQueries({ queryKey: ["exams", spaceId] });
@@ -149,7 +150,7 @@ function CreateExamDialog({
             typeFilter="course"
             trigger={
               <Button variant="secondary" size="sm" className="w-full justify-start">
-                {course ? course.title : "Pick a course…"}
+                {course ? displayTitle(course) : "Pick a course…"}
               </Button>
             }
             onSelect={setCourse}

@@ -35,6 +35,12 @@ pub fn count_jots_without_refinement(state: State<DbState>, space_id: String) ->
 }
 
 #[tauri::command]
+pub fn count_jots_without_refinement_all_spaces(state: State<DbState>) -> AppResult<i64> {
+    let conn = state.0.lock().unwrap();
+    notes::count_jots_without_refinement_all_spaces(&conn)
+}
+
+#[tauri::command]
 pub fn list_recent_notes(
     state: State<DbState>,
     space_id: String,

@@ -45,15 +45,23 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 import { listEntities } from "@/lib/api/entities";
 import { createSpace, listSpaces, updateSpace } from "@/lib/api/spaces";
 import type { Space } from "@/lib/api/types";
-import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS, modulesInUse, type ModuleKey } from "@/lib/modules";
+import {
+  MODULE_ICONS,
+  MODULE_KEYS,
+  MODULE_LABELS,
+  modulesInUse,
+  type ModuleKey,
+} from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
-import { EXPANDABLE_MODULE_KEYS, ExpandableModuleChildren } from "./sidebar/expandable-module-children";
+import {
+  EXPANDABLE_MODULE_KEYS,
+  ExpandableModuleChildren,
+} from "./sidebar/expandable-module-children";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
 import { RecentsSection } from "./sidebar/recents-section";
@@ -70,6 +78,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader>
         <SidebarMenu>
+          <SidebarMenuItem className="mb-4">
+            <SidebarMascot />
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Dashboard"
@@ -149,13 +160,8 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <ThemeToggle />
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMascot />
-          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-
-      <SidebarRail />
 
       <CreateSpaceDialog open={createOpen} onOpenChange={setCreateOpen} />
     </Sidebar>
@@ -249,7 +255,9 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
                   space={space}
                   moduleKey={moduleKey}
                   active={active}
-                  onNavigate={() => setView({ kind: "module", spaceId: space.id, module: moduleKey })}
+                  onNavigate={() =>
+                    setView({ kind: "module", spaceId: space.id, module: moduleKey })
+                  }
                 />
               );
             })}
@@ -296,7 +304,9 @@ function ModuleSubRow({
           <button
             type="button"
             aria-label={
-              childrenOpen ? `Collapse ${MODULE_LABELS[moduleKey]}` : `Expand ${MODULE_LABELS[moduleKey]}`
+              childrenOpen
+                ? `Collapse ${MODULE_LABELS[moduleKey]}`
+                : `Expand ${MODULE_LABELS[moduleKey]}`
             }
             onClick={(e) => {
               e.stopPropagation();

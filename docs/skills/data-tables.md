@@ -22,8 +22,8 @@ The table primitives come from the **diceui** shadcn registry (`https://diceui.c
 {
   // ...
   "registries": {
-    "@diceui": "https://diceui.com/r/{name}.json"
-  }
+    "@diceui": "https://diceui.com/r/{name}.json",
+  },
 }
 ```
 
@@ -71,15 +71,15 @@ types/data-table.ts
 
 ## 2. Fix the vendor's known broken imports
 
-The registry's own docs page (fetched as part of this install) admits: *"The shadcn CLI doesn't handle custom component paths properly — you'll need to update these imports manually."* Concretely, every file below imports from `@/components/data-table/data-table` for things that actually live in `@/lib/data-table`, `@/config/data-table`, or `@/types/data-table`. Left unfixed, this is a **self-referencing import** in `data-table.tsx` that crashes the Vite build (`"getColumnPinningStyle" is not exported by ... imported by ... data-table.tsx`).
+The registry's own docs page (fetched as part of this install) admits: _"The shadcn CLI doesn't handle custom component paths properly — you'll need to update these imports manually."_ Concretely, every file below imports from `@/components/data-table/data-table` for things that actually live in `@/lib/data-table`, `@/config/data-table`, or `@/types/data-table`. Left unfixed, this is a **self-referencing import** in `data-table.tsx` that crashes the Vite build (`"getColumnPinningStyle" is not exported by ... imported by ... data-table.tsx`).
 
 Fix every occurrence of `from "@/components/data-table/data-table"` per this mapping:
 
-| Symbol | Correct source |
-|---|---|
-| `getColumnPinningStyle`, `getFilterOperators`, `getDefaultFilterOperator`, `getValidFilters` | `@/lib/data-table` |
-| `dataTableConfig`, `DataTableConfig` (type) | `@/config/data-table` |
-| `ExtendedColumnFilter`, `ExtendedColumnSort`, `FilterOperator`, `FilterVariant`, `QueryKeys`, `Option`, `DataTableRowAction` | `@/types/data-table` |
+| Symbol                                                                                                                       | Correct source        |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `getColumnPinningStyle`, `getFilterOperators`, `getDefaultFilterOperator`, `getValidFilters`                                 | `@/lib/data-table`    |
+| `dataTableConfig`, `DataTableConfig` (type)                                                                                  | `@/config/data-table` |
+| `ExtendedColumnFilter`, `ExtendedColumnSort`, `FilterOperator`, `FilterVariant`, `QueryKeys`, `Option`, `DataTableRowAction` | `@/types/data-table`  |
 
 Files that need this (grep `from "@/components/data-table/data-table"` and fix every hit that isn't literally importing the `DataTable` component itself):
 `components/data-table/data-table.tsx`, `data-table-filter-menu.tsx`, `data-table-range-filter.tsx`, `data-table-sort-list.tsx`, `hooks/use-data-table.ts`, `lib/data-table.ts`, `lib/parsers.ts`, `types/data-table.ts`.
@@ -104,24 +104,24 @@ bun add @dnd-kit/modifiers zod
 
 The vendored files import icons from `lucide-react`. If your project standardizes on a different icon set (this app uses `@tabler/icons-react`), swap them — check first whether your shadcn CLI's icon-library auto-transform already did this for you (`components.json`'s `iconLibrary` field controls it, but it did **not** fire for these files here, so verify with `grep -rl "lucide-react" src/components/data-table`). Mapping used in this project (tabler equivalents — adjust for your icon set):
 
-| lucide-react | tabler | Used for |
-|---|---|---|
-| `ChevronDown`/`ChevronUp` | `IconChevronDown`/`IconChevronUp` | column header sort direction |
-| `ChevronsUpDown` | `IconSelector` | unsorted column header |
-| `EyeOff` | `IconEyeOff` | hide-column menu item |
-| `X` | `IconX` | remove chip/filter |
-| `CalendarIcon` | `IconCalendar` | date filter |
-| `XCircle` | `IconCircleX` | clear |
-| `Check` | `IconCheck` | selected option |
-| `PlusCircle` | `IconCirclePlus` | add filter |
-| `BadgeCheck` | `IconRosetteDiscountCheck` | closest visual match — a badge/checkmark |
-| `ListFilter` | `IconFilter` | filter trigger |
-| `Text` | `IconLetterCase` | generic text-field icon |
-| `ChevronLeft`/`Right`/`ChevronsLeft`/`Right` | `IconChevronLeft`/`Right`/`IconChevronsLeft`/`Right` | pagination |
-| `ArrowDownUp` | `IconArrowsSort` | sort trigger |
-| `GripVertical` | `IconGripVertical` | drag handle |
-| `Trash2` | `IconTrash` | remove sort/filter |
-| `Settings2` | `IconAdjustmentsHorizontal` | view-options trigger |
+| lucide-react                                 | tabler                                               | Used for                                 |
+| -------------------------------------------- | ---------------------------------------------------- | ---------------------------------------- |
+| `ChevronDown`/`ChevronUp`                    | `IconChevronDown`/`IconChevronUp`                    | column header sort direction             |
+| `ChevronsUpDown`                             | `IconSelector`                                       | unsorted column header                   |
+| `EyeOff`                                     | `IconEyeOff`                                         | hide-column menu item                    |
+| `X`                                          | `IconX`                                              | remove chip/filter                       |
+| `CalendarIcon`                               | `IconCalendar`                                       | date filter                              |
+| `XCircle`                                    | `IconCircleX`                                        | clear                                    |
+| `Check`                                      | `IconCheck`                                          | selected option                          |
+| `PlusCircle`                                 | `IconCirclePlus`                                     | add filter                               |
+| `BadgeCheck`                                 | `IconRosetteDiscountCheck`                           | closest visual match — a badge/checkmark |
+| `ListFilter`                                 | `IconFilter`                                         | filter trigger                           |
+| `Text`                                       | `IconLetterCase`                                     | generic text-field icon                  |
+| `ChevronLeft`/`Right`/`ChevronsLeft`/`Right` | `IconChevronLeft`/`Right`/`IconChevronsLeft`/`Right` | pagination                               |
+| `ArrowDownUp`                                | `IconArrowsSort`                                     | sort trigger                             |
+| `GripVertical`                               | `IconGripVertical`                                   | drag handle                              |
+| `Trash2`                                     | `IconTrash`                                          | remove sort/filter                       |
+| `Settings2`                                  | `IconAdjustmentsHorizontal`                          | view-options trigger                     |
 
 Also delete any now-dead lucide-only files if you dropped the chip-toolbar variant (step 1).
 
@@ -150,7 +150,7 @@ createRoot(rootElement).render(
 );
 ```
 
-The generic `nuqs/adapters/react` adapter doesn't need router context, so it wraps everything, including `QueryClientProvider`/`RouterProvider`. (A router-context-dependent adapter, if you do need one, must instead go *inside* the router tree — e.g. in TanStack Router's case, inside the root route's component wrapping `<Outlet/>`, not around `<RouterProvider>` — because it calls `useRouter()`/`useRouterState()` internally. The official docs' example for such adapters is written for Next.js's App Router, where wrapping the whole app works because Next's router doesn't need explicit context — don't copy that pattern verbatim for a different router.)
+The generic `nuqs/adapters/react` adapter doesn't need router context, so it wraps everything, including `QueryClientProvider`/`RouterProvider`. (A router-context-dependent adapter, if you do need one, must instead go _inside_ the router tree — e.g. in TanStack Router's case, inside the root route's component wrapping `<Outlet/>`, not around `<RouterProvider>` — because it calls `useRouter()`/`useRouterState()` internally. The official docs' example for such adapters is written for Next.js's App Router, where wrapping the whole app works because Next's router doesn't need explicit context — don't copy that pattern verbatim for a different router.)
 
 ### 5b. Vite dev-server gotcha: "Multiple adapter contexts detected"
 
@@ -173,7 +173,7 @@ This is the single most important gotcha in this whole setup, and it's present *
 
 `nuqs`'s `useQueryState(key, parser)` expects the `parser` object to be referentially stable across renders. If you build it inline — e.g. `getSortingStateParser(columnIds).withOptions(opts).withDefault(initialState?.sorting ?? [])` — directly inside a hook body, you create a **new parser instance every single render** (the `?? []` alone allocates a new array reference each time). This makes nuqs treat every render as a new/different subscription. The observable symptom: a value you just wrote via the setter appears to apply for a couple of renders, then silently reverts to the default — with no further call to your `onChange` handler. It looks exactly like a race condition or an adapter bug, but it isn't: it's an unmemoized default.
 
-Fix — memoize with `useMemo` (empty deps, since this is meant to be an *initial* value that shouldn't be re-derived):
+Fix — memoize with `useMemo` (empty deps, since this is meant to be an _initial_ value that shouldn't be re-derived):
 
 ```ts
 // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally an init-only value
@@ -181,7 +181,9 @@ const defaultSorting = React.useMemo(() => initialState?.sorting ?? [], []);
 
 const [sorting, setSorting] = useQueryState(
   sortKey,
-  getSortingStateParser<TData>(columnIds).withOptions(queryStateOptions).withDefault(defaultSorting),
+  getSortingStateParser<TData>(columnIds)
+    .withOptions(queryStateOptions)
+    .withDefault(defaultSorting),
 );
 ```
 
@@ -216,6 +218,7 @@ Apply this fix inside the vendored `hooks/use-data-table.ts` itself (its `sortin
     ...
   >
   ```
+
   Remember to `e.stopPropagation()` on any interactive element inside a clickable row (action buttons, dropdown triggers, checkboxes) or the row click will fire too.
 
 ## 7. Server-mode table — full recipe
@@ -228,9 +231,9 @@ Your API needs a paginated list endpoint that accepts:
 
 ```ts
 interface ListParams {
-  page: number;      // 1-indexed
+  page: number; // 1-indexed
   pageSize: number;
-  sort?: { id: string; desc: boolean }[];  // multi-column
+  sort?: { id: string; desc: boolean }[]; // multi-column
   // + whatever per-table filter fields you support, e.g.:
   status?: "draft" | "published";
   locale?: string;
@@ -241,11 +244,11 @@ interface PaginatedResult<T> {
 }
 ```
 
-Serialize `sort` as JSON in the query string (`?sort=[{"id":"slug","desc":false}]`); parse it server-side with a small helper that validates shape and drops anything malformed rather than erroring. Don't try to match nuqs's own URL-encoding format to your API's query string — they're independent concerns. Your frontend API client reads the *parsed* JS values from the table/hooks and re-serializes them however your backend expects; it does not need to inspect the raw URL.
+Serialize `sort` as JSON in the query string (`?sort=[{"id":"slug","desc":false}]`); parse it server-side with a small helper that validates shape and drops anything malformed rather than erroring. Don't try to match nuqs's own URL-encoding format to your API's query string — they're independent concerns. Your frontend API client reads the _parsed_ JS values from the table/hooks and re-serializes them however your backend expects; it does not need to inspect the raw URL.
 
 ### 7b. The `useTableQueryState` bridge hook
 
-`useDataTable` manages `page`/`perPage`/`sort`/`filters` internally via nuqs, but it only exposes a `table` object back to you — not the raw values. Your `useQuery` call needs those raw values *before* you can construct `table` (chicken-and-egg: the query needs `page`/`sort`/filters to fetch; the table needs the fetched `data` + a `pageCount`). Solve this by reading the **same nuqs keys, with the same parsers**, in a second hook at the top of your page component:
+`useDataTable` manages `page`/`perPage`/`sort`/`filters` internally via nuqs, but it only exposes a `table` object back to you — not the raw values. Your `useQuery` call needs those raw values _before_ you can construct `table` (chicken-and-egg: the query needs `page`/`sort`/filters to fetch; the table needs the fetched `data` + a `pageCount`). Solve this by reading the **same nuqs keys, with the same parsers**, in a second hook at the top of your page component:
 
 ```ts
 // hooks/use-table-query-state.ts
@@ -302,9 +305,12 @@ function PagesPage() {
     placeholderData: keepPreviousData, // avoid flicker/empty state while paginating
   });
 
-  const columns = useMemo<ColumnDef<PageSummary>[]>(() => [
-    // select column, data columns, actions column - see §9
-  ], [/* deps used inside cell renderers */]);
+  const columns = useMemo<ColumnDef<PageSummary>[]>(
+    () => [
+      // select column, data columns, actions column - see §9
+    ],
+    [/* deps used inside cell renderers */],
+  );
 
   const { table } = useDataTable({
     data: data?.items ?? [],
@@ -328,6 +334,7 @@ function PagesPage() {
 ```
 
 Notes:
+
 - `pageCount: -1` while `data` is still `undefined` tells TanStack Table "unknown" — fine for the initial load.
 - `initialState.pagination` needs **both** `pageIndex` and `pageSize` — passing only `{ pageSize: 10 }` is a type error (`PaginationState` requires both).
 - `placeholderData: keepPreviousData` (from `@tanstack/react-query`) is what stops the table flashing empty during a page/sort/filter change.
@@ -337,7 +344,7 @@ Notes:
 For a small, fully-in-memory dataset (a settings list, a config table — anything you'd never realistically paginate server-side), skip `useDataTable` and `useTableQueryState` entirely. Use plain `useReactTable`:
 
 ```tsx
-const columns = useMemo<ColumnDef<Group>[]>(() => [ /* ... */ ], [deps]);
+const columns = useMemo<ColumnDef<Group>[]>(() => [/* ... */], [deps]);
 
 const table = useReactTable({
   data: data ?? [],
@@ -371,6 +378,7 @@ const table = useReactTable({
 });
 // render your own <Input value={search} onChange={...} /> next to the table
 ```
+
 Don't reach for `DataTableFilterMenu` for this — it's built for the manual/server-filtering pipeline and manages its own nuqs-backed state independent of TanStack Table's `columnFilters`.
 
 ## 9. Column definitions: filters, sorting, icons
@@ -423,13 +431,20 @@ export function SelectionActionBar<TData>({
 }) {
   const rows = table.getFilteredSelectedRowModel().rows;
   const onOpenChange = useCallback(
-    (open: boolean) => { if (!open) table.toggleAllRowsSelected(false); },
+    (open: boolean) => {
+      if (!open) table.toggleAllRowsSelected(false);
+    },
     [table],
   );
   return (
     <ActionBar open={rows.length > 0} onOpenChange={onOpenChange}>
       <ActionBarSelection>{rows.length} selected</ActionBarSelection>
-      {actions && (<><ActionBarSeparator /><ActionBarGroup>{actions(rows)}</ActionBarGroup></>)}
+      {actions && (
+        <>
+          <ActionBarSeparator />
+          <ActionBarGroup>{actions(rows)}</ActionBarGroup>
+        </>
+      )}
     </ActionBar>
   );
 }
@@ -496,6 +511,7 @@ bunx playwright install chromium
 ```
 
 Then drive it with a short script (`chromium.launch()` → `page.goto()` → fill the login form → click through Sort/Filter popovers → screenshot + read `page.on("console", ...)` for errors). Specifically check:
+
 - Console is clean of `[nuqs]` warnings and `Invalid hook call` errors.
 - Clicking "Add sort" twice adds two independent sort entries that both persist (not one that reverts).
 - Toolbar button heights are uniform (`getBoundingClientRect().height` on each `<button>` in the toolbar).

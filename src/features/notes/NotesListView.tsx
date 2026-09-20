@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { listEntities } from "@/lib/api/entities";
 import { createNote } from "@/lib/api/notes";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 /// Notes are a page index, not a form (§2.3/§3.3) — creating one is a single quiet
@@ -47,7 +48,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
             className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
           >
             <EntityIcon entity={note} className="shrink-0 text-muted-foreground" />
-            <span className="truncate">{note.title}</span>
+            <span className="truncate">{displayTitle(note)}</span>
           </button>
         ))}
         {notes.length === 0 && (

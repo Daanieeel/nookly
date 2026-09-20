@@ -3,6 +3,7 @@ import { EntityIcon } from "@/components/entity-icon";
 import { SidebarMenuSubButton, SidebarMenuSubItem } from "@/components/ui/sidebar";
 import { listCourses } from "@/lib/api/courses";
 import { listRecentNotes } from "@/lib/api/notes";
+import { displayTitle } from "@/lib/entity-title";
 import { MODULE_LABELS } from "@/lib/modules";
 import { useNavStore, type ModuleKey } from "@/lib/store/nav";
 
@@ -33,9 +34,11 @@ export function ExpandableModuleChildren({
     <>
       {children.map((child) => (
         <SidebarMenuSubItem key={child.id}>
-          <SidebarMenuSubButton onClick={() => useNavStore.getState().openEntity(child.id, spaceId)}>
+          <SidebarMenuSubButton
+            onClick={() => useNavStore.getState().openEntity(child.id, spaceId)}
+          >
             <EntityIcon entity={child} size={14} />
-            <span className="truncate">{child.title}</span>
+            <span className="truncate">{displayTitle(child)}</span>
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>
       ))}

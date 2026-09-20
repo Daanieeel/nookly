@@ -157,6 +157,42 @@ pub fn restore_entity(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Permanently removes a trashed entity and every row in another table keyed by
+/// its id — there is no `ON DELETE CASCADE` anywhere in this schema (SQLite FK
+/// enforcement is never turned on), so each subtype/child table has to be swept
+/// explicitly. Only ever allowed on an already soft-deleted entity — this is the
+/// Trash view's "Delete Forever", not a general hard-delete.
+pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM relationships WHERE from_entity_id = ?1 OR to_entity_id = ?1",
+        params![id],
+    )?;
+    conn.execute("DELETE FROM entity_labels WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM blocks WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM tasks WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM courses WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM semesters WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM session_templates WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM sessions WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM exams WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM index_card_decks WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM index_cards WHERE deck_entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM study_blocks WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM assignments WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM bookmarks WHERE entity_id = ?1", params![id])?;
+    conn.execute("DELETE FROM search_index WHERE entity_id = ?1", params![id])?;
+
+    let affected = conn.execute(
+        "DELETE FROM entities WHERE id = ?1 AND deleted_at IS NOT NULL",
+        params![id],
+    )?;
+    if affected == 0 {
+        return Err(AppError::NotFound(format!("trashed entity {id}")));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,6 +226,50 @@ mod tests {
         let visible_again = list_entities(&conn, None, false).unwrap();
         assert_eq!(visible_again.len(), 1);
         assert!(visible_again[0].deleted_at.is_none());
+    }
+
+    #[test]
+    fn hard_delete_requires_trashed_and_cleans_child_tables() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let parent =
+            crate::db::tasks::create_task(&conn, space.id.clone(), "Parent".into(), None, None)
+                .unwrap();
+        let child =
+            crate::db::tasks::create_subtask(&conn, parent.entity.id.clone(), "Child".into())
+                .unwrap();
+
+        // Refuses a live (non-trashed) entity.
+        assert!(hard_delete_entity(&conn, &child.entity.id).is_err());
+
+        soft_delete_entity(&conn, &child.entity.id).unwrap();
+        hard_delete_entity(&conn, &child.entity.id).unwrap();
+
+        assert!(get_entity(&conn, &child.entity.id).is_err());
+
+        let task_row_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tasks WHERE entity_id = ?1",
+                params![child.entity.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(task_row_count, 0);
+
+        let rel_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM relationships WHERE from_entity_id = ?1 OR to_entity_id = ?1",
+                params![child.entity.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(rel_count, 0);
+    }
+
+    #[test]
+    fn hard_delete_unknown_entity_errors() {
+        let conn = setup();
+        assert!(hard_delete_entity(&conn, "does-not-exist").is_err());
     }
 
     #[test]

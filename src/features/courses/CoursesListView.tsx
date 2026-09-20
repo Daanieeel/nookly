@@ -22,6 +22,7 @@ import {
 } from "@/lib/api/courses";
 import { listRelationships } from "@/lib/api/relationships";
 import type { Entity } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 /// Card-grid identity (name, semester chips, sequel/prequel indicators) rather than
@@ -92,7 +93,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
               className="flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1 text-xs hover:bg-accent/80"
             >
               <IconCalendarStats size={12} className="text-muted-foreground" />
-              {s.title}
+              {displayTitle(s)}
             </button>
           ))}
           <form
@@ -152,7 +153,7 @@ function CourseCard({
       <button type="button" onClick={onOpen} className="flex items-start gap-2 text-left">
         <IconSchool size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium group-hover:underline">
-          {course.title}
+          {displayTitle(course)}
         </span>
       </button>
 
@@ -220,7 +221,7 @@ function RelatedChip({
       {icon}
       <span className="truncate">
         {prefix ? `${prefix} ` : ""}
-        {entity.title}
+        {displayTitle(entity)}
       </span>
     </span>
   );

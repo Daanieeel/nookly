@@ -2,9 +2,21 @@ import { IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { listEntities, restoreEntity } from "@/lib/api/entities";
+import { hardDeleteEntity, listEntities, restoreEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
+import { displayTitle } from "@/lib/entity-title";
 
 /// Utility view (§1.1) — quieter/lower-emphasis than primary module content:
 /// smaller header, muted rows, no bold call-to-action styling.
@@ -20,6 +32,10 @@ export function TrashView() {
 
   const restore = useMutation({
     mutationFn: (id: string) => restoreEntity(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entities", "all", "trash"] }),
+  });
+  const deleteForever = useMutation({
+    mutationFn: (id: string) => hardDeleteEntity(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entities", "all", "trash"] }),
   });
 
@@ -40,13 +56,38 @@ export function TrashView() {
             className="flex items-center gap-2 rounded-sm px-2 py-1 opacity-60 hover:bg-accent hover:opacity-100"
           >
             <EntityIcon entity={e} size={14} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate text-xs">{e.title}</span>
+            <span className="min-w-0 flex-1 truncate text-xs">{displayTitle(e)}</span>
             <span className="shrink-0 text-xs text-muted-foreground/70">
               {spaceNameById.get(e.spaceId) ?? "Unknown Space"}
             </span>
             <Button variant="outline" size="sm" onClick={() => restore.mutate(e.id)}>
               Restore
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Delete Forever
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete "{displayTitle(e)}" forever?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently erases it and everything attached to it (content, links to
+                    other items). This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={() => deleteForever.mutate(e.id)}
+                  >
+                    Delete Forever
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         ))}
         {trashed.length === 0 && (

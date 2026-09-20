@@ -17,7 +17,7 @@ const selectTriggerVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-input border bg-transparent shadow-xs",
+        default: "border border-input bg-accent hover:bg-accent/80 hover:text-accent-foreground",
         ghost: "border-none bg-transparent shadow-none",
         nav: "text-muted-foreground hover:bg-accent hover:text-foreground border-none bg-transparent shadow-none",
       },

@@ -3,6 +3,7 @@
 Full project docs live in `/docs/`. Read `/docs/00-index.md` first, every session, before writing code for this project.
 
 Quick map:
+
 - Building a new module? Read `01-philosophy.md`, `02-entity-model.md`, then the matching file in `03-modules/`.
 - Touching sidebar/navigation? Read `04-navigation-spaces.md`.
 - Building or fixing any UI? Read `05-ui-ux-direction.md`. Non-negotiable.

@@ -192,6 +192,23 @@ pub fn count_tasks_due_today(conn: &Connection) -> AppResult<TaskDueTodaySummary
     Ok(TaskDueTodaySummary { done, total })
 }
 
+/// Cross-Space count of open (not-done) Tasks due today or earlier — the Dashboard
+/// briefing's Tasks clause. Unlike `count_tasks_due_today`, this includes overdue
+/// tasks and doesn't need a done/total split (an "open" count is already filtered
+/// to not-done).
+pub fn count_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<i64> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM tasks t
+         JOIN entities e ON e.id = t.entity_id
+         JOIN task_statuses s ON s.id = t.status_id
+         WHERE e.deleted_at IS NULL AND t.due_date IS NOT NULL
+           AND date(t.due_date) <= date('now') AND s.doneness < 100",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(count)
+}
+
 pub fn update_task_dates(
     conn: &Connection,
     entity_id: &str,

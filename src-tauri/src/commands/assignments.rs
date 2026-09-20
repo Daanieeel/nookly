@@ -22,6 +22,12 @@ pub fn list_assignments(state: State<DbState>, space_id: String) -> AppResult<Ve
 }
 
 #[tauri::command]
+pub fn list_assignments_all_spaces(state: State<DbState>) -> AppResult<Vec<Assignment>> {
+    let conn = state.0.lock().unwrap();
+    assignments::list_assignments_all_spaces(&conn)
+}
+
+#[tauri::command]
 pub fn update_assignment_status(
     state: State<DbState>,
     entity_id: String,

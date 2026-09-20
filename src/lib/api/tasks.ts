@@ -38,6 +38,10 @@ export function countTasksDueToday(): Promise<TaskDueTodaySummary> {
   return invoke("count_tasks_due_today");
 }
 
+export function countOpenTasksDueOrOverdue(): Promise<number> {
+  return invoke("count_open_tasks_due_or_overdue");
+}
+
 export function updateTaskDates(
   entityId: string,
   startDate: string | null,

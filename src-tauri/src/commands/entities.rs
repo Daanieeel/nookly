@@ -48,3 +48,9 @@ pub fn restore_entity(state: State<DbState>, id: String) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     entities::restore_entity(&conn, &id)
 }
+
+#[tauri::command]
+pub fn hard_delete_entity(state: State<DbState>, id: String) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    entities::hard_delete_entity(&conn, &id)
+}

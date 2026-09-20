@@ -5,6 +5,7 @@ import { EntityIcon } from "@/components/entity-icon";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listEntities } from "@/lib/api/entities";
 import type { Entity } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 
 export function EntityPickerPopover({
   spaceId,
@@ -45,7 +46,7 @@ export function EntityPickerPopover({
               .map((entity) => (
                 <Command.Item
                   key={entity.id}
-                  value={entity.title}
+                  value={displayTitle(entity)}
                   onSelect={() => {
                     onSelect(entity);
                     setOpen(false);
@@ -53,7 +54,7 @@ export function EntityPickerPopover({
                   className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                 >
                   <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">{entity.title}</span>
+                  <span className="min-w-0 flex-1 truncate">{displayTitle(entity)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{entity.type}</span>
                 </Command.Item>
               ))}

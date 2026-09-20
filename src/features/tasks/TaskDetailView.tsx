@@ -23,6 +23,7 @@ import {
   updateTaskStatus,
 } from "@/lib/api/tasks";
 import type { Entity, Task, TaskStatus } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 
 export function TaskDetailView({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
@@ -224,7 +225,7 @@ function SubtaskRow({
     <label className="flex items-center gap-2 rounded-sm px-1 py-1.5 text-sm hover:bg-accent">
       <Checkbox checked={done} onCheckedChange={(c) => onToggle(c === true)} />
       <span className={done ? "text-muted-foreground line-through" : undefined}>
-        {subtask.entity.title}
+        {displayTitle(subtask.entity)}
       </span>
     </label>
   );

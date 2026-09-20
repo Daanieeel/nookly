@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { createAssignment, listAssignments, updateAssignmentStatus } from "@/lib/api/assignments";
 import type { Assignment, Entity } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 const STATUSES = ["not_started", "in_progress", "submitted", "graded"];
@@ -97,7 +98,7 @@ export function AssignmentsListView({ spaceId }: { spaceId: string }) {
               onClick={() => openEntity(a.entity.id, spaceId)}
               className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
             >
-              {a.entity.title}
+              {displayTitle(a.entity)}
             </button>
             {a.dueDate && (
               <span className="shrink-0 text-xs text-muted-foreground">{a.dueDate}</span>
@@ -151,7 +152,12 @@ function CreateAssignmentDialog({
   const create = useMutation({
     mutationFn: () => {
       if (!course) throw new Error("pick a course");
-      return createAssignment(spaceId, `${course.title} Assignment`, course.id, dueDate || null);
+      return createAssignment(
+        spaceId,
+        `${displayTitle(course)} Assignment`,
+        course.id,
+        dueDate || null,
+      );
     },
     onSuccess: (assignment) => {
       queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
@@ -174,7 +180,7 @@ function CreateAssignmentDialog({
             typeFilter="course"
             trigger={
               <Button variant="secondary" size="sm" className="w-full justify-start">
-                {course ? course.title : "Pick a course…"}
+                {course ? displayTitle(course) : "Pick a course…"}
               </Button>
             }
             onSelect={setCourse}

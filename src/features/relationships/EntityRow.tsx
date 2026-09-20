@@ -3,6 +3,7 @@ import { EntityIcon } from "@/components/entity-icon";
 import { Badge } from "@/components/ui/badge";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 export function EntityRow({
@@ -35,7 +36,9 @@ export function EntityRow({
       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
     >
       <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
-      <span className={`truncate ${entity.deletedAt ? "opacity-50" : ""}`}>{entity.title}</span>
+      <span className={`truncate ${entity.deletedAt ? "opacity-50" : ""}`}>
+        {displayTitle(entity)}
+      </span>
       {label && <span className="shrink-0 text-xs text-muted-foreground">{label}</span>}
       {otherSpace && (
         <Badge variant="outline" className="ml-auto shrink-0">

@@ -29,3 +29,7 @@ export function softDeleteEntity(id: string): Promise<void> {
 export function restoreEntity(id: string): Promise<void> {
   return invoke("restore_entity", { id });
 }
+
+export function hardDeleteEntity(id: string): Promise<void> {
+  return invoke("hard_delete_entity", { id });
+}

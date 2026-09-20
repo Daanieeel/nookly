@@ -15,6 +15,10 @@ export function listExams(spaceId: string): Promise<Exam[]> {
   return invoke("list_exams", { spaceId });
 }
 
+export function listExamsAllSpaces(): Promise<Exam[]> {
+  return invoke("list_exams_all_spaces");
+}
+
 export function updateExam(
   entityId: string,
   grade: number | null,

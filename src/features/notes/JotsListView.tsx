@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { listEntities } from "@/lib/api/entities";
 import { createBlock, createJot, createRefinement } from "@/lib/api/notes";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 function titleFromContent(content: string): string {
@@ -103,7 +104,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
             className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
           >
             <EntityIcon entity={page} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{page.title}</span>
+            <span className="min-w-0 flex-1 truncate">{displayTitle(page)}</span>
             <span className="shrink-0 text-xs text-muted-foreground">{page.type}</span>
           </button>
         ))}

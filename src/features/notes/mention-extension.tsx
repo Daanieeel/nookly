@@ -4,6 +4,7 @@ import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { EntityIcon } from "@/components/entity-icon";
 import type { Entity } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import type { SuggestionListItem } from "./suggestion-list";
 import { createSuggestionRender } from "./suggestion-render";
 
@@ -20,7 +21,7 @@ function insertMention(editor: Editor, range: Range, entity: Entity) {
     .deleteRange(range)
     .insertContent({
       type: "text",
-      text: entity.title,
+      text: displayTitle(entity),
       marks: [{ type: "link", attrs: { href: `mention:${entity.id}` } }],
     })
     .insertContent(" ")
@@ -31,7 +32,7 @@ function toListItem(entity: Entity): SuggestionListItem {
   return {
     key: entity.id,
     icon: <EntityIcon entity={entity} size={14} />,
-    label: entity.title,
+    label: displayTitle(entity),
     description: entity.type,
   };
 }

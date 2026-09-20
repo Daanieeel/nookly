@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileLink, importFile, listFiles } from "@/lib/api/files";
+import { displayTitle } from "@/lib/entity-title";
 import { cn } from "@/lib/utils";
 
 /// Grid of file-type tiles is the default (§2.3 Files row) — a bare filename list
@@ -152,7 +153,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                   className="shrink-0 text-muted-foreground"
                 />
                 <span className="line-clamp-2 w-full min-w-0 text-xs font-medium">
-                  {f.entity.title}
+                  {displayTitle(f.entity)}
                 </span>
                 <div className="flex min-h-4 items-center gap-1.5">
                   {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
@@ -187,7 +188,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                 className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
               >
                 <EntityIcon entity={f.entity} className="shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{f.entity.title}</span>
+                <span className="min-w-0 flex-1 truncate">{displayTitle(f.entity)}</span>
                 {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
                 {f.url && (
                   <a

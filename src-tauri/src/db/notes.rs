@@ -56,6 +56,22 @@ pub fn count_jots_without_refinement(conn: &Connection, space_id: &str) -> AppRe
     Ok(count)
 }
 
+/// Cross-Space sibling of `count_jots_without_refinement`, for the Dashboard briefing.
+pub fn count_jots_without_refinement_all_spaces(conn: &Connection) -> AppResult<i64> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities e
+         WHERE e.type = 'jot' AND e.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM relationships r JOIN entities t ON t.id = r.to_entity_id
+           WHERE r.from_entity_id = e.id AND r.relationship_type = 'relates-to'
+             AND t.type = 'refinement' AND t.deleted_at IS NULL
+         )",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(count)
+}
+
 /// Most recently *edited* Notes (by block content, falling back to the entity's own
 /// `updated_at`) — block edits don't bump `entities.updated_at`, only title/icon/pinned
 /// patches do, so recency has to come from `blocks.updated_at` instead.

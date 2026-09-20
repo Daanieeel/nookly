@@ -68,6 +68,17 @@ pub fn list_exams(conn: &Connection, space_id: &str) -> AppResult<Vec<Exam>> {
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
+pub fn list_exams_all_spaces(conn: &Connection) -> AppResult<Vec<Exam>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status FROM entities e
+         JOIN exams x ON x.entity_id = e.id
+         WHERE e.deleted_at IS NULL ORDER BY x.exam_date ASC",
+    )?;
+    let rows = stmt.query_map([], row_to_exam)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn update_exam(
     conn: &Connection,
     entity_id: &str,

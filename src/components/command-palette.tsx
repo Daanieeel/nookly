@@ -10,6 +10,7 @@ import { createJot, createNote, createRefinement } from "@/lib/api/notes";
 import { search } from "@/lib/api/search";
 import { listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 /// Entity types simple enough to be created directly from the palette with just a
@@ -201,7 +202,7 @@ export function CommandPalette() {
                       className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                     >
                       <Icon size={16} className="shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate">{hit.title}</span>
+                      <span className="min-w-0 flex-1 truncate">{displayTitle(hit)}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{hit.type}</span>
                     </Command.Item>
                   );

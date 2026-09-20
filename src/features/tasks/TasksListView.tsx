@@ -26,6 +26,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createTask, listTaskStatuses, listTasks, updateTaskStatus } from "@/lib/api/tasks";
 import type { Task, TaskStatus } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 
@@ -347,7 +348,7 @@ function TaskCard({
     >
       <span className="flex items-start gap-1.5 text-sm">
         <EntityIcon entity={task.entity} className="mt-0.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">{task.entity.title}</span>
+        <span className="min-w-0 flex-1">{displayTitle(task.entity)}</span>
       </span>
       {task.dueDate && (
         <Badge variant="outline" className="w-fit">
@@ -399,7 +400,7 @@ function TaskListGrouped({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
               >
                 <EntityIcon entity={task.entity} className="shrink-0 text-muted-foreground" />
-                <span className="truncate group-hover:underline">{task.entity.title}</span>
+                <span className="truncate group-hover:underline">{displayTitle(task.entity)}</span>
               </button>
               {task.dueDate && (
                 <Badge variant="outline" className="shrink-0">

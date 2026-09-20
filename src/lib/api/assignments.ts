@@ -14,6 +14,10 @@ export function listAssignments(spaceId: string): Promise<Assignment[]> {
   return invoke("list_assignments", { spaceId });
 }
 
+export function listAssignmentsAllSpaces(): Promise<Assignment[]> {
+  return invoke("list_assignments_all_spaces");
+}
+
 export function updateAssignmentStatus(
   entityId: string,
   status: string,

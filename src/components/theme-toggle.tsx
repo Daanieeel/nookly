@@ -30,7 +30,6 @@ export function ThemeToggle({ iconOnly }: { iconOnly?: boolean } = {}) {
       }}
     >
       <SelectTrigger
-        variant="nav"
         size="sm"
         className={
           iconOnly

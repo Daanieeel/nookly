@@ -23,6 +23,12 @@ pub fn list_exams(state: State<DbState>, space_id: String) -> AppResult<Vec<Exam
 }
 
 #[tauri::command]
+pub fn list_exams_all_spaces(state: State<DbState>) -> AppResult<Vec<Exam>> {
+    let conn = state.0.lock().unwrap();
+    exams::list_exams_all_spaces(&conn)
+}
+
+#[tauri::command]
 pub fn update_exam(
     state: State<DbState>,
     entity_id: String,

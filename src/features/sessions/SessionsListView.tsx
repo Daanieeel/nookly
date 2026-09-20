@@ -23,6 +23,7 @@ import {
   overrideOccurrence,
 } from "@/lib/api/sessions";
 import type { Entity, SessionOccurrence } from "@/lib/api/types";
+import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 
 const START_HOUR = 8;
@@ -201,7 +202,7 @@ function SessionBlock({
           occurrence.cancelled ? "line-through opacity-60" : "hover:bg-primary/15"
         }`}
       >
-        <span className="block truncate font-medium">{occurrence.entity.title}</span>
+        <span className="block truncate font-medium">{displayTitle(occurrence.entity)}</span>
         <span className="block truncate text-xs opacity-80">
           {occurrence.startTime}–{occurrence.endTime}
         </span>
@@ -298,7 +299,7 @@ function QuickCreateSessionDialog({
             typeFilter="course"
             trigger={
               <Button type="button" variant="outline" size="sm" className="justify-start">
-                {course ? course.title : "Pick course…"}
+                {course ? displayTitle(course) : "Pick course…"}
               </Button>
             }
             onSelect={setCourse}

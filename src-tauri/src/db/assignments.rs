@@ -65,6 +65,17 @@ pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assi
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
+pub fn list_assignments_all_spaces(conn: &Connection) -> AppResult<Vec<Assignment>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, a.due_date, a.status, a.grade FROM entities e
+         JOIN assignments a ON a.entity_id = e.id
+         WHERE e.deleted_at IS NULL ORDER BY a.due_date ASC",
+    )?;
+    let rows = stmt.query_map([], row_to_assignment)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn update_assignment_status(
     conn: &Connection,
     entity_id: &str,
