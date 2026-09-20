@@ -14,6 +14,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::spaces::create_space,
             commands::spaces::list_spaces,
+            commands::spaces::update_space,
             commands::entities::create_entity,
             commands::entities::get_entity,
             commands::entities::update_entity,

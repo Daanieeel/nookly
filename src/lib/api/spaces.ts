@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Space } from "./types";
+import type { Space, SpacePatch } from "./types";
 
 export function createSpace(name: string, icon: string | null, color: string): Promise<Space> {
   return invoke("create_space", { name, icon, color });
@@ -7,4 +7,8 @@ export function createSpace(name: string, icon: string | null, color: string): P
 
 export function listSpaces(): Promise<Space[]> {
   return invoke("list_spaces");
+}
+
+export function updateSpace(id: string, patch: SpacePatch): Promise<Space> {
+  return invoke("update_space", { id, patch });
 }

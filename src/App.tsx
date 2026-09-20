@@ -1,15 +1,14 @@
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import type { CSSProperties } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CommandPalette } from "@/components/command-palette";
 import { EntityDetailRouter } from "@/components/entity-detail-router";
 import { ModuleView } from "@/components/module-view";
-import { Sidebar } from "@/components/sidebar";
+import { AppSidebar } from "@/components/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
 import { TrashView } from "@/features/trash/TrashView";
-import { listSpaces } from "@/lib/api/spaces";
 import { useNavStore } from "@/lib/store/nav";
 
 const queryClient = new QueryClient();
@@ -23,7 +22,7 @@ function MainContent() {
     case "pinned":
       return <PinnedView />;
     case "trash":
-      return <TrashView spaceId={view.spaceId} />;
+      return <TrashView />;
     case "module":
       return <ModuleView spaceId={view.spaceId} module={view.module} />;
     case "entity":
@@ -31,32 +30,22 @@ function MainContent() {
   }
 }
 
-/// The active Space's color bleeds into the UI beyond the sidebar label (§4.1/§9) —
-/// a thin accent bar along the top edge of the main panel.
-function useSpaceAccent() {
-  const activeSpaceId = useNavStore((s) => s.activeSpaceId);
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
-  return spaces.find((s) => s.id === activeSpaceId)?.color;
-}
-
 function Shell() {
-  const accent = useSpaceAccent();
   const view = useNavStore((s) => s.view);
   const isEntityView = view.kind === "entity";
 
   return (
-    <div className="flex h-screen w-screen gap-3 bg-background p-3 text-foreground">
-      <Sidebar />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
-        <div
-          className="h-[3px] shrink-0 bg-(--space-accent)"
-          // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
-          style={{ "--space-accent": accent ?? "transparent" } as CSSProperties}
-        />
-        <div className={`min-h-0 flex-1 overflow-y-auto ${isEntityView ? "" : "p-6"}`}>
-          <MainContent />
-        </div>
-      </div>
+    <div className="flex h-screen gap-3 bg-background p-3 text-foreground">
+      <SidebarProvider className="min-h-full">
+        <AppSidebar />
+        <SidebarInset className="min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
+            <div className={`min-h-0 flex-1 overflow-y-auto ${isEntityView ? "" : "p-6"}`}>
+              <MainContent />
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
       <CommandPalette />
       <Toaster />
     </div>

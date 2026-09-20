@@ -19,6 +19,7 @@ const selectTriggerVariants = cva(
       variant: {
         default: "border-input border bg-transparent shadow-xs",
         ghost: "border-none bg-transparent shadow-none",
+        nav: "text-muted-foreground hover:bg-accent hover:text-foreground border-none bg-transparent shadow-none",
       },
       size: {
         sm: "h-8 gap-2 px-3 text-xs [&_svg:not([class*='size-'])]:size-4",

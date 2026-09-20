@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::notes::{self, Block};
+use crate::db::notes::{self, Block, BlockPatch};
 use crate::db::DbState;
 use crate::error::AppResult;
 use tauri::State;
@@ -47,9 +47,13 @@ pub fn create_block(
 }
 
 #[tauri::command]
-pub fn update_block(state: State<DbState>, block_id: String, content: String) -> AppResult<Block> {
+pub fn update_block(
+    state: State<DbState>,
+    block_id: String,
+    patch: BlockPatch,
+) -> AppResult<Block> {
     let conn = state.0.lock().unwrap();
-    notes::update_block(&conn, &block_id, content)
+    notes::update_block(&conn, &block_id, patch)
 }
 
 #[tauri::command]

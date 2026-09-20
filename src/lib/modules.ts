@@ -1,0 +1,77 @@
+import {
+  IconBook2,
+  IconBookmark,
+  IconCalendarStats,
+  IconChalkboard,
+  IconChecklist,
+  IconClipboardList,
+  IconFile,
+  IconNotes,
+  IconWriting,
+} from "@tabler/icons-react";
+import type { Icon as TablerIcon } from "@tabler/icons-react";
+import type { Entity } from "@/lib/api/types";
+import { type ModuleKey, MODULE_KEYS } from "@/lib/store/nav";
+
+export { MODULE_KEYS };
+export type { ModuleKey };
+
+export const MODULE_LABELS = {
+  tasks: "Tasks",
+  notes: "Notes",
+  jots: "Jots & Refinements",
+  courses: "Courses",
+  sessions: "Sessions",
+  exams: "Exams",
+  assignments: "Assignments",
+  files: "Files",
+  bookmarks: "Bookmarks",
+} satisfies Record<ModuleKey, string>;
+
+export const MODULE_DESCRIPTIONS = {
+  tasks: "Track to-dos on a board or list, grouped by status.",
+  notes: "Write freeform pages with headings, lists, and blocks.",
+  jots: "Capture quick thoughts and refine them later.",
+  courses: "Organize a course into semesters and materials.",
+  sessions: "Plan study or work sessions with reusable templates.",
+  exams: "Build index-card decks and study blocks for exams.",
+  assignments: "Track assignments with due dates and progress.",
+  files: "Keep reference files and documents in one place.",
+  bookmarks: "Save links you want to come back to.",
+} satisfies Record<ModuleKey, string>;
+
+export const MODULE_ICONS = {
+  tasks: IconChecklist,
+  notes: IconNotes,
+  jots: IconWriting,
+  courses: IconBook2,
+  sessions: IconChalkboard,
+  exams: IconCalendarStats,
+  assignments: IconClipboardList,
+  files: IconFile,
+  bookmarks: IconBookmark,
+} satisfies Record<ModuleKey, TablerIcon>;
+
+/// Which underlying entity `type`s count as "this module has content" (§1.1 sidebar
+/// row visibility — a module only appears once the user has actually created
+/// something of that kind in the Space).
+export const MODULE_ENTITY_TYPES = {
+  tasks: ["task", "sub_task"],
+  notes: ["note"],
+  jots: ["jot", "refinement"],
+  courses: ["course", "semester"],
+  sessions: ["session", "session_template"],
+  exams: ["exam", "index_card_deck", "study_block"],
+  assignments: ["assignment"],
+  files: ["file"],
+  bookmarks: ["bookmark"],
+} satisfies Record<ModuleKey, string[]>;
+
+export function modulesInUse(entities: Pick<Entity, "type">[]): Set<ModuleKey> {
+  const types = new Set(entities.map((e) => e.type));
+  const used = new Set<ModuleKey>();
+  for (const key of MODULE_KEYS) {
+    if (MODULE_ENTITY_TYPES[key].some((t) => types.has(t))) used.add(key);
+  }
+  return used;
+}

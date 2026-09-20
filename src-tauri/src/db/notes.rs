@@ -82,26 +82,37 @@ pub fn create_block(
     })
 }
 
-pub fn update_block(conn: &Connection, block_id: &str, content: String) -> AppResult<Block> {
-    let entity_id: String = conn
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockPatch {
+    pub content: Option<String>,
+    /// `Some` retypes the block (e.g. a paragraph turned into a heading by an
+    /// editor shortcut) — this never moves content between blocks, only relabels one.
+    pub block_type: Option<String>,
+}
+
+pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> AppResult<Block> {
+    let mut block = conn
         .query_row(
-            "SELECT entity_id FROM blocks WHERE id = ?1",
+            "SELECT * FROM blocks WHERE id = ?1",
             params![block_id],
-            |row| row.get(0),
+            row_to_block,
         )
         .map_err(|_| AppError::NotFound(format!("block {block_id}")))?;
+    if let Some(content) = patch.content {
+        block.content = content;
+    }
+    if let Some(block_type) = patch.block_type {
+        block.block_type = block_type;
+    }
     let now = super::now();
     conn.execute(
-        "UPDATE blocks SET content = ?1, updated_at = ?2 WHERE id = ?3",
-        params![content, now, block_id],
+        "UPDATE blocks SET content = ?1, block_type = ?2, updated_at = ?3 WHERE id = ?4",
+        params![block.content, block.block_type, now, block_id],
     )?;
-    reindex_page(conn, &entity_id)?;
-    conn.query_row(
-        "SELECT * FROM blocks WHERE id = ?1",
-        params![block_id],
-        row_to_block,
-    )
-    .map_err(AppError::from)
+    block.updated_at = now;
+    reindex_page(conn, &block.entity_id)?;
+    Ok(block)
 }
 
 pub fn delete_block(conn: &Connection, block_id: &str) -> AppResult<()> {
@@ -226,5 +237,42 @@ mod tests {
         reorder_blocks(&conn, &page.id, vec![second.id, first.id]).unwrap();
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
         assert!(markdown.find("Second").unwrap() < markdown.find("First").unwrap());
+    }
+
+    #[test]
+    fn update_block_patches_only_given_fields() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
+        let block =
+            create_block(&conn, &page.id, "paragraph".into(), "Intro".into(), None).unwrap();
+
+        let content_only = update_block(
+            &conn,
+            &block.id,
+            BlockPatch {
+                content: Some("Intro.".into()),
+                block_type: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(content_only.content, "Intro.");
+        assert_eq!(content_only.block_type, "paragraph");
+
+        let retyped = update_block(
+            &conn,
+            &block.id,
+            BlockPatch {
+                content: None,
+                block_type: Some("heading1".into()),
+            },
+        )
+        .unwrap();
+        assert_eq!(retyped.content, "Intro.");
+        assert_eq!(retyped.block_type, "heading1");
     }
 }

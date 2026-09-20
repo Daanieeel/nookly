@@ -1,39 +1,60 @@
+import { IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { Button } from "@/components/ui/button";
 import { listEntities, restoreEntity } from "@/lib/api/entities";
+import { listSpaces } from "@/lib/api/spaces";
 
-export function TrashView({ spaceId }: { spaceId: string }) {
+/// Utility view (§1.1) — quieter/lower-emphasis than primary module content:
+/// smaller header, muted rows, no bold call-to-action styling.
+export function TrashView() {
   const queryClient = useQueryClient();
   const { data: entities = [] } = useQuery({
-    queryKey: ["entities", spaceId, "trash"],
-    queryFn: () => listEntities(spaceId, true),
+    queryKey: ["entities", "all", "trash"],
+    queryFn: () => listEntities(null, true),
   });
+  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const spaceNameById = new Map(spaces.map((s) => [s.id, s.name]));
   const trashed = entities.filter((e) => e.deletedAt);
 
   const restore = useMutation({
     mutationFn: (id: string) => restoreEntity(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entities", spaceId, "trash"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entities", "all", "trash"] }),
   });
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
-      <h1 className="text-lg font-semibold">Trash</h1>
+    <div className="flex max-w-xl flex-col gap-3">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <IconTrash size={14} />
+        <h1 className="text-sm font-medium">Trash</h1>
+        {trashed.length > 0 && <span className="text-xs">· {trashed.length}</span>}
+      </div>
+      <p className="px-0.5 text-xs text-muted-foreground/70">
+        Deleted items from every Space stay here until restored — nothing is purged automatically.
+      </p>
       <div className="flex flex-col">
         {trashed.map((e) => (
           <div
             key={e.id}
-            className="flex items-center gap-2 rounded-sm px-2 py-1.5 opacity-60 hover:bg-accent"
+            className="flex items-center gap-2 rounded-sm px-2 py-1 opacity-60 hover:bg-accent hover:opacity-100"
           >
-            <EntityIcon entity={e} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate text-sm">{e.title}</span>
+            <EntityIcon entity={e} size={14} className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-xs">{e.title}</span>
+            <span className="shrink-0 text-xs text-muted-foreground/70">
+              {spaceNameById.get(e.spaceId) ?? "Unknown Space"}
+            </span>
             <Button variant="outline" size="sm" onClick={() => restore.mutate(e.id)}>
               Restore
             </Button>
           </div>
         ))}
         {trashed.length === 0 && (
-          <p className="px-2 py-6 text-center text-sm text-muted-foreground">Trash is empty.</p>
+          <EmptyState
+            icon={IconTrash}
+            title="Trash is empty"
+            description="Deleted items from any Space will show up here."
+          />
         )}
       </div>
     </div>

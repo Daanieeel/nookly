@@ -1,181 +1,156 @@
-import { IconArrowDown, IconArrowUp, IconAt, IconPlus, IconTrash } from "@tabler/icons-react";
+import Placeholder from "@tiptap/extension-placeholder";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { EntityPickerPopover } from "@/components/entity-picker";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { useEffect, useRef } from "react";
+import { listEntities } from "@/lib/api/entities";
 import { createBlock, deleteBlock, listBlocks, reorderBlocks, updateBlock } from "@/lib/api/notes";
-import type { Block, BlockType } from "@/lib/api/types";
-import { mentionMarkdown } from "@/features/relationships/mention-utils";
+import { useNavStore } from "@/lib/store/nav";
+import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
+import { Mention } from "./mention-extension";
+import { SlashCommand } from "./slash-command-extension";
+import { UniqueBlockId } from "./unique-block-id";
 
-const BLOCK_TYPES: { value: BlockType; label: string }[] = [
-  { value: "paragraph", label: "Paragraph" },
-  { value: "heading1", label: "Heading 1" },
-  { value: "heading2", label: "Heading 2" },
-  { value: "heading3", label: "Heading 3" },
-  { value: "quote", label: "Quote" },
-  { value: "code", label: "Code" },
-  { value: "bulleted_list", label: "Bulleted list" },
-  { value: "numbered_list", label: "Numbered list" },
-  { value: "image", label: "Image URL" },
-  { value: "embed", label: "Embed URL" },
-];
+const DEBOUNCE_MS = 600;
+const MENTION_HREF_PREFIX = "mention:";
 
+/// One continuous document, not N glued textareas (§ notes rewrite) — a single
+/// Tiptap/ProseMirror editor owns the whole page, exactly like Notion. Each
+/// top-level node still round-trips to one row in the existing per-block backend
+/// (`block-markdown.ts`); this component's only extra job is reconciling the two.
 export function BlockEditor({ entityId, spaceId }: { entityId: string; spaceId: string }) {
   const queryClient = useQueryClient();
-  const [newType, setNewType] = useState<BlockType>("paragraph");
-  const { data: blocks = [] } = useQuery({
+  const openEntity = useNavStore((s) => s.openEntity);
+  const { data: blocks } = useQuery({
     queryKey: ["blocks", entityId],
     queryFn: () => listBlocks(entityId),
   });
+  const { data: entities = [] } = useQuery({
+    queryKey: ["entities", spaceId],
+    queryFn: () => listEntities(spaceId, false),
+  });
+
+  const entitiesRef = useRef(entities);
+  entitiesRef.current = entities;
+
+  const hydratedRef = useRef(false);
+  /// Client-generated `blockId` (assigned by `UniqueBlockId`) -> server block id.
+  /// Pre-existing blocks bootstrap this as an identity mapping (§ notes rewrite).
+  const idMapRef = useRef(new Map<string, string>());
+  const persistedRef = useRef(new Map<string, { content: string; blockType: string }>());
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNodesRef = useRef<JSONNode[] | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["blocks", entityId] });
 
-  const addBlock = useMutation({
-    mutationFn: () => createBlock(entityId, newType, ""),
-    onSuccess: invalidate,
-  });
-  const editBlock = useMutation({
-    mutationFn: (vars: { id: string; content: string }) => updateBlock(vars.id, vars.content),
-    onSuccess: invalidate,
-  });
-  const removeBlock = useMutation({
-    mutationFn: (id: string) => deleteBlock(id),
-    onSuccess: invalidate,
-  });
-  const move = useMutation({
-    mutationFn: (ids: string[]) => reorderBlocks(entityId, ids),
-    onSuccess: invalidate,
+  const reconcile = useMutation({
+    mutationFn: async (nodes: JSONNode[]) => {
+      const inputs = nodes.map(nodeToBlockInput).filter((b): b is BlockInput => b !== null);
+      const idMap = idMapRef.current;
+      const previous = persistedRef.current;
+      const currentIds = new Set(inputs.map((i) => i.blockId));
+
+      for (const clientId of [...previous.keys()]) {
+        if (currentIds.has(clientId)) continue;
+        const serverId = idMap.get(clientId);
+        if (serverId) await deleteBlock(serverId);
+        idMap.delete(clientId);
+        previous.delete(clientId);
+      }
+
+      for (const input of inputs) {
+        const prior = previous.get(input.blockId);
+        if (!prior) {
+          const created = await createBlock(entityId, input.blockType, input.content, null);
+          idMap.set(input.blockId, created.id);
+          previous.set(input.blockId, { content: input.content, blockType: input.blockType });
+        } else if (prior.content !== input.content || prior.blockType !== input.blockType) {
+          const serverId = idMap.get(input.blockId);
+          if (serverId) {
+            await updateBlock(serverId, { content: input.content, blockType: input.blockType });
+          }
+          previous.set(input.blockId, { content: input.content, blockType: input.blockType });
+        }
+      }
+
+      const orderedServerIds = inputs
+        .map((i) => idMap.get(i.blockId))
+        .filter((id): id is string => Boolean(id));
+      if (orderedServerIds.length > 0) await reorderBlocks(entityId, orderedServerIds);
+    },
+    onSettled: () => {
+      const pending = pendingNodesRef.current;
+      pendingNodesRef.current = null;
+      if (pending) runReconcile(pending);
+      else invalidate();
+    },
   });
 
-  function moveBlock(index: number, direction: -1 | 1) {
-    const target = index + direction;
-    if (target < 0 || target >= blocks.length) return;
-    const ids = blocks.map((b) => b.id);
-    [ids[index], ids[target]] = [ids[target], ids[index]];
-    move.mutate(ids);
+  function runReconcile(nodes: JSONNode[]) {
+    if (reconcile.isPending) {
+      pendingNodesRef.current = nodes;
+      return;
+    }
+    reconcile.mutate(nodes);
   }
 
-  return (
-    <div className="flex max-w-2xl flex-col gap-2">
-      {blocks.map((block, index) => (
-        <BlockRow
-          key={block.id}
-          block={block}
-          spaceId={spaceId}
-          onChange={(content) => editBlock.mutate({ id: block.id, content })}
-          onDelete={() => removeBlock.mutate(block.id)}
-          onMoveUp={() => moveBlock(index, -1)}
-          onMoveDown={() => moveBlock(index, 1)}
-        />
-      ))}
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        link: {
+          openOnClick: false,
+          autolink: false,
+          protocols: [{ scheme: "mention", optionalSlashes: true }],
+        },
+      }),
+      Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
+      UniqueBlockId,
+      SlashCommand,
+      Mention.configure({ getEntities: () => entitiesRef.current }),
+    ],
+    editorProps: {
+      attributes: { class: "tiptap-content min-h-40 text-sm leading-relaxed" },
+      handleClickOn: (_view, _pos, _node, _nodePos, event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || target.tagName !== "A") return false;
+        const href = target.getAttribute("href");
+        if (href?.startsWith(MENTION_HREF_PREFIX)) {
+          event.preventDefault();
+          openEntity(href.slice(MENTION_HREF_PREFIX.length), spaceId);
+          return true;
+        }
+        return false;
+      },
+    },
+    onUpdate: ({ editor: instance }) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        const doc = instance.getJSON();
+        // SAFETY: `getJSON()`'s recursive `{type, attrs, content, text, marks}` shape
+        // structurally satisfies the `JSONNode` subset this module actually reads.
+        runReconcile((doc.content ?? []) as JSONNode[]);
+      }, DEBOUNCE_MS);
+    },
+  });
 
-      <div className="flex items-center gap-2 pt-2">
-        <Select
-          value={newType}
-          onValueChange={(v) => {
-            // SAFETY: `v` always comes from a SelectItem below, whose values are all BLOCK_TYPES entries.
-            setNewType(v as BlockType);
-          }}
-        >
-          <SelectTrigger size="sm" className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {BLOCK_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={() => addBlock.mutate()} className="gap-1">
-          <IconPlus size={14} /> Add block
-        </Button>
-      </div>
-    </div>
+  useEffect(() => {
+    if (!editor || !blocks || hydratedRef.current) return;
+    hydratedRef.current = true;
+    for (const block of blocks) {
+      idMapRef.current.set(block.id, block.id);
+      persistedRef.current.set(block.id, { content: block.content, blockType: block.blockType });
+    }
+    const content = blocks.length > 0 ? blocks.map(blockToNode) : [{ type: "paragraph" }];
+    editor.commands.setContent({ type: "doc", content });
+  }, [editor, blocks]);
+
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
   );
-}
 
-function BlockRow({
-  block,
-  spaceId,
-  onChange,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
-}: {
-  block: Block;
-  spaceId: string;
-  onChange: (content: string) => void;
-  onDelete: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-}) {
-  const [content, setContent] = useState(block.content);
-  const label = BLOCK_TYPES.find((t) => t.value === block.blockType)?.label ?? block.blockType;
-
-  return (
-    <div className="group flex items-start gap-1">
-      <div className="flex flex-col pt-1.5 opacity-0 group-hover:opacity-100">
-        <button
-          type="button"
-          onClick={onMoveUp}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <IconArrowUp size={12} />
-        </button>
-        <button
-          type="button"
-          onClick={onMoveDown}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <IconArrowDown size={12} />
-        </button>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onBlur={() => content !== block.content && onChange(content)}
-          rows={block.blockType === "code" ? 4 : 2}
-          className={block.blockType === "code" ? "font-mono" : undefined}
-        />
-      </div>
-      <div className="flex flex-col gap-1 pt-6 opacity-0 group-hover:opacity-100">
-        <EntityPickerPopover
-          spaceId={spaceId}
-          trigger={
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground"
-              title="Insert mention"
-            >
-              <IconAt size={14} />
-            </button>
-          }
-          onSelect={(entity) => {
-            const next = `${content ? `${content} ` : ""}${mentionMarkdown(entity.title, entity.id)}`;
-            setContent(next);
-            onChange(next);
-          }}
-        />
-        <button
-          type="button"
-          onClick={onDelete}
-          className="text-muted-foreground hover:text-destructive"
-        >
-          <IconTrash size={14} />
-        </button>
-      </div>
-    </div>
-  );
+  return <EditorContent editor={editor} />;
 }

@@ -37,6 +37,14 @@
   --accent-pink: #d6336c;
   --accent-purple: #9147d6;
   --accent-yellow: #ab7a00;
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
@@ -69,6 +77,14 @@
   --accent-pink: #ff4d8d;
   --accent-purple: #c473fc;
   --accent-yellow: #ffcc47;
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @theme inline {
@@ -102,6 +118,14 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
 }
 
 @layer base {
@@ -140,6 +164,85 @@
   textarea::placeholder {
     -webkit-user-select: none;
     user-select: none;
+  }
+}
+
+/* The rich note editor's document typography (§ notes rewrite) — Tiptap emits
+   bare h1/blockquote/pre/ul/ol with no styling of its own, so this is the one
+   place those get real rules. `code:not(pre code)` above already covers inline
+   code; `pre`/`pre code` here only reset the block form. */
+@layer components {
+  .tiptap-content {
+    outline: none;
+  }
+  .tiptap-content h1,
+  .tiptap-content h2,
+  .tiptap-content h3 {
+    font-weight: 600;
+  }
+  .tiptap-content h1:not(:first-child),
+  .tiptap-content h2:not(:first-child),
+  .tiptap-content h3:not(:first-child) {
+    margin-top: 1rem;
+  }
+  .tiptap-content h1 {
+    font-size: 1.5rem;
+  }
+  .tiptap-content h2 {
+    font-size: 1.25rem;
+  }
+  .tiptap-content h3 {
+    font-size: 1.125rem;
+  }
+  .tiptap-content p {
+    margin: 0.25rem 0;
+  }
+  .tiptap-content blockquote {
+    margin: 0.25rem 0;
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--border);
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+  .tiptap-content pre {
+    margin: 0.25rem 0;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    background: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    overflow-x: auto;
+  }
+  .tiptap-content pre code {
+    background: transparent;
+    padding: 0;
+  }
+  .tiptap-content ul,
+  .tiptap-content ol {
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+  .tiptap-content ul {
+    list-style: disc;
+  }
+  .tiptap-content ol {
+    list-style: decimal;
+  }
+  .tiptap-content li {
+    margin: 0.125rem 0;
+  }
+  .tiptap-content a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .tiptap-content p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--muted-foreground);
   }
 }
 

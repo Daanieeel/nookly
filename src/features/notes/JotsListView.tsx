@@ -1,19 +1,27 @@
+import { IconPlus, IconWriting } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { listEntities } from "@/lib/api/entities";
-import { createJot, createRefinement } from "@/lib/api/notes";
+import { createBlock, createJot, createRefinement } from "@/lib/api/notes";
 import { useNavStore } from "@/lib/store/nav";
+
+function titleFromContent(content: string): string {
+  const firstLine = content.trim().split("\n")[0]?.trim() ?? "";
+  return firstLine.slice(0, 80) || "Untitled Jot";
+}
 
 /// Jots (raw capture) and Refinements (polished version), §5.3 — two distinct page
 /// types shown together, linked afterwards via the generic relationship system
-/// rather than a rigid 1:1 pairing.
+/// rather than a rigid 1:1 pairing. A Jot wants near-zero friction (§3.3): no title
+/// field up front, just a big capture box that saves the whole thought on Enter.
 export function JotsListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
 
   const { data: entities = [] } = useQuery({
     queryKey: ["entities", spaceId],
@@ -22,18 +30,22 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   const pages = entities.filter((e) => e.type === "jot" || e.type === "refinement");
 
   const createJotMut = useMutation({
-    mutationFn: (t: string) => createJot(spaceId, t),
+    mutationFn: async () => {
+      const entity = await createJot(spaceId, titleFromContent(content));
+      const trimmed = content.trim();
+      if (trimmed) await createBlock(entity.id, "paragraph", trimmed);
+      return entity;
+    },
     onSuccess: (entity) => {
       queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
-      setTitle("");
+      setContent("");
       openEntity(entity.id, spaceId);
     },
   });
   const createRefinementMut = useMutation({
-    mutationFn: (t: string) => createRefinement(spaceId, t),
+    mutationFn: () => createRefinement(spaceId, "Untitled Refinement"),
     onSuccess: (entity) => {
       queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
-      setTitle("");
       openEntity(entity.id, spaceId);
     },
   });
@@ -41,29 +53,47 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       <h1 className="text-lg font-semibold">Jots & Refinements</h1>
-      <div className="flex gap-2">
-        <Input
-          placeholder="Title…"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="h-9"
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (content.trim()) createJotMut.mutate();
+        }}
+        className="flex flex-col gap-2"
+      >
+        <Textarea
+          placeholder="Jot something down…"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              if (content.trim()) createJotMut.mutate();
+            }
+          }}
+          rows={3}
+          className="text-sm"
         />
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!title.trim()}
-          onClick={() => createJotMut.mutate(title.trim())}
-        >
-          New Jot
-        </Button>
-        <Button
-          size="sm"
-          disabled={!title.trim()}
-          onClick={() => createRefinementMut.mutate(title.trim())}
-        >
-          New Refinement
-        </Button>
-      </div>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => createRefinementMut.mutate()}
+            disabled={createRefinementMut.isPending}
+            className="flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            <IconPlus size={12} /> New Refinement
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Enter to save · Shift+Enter for a new line
+            </span>
+            <Button type="submit" size="sm" disabled={!content.trim() || createJotMut.isPending}>
+              Save Jot
+            </Button>
+          </div>
+        </div>
+      </form>
+
       <div className="flex flex-col">
         {pages.map((page) => (
           <button
@@ -78,7 +108,11 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           </button>
         ))}
         {pages.length === 0 && (
-          <p className="px-2 py-6 text-center text-sm text-muted-foreground">Nothing yet.</p>
+          <EmptyState
+            icon={IconWriting}
+            title="Nothing captured yet"
+            description="Jot down a quick thought above — refine it into something polished later."
+          />
         )}
       </div>
     </div>

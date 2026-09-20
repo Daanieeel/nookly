@@ -19,6 +19,12 @@ export interface Entity {
   deletedAt: string | null;
 }
 
+export interface SpacePatch {
+  name?: string;
+  icon?: string;
+  color?: string;
+}
+
 export interface EntityPatch {
   title?: string;
   icon?: string;
@@ -87,6 +93,11 @@ export interface Block {
   content: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BlockPatch {
+  content?: string;
+  blockType?: BlockType;
 }
 
 export type BlockType =

@@ -1,5 +1,7 @@
+import { IconCards } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { EmptyState } from "@/components/empty-state";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,12 +83,17 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
           <h3 className="text-sm font-medium">Add card</h3>
           <Input placeholder="Front" value={front} onChange={(e) => setFront(e.target.value)} />
           <Input placeholder="Back" value={back} onChange={(e) => setBack(e.target.value)} />
-          <Button disabled={!front.trim() || !back.trim()} onClick={() => addCard.mutate()}>
+          <Button
+            size="sm"
+            className="self-start"
+            disabled={!front.trim() || !back.trim()}
+            onClick={() => addCard.mutate()}
+          >
             Add card
           </Button>
         </div>
 
-        <div className="flex flex-col">
+        <div className="flex flex-col border-t border-border pt-2">
           {cards.map((c) => (
             <div
               key={c.id}
@@ -97,7 +104,11 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
             </div>
           ))}
           {cards.length === 0 && (
-            <p className="px-2 py-6 text-center text-sm text-muted-foreground">No cards yet.</p>
+            <EmptyState
+              icon={IconCards}
+              title="No cards yet"
+              description="Add a front and back above to create your first card."
+            />
           )}
         </div>
       </div>

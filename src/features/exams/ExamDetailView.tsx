@@ -82,7 +82,7 @@ export function ExamDetailView({ entity }: { entity: Entity }) {
           />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
           <h3 className="text-sm font-medium">Index card decks</h3>
           <div className="flex gap-2">
             <Input
@@ -90,18 +90,22 @@ export function ExamDetailView({ entity }: { entity: Entity }) {
               value={deckTitle}
               onChange={(e) => setDeckTitle(e.target.value)}
             />
-            <Button disabled={!deckTitle.trim()} onClick={() => addDeck.mutate(deckTitle.trim())}>
+            <Button
+              size="sm"
+              disabled={!deckTitle.trim()}
+              onClick={() => addDeck.mutate(deckTitle.trim())}
+            >
               Add
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">Decks appear in the Relationships panel →</p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
           <h3 className="text-sm font-medium">Study blocks</h3>
           <div className="flex gap-2">
             <Input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} />
-            <Button disabled={!blockDate} onClick={() => addStudyBlock.mutate(blockDate)}>
+            <Button size="sm" disabled={!blockDate} onClick={() => addStudyBlock.mutate(blockDate)}>
               Schedule 18:00–20:00
             </Button>
           </div>
