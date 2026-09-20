@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { EntityIcon } from "@/components/entity-icon";
 import { Button } from "@/components/ui/button";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
 import { displayTitle } from "@/lib/entity-title";
@@ -151,9 +152,10 @@ export function Titlebar() {
       >
         <IconSearch size={14} />
         Search
-        <kbd className="rounded border border-border bg-accent/50 px-1 py-0.5 font-sans text-xs text-muted-foreground">
-          ⌘K
-        </kbd>
+        <KbdGroup>
+          <Kbd>⌘</Kbd>
+          <Kbd>K</Kbd>
+        </KbdGroup>
       </Button>
     </div>
   );

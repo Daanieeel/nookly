@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { EntityIcon } from "@/components/entity-icon";
 import { IconPicker } from "@/components/icon-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import {
   Select,
   SelectContent,
@@ -38,9 +39,10 @@ export function QuickJotTrigger() {
         <SidebarMenuButton tooltip="Quick Jot" onClick={() => setOpen(true)}>
           <IconFeather />
           <span>Quick Jot</span>
-          <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar-accent/50 px-1 py-0.5 font-sans text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-            ⌘J
-          </kbd>
+          <KbdGroup className="ml-auto group-data-[collapsible=icon]:hidden">
+            <Kbd>⌘</Kbd>
+            <Kbd>J</Kbd>
+          </KbdGroup>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <QuickJotDialog open={open} onOpenChange={setOpen} />
