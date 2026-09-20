@@ -5,7 +5,6 @@ import {
   IconLayoutDashboard,
   IconPin,
   IconPlus,
-  IconSearch,
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -99,18 +98,6 @@ export function AppSidebar() {
             >
               <IconPin />
               <span>Pinned</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Search"
-              onClick={() => useNavStore.getState().setPaletteOpen(true)}
-            >
-              <IconSearch />
-              <span>Search</span>
-              <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar-accent/50 px-1 py-0.5 font-sans text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-                ⌘K
-              </kbd>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <QuickJotTrigger />

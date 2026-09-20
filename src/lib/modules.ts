@@ -75,3 +75,12 @@ export function modulesInUse(entities: Pick<Entity, "type">[]): Set<ModuleKey> {
   }
   return used;
 }
+
+export function moduleForEntityType(type: string): ModuleKey | undefined {
+  return MODULE_KEYS.find((key) =>
+    // SAFETY: widening to `string[]` only relaxes `.includes`'s parameter type —
+    // `type` is an arbitrary runtime string here (an entity's `type` column),
+    // and a non-match just falls through to `false` like any other string.
+    (MODULE_ENTITY_TYPES[key] as string[]).includes(type),
+  );
+}

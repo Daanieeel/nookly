@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { MascotFigure } from "@/components/mascot-figure";
 import { listAssignmentsAllSpaces } from "@/lib/api/assignments";
 import { listExamsAllSpaces } from "@/lib/api/exams";
 import { countJotsWithoutRefinementAllSpaces } from "@/lib/api/notes";
@@ -68,10 +67,6 @@ export function DashboardBriefing() {
 
   return (
     <div className="mb-8">
-      {/* Mascot floats within the paragraph flow (not a flex sibling) so the text
-          genuinely wraps around it, instead of just sitting beside a fixed block.
-          Inserted right before the final sentence so it drops to the bottom —
-          everything before it flows full-width, only the tail wraps around it. */}
       <p className="text-2xl leading-relaxed text-foreground">
         <span className="font-semibold">{briefing.greeting}!</span> {renderClause(sessionsClause)}
         <Filler>{briefing.connectors[0]}</Filler>
@@ -81,10 +76,6 @@ export function DashboardBriefing() {
         <Filler>{briefing.connectors[2]}</Filler>
         {renderClause(assignmentsClause)}
         <Filler>{briefing.connectors[3]}</Filler>
-        <MascotFigure
-          size={88}
-          className="float-left mt-1 mr-1.5 mb-0.5 [shape-outside:circle(50%)]"
-        />
         {renderClause(jotsClause)}
         <Filler>.</Filler>
       </p>
