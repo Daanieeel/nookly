@@ -39,8 +39,10 @@ export function ThemeToggle({ iconOnly }: { iconOnly?: boolean } = {}) {
         }
         aria-label="Switch theme"
       >
-        <Icon size={14} />
-        {!iconOnly && <SelectValue>{LABEL[theme]}</SelectValue>}
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon size={14} />
+          {!iconOnly && <SelectValue>{LABEL[theme]}</SelectValue>}
+        </span>
       </SelectTrigger>
       <SelectContent align="start" side={iconOnly ? "right" : "top"}>
         {THEMES.map((value) => {

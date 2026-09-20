@@ -8,6 +8,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MODULE_DESCRIPTIONS, MODULE_ICONS, MODULE_LABELS } from "@/lib/modules";
 import type { ModuleKey } from "@/lib/store/nav";
 
@@ -17,16 +18,23 @@ export function AddModuleMenu({
   moduleKeys,
   onSelect,
   trigger,
+  tooltip,
 }: {
   moduleKeys: ModuleKey[];
   onSelect: (key: ModuleKey) => void;
   trigger: React.ReactNode;
+  tooltip?: string;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        </TooltipTrigger>
+        {tooltip && <TooltipContent side="right">{tooltip}</TooltipContent>}
+      </Tooltip>
       <PopoverContent align="start" className="w-80 p-0">
         <Command>
           <CommandInput placeholder="Add a module…" />

@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Sidebar,
   SidebarContent,
@@ -49,8 +50,14 @@ import {
 import { listEntities } from "@/lib/api/entities";
 import { createSpace, listSpaces, updateSpace } from "@/lib/api/spaces";
 import type { Space } from "@/lib/api/types";
-import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS, modulesInUse } from "@/lib/modules";
+import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS, modulesInUse, type ModuleKey } from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
+import { EXPANDABLE_MODULE_KEYS, ExpandableModuleChildren } from "./sidebar/expandable-module-children";
+import { ModuleRowMeta } from "./sidebar/module-row-meta";
+import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
+import { RecentsSection } from "./sidebar/recents-section";
+import { SidebarMascot } from "./sidebar/sidebar-mascot";
 
 const SPACE_COLORS = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ec4899", "#14b8a6"];
 
@@ -90,18 +97,28 @@ export function AppSidebar() {
             >
               <IconSearch />
               <span>Search</span>
+              <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar-accent/50 px-1 py-0.5 font-sans text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+                ⌘K
+              </kbd>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <QuickJotTrigger />
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
+        <RecentsSection spaces={spaces} />
         <SidebarGroup>
           <SidebarGroupLabel>Spaces</SidebarGroupLabel>
-          <SidebarGroupAction title="New Space" onClick={() => setCreateOpen(true)}>
-            <IconPlus />
-            <span className="sr-only">New Space</span>
-          </SidebarGroupAction>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SidebarGroupAction onClick={() => setCreateOpen(true)}>
+                <IconPlus />
+                <span className="sr-only">New Space</span>
+              </SidebarGroupAction>
+            </TooltipTrigger>
+            <TooltipContent side="right">New Space</TooltipContent>
+          </Tooltip>
           <SidebarGroupContent>
             <SidebarMenu>
               {spaces.map((space) => (
@@ -131,6 +148,9 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <ThemeToggle />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMascot />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
@@ -162,19 +182,23 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
     >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={space.name} isActive={expanded} className="pr-12">
-            {space.icon ? (
-              <span className="shrink-0 text-sm leading-none">{space.icon}</span>
-            ) : (
-              <IconFolder
-                className="text-(--space-color)"
-                // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-                // string — `CSSProperties` just doesn't model custom properties.
-                style={{ "--space-color": space.color } as CSSProperties}
-              />
-            )}
+          <SidebarMenuButton tooltip={space.name} className="pr-12">
+            <span className="relative flex size-4 shrink-0 items-center justify-center">
+              <span className="flex items-center justify-center transition-opacity group-hover/menu-item:opacity-0">
+                {space.icon ? (
+                  <span className="text-sm leading-none">{space.icon}</span>
+                ) : (
+                  <IconFolder
+                    className="size-4 text-(--space-color)"
+                    // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+                    // string — `CSSProperties` just doesn't model custom properties.
+                    style={{ "--space-color": space.color } as CSSProperties}
+                  />
+                )}
+              </span>
+              <IconChevronRight className="absolute inset-0 size-4 opacity-0 transition group-hover/menu-item:opacity-100 group-data-[state=open]/space:rotate-90" />
+            </span>
             <span className="truncate">{space.name}</span>
-            <IconChevronRight className="ml-auto transition-transform group-data-[state=open]/space:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
 
@@ -182,6 +206,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
           <AddModuleMenu
             moduleKeys={unusedKeys}
             onSelect={(key) => setView({ kind: "module", spaceId: space.id, module: key })}
+            tooltip={`Add module to ${space.name}`}
             trigger={
               <button
                 type="button"
@@ -216,21 +241,16 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
         <CollapsibleContent>
           <SidebarMenuSub>
             {usedKeys.map((moduleKey) => {
-              const Icon = MODULE_ICONS[moduleKey];
               const active =
                 view.kind === "module" && view.spaceId === space.id && view.module === moduleKey;
               return (
-                <SidebarMenuSubItem key={moduleKey}>
-                  <SidebarMenuSubButton
-                    isActive={active}
-                    onClick={() =>
-                      setView({ kind: "module", spaceId: space.id, module: moduleKey })
-                    }
-                  >
-                    <Icon />
-                    <span>{MODULE_LABELS[moduleKey]}</span>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
+                <ModuleSubRow
+                  key={moduleKey}
+                  space={space}
+                  moduleKey={moduleKey}
+                  active={active}
+                  onNavigate={() => setView({ kind: "module", spaceId: space.id, module: moduleKey })}
+                />
               );
             })}
             {usedKeys.length === 0 && (
@@ -242,6 +262,56 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
 
       <SpaceSettingsDialog space={space} open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Collapsible>
+  );
+}
+
+function ModuleSubRow({
+  space,
+  moduleKey,
+  active,
+  onNavigate,
+}: {
+  space: Space;
+  moduleKey: ModuleKey;
+  active: boolean;
+  onNavigate: () => void;
+}) {
+  const Icon = MODULE_ICONS[moduleKey];
+  const [childrenOpen, setChildrenOpen] = useState(false);
+  const expandable = EXPANDABLE_MODULE_KEYS.has(moduleKey);
+
+  return (
+    <>
+      <SidebarMenuSubItem className="relative">
+        <SidebarMenuSubButton
+          isActive={active}
+          onClick={onNavigate}
+          className={expandable ? "pr-6" : undefined}
+        >
+          <Icon />
+          <span className="truncate">{MODULE_LABELS[moduleKey]}</span>
+          <ModuleRowMeta moduleKey={moduleKey} spaceId={space.id} spaceColor={space.color} />
+        </SidebarMenuSubButton>
+        {expandable && (
+          <button
+            type="button"
+            aria-label={
+              childrenOpen ? `Collapse ${MODULE_LABELS[moduleKey]}` : `Expand ${MODULE_LABELS[moduleKey]}`
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              setChildrenOpen((v) => !v);
+            }}
+            className="absolute top-1/2 right-1 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <IconChevronRight
+              className={cn("size-3.5 transition-transform", childrenOpen && "rotate-90")}
+            />
+          </button>
+        )}
+      </SidebarMenuSubItem>
+      <ExpandableModuleChildren moduleKey={moduleKey} spaceId={space.id} open={childrenOpen} />
+    </>
   );
 }
 

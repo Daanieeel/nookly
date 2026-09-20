@@ -100,3 +100,9 @@ Why: semantically different intents — Files-as-links = "this is a document," B
 **Full-text search is app-wide, ignores the Space hard wall**
 Why: search is a utility action, not a "view" — user shouldn't have to guess which Space something lives in just to find it.
 Rejected: Space-scoped search (would contradict the point of having one unified app for one person's whole life).
+
+---
+
+**Recents = fourth sanctioned cross-Space exception (Dashboard, Pinned, Search, Recents)**
+Why: fast return to actually-used items without drilling Space → module → entity every time; distinct from Pinned (manual curation) — this is automatic, usage-driven.
+Rejected: folding it into Pinned (conflates manual curation with usage history) or making cross-Space a general capability modules can opt into (explicitly rejected by the existing "one at a time, deliberately" rule).

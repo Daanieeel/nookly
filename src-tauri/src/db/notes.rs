@@ -1,4 +1,4 @@
-use crate::db::entities::Entity;
+use crate::db::entities::{row_to_entity, Entity};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -36,6 +36,40 @@ pub fn create_page(
     title: String,
 ) -> AppResult<Entity> {
     crate::db::entities::create_entity(conn, space_id, page_type.into(), title, None)
+}
+
+/// Counts Jots with no outgoing `relates-to` link to a Refinement (§ sidebar badges).
+/// Jots/Refinements are linked via the generic relationship system, not a dedicated
+/// pairing structure, so this is an anti-join rather than a foreign-key check.
+pub fn count_jots_without_refinement(conn: &Connection, space_id: &str) -> AppResult<i64> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities e
+         WHERE e.space_id = ?1 AND e.type = 'jot' AND e.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM relationships r JOIN entities t ON t.id = r.to_entity_id
+           WHERE r.from_entity_id = e.id AND r.relationship_type = 'relates-to'
+             AND t.type = 'refinement' AND t.deleted_at IS NULL
+         )",
+        params![space_id],
+        |row| row.get(0),
+    )?;
+    Ok(count)
+}
+
+/// Most recently *edited* Notes (by block content, falling back to the entity's own
+/// `updated_at`) — block edits don't bump `entities.updated_at`, only title/icon/pinned
+/// patches do, so recency has to come from `blocks.updated_at` instead.
+pub fn list_recent_notes(conn: &Connection, space_id: &str, limit: i64) -> AppResult<Vec<Entity>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.* FROM entities e
+         LEFT JOIN (SELECT entity_id, MAX(updated_at) AS last_edit FROM blocks GROUP BY entity_id) b
+           ON b.entity_id = e.id
+         WHERE e.space_id = ?1 AND e.type = 'note' AND e.deleted_at IS NULL
+         ORDER BY COALESCE(b.last_edit, e.updated_at) DESC
+         LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(params![space_id, limit], row_to_entity)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 pub fn list_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<Block>> {

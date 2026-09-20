@@ -60,6 +60,12 @@ pub fn update_task_status(
 }
 
 #[tauri::command]
+pub fn count_tasks_due_today(state: State<DbState>) -> AppResult<tasks::TaskDueTodaySummary> {
+    let conn = state.0.lock().unwrap();
+    tasks::count_tasks_due_today(&conn)
+}
+
+#[tauri::command]
 pub fn update_task_dates(
     state: State<DbState>,
     entity_id: String,

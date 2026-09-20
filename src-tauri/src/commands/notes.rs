@@ -29,6 +29,22 @@ pub fn create_refinement(
 }
 
 #[tauri::command]
+pub fn count_jots_without_refinement(state: State<DbState>, space_id: String) -> AppResult<i64> {
+    let conn = state.0.lock().unwrap();
+    notes::count_jots_without_refinement(&conn, &space_id)
+}
+
+#[tauri::command]
+pub fn list_recent_notes(
+    state: State<DbState>,
+    space_id: String,
+    limit: i64,
+) -> AppResult<Vec<Entity>> {
+    let conn = state.0.lock().unwrap();
+    notes::list_recent_notes(&conn, &space_id, limit)
+}
+
+#[tauri::command]
 pub fn list_blocks(state: State<DbState>, entity_id: String) -> AppResult<Vec<Block>> {
     let conn = state.0.lock().unwrap();
     notes::list_blocks(&conn, &entity_id)

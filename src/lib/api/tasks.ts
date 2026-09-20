@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Task, TaskStatus } from "./types";
+import type { Task, TaskDueTodaySummary, TaskStatus } from "./types";
 
 export function listTaskStatuses(): Promise<TaskStatus[]> {
   return invoke("list_task_statuses");
@@ -32,6 +32,10 @@ export function listTasks(spaceId: string): Promise<Task[]> {
 
 export function updateTaskStatus(entityId: string, statusId: string): Promise<void> {
   return invoke("update_task_status", { entityId, statusId });
+}
+
+export function countTasksDueToday(): Promise<TaskDueTodaySummary> {
+  return invoke("count_tasks_due_today");
 }
 
 export function updateTaskDates(

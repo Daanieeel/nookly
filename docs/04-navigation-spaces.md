@@ -30,9 +30,10 @@ Notion-style, per-item, user-chosen (emoji or icon-lib icon), full color.
 No icon chosen → fallback to entity-type default icon, rendered NEUTRAL/MUTED color. Never Space accent color.
 Exception: Space's own icon = Space accent color (see above).
 
-## Cross-Space Exceptions (exactly these three, no more without deliberate decision)
+## Cross-Space Exceptions (exactly these four, no more without deliberate decision)
 1. Dashboard — single, global, non-duplicable, bento-style customizable page. Content editable, page itself not duplicable. Future (out of scope now): per-Space dashboards, user-creatable.
 2. Pinned — cross-Space section, individually pinned items, any entity type, top of sidebar.
 3. Search — full-text, smart, spans entire app. Treated as utility, not a "view," so it ignores the Space hard wall.
+4. Recents — cross-Space quick-access to the last few entities actually opened (any type, any Space), distinct from Pinned's manually-curated nature.
 
 Any future cross-Space feature = added one at a time, deliberately. Not a general capability modules can opt into.

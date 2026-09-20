@@ -31,11 +31,19 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
   const create = useMutation({
     mutationFn: (vars: { toEntityId: string; relationshipType: string }) =>
       createRelationship(entity.id, vars.toEntityId, vars.relationshipType),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
+      // Jots/Refinements link via this same generic relationship system (§ sidebar
+      // badges) — cheap to recompute rather than special-case jot/refinement here.
+      queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
+    },
   });
   const remove = useMutation({
     mutationFn: (id: string) => deleteRelationship(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
+      queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
+    },
   });
 
   const visible = relationships.filter((r) => r.relationshipType !== "attached-file");

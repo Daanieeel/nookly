@@ -85,6 +85,11 @@ export interface Task {
   dueDate: string | null;
 }
 
+export interface TaskDueTodaySummary {
+  done: number;
+  total: number;
+}
+
 export interface Block {
   id: string;
   entityId: string;

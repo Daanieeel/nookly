@@ -13,6 +13,14 @@ export function createRefinement(spaceId: string, title: string): Promise<Entity
   return invoke("create_refinement", { spaceId, title });
 }
 
+export function countJotsWithoutRefinement(spaceId: string): Promise<number> {
+  return invoke("count_jots_without_refinement", { spaceId });
+}
+
+export function listRecentNotes(spaceId: string, limit = 5): Promise<Entity[]> {
+  return invoke("list_recent_notes", { spaceId, limit });
+}
+
 export function listBlocks(entityId: string): Promise<Block[]> {
   return invoke("list_blocks", { entityId });
 }

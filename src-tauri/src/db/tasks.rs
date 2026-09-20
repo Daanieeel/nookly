@@ -168,6 +168,30 @@ pub fn update_task_status(conn: &Connection, entity_id: &str, status_id: &str) -
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskDueTodaySummary {
+    pub done: i64,
+    pub total: i64,
+}
+
+/// Cross-Space daily completion glance for the sidebar footer mascot — the only
+/// aggregate in this file that isn't scoped to a single Space.
+pub fn count_tasks_due_today(conn: &Connection) -> AppResult<TaskDueTodaySummary> {
+    let (done, total) = conn.query_row(
+        "SELECT
+            COUNT(*) FILTER (WHERE s.doneness >= 100) AS done,
+            COUNT(*) AS total
+         FROM tasks t
+         JOIN entities e ON e.id = t.entity_id
+         JOIN task_statuses s ON s.id = t.status_id
+         WHERE e.deleted_at IS NULL AND t.due_date IS NOT NULL AND date(t.due_date) = date('now')",
+        [],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+    )?;
+    Ok(TaskDueTodaySummary { done, total })
+}
+
 pub fn update_task_dates(
     conn: &Connection,
     entity_id: &str,
