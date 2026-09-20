@@ -5,6 +5,7 @@ import { listExamsAllSpaces } from "@/lib/api/exams";
 import { countJotsWithoutRefinementAllSpaces } from "@/lib/api/notes";
 import { listSessionsToday } from "@/lib/api/sessions";
 import { countOpenTasksDueOrOverdue } from "@/lib/api/tasks";
+import { DashboardMascotCorner } from "./DashboardMascotCorner";
 import { buildBriefing, type Clause } from "./briefing-clauses";
 
 /// Connective glue text (not the greeting, not a stat) rendered at lower
@@ -66,7 +67,8 @@ export function DashboardBriefing() {
     briefing.clauses;
 
   return (
-    <div className="mb-8">
+    <div className="flow-root mb-8">
+      <DashboardMascotCorner />
       <p className="text-2xl leading-relaxed text-foreground">
         <span className="font-semibold">{briefing.greeting}!</span> {renderClause(sessionsClause)}
         <Filler>{briefing.connectors[0]}</Filler>

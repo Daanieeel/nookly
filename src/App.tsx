@@ -8,7 +8,6 @@ import { Titlebar } from "@/components/titlebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DashboardMascotCorner } from "@/features/dashboard/DashboardMascotCorner";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
 import { TrashView } from "@/features/trash/TrashView";
@@ -36,7 +35,6 @@ function MainContent() {
 function Shell() {
   const view = useNavStore((s) => s.view);
   const isEntityView = view.kind === "entity";
-  const isDashboard = view.kind === "dashboard";
 
   return (
     <div
@@ -53,10 +51,11 @@ function Shell() {
           <AppSidebar />
           <SidebarInset className="min-h-0">
             <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
-              <div className={`min-h-0 flex-1 overflow-y-auto ${isEntityView ? "" : "p-6"}`}>
+              <div
+                className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isEntityView ? "" : "p-6"}`}
+              >
                 <MainContent />
               </div>
-              {isDashboard && <DashboardMascotCorner />}
             </div>
           </SidebarInset>
         </SidebarProvider>
