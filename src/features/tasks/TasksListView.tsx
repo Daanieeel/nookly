@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { EntityIcon } from "@/components/entity-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,8 +94,9 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
                   <SelectValue>
                     <span className="flex items-center gap-1.5">
                       <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: status?.color }}
+                        className="size-2 rounded-full bg-(--status-color)"
+                        // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+                        style={{ "--status-color": status?.color } as CSSProperties}
                       />
                       {status?.name}
                     </span>

@@ -1,6 +1,7 @@
 import { Command } from "cmdk";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { iconForType } from "@/components/entity-icon";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { search } from "@/lib/api/search";
@@ -11,6 +12,7 @@ import { useNavStore } from "@/lib/store/nav";
 export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, openEntity, setView } = useNavStore();
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
   const { data: hits = [] } = useQuery({
     queryKey: ["search", query],
@@ -32,6 +34,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (!paletteOpen) setQuery("");
+    else inputRef.current?.focus();
   }, [paletteOpen]);
 
   return (
@@ -39,9 +42,9 @@ export function CommandPalette() {
       <DialogContent className="max-w-lg gap-0 p-0">
         <Command className="flex flex-col" shouldFilter={false}>
           <Command.Input
+            ref={inputRef}
             value={query}
             onValueChange={setQuery}
-            autoFocus
             placeholder="Search, jump to a Space, or open anything…"
             className="h-11 border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground"
           />
@@ -59,8 +62,9 @@ export function CommandPalette() {
                     className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                   >
                     <span
-                      className="inline-block size-2 rounded-full"
-                      style={{ backgroundColor: space.color }}
+                      className="inline-block size-2 rounded-full bg-(--space-color)"
+                      // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+                      style={{ "--space-color": space.color } as CSSProperties}
                     />
                     {space.name}
                   </Command.Item>

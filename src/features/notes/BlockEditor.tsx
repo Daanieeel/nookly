@@ -141,7 +141,7 @@ function BlockRow({
         </button>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}

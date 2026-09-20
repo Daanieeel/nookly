@@ -24,7 +24,7 @@ export function ThemeToggle() {
             setTheme(next);
             setThemeState(next);
           }}
-          className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Icon size={14} />
           <span>{LABEL[theme]}</span>

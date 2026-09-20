@@ -47,8 +47,9 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
         <h3 className="text-xs font-medium text-muted-foreground">Relationships</h3>
         <Select value={pickingType ?? undefined} onValueChange={setPickingType}>
           <SelectTrigger
+            variant="ghost"
             size="sm"
-            className="h-6 w-6 justify-center border-none bg-transparent p-0 shadow-none [&>svg]:hidden"
+            className="h-6 w-6 justify-center p-0 [&>svg]:hidden"
           >
             <IconPlus size={14} />
           </SelectTrigger>

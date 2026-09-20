@@ -1,5 +1,6 @@
 import { IconClockHour4, IconFolders, IconPin } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import type { CSSProperties } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityRow } from "@/features/relationships/EntityRow";
 import { listEntities } from "@/lib/api/entities";
@@ -66,8 +67,9 @@ export function DashboardView() {
               className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs hover:bg-accent"
             >
               <span
-                className="inline-block size-2 rounded-full"
-                style={{ backgroundColor: space.color }}
+                className="inline-block size-2 rounded-full bg-(--space-color)"
+                // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+                style={{ "--space-color": space.color } as CSSProperties}
               />
               {space.name}
             </button>

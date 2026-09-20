@@ -68,7 +68,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
                 <p className="line-clamp-2 text-xs text-muted-foreground">{b.description}</p>
               )}
               {!b.metadataFetchedAt && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Added {b.entity.createdAt.slice(0, 10)} — metadata pending
                 </p>
               )}

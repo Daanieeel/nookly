@@ -89,9 +89,13 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
         </div>
 
         <div className="flex gap-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label
+            htmlFor={`${entity.id}-start-date`}
+            className="flex flex-col gap-1 text-xs text-muted-foreground"
+          >
             Start date
             <Input
+              id={`${entity.id}-start-date`}
               type="date"
               value={task?.startDate ?? ""}
               onChange={(e) =>
@@ -102,9 +106,13 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
               }
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label
+            htmlFor={`${entity.id}-due-date`}
+            className="flex flex-col gap-1 text-xs text-muted-foreground"
+          >
             Due date
             <Input
+              id={`${entity.id}-due-date`}
               type="date"
               value={task?.dueDate ?? ""}
               onChange={(e) =>

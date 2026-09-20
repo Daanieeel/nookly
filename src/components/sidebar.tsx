@@ -15,7 +15,7 @@ import {
   IconWriting,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -142,8 +142,9 @@ function SpaceSection({ space, expanded }: { space: Space; expanded: boolean }) 
         className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm font-medium hover:bg-accent"
       >
         <span
-          className="inline-block size-2 shrink-0 rounded-full"
-          style={{ backgroundColor: space.color }}
+          className="inline-block size-2 shrink-0 rounded-full bg-(--space-color)"
+          // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+          style={{ "--space-color": space.color } as CSSProperties}
         />
         <span className="truncate">
           {space.icon ? `${space.icon} ` : ""}
@@ -155,7 +156,7 @@ function SpaceSection({ space, expanded }: { space: Space; expanded: boolean }) 
         <div className="mb-1 ml-4 flex flex-col border-l border-border pl-2">
           {MODULE_GROUPS.map((group) => (
             <div key={group.label} className="flex flex-col gap-0.5 pt-2 first:pt-0.5">
-              <span className="px-2 text-[10.5px] font-medium text-muted-foreground/70">
+              <span className="px-2 text-xs font-medium text-muted-foreground/70">
                 {group.label}
               </span>
               {group.keys.map((moduleKey) => {
@@ -214,10 +215,14 @@ function NavButton({
       type="button"
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-accent ${
-        dense ? "py-1 text-[13px] text-muted-foreground" : "py-1.5 text-sm font-medium"
+        dense ? "py-1 text-xs text-muted-foreground" : "py-1.5 text-sm font-medium"
       } ${active ? "bg-accent text-foreground" : ""}`}
     >
-      <span style={tint ? { color: tint } : undefined} className={tint ? "opacity-70" : undefined}>
+      <span
+        // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+        style={tint ? ({ "--icon-tint": tint } as CSSProperties) : undefined}
+        className={tint ? "text-(--icon-tint) opacity-70" : undefined}
+      >
         {icon}
       </span>
       <span className="truncate">{label}</span>
@@ -236,6 +241,11 @@ function CreateSpaceDialog({
   const [name, setName] = useState("");
   const [color, setColor] = useState(SPACE_COLORS[0]);
   const setActiveSpace = useNavStore((s) => s.setActiveSpace);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) nameInputRef.current?.focus();
+  }, [open]);
 
   const create = useMutation({
     mutationFn: () => createSpace(name.trim(), null, color),
@@ -254,10 +264,10 @@ function CreateSpaceDialog({
           <DialogTitle>New Space</DialogTitle>
         </DialogHeader>
         <Input
+          ref={nameInputRef}
           placeholder="Space name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          autoFocus
         />
         <div className="flex gap-2">
           {SPACE_COLORS.map((c) => (
@@ -265,8 +275,9 @@ function CreateSpaceDialog({
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className={`size-6 rounded-full ${color === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
-              style={{ backgroundColor: c }}
+              className={`size-6 rounded-full bg-(--swatch-color) ${color === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
+              // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+              style={{ "--swatch-color": c } as CSSProperties}
             />
           ))}
         </div>

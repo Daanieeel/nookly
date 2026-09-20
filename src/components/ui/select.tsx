@@ -13,9 +13,13 @@ function SelectValue({ className, ...props }: React.ComponentProps<typeof Select
 }
 
 const selectTriggerVariants = cva(
-  "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-fit max-w-full min-w-0 cursor-pointer items-center justify-between rounded-md border bg-transparent whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>span]:truncate [&>span]:min-w-0",
+  "data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-fit max-w-full min-w-0 cursor-pointer items-center justify-between rounded-md whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>span]:truncate [&>span]:min-w-0",
   {
     variants: {
+      variant: {
+        default: "border-input border bg-transparent shadow-xs",
+        ghost: "border-none bg-transparent shadow-none",
+      },
       size: {
         sm: "h-8 gap-2 px-3 text-xs [&_svg:not([class*='size-'])]:size-4",
         default: "h-9 gap-2 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
@@ -23,6 +27,7 @@ const selectTriggerVariants = cva(
       },
     },
     defaultVariants: {
+      variant: "default",
       size: "default",
     },
   },
@@ -30,13 +35,17 @@ const selectTriggerVariants = cva(
 
 function SelectTrigger({
   className,
+  variant,
   size,
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> &
   VariantProps<typeof selectTriggerVariants>) {
   return (
-    <SelectPrimitive.Trigger className={cn(selectTriggerVariants({ size }), className)} {...props}>
+    <SelectPrimitive.Trigger
+      className={cn(selectTriggerVariants({ variant, size }), className)}
+      {...props}
+    >
       {children}
       <SelectPrimitive.Icon asChild>
         <ChevronDownIcon className="opacity-50" />

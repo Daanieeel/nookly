@@ -15,6 +15,8 @@ import {
   IconWriting,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
+import type { CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 import type { Entity } from "@/lib/api/types";
 
 const DEFAULT_ICONS = new Map<string, TablerIcon>([
@@ -47,7 +49,11 @@ export function EntityIcon({
 }) {
   if (entity.icon) {
     return (
-      <span className={className} style={{ fontSize: size, lineHeight: 1 }}>
+      <span
+        className={cn(className, "text-(--icon-size) leading-none")}
+        // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+        style={{ "--icon-size": `${size}px` } as CSSProperties}
+      >
         {entity.icon}
       </span>
     );

@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { EntityDetailRouter } from "@/components/entity-detail-router";
 import { ModuleView } from "@/components/module-view";
@@ -47,7 +48,11 @@ function Shell() {
     <div className="flex h-screen w-screen gap-3 bg-background p-3 text-foreground">
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
-        <div className="h-[3px] shrink-0" style={{ backgroundColor: accent ?? "transparent" }} />
+        <div
+          className="h-[3px] shrink-0 bg-(--space-accent)"
+          // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
+          style={{ "--space-accent": accent ?? "transparent" } as CSSProperties}
+        />
         <div className={`min-h-0 flex-1 overflow-y-auto ${isEntityView ? "" : "p-6"}`}>
           <MainContent />
         </div>

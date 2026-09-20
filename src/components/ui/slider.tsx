@@ -53,8 +53,11 @@ function Slider({ className, marks, min = 0, max = 100, onValueChange, ...props 
                 <button
                   type="button"
                   onClick={() => onValueChange?.([mark.value])}
-                  className="absolute -translate-x-1/2 cursor-pointer hover:text-foreground first:translate-x-0 last:-translate-x-full"
-                  style={{ left: thumbPosition(mark.value) }}
+                  className="absolute left-(--mark-left) -translate-x-1/2 cursor-pointer hover:text-foreground first:translate-x-0 last:-translate-x-full"
+                  style={
+                    // SAFETY: sets a CSS custom property, which `React.CSSProperties` doesn't model.
+                    { "--mark-left": thumbPosition(mark.value) } as React.CSSProperties
+                  }
                 >
                   {mark.label}
                 </button>

@@ -36,7 +36,7 @@ export function EntityRow({
     >
       <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
       <span className={`truncate ${entity.deletedAt ? "opacity-50" : ""}`}>{entity.title}</span>
-      {label && <span className="shrink-0 text-[10px] text-muted-foreground">{label}</span>}
+      {label && <span className="shrink-0 text-xs text-muted-foreground">{label}</span>}
       {otherSpace && (
         <Badge variant="outline" className="ml-auto shrink-0">
           {otherSpace.name}

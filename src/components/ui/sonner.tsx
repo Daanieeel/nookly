@@ -5,7 +5,7 @@ function Toaster({ theme = "system", ...props }: ToasterProps) {
   return (
     <Sonner
       theme={theme}
-      className="toaster group"
+      className="group"
       style={
         // SAFETY: these are CSS custom properties (not standard style props), which
         // `React.CSSProperties` doesn't model; consumed via `var(...)` in styles.css.

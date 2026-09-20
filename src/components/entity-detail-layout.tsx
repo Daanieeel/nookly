@@ -48,12 +48,7 @@ export function EntityDetailLayout({
           />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground"
-                onClick={() => togglePin.mutate()}
-              >
+              <Button variant="ghost" size="icon" onClick={() => togglePin.mutate()}>
                 {entity.pinned ? <IconPinFilled size={15} /> : <IconPin size={15} />}
               </Button>
             </TooltipTrigger>
@@ -61,12 +56,7 @@ export function EntityDetailLayout({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground"
-                onClick={() => trash.mutate()}
-              >
+              <Button variant="ghost" size="icon" onClick={() => trash.mutate()}>
                 <IconTrash size={15} />
               </Button>
             </TooltipTrigger>
