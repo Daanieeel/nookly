@@ -307,3 +307,31 @@
   );
   background-size: 16px 16px;
 }
+
+/* Concave fillet corners for the dashboard mascot corner cutout, rounding off
+ * the transitions where the cutout meets the card's top and right borders. */
+.mascot-corner-badge {
+  border-radius: 0 12px 0 85% / 0 12px 0 70%;
+}
+
+.mascot-corner-badge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -20px;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  background: radial-gradient(circle 20px at 0% 100%, transparent 19.5px, var(--background) 20px);
+}
+
+.mascot-corner-badge::after {
+  content: "";
+  position: absolute;
+  bottom: -20px;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  background: radial-gradient(circle 20px at 0% 100%, transparent 19.5px, var(--background) 20px);
+}
