@@ -158,7 +158,10 @@ function urgentClause(
 function examsClause(exams: Exam[], today: Date, seed: number): Clause {
   const items = collectUrgent(
     exams
-      .filter((e): e is Exam & { examDate: string } => e.grade == null && e.examDate != null)
+      .filter(
+        (e): e is Exam & { examDate: string } =>
+          e.entity.deletedAt == null && e.grade == null && e.examDate != null,
+      )
       .map((e) => ({ title: displayTitle(e.entity), date: e.examDate })),
     today,
   );
@@ -168,7 +171,10 @@ function examsClause(exams: Exam[], today: Date, seed: number): Clause {
 function assignmentsClause(assignments: Assignment[], today: Date, seed: number): Clause {
   const items = collectUrgent(
     assignments
-      .filter((a): a is Assignment & { dueDate: string } => a.grade == null && a.dueDate != null)
+      .filter(
+        (a): a is Assignment & { dueDate: string } =>
+          a.entity.deletedAt == null && a.grade == null && a.dueDate != null,
+      )
       .map((a) => ({ title: displayTitle(a.entity), date: a.dueDate })),
     today,
   );

@@ -11,6 +11,7 @@ pub mod notes;
 pub mod relationships;
 pub mod search;
 pub mod sessions;
+pub mod space_modules;
 pub mod spaces;
 pub mod study_blocks;
 pub mod tasks;

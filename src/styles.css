@@ -31,6 +31,10 @@
   --input: #d4d4d4;
   --ring: #0070f3;
   --radius: 0.625rem;
+  /* A raised-surface tone guaranteed to read against --muted in both themes —
+     --card/--popover/--muted collapse to the same value in dark mode, so
+     neither works for e.g. Tabs' active-segment fill inside a muted track. */
+  --raised: #ffffff;
 
   --accent-blue: #0070f3;
   --accent-green: #00873d;
@@ -71,6 +75,7 @@
   --border: #2a2a2a;
   --input: #3a3a3a;
   --ring: #0070f3;
+  --raised: #333333;
 
   --accent-blue: #47a8ff;
   --accent-green: #00cb50;
@@ -109,6 +114,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-raised: var(--raised);
   --color-accent-blue: var(--accent-blue);
   --color-accent-green: var(--accent-green);
   --color-accent-pink: var(--accent-pink);

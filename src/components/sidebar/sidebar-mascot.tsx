@@ -51,12 +51,14 @@ export function SidebarMascot() {
     const upcoming =
       exams.filter(
         (e) =>
+          e.entity.deletedAt == null &&
           e.grade == null &&
           e.examDate != null &&
           differenceInCalendarDays(new Date(e.examDate), today) >= 0,
       ).length +
       assignments.filter(
         (a) =>
+          a.entity.deletedAt == null &&
           a.grade == null &&
           a.dueDate != null &&
           differenceInCalendarDays(new Date(a.dueDate), today) >= 0,

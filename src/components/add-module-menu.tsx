@@ -19,21 +19,29 @@ export function AddModuleMenu({
   onSelect,
   trigger,
   tooltip,
+  onOpenChange,
 }: {
   moduleKeys: ModuleKey[];
   onSelect: (key: ModuleKey) => void;
   trigger: React.ReactNode;
   tooltip?: string;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        onOpenChange?.(next);
+      }}
+    >
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         </TooltipTrigger>
-        {tooltip && <TooltipContent side="right">{tooltip}</TooltipContent>}
+        {tooltip && <TooltipContent side="top">{tooltip}</TooltipContent>}
       </Tooltip>
       <PopoverContent align="start" className="w-80 p-0">
         <Command>

@@ -17,6 +17,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
 export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
+  | { kind: "recents" }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey }
   | { kind: "entity"; entityId: string; spaceId: string };
@@ -37,6 +38,10 @@ interface NavState {
   recents: RecentEntry[];
   setView: (view: View) => void;
   openEntity: (entityId: string, spaceId: string) => void;
+  /// Drops recents whose entity id isn't in `validIds` (deleted/trashed since
+  /// being opened), so a stale entry doesn't sit in the list — or inflate its
+  /// count — forever.
+  pruneRecents: (validIds: Set<string>) => void;
   setActiveSpace: (spaceId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -88,6 +93,12 @@ export const useNavStore = create<NavState>((set, get) => ({
     );
     writeStoredRecents(recents);
     set({ view: { kind: "entity", entityId, spaceId }, activeSpaceId: spaceId, recents });
+  },
+  pruneRecents: (validIds) => {
+    const recents = get().recents.filter((r) => validIds.has(r.entityId));
+    if (recents.length === get().recents.length) return;
+    writeStoredRecents(recents);
+    set({ recents });
   },
   setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),

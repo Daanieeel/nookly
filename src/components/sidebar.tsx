@@ -1,17 +1,31 @@
 import {
+  IconAlertTriangle,
   IconChevronRight,
   IconDotsVertical,
   IconFolder,
+  IconHistory,
   IconLayoutDashboard,
   IconPin,
   IconPlus,
+  IconSettings,
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { AddModuleMenu } from "@/components/add-module-menu";
+import { renderIconValue } from "@/components/entity-icon";
 import { IconPicker } from "@/components/icon-picker";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -46,15 +60,16 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { listEntities } from "@/lib/api/entities";
-import { createSpace, listSpaces, updateSpace } from "@/lib/api/spaces";
-import type { Space } from "@/lib/api/types";
 import {
-  MODULE_ICONS,
-  MODULE_KEYS,
-  MODULE_LABELS,
-  modulesInUse,
-  type ModuleKey,
-} from "@/lib/modules";
+  addSpaceModule,
+  createSpace,
+  deleteSpace,
+  listSpaceModules,
+  listSpaces,
+  updateSpace,
+} from "@/lib/api/spaces";
+import type { Space } from "@/lib/api/types";
+import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import {
@@ -63,10 +78,13 @@ import {
 } from "./sidebar/expandable-module-children";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
-import { RecentsSection } from "./sidebar/recents-section";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 
 const SPACE_COLORS = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ec4899", "#14b8a6"];
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
 
 export function AppSidebar() {
   const { view, setView, activeSpaceId } = useNavStore();
@@ -100,12 +118,21 @@ export function AppSidebar() {
               <span>Pinned</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Recents"
+              isActive={view.kind === "recents"}
+              onClick={() => setView({ kind: "recents" })}
+            >
+              <IconHistory />
+              <span>Recents</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <QuickJotTrigger />
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
-        <RecentsSection spaces={spaces} />
         <SidebarGroup>
           <SidebarGroupLabel>Spaces</SidebarGroupLabel>
           <Tooltip>
@@ -115,7 +142,7 @@ export function AppSidebar() {
                 <span className="sr-only">New Space</span>
               </SidebarGroupAction>
             </TooltipTrigger>
-            <TooltipContent side="right">New Space</TooltipContent>
+            <TooltipContent side="top">New Space</TooltipContent>
           </Tooltip>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -157,15 +184,54 @@ export function AppSidebar() {
 
 function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean }) {
   const { view, setView, setActiveSpace } = useNavStore();
+  const queryClient = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [addModuleOpen, setAddModuleOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // Also fetched (not just when expanded) once the delete dialog is open, so its
+  // "X items" count isn't stuck at 0 for a Space the user never expanded.
   const { data: entities = [] } = useQuery({
     queryKey: ["entities", space.id],
     queryFn: () => listEntities(space.id, false),
-    enabled: expanded,
+    enabled: expanded || deleteConfirmOpen,
   });
-  const used = modulesInUse(entities);
+  // Source of truth for which module rows show — intentional/sticky (added via
+  // "+" or by creating a first entity), not re-derived from live entity counts
+  // (§ sidebar module visibility must not disappear when content is deleted).
+  // Also fetched once the "+" menu opens, so an unexpanded row's "already added"
+  // list is accurate before it computes `unusedKeys`.
+  const { data: addedModules = [] } = useQuery({
+    queryKey: ["space-modules", space.id],
+    queryFn: () => listSpaceModules(space.id),
+    enabled: expanded || addModuleOpen,
+  });
+  const used = new Set(addedModules);
   const usedKeys = MODULE_KEYS.filter((k) => used.has(k));
   const unusedKeys = MODULE_KEYS.filter((k) => !used.has(k));
+
+  const addModule = useMutation({
+    mutationFn: (key: ModuleKey) => addSpaceModule(space.id, key),
+    onSuccess: (_data, key) => {
+      queryClient.invalidateQueries({ queryKey: ["space-modules", space.id] });
+      setView({ kind: "module", spaceId: space.id, module: key });
+    },
+  });
+
+  const del = useMutation({
+    mutationFn: () => deleteSpace(space.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["spaces"] });
+      if ("spaceId" in view && view.spaceId === space.id) setView({ kind: "dashboard" });
+      setDeleteConfirmOpen(false);
+    },
+  });
+
+  // The hover-revealed "+"/"…" toolbar must stay visible for as long as either
+  // popover it opens is open — group-hover/focus-within alone drop out once
+  // focus moves into the portaled popover/dropdown content, which lives
+  // outside this row's DOM subtree.
+  const toolbarForcedVisible = addModuleOpen || menuOpen;
 
   return (
     <Collapsible
@@ -177,17 +243,13 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={space.name} className="pr-12">
             <span className="relative flex size-4 shrink-0 items-center justify-center">
-              <span className="flex items-center justify-center transition-opacity group-hover/menu-item:opacity-0">
-                {space.icon ? (
-                  <span className="text-sm leading-none">{space.icon}</span>
-                ) : (
-                  <IconFolder
-                    className="size-4 text-(--space-color)"
-                    // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-                    // string — `CSSProperties` just doesn't model custom properties.
-                    style={{ "--space-color": space.color } as CSSProperties}
-                  />
-                )}
+              <span
+                className="flex items-center justify-center text-(--space-color) transition-opacity group-hover/menu-item:opacity-0"
+                // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+                // string — `CSSProperties` just doesn't model custom properties.
+                style={{ "--space-color": space.color } as CSSProperties}
+              >
+                {space.icon ? renderIconValue(space.icon, 16) : <IconFolder className="size-4" />}
               </span>
               <IconChevronRight className="absolute inset-0 size-4 opacity-0 transition group-hover/menu-item:opacity-100 group-data-[state=open]/space:rotate-90" />
             </span>
@@ -195,10 +257,16 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
           </SidebarMenuButton>
         </CollapsibleTrigger>
 
-        <div className="absolute top-1.5 right-1 flex items-center gap-0.5 opacity-0 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100 group-data-[collapsible=icon]:hidden">
+        <div
+          className={cn(
+            "absolute top-1.5 right-1 flex items-center gap-0.5 group-focus-within/menu-item:opacity-100 group-data-[collapsible=icon]:hidden",
+            toolbarForcedVisible ? "opacity-100" : "opacity-0 group-hover/menu-item:opacity-100",
+          )}
+        >
           <AddModuleMenu
             moduleKeys={unusedKeys}
-            onSelect={(key) => setView({ kind: "module", spaceId: space.id, module: key })}
+            onSelect={(key) => addModule.mutate(key)}
+            onOpenChange={setAddModuleOpen}
             tooltip={`Add module to ${space.name}`}
             trigger={
               <button
@@ -212,7 +280,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
             }
           />
 
-          <DropdownMenu>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
@@ -225,7 +293,12 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+                <IconSettings className="size-4" />
                 Space settings
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => setDeleteConfirmOpen(true)}>
+                <IconTrash className="size-4" />
+                Delete Space
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -256,6 +329,35 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
       </SidebarMenuItem>
 
       <SpaceSettingsDialog space={space} open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
+              Delete "{space.name}"
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the Space "{space.name}" and everything in it —{" "}
+              {plural(entities.length, "item")} across its modules. This cannot be undone; nothing
+              goes to Trash.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={del.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                del.mutate();
+              }}
+            >
+              Delete Space
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Collapsible>
   );
 }
@@ -285,7 +387,7 @@ function ModuleSubRow({
         >
           <Icon />
           <span className="truncate">{MODULE_LABELS[moduleKey]}</span>
-          <ModuleRowMeta moduleKey={moduleKey} spaceId={space.id} spaceColor={space.color} />
+          <ModuleRowMeta moduleKey={moduleKey} spaceId={space.id} />
         </SidebarMenuSubButton>
         {expandable && (
           <button
@@ -360,15 +462,14 @@ function CreateSpaceDialog({
                 aria-label="Choose Space icon"
                 className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
               >
-                {icon ?? (
-                  <IconFolder
-                    size={15}
-                    className="text-(--space-color)"
-                    // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
-                    // `CSSProperties` just doesn't model custom properties.
-                    style={{ "--space-color": color } as CSSProperties}
-                  />
-                )}
+                <span
+                  className="text-(--space-color)"
+                  // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
+                  // `CSSProperties` just doesn't model custom properties.
+                  style={{ "--space-color": color } as CSSProperties}
+                >
+                  {icon ? renderIconValue(icon, 15) : <IconFolder size={15} />}
+                </span>
               </button>
             }
           />
@@ -452,15 +553,14 @@ function SpaceSettingsDialog({
                 aria-label="Choose Space icon"
                 className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
               >
-                {icon ?? (
-                  <IconFolder
-                    size={15}
-                    className="text-(--space-color)"
-                    // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
-                    // `CSSProperties` just doesn't model custom properties.
-                    style={{ "--space-color": color } as CSSProperties}
-                  />
-                )}
+                <span
+                  className="text-(--space-color)"
+                  // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
+                  // `CSSProperties` just doesn't model custom properties.
+                  style={{ "--space-color": color } as CSSProperties}
+                >
+                  {icon ? renderIconValue(icon, 15) : <IconFolder size={15} />}
+                </span>
               </button>
             }
           />

@@ -5,12 +5,11 @@ import {
   IconChalkboard,
   IconChecklist,
   IconClipboardList,
+  IconFeather,
   IconFile,
   IconNotes,
-  IconWriting,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
-import type { Entity } from "@/lib/api/types";
 import { type ModuleKey, MODULE_KEYS } from "@/lib/store/nav";
 
 export { MODULE_KEYS };
@@ -43,7 +42,7 @@ export const MODULE_DESCRIPTIONS = {
 export const MODULE_ICONS = {
   tasks: IconChecklist,
   notes: IconNotes,
-  jots: IconWriting,
+  jots: IconFeather,
   courses: IconBook2,
   sessions: IconChalkboard,
   exams: IconCalendarStats,
@@ -52,9 +51,9 @@ export const MODULE_ICONS = {
   bookmarks: IconBookmark,
 } satisfies Record<ModuleKey, TablerIcon>;
 
-/// Which underlying entity `type`s count as "this module has content" (§1.1 sidebar
-/// row visibility — a module only appears once the user has actually created
-/// something of that kind in the Space).
+/// Which underlying entity `type`s belong to each module. Mirrors
+/// `module_key_for_entity_type` in `src-tauri/src/db/space_modules.rs` — keep
+/// the two in sync.
 export const MODULE_ENTITY_TYPES = {
   tasks: ["task", "sub_task"],
   notes: ["note"],
@@ -66,15 +65,6 @@ export const MODULE_ENTITY_TYPES = {
   files: ["file"],
   bookmarks: ["bookmark"],
 } satisfies Record<ModuleKey, string[]>;
-
-export function modulesInUse(entities: Pick<Entity, "type">[]): Set<ModuleKey> {
-  const types = new Set(entities.map((e) => e.type));
-  const used = new Set<ModuleKey>();
-  for (const key of MODULE_KEYS) {
-    if (MODULE_ENTITY_TYPES[key].some((t) => types.has(t))) used.add(key);
-  }
-  return used;
-}
 
 export function moduleForEntityType(type: string): ModuleKey | undefined {
   return MODULE_KEYS.find((key) =>

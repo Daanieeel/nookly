@@ -1,5 +1,5 @@
 use crate::db::spaces::{self, Space, SpacePatch};
-use crate::db::DbState;
+use crate::db::{space_modules, DbState};
 use crate::error::AppResult;
 use tauri::State;
 
@@ -24,4 +24,26 @@ pub fn list_spaces(state: State<DbState>) -> AppResult<Vec<Space>> {
 pub fn update_space(state: State<DbState>, id: String, patch: SpacePatch) -> AppResult<Space> {
     let conn = state.0.lock().unwrap();
     spaces::update_space(&conn, &id, patch)
+}
+
+#[tauri::command]
+pub fn delete_space(state: State<DbState>, id: String) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    spaces::delete_space(&conn, &id)
+}
+
+#[tauri::command]
+pub fn list_space_modules(state: State<DbState>, space_id: String) -> AppResult<Vec<String>> {
+    let conn = state.0.lock().unwrap();
+    space_modules::list_space_modules(&conn, &space_id)
+}
+
+#[tauri::command]
+pub fn add_space_module(
+    state: State<DbState>,
+    space_id: String,
+    module_key: String,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    space_modules::add_space_module(&conn, &space_id, &module_key)
 }

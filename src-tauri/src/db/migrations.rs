@@ -178,5 +178,19 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         -- Full-text search (§6)
         CREATE VIRTUAL TABLE search_index USING fts5(entity_id UNINDEXED, space_id UNINDEXED, title, content);
         ",
+    ), M::up(
+        "
+        -- Sidebar module visibility (§4.1): whether a module counts as 'added'
+        -- to a Space is intentional/sticky, not derived live from entity counts.
+        -- A row here means the module was explicitly added (the sidebar's '+')
+        -- or had its first entity created — either way it's permanent from then
+        -- on, even if every entity of that module later gets deleted.
+        CREATE TABLE space_modules (
+            space_id TEXT NOT NULL REFERENCES spaces(id),
+            module_key TEXT NOT NULL,
+            added_at TEXT NOT NULL,
+            PRIMARY KEY (space_id, module_key)
+        );
+        ",
     )])
 });

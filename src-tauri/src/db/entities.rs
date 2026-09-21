@@ -1,4 +1,5 @@
 use crate::db::search;
+use crate::db::space_modules;
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -49,6 +50,9 @@ pub fn create_entity(
         params![id, space_id, entity_type, title, icon, now],
     )?;
     search::index_entity_title(conn, &id, &space_id, &title)?;
+    if let Some(module_key) = space_modules::module_key_for_entity_type(&entity_type) {
+        space_modules::add_space_module(conn, &space_id, module_key)?;
+    }
     Ok(Entity {
         id,
         space_id,

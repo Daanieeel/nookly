@@ -1,4 +1,4 @@
-import { IconPlus, IconWriting } from "@tabler/icons-react";
+import { IconFeather, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
@@ -110,7 +110,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
         ))}
         {pages.length === 0 && (
           <EmptyState
-            icon={IconWriting}
+            icon={IconFeather}
             title="Nothing captured yet"
             description="Jot down a quick thought above — refine it into something polished later."
           />

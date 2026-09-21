@@ -1,6 +1,7 @@
 import {
   IconChevronRight,
   IconFolder,
+  IconHistory,
   IconLayoutDashboard,
   IconPin,
   IconSearch,
@@ -117,6 +118,8 @@ function Breadcrumbs() {
       return <Crumb icon={<IconLayoutDashboard />} label="Dashboard" />;
     case "pinned":
       return <Crumb icon={<IconPin />} label="Pinned" />;
+    case "recents":
+      return <Crumb icon={<IconHistory />} label="Recents" />;
     case "trash":
       return <Crumb icon={<IconTrash />} label="Trash" />;
     case "module": {
