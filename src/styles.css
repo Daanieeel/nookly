@@ -335,3 +335,38 @@
   pointer-events: none;
   background: radial-gradient(circle 20px at 0% 100%, transparent 19.5px, var(--background) 20px);
 }
+
+/* Sidebar mascot's cycling quick-stat line — a small vertical ticker: the
+ * outgoing stat slides up and out while the incoming one slides up and in,
+ * overlapping briefly instead of a flat cut. */
+@keyframes sidebar-stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(65%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sidebar-stat-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-65%);
+  }
+}
+
+.sidebar-mascot-stat-in {
+  animation: sidebar-stat-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-mascot-stat-out {
+  position: absolute;
+  inset: 0;
+  animation: sidebar-stat-out 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

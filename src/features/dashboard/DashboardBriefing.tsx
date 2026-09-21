@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { listAssignmentsAllSpaces } from "@/lib/api/assignments";
 import { listExamsAllSpaces } from "@/lib/api/exams";
 import { countJotsWithoutRefinementAllSpaces } from "@/lib/api/notes";
@@ -62,7 +62,15 @@ export function DashboardBriefing() {
     queryFn: countJotsWithoutRefinementAllSpaces,
   });
 
-  const briefing = buildBriefing({ sessions, openTaskCount, exams, assignments, jotCount });
+  // Re-render on the next minute boundary so the greeting/mascot pick up a new
+  // hour-tier or calendar day without requiring a reload.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const briefing = buildBriefing({ sessions, openTaskCount, exams, assignments, jotCount, now });
   const [sessionsClause, tasksClause, examsClause, assignmentsClause, jotsClause] =
     briefing.clauses;
 
