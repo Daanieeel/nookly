@@ -108,7 +108,10 @@ mod tests {
 
         let mut modules = list_space_modules(&conn, &space.id).unwrap();
         modules.sort();
-        assert_eq!(modules, vec!["courses".to_string(), "semesters".to_string()]);
+        assert_eq!(
+            modules,
+            vec!["courses".to_string(), "semesters".to_string()]
+        );
     }
 
     #[test]

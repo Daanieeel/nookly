@@ -176,16 +176,28 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
         "DELETE FROM relationships WHERE from_entity_id = ?1 OR to_entity_id = ?1",
         params![id],
     )?;
-    conn.execute("DELETE FROM entity_labels WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM entity_labels WHERE entity_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM blocks WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM tasks WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM courses WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM semesters WHERE entity_id = ?1", params![id])?;
-    conn.execute("DELETE FROM session_templates WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM session_templates WHERE entity_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM sessions WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM exams WHERE entity_id = ?1", params![id])?;
-    conn.execute("DELETE FROM index_card_decks WHERE entity_id = ?1", params![id])?;
-    conn.execute("DELETE FROM index_cards WHERE deck_entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM index_card_decks WHERE entity_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM index_cards WHERE deck_entity_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM study_blocks WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM assignments WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
@@ -279,7 +291,14 @@ mod tests {
     fn list_entities_never_includes_course_notes() {
         let conn = setup();
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        create_entity(&conn, space.id.clone(), "note".into(), "Real note".into(), None).unwrap();
+        create_entity(
+            &conn,
+            space.id.clone(),
+            "note".into(),
+            "Real note".into(),
+            None,
+        )
+        .unwrap();
         create_entity(
             &conn,
             space.id.clone(),

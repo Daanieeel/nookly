@@ -63,6 +63,8 @@ pub fn run() {
             commands::courses::create_semester,
             commands::courses::list_semesters,
             commands::courses::update_semester,
+            commands::courses::set_current_semester,
+            commands::courses::reorder_semesters,
             commands::courses::link_course_to_semester,
             commands::courses::get_course_notes,
             commands::sessions::create_session_template,

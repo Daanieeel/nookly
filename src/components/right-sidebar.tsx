@@ -1,6 +1,7 @@
 import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CourseSemesterPanel } from "@/features/courses/CourseSemesterPanel";
 import { AttachmentsPanel } from "@/features/relationships/AttachmentsPanel";
 import { MentionedPanel } from "@/features/relationships/MentionedPanel";
 import { RelationshipsPanel } from "@/features/relationships/RelationshipsPanel";
@@ -8,9 +9,12 @@ import type { Entity } from "@/lib/api/types";
 import { useNavStore } from "@/lib/store/nav";
 
 /// Fixed section order (§3.5): Relationships, then Attachments, then Mentioned.
-/// Collapsed state persists across sessions (same convention as the main
-/// `AppSidebar`'s own `sidebarCollapsed`) — a slim rail with just the expand
-/// toggle, not hidden entirely, so it's always one click away.
+/// A Course additionally gets a bespoke Semester-assignment section ahead of
+/// Relationships (still the same underlying `course-semester` relationship,
+/// just a purpose-built picker instead of a generic row — bespoke-UI pillar,
+/// §01). Collapsed state persists across sessions (same convention as the
+/// main `AppSidebar`'s own `sidebarCollapsed`) — a slim rail with just the
+/// expand toggle, not hidden entirely, so it's always one click away.
 export function RightSidebar({ entity }: { entity: Entity }) {
   const collapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const setCollapsed = useNavStore((s) => s.setRightSidebarCollapsed);
@@ -42,6 +46,7 @@ export function RightSidebar({ entity }: { entity: Entity }) {
           <TooltipContent side="left">Collapse sidebar</TooltipContent>
         </Tooltip>
       </div>
+      {entity.type === "course" && <CourseSemesterPanel course={entity} />}
       <RelationshipsPanel entity={entity} />
       <AttachmentsPanel entity={entity} />
       <MentionedPanel entity={entity} />

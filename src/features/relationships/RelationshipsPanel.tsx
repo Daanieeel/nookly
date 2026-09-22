@@ -49,7 +49,14 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
   // `course-notes` is structural and points at an entity that must stay invisible
   // outside the Course page (§ course sub-dashboard) — never list it here, and
   // never offer it as a linkable type from the "+" picker either.
-  const HIDDEN_TYPES = new Set(["attached-file", "course-notes"]);
+  // `course-semester` gets its own bespoke section (`CourseSemesterPanel`) on a
+  // Course's own page, so hide it here only for Course entities — a Semester's
+  // page still lists its Courses through this generic panel as normal.
+  const HIDDEN_TYPES = new Set([
+    "attached-file",
+    "course-notes",
+    ...(entity.type === "course" ? ["course-semester"] : []),
+  ]);
   const visible = relationships.filter((r) => !HIDDEN_TYPES.has(r.relationshipType));
   const pickableTypes = types.filter((t) => !HIDDEN_TYPES.has(t.name));
 

@@ -199,5 +199,17 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         ALTER TABLE semesters ADD COLUMN start_date TEXT;
         ALTER TABLE semesters ADD COLUMN end_date TEXT;
         ",
+    ), M::up(
+        "
+        -- Semesters list page + setup wizard: `term_type`/`year` are the
+        -- authoritative ordering/'current'-detection fields (start_date/
+        -- end_date stay cosmetic-only, see PLAN §1). `is_current` and
+        -- `manual_position` back the list page's manual overrides — the
+        -- heuristic only ever sets initial defaults, never locks anything.
+        ALTER TABLE semesters ADD COLUMN term_type TEXT;
+        ALTER TABLE semesters ADD COLUMN year INTEGER;
+        ALTER TABLE semesters ADD COLUMN is_current INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE semesters ADD COLUMN manual_position INTEGER;
+        ",
     )])
 });

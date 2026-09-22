@@ -23,9 +23,13 @@ pub fn create_semester(
     title: String,
     start_date: Option<String>,
     end_date: Option<String>,
+    term_type: Option<String>,
+    year: Option<i64>,
 ) -> AppResult<Semester> {
     let conn = state.0.lock().unwrap();
-    courses::create_semester(&conn, space_id, title, start_date, end_date)
+    courses::create_semester(
+        &conn, space_id, title, start_date, end_date, term_type, year,
+    )
 }
 
 #[tauri::command]
@@ -40,9 +44,27 @@ pub fn update_semester(
     entity_id: String,
     start_date: Option<String>,
     end_date: Option<String>,
+    term_type: Option<String>,
+    year: Option<i64>,
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
-    courses::update_semester(&conn, &entity_id, start_date, end_date)
+    courses::update_semester(&conn, &entity_id, start_date, end_date, term_type, year)
+}
+
+#[tauri::command]
+pub fn set_current_semester(
+    state: State<DbState>,
+    space_id: String,
+    entity_id: String,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    courses::set_current_semester(&conn, &space_id, &entity_id)
+}
+
+#[tauri::command]
+pub fn reorder_semesters(state: State<DbState>, ordered_ids: Vec<String>) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    courses::reorder_semesters(&conn, ordered_ids)
 }
 
 #[tauri::command]

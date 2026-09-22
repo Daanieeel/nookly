@@ -38,7 +38,7 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
           spaceId={entity.spaceId}
           exclude={entity.id}
           trigger={
-            <Button variant="outline" size="sm" className="w-full justify-start gap-1.5">
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-1.5">
               <IconPaperclip size={14} /> Attach file or bookmark…
             </Button>
           }

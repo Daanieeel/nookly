@@ -12,10 +12,21 @@ export function listCourses(spaceId: string): Promise<Entity[]> {
 export function createSemester(
   spaceId: string,
   title: string,
-  startDate: string | null = null,
-  endDate: string | null = null,
+  opts: {
+    startDate?: string | null;
+    endDate?: string | null;
+    termType?: string | null;
+    year?: number | null;
+  } = {},
 ): Promise<Semester> {
-  return invoke("create_semester", { spaceId, title, startDate, endDate });
+  return invoke("create_semester", {
+    spaceId,
+    title,
+    startDate: opts.startDate ?? null,
+    endDate: opts.endDate ?? null,
+    termType: opts.termType ?? null,
+    year: opts.year ?? null,
+  });
 }
 
 export function listSemesters(spaceId: string): Promise<Semester[]> {
@@ -24,13 +35,26 @@ export function listSemesters(spaceId: string): Promise<Semester[]> {
 
 export function updateSemester(
   entityId: string,
-  patch: { startDate?: string; endDate?: string },
+  patch: { startDate?: string; endDate?: string; termType?: string; year?: number },
 ): Promise<void> {
   return invoke("update_semester", {
     entityId,
     startDate: patch.startDate ?? null,
     endDate: patch.endDate ?? null,
+    termType: patch.termType ?? null,
+    year: patch.year ?? null,
   });
+}
+
+/// Manual "this is the current semester" override — clears the flag on
+/// every other Semester in the Space (data layer enforces at most one).
+export function setCurrentSemester(spaceId: string, entityId: string): Promise<void> {
+  return invoke("set_current_semester", { spaceId, entityId });
+}
+
+/// Persists a drag-reorder — `orderedIds` is the full new display order.
+export function reorderSemesters(orderedIds: string[]): Promise<void> {
+  return invoke("reorder_semesters", { orderedIds });
 }
 
 export function linkCourseToSemester(courseId: string, semesterId: string): Promise<void> {

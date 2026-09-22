@@ -13,4 +13,6 @@ Quick map:
 
 Never modify existing primitive components or design tokens. Add new ones only.
 
+Button `variant="outline"` is for rare, special-case emphasis only. Default to `secondary` or `ghost`.
+
 More specific skills are in `/docs/skills/`

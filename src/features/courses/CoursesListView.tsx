@@ -233,7 +233,9 @@ function CourseSection({
   );
 }
 
-function CourseCard({
+/// Exported so the Semester page's Course grid (`SemesterDetailView`) reuses
+/// the exact same card rather than building a parallel design.
+export function CourseCard({
   course,
   spaceId,
   sessions,

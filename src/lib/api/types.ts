@@ -21,8 +21,14 @@ export interface Entity {
 
 export interface Semester {
   entity: Entity;
+  /// Approximate, cosmetic only — never used for sorting or "current"
+  /// detection. `termType`/`year` are the source of truth for that.
   startDate: string | null;
   endDate: string | null;
+  termType: string | null;
+  year: number | null;
+  isCurrent: boolean;
+  manualPosition: number | null;
 }
 
 export interface SpacePatch {
