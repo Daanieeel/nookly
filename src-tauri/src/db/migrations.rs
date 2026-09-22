@@ -192,5 +192,12 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
             PRIMARY KEY (space_id, module_key)
         );
         ",
+    ), M::up(
+        "
+        -- Semester date ranges (§5.5) — lets the UI resolve which Semester is
+        -- 'current' instead of guessing from creation order alone.
+        ALTER TABLE semesters ADD COLUMN start_date TEXT;
+        ALTER TABLE semesters ADD COLUMN end_date TEXT;
+        ",
     )])
 });

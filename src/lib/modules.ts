@@ -2,6 +2,7 @@ import {
   IconBook2,
   IconBookmark,
   IconCalendarStats,
+  IconCalendarWeek,
   IconChalkboard,
   IconChecklist,
   IconClipboardList,
@@ -20,6 +21,7 @@ export const MODULE_LABELS = {
   notes: "Notes",
   jots: "Jots & Refinements",
   courses: "Courses",
+  semesters: "Semesters",
   sessions: "Sessions",
   exams: "Exams",
   assignments: "Assignments",
@@ -32,6 +34,7 @@ export const MODULE_DESCRIPTIONS = {
   notes: "Write freeform pages with headings, lists, and blocks.",
   jots: "Capture quick thoughts and refine them later.",
   courses: "Organize a course into semesters and materials.",
+  semesters: "Group courses by term and see what's in each one.",
   sessions: "Plan study or work sessions with reusable templates.",
   exams: "Build index-card decks and study blocks for exams.",
   assignments: "Track assignments with due dates and progress.",
@@ -44,6 +47,7 @@ export const MODULE_ICONS = {
   notes: IconNotes,
   jots: IconFeather,
   courses: IconBook2,
+  semesters: IconCalendarWeek,
   sessions: IconChalkboard,
   exams: IconCalendarStats,
   assignments: IconClipboardList,
@@ -52,19 +56,26 @@ export const MODULE_ICONS = {
 } satisfies Record<ModuleKey, TablerIcon>;
 
 /// Which underlying entity `type`s belong to each module. Mirrors
-/// `module_key_for_entity_type` in `src-tauri/src/db/space_modules.rs` — keep
+/// `module_keys_for_entity_type` in `src-tauri/src/db/space_modules.rs` — keep
 /// the two in sync.
 export const MODULE_ENTITY_TYPES = {
   tasks: ["task", "sub_task"],
   notes: ["note"],
   jots: ["jot", "refinement"],
-  courses: ["course", "semester"],
+  courses: ["course", "course_notes"],
+  semesters: ["semester"],
   sessions: ["session", "session_template"],
   exams: ["exam", "index_card_deck", "study_block"],
   assignments: ["assignment"],
   files: ["file"],
   bookmarks: ["bookmark"],
 } satisfies Record<ModuleKey, string[]>;
+
+/// Modules that ride along with another module rather than being offered on
+/// their own in the sidebar's "+" picker — e.g. Semesters only exists to
+/// organize Courses, so it's added the moment Courses is (explicitly, or by
+/// creating a first course/semester) and never shown as a separate choice.
+export const MODULE_PASSENGERS = new Map<ModuleKey, ModuleKey[]>([["courses", ["semesters"]]]);
 
 export function moduleForEntityType(type: string): ModuleKey | undefined {
   return MODULE_KEYS.find((key) =>

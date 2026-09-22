@@ -1,4 +1,4 @@
-import { IconCalendarPlus, IconCalendarStats } from "@tabler/icons-react";
+import { IconCalendarPlus, IconCalendarStats, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { createExam, listExams } from "@/lib/api/exams";
+import { getEntity } from "@/lib/api/entities";
+import { listRelationships } from "@/lib/api/relationships";
 import type { Entity, Exam } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
@@ -57,16 +59,44 @@ function statusBadgeVariant(status: string): "positive" | "secondary" | "outline
   return "outline";
 }
 
-export function ExamsListView({ spaceId }: { spaceId: string }) {
+/// "view all →" from a Course page (§ course sub-dashboard) lands here scoped
+/// to that Course — `filterCourseId` narrows the list client-side via the same
+/// `exam-course` relationship the Course page itself reads, same convention
+/// `CoursesListView`'s `CourseCard` already uses for its own stats.
+export function ExamsListView({
+  spaceId,
+  filterCourseId,
+}: {
+  spaceId: string;
+  filterCourseId?: string;
+}) {
   const openEntity = useNavStore((s) => s.openEntity);
+  const setView = useNavStore((s) => s.setView);
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: exams = [] } = useQuery({
     queryKey: ["exams", spaceId],
     queryFn: () => listExams(spaceId),
   });
+  const { data: filterCourse } = useQuery({
+    queryKey: ["entity", filterCourseId],
+    queryFn: () => getEntity(filterCourseId as string),
+    enabled: Boolean(filterCourseId),
+  });
+  const { data: courseRelationships = [] } = useQuery({
+    queryKey: ["relationships", filterCourseId],
+    queryFn: () => listRelationships(filterCourseId as string, "to"),
+    enabled: Boolean(filterCourseId),
+  });
 
-  const sorted = sortByUrgency(exams);
+  const scoped = filterCourseId
+    ? exams.filter((exam) =>
+        courseRelationships.some(
+          (r) => r.relationshipType === "exam-course" && r.fromEntityId === exam.entity.id,
+        ),
+      )
+    : exams;
+  const sorted = sortByUrgency(scoped);
 
   return (
     <div className="flex max-w-2xl flex-col gap-4">
@@ -76,6 +106,22 @@ export function ExamsListView({ spaceId }: { spaceId: string }) {
           <IconCalendarPlus size={14} /> New exam
         </Button>
       </div>
+
+      {filterCourseId && filterCourse && (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="secondary" className="gap-1 pr-1">
+            Filtered by {displayTitle(filterCourse)}
+            <button
+              type="button"
+              aria-label="Clear filter"
+              onClick={() => setView({ kind: "module", spaceId, module: "exams" })}
+              className="rounded-full p-0.5 hover:bg-accent-foreground/10"
+            >
+              <IconX size={11} />
+            </button>
+          </Badge>
+        </div>
+      )}
 
       <div className="flex flex-col">
         {sorted.map((exam) => (

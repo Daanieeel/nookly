@@ -50,7 +50,7 @@ pub fn create_entity(
         params![id, space_id, entity_type, title, icon, now],
     )?;
     search::index_entity_title(conn, &id, &space_id, &title)?;
-    if let Some(module_key) = space_modules::module_key_for_entity_type(&entity_type) {
+    for module_key in space_modules::module_keys_for_entity_type(&entity_type) {
         space_modules::add_space_module(conn, &space_id, module_key)?;
     }
     Ok(Entity {
@@ -120,7 +120,12 @@ pub fn list_entities(
     space_id: Option<&str>,
     include_deleted: bool,
 ) -> AppResult<Vec<Entity>> {
-    let mut sql = String::from("SELECT * FROM entities WHERE 1 = 1");
+    // `course_notes` (§ course sub-dashboard) must stay invisible everywhere except
+    // the Course page that embeds it directly by id via `get_course_notes` — never
+    // in mentions, entity pickers, search, Dashboard Recent/Pinned, or any other
+    // general listing. Every one of those goes through `list_entities`, so excluding
+    // it here is the single choke point rather than patching each call site.
+    let mut sql = String::from("SELECT * FROM entities WHERE type != 'course_notes'");
     if !include_deleted {
         sql.push_str(" AND deleted_at IS NULL");
     }
@@ -268,6 +273,28 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rel_count, 0);
+    }
+
+    #[test]
+    fn list_entities_never_includes_course_notes() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        create_entity(&conn, space.id.clone(), "note".into(), "Real note".into(), None).unwrap();
+        create_entity(
+            &conn,
+            space.id.clone(),
+            "course_notes".into(),
+            "Algorithms Notes".into(),
+            None,
+        )
+        .unwrap();
+
+        let scoped = list_entities(&conn, Some(&space.id), false).unwrap();
+        assert_eq!(scoped.len(), 1);
+        assert_eq!(scoped[0].entity_type, "note");
+
+        let global = list_entities(&conn, None, true).unwrap();
+        assert!(global.iter().all(|e| e.entity_type != "course_notes"));
     }
 
     #[test]

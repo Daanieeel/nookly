@@ -47,11 +47,13 @@ pub struct SearchHit {
 /// the caller passes a space_id to narrow it (used by in-Space search UIs, if any).
 pub fn search(conn: &Connection, query: &str, space_id: Option<&str>) -> AppResult<Vec<SearchHit>> {
     let match_query = format!("{}*", query.replace('"', ""));
+    // `course_notes` must never surface as a search result (§ course sub-dashboard) —
+    // same invisibility rule `list_entities` enforces for mentions/pickers/Dashboard.
     let mut sql = String::from(
         "SELECT e.id, e.space_id, e.title, e.type, e.icon
          FROM entities e
          JOIN (SELECT entity_id, rank FROM search_index WHERE search_index MATCH ?1) si ON si.entity_id = e.id
-         WHERE e.deleted_at IS NULL",
+         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'",
     );
     if space_id.is_some() {
         sql.push_str(" AND e.space_id = ?2");
@@ -106,5 +108,27 @@ mod tests {
 
         let content_hits = search(&conn, "notation", None).unwrap();
         assert_eq!(content_hits.len(), 1);
+    }
+
+    #[test]
+    fn course_notes_never_appear_in_search_results() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let entity = create_entity(
+            &conn,
+            space.id.clone(),
+            "course_notes".into(),
+            "Algorithms Notes".into(),
+            None,
+        )
+        .unwrap();
+        index_entity_content(&conn, &entity.id, "syllabus reminders").unwrap();
+
+        assert!(search(&conn, "algorithms", None).unwrap().is_empty());
+        assert!(search(&conn, "syllabus", None).unwrap().is_empty());
     }
 }

@@ -27,6 +27,7 @@ export function CardPicker<T extends string>({
           <button
             key={o.value}
             type="button"
+            aria-label={o.label}
             aria-disabled={o.disabled}
             className={cn(
               "flex-1 rounded-md border border-border p-2 text-left",

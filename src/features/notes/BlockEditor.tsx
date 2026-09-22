@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { listEntities } from "@/lib/api/entities";
 import { createBlock, deleteBlock, listBlocks, reorderBlocks, updateBlock } from "@/lib/api/notes";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
 import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -18,7 +19,19 @@ const MENTION_HREF_PREFIX = "mention:";
 /// Tiptap/ProseMirror editor owns the whole page, exactly like Notion. Each
 /// top-level node still round-trips to one row in the existing per-block backend
 /// (`block-markdown.ts`); this component's only extra job is reconciling the two.
-export function BlockEditor({ entityId, spaceId }: { entityId: string; spaceId: string }) {
+export function BlockEditor({
+  entityId,
+  spaceId,
+  compact = false,
+}: {
+  entityId: string;
+  spaceId: string;
+  /// Starts at a single empty line and grows with content, instead of the
+  /// full-page canvas's `min-h-40` — for a Notes surface embedded inline
+  /// inside another entity's page (e.g. Course Notes) rather than owning
+  /// the whole view.
+  compact?: boolean;
+}) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: blocks } = useQuery({
@@ -110,7 +123,9 @@ export function BlockEditor({ entityId, spaceId }: { entityId: string; spaceId: 
       Mention.configure({ getEntities: () => entitiesRef.current }),
     ],
     editorProps: {
-      attributes: { class: "tiptap-content min-h-40 text-sm leading-relaxed" },
+      attributes: {
+        class: cn("tiptap-content text-sm leading-relaxed", !compact && "min-h-40"),
+      },
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement) || target.tagName !== "A") return false;

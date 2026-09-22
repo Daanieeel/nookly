@@ -1,9 +1,20 @@
-import { IconArrowRight, IconCalendarStats, IconPlus, IconSchool } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  IconArrowRight,
+  IconCalendar,
+  IconCalendarStats,
+  IconChevronRight,
+  IconClipboardList,
+  IconPlus,
+  IconSchool,
+  IconWriting,
+} from "@tabler/icons-react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { differenceInCalendarDays, format, startOfDay } from "date-fns";
 import { useEffect, useRef, useState } from "react";
-import { EmptyState } from "@/components/empty-state";
+import { EntityIcon } from "@/components/entity-icon";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -11,28 +22,55 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { GalleryCard, GalleryCardBanner, GalleryCardBody } from "@/components/ui/gallery-card";
 import { Input } from "@/components/ui/input";
+import { ProgressCircle } from "@/components/ui/progress-circle";
+import { listAssignments } from "@/lib/api/assignments";
+import { createCourse, linkCourseToSemester, listCourses, listSemesters } from "@/lib/api/courses";
 import { getEntity } from "@/lib/api/entities";
-import {
-  createCourse,
-  createSemester,
-  linkCourseToSemester,
-  listCourses,
-  listSemesters,
-} from "@/lib/api/courses";
+import { listExams } from "@/lib/api/exams";
 import { listRelationships } from "@/lib/api/relationships";
-import type { Entity } from "@/lib/api/types";
+import { listSessions } from "@/lib/api/sessions";
+import type { Assignment, Entity, Exam, SessionOccurrence } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
+import { colorForId } from "@/lib/gallery-color";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
+import { resolveActiveSemesterId } from "./current-semester";
+
+/// Assignment statuses that count as "done" for the course card's progress
+/// ring — mirrors `TERMINAL_STATUSES` in `AssignmentsListView.tsx`.
+const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
+
+/// "in Nd" within a week, else "MMM d" — same convention as `SidebarUrgencyChip`
+/// (`src/components/sidebar/sidebar-badges.tsx`), copied rather than imported
+/// since that component is styled for the sidebar's own color tokens.
+function dateLabel(date: string): string {
+  const days = differenceInCalendarDays(new Date(date), new Date());
+  return days <= 7 ? `${Math.max(days, 0)}d` : format(new Date(date), "MMM d");
+}
+
+/// Bare `HH:mm` -> "10am" / "2:30pm", mirroring `formatTime` in
+/// `src/features/dashboard/briefing-clauses.ts`.
+function formatSessionTime(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(":");
+  const hour = Number(hStr);
+  const minute = Number(mStr ?? "0");
+  const period = hour >= 12 ? "pm" : "am";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return minute === 0
+    ? `${hour12}${period}`
+    : `${hour12}:${String(minute).padStart(2, "0")}${period}`;
+}
 
 /// Card-grid identity (name, semester chips, sequel/prequel indicators) rather than
 /// a bare table (§2.3) — a Course's relationships (semester, sequel-of/prequel-of)
 /// all come from the generic relationship system (§5.4), not dedicated fields.
+/// Semesters themselves live on their own page (Semesters module) — this view
+/// only links a course to one via the "Link semester" picker below.
 export function CoursesListView({ spaceId }: { spaceId: string }) {
-  const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
-  const [semesterTitle, setSemesterTitle] = useState("");
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses", spaceId],
@@ -42,92 +80,172 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
     queryKey: ["semesters", spaceId],
     queryFn: () => listSemesters(spaceId),
   });
-
-  const createSemesterMut = useMutation({
-    mutationFn: (t: string) => createSemester(spaceId, t),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] });
-      setSemesterTitle("");
-    },
+  // Fetched once here (not per-card) and cross-referenced against each
+  // course's own relationships below, so the gallery's progress rings/next-
+  // session stat don't cost N extra queries per course.
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["sessions", spaceId],
+    queryFn: () => listSessions(spaceId),
+  });
+  const { data: exams = [] } = useQuery({
+    queryKey: ["exams", spaceId],
+    queryFn: () => listExams(spaceId),
+  });
+  const { data: assignments = [] } = useQuery({
+    queryKey: ["assignments", spaceId],
+    queryFn: () => listAssignments(spaceId),
+  });
+  // Same `queryKey` each `CourseCard` uses for its own relationships query —
+  // react-query shares the cache, so grouping by semester here doesn't cost
+  // extra network calls.
+  const courseRelQueries = useQueries({
+    queries: courses.map((course) => ({
+      queryKey: ["relationships", course.id],
+      queryFn: () => listRelationships(course.id, "both"),
+    })),
   });
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Courses</h1>
-          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <IconPlus size={14} /> New course
-          </Button>
-        </div>
+  const semesterIdByCourse = new Map<string, string>();
+  courses.forEach((course, i) => {
+    const link = (courseRelQueries[i]?.data ?? []).find(
+      (r) => r.relationshipType === "course-semester" && r.fromEntityId === course.id,
+    );
+    if (link) semesterIdByCourse.set(course.id, link.toEntityId);
+  });
 
-        {courses.length === 0 ? (
-          <EmptyState
-            icon={IconSchool}
-            title="No courses yet"
-            description="Add a course to start tracking its assignments and materials."
-            action={{ label: "New course", onClick: () => setCreateOpen(true) }}
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => (
+  const activeSemesterId = resolveActiveSemesterId(semesters);
+  const coursesFor = (semesterId: string | null) =>
+    courses.filter((c) => (semesterIdByCourse.get(c.id) ?? null) === semesterId);
+  const otherSemesters = semesters
+    .filter((s) => s.entity.id !== activeSemesterId)
+    .sort((a, b) =>
+      (b.startDate ?? b.entity.createdAt).localeCompare(a.startDate ?? a.entity.createdAt),
+    );
+
+  const cardsProps = { spaceId, sessions, exams, assignments };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Courses</h1>
+        <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+          <IconPlus size={14} /> New course
+        </Button>
+      </div>
+
+      {courses.length === 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CoursesEmptyCard onCreate={() => setCreateOpen(true)} />
+          {PLACEHOLDER_COURSES.map((p, i) => (
+            <CoursePlaceholderCard key={i} {...p} />
+          ))}
+        </div>
+      ) : semesters.length === 0 ? (
+        // No Semester exists yet — grouping (and an "Active" section with
+        // nothing to contrast against) wouldn't mean anything, so stay flat.
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {courses.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              onOpen={() => openEntity(course.id, spaceId)}
+              {...cardsProps}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <CourseSection title="Active" defaultOpen courses={coursesFor(activeSemesterId)}>
+            {(course) => (
               <CourseCard
                 key={course.id}
                 course={course}
-                spaceId={spaceId}
                 onOpen={() => openEntity(course.id, spaceId)}
+                {...cardsProps}
               />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium text-muted-foreground">Semesters</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          {semesters.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => openEntity(s.id, spaceId)}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1 text-xs hover:bg-accent/80"
+            )}
+          </CourseSection>
+          {otherSemesters.map((s) => (
+            <CourseSection
+              key={s.entity.id}
+              title={displayTitle(s.entity)}
+              courses={coursesFor(s.entity.id)}
             >
-              <IconCalendarStats size={12} className="text-muted-foreground" />
-              {displayTitle(s)}
-            </button>
+              {(course) => (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  onOpen={() => openEntity(course.id, spaceId)}
+                  {...cardsProps}
+                />
+              )}
+            </CourseSection>
           ))}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (semesterTitle.trim()) createSemesterMut.mutate(semesterTitle.trim());
-            }}
-            className="flex items-center gap-1.5"
-          >
-            <Input
-              placeholder="e.g. WS 2026/27"
-              value={semesterTitle}
-              onChange={(e) => setSemesterTitle(e.target.value)}
-              className="h-7 w-36 text-xs"
-            />
-            <Button type="submit" size="sm" variant="outline" disabled={!semesterTitle.trim()}>
-              Add
-            </Button>
-          </form>
+          <CourseSection title="Unsorted" defaultOpen courses={coursesFor(null)}>
+            {(course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                onOpen={() => openEntity(course.id, spaceId)}
+                {...cardsProps}
+              />
+            )}
+          </CourseSection>
         </div>
-      </div>
+      )}
 
       <CreateCourseDialog open={createOpen} onOpenChange={setCreateOpen} spaceId={spaceId} />
     </div>
   );
 }
 
+/// One collapsible group in the Courses gallery — "Active", a past Semester,
+/// or "Unsorted". Skipped entirely when empty, same convention
+/// `SemestersListView.tsx` uses for its own "Unsorted" bucket.
+function CourseSection({
+  title,
+  courses,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  courses: Entity[];
+  defaultOpen?: boolean;
+  children: (course: Entity) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (courses.length === 0) return null;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-1.5 py-1.5 text-sm font-medium">
+        <IconChevronRight
+          size={14}
+          className={cn("text-muted-foreground transition-transform", open && "rotate-90")}
+        />
+        {title}
+        <span className="text-xs font-normal text-muted-foreground">· {courses.length}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid grid-cols-1 gap-3 pb-2 pl-5 sm:grid-cols-2 lg:grid-cols-3">
+        {courses.map(children)}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function CourseCard({
   course,
   spaceId,
+  sessions,
+  exams,
+  assignments,
   onOpen,
 }: {
   course: Entity;
   spaceId: string;
+  sessions: SessionOccurrence[];
+  exams: Exam[];
+  assignments: Assignment[];
   onOpen: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -142,6 +260,20 @@ function CourseCard({
   const sequelLinks = relationships.filter(
     (r) => r.relationshipType === "sequel-of" || r.relationshipType === "prequel-of",
   );
+  // `session-course`/`exam-course`/`assignment-course` all point course-ward
+  // (the session/exam/assignment is `from`, the course is `to`) — the
+  // opposite direction from `course-semester` above.
+  const linkedIds = (relationshipType: string) =>
+    new Set(
+      relationships
+        .filter((r) => r.relationshipType === relationshipType && r.toEntityId === course.id)
+        .map((r) => r.fromEntityId),
+    );
+  const courseSessions = sessions.filter((s) => linkedIds("session-course").has(s.entity.id));
+  const courseExams = exams.filter((e) => linkedIds("exam-course").has(e.entity.id));
+  const courseAssignments = assignments.filter((a) =>
+    linkedIds("assignment-course").has(a.entity.id),
+  );
 
   const linkSemester = useMutation({
     mutationFn: (semesterId: string) => linkCourseToSemester(course.id, semesterId),
@@ -149,56 +281,204 @@ function CourseCard({
   });
 
   return (
-    <div className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
-      <button type="button" onClick={onOpen} className="flex items-start gap-2 text-left">
-        <IconSchool size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium group-hover:underline">
+    <GalleryCard className="group" onClick={onOpen}>
+      <GalleryCardBanner
+        color={colorForId(course.id)}
+        icon={<EntityIcon entity={course} size={22} className="text-white/70" />}
+      />
+      <GalleryCardBody>
+        <span className="block truncate text-sm font-medium group-hover:underline">
           {displayTitle(course)}
         </span>
-      </button>
 
-      {(semesterLinks.length > 0 || sequelLinks.length > 0) && (
-        <div className="flex flex-wrap gap-1">
-          {semesterLinks.map((r) => (
-            <RelatedChip
-              key={r.id}
-              entityId={r.toEntityId}
-              icon={<IconCalendarStats size={11} />}
-            />
-          ))}
-          {sequelLinks.map((r) => {
-            const isFrom = r.fromEntityId === course.id;
-            const otherId = isFrom ? r.toEntityId : r.fromEntityId;
-            const label = isFrom ? "sequel of" : "prequel of";
-            return (
+        <CourseStats
+          sessions={courseSessions}
+          exams={courseExams}
+          assignments={courseAssignments}
+        />
+
+        {(semesterLinks.length > 0 || sequelLinks.length > 0) && (
+          <div className="flex flex-wrap gap-1">
+            {semesterLinks.map((r) => (
               <RelatedChip
                 key={r.id}
-                entityId={otherId}
-                icon={<IconArrowRight size={11} />}
-                prefix={label}
+                entityId={r.toEntityId}
+                icon={<IconCalendarStats size={11} />}
               />
-            );
-          })}
-        </div>
-      )}
+            ))}
+            {sequelLinks.map((r) => {
+              const isFrom = r.fromEntityId === course.id;
+              const otherId = isFrom ? r.toEntityId : r.fromEntityId;
+              const label = isFrom ? "sequel of" : "prequel of";
+              return (
+                <RelatedChip
+                  key={r.id}
+                  entityId={otherId}
+                  icon={<IconArrowRight size={11} />}
+                  prefix={label}
+                />
+              );
+            })}
+          </div>
+        )}
 
-      <div className="opacity-0 transition-opacity group-hover:opacity-100">
-        <EntityPickerPopover
-          spaceId={spaceId}
-          typeFilter="semester"
-          exclude={course.id}
-          trigger={
-            <button
-              type="button"
-              className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <IconPlus size={11} /> Link semester
-            </button>
-          }
-          onSelect={(semester) => linkSemester.mutate(semester.id)}
+        <div className="opacity-0 transition-opacity group-hover:opacity-100">
+          <EntityPickerPopover
+            spaceId={spaceId}
+            typeFilter="semester"
+            exclude={course.id}
+            trigger={
+              <button
+                type="button"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <IconPlus size={11} /> Link semester
+              </button>
+            }
+            onSelect={(semester) => linkSemester.mutate(semester.id)}
+          />
+        </div>
+      </GalleryCardBody>
+    </GalleryCard>
+  );
+}
+
+/// The card's "what's next / how far along" row — real progress rings for
+/// Assignments/Exams (reusing `ProgressCircle`, the same primitive the Task
+/// subtask rollup uses) rather than bare counts, plus the next upcoming
+/// Session as a date/time label. All three always render, even at zero —
+/// an empty ring at 0/0 and "No sessions" scheduled are still information
+/// (mirrors the Dashboard briefing's "every category always shows" rule in
+/// `briefing-clauses.ts`), not something to hide.
+function CourseStats({
+  sessions,
+  exams,
+  assignments,
+}: {
+  sessions: SessionOccurrence[];
+  exams: Exam[];
+  assignments: Assignment[];
+}) {
+  const today = startOfDay(new Date());
+  const nextSession = sessions
+    .filter((s) => !s.cancelled && startOfDay(new Date(s.date)) >= today)
+    .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime))[0];
+
+  const doneAssignments = assignments.filter((a) => DONE_ASSIGNMENT_STATUSES.has(a.status));
+  const nextAssignmentDue = assignments
+    .filter((a) => !DONE_ASSIGNMENT_STATUSES.has(a.status) && a.dueDate)
+    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
+
+  const doneExams = exams.filter((e) => e.status === "done");
+  const nextExam = exams
+    .filter((e) => e.status !== "done" && e.examDate)
+    .sort((a, b) => (a.examDate ?? "").localeCompare(b.examDate ?? ""))[0];
+
+  return (
+    <div className="flex select-none flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1">
+        <IconCalendar size={12} />
+        {nextSession ? (
+          <>
+            Next {format(new Date(nextSession.date), "EEE")}{" "}
+            {formatSessionTime(nextSession.startTime)}
+          </>
+        ) : (
+          "No sessions"
+        )}
+      </span>
+      <span className="flex items-center gap-1">
+        <IconClipboardList size={12} />
+        <ProgressCircle
+          value={assignments.length > 0 ? (doneAssignments.length / assignments.length) * 100 : 0}
         />
-      </div>
+        Assignments {doneAssignments.length}/{assignments.length}
+        {nextAssignmentDue?.dueDate && ` · due ${dateLabel(nextAssignmentDue.dueDate)}`}
+      </span>
+      <span className="flex items-center gap-1">
+        <IconWriting size={12} />
+        <ProgressCircle value={exams.length > 0 ? (doneExams.length / exams.length) * 100 : 0} />
+        Exams {doneExams.length}/{exams.length}
+        {nextExam?.examDate && ` · next ${dateLabel(nextExam.examDate)}`}
+      </span>
     </div>
+  );
+}
+
+/// Fills out the empty-state grid so it reads as "your gallery, once it has
+/// courses" rather than a blank box — ghost cards, not loading skeletons (no
+/// pulse, no shimmer), so they don't imply data is on its way.
+const PLACEHOLDER_COURSES: { titleWidth: string; stats: number; chips: number }[] = [
+  { titleWidth: "w-2/3", stats: 2, chips: 2 },
+  { titleWidth: "w-1/2", stats: 1, chips: 0 },
+  { titleWidth: "w-3/4", stats: 0, chips: 1 },
+  { titleWidth: "w-1/2", stats: 2, chips: 2 },
+  { titleWidth: "w-3/5", stats: 1, chips: 1 },
+];
+
+/// The one real, interactive tile in the placeholder grid — same card shape as
+/// `CourseCard`/`CoursePlaceholderCard` so it reads as part of the gallery
+/// instead of a banner sitting on top of it. Its own banner stays muted
+/// (there's no course id yet to derive a color from) and the border is
+/// dashed to mark it as the "add" tile rather than content.
+function CoursesEmptyCard({ onCreate }: { onCreate: () => void }) {
+  return (
+    <GalleryCard variant="dashed">
+      <GalleryCardBanner
+        color="var(--muted)"
+        icon={<IconSchool size={20} className="text-muted-foreground/50" />}
+      />
+      <GalleryCardBody className="items-center text-center">
+        <p className="text-sm font-medium text-foreground">No courses yet</p>
+        <p className="text-xs text-muted-foreground">
+          Add a course to start tracking its assignments and materials.
+        </p>
+        <Button size="sm" className="mt-1 gap-1.5" onClick={onCreate}>
+          <IconPlus size={14} /> New course
+        </Button>
+      </GalleryCardBody>
+    </GalleryCard>
+  );
+}
+
+function CoursePlaceholderCard({
+  titleWidth,
+  stats,
+  chips,
+}: {
+  titleWidth: string;
+  stats: number;
+  chips: number;
+}) {
+  return (
+    <GalleryCard aria-hidden ghost>
+      <GalleryCardBanner color="var(--muted-foreground)" />
+      <GalleryCardBody>
+        <div className="flex items-center gap-2">
+          <div className="size-4 shrink-0 rounded-full bg-muted-foreground/30" />
+          <div className={`h-3.5 ${titleWidth} rounded bg-muted-foreground/30`} />
+        </div>
+        {stats > 0 && (
+          <div className="flex items-center gap-3">
+            {Array.from({ length: stats }).map((_, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <div className="size-3 shrink-0 rounded-full border-2 border-muted-foreground/30" />
+                <div className="h-3 w-10 rounded bg-muted-foreground/20" />
+              </div>
+            ))}
+          </div>
+        )}
+        {chips > 0 && (
+          <div className="flex gap-1">
+            {Array.from({ length: chips }).map((_, i) => (
+              <div key={i} className="h-4 w-14 rounded-full bg-muted-foreground/20" />
+            ))}
+          </div>
+        )}
+      </GalleryCardBody>
+    </GalleryCard>
   );
 }
 

@@ -1,4 +1,4 @@
-import { IconClipboardCheck, IconClipboardPlus } from "@tabler/icons-react";
+import { IconClipboardCheck, IconClipboardPlus, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
@@ -19,7 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { createAssignment, listAssignments, updateAssignmentStatus } from "@/lib/api/assignments";
+import { getEntity } from "@/lib/api/entities";
+import { listRelationships } from "@/lib/api/relationships";
 import type { Assignment, Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
@@ -59,14 +62,32 @@ function UrgencyDot({ dueDate, status }: { dueDate: string | null; status: strin
   return <span className={`size-1.5 shrink-0 rounded-full ${className}`} aria-hidden />;
 }
 
-export function AssignmentsListView({ spaceId }: { spaceId: string }) {
+/// See `ExamsListView`'s equivalent doc comment for the `filterCourseId` convention.
+export function AssignmentsListView({
+  spaceId,
+  filterCourseId,
+}: {
+  spaceId: string;
+  filterCourseId?: string;
+}) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const setView = useNavStore((s) => s.setView);
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: assignments = [] } = useQuery({
     queryKey: ["assignments", spaceId],
     queryFn: () => listAssignments(spaceId),
+  });
+  const { data: filterCourse } = useQuery({
+    queryKey: ["entity", filterCourseId],
+    queryFn: () => getEntity(filterCourseId as string),
+    enabled: Boolean(filterCourseId),
+  });
+  const { data: courseRelationships = [] } = useQuery({
+    queryKey: ["relationships", filterCourseId],
+    queryFn: () => listRelationships(filterCourseId as string, "to"),
+    enabled: Boolean(filterCourseId),
   });
 
   const setStatus = useMutation({
@@ -75,7 +96,14 @@ export function AssignmentsListView({ spaceId }: { spaceId: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] }),
   });
 
-  const sorted = sortByUrgency(assignments);
+  const scoped = filterCourseId
+    ? assignments.filter((a) =>
+        courseRelationships.some(
+          (r) => r.relationshipType === "assignment-course" && r.fromEntityId === a.entity.id,
+        ),
+      )
+    : assignments;
+  const sorted = sortByUrgency(scoped);
 
   return (
     <div className="flex max-w-2xl flex-col gap-4">
@@ -85,6 +113,22 @@ export function AssignmentsListView({ spaceId }: { spaceId: string }) {
           <IconClipboardPlus size={14} /> New assignment
         </Button>
       </div>
+
+      {filterCourseId && filterCourse && (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="secondary" className="gap-1 pr-1">
+            Filtered by {displayTitle(filterCourse)}
+            <button
+              type="button"
+              aria-label="Clear filter"
+              onClick={() => setView({ kind: "module", spaceId, module: "assignments" })}
+              className="rounded-full p-0.5 hover:bg-accent-foreground/10"
+            >
+              <IconX size={11} />
+            </button>
+          </Badge>
+        </div>
+      )}
 
       <div className="flex flex-col">
         {sorted.map((a) => (

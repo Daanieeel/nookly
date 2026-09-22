@@ -19,6 +19,12 @@ export interface Entity {
   deletedAt: string | null;
 }
 
+export interface Semester {
+  entity: Entity;
+  startDate: string | null;
+  endDate: string | null;
+}
+
 export interface SpacePatch {
   name?: string;
   icon?: string;

@@ -45,6 +45,7 @@ const DEFAULT_ICONS = new Map<string, TablerIcon>([
   ["jot", IconNotes],
   ["refinement", IconSparkles],
   ["course", IconSchool],
+  ["course_notes", IconFileText],
   ["semester", IconCalendarStats],
   ["session", IconChalkboard],
   ["session_template", IconChalkboard],

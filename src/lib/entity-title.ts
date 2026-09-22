@@ -11,6 +11,7 @@ const TYPE_LABELS = new Map<string, string>([
   ["jot", "Jot"],
   ["refinement", "Refinement"],
   ["course", "Course"],
+  ["course_notes", "Course Notes"],
   ["semester", "Semester"],
   ["session", "Session"],
   ["session_template", "Session"],

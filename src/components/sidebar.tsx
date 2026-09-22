@@ -69,7 +69,13 @@ import {
   updateSpace,
 } from "@/lib/api/spaces";
 import type { Space } from "@/lib/api/types";
-import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "@/lib/modules";
+import {
+  MODULE_ICONS,
+  MODULE_KEYS,
+  MODULE_LABELS,
+  MODULE_PASSENGERS,
+  type ModuleKey,
+} from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import {
@@ -206,12 +212,18 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
     queryFn: () => listSpaceModules(space.id),
     enabled: expanded || addModuleOpen,
   });
+  const passengerKeys = new Set([...MODULE_PASSENGERS.values()].flat());
   const used = new Set(addedModules);
   const usedKeys = MODULE_KEYS.filter((k) => used.has(k));
-  const unusedKeys = MODULE_KEYS.filter((k) => !used.has(k));
+  const unusedKeys = MODULE_KEYS.filter((k) => !used.has(k) && !passengerKeys.has(k));
 
   const addModule = useMutation({
-    mutationFn: (key: ModuleKey) => addSpaceModule(space.id, key),
+    mutationFn: async (key: ModuleKey) => {
+      await addSpaceModule(space.id, key);
+      for (const passenger of MODULE_PASSENGERS.get(key) ?? []) {
+        await addSpaceModule(space.id, passenger);
+      }
+    },
     onSuccess: (_data, key) => {
       queryClient.invalidateQueries({ queryKey: ["space-modules", space.id] });
       setView({ kind: "module", spaceId: space.id, module: key });

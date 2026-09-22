@@ -4,6 +4,7 @@ import { addDays, addWeeks, format, isSameDay, isToday, startOfWeek } from "date
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { EntityPickerPopover } from "@/components/entity-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getEntity } from "@/lib/api/entities";
+import { listRelationships } from "@/lib/api/relationships";
 import {
   createOneOffSession,
   createSessionTemplate,
@@ -54,15 +57,41 @@ interface DraftSlot {
 /// Sessions are inherently time-based, so a weekly calendar grid is the primary
 /// view (§2.3) — the calendar itself is also the creation surface (§3.3): clicking
 /// an empty slot opens a quick-create popover pre-filled with that day and hour.
-export function SessionsListView({ spaceId }: { spaceId: string }) {
+/// See `ExamsListView`'s equivalent doc comment for the `filterCourseId` convention.
+export function SessionsListView({
+  spaceId,
+  filterCourseId,
+}: {
+  spaceId: string;
+  filterCourseId?: string;
+}) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [draft, setDraft] = useState<DraftSlot | null>(null);
   const openEntity = useNavStore((s) => s.openEntity);
+  const setView = useNavStore((s) => s.setView);
 
-  const { data: sessions = [] } = useQuery({
+  const { data: allSessions = [] } = useQuery({
     queryKey: ["sessions", spaceId],
     queryFn: () => listSessions(spaceId),
   });
+  const { data: filterCourse } = useQuery({
+    queryKey: ["entity", filterCourseId],
+    queryFn: () => getEntity(filterCourseId as string),
+    enabled: Boolean(filterCourseId),
+  });
+  const { data: courseRelationships = [] } = useQuery({
+    queryKey: ["relationships", filterCourseId],
+    queryFn: () => listRelationships(filterCourseId as string, "to"),
+    enabled: Boolean(filterCourseId),
+  });
+
+  const sessions = filterCourseId
+    ? allSessions.filter((s) =>
+        courseRelationships.some(
+          (r) => r.relationshipType === "session-course" && r.fromEntityId === s.entity.id,
+        ),
+      )
+    : allSessions;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -105,6 +134,22 @@ export function SessionsListView({ spaceId }: { spaceId: string }) {
           </span>
         </div>
       </div>
+
+      {filterCourseId && filterCourse && (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="secondary" className="gap-1 pr-1">
+            Filtered by {displayTitle(filterCourse)}
+            <button
+              type="button"
+              aria-label="Clear filter"
+              onClick={() => setView({ kind: "module", spaceId, module: "sessions" })}
+              className="rounded-full p-0.5 hover:bg-accent-foreground/10"
+            >
+              <IconX size={11} />
+            </button>
+          </Badge>
+        </div>
+      )}
 
       <div className="flex overflow-x-auto rounded-lg border border-border">
         <div className="flex min-w-[720px] flex-1">

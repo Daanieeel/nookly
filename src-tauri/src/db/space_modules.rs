@@ -1,20 +1,25 @@
 use crate::error::AppResult;
 use rusqlite::{params, Connection};
 
-/// Which module a given `entities.type` belongs to. Mirrors `MODULE_ENTITY_TYPES`
-/// in `src/lib/modules.ts` — keep the two in sync.
-pub fn module_key_for_entity_type(entity_type: &str) -> Option<&'static str> {
+/// Which module(s) a given `entities.type` belongs to. Mirrors
+/// `MODULE_ENTITY_TYPES`/`MODULE_PASSENGERS` in `src/lib/modules.ts` — keep the
+/// two in sync. Usually one module; a course also brings along `semesters`,
+/// which exists only to organize courses and is never offered as its own
+/// pick in the sidebar's "+" menu.
+pub fn module_keys_for_entity_type(entity_type: &str) -> &'static [&'static str] {
     match entity_type {
-        "task" | "sub_task" => Some("tasks"),
-        "note" => Some("notes"),
-        "jot" | "refinement" => Some("jots"),
-        "course" | "semester" => Some("courses"),
-        "session" | "session_template" => Some("sessions"),
-        "exam" | "index_card_deck" | "study_block" => Some("exams"),
-        "assignment" => Some("assignments"),
-        "file" => Some("files"),
-        "bookmark" => Some("bookmarks"),
-        _ => None,
+        "task" | "sub_task" => &["tasks"],
+        "note" => &["notes"],
+        "jot" | "refinement" => &["jots"],
+        "course" => &["courses", "semesters"],
+        "course_notes" => &["courses"],
+        "semester" => &["semesters"],
+        "session" | "session_template" => &["sessions"],
+        "exam" | "index_card_deck" | "study_block" => &["exams"],
+        "assignment" => &["assignments"],
+        "file" => &["files"],
+        "bookmark" => &["bookmarks"],
+        _ => &[],
     }
 }
 
@@ -43,7 +48,7 @@ pub fn list_space_modules(conn: &Connection, space_id: &str) -> AppResult<Vec<St
         .query_map(params![space_id], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
     for entity_type in &entity_types {
-        if let Some(module_key) = module_key_for_entity_type(entity_type) {
+        for module_key in module_keys_for_entity_type(entity_type) {
             add_space_module(conn, space_id, module_key)?;
         }
     }
@@ -93,6 +98,17 @@ mod tests {
 
         crate::db::entities::soft_delete_entity(&conn, &task.entity.id).unwrap();
         assert_eq!(list_space_modules(&conn, &space.id).unwrap(), vec!["tasks"]);
+    }
+
+    #[test]
+    fn creating_a_course_also_adds_semesters() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        crate::db::courses::create_course(&conn, space.id.clone(), "Algebra".into()).unwrap();
+
+        let mut modules = list_space_modules(&conn, &space.id).unwrap();
+        modules.sort();
+        assert_eq!(modules, vec!["courses".to_string(), "semesters".to_string()]);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::db::courses;
+use crate::db::courses::{self, Semester};
 use crate::db::entities::Entity;
 use crate::db::DbState;
 use crate::error::AppResult;
@@ -21,15 +21,28 @@ pub fn create_semester(
     state: State<DbState>,
     space_id: String,
     title: String,
-) -> AppResult<Entity> {
+    start_date: Option<String>,
+    end_date: Option<String>,
+) -> AppResult<Semester> {
     let conn = state.0.lock().unwrap();
-    courses::create_semester(&conn, space_id, title)
+    courses::create_semester(&conn, space_id, title, start_date, end_date)
 }
 
 #[tauri::command]
-pub fn list_semesters(state: State<DbState>, space_id: String) -> AppResult<Vec<Entity>> {
+pub fn list_semesters(state: State<DbState>, space_id: String) -> AppResult<Vec<Semester>> {
     let conn = state.0.lock().unwrap();
     courses::list_semesters(&conn, &space_id)
+}
+
+#[tauri::command]
+pub fn update_semester(
+    state: State<DbState>,
+    entity_id: String,
+    start_date: Option<String>,
+    end_date: Option<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    courses::update_semester(&conn, &entity_id, start_date, end_date)
 }
 
 #[tauri::command]
@@ -40,4 +53,10 @@ pub fn link_course_to_semester(
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     courses::link_course_to_semester(&conn, course_id, semester_id)
+}
+
+#[tauri::command]
+pub fn get_course_notes(state: State<DbState>, course_id: String) -> AppResult<Entity> {
+    let conn = state.0.lock().unwrap();
+    courses::get_or_create_course_notes(&conn, &course_id)
 }

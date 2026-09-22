@@ -29,7 +29,9 @@ function MainContent() {
     case "trash":
       return <TrashView />;
     case "module":
-      return <ModuleView spaceId={view.spaceId} module={view.module} />;
+      return (
+        <ModuleView spaceId={view.spaceId} module={view.module} filterCourseId={view.filterCourseId} />
+      );
     case "entity":
       return <EntityDetailRouter entityId={view.entityId} />;
   }

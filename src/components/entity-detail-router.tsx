@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AssignmentDetailView } from "@/features/assignments/AssignmentDetailView";
+import { CourseDetailView } from "@/features/courses/CourseDetailView";
 import { DeckDetailView } from "@/features/exams/DeckDetailView";
 import { ExamDetailView } from "@/features/exams/ExamDetailView";
 import { PageDetailView } from "@/features/notes/PageDetailView";
@@ -31,6 +32,8 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <DeckDetailView entity={entity} />;
     case "assignment":
       return <AssignmentDetailView entity={entity} />;
+    case "course":
+      return <CourseDetailView entity={entity} />;
     default:
       return <GenericDetailView entity={entity} />;
   }

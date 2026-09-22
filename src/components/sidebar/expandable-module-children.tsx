@@ -9,7 +9,7 @@ import { useNavStore, type ModuleKey } from "@/lib/store/nav";
 
 const MAX_CHILDREN = 5;
 
-export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["courses"]);
+export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>([]);
 
 export function ExpandableModuleChildren({
   moduleKey,

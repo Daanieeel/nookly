@@ -46,8 +46,12 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
     },
   });
 
-  const visible = relationships.filter((r) => r.relationshipType !== "attached-file");
-  const pickableTypes = types.filter((t) => t.name !== "attached-file");
+  // `course-notes` is structural and points at an entity that must stay invisible
+  // outside the Course page (§ course sub-dashboard) — never list it here, and
+  // never offer it as a linkable type from the "+" picker either.
+  const HIDDEN_TYPES = new Set(["attached-file", "course-notes"]);
+  const visible = relationships.filter((r) => !HIDDEN_TYPES.has(r.relationshipType));
+  const pickableTypes = types.filter((t) => !HIDDEN_TYPES.has(t.name));
 
   return (
     <div className="flex flex-col gap-1.5">

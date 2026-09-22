@@ -5,6 +5,7 @@ export const MODULE_KEYS = [
   "notes",
   "jots",
   "courses",
+  "semesters",
   "sessions",
   "exams",
   "assignments",
@@ -19,7 +20,7 @@ export type View =
   | { kind: "pinned" }
   | { kind: "recents" }
   | { kind: "trash" }
-  | { kind: "module"; spaceId: string; module: ModuleKey }
+  | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
 
 export interface RecentEntry {
@@ -35,6 +36,7 @@ interface NavState {
   activeSpaceId: string | null;
   paletteOpen: boolean;
   sidebarCollapsed: boolean;
+  rightSidebarCollapsed: boolean;
   recents: RecentEntry[];
   setView: (view: View) => void;
   openEntity: (entityId: string, spaceId: string) => void;
@@ -45,6 +47,7 @@ interface NavState {
   setActiveSpace: (spaceId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setRightSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 function readStoredCollapsed(): boolean {
@@ -52,6 +55,31 @@ function readStoredCollapsed(): boolean {
     return localStorage.getItem("nookly:sidebar-collapsed") === "1";
   } catch {
     return false;
+  }
+}
+
+function readStoredRightSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem("nookly:right-sidebar-collapsed") === "1";
+  } catch {
+    return false;
+  }
+}
+
+function readStoredActiveSpace(): string | null {
+  try {
+    return localStorage.getItem("nookly:active-space");
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredActiveSpace(spaceId: string | null) {
+  try {
+    if (spaceId) localStorage.setItem("nookly:active-space", spaceId);
+    else localStorage.removeItem("nookly:active-space");
+  } catch {
+    // best-effort only
   }
 }
 
@@ -76,15 +104,17 @@ function writeStoredRecents(recents: RecentEntry[]) {
 
 export const useNavStore = create<NavState>((set, get) => ({
   view: { kind: "dashboard" },
-  activeSpaceId: null,
+  activeSpaceId: readStoredActiveSpace(),
   paletteOpen: false,
   sidebarCollapsed: readStoredCollapsed(),
+  rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
   recents: readStoredRecents(),
   setView: (view) =>
-    set((state) => ({
-      view,
-      activeSpaceId: "spaceId" in view ? view.spaceId : state.activeSpaceId,
-    })),
+    set((state) => {
+      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
+      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      return { view, activeSpaceId };
+    }),
   openEntity: (entityId, spaceId) => {
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
     const recents = [entry, ...get().recents.filter((r) => r.entityId !== entityId)].slice(
@@ -92,6 +122,7 @@ export const useNavStore = create<NavState>((set, get) => ({
       MAX_RECENTS,
     );
     writeStoredRecents(recents);
+    if (spaceId !== get().activeSpaceId) writeStoredActiveSpace(spaceId);
     set({ view: { kind: "entity", entityId, spaceId }, activeSpaceId: spaceId, recents });
   },
   pruneRecents: (validIds) => {
@@ -100,7 +131,10 @@ export const useNavStore = create<NavState>((set, get) => ({
     writeStoredRecents(recents);
     set({ recents });
   },
-  setActiveSpace: (spaceId) => set({ activeSpaceId: spaceId }),
+  setActiveSpace: (spaceId) => {
+    writeStoredActiveSpace(spaceId);
+    set({ activeSpaceId: spaceId });
+  },
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     try {
@@ -109,5 +143,13 @@ export const useNavStore = create<NavState>((set, get) => ({
       // best-effort only
     }
     set({ sidebarCollapsed });
+  },
+  setRightSidebarCollapsed: (rightSidebarCollapsed) => {
+    try {
+      localStorage.setItem("nookly:right-sidebar-collapsed", rightSidebarCollapsed ? "1" : "0");
+    } catch {
+      // best-effort only
+    }
+    set({ rightSidebarCollapsed });
   },
 }));
