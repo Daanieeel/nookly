@@ -56,6 +56,11 @@
             "pattern": "^TableCell$",
             "allow": ["layout", "typography", "spacing", "color"],
             "message": "TableCell is a structural primitive with no variants - per-column text color (e.g. muted secondary data) has no other way to express itself."
+          },
+          {
+            "pattern": "^CopyButton$",
+            "allow": ["layout", "typography", "spacing", "color", "shape", "effects"],
+            "message": "CopyButton is a bare icon button with no variants - every caller (a code block's hover affordance, an inline value's copy icon, ...) needs its own chrome to fit its surroundings."
           }
         ]
       }
@@ -73,6 +78,13 @@
         "shadcn/no-restyle": "off",
         "shadcn/no-arbitrary-values": "off",
         "shadcn/require-static-classes": "off"
+      }
+    },
+    {
+      "files": ["src/features/notes/language-marks.tsx"],
+      "rules": {
+        "shadcn/no-raw-colors": "off",
+        "shadcn/no-inline-styles": "off"
       }
     }
   ]

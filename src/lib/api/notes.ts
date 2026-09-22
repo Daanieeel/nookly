@@ -40,8 +40,10 @@ export function createBlock(
   blockType: BlockType,
   content: string,
   position: number | null = null,
+  language: string | null = null,
+  filename: string | null = null,
 ): Promise<Block> {
-  return invoke("create_block", { entityId, blockType, content, position });
+  return invoke("create_block", { entityId, blockType, content, position, language, filename });
 }
 
 export function updateBlock(blockId: string, patch: BlockPatch): Promise<Block> {

@@ -9,7 +9,7 @@ Every block type (standard or custom) MUST implement markdown-serialization meth
 
 ## v1 Scope
 
-Ship standard blocks only: paragraph, headings, lists, code, quote, image, embed.
+Ship standard blocks only: paragraph, headings, lists, code, quote, table, image, embed.
 Custom block architecture built extensible, but actual custom blocks = future module-extension point. Not built now.
 
 ## Universal Markdown

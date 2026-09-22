@@ -169,6 +169,7 @@ fn dispatch(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
 
     match head.as_str() {
         "help" | "--help" | "-h" => Ok(top_level_help()),
+        "agent-instructions" => Ok(agent_instructions()),
         "schema" => Ok(schema_all()),
         "describe" => {
             let args = parse_args(&argv[1..]);
@@ -209,10 +210,11 @@ fn top_level_help() -> Value {
             "delete": "nookly cli <entity-type> delete <id> --yes  (soft delete only — goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
             "blocks": "note/jot/refinement only (`describe <type>` reports supportsBlocks) — full block editing: \
-                       `nookly cli <type> blocks <id>`, `add-block <id> --type <t> --content <c>`, \
-                       `update-block <block-id> [--content <c>] [--type <t>]`, `delete-block <block-id> --yes`, \
-                       `reorder-blocks <id> <block-id> <block-id> ...`. See `describe note` for the full list \
-                       of known block types.",
+                       `nookly cli <type> blocks <id>`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>]`, \
+                       `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]`, \
+                       `delete-block <block-id> --yes`, `reorder-blocks <id> <block-id> <block-id> ...`. \
+                       `--language`/`--filename` are the code block header row and only apply to `type=code`. \
+                       See `describe note` for the full list of known block types.",
         },
         "coreCommands": {
             "relate": "nookly cli relate <from-id> <relationship-type> <to-id> --yes",
@@ -222,9 +224,154 @@ fn top_level_help() -> Value {
             "schema": "nookly cli schema  (the whole data model: every entity type + relationship type)",
             "space": "nookly cli space <list|create|update|delete> ...",
             "label": "nookly cli label <list|create|delete|attach|detach> ...",
+            "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
+                                   agent that's never used this CLI before — start here, not with \
+                                   this --help output, if this is your first call)",
         },
     })
 }
+
+/// A prose onboarding doc for a coding agent that's never touched this CLI before — `--help`/
+/// `schema` are structural references (commands, fields, types), useful once you already know
+/// the shape of the thing; this is meant to be read start-to-end *first*, the way a human would
+/// read a README before a man page. Still returned as `{"markdown": "..."}` JSON, not printed
+/// raw — this CLI's one hard invariant (see the module doc comment) is JSON on stdout, always.
+fn agent_instructions() -> Value {
+    json!({ "markdown": AGENT_INSTRUCTIONS_MARKDOWN })
+}
+
+const AGENT_INSTRUCTIONS_MARKDOWN: &str = r##"# Nookly CLI — agent guide
+
+Nookly is a personal life-organizer app (Notes, Tasks, Courses, Exams, ...). This CLI
+(`nookly cli ...`) is a full read/write interface to the same data the desktop app shows,
+built entirely on one generic pattern — there is no hand-written command for any specific
+entity type. That means:
+
+- Every command's output is JSON on stdout, always (pretty-printed on a TTY, compact when
+  piped) — parse it, don't scrape it.
+- Every mutating command is non-interactive: pass `--yes` instead of expecting a confirmation
+  prompt (you'll get an error telling you to add it if you forget).
+- Errors are JSON on stderr, `{"error": {"kind": ..., "message": ...}}`, with a non-zero exit
+  code — the `message` is usually specific enough to fix the call and retry.
+- Deleting an entity is *always* a soft delete (goes to Trash, `restore`-able) except `space
+  delete`, which is genuinely permanent and takes every entity inside it with it.
+
+## Step 1: discover the data model, don't guess it
+
+Run `nookly cli schema` before doing anything else. It dumps every entity type this app
+knows about, each one's fields, and every relationship type, in one call. `nookly cli
+describe <entity-type>` gives you the same detail for just one type. Both are cheap,
+read-only, and always reflect the actual running app — newer than whatever's in your
+training data or memory of a past session. If you're about to guess a field name or a
+relationship type, run one of these instead.
+
+## The generic entity pattern
+
+Almost everything is one of:
+
+```
+nookly cli <entity-type> list [--space <id>] [--include-deleted]
+nookly cli <entity-type> get <id>                    # includes relationships + labels
+nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
+nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]
+nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, not permanent
+nookly cli <entity-type> restore <id>
+```
+
+`--field` is for whatever extra fields that *specific* entity type declares beyond the
+universal ones (title/icon/pinned) — `describe <entity-type>` lists exactly which field names
+are valid and whether each is settable on create, update, or both. Passing an unknown field
+name is an error, not a silent no-op.
+
+## Notes, Jots, Refinements: block-based pages, not a markdown blob
+
+`note`, `jot`, and `refinement` are "pages" — their content is a sequence of typed blocks
+(heading, paragraph, code, list, table, ...), not one big string. **There is no `--field
+body=<markdown>` shortcut** — an earlier version of this CLI had one, and it was removed
+deliberately, because it let agents skip ever learning the real block commands (and a
+`code` block built that way had no way to get a language or filename). If you try it, the
+error message tells you this and points back here.
+
+Build a page's content with:
+
+```
+nookly cli <type> blocks <id>                                                    # list blocks in order
+nookly cli <type> add-block <id> --type <blockType> --content <text> [--position <n>] [--language <l>] [--filename <f>]
+nookly cli <type> update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]
+nookly cli <type> delete-block <block-id> --yes
+nookly cli <type> reorder-blocks <id> <block-id> <block-id> ...
+```
+
+One call per element — a heading, a paragraph, a code block, one list, one table — not one
+call with a whole document jammed into `--content`. `describe <type>` lists every known
+`blockType`. If you land a `paragraph` block whose content still looks like a whole unsplit
+document (headings, fences, several paragraphs), the response carries an advisory `warning`
+telling you to split it — the write still succeeds, but fix it before moving on.
+
+### Code blocks: `--language` and `--filename`
+
+A `code` block's header row in the editor shows a filename and a syntax-highlighting
+language. Both are plain flags, not buried in `--field`:
+
+```
+nookly cli note add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js
+```
+
+`--language` is a highlight.js grammar name (`javascript`, `typescript`, `python`, `rust`,
+`jsonc`, ... — anything is accepted, but only a recognized grammar actually highlights).
+Omit it (or pass `--language ""` on `update-block`) for plain, unhighlighted text. Same
+`""`-clears convention for `--filename`.
+
+### Tables: tabs and newlines, NOT markdown pipe syntax
+
+A `table` block's `--content` is rows separated by `\n`, cells within a row separated by a
+literal tab character, first row is the header, no separator row. It is **not** the
+`| a | b |` / `|---|---|` markdown table syntax you'd write in a `.md` file — that's an easy,
+natural mistake, and this CLI auto-detects it and converts it for you, but you'll get an
+advisory `warning` back when that happens. Prefer real tabs from the start:
+
+```
+nookly cli note add-block <id> --type table --content "$(printf 'Name\tAge\nAlice\t30\nBob\t25')"
+```
+
+## Relationships and search
+
+Relationships link any two entities (or, for Notes, individual blocks) with a typed edge —
+`relates-to`, `blocks`, or a module-specific type (`schema` lists every relationship type
+that exists):
+
+```
+nookly cli relate <from-id> <relationship-type> <to-id> --yes
+nookly cli unrelate <relationship-id> --yes
+nookly cli search <query> [--space <id>]              # full-text, across every entity type
+```
+
+## Spaces and Labels
+
+A Space is a top-level workspace (everything else lives inside exactly one). Labels are
+freeform tags, siloed per Space (the same label name in two Spaces is two separate labels):
+
+```
+nookly cli space <list|create|update|delete> ...      # space delete is PERMANENT, no Trash
+nookly cli label <list|create|delete|attach|detach> ...
+```
+
+Run `nookly cli space` or `nookly cli label` with no further arguments for the exact flags
+each verb takes.
+
+## A worked example, start to finish
+
+```
+SPACE=$(nookly cli space create --name "Scratch" --color "#3b82f6" | jq -r .id)
+NOTE=$(nookly cli note create --space "$SPACE" --title "Example" | jq -r .data.entity.id)
+nookly cli note add-block "$NOTE" --type heading1 --content "Example"
+nookly cli note add-block "$NOTE" --type paragraph --content "A short intro paragraph."
+nookly cli note add-block "$NOTE" --type code --content 'const x = 1;' --language javascript --filename app.js
+nookly cli note get "$NOTE" | jq -r .data.body      # the rendered markdown, for a sanity check
+```
+
+(Real shells: prefer `jq` for parsing rather than regex/string-splitting the JSON.)
+"##;
 
 fn schema_all() -> Value {
     let entity_types: Vec<Value> = schema::all()
@@ -262,6 +409,21 @@ fn validate_fields(
     let known: HashMap<_, _> = def.fields.iter().map(|f| (f.name, f)).collect();
     for key in fields.keys() {
         if !known.contains_key(key.as_str()) {
+            // `body` is the one unknown-field name worth a dedicated message: it's not a typo,
+            // it's someone reaching for a removed shortcut (`--field body=<markdown>`) that used
+            // to parse a whole document at once. Point at the real workflow instead of just
+            // reporting an empty "Known fields:" list, which explains nothing about *why* a
+            // blocks-backed page has no fields at all.
+            if key == "body" && def.supports_blocks {
+                return Err(AppError::InvalidInput(format!(
+                    "'{entity_type}' has no 'body' field — its content is built from real blocks, not \
+                     one markdown string. Add each element (heading, paragraph, code, ...) with its own \
+                     `nookly cli {entity_type} add-block <id> --type <blockType> --content <text>` call \
+                     (run `nookly cli describe {entity_type}` for knownBlockTypes), then `update-block`/ \
+                     `reorder-blocks` to edit or reorder afterward. For a 'code' block, also pass \
+                     --language/--filename to fill in the editor's syntax-highlighted header."
+                )));
+            }
             let names: Vec<&str> = def.fields.iter().map(|f| f.name).collect();
             return Err(AppError::InvalidInput(format!(
                 "unknown field '{key}' for entity type '{entity_type}'. Known fields: {}. \
@@ -414,17 +576,44 @@ fn block_command(
             let block_type = args.require_flag("type")?;
             let content = args.require_flag("content")?;
             let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
-            let block = crate::db::notes::create_block(conn, &id, block_type, content, position)?;
-            Ok(json!({ "pageId": id, "block": block }))
+            // `--language`/`--filename` only mean anything on a `code` block (the
+            // markdown editor's code block header row) — harmless no-ops on any other type.
+            let language = args.flag("language");
+            let filename = args.flag("filename");
+            let submitted_content = content.clone();
+            let block = crate::db::notes::create_block(
+                conn, &id, block_type, content, position, language, filename,
+            )?;
+            let mut result = json!({ "pageId": id, "block": block.clone() });
+            if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &id, &block)? {
+                result["warning"] = json!(warning);
+            }
+            if let Some(warning) = table_normalize_warning(&block, &submitted_content) {
+                result["warning"] = json!(warning);
+            }
+            Ok(result)
         }
         "update-block" => {
             let block_id = args.require_positional(0, "block-id")?;
+            let submitted_content = args.flag("content");
             let patch = crate::db::notes::BlockPatch {
-                content: args.flag("content"),
+                content: submitted_content.clone(),
                 block_type: args.flag("type"),
+                language: args.flag("language"),
+                filename: args.flag("filename"),
             };
             let block = crate::db::notes::update_block(conn, &block_id, patch)?;
-            Ok(json!({ "block": block }))
+            let mut result = json!({ "block": block.clone() });
+            if let Some(submitted) = &submitted_content {
+                if let Some(warning) = table_normalize_warning(&block, submitted) {
+                    result["warning"] = json!(warning);
+                }
+            }
+            let page_id = block.entity_id.clone();
+            if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &page_id, &block)? {
+                result["warning"] = json!(warning);
+            }
+            Ok(result)
         }
         "delete-block" => {
             let block_id = args.require_positional(0, "block-id")?;
@@ -448,6 +637,79 @@ fn block_command(
         }
         _ => unreachable!("dispatch guarantees verb is one of the block commands"),
     }
+}
+
+/// Nudges an agent that just landed a `paragraph` block whose content still
+/// looks like an unsplit markdown document — the recurring mistake this
+/// exists to catch: `add-block`/`update-block` store `content` verbatim, with
+/// no parsing, so `#`/`- `/`` ``` `` etc. inside a `paragraph` render as
+/// literal text, not real headings/lists/code. There is no `--field body=...`
+/// shortcut that parses structure for you (removed deliberately — it let
+/// agents skip learning `add-block`/`update-block`, e.g. a `code` block made
+/// this way had no way to get a `--language`/`--filename` header); the fix is
+/// always one add-block/update-block call per element.
+/// Never blocks the write; only attaches an advisory `warning` to the JSON
+/// result. Silent when the page has no *other* blocks yet, since a single
+/// plain-text paragraph page is a normal, intentional shape.
+/// Flags when `db::notes::normalize_table_content` (called unconditionally inside
+/// `create_block`/`update_block` for any `table` block) actually rewrote what was submitted —
+/// i.e. the caller typed a markdown pipe table (`| a | b |` rows) instead of this app's real
+/// tab-delimited format, and got a silent auto-correction instead of an error. Purely advisory,
+/// same as `paragraph_mistake_warning`: the write already succeeded either way.
+fn table_normalize_warning(block: &crate::db::notes::Block, submitted_content: &str) -> Option<String> {
+    if block.block_type != "table" || block.content == submitted_content {
+        return None;
+    }
+    Some(
+        "content looked like a markdown pipe table ('| a | b |' rows, optionally with a \
+         '|---|---|' separator) and was auto-converted to this app's real table format: rows \
+         separated by '\\n', cells within a row separated by a literal tab character, first row \
+         the header, no separator row. Verify with `blocks <id>` or `get <id>` — if this wasn't \
+         intended, resubmit with real tabs between cells."
+            .to_string(),
+    )
+}
+
+fn paragraph_mistake_warning(
+    conn: &Connection,
+    entity_type: &str,
+    page_id: &str,
+    block: &crate::db::notes::Block,
+) -> AppResult<Option<String>> {
+    if block.block_type != "paragraph" || !looks_like_unsplit_markdown(&block.content) {
+        return Ok(None);
+    }
+    let total = crate::db::notes::list_blocks(conn, page_id)?.len();
+    if total <= 1 {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "This page has {total} blocks, and this paragraph's content still looks like a whole \
+         unsplit markdown document (headings, lists, quotes, code fences, or several blank-line- \
+         separated paragraphs). A 'paragraph' block renders its content as literal text — '#', \
+         '- ', '> ', and ``` fences will NOT become real headings/lists/quotes/code. Issue one \
+         add-block/update-block call per element instead, with the matching --type (run \
+         `nookly cli describe {entity_type}` for knownBlockTypes) — for a 'code' block, also set \
+         --language/--filename for the editor's syntax-highlighted header."
+    )))
+}
+
+/// A rough, deliberately over-inclusive heuristic (false positives just mean
+/// an unnecessary warning, never a blocked write): any line that opens with a
+/// heading/list/quote/fence marker, a blank-line paragraph break, or content
+/// long enough that a human almost certainly meant more than one block.
+fn looks_like_unsplit_markdown(content: &str) -> bool {
+    let has_structural_line = content.lines().any(|line| {
+        let t = line.trim_start();
+        t.starts_with("# ")
+            || t.starts_with("## ")
+            || t.starts_with("### ")
+            || t.starts_with("> ")
+            || t.starts_with("- ")
+            || t.starts_with("* ")
+            || t.starts_with("```")
+    });
+    has_structural_line || content.contains("\n\n") || content.len() > 500
 }
 
 fn extract_id(data: &Value) -> AppResult<String> {

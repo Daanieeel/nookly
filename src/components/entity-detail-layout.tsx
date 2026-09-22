@@ -133,10 +133,10 @@ export function EntityDetailLayout({
         </div>
       )}
       <div
-        className={`flex min-w-0 flex-1 ${isDeleted ? "opacity-50" : ""}`}
+        className={`flex min-h-0 min-w-0 flex-1 ${isDeleted ? "opacity-50" : ""}`}
         inert={isDeleted || undefined}
       >
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
             <IconPicker
               value={entity.icon}
@@ -177,7 +177,7 @@ export function EntityDetailLayout({
               <TooltipContent>Move to Trash</TooltipContent>
             </Tooltip>
           </div>
-          <div className="min-w-0 flex-1 p-4">{children}</div>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">{children}</div>
         </div>
         <RightSidebar entity={entity} />
       </div>

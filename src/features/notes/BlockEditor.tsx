@@ -1,4 +1,5 @@
 import Placeholder from "@tiptap/extension-placeholder";
+import { TableKit } from "@tiptap/extension-table";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,8 +9,11 @@ import { createBlock, deleteBlock, listBlocks, reorderBlocks, updateBlock } from
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
+import { CodeBlockWithHeader } from "./code-block-extension";
+import { lowlight } from "./lowlight";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
+import { TableControls } from "./TableControls";
 import { UniqueBlockId } from "./unique-block-id";
 
 const DEBOUNCE_MS = 600;
@@ -50,7 +54,12 @@ export function BlockEditor({
   /// Client-generated `blockId` (assigned by `UniqueBlockId`) -> server block id.
   /// Pre-existing blocks bootstrap this as an identity mapping (§ notes rewrite).
   const idMapRef = useRef(new Map<string, string>());
-  const persistedRef = useRef(new Map<string, { content: string; blockType: string }>());
+  const persistedRef = useRef(
+    new Map<
+      string,
+      { content: string; blockType: string; language?: string; filename?: string }
+    >(),
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingNodesRef = useRef<JSONNode[] | null>(null);
 
@@ -73,16 +82,45 @@ export function BlockEditor({
 
       for (const input of inputs) {
         const prior = previous.get(input.blockId);
+        const meta = { content: input.content, blockType: input.blockType };
         if (!prior) {
-          const created = await createBlock(entityId, input.blockType, input.content, null);
+          const created = await createBlock(
+            entityId,
+            input.blockType,
+            input.content,
+            null,
+            input.language ?? null,
+            input.filename ?? null,
+          );
           idMap.set(input.blockId, created.id);
-          previous.set(input.blockId, { content: input.content, blockType: input.blockType });
-        } else if (prior.content !== input.content || prior.blockType !== input.blockType) {
+          previous.set(input.blockId, {
+            ...meta,
+            language: input.language,
+            filename: input.filename,
+          });
+        } else if (
+          prior.content !== input.content ||
+          prior.blockType !== input.blockType ||
+          prior.language !== input.language ||
+          prior.filename !== input.filename
+        ) {
           const serverId = idMap.get(input.blockId);
           if (serverId) {
-            await updateBlock(serverId, { content: input.content, blockType: input.blockType });
+            await updateBlock(serverId, {
+              content: input.content,
+              blockType: input.blockType,
+              // Header edits on a `code` block only — `""` clears the field.
+              ...(input.blockType === "code" && {
+                language: input.language ?? "",
+                filename: input.filename ?? "",
+              }),
+            });
           }
-          previous.set(input.blockId, { content: input.content, blockType: input.blockType });
+          previous.set(input.blockId, {
+            ...meta,
+            language: input.language,
+            filename: input.filename,
+          });
         }
       }
 
@@ -116,8 +154,15 @@ export function BlockEditor({
           autolink: false,
           protocols: [{ scheme: "mention", optionalSlashes: true }],
         },
+        // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
+        codeBlock: false,
       }),
+      // `defaultLanguage: "plaintext"` — not omitted — is what stops a code block with no
+      // language chosen from falling back to `lowlight.highlightAuto`, which guesses a language
+      // from ordinary prose and colors words that happen to look like keywords.
+      CodeBlockWithHeader.configure({ lowlight, defaultLanguage: "plaintext" }),
       Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
+      TableKit.configure({ table: { resizable: true } }),
       UniqueBlockId,
       SlashCommand,
       Mention.configure({ getEntities: () => entitiesRef.current }),
@@ -154,7 +199,12 @@ export function BlockEditor({
     hydratedRef.current = true;
     for (const block of blocks) {
       idMapRef.current.set(block.id, block.id);
-      persistedRef.current.set(block.id, { content: block.content, blockType: block.blockType });
+      persistedRef.current.set(block.id, {
+        content: block.content,
+        blockType: block.blockType,
+        language: block.language ?? undefined,
+        filename: block.filename ?? undefined,
+      });
     }
     const content = blocks.length > 0 ? blocks.map(blockToNode) : [{ type: "paragraph" }];
     editor.commands.setContent({ type: "doc", content });
@@ -167,5 +217,10 @@ export function BlockEditor({
     [],
   );
 
-  return <EditorContent editor={editor} />;
+  return (
+    <div className="relative">
+      <TableControls editor={editor} />
+      <EditorContent editor={editor} />
+    </div>
+  );
 }

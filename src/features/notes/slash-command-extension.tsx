@@ -7,6 +7,7 @@ import {
   IconListNumbers,
   IconLetterCase,
   IconQuote,
+  IconTable,
 } from "@tabler/icons-react";
 import { PluginKey } from "@tiptap/pm/state";
 import type { Editor, Range } from "@tiptap/react";
@@ -73,6 +74,18 @@ const SLASH_ITEMS: SlashItem[] = [
     description: "A block of preformatted code",
     icon: <IconCode size={15} />,
     run: (editor, range) => editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
+  },
+  {
+    title: "Table",
+    description: "A 3x3 grid of cells",
+    icon: <IconTable size={15} />,
+    run: (editor, range) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+        .run(),
   },
 ];
 

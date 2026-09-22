@@ -1,5 +1,5 @@
 use crate::db::entities::{row_to_entity, Entity};
-use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
+use crate::db::schema::{CreateInput, EntitySchemaDef, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -12,6 +12,10 @@ pub struct Block {
     pub position: i64,
     pub block_type: String,
     pub content: String,
+    /// Header row metadata on a `code` block only (highlight.js grammar name +
+    /// display filename) — always `None` for every other block type.
+    pub language: Option<String>,
+    pub filename: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -23,6 +27,8 @@ fn row_to_block(row: &rusqlite::Row) -> rusqlite::Result<Block> {
         position: row.get("position")?,
         block_type: row.get("block_type")?,
         content: row.get("content")?,
+        language: row.get("language")?,
+        filename: row.get("filename")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -111,13 +117,73 @@ pub fn list_mentioning_entities(conn: &Connection, entity_id: &str) -> AppResult
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// A `table` block's real content format is rows joined by `\n`, cells within a row joined by
+/// a literal tab (`block_to_markdown`'s "table" arm splits on exactly that) — not markdown pipe
+/// syntax. Typing `| a | b |` rows (optionally with a `|---|---|` separator) is an easy, natural
+/// mistake from the CLI, and previously failed silently: splitting a tab-free `| a | b |` line
+/// on `\t` just returns that whole line as one column, so the table renders with a single
+/// garbage column instead of erroring. Detected here and converted automatically instead.
+/// Returns `(content, true)` if it actually converted something, `(content, false)` (the input,
+/// untouched) if `content` didn't look like a markdown table to begin with.
+pub fn normalize_table_content(content: &str) -> (String, bool) {
+    let mut lines = content.lines();
+    let Some(first) = lines.next() else {
+        return (content.to_string(), false);
+    };
+    if !is_table_row(first) {
+        return (content.to_string(), false);
+    }
+    let mut rows = vec![parse_table_row(first).join("\t")];
+    for line in lines {
+        if line.trim().is_empty() || is_table_separator(line) {
+            continue;
+        }
+        if !is_table_row(line) {
+            // Doesn't actually look like a markdown table after all — bail out and keep the
+            // original content untouched rather than guessing.
+            return (content.to_string(), false);
+        }
+        rows.push(parse_table_row(line).join("\t"));
+    }
+    (rows.join("\n"), true)
+}
+
+/// A markdown table row: starts and ends with `|` once trimmed.
+fn is_table_row(line: &str) -> bool {
+    let t = line.trim();
+    t.len() >= 2 && t.starts_with('|') && t.ends_with('|')
+}
+
+/// The `|---|:---:|---|`-style separator row that must follow a table header —
+/// only `-`, `:`, `|` and whitespace, with at least one `-` (so a lone `||`
+/// data row isn't mistaken for one).
+fn is_table_separator(line: &str) -> bool {
+    let t = line.trim();
+    !t.is_empty() && t.contains('-') && t.chars().all(|c| matches!(c, '|' | '-' | ':' | ' '))
+}
+
+/// Splits one `| a | b | c |` row into its trimmed cell strings.
+fn parse_table_row(line: &str) -> Vec<String> {
+    let t = line.trim();
+    let inner = t.strip_prefix('|').unwrap_or(t);
+    let inner = inner.strip_suffix('|').unwrap_or(inner);
+    inner.split('|').map(|cell| cell.trim().to_string()).collect()
+}
+
 pub fn create_block(
     conn: &Connection,
     entity_id: &str,
     block_type: String,
     content: String,
     position: Option<i64>,
+    language: Option<String>,
+    filename: Option<String>,
 ) -> AppResult<Block> {
+    let content = if block_type == "table" {
+        normalize_table_content(&content).0
+    } else {
+        content
+    };
     let position = match position {
         Some(p) => p,
         None => {
@@ -132,9 +198,9 @@ pub fn create_block(
     let id = super::new_id();
     let now = super::now();
     conn.execute(
-        "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
-        params![id, entity_id, position, block_type, content, now],
+        "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+        params![id, entity_id, position, block_type, content, language, filename, now],
     )?;
     reindex_page(conn, entity_id)?;
     Ok(Block {
@@ -143,6 +209,8 @@ pub fn create_block(
         position,
         block_type,
         content,
+        language,
+        filename,
         created_at: now.clone(),
         updated_at: now,
     })
@@ -155,6 +223,10 @@ pub struct BlockPatch {
     /// `Some` retypes the block (e.g. a paragraph turned into a heading by an
     /// editor shortcut) — this never moves content between blocks, only relabels one.
     pub block_type: Option<String>,
+    /// `Some("")` clears the field to `NULL`; `Some(nonEmpty)` sets it; `None`
+    /// leaves it untouched. Only ever meaningful on a `code` block.
+    pub language: Option<String>,
+    pub filename: Option<String>,
 }
 
 pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> AppResult<Block> {
@@ -171,10 +243,19 @@ pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> App
     if let Some(block_type) = patch.block_type {
         block.block_type = block_type;
     }
+    if let Some(language) = patch.language {
+        block.language = (!language.is_empty()).then_some(language);
+    }
+    if let Some(filename) = patch.filename {
+        block.filename = (!filename.is_empty()).then_some(filename);
+    }
+    if block.block_type == "table" {
+        block.content = normalize_table_content(&block.content).0;
+    }
     let now = super::now();
     conn.execute(
-        "UPDATE blocks SET content = ?1, block_type = ?2, updated_at = ?3 WHERE id = ?4",
-        params![block.content, block.block_type, now, block_id],
+        "UPDATE blocks SET content = ?1, block_type = ?2, language = ?3, filename = ?4, updated_at = ?5 WHERE id = ?6",
+        params![block.content, block.block_type, block.language, block.filename, now, block_id],
     )?;
     block.updated_at = now;
     reindex_page(conn, &block.entity_id)?;
@@ -220,7 +301,16 @@ pub fn block_to_markdown(block: &Block) -> String {
             .map(|l| format!("> {l}"))
             .collect::<Vec<_>>()
             .join("\n"),
-        "code" => format!("```\n{}\n```", block.content),
+        "code" => {
+            let mut info = block.language.clone().unwrap_or_default();
+            if let Some(filename) = &block.filename {
+                if !info.is_empty() {
+                    info.push(' ');
+                }
+                info.push_str(&format!("filename=\"{filename}\""));
+            }
+            format!("```{info}\n{}\n```", block.content)
+        }
         "bulleted_list" => block
             .content
             .lines()
@@ -236,6 +326,28 @@ pub fn block_to_markdown(block: &Block) -> String {
             .join("\n"),
         "image" => format!("![]({})", block.content),
         "embed" => format!("[embed]({})", block.content),
+        // `content` is rows joined by "\n", cells within a row joined by "\t"
+        // (§ table block), first row is the header — the editor's own storage
+        // shape, not markdown; this is the one place it becomes real markdown.
+        "table" => {
+            let mut lines = block.content.lines();
+            let Some(header) = lines.next() else {
+                return String::new();
+            };
+            let header_cells: Vec<&str> = header.split('\t').collect();
+            let mut out = format!("| {} |", header_cells.join(" | "));
+            out.push('\n');
+            out.push_str(&format!(
+                "|{}|",
+                header_cells.iter().map(|_| "---").collect::<Vec<_>>().join("|")
+            ));
+            for row in lines {
+                let cells: Vec<&str> = row.split('\t').collect();
+                out.push('\n');
+                out.push_str(&format!("| {} |", cells.join(" | ")));
+            }
+            out
+        }
         _ => block.content.clone(),
     }
 }
@@ -270,44 +382,18 @@ pub fn list_pages(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Wholesale replace of a page's body with a single paragraph block (or empty,
-/// clearing it) — the CLI's `--field body=...` update semantics ("this value
-/// replaces what's stored"), not an append. Full block-level editing (multiple
-/// blocks, headings, etc.) stays a GUI-only capability.
-pub fn set_body(conn: &Connection, entity_id: &str, body: &str) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM blocks WHERE entity_id = ?1",
-        params![entity_id],
-    )?;
-    if !body.is_empty() {
-        create_block(
-            conn,
-            entity_id,
-            "paragraph".into(),
-            body.to_string(),
-            Some(0),
-        )?;
-    } else {
-        reindex_page(conn, entity_id)?;
-    }
-    Ok(())
-}
-
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
 //
 // Notes, Jots and Refinements (§5.2/§5.3) are all "page" entities backed by
 // the same block storage, distinguished only by `entities.type`. One set of
 // adapters, three registrations.
 
-const PAGE_FIELDS: &[FieldDef] = &[FieldDef {
-    name: "body",
-    kind: FieldKind::LongText,
-    required_on_create: false,
-    writable_on_update: true,
-    description: "Plain-text/markdown body. Setting it replaces the page's entire content \
-                  (stored as a single block) — this is not an append.",
-}];
-
+/// Pages (Notes/Jots/Refinements) have no `--field` values of their own — deliberately: an
+/// earlier revision offered `--field body=<markdown>` as a shortcut past the real block
+/// commands, and agents reached for it instead of ever learning `add-block`/`update-block`
+/// (so e.g. a `code` block created this way had no way to get a `--language`/`--filename`
+/// header). `blocks`/`add-block`/`update-block`/... (`cli::block_command`) are the only way
+/// to write page content from the CLI now.
 fn cli_get_page(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     let entity = crate::db::entities::get_entity(conn, id)?;
     let body = render_page_markdown(conn, id)?;
@@ -319,19 +405,11 @@ fn cli_create_page(
 ) -> impl Fn(&Connection, CreateInput) -> AppResult<serde_json::Value> {
     move |conn, input| {
         let entity = create_page(conn, input.space_id, page_type, input.title)?;
-        if let Some(body) = crate::db::schema::field_str(&input.fields, "body") {
-            if !body.is_empty() {
-                create_block(conn, &entity.id, "paragraph".into(), body, Some(0))?;
-            }
-        }
         cli_get_page(conn, &entity.id)
     }
 }
 
-fn cli_update_page(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
-    if let Some(body) = crate::db::schema::field_str(fields, "body") {
-        set_body(conn, id, &body)?;
-    }
+fn cli_update_page(conn: &Connection, id: &str, _fields: &JsonMap) -> AppResult<serde_json::Value> {
     cli_get_page(conn, id)
 }
 
@@ -385,7 +463,7 @@ inventory::submit! {
         entity_type: "note",
         supports_blocks: true,
         description: "A free-form page of block content.",
-        fields: PAGE_FIELDS,
+        fields: &[],
         relationship_types: &["relates-to", "attached-file"],
         create: cli_create_note,
         update: cli_update_page,
@@ -399,7 +477,7 @@ inventory::submit! {
         entity_type: "jot",
         supports_blocks: true,
         description: "A quick, unrefined capture. Link to a `refinement` via `relates-to` once processed.",
-        fields: PAGE_FIELDS,
+        fields: &[],
         relationship_types: &["relates-to"],
         create: cli_create_jot,
         update: cli_update_page,
@@ -413,7 +491,7 @@ inventory::submit! {
         entity_type: "refinement",
         supports_blocks: true,
         description: "A processed/cleaned-up write-up, usually linked from one or more Jots.",
-        fields: PAGE_FIELDS,
+        fields: &[],
         relationship_types: &["relates-to"],
         create: cli_create_refinement,
         update: cli_update_page,
@@ -436,21 +514,33 @@ mod tests {
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
 
-        create_block(&conn, &page.id, "heading1".into(), "Intro".into(), None).unwrap();
+        create_block(&conn, &page.id, "heading1".into(), "Intro".into(), None, None, None)
+            .unwrap();
         create_block(
             &conn,
             &page.id,
             "paragraph".into(),
             "Some text.".into(),
             None,
+            None,
+            None,
         )
         .unwrap();
-        create_block(&conn, &page.id, "code".into(), "fn main() {}".into(), None).unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "code".into(),
+            "fn main() {}".into(),
+            None,
+            Some("rust".into()),
+            Some("main.rs".into()),
+        )
+        .unwrap();
 
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
         assert!(markdown.contains("# Intro"));
         assert!(markdown.contains("Some text."));
-        assert!(markdown.contains("```\nfn main() {}\n```"));
+        assert!(markdown.contains("```rust filename=\"main.rs\"\nfn main() {}\n```"));
     }
 
     #[test]
@@ -463,10 +553,26 @@ mod tests {
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
 
-        let first =
-            create_block(&conn, &page.id, "paragraph".into(), "First".into(), None).unwrap();
-        let second =
-            create_block(&conn, &page.id, "paragraph".into(), "Second".into(), None).unwrap();
+        let first = create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "First".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let second = create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "Second".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         reorder_blocks(&conn, &page.id, vec![second.id, first.id]).unwrap();
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
@@ -482,8 +588,16 @@ mod tests {
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
-        let block =
-            create_block(&conn, &page.id, "paragraph".into(), "Intro".into(), None).unwrap();
+        let block = create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "Intro".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let content_only = update_block(
             &conn,
@@ -491,6 +605,8 @@ mod tests {
             BlockPatch {
                 content: Some("Intro.".into()),
                 block_type: None,
+                language: None,
+                filename: None,
             },
         )
         .unwrap();
@@ -503,6 +619,8 @@ mod tests {
             BlockPatch {
                 content: None,
                 block_type: Some("heading1".into()),
+                language: None,
+                filename: None,
             },
         )
         .unwrap();
@@ -530,6 +648,8 @@ mod tests {
             "paragraph".into(),
             format!("See [Target](mention:{})", target.id),
             None,
+            None,
+            None,
         )
         .unwrap();
         create_block(
@@ -537,6 +657,8 @@ mod tests {
             &deleted_mentioner.id,
             "paragraph".into(),
             format!("See [Target](mention:{})", target.id),
+            None,
+            None,
             None,
         )
         .unwrap();
@@ -546,6 +668,8 @@ mod tests {
             "paragraph".into(),
             "No links here".into(),
             None,
+            None,
+            None,
         )
         .unwrap();
         crate::db::entities::soft_delete_entity(&conn, &deleted_mentioner.id).unwrap();
@@ -553,5 +677,29 @@ mod tests {
         let mentioning = list_mentioning_entities(&conn, &target.id).unwrap();
         assert_eq!(mentioning.len(), 1);
         assert_eq!(mentioning[0].id, mentioner.id);
+    }
+
+    #[test]
+    fn block_to_markdown_renders_a_table_block() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let page = create_page(&conn, space.id, "note", "Doc".into()).unwrap();
+        let block = create_block(
+            &conn,
+            &page.id,
+            "table".into(),
+            "Name\tAge\nAlice\t30\nBob\t25".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let markdown = block_to_markdown(&block);
+        assert_eq!(markdown, "| Name | Age |\n|---|---|\n| Alice | 30 |\n| Bob | 25 |");
     }
 }

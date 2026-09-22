@@ -20,6 +20,10 @@ export interface BlockInput {
   blockId: string;
   blockType: BlockType;
   content: string;
+  /// Only ever set when `blockType` is `"code"` — the header row's language
+  /// select + filename input, read back off the `codeBlock` node's attrs.
+  language?: string;
+  filename?: string;
 }
 
 function isString(value: JSONAttrValue | undefined): value is string {
@@ -30,7 +34,7 @@ function isNumber(value: JSONAttrValue | undefined): value is number {
   return typeof value === "number";
 }
 
-function asString(value: JSONAttrValue | undefined): string | undefined {
+export function asString(value: JSONAttrValue | undefined): string | undefined {
   return isString(value) ? value : undefined;
 }
 
@@ -118,7 +122,7 @@ export function blockToNode(block: Block): JSONNode {
     case "code":
       return {
         type: "codeBlock",
-        attrs: { blockId },
+        attrs: { blockId, language: block.language, filename: block.filename },
         content: block.content ? [{ type: "text", text: block.content }] : undefined,
       };
     case "bulleted_list":
@@ -130,6 +134,20 @@ export function blockToNode(block: Block): JSONNode {
         content: lines.map((line) => ({
           type: "listItem",
           content: [{ type: "paragraph", content: nonEmpty(decodeInline(line)) }],
+        })),
+      };
+    }
+    case "table": {
+      const rows = block.content.length > 0 ? block.content.split("\n") : [""];
+      return {
+        type: "table",
+        attrs: { blockId },
+        content: rows.map((row, rowIndex) => ({
+          type: "tableRow",
+          content: row.split("\t").map((cell) => ({
+            type: rowIndex === 0 ? "tableHeader" : "tableCell",
+            content: [{ type: "paragraph", content: nonEmpty(decodeInline(cell)) }],
+          })),
         })),
       };
     }
@@ -174,11 +192,19 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
         blockId,
         blockType: "code",
         content: (node.content ?? []).map((n) => n.text ?? "").join(""),
+        language: asString(node.attrs?.language),
+        filename: asString(node.attrs?.filename),
       };
     case "bulletList":
       return { blockId, blockType: "bulleted_list", content: listLines(node) };
     case "orderedList":
       return { blockId, blockType: "numbered_list", content: listLines(node) };
+    case "table": {
+      const rows = (node.content ?? []).map((row) =>
+        (row.content ?? []).map((cell) => encodeInline(cell.content?.[0]?.content)).join("\t"),
+      );
+      return { blockId, blockType: "table", content: rows.join("\n") };
+    }
     default:
       return null;
   }

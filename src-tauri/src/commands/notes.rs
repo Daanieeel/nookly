@@ -72,9 +72,11 @@ pub fn create_block(
     block_type: String,
     content: String,
     position: Option<i64>,
+    language: Option<String>,
+    filename: Option<String>,
 ) -> AppResult<Block> {
     let conn = state.0.lock().unwrap();
-    notes::create_block(&conn, &entity_id, block_type, content, position)
+    notes::create_block(&conn, &entity_id, block_type, content, position, language, filename)
 }
 
 #[tauri::command]

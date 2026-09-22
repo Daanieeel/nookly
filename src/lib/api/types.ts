@@ -108,6 +108,10 @@ export interface Block {
   position: number;
   blockType: BlockType;
   content: string;
+  /// Code block header row (filename + highlight.js language) — always
+  /// `null` for every other block type.
+  language: string | null;
+  filename: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -115,6 +119,9 @@ export interface Block {
 export interface BlockPatch {
   content?: string;
   blockType?: BlockType;
+  /// `""` clears the field; omit to leave it untouched. Only meaningful on a `code` block.
+  language?: string;
+  filename?: string;
 }
 
 export type BlockType =
@@ -126,6 +133,7 @@ export type BlockType =
   | "code"
   | "bulleted_list"
   | "numbered_list"
+  | "table"
   | "image"
   | "embed";
 

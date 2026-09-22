@@ -114,6 +114,7 @@ pub const KNOWN_BLOCK_TYPES: &[&str] = &[
     "code",
     "bulleted_list",
     "numbered_list",
+    "table",
     "image",
     "embed",
 ];
@@ -158,10 +159,23 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         serde_json::json!({
             "knownBlockTypes": KNOWN_BLOCK_TYPES,
             "list": format!("nookly cli {} blocks <id>", def.entity_type),
-            "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>]", def.entity_type),
-            "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>]", def.entity_type),
+            "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>]", def.entity_type),
+            "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>]", def.entity_type),
             "delete": format!("nookly cli {} delete-block <block-id> --yes", def.entity_type),
             "reorder": format!("nookly cli {} reorder-blocks <id> <block-id> <block-id> ...", def.entity_type),
+            // Called out separately from `add`/`update` above (not just the bracketed
+            // `[--language <lang>] [--filename <name>]` in those usage strings) because these
+            // two flags are easy to miss buried at the end of a long line, and only mean
+            // anything on a `code` block — everywhere else they're a silent no-op.
+            "codeBlockHeader": {
+                "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+                "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text.",
+                "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+                "example": format!(
+                    "nookly cli {} add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+                    def.entity_type
+                ),
+            },
         })
     });
     serde_json::json!({

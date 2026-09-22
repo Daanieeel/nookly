@@ -211,5 +211,12 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         ALTER TABLE semesters ADD COLUMN is_current INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE semesters ADD COLUMN manual_position INTEGER;
         ",
+    ), M::up(
+        "
+        -- Code block header (filename + language for syntax highlighting) —
+        -- both optional, NULL for every other block type.
+        ALTER TABLE blocks ADD COLUMN language TEXT;
+        ALTER TABLE blocks ADD COLUMN filename TEXT;
+        ",
     )])
 });

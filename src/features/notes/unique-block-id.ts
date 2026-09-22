@@ -11,6 +11,7 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "codeBlock",
   "bulletList",
   "orderedList",
+  "table",
 ];
 
 function generateBlockId(): string {
