@@ -4,8 +4,10 @@ import {
   IconCalendarStats,
   IconChevronRight,
   IconClipboardList,
+  IconExternalLink,
   IconPlus,
   IconSchool,
+  IconStack2,
   IconWriting,
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +15,9 @@ import { differenceInCalendarDays, format, startOfDay } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityPickerPopover } from "@/components/entity-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
@@ -25,8 +29,9 @@ import {
 import { GalleryCard, GalleryCardBanner, GalleryCardBody } from "@/components/ui/gallery-card";
 import { Input } from "@/components/ui/input";
 import { ProgressCircle } from "@/components/ui/progress-circle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { listAssignments } from "@/lib/api/assignments";
-import { createCourse, linkCourseToSemester, listCourses, listSemesters } from "@/lib/api/courses";
+import { createCourse, listCourses, listSemesters, setCourseSemester } from "@/lib/api/courses";
 import { getEntity } from "@/lib/api/entities";
 import { listExams } from "@/lib/api/exams";
 import { listRelationships } from "@/lib/api/relationships";
@@ -114,6 +119,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   });
 
   const activeSemesterId = resolveActiveSemesterId(semesters);
+  const activeSemester = semesters.find((s) => s.entity.id === activeSemesterId);
   const coursesFor = (semesterId: string | null) =>
     courses.filter((c) => (semesterIdByCourse.get(c.id) ?? null) === semesterId);
   const otherSemesters = semesters
@@ -155,7 +161,14 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
         </div>
       ) : (
         <div className="flex flex-col gap-1">
-          <CourseSection title="Active" defaultOpen courses={coursesFor(activeSemesterId)}>
+          <CourseSection
+            title={activeSemester ? displayTitle(activeSemester.entity) : "Active"}
+            badge="Active"
+            semesterId={activeSemesterId ?? undefined}
+            spaceId={spaceId}
+            defaultOpen
+            courses={coursesFor(activeSemesterId)}
+          >
             {(course) => (
               <CourseCard
                 key={course.id}
@@ -169,6 +182,8 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
             <CourseSection
               key={s.entity.id}
               title={displayTitle(s.entity)}
+              semesterId={s.entity.id}
+              spaceId={spaceId}
               courses={coursesFor(s.entity.id)}
             >
               {(course) => (
@@ -204,29 +219,67 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
 /// `SemestersListView.tsx` uses for its own "Unsorted" bucket.
 function CourseSection({
   title,
+  badge,
+  semesterId,
+  spaceId,
   courses,
   defaultOpen = false,
   children,
 }: {
   title: string;
+  badge?: string;
+  /// When set, a hover-revealed external-link button jumps to this
+  /// Semester's own page — omitted for "Unsorted", which has no Semester.
+  semesterId?: string;
+  spaceId?: string;
   courses: Entity[];
   defaultOpen?: boolean;
   children: (course: Entity) => React.ReactNode;
 }) {
+  const openEntity = useNavStore((s) => s.openEntity);
   const [open, setOpen] = useState(defaultOpen);
   if (courses.length === 0) return null;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1.5 py-1.5 text-sm font-medium">
-        <IconChevronRight
-          size={14}
-          className={cn("text-muted-foreground transition-transform", open && "rotate-90")}
-        />
-        {title}
-        <span className="text-xs font-normal text-muted-foreground">· {courses.length}</span>
+      <CollapsibleTrigger asChild>
+        <Card className="group w-full cursor-pointer flex-row items-center gap-1.5 px-3 py-2 text-sm font-medium">
+          <IconChevronRight
+            size={14}
+            className={cn("text-muted-foreground transition-transform", open && "rotate-90")}
+          />
+          {title}
+          {semesterId && spaceId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEntity(semesterId, spaceId);
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="rounded-sm p-1 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                >
+                  <IconExternalLink size={13} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Open semester page</TooltipContent>
+            </Tooltip>
+          )}
+          <div className="ml-auto flex items-center gap-1.5">
+            {badge && (
+              <Badge variant="primary" size="md">
+                {badge}
+              </Badge>
+            )}
+            <Badge variant="outline" size="md" className="gap-0.5 font-normal">
+              <IconStack2 size={10} /> {courses.length}
+            </Badge>
+          </div>
+        </Card>
       </CollapsibleTrigger>
-      <CollapsibleContent className="grid grid-cols-1 gap-3 pb-2 pl-5 sm:grid-cols-2 lg:grid-cols-3">
+      <CollapsibleContent className="grid grid-cols-1 gap-3 pt-2 pb-2 pl-5 sm:grid-cols-2 lg:grid-cols-3">
         {courses.map(children)}
       </CollapsibleContent>
     </Collapsible>
@@ -256,6 +309,8 @@ export function CourseCard({
     queryFn: () => listRelationships(course.id, "both"),
   });
 
+  // At most one, enforced at the data layer — a Course belongs to at most
+  // one Semester at a time.
   const semesterLinks = relationships.filter(
     (r) => r.relationshipType === "course-semester" && r.fromEntityId === course.id,
   );
@@ -277,8 +332,8 @@ export function CourseCard({
     linkedIds("assignment-course").has(a.entity.id),
   );
 
-  const linkSemester = useMutation({
-    mutationFn: (semesterId: string) => linkCourseToSemester(course.id, semesterId),
+  const assignSemester = useMutation({
+    mutationFn: (semesterId: string) => setCourseSemester(course.id, semesterId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", course.id] }),
   });
 
@@ -336,10 +391,11 @@ export function CourseCard({
                 onKeyDown={(e) => e.stopPropagation()}
                 className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
               >
-                <IconPlus size={11} /> Link semester
+                <IconPlus size={11} />{" "}
+                {semesterLinks.length > 0 ? "Change semester" : "Link semester"}
               </button>
             }
-            onSelect={(semester) => linkSemester.mutate(semester.id)}
+            onSelect={(semester) => assignSemester.mutate(semester.id)}
           />
         </div>
       </GalleryCardBody>

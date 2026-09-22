@@ -29,6 +29,12 @@ export function listBlocks(entityId: string): Promise<Block[]> {
   return invoke("list_blocks", { entityId });
 }
 
+/// Right sidebar's "Mentioned in" — every other entity with a block that
+/// `@mention`s this one (reverse of `extractMentionIds`).
+export function listMentioningEntities(entityId: string): Promise<Entity[]> {
+  return invoke("list_mentioning_entities", { entityId });
+}
+
 export function createBlock(
   entityId: string,
   blockType: BlockType,

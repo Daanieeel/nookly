@@ -8,7 +8,9 @@ inventory::submit! {
     RelationshipTypeDef { name: "sequel-of", inverse_label: "prequel-of", cardinality: Cardinality::Unrestricted }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "course-semester", inverse_label: "has course", cardinality: Cardinality::Unrestricted }
+    // A Course belongs to at most one Semester (`OneToPerFrom` = the `from`
+    // side, Course, capped at one); a Semester has unrestricted Courses.
+    RelationshipTypeDef { name: "course-semester", inverse_label: "has course", cardinality: Cardinality::OneToPerFrom }
 }
 inventory::submit! {
     RelationshipTypeDef { name: "course-notes", inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom }
@@ -168,8 +170,10 @@ pub fn reorder_semesters(conn: &Connection, ordered_ids: Vec<String>) -> AppResu
     Ok(())
 }
 
-/// Links a Course to a Semester it runs in (§5.4) — a Course spanning multiple
-/// semesters is one Course entity related to several Semester entities.
+/// Links a Course to the Semester it runs in. A Course has at most one
+/// Semester at a time (`course-semester` is `OneToPerFrom`) — a Semester can
+/// have any number of Courses. To move a Course to a different Semester, use
+/// `set_course_semester` instead (this fn errors on a second link).
 pub fn link_course_to_semester(
     conn: &Connection,
     course_id: String,
@@ -184,6 +188,22 @@ pub fn link_course_to_semester(
         None,
     )?;
     Ok(())
+}
+
+/// Reassigns a Course's Semester — since `course-semester` is capped at one
+/// per Course, moving a Course to a different Semester means dropping its
+/// existing link first, not just adding a new one (which `create_relationship`
+/// would reject as a cardinality violation).
+pub fn set_course_semester(
+    conn: &Connection,
+    course_id: &str,
+    semester_id: String,
+) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'course-semester'",
+        params![course_id],
+    )?;
+    link_course_to_semester(conn, course_id.to_string(), semester_id)
 }
 
 /// Every Course gets exactly one Course Notes page, rendered inline on the
@@ -435,9 +455,16 @@ mod tests {
     fn semester_notes_are_created_once_and_reused() {
         let conn = setup();
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let semester =
-            create_semester(&conn, space.id.clone(), "WS 2026/27".into(), None, None, None, None)
-                .unwrap();
+        let semester = create_semester(
+            &conn,
+            space.id.clone(),
+            "WS 2026/27".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let notes = get_or_create_semester_notes(&conn, &semester.entity.id).unwrap();
         assert_eq!(notes.entity_type, "note");
@@ -451,12 +478,115 @@ mod tests {
     fn semester_notes_are_listed_as_a_real_note() {
         let conn = setup();
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let semester =
-            create_semester(&conn, space.id.clone(), "WS 2026/27".into(), None, None, None, None)
-                .unwrap();
+        let semester = create_semester(
+            &conn,
+            space.id.clone(),
+            "WS 2026/27".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         get_or_create_semester_notes(&conn, &semester.entity.id).unwrap();
 
         let recent_notes = crate::db::notes::list_recent_notes(&conn, &space.id, 10).unwrap();
         assert_eq!(recent_notes.len(), 1);
+    }
+
+    #[test]
+    fn course_can_only_belong_to_one_semester_at_a_time() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let fall = create_semester(
+            &conn,
+            space.id.clone(),
+            "Fall".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let spring = create_semester(
+            &conn,
+            space.id.clone(),
+            "Spring".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        link_course_to_semester(&conn, course.id.clone(), fall.entity.id.clone()).unwrap();
+        let second_link =
+            link_course_to_semester(&conn, course.id.clone(), spring.entity.id.clone());
+        assert!(second_link.is_err());
+    }
+
+    #[test]
+    fn semester_can_have_many_courses() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let semester = create_semester(
+            &conn,
+            space.id.clone(),
+            "Fall".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let a = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let b = create_course(&conn, space.id.clone(), "Databases".into()).unwrap();
+
+        link_course_to_semester(&conn, a.id, semester.entity.id.clone()).unwrap();
+        link_course_to_semester(&conn, b.id, semester.entity.id.clone()).unwrap();
+    }
+
+    #[test]
+    fn set_course_semester_reassigns_instead_of_erroring() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let fall = create_semester(
+            &conn,
+            space.id.clone(),
+            "Fall".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let spring = create_semester(
+            &conn,
+            space.id.clone(),
+            "Spring".into(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        link_course_to_semester(&conn, course.id.clone(), fall.entity.id.clone()).unwrap();
+        set_course_semester(&conn, &course.id, spring.entity.id.clone()).unwrap();
+
+        let links = crate::db::relationships::list_relationships(
+            &conn,
+            &course.id,
+            crate::db::relationships::Direction::From,
+        )
+        .unwrap();
+        let semester_links: Vec<_> = links
+            .iter()
+            .filter(|r| r.relationship_type == "course-semester")
+            .collect();
+        assert_eq!(semester_links.len(), 1);
+        assert_eq!(semester_links[0].to_entity_id, spring.entity.id);
     }
 }

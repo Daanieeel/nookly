@@ -13,9 +13,14 @@ import { useNavStore } from "@/lib/store/nav";
 
 export function EntityDetailLayout({
   entity,
+  headerExtra,
   children,
 }: {
   entity: Entity;
+  /// Small, optional content rendered between the title and the pin/trash
+  /// actions — e.g. the Semester page's "Current" badge. Nothing else in the
+  /// header varies per entity type (Course page convention).
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -65,6 +70,7 @@ export function EntityDetailLayout({
             placeholder={`Untitled ${labelForType(entity.type)}`}
             className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground"
           />
+          {headerExtra}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => togglePin.mutate()}>

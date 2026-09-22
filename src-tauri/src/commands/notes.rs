@@ -57,6 +57,15 @@ pub fn list_blocks(state: State<DbState>, entity_id: String) -> AppResult<Vec<Bl
 }
 
 #[tauri::command]
+pub fn list_mentioning_entities(
+    state: State<DbState>,
+    entity_id: String,
+) -> AppResult<Vec<Entity>> {
+    let conn = state.0.lock().unwrap();
+    notes::list_mentioning_entities(&conn, &entity_id)
+}
+
+#[tauri::command]
 pub fn create_block(
     state: State<DbState>,
     entity_id: String,

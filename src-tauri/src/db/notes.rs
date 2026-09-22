@@ -95,6 +95,21 @@ pub fn list_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<Block>> 
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Right sidebar's "Mentioned in" (§3.5) — the reverse of the frontend's own
+/// `extractMentionIds` (`mention-utils.ts`): every *other* entity that has at
+/// least one block containing an inline `[title](mention:<entity_id>)` link
+/// pointing at this one. `entity_id` is always a UUID (`new_id`), so it can't
+/// contain `LIKE` wildcards (`%`/`_`) and needs no escaping.
+pub fn list_mentioning_entities(conn: &Connection, entity_id: &str) -> AppResult<Vec<Entity>> {
+    let pattern = format!("%mention:{entity_id}%");
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT e.* FROM blocks b JOIN entities e ON e.id = b.entity_id
+         WHERE b.content LIKE ?1 AND e.deleted_at IS NULL AND e.id != ?2",
+    )?;
+    let rows = stmt.query_map(params![pattern, entity_id], row_to_entity)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn create_block(
     conn: &Connection,
     entity_id: &str,
@@ -324,5 +339,50 @@ mod tests {
         .unwrap();
         assert_eq!(retyped.content, "Intro.");
         assert_eq!(retyped.block_type, "heading1");
+    }
+
+    #[test]
+    fn list_mentioning_entities_finds_backlinks_and_excludes_self_and_deleted() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let target = create_page(&conn, space.id.clone(), "note", "Target".into()).unwrap();
+        let mentioner = create_page(&conn, space.id.clone(), "note", "Mentioner".into()).unwrap();
+        let deleted_mentioner =
+            create_page(&conn, space.id.clone(), "note", "Deleted".into()).unwrap();
+        let unrelated = create_page(&conn, space.id.clone(), "note", "Unrelated".into()).unwrap();
+
+        create_block(
+            &conn,
+            &mentioner.id,
+            "paragraph".into(),
+            format!("See [Target](mention:{})", target.id),
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &deleted_mentioner.id,
+            "paragraph".into(),
+            format!("See [Target](mention:{})", target.id),
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &unrelated.id,
+            "paragraph".into(),
+            "No links here".into(),
+            None,
+        )
+        .unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &deleted_mentioner.id).unwrap();
+
+        let mentioning = list_mentioning_entities(&conn, &target.id).unwrap();
+        assert_eq!(mentioning.len(), 1);
+        assert_eq!(mentioning[0].id, mentioner.id);
     }
 }

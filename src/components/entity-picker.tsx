@@ -18,7 +18,8 @@ export function EntityPickerPopover({
   trigger: React.ReactNode;
   onSelect: (entity: Entity) => void;
   exclude?: string;
-  typeFilter?: string;
+  /// Restricts the picker to one or more entity `type`s. Omit to allow any type.
+  typeFilter?: string | string[];
 }) {
   const [open, setOpen] = useState(false);
   const { data: allEntities = [] } = useQuery({
@@ -26,7 +27,10 @@ export function EntityPickerPopover({
     queryFn: () => listEntities(spaceId, false),
     enabled: open,
   });
-  const entities = typeFilter ? allEntities.filter((e) => e.type === typeFilter) : allEntities;
+  const allowedTypes = typeFilter
+    ? new Set(Array.isArray(typeFilter) ? typeFilter : [typeFilter])
+    : null;
+  const entities = allowedTypes ? allEntities.filter((e) => allowedTypes.has(e.type)) : allEntities;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

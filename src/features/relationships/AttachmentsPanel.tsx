@@ -37,6 +37,7 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
         <EntityPickerPopover
           spaceId={entity.spaceId}
           exclude={entity.id}
+          typeFilter={["file", "bookmark"]}
           trigger={
             <Button variant="ghost" size="sm" className="w-full justify-start gap-1.5">
               <IconPaperclip size={14} /> Attach file or bookmark…

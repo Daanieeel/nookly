@@ -13,6 +13,7 @@ Quick map:
 
 Never modify existing primitive components or design tokens. Add new ones only.
 
-Button `variant="outline"` is for rare, special-case emphasis only. Default to `secondary` or `ghost`.
+Button or Badge `variant="outline"` is for rare, special-case emphasis only. Default to `secondary` or `ghost`.
+Icon buttons containing no label always need a short tooltip explaining the action (e.g. "Open Page", "Delete Note" etc.).
 
 More specific skills are in `/docs/skills/`

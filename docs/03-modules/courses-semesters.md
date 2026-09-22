@@ -2,11 +2,11 @@
 
 ## Course
 
-Tracks university course. Can scope to one Semester or span multiple.
+Tracks university course. Belongs to at most one Semester at a time.
 
 Prequel/Sequel = typed generic relationships (`sequel-of` / `prequel-of`). NOT dedicated schema fields. Reuses core relationship system.
 
-Course spanning multiple semesters = one Course entity related to multiple Semester entities (generic relationship). NOT a date-range field.
+Course↔Semester = generic `course-semester` relationship, capped at one Semester per Course (`OneToPerFrom` cardinality) — a Semester has unrestricted Courses. Reassigning a Course to a different Semester replaces the old link (`set_course_semester`), it doesn't add a second one. NOT a date-range field.
 
 ## Semester
 

@@ -78,7 +78,23 @@ pub fn link_course_to_semester(
 }
 
 #[tauri::command]
+pub fn set_course_semester(
+    state: State<DbState>,
+    course_id: String,
+    semester_id: String,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    courses::set_course_semester(&conn, &course_id, semester_id)
+}
+
+#[tauri::command]
 pub fn get_course_notes(state: State<DbState>, course_id: String) -> AppResult<Entity> {
     let conn = state.0.lock().unwrap();
     courses::get_or_create_course_notes(&conn, &course_id)
+}
+
+#[tauri::command]
+pub fn get_semester_notes(state: State<DbState>, semester_id: String) -> AppResult<Entity> {
+    let conn = state.0.lock().unwrap();
+    courses::get_or_create_semester_notes(&conn, &semester_id)
 }

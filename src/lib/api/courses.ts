@@ -57,12 +57,27 @@ export function reorderSemesters(orderedIds: string[]): Promise<void> {
   return invoke("reorder_semesters", { orderedIds });
 }
 
+/// A Course has at most one Semester — this errors if the Course is already
+/// linked to a different one. Use `setCourseSemester` to reassign instead.
 export function linkCourseToSemester(courseId: string, semesterId: string): Promise<void> {
   return invoke("link_course_to_semester", { courseId, semesterId });
+}
+
+/// Assigns/reassigns a Course's Semester, dropping any existing link first —
+/// always safe to call whether or not the Course already has one.
+export function setCourseSemester(courseId: string, semesterId: string): Promise<void> {
+  return invoke("set_course_semester", { courseId, semesterId });
 }
 
 /// Finds this Course's auto-created Course Notes page, creating it on first
 /// request if one doesn't exist yet (e.g. a Course created before this feature).
 export function getCourseNotes(courseId: string): Promise<Entity> {
   return invoke("get_course_notes", { courseId });
+}
+
+/// Finds this Semester's auto-created Notes page (a real `note` entity,
+/// unlike Course Notes — see `get_or_create_semester_notes` in courses.rs),
+/// creating it on first request if one doesn't exist yet.
+export function getSemesterNotes(semesterId: string): Promise<Entity> {
+  return invoke("get_semester_notes", { semesterId });
 }
