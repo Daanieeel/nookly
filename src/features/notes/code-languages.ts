@@ -25,12 +25,11 @@ import {
 export type LanguageIcon = ComponentType<{ className?: string }>;
 
 /// The header row's language picker options — one entry per grammar actually
-/// registered in `lowlight.ts`. `jsonc` is an alias onto the `json` grammar (which already
-/// tolerates `//`/`/* */` comments); `jsx`/`tsx`/`html` are aliases onto javascript/typescript/
-/// xml too, but get their own explicit entries rather than being folded into "JavaScript"/
-/// "TypeScript"/... since they're visibly different dialects a user would deliberately pick.
-/// Kept as a flat list (not derived from `lowlight.listLanguages()`) so each one gets a
-/// human-readable label and a colored brand icon instead of its raw highlight.js registry key.
+/// registered in `shiki-highlighter.ts`. `jsonc` is its own real grammar (tolerates `//`/`/* */`
+/// comments); `jsx`/`tsx` are their own real grammars too, distinct from javascript/typescript,
+/// but get folded under the same brand icon rather than a separate one since they're the same
+/// language family. Kept as a flat list (not derived from the highlighter's loaded languages) so
+/// each one gets a human-readable label and a colored brand icon instead of its raw grammar id.
 export const CODE_LANGUAGES: { value: string; label: string; icon: LanguageIcon }[] = [
   { value: "bash", label: "Bash", icon: GnuBashMark },
   { value: "cpp", label: "C++", icon: CPlusPlusMark },
@@ -57,11 +56,13 @@ export const CODE_LANGUAGES: { value: string; label: string; icon: LanguageIcon 
 
 /// A stored `language` value isn't always one of `CODE_LANGUAGES`' own `value`s — Tiptap's
 /// ` ```ts ` fence shortcut (and the CLI's `--language`) store whatever token was typed
-/// verbatim, and `lowlight.ts` registers a couple of short aliases (`ts` -> typescript, `js`
-/// -> javascript, `toml` -> ini) that have no *separate* entry of their own here (unlike
-/// `jsx`/`tsx`/`html`, which are distinct enough dialects to get their own label). Without
-/// resolving through this map first, the picker couldn't find a matching entry and silently
-/// fell back to showing "Plain Text" even though the block highlighted correctly.
+/// verbatim, and Shiki's own grammar modules register a couple of short aliases (`ts` ->
+/// typescript, `js` -> javascript) that have no *separate* entry of their own here (unlike
+/// `jsx`/`tsx`/`html`, which are distinct enough dialects to get their own label); `toml` maps
+/// onto the picker's combined "INI / TOML" entry the same way, even though Shiki tokenizes it
+/// with its own real TOML grammar rather than the INI one. Without resolving through this map
+/// first, the picker couldn't find a matching entry and silently fell back to showing "Plain
+/// Text" even though the block highlighted correctly.
 const DISPLAY_ALIASES = {
   toml: "ini",
   ts: "typescript",

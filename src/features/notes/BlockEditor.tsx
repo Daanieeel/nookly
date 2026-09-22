@@ -10,7 +10,6 @@ import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { CodeBlockWithHeader } from "./code-block-extension";
-import { lowlight } from "./lowlight";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { TableControls } from "./TableControls";
@@ -158,10 +157,7 @@ export function BlockEditor({
         // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
         codeBlock: false,
       }),
-      // `defaultLanguage: "plaintext"` — not omitted — is what stops a code block with no
-      // language chosen from falling back to `lowlight.highlightAuto`, which guesses a language
-      // from ordinary prose and colors words that happen to look like keywords.
-      CodeBlockWithHeader.configure({ lowlight, defaultLanguage: "plaintext" }),
+      CodeBlockWithHeader.configure({ defaultLanguage: "plaintext" }),
       Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
       TableKit.configure({ table: { resizable: true } }),
       UniqueBlockId,

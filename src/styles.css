@@ -258,61 +258,9 @@
     background: transparent;
     padding: 0;
   }
-  /* Syntax highlighting token colors for CodeBlockLowlight's `.hljs-*` spans,
-     mapped onto the existing accent tokens instead of a separate hljs theme. */
-  .tiptap-content .hljs-comment,
-  .tiptap-content .hljs-quote {
-    color: var(--muted-foreground);
-  }
-  .tiptap-content .hljs-keyword,
-  .tiptap-content .hljs-selector-tag,
-  .tiptap-content .hljs-literal,
-  .tiptap-content .hljs-subst,
-  .tiptap-content .hljs-doctag,
-  .tiptap-content .hljs-name,
-  .tiptap-content .hljs-deletion {
-    color: var(--accent-pink);
-  }
-  .tiptap-content .hljs-string,
-  .tiptap-content .hljs-regexp,
-  .tiptap-content .hljs-addition,
-  .tiptap-content .hljs-attribute,
-  .tiptap-content .hljs-meta .hljs-string {
-    color: var(--accent-green);
-  }
-  .tiptap-content .hljs-title,
-  .tiptap-content .hljs-title.function_,
-  .tiptap-content .hljs-section,
-  .tiptap-content .hljs-selector-id {
-    color: var(--accent-purple);
-  }
-  .tiptap-content .hljs-type,
-  .tiptap-content .hljs-class .hljs-title,
-  .tiptap-content .hljs-title.class_,
-  .tiptap-content .hljs-tag,
-  .tiptap-content .hljs-built_in {
-    color: var(--accent-blue);
-  }
-  .tiptap-content .hljs-attr,
-  .tiptap-content .hljs-variable,
-  .tiptap-content .hljs-template-variable,
-  .tiptap-content .hljs-selector-attr,
-  .tiptap-content .hljs-selector-pseudo {
-    color: var(--accent-purple);
-  }
-  .tiptap-content .hljs-number,
-  .tiptap-content .hljs-symbol,
-  .tiptap-content .hljs-bullet,
-  .tiptap-content .hljs-link,
-  .tiptap-content .hljs-params {
-    color: var(--foreground);
-  }
-  .tiptap-content .hljs-emphasis {
-    font-style: italic;
-  }
-  .tiptap-content .hljs-strong {
-    font-weight: bold;
-  }
+  /* Syntax highlighting token colors come from Shiki decorations as inline `style` attributes
+     (see `code-block-extension.ts` / `shiki-theme.ts`) — every color there is already one of
+     this app's own accent tokens, so there's no separate stylesheet-side theme to keep in sync. */
   .tiptap-content .tableWrapper {
     margin: 0.5rem 0;
     overflow-x: auto;

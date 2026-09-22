@@ -108,7 +108,7 @@ export interface Block {
   position: number;
   blockType: BlockType;
   content: string;
-  /// Code block header row (filename + highlight.js language) — always
+  /// Code block header row (filename + language) — always
   /// `null` for every other block type.
   language: string | null;
   filename: string | null;
