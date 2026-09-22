@@ -3,8 +3,10 @@ import {
   IconClipboardList,
   IconPin,
   IconPinFilled,
+  IconRestore,
   IconSchool,
   IconTrash,
+  IconTrashFilled,
   IconWriting,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -26,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { softDeleteEntity, updateEntity } from "@/lib/api/entities";
+import { restoreEntity, softDeleteEntity, updateEntity } from "@/lib/api/entities";
 import { listRelationships } from "@/lib/api/relationships";
 import type { Entity, Relationship } from "@/lib/api/types";
 import { displayTitle, labelForType } from "@/lib/entity-title";
@@ -77,6 +79,7 @@ export function EntityDetailLayout({
   const setView = useNavStore((s) => s.setView);
   const [title, setTitle] = useState(entity.title);
   const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
+  const isDeleted = !!entity.deletedAt;
 
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
 
@@ -99,6 +102,10 @@ export function EntityDetailLayout({
       setView({ kind: "dashboard" });
     },
   });
+  const restore = useMutation({
+    mutationFn: () => restoreEntity(entity.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+  });
   const { data: relationships = [] } = useQuery({
     queryKey: ["relationships", entity.id],
     queryFn: () => listRelationships(entity.id, "both"),
@@ -107,50 +114,73 @@ export function EntityDetailLayout({
   const stats = trashStats(entity.type, relationships);
 
   return (
-    <div className="flex h-full min-w-0 flex-1">
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-          <IconPicker
-            value={entity.icon}
-            onChange={(icon) => setIcon.mutate(icon)}
-            trigger={
-              <button
-                type="button"
-                title="Change icon"
-                className="flex size-6 shrink-0 items-center justify-center rounded-sm hover:bg-accent"
-              >
-                <EntityIcon entity={entity} size={17} className="shrink-0 text-muted-foreground" />
-              </button>
-            }
-          />
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
-            placeholder={`Untitled ${labelForType(entity.type)}`}
-            className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground"
-          />
-          {headerExtra}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => togglePin.mutate()}>
-                {entity.pinned ? <IconPinFilled size={15} /> : <IconPin size={15} />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{entity.pinned ? "Unpin" : "Pin"}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => setTrashConfirmOpen(true)}>
-                <IconTrash size={15} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Move to Trash</TooltipContent>
-          </Tooltip>
+    <div className="flex h-full min-w-0 flex-1 flex-col">
+      {isDeleted && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span className="flex items-center gap-1.5">
+            <IconTrashFilled size={14} />
+            This {labelForType(entity.type)} is in Trash. All fields are read-only until restored.
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => restore.mutate()}
+            disabled={restore.isPending}
+          >
+            <IconRestore size={14} />
+            Restore
+          </Button>
         </div>
-        <div className="min-w-0 flex-1 p-4">{children}</div>
+      )}
+      <div
+        className={`flex min-w-0 flex-1 ${isDeleted ? "opacity-50" : ""}`}
+        inert={isDeleted || undefined}
+      >
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+            <IconPicker
+              value={entity.icon}
+              onChange={(icon) => setIcon.mutate(icon)}
+              trigger={
+                <button
+                  type="button"
+                  title="Change icon"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-sm hover:bg-accent"
+                >
+                  <EntityIcon entity={entity} size={17} className="shrink-0 text-muted-foreground" />
+                </button>
+              }
+            />
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
+              placeholder={`Untitled ${labelForType(entity.type)}`}
+              disabled={isDeleted}
+              className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+            />
+            {headerExtra}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => togglePin.mutate()}>
+                  {entity.pinned ? <IconPinFilled size={15} /> : <IconPin size={15} />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{entity.pinned ? "Unpin" : "Pin"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => setTrashConfirmOpen(true)}>
+                  <IconTrash size={15} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Move to Trash</TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="min-w-0 flex-1 p-4">{children}</div>
+        </div>
+        <RightSidebar entity={entity} />
       </div>
-      <RightSidebar entity={entity} />
 
       <AlertDialog open={trashConfirmOpen} onOpenChange={setTrashConfirmOpen}>
         <AlertDialogContent>
