@@ -14,6 +14,7 @@ import { lowlight } from "./lowlight";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { TableControls } from "./TableControls";
+import { TableRowHandles } from "./TableRowHandles";
 import { UniqueBlockId } from "./unique-block-id";
 
 const DEBOUNCE_MS = 600;
@@ -220,6 +221,7 @@ export function BlockEditor({
   return (
     <div className="relative">
       <TableControls editor={editor} />
+      <TableRowHandles editor={editor} />
       <EditorContent editor={editor} />
     </div>
   );
