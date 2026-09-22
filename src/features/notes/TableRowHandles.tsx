@@ -36,7 +36,10 @@ function findEnclosingTableRow(node: ProseMirrorNode, pos: number): ResolvedRow 
 /// at all, so this hand-rolls it: a floating grip tracks whichever `<tr>` the mouse is currently
 /// over (measured the same way `TableControls` tracks the table itself, since a raw `<tr>` can't
 /// host arbitrary child DOM without the browser hoisting it back out — HTML only allows
-/// `<td>`/`<th>` inside a `<tr>`).
+/// `<td>`/`<th>` inside a `<tr>`). Centered on the row's left border (half over the first cell,
+/// half past it) rather than fully outside the table — sitting fully outside would need a
+/// permanent left margin reserved on every table just for it, shifting the whole table over
+/// regardless of whether a handle is currently visible.
 ///
 /// The drag itself is implemented entirely with plain `mousedown`/`mousemove`/`mouseup` — *not*
 /// the native HTML5 `draggable`/`dragstart`/`dragover`/`drop` API, despite that being the more
@@ -78,14 +81,15 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
     };
 
     // The grip itself renders *outside* `dom` (see the module doc comment), so it's a sibling
-    // overlay, offset to the left of the row. A listener scoped to `dom` alone loses the row the
-    // instant the cursor crosses that gap on its way to the grip: `mousemove`'s target stops
-    // being inside any `<tr>`, and `mouseleave` fires on `dom` outright. Tracked on `document`
-    // instead, with the gap itself treated as still "on" the row it belongs to, so the handle
-    // survives the trip.
+    // overlay — only half of it (see the render below) actually sits over the row itself, the
+    // rest pokes out past its left border. A listener scoped to `dom` alone loses the row the
+    // instant the cursor crosses into that outer sliver: `mousemove`'s target stops being inside
+    // any `<tr>`, and `mouseleave` fires on `dom` outright. Tracked on `document` instead, with
+    // that sliver itself treated as still "on" the row it belongs to, so the handle survives the
+    // trip.
     //
-    // The gutter's left boundary is read from the grip's *own* `getBoundingClientRect()`
-    // (`gripRef`), not re-derived from `handle`/`gripLeft()` math: that math is relative to
+    // The tolerance zone's left boundary is read from the grip's *own* `getBoundingClientRect()`
+    // (`gripRef`), not re-derived from `handle` + a hardcoded offset: that math is relative to
     // `dom`'s own box, but the grip's actual CSS positioning ancestor is whatever
     // `position: relative` element wraps it in `BlockEditor.tsx` — a *different* box when
     // there's any padding/margin between the two. Reading the grip's real rect sidesteps needing
@@ -200,10 +204,10 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
           draggingRef.current = true;
           sourceRowRef.current = row;
         }}
-        className="absolute z-10 flex cursor-grab items-center justify-center rounded-sm border border-border bg-popover text-muted-foreground shadow-sm transition-opacity active:cursor-grabbing"
+        className="absolute z-10 flex cursor-grab items-center justify-center rounded-sm border border-white/20 bg-accent text-muted-foreground shadow-sm transition-opacity active:cursor-grabbing"
         style={{
           top: handle.top,
-          left: Math.max(handle.left - 20, 2),
+          left: handle.left - 8,
           height: handle.height,
           width: 16,
           opacity: visible ? 1 : 0,
