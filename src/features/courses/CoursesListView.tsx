@@ -2,6 +2,7 @@ import {
   IconArrowRight,
   IconCalendar,
   IconCalendarStats,
+  IconCalendarWeek,
   IconChevronRight,
   IconClipboardList,
   IconExternalLink,
@@ -38,7 +39,7 @@ import { listRelationships } from "@/lib/api/relationships";
 import { listSessions } from "@/lib/api/sessions";
 import type { Assignment, Entity, Exam, SessionOccurrence } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
-import { colorForId } from "@/lib/gallery-color";
+import { gradientForName } from "@/lib/gallery-color";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
@@ -160,7 +161,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-4">
           <CourseSection
             title={activeSemester ? displayTitle(activeSemester.entity) : "Active"}
             badge="Active"
@@ -248,6 +249,7 @@ function CourseSection({
             size={14}
             className={cn("text-muted-foreground transition-transform", open && "rotate-90")}
           />
+          <IconCalendarWeek size={14} className="text-muted-foreground" />
           {title}
           {semesterId && spaceId && (
             <Tooltip>
@@ -340,8 +342,8 @@ export function CourseCard({
   return (
     <GalleryCard className="group" onClick={onOpen}>
       <GalleryCardBanner
-        color={colorForId(course.id)}
-        icon={<EntityIcon entity={course} size={22} className="text-white/70" />}
+        color={gradientForName(displayTitle(course))}
+        icon={<EntityIcon entity={course} size={22} className="text-black" />}
       />
       <GalleryCardBody>
         <span className="block truncate text-sm font-medium group-hover:underline">
@@ -379,25 +381,26 @@ export function CourseCard({
           </div>
         )}
 
-        <div className="opacity-0 transition-opacity group-hover:opacity-100">
-          <EntityPickerPopover
-            spaceId={spaceId}
-            typeFilter="semester"
-            exclude={course.id}
-            trigger={
-              <button
-                type="button"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <IconPlus size={11} />{" "}
-                {semesterLinks.length > 0 ? "Change semester" : "Link semester"}
-              </button>
-            }
-            onSelect={(semester) => assignSemester.mutate(semester.id)}
-          />
-        </div>
+        {semesterLinks.length === 0 && (
+          <div className="opacity-0 transition-opacity group-hover:opacity-100">
+            <EntityPickerPopover
+              spaceId={spaceId}
+              typeFilter="semester"
+              exclude={course.id}
+              trigger={
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <IconPlus size={11} /> Link semester
+                </button>
+              }
+              onSelect={(semester) => assignSemester.mutate(semester.id)}
+            />
+          </div>
+        )}
       </GalleryCardBody>
     </GalleryCard>
   );

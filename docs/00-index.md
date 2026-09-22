@@ -14,6 +14,7 @@ Read files in this folder before building features. Do not skip.
 - `06-decisions-log.md` — why decisions were made. Check before reversing any decision.
 - `07-deferred-scope.md` — explicitly NOT in scope. Do not build these unless told.
 - `08-vision-and-motivation.md` — the "why" behind the app. Use for judgment calls not covered elsewhere.
+- `skills/**` — contains more specific skill files
 
 ## Hard Rules (never violate)
 

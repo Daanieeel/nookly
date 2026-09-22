@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { AddModuleMenu } from "@/components/add-module-menu";
 import { renderIconValue } from "@/components/entity-icon";
+import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -345,12 +346,17 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+            <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
               <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-              Delete "{space.name}"
+              Delete
+              <EntityMention
+                icon={space.icon ? renderIconValue(space.icon, 13) : <IconFolder size={13} />}
+                label={space.name}
+              />
+              ?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the Space "{space.name}" and everything in it —{" "}
+              This permanently deletes the Space and everything in it,{" "}
               {plural(entities.length, "item")} across its modules. This cannot be undone; nothing
               goes to Trash.
             </AlertDialogDescription>

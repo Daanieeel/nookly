@@ -11,6 +11,7 @@ const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
 function AlertDialogOverlay({
   className,
+  onClick,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
   return (
@@ -19,6 +20,15 @@ function AlertDialogOverlay({
         "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}
+      onClick={(e) => {
+        onClick?.(e);
+        // Radix's `AlertDialogContent` intentionally omits `onPointerDownOutside`/
+        // `onInteractOutside` (unlike `Dialog`) so outside-click can't be wired
+        // through props. Escape, however, IS wired to close by default, so
+        // dispatching one from the overlay reuses that existing, working close
+        // path instead of reimplementing open-state control here.
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      }}
       {...props}
     />
   );

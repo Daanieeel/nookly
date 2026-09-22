@@ -1,15 +1,65 @@
-import { IconPin, IconPinFilled, IconTrash } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  IconCalendarStats,
+  IconClipboardList,
+  IconPin,
+  IconPinFilled,
+  IconSchool,
+  IconTrash,
+  IconWriting,
+  type Icon as TablerIcon,
+} from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
 import { RightSidebar } from "@/components/right-sidebar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { softDeleteEntity, updateEntity } from "@/lib/api/entities";
-import type { Entity } from "@/lib/api/types";
-import { labelForType } from "@/lib/entity-title";
+import { listRelationships } from "@/lib/api/relationships";
+import type { Entity, Relationship } from "@/lib/api/types";
+import { displayTitle, labelForType } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+
+interface TrashStat {
+  icon: TablerIcon;
+  count: number;
+  label: string;
+}
+
+/// Exact counts of what stays linked to (not deleted from, just rendered
+/// trashed on until restored, per the entity model's soft-delete rule) each
+/// trashable type — the confirmation dialog states these as stat boxes
+/// instead of a vague prose paragraph (confirmation-dialogs skill).
+function trashStats(type: string, relationships: Relationship[]): TrashStat[] {
+  const countOf = (relationshipType: string) =>
+    relationships.filter((r) => r.relationshipType === relationshipType).length;
+
+  if (type === "course") {
+    return [
+      { icon: IconCalendarStats, count: countOf("session-course"), label: "Sessions" },
+      { icon: IconWriting, count: countOf("exam-course"), label: "Exams" },
+      { icon: IconClipboardList, count: countOf("assignment-course"), label: "Assignments" },
+    ].filter((s) => s.count > 0);
+  }
+  if (type === "semester") {
+    return [{ icon: IconSchool, count: countOf("course-semester"), label: "Courses" }].filter(
+      (s) => s.count > 0,
+    );
+  }
+  return [];
+}
 
 export function EntityDetailLayout({
   entity,
@@ -26,6 +76,7 @@ export function EntityDetailLayout({
   const queryClient = useQueryClient();
   const setView = useNavStore((s) => s.setView);
   const [title, setTitle] = useState(entity.title);
+  const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
 
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
 
@@ -43,8 +94,17 @@ export function EntityDetailLayout({
   });
   const trash = useMutation({
     mutationFn: () => softDeleteEntity(entity.id),
-    onSuccess: () => setView({ kind: "dashboard" }),
+    onSuccess: () => {
+      setTrashConfirmOpen(false);
+      setView({ kind: "dashboard" });
+    },
   });
+  const { data: relationships = [] } = useQuery({
+    queryKey: ["relationships", entity.id],
+    queryFn: () => listRelationships(entity.id, "both"),
+    enabled: trashConfirmOpen,
+  });
+  const stats = trashStats(entity.type, relationships);
 
   return (
     <div className="flex h-full min-w-0 flex-1">
@@ -81,7 +141,7 @@ export function EntityDetailLayout({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => trash.mutate()}>
+              <Button variant="ghost" size="icon" onClick={() => setTrashConfirmOpen(true)}>
                 <IconTrash size={15} />
               </Button>
             </TooltipTrigger>
@@ -91,6 +151,56 @@ export function EntityDetailLayout({
         <div className="min-w-0 flex-1 p-4">{children}</div>
       </div>
       <RightSidebar entity={entity} />
+
+      <AlertDialog open={trashConfirmOpen} onOpenChange={setTrashConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
+              Move
+              <EntityMention
+                icon={<EntityIcon entity={entity} size={13} />}
+                label={displayTitle(entity)}
+              />
+              to Trash?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              It disappears from lists and views. Restore it from Trash any time; nothing is deleted
+              permanently.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {stats.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-4 rounded-lg border border-border px-4 py-2.5">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="flex items-center gap-1.5 text-sm">
+                    <stat.icon size={14} className="text-muted-foreground" />
+                    <span className="font-medium">{stat.count}</span>
+                    <span className="text-muted-foreground">{stat.label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                They stay linked, shown as trashed until this is restored.
+              </p>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={trash.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                trash.mutate();
+              }}
+            >
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

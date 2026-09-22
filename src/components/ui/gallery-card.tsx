@@ -70,8 +70,10 @@ function GalleryCardBanner({
   icon,
   className,
 }: {
-  /// Any valid CSS color. Callers generate this (e.g. `colorForId`) — the
-  /// primitive itself has no opinion on where the color comes from.
+  /// Any valid CSS `background` value — a plain color or a gradient (e.g.
+  /// `gradientForName`). Uses the `background` shorthand
+  /// rather than `background-color` specifically so gradients paint; the
+  /// primitive itself has no opinion on where the value comes from.
   color: string;
   icon?: React.ReactNode;
   className?: string;
@@ -80,11 +82,12 @@ function GalleryCardBanner({
     <div
       data-slot="gallery-card-banner"
       className={cn(
-        "flex h-14 shrink-0 items-end justify-end bg-(--banner-color) p-2 text-white/40",
+        "flex h-14 shrink-0 items-end justify-end [background:var(--banner-color)] p-2 text-white/40",
         className,
       )}
-      // SAFETY: `--banner-color` only ever receives `color`, a plain CSS color
-      // string — `CSSProperties` just doesn't model custom properties.
+      // SAFETY: `--banner-color` only ever receives `color`, a plain CSS
+      // `background` value — `CSSProperties` just doesn't model custom
+      // properties.
       style={{ "--banner-color": color } as CSSProperties}
     >
       {icon}
