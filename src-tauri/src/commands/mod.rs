@@ -1,5 +1,6 @@
 pub mod assignments;
 pub mod bookmarks;
+pub mod cli_install;
 pub mod courses;
 pub mod decks;
 pub mod entities;

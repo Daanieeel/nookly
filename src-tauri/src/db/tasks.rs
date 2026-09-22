@@ -1,4 +1,5 @@
 use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -146,6 +147,16 @@ fn row_to_task_joined(row: &rusqlite::Row) -> rusqlite::Result<Task> {
     task_row_to_task(entity, row)
 }
 
+pub fn get_task(conn: &Connection, entity_id: &str) -> AppResult<Task> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, t.status_id, t.start_date, t.due_date
+         FROM entities e JOIN tasks t ON t.entity_id = e.id
+         WHERE e.id = ?1",
+    )?;
+    stmt.query_row(params![entity_id], row_to_task_joined)
+        .map_err(|_| AppError::NotFound(format!("task {entity_id}")))
+}
+
 pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
         "SELECT e.*, t.status_id, t.start_date, t.due_date
@@ -220,6 +231,159 @@ pub fn update_task_dates(
         params![start_date, due_date, entity_id],
     )?;
     Ok(())
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+//
+// `task` and `sub_task` share the same subtype fields; a sub-task additionally
+// requires `parentId` at creation, which is how the CLI expresses the
+// structural sub-task-of relationship instead of a separate `relate` call —
+// matching how `create_subtask` already atomically creates that relationship.
+
+const TASK_UPDATE_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "statusId",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+    },
+    FieldDef {
+        name: "startDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "ISO date",
+    },
+    FieldDef {
+        name: "dueDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "ISO date",
+    },
+];
+
+const SUB_TASK_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "parentId",
+        kind: FieldKind::EntityRef("task"),
+        required_on_create: true,
+        writable_on_update: false,
+        description: "Parent task id. Sub-tasks cannot themselves have sub-tasks (one level max).",
+    },
+    FieldDef {
+        name: "statusId",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+    },
+    FieldDef {
+        name: "startDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "ISO date",
+    },
+    FieldDef {
+        name: "dueDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "ISO date",
+    },
+];
+
+fn apply_task_fields(conn: &Connection, entity_id: &str, fields: &JsonMap) -> AppResult<()> {
+    if let Some(status_id) = crate::db::schema::field_str(fields, "statusId") {
+        update_task_status(conn, entity_id, &status_id)?;
+    }
+    if fields.contains_key("startDate") || fields.contains_key("dueDate") {
+        let current = get_task(conn, entity_id)?;
+        let start_date = crate::db::schema::field_str(fields, "startDate").or(current.start_date);
+        let due_date = crate::db::schema::field_str(fields, "dueDate").or(current.due_date);
+        update_task_dates(conn, entity_id, start_date, due_date)?;
+    }
+    Ok(())
+}
+
+fn cli_create_task(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let start_date = crate::db::schema::field_str(&input.fields, "startDate");
+    let due_date = crate::db::schema::field_str(&input.fields, "dueDate");
+    let task = create_task(conn, input.space_id, input.title, start_date, due_date)?;
+    apply_task_fields(conn, &task.entity.id, &input.fields)?;
+    cli_get_task(conn, &task.entity.id)
+}
+
+fn cli_update_task(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    apply_task_fields(conn, id, fields)?;
+    cli_get_task(conn, id)
+}
+
+fn cli_get_task(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_task(conn, id)?).expect("Task always serializes"))
+}
+
+fn cli_list_tasks(
+    conn: &Connection,
+    space_id: Option<&str>,
+    include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let _ = include_deleted; // list_tasks is already soft-delete-filtered; see note on `entity` list for Trash browsing.
+    let space_id = space_id
+        .ok_or_else(|| AppError::InvalidInput("task list requires --space <space-id>".into()))?;
+    Ok(list_tasks(conn, space_id)?
+        .into_iter()
+        .map(|t| serde_json::to_value(t).expect("Task always serializes"))
+        .collect())
+}
+
+fn cli_create_sub_task(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let parent_id = crate::db::schema::require_str(&input.fields, "parentId")?;
+    let task = create_subtask(conn, parent_id, input.title)?;
+    apply_task_fields(conn, &task.entity.id, &input.fields)?;
+    cli_get_task(conn, &task.entity.id)
+}
+
+fn cli_list_sub_tasks(
+    _conn: &Connection,
+    _space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    Err(AppError::InvalidInput(
+        "sub_task has no space-wide listing; use `nookly cli task get <parent-id>` and follow its \
+         `sub-task-of` inverse relationships, or `nookly cli relate` to inspect links"
+            .into(),
+    ))
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "task",
+        supports_blocks: false,
+        description: "A to-do item. Progress rolls up from sub-tasks when any exist.",
+        fields: TASK_UPDATE_FIELDS,
+        relationship_types: &["sub-task-of", "relates-to", "blocks"],
+        create: cli_create_task,
+        update: cli_update_task,
+        get: cli_get_task,
+        list: cli_list_tasks,
+    }
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "sub_task",
+        supports_blocks: false,
+        description: "A one-level-deep child of a Task. Cannot itself have sub-tasks.",
+        fields: SUB_TASK_FIELDS,
+        relationship_types: &["sub-task-of", "relates-to", "blocks"],
+        create: cli_create_sub_task,
+        update: cli_update_task,
+        get: cli_get_task,
+        list: cli_list_sub_tasks,
+    }
 }
 
 #[cfg(test)]

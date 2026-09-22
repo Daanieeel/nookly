@@ -1,4 +1,5 @@
 use crate::db::entities::{row_to_entity, Entity};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -251,6 +252,174 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
 fn reindex_page(conn: &Connection, entity_id: &str) -> AppResult<()> {
     let markdown = render_page_markdown(conn, entity_id)?;
     crate::db::search::index_entity_content(conn, entity_id, &markdown)
+}
+
+pub fn list_pages(
+    conn: &Connection,
+    space_id: &str,
+    page_type: &str,
+    include_deleted: bool,
+) -> AppResult<Vec<Entity>> {
+    let mut sql = String::from("SELECT * FROM entities WHERE space_id = ?1 AND type = ?2");
+    if !include_deleted {
+        sql.push_str(" AND deleted_at IS NULL");
+    }
+    sql.push_str(" ORDER BY created_at ASC");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![space_id, page_type], row_to_entity)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Wholesale replace of a page's body with a single paragraph block (or empty,
+/// clearing it) — the CLI's `--field body=...` update semantics ("this value
+/// replaces what's stored"), not an append. Full block-level editing (multiple
+/// blocks, headings, etc.) stays a GUI-only capability.
+pub fn set_body(conn: &Connection, entity_id: &str, body: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM blocks WHERE entity_id = ?1",
+        params![entity_id],
+    )?;
+    if !body.is_empty() {
+        create_block(
+            conn,
+            entity_id,
+            "paragraph".into(),
+            body.to_string(),
+            Some(0),
+        )?;
+    } else {
+        reindex_page(conn, entity_id)?;
+    }
+    Ok(())
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+//
+// Notes, Jots and Refinements (§5.2/§5.3) are all "page" entities backed by
+// the same block storage, distinguished only by `entities.type`. One set of
+// adapters, three registrations.
+
+const PAGE_FIELDS: &[FieldDef] = &[FieldDef {
+    name: "body",
+    kind: FieldKind::LongText,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "Plain-text/markdown body. Setting it replaces the page's entire content \
+                  (stored as a single block) — this is not an append.",
+}];
+
+fn cli_get_page(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    let entity = crate::db::entities::get_entity(conn, id)?;
+    let body = render_page_markdown(conn, id)?;
+    Ok(serde_json::json!({ "entity": entity, "body": body }))
+}
+
+fn cli_create_page(
+    page_type: &'static str,
+) -> impl Fn(&Connection, CreateInput) -> AppResult<serde_json::Value> {
+    move |conn, input| {
+        let entity = create_page(conn, input.space_id, page_type, input.title)?;
+        if let Some(body) = crate::db::schema::field_str(&input.fields, "body") {
+            if !body.is_empty() {
+                create_block(conn, &entity.id, "paragraph".into(), body, Some(0))?;
+            }
+        }
+        cli_get_page(conn, &entity.id)
+    }
+}
+
+fn cli_update_page(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    if let Some(body) = crate::db::schema::field_str(fields, "body") {
+        set_body(conn, id, &body)?;
+    }
+    cli_get_page(conn, id)
+}
+
+fn cli_list_pages(
+    page_type: &'static str,
+) -> impl Fn(&Connection, Option<&str>, bool) -> AppResult<Vec<serde_json::Value>> {
+    move |conn, space_id, include_deleted| {
+        let space_id = space_id.ok_or_else(|| {
+            AppError::InvalidInput(format!("{page_type} list requires --space <space-id>"))
+        })?;
+        Ok(list_pages(conn, space_id, page_type, include_deleted)?
+            .into_iter()
+            .map(|e| serde_json::to_value(e).expect("Entity always serializes"))
+            .collect())
+    }
+}
+
+fn cli_create_note(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    cli_create_page("note")(conn, input)
+}
+fn cli_list_notes(
+    conn: &Connection,
+    space_id: Option<&str>,
+    include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    cli_list_pages("note")(conn, space_id, include_deleted)
+}
+fn cli_create_jot(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    cli_create_page("jot")(conn, input)
+}
+fn cli_list_jots(
+    conn: &Connection,
+    space_id: Option<&str>,
+    include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    cli_list_pages("jot")(conn, space_id, include_deleted)
+}
+fn cli_create_refinement(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    cli_create_page("refinement")(conn, input)
+}
+fn cli_list_refinements(
+    conn: &Connection,
+    space_id: Option<&str>,
+    include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    cli_list_pages("refinement")(conn, space_id, include_deleted)
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "note",
+        supports_blocks: true,
+        description: "A free-form page of block content.",
+        fields: PAGE_FIELDS,
+        relationship_types: &["relates-to", "attached-file"],
+        create: cli_create_note,
+        update: cli_update_page,
+        get: cli_get_page,
+        list: cli_list_notes,
+    }
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "jot",
+        supports_blocks: true,
+        description: "A quick, unrefined capture. Link to a `refinement` via `relates-to` once processed.",
+        fields: PAGE_FIELDS,
+        relationship_types: &["relates-to"],
+        create: cli_create_jot,
+        update: cli_update_page,
+        get: cli_get_page,
+        list: cli_list_jots,
+    }
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "refinement",
+        supports_blocks: true,
+        description: "A processed/cleaned-up write-up, usually linked from one or more Jots.",
+        fields: PAGE_FIELDS,
+        relationship_types: &["relates-to"],
+        create: cli_create_refinement,
+        update: cli_update_page,
+        get: cli_get_page,
+        list: cli_list_refinements,
+    }
 }
 
 #[cfg(test)]

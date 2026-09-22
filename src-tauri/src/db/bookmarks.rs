@@ -1,5 +1,6 @@
 use crate::db::entities::Entity;
-use crate::error::AppResult;
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
+use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
@@ -85,4 +86,70 @@ pub fn list_bookmarks(conn: &Connection, space_id: &str) -> AppResult<Vec<Bookma
     )?;
     let rows = stmt.query_map(params![space_id], row_to_bookmark)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+pub fn get_bookmark(conn: &Connection, entity_id: &str) -> AppResult<Bookmark> {
+    conn.query_row(
+        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at
+         FROM entities e JOIN bookmarks b ON b.entity_id = e.id WHERE e.id = ?1",
+        params![entity_id],
+        row_to_bookmark,
+    )
+    .map_err(|_| AppError::NotFound(format!("bookmark {entity_id}")))
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+
+const BOOKMARK_FIELDS: &[FieldDef] = &[FieldDef {
+    name: "url",
+    kind: FieldKind::Text,
+    required_on_create: true,
+    writable_on_update: false,
+    description: "The bookmarked URL. Metadata (favicon, preview, description) is fetched asynchronously by the GUI.",
+}];
+
+fn cli_create_bookmark(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let url = crate::db::schema::require_str(&input.fields, "url")?;
+    let bookmark = create_bookmark(conn, input.space_id, url)?;
+    Ok(serde_json::to_value(bookmark).expect("Bookmark always serializes"))
+}
+
+fn cli_update_bookmark(
+    conn: &Connection,
+    id: &str,
+    _fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    cli_get_bookmark(conn, id)
+}
+
+fn cli_get_bookmark(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_bookmark(conn, id)?).expect("Bookmark always serializes"))
+}
+
+fn cli_list_bookmarks(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id.ok_or_else(|| {
+        AppError::InvalidInput("bookmark list requires --space <space-id>".into())
+    })?;
+    Ok(list_bookmarks(conn, space_id)?
+        .into_iter()
+        .map(|b| serde_json::to_value(b).expect("Bookmark always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "bookmark",
+        supports_blocks: false,
+        description: "A saved URL with auto-fetched preview metadata.",
+        fields: BOOKMARK_FIELDS,
+        relationship_types: &["relates-to"],
+        create: cli_create_bookmark,
+        update: cli_update_bookmark,
+        get: cli_get_bookmark,
+        list: cli_list_bookmarks,
+    }
 }

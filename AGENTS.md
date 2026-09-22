@@ -18,4 +18,6 @@ Icon buttons containing no label always need a short tooltip explaining the acti
 
 When writing any form of copy, never use em or en dashes or use any form of hyphenated sentence structure.
 
+Every new entity type, field, or relationship type MUST be exposed through the CLI automatically via its schema/relationship registration — never add a feature without also registering it in the schema layer the CLI generates from, and never hand-write a one-off CLI command for a specific module. If the generic list/get/create/update/delete/relate/describe pattern can't express a new feature, extend that generic pattern itself rather than bypassing i or ask the user about it.
+
 More specific skills are in `/docs/skills/`

@@ -1,5 +1,6 @@
 use crate::db::entities::Entity;
-use crate::error::AppResult;
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
+use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::path::Path;
@@ -108,6 +109,98 @@ pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity
     )?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
+    conn.query_row(
+        "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename FROM entities e
+         JOIN files f ON f.entity_id = e.id WHERE e.id = ?1",
+        params![entity_id],
+        row_to_file,
+    )
+    .map_err(|_| AppError::NotFound(format!("file {entity_id}")))
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+
+const FILE_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "localPath",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description:
+            "Path to a local file to copy in and attach. Exactly one of localPath/url is required.",
+    },
+    FieldDef {
+        name: "url",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description:
+            "URL of a cloud-hosted file (Google Drive/Dropbox/iCloud auto-detected, else generic). \
+                      Exactly one of localPath/url is required.",
+    },
+];
+
+fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let local_path = crate::db::schema::field_str(&input.fields, "localPath");
+    let url = crate::db::schema::field_str(&input.fields, "url");
+    let file = match (local_path, url) {
+        (Some(path), None) => {
+            let files_dir = crate::db::standalone_app_data_dir()
+                .map_err(|e| AppError::Db(e.to_string()))?
+                .join("files");
+            import_file(conn, &files_dir, input.space_id, Path::new(&path))?
+        }
+        (None, Some(url)) => create_file_link(conn, input.space_id, input.title, url)?,
+        (Some(_), Some(_)) => {
+            return Err(AppError::InvalidInput(
+                "pass exactly one of --field localPath=... or --field url=..., not both".into(),
+            ))
+        }
+        (None, None) => {
+            return Err(AppError::InvalidInput(
+                "one of --field localPath=... or --field url=... is required".into(),
+            ))
+        }
+    };
+    Ok(serde_json::to_value(file).expect("FileEntity always serializes"))
+}
+
+fn cli_update_file(conn: &Connection, id: &str, _fields: &JsonMap) -> AppResult<serde_json::Value> {
+    cli_get_file(conn, id)
+}
+
+fn cli_get_file(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_file(conn, id)?).expect("FileEntity always serializes"))
+}
+
+fn cli_list_files(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id
+        .ok_or_else(|| AppError::InvalidInput("file list requires --space <space-id>".into()))?;
+    Ok(list_files(conn, space_id)?
+        .into_iter()
+        .map(|f| serde_json::to_value(f).expect("FileEntity always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "file",
+        supports_blocks: false,
+        description: "A locally-imported or cloud-linked file attachment.",
+        fields: FILE_FIELDS,
+        relationship_types: &["attached-file", "relates-to"],
+        create: cli_create_file,
+        update: cli_update_file,
+        get: cli_get_file,
+        list: cli_list_files,
+    }
 }
 
 #[cfg(test)]

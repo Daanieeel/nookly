@@ -1,9 +1,42 @@
+mod cli;
 mod commands;
 mod db;
 mod error;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // `nookly cli ...` (PLAN.md §2: a subcommand of the main binary, not a
+    // separate one) — handled before Tauri ever boots a window, since this is
+    // meant to run headlessly from a shell or an agent.
+    let mut argv = std::env::args();
+    let _program = argv.next();
+    let rest: Vec<String> = argv.collect();
+
+    if rest.first().map(String::as_str) == Some("cli") {
+        cli::main(rest[1..].to_vec());
+    }
+
+    // Anything else — including zero args — is the normal desktop-app launch
+    // path (double-click, Dock, `open -a Nookly`), so it still has to open the
+    // GUI. But a bare `nookly` (or `nookly --help`) typed at a shell almost
+    // always means someone was reaching for the CLI and didn't know to add
+    // `cli` — this is the exact confusion a coding agent hit in practice, so
+    // don't leave a terminal silently hung with no clue why. `--help`/`-h`
+    // additionally skips the GUI entirely; nobody asking for help wants a
+    // window.
+    use std::io::IsTerminal;
+    if matches!(
+        rest.first().map(String::as_str),
+        Some("--help") | Some("-h") | Some("help")
+    ) {
+        println!("Nookly is a desktop app — running the bare binary opens the GUI.");
+        println!("For the command-line interface: nookly cli --help");
+        std::process::exit(0);
+    }
+    if std::io::stdout().is_terminal() {
+        eprintln!("Launching the Nookly GUI. For the command-line interface instead, run: nookly cli --help");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -98,6 +131,8 @@ pub fn run() {
             commands::bookmarks::create_bookmark,
             commands::bookmarks::list_bookmarks,
             commands::bookmarks::fetch_bookmark_metadata,
+            commands::cli_install::cli_install_status,
+            commands::cli_install::install_cli,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

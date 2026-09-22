@@ -1,7 +1,8 @@
 use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
@@ -98,4 +99,109 @@ pub fn update_exam(
         )?;
     }
     Ok(())
+}
+
+pub fn get_exam(conn: &Connection, entity_id: &str) -> AppResult<Exam> {
+    conn.query_row(
+        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status FROM entities e
+         JOIN exams x ON x.entity_id = e.id WHERE e.id = ?1",
+        params![entity_id],
+        row_to_exam,
+    )
+    .optional()?
+    .ok_or_else(|| crate::error::AppError::NotFound(format!("exam {entity_id}")))
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+
+const EXAM_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "courseId",
+        kind: FieldKind::EntityRef("course"),
+        required_on_create: true,
+        writable_on_update: false,
+        description: "The Course this exam belongs to (structural: exactly one).",
+    },
+    FieldDef {
+        name: "examDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "ISO date. Set at creation only.",
+    },
+    FieldDef {
+        name: "weight",
+        kind: FieldKind::Float,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "Weight toward the course grade. Set at creation only.",
+    },
+    FieldDef {
+        name: "grade",
+        kind: FieldKind::Float,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Grade received.",
+    },
+    FieldDef {
+        name: "status",
+        kind: FieldKind::Enum(&["upcoming", "studying", "done"]),
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Defaults to 'upcoming' on creation.",
+    },
+];
+
+fn cli_create_exam(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let course_id = crate::db::schema::require_str(&input.fields, "courseId")?;
+    let exam_date = crate::db::schema::field_str(&input.fields, "examDate");
+    let weight = crate::db::schema::field_f64(&input.fields, "weight");
+    let exam = create_exam(
+        conn,
+        input.space_id,
+        input.title,
+        course_id,
+        exam_date,
+        weight,
+    )?;
+    Ok(serde_json::to_value(exam).expect("Exam always serializes"))
+}
+
+fn cli_update_exam(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    let grade = crate::db::schema::field_f64(fields, "grade");
+    let status = crate::db::schema::field_str(fields, "status");
+    update_exam(conn, id, grade, status)?;
+    cli_get_exam(conn, id)
+}
+
+fn cli_get_exam(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_exam(conn, id)?).expect("Exam always serializes"))
+}
+
+fn cli_list_exams(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id.ok_or_else(|| {
+        crate::error::AppError::InvalidInput("exam list requires --space <space-id>".into())
+    })?;
+    Ok(list_exams(conn, space_id)?
+        .into_iter()
+        .map(|x| serde_json::to_value(x).expect("Exam always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "exam",
+        supports_blocks: false,
+        description: "A graded exam belonging to exactly one Course.",
+        fields: EXAM_FIELDS,
+        relationship_types: &["exam-course", "deck-exam", "study-block-exam", "relates-to"],
+        create: cli_create_exam,
+        update: cli_update_exam,
+        get: cli_get_exam,
+        list: cli_list_exams,
+    }
 }

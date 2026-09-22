@@ -83,6 +83,7 @@ import {
   EXPANDABLE_MODULE_KEYS,
   ExpandableModuleChildren,
 } from "./sidebar/expandable-module-children";
+import { CliInstallCard } from "./sidebar/cli-install-card";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
@@ -168,6 +169,9 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <CliInstallCard />
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Trash"

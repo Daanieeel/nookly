@@ -9,6 +9,8 @@ pub enum AppError {
     UnknownRelationshipType(String),
     #[error("cardinality violation: {0}")]
     CardinalityViolation(String),
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
     #[error("database error: {0}")]
     Db(String),
 }

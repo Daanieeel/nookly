@@ -1,5 +1,6 @@
 use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -59,6 +60,17 @@ pub fn create_course(conn: &Connection, space_id: String, title: String) -> AppR
         params![entity.id],
     )?;
     Ok(entity)
+}
+
+pub fn get_semester(conn: &Connection, entity_id: &str) -> AppResult<Semester> {
+    conn.query_row(
+        "SELECT e.*, s.start_date, s.end_date, s.term_type, s.year, s.is_current, s.manual_position
+         FROM entities e JOIN semesters s ON s.entity_id = e.id WHERE e.id = ?1",
+        params![entity_id],
+        row_to_semester,
+    )
+    .optional()?
+    .ok_or_else(|| crate::error::AppError::NotFound(format!("semester {entity_id}")))
 }
 
 pub fn list_courses(conn: &Connection, space_id: &str) -> AppResult<Vec<Entity>> {
@@ -285,6 +297,153 @@ pub fn get_or_create_semester_notes(conn: &Connection, semester_id: &str) -> App
         None,
     )?;
     Ok(note)
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+
+fn cli_create_course(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let entity = create_course(conn, input.space_id, input.title)?;
+    Ok(serde_json::to_value(entity).expect("Entity always serializes"))
+}
+
+fn cli_get_course(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(
+        serde_json::to_value(crate::db::entities::get_entity(conn, id)?)
+            .expect("Entity always serializes"),
+    )
+}
+
+fn cli_update_course(
+    conn: &Connection,
+    id: &str,
+    _fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    // No subtype fields — a Course's Semester is a generic (non-structural)
+    // relationship, set via `nookly cli relate <course> course-semester <semester>`.
+    cli_get_course(conn, id)
+}
+
+fn cli_list_courses(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id.ok_or_else(|| {
+        crate::error::AppError::InvalidInput("course list requires --space <space-id>".into())
+    })?;
+    Ok(list_courses(conn, space_id)?
+        .into_iter()
+        .map(|e| serde_json::to_value(e).expect("Entity always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "course",
+        supports_blocks: false,
+        description: "A course within a Space, optionally linked to a Semester.",
+        fields: &[],
+        relationship_types: &["sequel-of", "course-semester", "course-notes", "relates-to"],
+        create: cli_create_course,
+        update: cli_update_course,
+        get: cli_get_course,
+        list: cli_list_courses,
+    }
+}
+
+const SEMESTER_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "startDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description:
+            "Cosmetic only — never used for sorting or 'current' detection (see termType/year).",
+    },
+    FieldDef {
+        name: "endDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Cosmetic only.",
+    },
+    FieldDef {
+        name: "termType",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description:
+            "Typically one of: winter, spring, summer, fall. Source of truth for ordering.",
+    },
+    FieldDef {
+        name: "year",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Source of truth for ordering, alongside termType.",
+    },
+];
+
+fn cli_create_semester(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let start_date = crate::db::schema::field_str(&input.fields, "startDate");
+    let end_date = crate::db::schema::field_str(&input.fields, "endDate");
+    let term_type = crate::db::schema::field_str(&input.fields, "termType");
+    let year = crate::db::schema::field_i64(&input.fields, "year");
+    let semester = create_semester(
+        conn,
+        input.space_id,
+        input.title,
+        start_date,
+        end_date,
+        term_type,
+        year,
+    )?;
+    Ok(serde_json::to_value(semester).expect("Semester always serializes"))
+}
+
+fn cli_update_semester(
+    conn: &Connection,
+    id: &str,
+    fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    let start_date = crate::db::schema::field_str(fields, "startDate");
+    let end_date = crate::db::schema::field_str(fields, "endDate");
+    let term_type = crate::db::schema::field_str(fields, "termType");
+    let year = crate::db::schema::field_i64(fields, "year");
+    update_semester(conn, id, start_date, end_date, term_type, year)?;
+    cli_get_semester(conn, id)
+}
+
+fn cli_get_semester(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_semester(conn, id)?).expect("Semester always serializes"))
+}
+
+fn cli_list_semesters(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id.ok_or_else(|| {
+        crate::error::AppError::InvalidInput("semester list requires --space <space-id>".into())
+    })?;
+    Ok(list_semesters(conn, space_id)?
+        .into_iter()
+        .map(|s| serde_json::to_value(s).expect("Semester always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "semester",
+        supports_blocks: false,
+        description: "A Semester groups Courses within a Space.",
+        fields: SEMESTER_FIELDS,
+        relationship_types: &["course-semester", "semester-notes", "relates-to"],
+        create: cli_create_semester,
+        update: cli_update_semester,
+        get: cli_get_semester,
+        list: cli_list_semesters,
+    }
 }
 
 #[cfg(test)]

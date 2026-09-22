@@ -1,5 +1,6 @@
 use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -136,6 +137,66 @@ pub fn review_card(conn: &Connection, card_id: &str, remembered: bool) -> AppRes
     card.due_at = due_at;
     card.updated_at = now;
     Ok(card)
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+//
+// Index Cards themselves (front/back/box_level) aren't exposed as a CLI
+// entity type: they have no base entity fields (no title, no space_id) per
+// `02-entity-model.md` §2.1 — they're deck-owned child records, the same way
+// Note blocks are page-owned child records, not first-class entities.
+
+const DECK_FIELDS: &[FieldDef] = &[FieldDef {
+    name: "examId",
+    kind: FieldKind::EntityRef("exam"),
+    required_on_create: true,
+    writable_on_update: false,
+    description: "The Exam this deck belongs to (structural: exactly one).",
+}];
+
+fn cli_create_deck(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let exam_id = crate::db::schema::require_str(&input.fields, "examId")?;
+    let entity = create_deck(conn, input.space_id, input.title, exam_id)?;
+    Ok(serde_json::to_value(entity).expect("Entity always serializes"))
+}
+
+fn cli_update_deck(conn: &Connection, id: &str, _fields: &JsonMap) -> AppResult<serde_json::Value> {
+    cli_get_deck(conn, id)
+}
+
+fn cli_get_deck(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(
+        serde_json::to_value(crate::db::entities::get_entity(conn, id)?)
+            .expect("Entity always serializes"),
+    )
+}
+
+fn cli_list_decks(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id.ok_or_else(|| {
+        AppError::InvalidInput("index_card_deck list requires --space <space-id>".into())
+    })?;
+    Ok(list_decks(conn, space_id)?
+        .into_iter()
+        .map(|e| serde_json::to_value(e).expect("Entity always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "index_card_deck",
+        supports_blocks: false,
+        description: "A deck of Leitner-box spaced-repetition index cards, belonging to exactly one Exam.",
+        fields: DECK_FIELDS,
+        relationship_types: &["deck-exam"],
+        create: cli_create_deck,
+        update: cli_update_deck,
+        get: cli_get_deck,
+        list: cli_list_decks,
+    }
 }
 
 #[cfg(test)]

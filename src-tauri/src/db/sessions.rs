@@ -1,8 +1,9 @@
 use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use chrono::{Datelike, Days, NaiveDate};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
@@ -245,6 +246,62 @@ pub fn override_occurrence(
     Ok(occurrence)
 }
 
+pub fn get_session_occurrence(conn: &Connection, entity_id: &str) -> AppResult<SessionOccurrence> {
+    conn.query_row(
+        "SELECT e.*, s.* FROM entities e JOIN sessions s ON s.entity_id = e.id WHERE e.id = ?1",
+        params![entity_id],
+        row_to_occurrence,
+    )
+    .optional()?
+    .ok_or_else(|| AppError::NotFound(format!("session {entity_id}")))
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionTemplate {
+    pub entity: Entity,
+    pub weekday: i64,
+    pub start_time: String,
+    pub end_time: String,
+    pub location: Option<String>,
+    pub anchor_date: String,
+}
+
+fn row_to_template(row: &rusqlite::Row) -> rusqlite::Result<SessionTemplate> {
+    Ok(SessionTemplate {
+        entity: crate::db::entities::row_to_entity(row)?,
+        weekday: row.get("weekday")?,
+        start_time: row.get("start_time")?,
+        end_time: row.get("end_time")?,
+        location: row.get("location")?,
+        anchor_date: row.get("anchor_date")?,
+    })
+}
+
+pub fn get_session_template(conn: &Connection, entity_id: &str) -> AppResult<SessionTemplate> {
+    conn.query_row(
+        "SELECT e.*, t.weekday, t.start_time, t.end_time, t.location, t.anchor_date
+         FROM entities e JOIN session_templates t ON t.entity_id = e.id WHERE e.id = ?1",
+        params![entity_id],
+        row_to_template,
+    )
+    .optional()?
+    .ok_or_else(|| AppError::NotFound(format!("session template {entity_id}")))
+}
+
+pub fn list_session_templates(
+    conn: &Connection,
+    space_id: &str,
+) -> AppResult<Vec<SessionTemplate>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, t.weekday, t.start_time, t.end_time, t.location, t.anchor_date
+         FROM entities e JOIN session_templates t ON t.entity_id = e.id
+         WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at ASC",
+    )?;
+    let rows = stmt.query_map(params![space_id], row_to_template)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn list_sessions(conn: &Connection, space_id: &str) -> AppResult<Vec<SessionOccurrence>> {
     let mut stmt = conn.prepare(
         "SELECT e.*, s.* FROM entities e JOIN sessions s ON s.entity_id = e.id
@@ -285,6 +342,246 @@ pub fn list_sessions_today(conn: &Connection) -> AppResult<Vec<BriefingSession>>
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+
+const SESSION_TEMPLATE_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "courseId",
+        kind: FieldKind::EntityRef("course"),
+        required_on_create: true,
+        writable_on_update: false,
+        description: "The Course this weekly session belongs to (structural: exactly one).",
+    },
+    FieldDef {
+        name: "weekday",
+        kind: FieldKind::Integer,
+        required_on_create: true,
+        writable_on_update: false,
+        description: "0 = Monday .. 6 = Sunday.",
+    },
+    FieldDef {
+        name: "startTime",
+        kind: FieldKind::Text,
+        required_on_create: true,
+        writable_on_update: false,
+        description: "\"HH:MM\", 24-hour.",
+    },
+    FieldDef {
+        name: "endTime",
+        kind: FieldKind::Text,
+        required_on_create: true,
+        writable_on_update: false,
+        description: "\"HH:MM\", 24-hour.",
+    },
+    FieldDef {
+        name: "location",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "Optional free-text location.",
+    },
+    FieldDef {
+        name: "anchorDate",
+        kind: FieldKind::Date,
+        required_on_create: true,
+        writable_on_update: false,
+        description: "First date this weekly template is valid from.",
+    },
+];
+
+fn cli_create_session_template(
+    conn: &Connection,
+    input: CreateInput,
+) -> AppResult<serde_json::Value> {
+    let course_id = crate::db::schema::require_str(&input.fields, "courseId")?;
+    let weekday = crate::db::schema::field_i64(&input.fields, "weekday")
+        .ok_or_else(|| AppError::InvalidInput("--field weekday=<0-6> is required".into()))?;
+    let start_time = crate::db::schema::require_str(&input.fields, "startTime")?;
+    let end_time = crate::db::schema::require_str(&input.fields, "endTime")?;
+    let location = crate::db::schema::field_str(&input.fields, "location");
+    let anchor_date = crate::db::schema::require_str(&input.fields, "anchorDate")?;
+    let entity = create_session_template(
+        conn,
+        input.space_id,
+        input.title,
+        course_id,
+        weekday,
+        start_time,
+        end_time,
+        location,
+        anchor_date,
+    )?;
+    cli_get_session_template(conn, &entity.id)
+}
+
+fn cli_update_session_template(
+    conn: &Connection,
+    id: &str,
+    _fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    // No subtype fields are mutable after creation — recurring templates are
+    // immutable by design (§5.6); delete and recreate to change the schedule.
+    cli_get_session_template(conn, id)
+}
+
+fn cli_get_session_template(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_session_template(conn, id)?)
+        .expect("SessionTemplate always serializes"))
+}
+
+fn cli_list_session_templates(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id.ok_or_else(|| {
+        AppError::InvalidInput("session_template list requires --space <space-id>".into())
+    })?;
+    Ok(list_session_templates(conn, space_id)?
+        .into_iter()
+        .map(|t| serde_json::to_value(t).expect("SessionTemplate always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "session_template",
+        supports_blocks: false,
+        description: "A recurring weekly class/meeting slot. Use `session` to create one-off occurrences \
+                      (generating occurrences from a template is GUI-only for now).",
+        fields: SESSION_TEMPLATE_FIELDS,
+        relationship_types: &["session-course"],
+        create: cli_create_session_template,
+        update: cli_update_session_template,
+        get: cli_get_session_template,
+        list: cli_list_session_templates,
+    }
+}
+
+const SESSION_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "courseId",
+        kind: FieldKind::EntityRef("course"),
+        required_on_create: true,
+        writable_on_update: false,
+        description: "The Course this session belongs to (structural: exactly one).",
+    },
+    FieldDef {
+        name: "date",
+        kind: FieldKind::Date,
+        required_on_create: true,
+        writable_on_update: true,
+        description: "ISO date this occurrence falls on.",
+    },
+    FieldDef {
+        name: "startTime",
+        kind: FieldKind::Text,
+        required_on_create: true,
+        writable_on_update: true,
+        description: "\"HH:MM\", 24-hour.",
+    },
+    FieldDef {
+        name: "endTime",
+        kind: FieldKind::Text,
+        required_on_create: true,
+        writable_on_update: true,
+        description: "\"HH:MM\", 24-hour.",
+    },
+    FieldDef {
+        name: "location",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Optional free-text location.",
+    },
+    FieldDef {
+        name: "cancelled",
+        kind: FieldKind::Boolean,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Mark this occurrence cancelled without deleting it.",
+    },
+    FieldDef {
+        name: "notes",
+        kind: FieldKind::LongText,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Free-text notes on this occurrence.",
+    },
+];
+
+fn cli_create_session(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let course_id = crate::db::schema::require_str(&input.fields, "courseId")?;
+    let date = crate::db::schema::require_str(&input.fields, "date")?;
+    let start_time = crate::db::schema::require_str(&input.fields, "startTime")?;
+    let end_time = crate::db::schema::require_str(&input.fields, "endTime")?;
+    let location = crate::db::schema::field_str(&input.fields, "location");
+    let occurrence = create_one_off_session(
+        conn,
+        input.space_id,
+        input.title,
+        course_id,
+        date,
+        start_time,
+        end_time,
+        location,
+    )?;
+    Ok(serde_json::to_value(occurrence).expect("SessionOccurrence always serializes"))
+}
+
+fn cli_update_session(
+    conn: &Connection,
+    id: &str,
+    fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    let patch = OccurrenceOverride {
+        date: crate::db::schema::field_str(fields, "date"),
+        start_time: crate::db::schema::field_str(fields, "startTime"),
+        end_time: crate::db::schema::field_str(fields, "endTime"),
+        cancelled: crate::db::schema::field_bool(fields, "cancelled"),
+        location: fields
+            .get("location")
+            .map(|_| crate::db::schema::field_str(fields, "location")),
+        notes: fields
+            .get("notes")
+            .map(|_| crate::db::schema::field_str(fields, "notes")),
+    };
+    let occurrence = override_occurrence(conn, id, patch)?;
+    Ok(serde_json::to_value(occurrence).expect("SessionOccurrence always serializes"))
+}
+
+fn cli_get_session(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_session_occurrence(conn, id)?)
+        .expect("SessionOccurrence always serializes"))
+}
+
+fn cli_list_sessions(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id
+        .ok_or_else(|| AppError::InvalidInput("session list requires --space <space-id>".into()))?;
+    Ok(list_sessions(conn, space_id)?
+        .into_iter()
+        .map(|o| serde_json::to_value(o).expect("SessionOccurrence always serializes"))
+        .collect())
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "session",
+        supports_blocks: false,
+        description: "A single, dated class/meeting occurrence — either one-off, or generated from a session_template.",
+        fields: SESSION_FIELDS,
+        relationship_types: &["session-course"],
+        create: cli_create_session,
+        update: cli_update_session,
+        get: cli_get_session,
+        list: cli_list_sessions,
+    }
 }
 
 #[cfg(test)]
