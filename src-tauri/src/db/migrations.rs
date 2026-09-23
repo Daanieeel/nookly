@@ -218,5 +218,22 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         ALTER TABLE blocks ADD COLUMN language TEXT;
         ALTER TABLE blocks ADD COLUMN filename TEXT;
         ",
+    ), M::up(
+        "
+        -- Block-level full-text search (Cmd+K): one row per Note/Jot/Refinement
+        -- block, kept in sync by triggers so every block write path (editor,
+        -- CLI, Space deletion) stays indexed without touching each call site.
+        CREATE VIRTUAL TABLE blocks_fts USING fts5(block_id UNINDEXED, content);
+        INSERT INTO blocks_fts (block_id, content) SELECT id, content FROM blocks;
+        CREATE TRIGGER blocks_fts_insert AFTER INSERT ON blocks BEGIN
+            INSERT INTO blocks_fts (block_id, content) VALUES (new.id, new.content);
+        END;
+        CREATE TRIGGER blocks_fts_update AFTER UPDATE OF content ON blocks BEGIN
+            UPDATE blocks_fts SET content = new.content WHERE block_id = old.id;
+        END;
+        CREATE TRIGGER blocks_fts_delete AFTER DELETE ON blocks BEGIN
+            DELETE FROM blocks_fts WHERE block_id = old.id;
+        END;
+        ",
     )])
 });

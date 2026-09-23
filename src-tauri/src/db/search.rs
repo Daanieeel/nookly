@@ -41,30 +41,99 @@ pub struct SearchHit {
     #[serde(rename = "type")]
     pub entity_type: String,
     pub icon: Option<String>,
+    /// Set when the match came from one block of a Note/Jot/Refinement rather
+    /// than the entity's title. A page can yield several block hits.
+    pub block_id: Option<String>,
+    /// The matching block's text around the hit, matched terms wrapped in
+    /// `\u{1}` / `\u{2}` (see `char(1)`/`char(2)` below). Only set alongside `block_id`.
+    pub snippet: Option<String>,
+}
+
+const HIT_LIMIT: i64 = 50;
+
+/// Turns free user input into a safe FTS5 expression: every whitespace separated
+/// word becomes a quoted prefix term (`"word"*`), ANDed together, so punctuation
+/// like `-` or `:` can't be parsed as FTS syntax. `column` scopes each term.
+fn match_expression(query: &str, column: Option<&str>) -> Option<String> {
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .map(|word| word.replace('"', ""))
+        .filter(|word| !word.is_empty())
+        .map(|word| match column {
+            Some(col) => format!("{col} : \"{word}\"*"),
+            None => format!("\"{word}\"*"),
+        })
+        .collect();
+    if terms.is_empty() {
+        None
+    } else {
+        Some(terms.join(" "))
+    }
 }
 
 /// Full-text search across the whole app, deliberately not Space-scoped (§6) unless
 /// the caller passes a space_id to narrow it (used by in-Space search UIs, if any).
+/// Returns title hits first (exact, then prefix, then substring title matches ahead
+/// of looser FTS ranking), followed by block-level hits ordered by FTS relevance.
+/// Soft-deleted entities never appear.
 pub fn search(conn: &Connection, query: &str, space_id: Option<&str>) -> AppResult<Vec<SearchHit>> {
-    let match_query = format!("{}*", query.replace('"', ""));
+    let mut hits = search_titles(conn, query, space_id)?;
+    hits.extend(search_blocks(conn, query, space_id)?);
+    Ok(hits)
+}
+
+fn search_titles(
+    conn: &Connection,
+    query: &str,
+    space_id: Option<&str>,
+) -> AppResult<Vec<SearchHit>> {
+    let Some(match_query) = match_expression(query, Some("title")) else {
+        return Ok(Vec::new());
+    };
     // `course_notes` must never surface as a search result (§ course sub-dashboard) —
     // same invisibility rule `list_entities` enforces for mentions/pickers/Dashboard.
-    let mut sql = String::from(
-        "SELECT e.id, e.space_id, e.title, e.type, e.icon
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL
          FROM entities e
          JOIN (SELECT entity_id, rank FROM search_index WHERE search_index MATCH ?1) si ON si.entity_id = e.id
-         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'",
-    );
-    if space_id.is_some() {
-        sql.push_str(" AND e.space_id = ?2");
-    }
-    sql.push_str(" ORDER BY si.rank LIMIT 50");
+         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'
+           AND (?2 IS NULL OR e.space_id = ?2)
+         ORDER BY lower(e.title) = ?3 DESC,
+                  instr(lower(e.title), ?3) = 1 DESC,
+                  instr(lower(e.title), ?3) > 0 DESC,
+                  si.rank
+         LIMIT ?4",
+    )?;
+    let needle = query.trim().to_lowercase();
+    let rows = stmt.query_map(
+        params![match_query, space_id, needle, HIT_LIMIT],
+        row_to_hit,
+    )?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
 
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = match space_id {
-        Some(sid) => stmt.query_map(params![match_query, sid], row_to_hit)?,
-        None => stmt.query_map(params![match_query], row_to_hit)?,
+fn search_blocks(
+    conn: &Connection,
+    query: &str,
+    space_id: Option<&str>,
+) -> AppResult<Vec<SearchHit>> {
+    let Some(match_query) = match_expression(query, None) else {
+        return Ok(Vec::new());
     };
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.space_id, e.title, e.type, e.icon, b.id, f.snip
+         FROM (
+           SELECT block_id, rank, snippet(blocks_fts, 1, char(1), char(2), '…', 16) AS snip
+           FROM blocks_fts WHERE blocks_fts MATCH ?1
+         ) f
+         JOIN blocks b ON b.id = f.block_id
+         JOIN entities e ON e.id = b.entity_id
+         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'
+           AND (?2 IS NULL OR e.space_id = ?2)
+         ORDER BY f.rank
+         LIMIT ?3",
+    )?;
+    let rows = stmt.query_map(params![match_query, space_id, HIT_LIMIT], row_to_hit)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
@@ -75,6 +144,8 @@ fn row_to_hit(row: &rusqlite::Row) -> rusqlite::Result<SearchHit> {
         title: row.get(2)?,
         entity_type: row.get(3)?,
         icon: row.get(4)?,
+        block_id: row.get(5)?,
+        snippet: row.get(6)?,
     })
 }
 
@@ -100,14 +171,101 @@ mod tests {
             None,
         )
         .unwrap();
-        index_entity_content(&conn, &entity.id, "big o notation").unwrap();
+        let block = crate::db::notes::create_block(
+            &conn,
+            &entity.id,
+            "paragraph".into(),
+            "big o notation".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let hits = search(&conn, "algorithms", None).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].entity_id, entity.id);
+        assert!(hits[0].block_id.is_none());
 
         let content_hits = search(&conn, "notation", None).unwrap();
         assert_eq!(content_hits.len(), 1);
+        assert_eq!(content_hits[0].block_id.as_deref(), Some(block.id.as_str()));
+        let snippet = content_hits[0].snippet.as_deref().unwrap();
+        assert!(snippet.contains("\u{1}notation\u{2}"));
+    }
+
+    #[test]
+    fn block_hits_follow_edits_deletes_and_trash() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let note =
+            create_entity(&conn, space.id.clone(), "note".into(), "Page".into(), None).unwrap();
+        let first = crate::db::notes::create_block(
+            &conn,
+            &note.id,
+            "paragraph".into(),
+            "quicksort pivot".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &note.id,
+            "paragraph".into(),
+            "mergesort pivot".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Each matching block is its own hit.
+        assert_eq!(search(&conn, "pivot", None).unwrap().len(), 2);
+
+        crate::db::notes::update_block(
+            &conn,
+            &first.id,
+            crate::db::notes::BlockPatch {
+                content: Some("heapsort".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(search(&conn, "pivot", None).unwrap().len(), 1);
+        assert_eq!(search(&conn, "heap", None).unwrap().len(), 1);
+
+        crate::db::notes::delete_block(&conn, &first.id).unwrap();
+        assert!(search(&conn, "heapsort", None).unwrap().is_empty());
+
+        crate::db::entities::soft_delete_entity(&conn, &note.id).unwrap();
+        assert!(search(&conn, "pivot", None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn punctuation_in_queries_is_not_fts_syntax() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        create_entity(
+            &conn,
+            space.id.clone(),
+            "task".into(),
+            "Fix deploy-pipeline".into(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(search(&conn, "deploy-pipe", None).unwrap().len(), 1);
+        assert!(search(&conn, "   ", None).unwrap().is_empty());
+        assert!(search(&conn, "(\"a:", None).is_ok());
     }
 
     #[test]
@@ -126,7 +284,16 @@ mod tests {
             None,
         )
         .unwrap();
-        index_entity_content(&conn, &entity.id, "syllabus reminders").unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &entity.id,
+            "paragraph".into(),
+            "syllabus reminders".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         assert!(search(&conn, "algorithms", None).unwrap().is_empty());
         assert!(search(&conn, "syllabus", None).unwrap().is_empty());

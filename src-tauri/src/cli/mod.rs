@@ -346,6 +346,9 @@ nookly cli unrelate <relationship-id> --yes
 nookly cli search <query> [--space <id>]              # full-text, across every entity type
 ```
 
+Search matches entity titles and, for Notes/Jots/Refinements, individual blocks. A block hit
+carries `blockId` plus a `snippet` whose matched terms are wrapped in `\u0001` / `\u0002`.
+
 ## Spaces and Labels
 
 A Space is a top-level workspace (everything else lives inside exactly one). Labels are
@@ -656,7 +659,10 @@ fn block_command(
 /// i.e. the caller typed a markdown pipe table (`| a | b |` rows) instead of this app's real
 /// tab-delimited format, and got a silent auto-correction instead of an error. Purely advisory,
 /// same as `paragraph_mistake_warning`: the write already succeeded either way.
-fn table_normalize_warning(block: &crate::db::notes::Block, submitted_content: &str) -> Option<String> {
+fn table_normalize_warning(
+    block: &crate::db::notes::Block,
+    submitted_content: &str,
+) -> Option<String> {
     if block.block_type != "table" || block.content == submitted_content {
         return None;
     }

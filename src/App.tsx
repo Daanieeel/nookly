@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { QuickSwitcher } from "@/components/quick-switcher";
 import { EntityDetailRouter } from "@/components/entity-detail-router";
 import { ModuleView } from "@/components/module-view";
 import { AppSidebar } from "@/components/sidebar";
@@ -30,10 +31,16 @@ function MainContent() {
       return <TrashView />;
     case "module":
       return (
-        <ModuleView spaceId={view.spaceId} module={view.module} filterCourseId={view.filterCourseId} />
+        <ModuleView
+          spaceId={view.spaceId}
+          module={view.module}
+          filterCourseId={view.filterCourseId}
+        />
       );
     case "entity":
-      return <EntityDetailRouter entityId={view.entityId} />;
+      // Keyed so switching between two pages remounts the editor instead of
+      // keeping the previous page's hydrated state.
+      return <EntityDetailRouter key={view.entityId} entityId={view.entityId} />;
   }
 }
 
@@ -66,6 +73,7 @@ function Shell() {
         </SidebarProvider>
       </div>
       <CommandPalette />
+      <QuickSwitcher />
       <Toaster />
     </div>
   );

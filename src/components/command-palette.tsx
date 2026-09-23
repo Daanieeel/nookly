@@ -1,6 +1,7 @@
+import { IconBolt, IconFolder } from "@tabler/icons-react";
 import { Command } from "cmdk";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import {
   StatusAnnouncer,
@@ -8,15 +9,27 @@ import {
   statusOf,
   statusTextClass,
 } from "@/components/action-feedback";
-import { iconForType } from "@/components/entity-icon";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { EntityIcon, renderIconValue } from "@/components/entity-icon";
+import {
+  Highlighted,
+  SpotlightDialog,
+  SpotlightEmpty,
+  SpotlightFooter,
+  SpotlightInput,
+  SpotlightItem,
+  SpotlightList,
+} from "@/components/spotlight";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { createCourse } from "@/lib/api/courses";
-import type { Entity } from "@/lib/api/types";
+import { listEntities } from "@/lib/api/entities";
+import type { Entity, SearchHit, Space } from "@/lib/api/types";
 import { createJot, createNote, createRefinement } from "@/lib/api/notes";
 import { search } from "@/lib/api/search";
-import { listSpaces } from "@/lib/api/spaces";
+import { listSpaceModules, listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
 import { displayTitle } from "@/lib/entity-title";
+import { MODULE_KEYS } from "@/lib/modules";
+import { groupHits, snippetSegments, termSegments } from "@/lib/search-results";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 
@@ -26,27 +39,30 @@ import { cn } from "@/lib/utils";
 /// to that module's own tailored creation surface instead, not a bare title field.
 /// Each still goes through its real create_* command (not the bare generic entity
 /// insert) since Tasks/Courses also need a matching row in their own table.
-const QUICK_CREATE_TYPES: {
+interface QuickCreateType {
   type: string;
   label: string;
   create: (spaceId: string, title: string) => Promise<Entity>;
-}[] = [
+}
+
+/// Offered in the empty state as a one keystroke create. A Note drops straight
+/// into its canvas, so it needs no title first.
+const CREATE_NOTE: QuickCreateType = { type: "note", label: "Note", create: createNote };
+
+const QUICK_CREATE_TYPES: QuickCreateType[] = [
   {
     type: "task",
     label: "Task",
     create: (s, t) => createTask(s, t, null, null).then((r) => r.entity),
   },
-  { type: "note", label: "Note", create: createNote },
+  CREATE_NOTE,
   { type: "jot", label: "Jot", create: createJot },
   { type: "refinement", label: "Refinement", create: createRefinement },
   { type: "course", label: "Course", create: createCourse },
 ];
 
-interface QuickCreateMatch {
-  type: string;
-  label: string;
+interface QuickCreateMatch extends QuickCreateType {
   title: string;
-  create: (spaceId: string, title: string) => Promise<Entity>;
 }
 
 /// Recognizes `task:` / `note:`-style prefixes and a plain `new task …` phrasing,
@@ -75,17 +91,50 @@ function matchQuickCreate(trimmed: string): QuickCreateMatch[] {
   return matches;
 }
 
-/// Global Cmd+K (search/quick-nav) and Cmd+P (quick-open) — same palette (§9).
+function SpaceGlyph({ space, size }: { space: Space; size: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center text-(--space-color)"
+      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+      // string — `CSSProperties` just doesn't model custom properties.
+      style={{ "--space-color": space.color } as CSSProperties}
+    >
+      {space.icon ? renderIconValue(space.icon, size) : <IconFolder size={size} />}
+    </span>
+  );
+}
+
+/// Leading glyph for every quick action row, so "create a Task" never reads
+/// like "open an existing Task".
+function ActionGlyph() {
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary">
+      <IconBolt size={12} />
+    </span>
+  );
+}
+
+/// Global Cmd+K: search everything, jump anywhere, create things. The one entry
+/// point for search, also opened from the titlebar. Cmd+P is the lighter
+/// `QuickSwitcher` sibling.
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, openEntity, setView, activeSpaceId } = useNavStore();
+  const { paletteOpen, setPaletteOpen, openEntity, setView, activeSpaceId, recents } =
+    useNavStore();
   const [query, setQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const trimmed = query.trim();
+
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
-  const { data: hits = [] } = useQuery({
-    queryKey: ["search", query],
-    queryFn: () => search(query),
-    enabled: query.trim().length > 0,
+  const { data: entities } = useQuery({
+    queryKey: ["entities", "all"],
+    queryFn: () => listEntities(null, false),
+    enabled: paletteOpen,
+  });
+  const { data: hits = [], isFetching } = useQuery({
+    queryKey: ["search", trimmed],
+    queryFn: () => search(trimmed),
+    enabled: trimmed.length > 0,
+    placeholderData: keepPreviousData,
   });
 
   const quickCreate = useMutation({
@@ -94,8 +143,8 @@ export function CommandPalette() {
       create: (spaceId: string, title: string) => Promise<Entity>;
       title: string;
     }) =>
-      // SAFETY: `createMatches` (the only source of `vars`) is gated on `activeSpaceId`
-      // being set, so this mutation is never invoked while it's null.
+      // SAFETY: every quick create entry point is gated on `activeSpace` being
+      // set, so this mutation is never invoked while `activeSpaceId` is null.
       vars.create(activeSpaceId as string, vars.title),
     onSuccess: (entity) => {
       // Invalidate every cached list keyed by this Space (["entities", id], ["tasks", id],
@@ -103,142 +152,241 @@ export function CommandPalette() {
       queryClient.invalidateQueries({
         predicate: (q) => q.queryKey.includes(entity.spaceId),
       });
+      queryClient.invalidateQueries({ queryKey: ["entities", "all"] });
       openEntity(entity.id, entity.spaceId);
       setPaletteOpen(false);
     },
   });
 
-  const trimmed = query.trim();
-  const createMatches = activeSpaceId ? matchQuickCreate(trimmed) : [];
+  /// There's no Space home view, so "Go to" lands on the Space's first module.
+  const goToSpace = useMutation({
+    mutationFn: async (space: Space) => {
+      const modules = await listSpaceModules(space.id);
+      return { space, module: MODULE_KEYS.find((m) => modules.includes(m)) };
+    },
+    onSuccess: ({ space, module }) => {
+      if (module) setView({ kind: "module", spaceId: space.id, module });
+      else useNavStore.getState().setActiveSpace(space.id);
+      setPaletteOpen(false);
+    },
+  });
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "p")) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setPaletteOpen(true);
+        setPaletteOpen(!useNavStore.getState().paletteOpen);
       }
-      if (e.key === "Escape") setPaletteOpen(false);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setPaletteOpen]);
 
   const { reset: resetQuickCreate } = quickCreate;
+  const { reset: resetGoToSpace } = goToSpace;
   useEffect(() => {
-    if (!paletteOpen) {
-      setQuery("");
-      resetQuickCreate();
-    } else inputRef.current?.focus();
-  }, [paletteOpen, resetQuickCreate]);
+    if (paletteOpen) return;
+    setQuery("");
+    resetQuickCreate();
+    resetGoToSpace();
+  }, [paletteOpen, resetQuickCreate, resetGoToSpace]);
+
+  const activeSpace = spaces.find((s) => s.id === activeSpaceId);
+  const createMatches = activeSpace ? matchQuickCreate(trimmed) : [];
+  const lowerQuery = trimmed.toLowerCase();
+  const spaceMatches =
+    lowerQuery.length >= 2 ? spaces.filter((s) => s.name.toLowerCase().startsWith(lowerQuery)) : [];
+  const groups = groupHits(hits, spaces);
+
+  const entityById = new Map((entities ?? []).map((e) => [e.id, e]));
+  const recentEntities = recents.flatMap((r) => {
+    const entity = entityById.get(r.entityId);
+    return entity ? [entity] : [];
+  });
+
+  function close() {
+    setPaletteOpen(false);
+  }
+
+  function renderCreateItem(m: QuickCreateMatch) {
+    const status = quickCreate.variables?.type === m.type ? statusOf(quickCreate) : "idle";
+    const errorLabel = `Couldn't create ${m.label}, try again`;
+    return (
+      <SpotlightItem
+        key={m.type}
+        value={`create-${m.type}`}
+        onSelect={() => {
+          if (quickCreate.isPending) return;
+          quickCreate.mutate({
+            type: m.type,
+            create: m.create,
+            title: m.title || `Untitled ${m.label}`,
+          });
+        }}
+      >
+        <StatusIcon status={status} size={16} idle={<ActionGlyph />} />
+        <span className={cn("min-w-0 flex-1 truncate", statusTextClass(status))}>
+          {status === "error" ? (
+            errorLabel
+          ) : (
+            <>
+              New {m.label}
+              {m.title ? `: ${m.title}` : "…"}
+            </>
+          )}
+        </span>
+        {activeSpace && <InSpace space={activeSpace} />}
+        <StatusAnnouncer message={status === "error" ? errorLabel : null} />
+      </SpotlightItem>
+    );
+  }
+
+  function renderGoToItem(space: Space) {
+    const status = goToSpace.variables?.id === space.id ? statusOf(goToSpace) : "idle";
+    const errorLabel = `Couldn't open ${space.name}, try again`;
+    return (
+      <SpotlightItem
+        key={space.id}
+        value={`goto-${space.id}`}
+        onSelect={() => {
+          if (!goToSpace.isPending) goToSpace.mutate(space);
+        }}
+      >
+        <StatusIcon status={status} size={16} idle={<ActionGlyph />} />
+        <span className={cn("min-w-0 flex-1 truncate", statusTextClass(status))}>
+          {status === "error" ? errorLabel : `Go to ${space.name}`}
+        </span>
+        <SpaceGlyph space={space} size={14} />
+        <StatusAnnouncer message={status === "error" ? errorLabel : null} />
+      </SpotlightItem>
+    );
+  }
+
+  function renderHit(hit: SearchHit) {
+    const value = hit.blockId ? `block-${hit.blockId}` : `entity-${hit.entityId}`;
+    return (
+      <SpotlightItem
+        key={value}
+        value={value}
+        onSelect={() => {
+          openEntity(hit.entityId, hit.spaceId, hit.blockId ?? undefined);
+          close();
+        }}
+        className="items-start"
+      >
+        <EntityIcon entity={hit} size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {hit.snippet ? (
+            <>
+              <span className="truncate text-muted-foreground">{displayTitle(hit)}</span>
+              <span className="line-clamp-2 text-foreground/90">
+                <Highlighted segments={snippetSegments(hit.snippet)} />
+              </span>
+            </>
+          ) : (
+            <span className="truncate">
+              <Highlighted segments={termSegments(displayTitle(hit), trimmed)} />
+            </span>
+          )}
+        </span>
+      </SpotlightItem>
+    );
+  }
+
+  const otherSpaces = spaces.filter((s) => s.id !== activeSpace?.id);
+  const hasActions = createMatches.length > 0 || spaceMatches.length > 0;
 
   return (
-    <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
-      <DialogContent className="max-w-lg gap-0 p-0">
-        <Command className="flex flex-col" shouldFilter={false}>
-          <Command.Input
-            ref={inputRef}
-            value={query}
-            onValueChange={setQuery}
-            placeholder="Search, jump to a Space, or open anything…"
-            className="h-11 border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground"
-          />
-          <Command.List className="max-h-96 overflow-y-auto p-1">
-            {query.trim().length === 0 ? (
-              <Command.Group heading="Spaces" className="px-2 py-1.5 text-xs text-muted-foreground">
-                {spaces.map((space) => (
-                  <Command.Item
-                    key={space.id}
-                    value={space.id}
+    <SpotlightDialog open={paletteOpen} onOpenChange={setPaletteOpen} title="Search">
+      <SpotlightInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search, create, or jump anywhere…"
+      />
+      <SpotlightList>
+        {trimmed.length === 0 ? (
+          <>
+            {recentEntities.length > 0 && (
+              <Command.Group heading="Recents">
+                {recentEntities.map((entity) => (
+                  <SpotlightItem
+                    key={entity.id}
+                    value={`recent-${entity.id}`}
                     onSelect={() => {
-                      setView({ kind: "module", spaceId: space.id, module: "tasks" });
-                      setPaletteOpen(false);
+                      openEntity(entity.id, entity.spaceId);
+                      close();
                     }}
-                    className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                   >
-                    <span
-                      className="inline-block size-2 rounded-full bg-(--space-color)"
-                      // SAFETY: sets a CSS custom property, which `CSSProperties` doesn't model.
-                      style={{ "--space-color": space.color } as CSSProperties}
+                    <EntityIcon
+                      entity={entity}
+                      size={16}
+                      className="shrink-0 text-muted-foreground"
                     />
-                    {space.name}
-                  </Command.Item>
+                    <span className="min-w-0 flex-1 truncate">{displayTitle(entity)}</span>
+                  </SpotlightItem>
                 ))}
               </Command.Group>
-            ) : (
-              <>
-                {createMatches.length > 0 && (
-                  <Command.Group
-                    heading="Create"
-                    className="px-2 py-1.5 text-xs text-muted-foreground"
-                  >
-                    {createMatches.map((m) => {
-                      const Icon = iconForType(m.type);
-                      const status =
-                        quickCreate.variables?.type === m.type ? statusOf(quickCreate) : "idle";
-                      const errorLabel = `Couldn't create ${m.label}, try again`;
-                      return (
-                        <Command.Item
-                          key={m.type}
-                          value={`create-${m.type}`}
-                          onSelect={() => {
-                            if (quickCreate.isPending) return;
-                            quickCreate.mutate({
-                              type: m.type,
-                              create: m.create,
-                              title: m.title || `Untitled ${m.label}`,
-                            });
-                          }}
-                          className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
-                        >
-                          <StatusIcon
-                            status={status}
-                            size={16}
-                            idle={<Icon size={16} className="shrink-0 text-primary" />}
-                          />
-                          <span className={cn("min-w-0 flex-1 truncate", statusTextClass(status))}>
-                            {status === "error" ? (
-                              errorLabel
-                            ) : (
-                              <>
-                                New {m.label}
-                                {m.title ? `: ${m.title}` : "…"}
-                              </>
-                            )}
-                          </span>
-                          <StatusAnnouncer message={status === "error" ? errorLabel : null} />
-                        </Command.Item>
-                      );
-                    })}
-                  </Command.Group>
-                )}
-                {hits.length === 0 && createMatches.length === 0 && (
-                  <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    No results.
-                  </Command.Empty>
-                )}
-                {hits.map((hit) => {
-                  const Icon = iconForType(hit.type);
-                  return (
-                    <Command.Item
-                      key={hit.entityId}
-                      value={hit.entityId}
-                      onSelect={() => {
-                        openEntity(hit.entityId, hit.spaceId);
-                        setPaletteOpen(false);
-                      }}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
-                    >
-                      <Icon size={16} className="shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate">{displayTitle(hit)}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{hit.type}</span>
-                    </Command.Item>
-                  );
-                })}
-              </>
             )}
-          </Command.List>
-        </Command>
-      </DialogContent>
-    </Dialog>
+            <Command.Group heading="Quick actions">
+              {activeSpace && (
+                <>
+                  <SpotlightItem value="suggest-task" onSelect={() => setQuery("New Task ")}>
+                    <ActionGlyph />
+                    <span className="min-w-0 flex-1 truncate">New Task…</span>
+                    <InSpace space={activeSpace} />
+                  </SpotlightItem>
+                  {renderCreateItem({ ...CREATE_NOTE, title: "" })}
+                </>
+              )}
+              {otherSpaces.map(renderGoToItem)}
+            </Command.Group>
+          </>
+        ) : (
+          <>
+            {hasActions && (
+              <Command.Group heading="Quick actions">
+                {createMatches.map(renderCreateItem)}
+                {spaceMatches.map(renderGoToItem)}
+              </Command.Group>
+            )}
+            {groups.map(({ space, types }) => (
+              <div key={space.id} className="pt-2 first:pt-0">
+                <div className="flex items-center gap-2 px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-foreground/80 uppercase">
+                  <SpaceGlyph space={space} size={14} />
+                  <span className="truncate">{space.name}</span>
+                </div>
+                {types.map((group) => (
+                  <Command.Group key={group.key} heading={group.label}>
+                    {group.hits.map(renderHit)}
+                  </Command.Group>
+                ))}
+              </div>
+            ))}
+            {!isFetching && <SpotlightEmpty>Nothing matches “{trimmed}”.</SpotlightEmpty>}
+          </>
+        )}
+      </SpotlightList>
+      <SpotlightFooter
+        aside={
+          <>
+            <KbdGroup>
+              <Kbd>⌘</Kbd>
+              <Kbd>P</Kbd>
+            </KbdGroup>
+            Quick open
+          </>
+        }
+      />
+    </SpotlightDialog>
+  );
+}
+
+function InSpace({ space }: { space: Space }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+      in
+      <SpaceGlyph space={space} size={12} />
+      <span className="max-w-32 truncate">{space.name}</span>
+    </span>
   );
 }

@@ -72,6 +72,12 @@ export interface SearchHit {
   title: string;
   type: string;
   icon: string | null;
+  /// Set when the match came from one block of a Note/Jot/Refinement rather
+  /// than the entity's title.
+  blockId: string | null;
+  /// The matching block's text around the hit, matched terms wrapped in
+  /// `\u0001` / `\u0002`. Only set alongside `blockId`.
+  snippet: string | null;
 }
 
 export interface Label {

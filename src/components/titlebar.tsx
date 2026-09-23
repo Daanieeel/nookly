@@ -1,5 +1,6 @@
 import {
   IconChevronRight,
+  IconFileArrowRight,
   IconFolder,
   IconHistory,
   IconLayoutDashboard,
@@ -147,6 +148,19 @@ export function Titlebar() {
         <Breadcrumbs />
       </div>
       <div data-tauri-drag-region className="min-w-0 flex-1" />
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => useNavStore.getState().setSwitcherOpen(true)}
+        className="shrink-0 gap-1.5"
+      >
+        <IconFileArrowRight size={14} />
+        Quick open
+        <KbdGroup>
+          <Kbd>⌘</Kbd>
+          <Kbd>P</Kbd>
+        </KbdGroup>
+      </Button>
       <Button
         variant="ghost"
         size="sm"

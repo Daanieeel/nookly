@@ -219,6 +219,34 @@ export function BlockEditor({
     editor.commands.setContent({ type: "doc", content });
   }, [editor, blocks]);
 
+  // Scrolls to a block requested from outside (a block level search result)
+  // once the page has hydrated, then hands the request back.
+  const focusBlock = useNavStore((s) => s.focusBlock);
+  const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
+  useEffect(() => {
+    if (!editor || !blocks || focusBlock?.entityId !== entityId) return;
+    const frame = requestAnimationFrame(() => {
+      clearFocusBlock();
+      // Blocks created earlier in this editor session still carry their
+      // client id in the DOM, so map the server id back first.
+      const clientId =
+        [...idMapRef.current].find(([, serverId]) => serverId === focusBlock.blockId)?.[0] ??
+        focusBlock.blockId;
+      const element = editor.view.dom.querySelector(`[data-block-id="${CSS.escape(clientId)}"]`);
+      if (!(element instanceof HTMLElement)) return;
+      editor.commands.focus(editor.view.posAtDOM(element, 0), { scrollIntoView: false });
+      element.scrollIntoView({ block: "center" });
+      element.animate(
+        [
+          { backgroundColor: "color-mix(in oklab, var(--primary) 16%, transparent)" },
+          { backgroundColor: "transparent" },
+        ],
+        { duration: 1800, easing: "ease-out" },
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editor, blocks, focusBlock, entityId, clearFocusBlock]);
+
   useEffect(
     () => () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

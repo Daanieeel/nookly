@@ -32,22 +32,33 @@ export interface RecentEntry {
 
 const MAX_RECENTS = 5;
 
+/// A block to scroll into view once its page's editor has hydrated, e.g. after
+/// picking a block level search result. Consumed (cleared) by `BlockEditor`.
+export interface FocusBlock {
+  entityId: string;
+  blockId: string;
+}
+
 interface NavState {
   view: View;
   activeSpaceId: string | null;
   paletteOpen: boolean;
+  switcherOpen: boolean;
+  focusBlock: FocusBlock | null;
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
   rightSidebarWidth: number;
   recents: RecentEntry[];
   setView: (view: View) => void;
-  openEntity: (entityId: string, spaceId: string) => void;
+  openEntity: (entityId: string, spaceId: string, blockId?: string) => void;
   /// Drops recents whose entity id isn't in `validIds` (deleted/trashed since
   /// being opened), so a stale entry doesn't sit in the list — or inflate its
   /// count — forever.
   pruneRecents: (validIds: Set<string>) => void;
   setActiveSpace: (spaceId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
+  setSwitcherOpen: (open: boolean) => void;
+  clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
   setRightSidebarWidth: (width: number) => void;
@@ -128,6 +139,8 @@ export const useNavStore = create<NavState>((set, get) => ({
   view: { kind: "dashboard" },
   activeSpaceId: readStoredActiveSpace(),
   paletteOpen: false,
+  switcherOpen: false,
+  focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
   rightSidebarWidth: readStoredRightSidebarWidth(),
@@ -138,7 +151,7 @@ export const useNavStore = create<NavState>((set, get) => ({
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
       return { view, activeSpaceId };
     }),
-  openEntity: (entityId, spaceId) => {
+  openEntity: (entityId, spaceId, blockId) => {
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
     const recents = [entry, ...get().recents.filter((r) => r.entityId !== entityId)].slice(
       0,
@@ -146,7 +159,12 @@ export const useNavStore = create<NavState>((set, get) => ({
     );
     writeStoredRecents(recents);
     if (spaceId !== get().activeSpaceId) writeStoredActiveSpace(spaceId);
-    set({ view: { kind: "entity", entityId, spaceId }, activeSpaceId: spaceId, recents });
+    set({
+      view: { kind: "entity", entityId, spaceId },
+      activeSpaceId: spaceId,
+      recents,
+      focusBlock: blockId ? { entityId, blockId } : null,
+    });
   },
   pruneRecents: (validIds) => {
     const recents = get().recents.filter((r) => validIds.has(r.entityId));
@@ -158,7 +176,12 @@ export const useNavStore = create<NavState>((set, get) => ({
     writeStoredActiveSpace(spaceId);
     set({ activeSpaceId: spaceId });
   },
-  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  // The two overlays never stack: opening one closes the other.
+  setPaletteOpen: (paletteOpen) =>
+    set(paletteOpen ? { paletteOpen, switcherOpen: false } : { paletteOpen }),
+  setSwitcherOpen: (switcherOpen) =>
+    set(switcherOpen ? { switcherOpen, paletteOpen: false } : { switcherOpen }),
+  clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     try {
       localStorage.setItem(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
