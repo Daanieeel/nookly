@@ -281,6 +281,72 @@
     background: transparent;
     padding: 0;
   }
+  /* Checklist (`TaskList`): the checkbox sits where a bullet would, and a done
+     item recedes rather than disappears. */
+  .tiptap-content ul[data-type="taskList"] {
+    margin: 0.25rem 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tiptap-content ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .tiptap-content ul[data-type="taskList"] li > label {
+    display: flex;
+    align-items: center;
+    height: 1.625em;
+    flex-shrink: 0;
+    user-select: none;
+  }
+  .tiptap-content ul[data-type="taskList"] li > div {
+    flex: 1;
+    min-width: 0;
+  }
+  .tiptap-content ul[data-type="taskList"] li p {
+    margin: 0;
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"] {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    width: 0.9375rem;
+    height: 0.9375rem;
+    margin: 0;
+    border: 1px solid var(--input);
+    border-radius: 0.25rem;
+    background: var(--card);
+    cursor: pointer;
+    transition:
+      background-color 150ms,
+      border-color 150ms;
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]::after {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    background: var(--primary-foreground);
+    transform: scale(0);
+    transition: transform 120ms;
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]:checked {
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+    transform: scale(1);
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  .tiptap-content ul[data-type="taskList"] li[data-checked="true"] > div {
+    color: var(--muted-foreground);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  }
   .tiptap-content hr {
     margin: 0.75rem 0;
     border: none;

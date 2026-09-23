@@ -106,6 +106,9 @@ export function encodeInline(nodes: JSONNode[] = []): string {
     .join("");
 }
 
+/// One checklist line: `[ ] ` or `[x] `, then the item's inline markdown.
+const CHECKLIST_ITEM = /^\s*\[([ xX])\]\s?(.*)$/;
+
 function nonEmpty(nodes: JSONNode[]): JSONNode[] | undefined {
   return nodes.length > 0 ? nodes : undefined;
 }
@@ -157,6 +160,21 @@ export function blockToNode(block: Block): JSONNode {
         attrs: { blockId, variant: block.attrs.variant ?? "note" },
         content: nonEmpty(decodeInline(block.content)),
       };
+    case "checklist": {
+      const lines = block.content.length > 0 ? block.content.split("\n") : ["[ ] "];
+      return {
+        type: "taskList",
+        attrs: { blockId },
+        content: lines.map((line) => {
+          const item = CHECKLIST_ITEM.exec(line);
+          return {
+            type: "taskItem",
+            attrs: { checked: item?.[1] !== undefined && item[1] !== " " },
+            content: [{ type: "paragraph", content: nonEmpty(decodeInline(item?.[2] ?? line)) }],
+          };
+        }),
+      };
+    }
     case "table": {
       const rows = block.content.length > 0 ? block.content.split("\n") : [""];
       return {
@@ -229,6 +247,17 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return { blockId, blockType: "bulleted_list", content: listLines(node) };
     case "orderedList":
       return { blockId, blockType: "numbered_list", content: listLines(node) };
+    case "taskList":
+      return {
+        blockId,
+        blockType: "checklist",
+        content: (node.content ?? [])
+          .map((item) => {
+            const mark = item.attrs?.checked === true ? "[x]" : "[ ]";
+            return `${mark} ${encodeInline(item.content?.[0]?.content)}`;
+          })
+          .join("\n"),
+      };
     case "callout":
       return {
         blockId,

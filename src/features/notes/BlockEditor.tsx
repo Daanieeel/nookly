@@ -2,6 +2,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import StarterKit from "@tiptap/starter-kit";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -292,6 +293,9 @@ function HydratedBlockEditor({
       Stats,
       Details,
       Divider,
+      TaskList,
+      // One level only: a checklist block stores one item per line.
+      TaskItem.configure({ nested: false }),
     ],
     editorProps: {
       attributes: {

@@ -7,6 +7,7 @@ export interface JotBlock {
 }
 
 const HEADING = /^(#{1,3})\s+(.*)$/;
+const CHECK = /^[-*+]\s+\[([ xX])\]\s+(.*)$/;
 const BULLET = /^[-*+]\s+(.*)$/;
 const NUMBERED = /^\d+[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
@@ -23,7 +24,8 @@ export function jotTextToBlocks(text: string): JotBlock[] {
   const push = (blockType: BlockType, content: string, language: string | null = null) => {
     const last = blocks.at(-1);
     // Consecutive list items share one block, one item per line.
-    const mergeable = blockType === "bulleted_list" || blockType === "numbered_list";
+    const mergeable =
+      blockType === "bulleted_list" || blockType === "numbered_list" || blockType === "checklist";
     if (mergeable && last?.blockType === blockType) last.content += `\n${content}`;
     else blocks.push({ blockType, content, language });
   };
@@ -46,10 +48,12 @@ export function jotTextToBlocks(text: string): JotBlock[] {
       continue;
     }
     const heading = HEADING.exec(trimmed);
+    const check = CHECK.exec(trimmed);
     const bullet = BULLET.exec(trimmed);
     const numbered = NUMBERED.exec(trimmed);
     const quote = QUOTE.exec(trimmed);
     if (heading) push(HEADING_TYPES[heading[1].length - 1] ?? "heading1", heading[2].trim());
+    else if (check) push("checklist", `[${check[1] === " " ? " " : "x"}] ${check[2]}`);
     else if (bullet) push("bulleted_list", bullet[1]);
     else if (numbered) push("numbered_list", numbered[1]);
     else if (quote) push("quote", quote[1]);

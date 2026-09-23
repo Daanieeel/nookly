@@ -124,6 +124,11 @@ const BLOCK_KINDS: BlockKind[] = [
     matches: (node) => node.type.name === "orderedList",
     apply: (chain) => chain.toggleOrderedList(),
   },
+  {
+    title: "Checklist",
+    matches: (node) => node.type.name === "taskList",
+    apply: (chain) => chain.toggleTaskList(),
+  },
 ];
 
 /// Every kind with its slash menu entry; the block's current kind is left out,

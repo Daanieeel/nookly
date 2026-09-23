@@ -538,12 +538,12 @@ nookly cli note add-block <id> --type code --content 'console.log(1)' --language
 Omit it (or pass `--language ""` on `update-block`) for plain, unhighlighted text. Same
 `""`-clears convention for `--filename`.
 
-### Custom blocks: `callout`, `timeline`, `progress`, `tree`, `steps`, `stats`, `details`
+### Custom blocks
 
-Blocks beyond plain markdown. Their settings are `--attr <name>=<value>` flags (repeatable,
-an empty value clears one). `describe note` lists each type's content format and attrs under
-`contentFormats` and `blockAttrs`. Lines are tab separated like tables. In a page export they
-become framed ASCII figures.
+Blocks beyond plain markdown (callout, checklist, timeline, ...). Their settings are
+`--attr <name>=<value>` flags (repeatable, an empty value clears one). `describe note` lists
+every type's content format and attrs under `contentFormats` and `blockAttrs`; multi column
+formats separate cells with a tab, like tables.
 
 ```
 nookly cli note add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning
@@ -553,6 +553,8 @@ nookly cli note add-block <id> --type tree --content "$(printf 'Thesis\n  Intro\
 nookly cli note add-block <id> --type steps --attr current=2 --content "$(printf 'Register\tBefore Oct 1\nPay the fee\nPick courses')"
 nookly cli note add-block <id> --type stats --content "$(printf '3.7\tGPA\n90\tCredits\tof 180')"
 nookly cli note add-block <id> --type details --content "$(printf 'Room\tB 204\nOffice hours\tTue 14:00')"
+nookly cli note add-block <id> --type checklist --content "$(printf '[x] Buy notebook\n[ ] Print slides')"
+nookly cli note add-block <id> --type divider --content ''
 ```
 
 ### Tables: tabs and newlines, NOT markdown pipe syntax

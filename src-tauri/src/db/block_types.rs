@@ -656,6 +656,58 @@ inventory::submit! {
     }
 }
 
+// --- checklist -------------------------------------------------------------
+
+/// `[ ] ` or `[x] ` and the item text after it.
+fn checklist_item(line: &str) -> Option<(bool, &str)> {
+    let line = line.trim_start();
+    if let Some(text) = line
+        .strip_prefix("[ ] ")
+        .or_else(|| line.strip_prefix("[ ]"))
+    {
+        Some((false, text))
+    } else {
+        line.strip_prefix("[x] ")
+            .or_else(|| line.strip_prefix("[X] "))
+            .or_else(|| line.strip_prefix("[x]"))
+            .or_else(|| line.strip_prefix("[X]"))
+            .map(|text| (true, text))
+    }
+}
+
+fn validate_checklist(content: &str) -> Result<(), String> {
+    for (i, line) in non_empty_lines(content).enumerate() {
+        if checklist_item(line).is_none() {
+            return Err(format!(
+                "line {} must start with '[ ] ' (open) or '[x] ' (done), got '{}'",
+                i + 1,
+                line.trim()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// GitHub task list syntax, which every markdown renderer with checkboxes reads.
+fn checklist_to_markdown(block: &Block) -> String {
+    non_empty_lines(&block.content)
+        .filter_map(checklist_item)
+        .map(|(done, text)| format!("- [{}] {text}", if done { 'x' } else { ' ' }))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "checklist",
+        content_format: "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) \
+                         or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        attrs: &[],
+        validate: validate_checklist,
+        to_markdown: checklist_to_markdown,
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -793,6 +845,12 @@ mod tests {
     }
 
     #[test]
+    fn checklist_exports_as_a_task_list() {
+        let md = checklist_to_markdown(&block("checklist", "[x] Buy **notebook**\n[ ] Print", &[]));
+        assert_eq!(md, "- [x] Buy **notebook**\n- [ ] Print");
+    }
+
+    #[test]
     fn details_align_labels() {
         let md = details_to_markdown(&block(
             "details",
@@ -807,6 +865,8 @@ mod tests {
         assert!(validate_content("stats", "1\ta\n2\tb\n3\tc\n4\td\n5\te").is_err());
         assert!(validate_content("details", "a\tb\tc").is_err());
         assert!(validate_content("divider", "").is_ok());
+        assert!(validate_content("checklist", "[ ] a\n[x] b").is_ok());
+        assert!(validate_content("checklist", "- [ ] a").is_err());
         assert!(validate_content("divider", "text").is_err());
         let current = |v: &str| BlockAttrs::from([("current".to_string(), v.to_string())]);
         assert!(validate_attrs("steps", &current("2")).is_ok());

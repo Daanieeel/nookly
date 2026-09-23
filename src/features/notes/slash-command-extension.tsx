@@ -3,6 +3,7 @@ import {
   IconCode,
   IconInfoCircle,
   IconSeparatorHorizontal,
+  IconSquareCheck,
   IconListCheck,
   IconListDetails,
   IconNumber,
@@ -107,6 +108,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "A list with numbering",
     icon: <IconListNumbers size={15} />,
     run: (editor, range) => editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
+    title: "Checklist",
+    group: "Lists",
+    description: "Items to tick off",
+    icon: <IconSquareCheck size={15} />,
+    run: (editor, range) => editor.chain().focus().deleteRange(range).toggleTaskList().run(),
   },
   {
     title: "Steps",
