@@ -37,16 +37,48 @@ const LANGUAGE_LOADERS = {
 
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 
-/// Lazily created once and reused for the app's lifetime — building it is the only async step
-/// (loading each grammar's JSON via the loaders above); tokenizing with an already-built instance
-/// is synchronous. Uses the pure-JS regex engine (no WASM/Oniguruma) — this app only needs
-/// tokenizing for a handful of languages, not the full Oniguruma regex feature set, and it drops
-/// the ~450KB WASM binary that engine would otherwise pull in.
+/// Lazily created once and reused for the app's lifetime, with no grammars loaded up front:
+/// each one is pulled in by `ensureShikiLanguage` the first time a code block actually uses it,
+/// so opening a page never waits on grammars it doesn't show. Uses the pure-JS regex engine (no
+/// WASM/Oniguruma) — this app only needs tokenizing for a handful of languages, not the full
+/// Oniguruma regex feature set, and it drops the ~450KB WASM binary that engine would otherwise
+/// pull in.
 export function getShikiHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= createHighlighterCore({
     themes: [nooklyShikiTheme],
-    langs: Object.values(LANGUAGE_LOADERS).map((load) => load().then((mod) => mod.default)),
+    langs: [],
     engine: createJavaScriptRegexEngine(),
   });
   return highlighterPromise;
+}
+
+/// Languages Shiki renders without a grammar; there is nothing to load or tokenize for them.
+const PLAIN_LANGUAGES = new Set(["plaintext", "text", "txt", "plain"]);
+
+function isLoaderKey(language: string): language is keyof typeof LANGUAGE_LOADERS {
+  return language in LANGUAGE_LOADERS;
+}
+
+const languageLoads = new Map<string, Promise<boolean>>();
+
+/// Loads `language`'s grammar into the shared highlighter, resolving to whether it can now be
+/// tokenized. A value that isn't a loader key (an alias like `ts`, or a typo from the CLI) falls
+/// back to loading every grammar once, since each module registers its own aliases.
+export function ensureShikiLanguage(language: string): Promise<boolean> {
+  if (PLAIN_LANGUAGES.has(language)) return Promise.resolve(false);
+  let load = languageLoads.get(language);
+  if (!load) {
+    load = (async () => {
+      const highlighter = await getShikiHighlighter();
+      if (highlighter.getLoadedLanguages().includes(language)) return true;
+      const loaders = isLoaderKey(language)
+        ? [LANGUAGE_LOADERS[language]]
+        : Object.values(LANGUAGE_LOADERS);
+      const modules = await Promise.all(loaders.map((loader) => loader()));
+      await highlighter.loadLanguage(...modules.map((mod) => mod.default));
+      return highlighter.getLoadedLanguages().includes(language);
+    })();
+    languageLoads.set(language, load);
+  }
+  return load;
 }

@@ -11,6 +11,7 @@ import { createBlock, createJot, createRefinement } from "@/lib/api/notes";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
+import { prefetchBlocks } from "./blocks-query";
 
 function titleFromContent(content: string): string {
   const firstLine = content.trim().split("\n")[0]?.trim() ?? "";
@@ -120,6 +121,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
             key={page.id}
             type="button"
             onClick={() => openEntity(page.id, spaceId)}
+            onMouseEnter={() => prefetchBlocks(queryClient, page.id)}
             className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
           >
             <EntityIcon entity={page} className="shrink-0 text-muted-foreground" />

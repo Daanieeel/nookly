@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { getShikiHighlighter } from "./features/notes/shiki-highlighter";
 import { initTheme } from "./lib/theme";
 import "./styles.css";
 import "blobatar/motion.css";
@@ -14,3 +15,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <App />
   </React.StrictMode>,
 );
+
+// Builds the syntax highlighter off the critical path, so the first page with a
+// code block doesn't wait for it.
+setTimeout(() => void getShikiHighlighter(), 0);

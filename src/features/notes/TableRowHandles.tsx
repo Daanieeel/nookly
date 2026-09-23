@@ -4,6 +4,7 @@ import { Selection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { keepIfEqual, perFrame } from "./pointer-frame";
 
 interface HandleRect {
   top: number;
@@ -127,11 +128,13 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
       const rowBox = row.getBoundingClientRect();
       const editorBox = dom.getBoundingClientRect();
       const before = clientY < rowBox.top + rowBox.height / 2;
-      setIndicator({
-        top: (before ? rowBox.top : rowBox.bottom) - editorBox.top,
-        left: rowBox.left - editorBox.left,
-        width: rowBox.width,
-      });
+      setIndicator((prev) =>
+        keepIfEqual(prev, {
+          top: (before ? rowBox.top : rowBox.bottom) - editorBox.top,
+          left: rowBox.left - editorBox.left,
+          width: rowBox.width,
+        }),
+      );
     };
 
     const onMouseMove = (event: MouseEvent) => {
@@ -144,7 +147,7 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
       const row = target instanceof Element ? target.closest("tr") : null;
       if (row && dom.contains(row)) {
         hoveredRowRef.current = row;
-        setHandle(measure(row));
+        setHandle((prev) => keepIfEqual(prev, measure(row)));
         setVisible(true);
         return;
       }
@@ -191,10 +194,12 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
       editor.view.focus();
     };
 
-    document.addEventListener("mousemove", onMouseMove);
+    const onMouseMoveFrame = perFrame(onMouseMove);
+    document.addEventListener("mousemove", onMouseMoveFrame);
     document.addEventListener("mouseup", onMouseUp);
     return () => {
-      document.removeEventListener("mousemove", onMouseMove);
+      onMouseMoveFrame.cancel();
+      document.removeEventListener("mousemove", onMouseMoveFrame);
       document.removeEventListener("mouseup", onMouseUp);
     };
   }, [editor]);

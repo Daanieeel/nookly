@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
+import { keepIfEqual, perFrame } from "./pointer-frame";
 import { SuggestionList, type SuggestionListHandle } from "./suggestion-list";
 
 const MENU_ITEMS = SLASH_ITEMS.map(toListItem);
@@ -121,11 +122,13 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       const blockBox = block.getBoundingClientRect();
       const editorBox = dom.getBoundingClientRect();
       const before = clientY < blockBox.top + blockBox.height / 2;
-      setIndicator({
-        top: (before ? blockBox.top : blockBox.bottom) - editorBox.top,
-        left: 0,
-        width: blockBox.right - editorBox.left,
-      });
+      setIndicator((prev) =>
+        keepIfEqual(prev, {
+          top: (before ? blockBox.top : blockBox.bottom) - editorBox.top,
+          left: 0,
+          width: blockBox.right - editorBox.left,
+        }),
+      );
     };
 
     const onMouseMove = (event: MouseEvent) => {
@@ -138,7 +141,7 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       const block = resolveBlockAt(event.clientX, event.clientY);
       if (block) {
         hoveredBlockRef.current = block;
-        setHandle(measure(block));
+        setHandle((prev) => keepIfEqual(prev, measure(block)));
         setVisible(true);
         return;
       }
@@ -181,10 +184,12 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       editor.view.focus();
     };
 
-    document.addEventListener("mousemove", onMouseMove);
+    const onMouseMoveFrame = perFrame(onMouseMove);
+    document.addEventListener("mousemove", onMouseMoveFrame);
     document.addEventListener("mouseup", onMouseUp);
     return () => {
-      document.removeEventListener("mousemove", onMouseMove);
+      onMouseMoveFrame.cancel();
+      document.removeEventListener("mousemove", onMouseMoveFrame);
       document.removeEventListener("mouseup", onMouseUp);
     };
   }, [editor]);
