@@ -28,10 +28,13 @@ const KEYBOARD_STEP_PX = 16;
 export function RightSidebar({
   entity,
   actions,
+  children,
 }: {
   entity: Entity;
   /// Entity actions (export/pin/more), laid out for this sidebar via `className`.
   actions: (className?: string) => React.ReactNode;
+  /// Type specific sections ahead of the shared ones, e.g. a Task's properties.
+  children?: React.ReactNode;
 }) {
   const collapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const setCollapsed = useNavStore((s) => s.setRightSidebarCollapsed);
@@ -127,6 +130,7 @@ export function RightSidebar({
           </Tooltip>
           {actions()}
         </div>
+        {children}
         {entity.type === "course" && <CourseSemesterPanel course={entity} />}
         <RelationshipsPanel entity={entity} />
         <AttachmentsPanel entity={entity} />

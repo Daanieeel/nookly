@@ -44,6 +44,12 @@ pub fn subtask_progress(state: State<DbState>, parent_entity_id: String) -> AppR
 }
 
 #[tauri::command]
+pub fn get_task(state: State<DbState>, entity_id: String) -> AppResult<Task> {
+    let conn = state.0.lock().unwrap();
+    tasks::get_task_with_labels(&conn, &entity_id)
+}
+
+#[tauri::command]
 pub fn list_tasks(state: State<DbState>, space_id: String) -> AppResult<Vec<Task>> {
     let conn = state.0.lock().unwrap();
     tasks::list_tasks(&conn, &space_id)

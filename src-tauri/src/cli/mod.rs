@@ -364,7 +364,7 @@ fn top_level_help() -> Value {
             "restore": "nookly cli <entity-type> restore <id>",
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
                      [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
-            "blocks": "note/jot only (`describe <type>` reports supportsBlocks) — full block editing: \
+            "blocks": "block pages only: note, jot, task and sub_task (`describe <type>` reports supportsBlocks) — full block editing: \
                        `nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
                        `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
                        `delete-block <block-id> --yes`, `reorder-blocks <id> <block-id> <block-id> ...`. \
@@ -932,7 +932,8 @@ fn get_entity(
 
 /// Block-level editing (§2.1: Notes/Jots are "block-level
 /// addressable" pages) for any entity type that opts in via
-/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`,
+/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot` and
+/// `task`/`sub_task` (a task's description),
 /// but generic: a future page-like module gets these commands for free.
 /// Blocks aren't entities themselves (no base entity fields — same reasoning
 /// as Index Cards, see `db::decks`), so they live outside the `<entity-type>

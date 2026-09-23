@@ -67,12 +67,7 @@ export function EntityDetailLayout({
     mutationFn: (icon: string | null) => updateEntity(entity.id, { icon: icon ?? "" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
   });
-  const restore = useMutation({
-    mutationFn: () => restoreEntity(entity.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
-  });
   const pinStatus = useActionStatus(togglePin);
-  const restoreStatus = statusOf(restore);
   const renameFailed = rename.isError;
   const iconFailed = setIcon.isError;
 
@@ -93,23 +88,7 @@ export function EntityDetailLayout({
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      {isDeleted && (
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <span className="flex items-center gap-1.5">
-            <IconTrashFilled size={14} />
-            This {labelForType(entity.type)} is in Trash. All fields are read-only until restored.
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => !restore.isPending && restore.mutate()}
-          >
-            <StatusIcon status={restoreStatus} idle={<IconRestore size={14} />} />
-            {restoreStatus === "error" ? "Couldn't restore, try again" : "Restore"}
-          </Button>
-          <StatusAnnouncer message={restoreStatus === "error" ? "Couldn't restore" : null} />
-        </div>
-      )}
+      {isDeleted && <TrashedBanner entity={entity} />}
       <div
         className={`flex min-h-0 min-w-0 flex-1 ${isDeleted ? "opacity-50" : ""}`}
         inert={isDeleted || undefined}
@@ -200,6 +179,29 @@ export function EntityDetailLayout({
         onOpenChange={setTrashConfirmOpen}
         onTrashed={() => setView({ kind: "dashboard" })}
       />
+    </div>
+  );
+}
+
+/// Shown above a trashed entity's page, with the one action that undoes it.
+export function TrashedBanner({ entity }: { entity: Entity }) {
+  const queryClient = useQueryClient();
+  const restore = useMutation({
+    mutationFn: () => restoreEntity(entity.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+  });
+  const restoreStatus = statusOf(restore);
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      <span className="flex items-center gap-1.5">
+        <IconTrashFilled size={14} />
+        This {labelForType(entity.type)} is in Trash. All fields are read-only until restored.
+      </span>
+      <Button variant="secondary" size="sm" onClick={() => !restore.isPending && restore.mutate()}>
+        <StatusIcon status={restoreStatus} idle={<IconRestore size={14} />} />
+        {restoreStatus === "error" ? "Couldn't restore, try again" : "Restore"}
+      </Button>
+      <StatusAnnouncer message={restoreStatus === "error" ? "Couldn't restore" : null} />
     </div>
   );
 }

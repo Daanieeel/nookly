@@ -31,6 +31,8 @@ export interface RecentEntry {
 }
 
 const MAX_RECENTS = 5;
+/// How many steps Back can go, like a browser's history.
+const MAX_HISTORY = 50;
 
 /// A block to scroll into view once its page's editor has hydrated, e.g. after
 /// picking a block level search result. Consumed (cleared) by `BlockEditor`.
@@ -51,7 +53,13 @@ interface NavState {
   rightSidebarCollapsed: boolean;
   rightSidebarWidth: number;
   recents: RecentEntry[];
+  /// Views to return to with Back, oldest first, and to redo with Forward, most
+  /// recent last. Session only; a restart starts with empty history.
+  backStack: View[];
+  forwardStack: View[];
   setView: (view: View) => void;
+  goBack: () => void;
+  goForward: () => void;
   /// `focus` scrolls to a block once its page renders; its `entityId` is the
   /// page holding the block, which may be embedded in the opened entity.
   openEntity: (entityId: string, spaceId: string, focus?: FocusBlock) => void;
@@ -141,6 +149,22 @@ function writeStoredRecents(recents: RecentEntry[]) {
   }
 }
 
+function sameView(a: View, b: View): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/// The history change for moving from `state.view` to `next`: the current view
+/// joins Back and Forward is cleared, unless nothing actually changes.
+function pushHistory(
+  state: Pick<NavState, "view" | "backStack" | "forwardStack">,
+  next: View,
+): Pick<NavState, "backStack" | "forwardStack"> {
+  if (sameView(state.view, next)) {
+    return { backStack: state.backStack, forwardStack: state.forwardStack };
+  }
+  return { backStack: [...state.backStack, state.view].slice(-MAX_HISTORY), forwardStack: [] };
+}
+
 const NO_OVERLAY = { paletteOpen: false, switcherOpen: false, commandsOpen: false };
 
 export const useNavStore = create<NavState>((set, get) => ({
@@ -155,11 +179,41 @@ export const useNavStore = create<NavState>((set, get) => ({
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
   rightSidebarWidth: readStoredRightSidebarWidth(),
   recents: readStoredRecents(),
+  backStack: [],
+  forwardStack: [],
   setView: (view) =>
     set((state) => {
       const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-      return { view, activeSpaceId };
+      return { view, activeSpaceId, ...pushHistory(state, view) };
+    }),
+  goBack: () =>
+    set((state) => {
+      const view = state.backStack.at(-1);
+      if (!view) return {};
+      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
+      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      return {
+        view,
+        activeSpaceId,
+        focusBlock: null,
+        backStack: state.backStack.slice(0, -1),
+        forwardStack: [...state.forwardStack, state.view],
+      };
+    }),
+  goForward: () =>
+    set((state) => {
+      const view = state.forwardStack.at(-1);
+      if (!view) return {};
+      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
+      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      return {
+        view,
+        activeSpaceId,
+        focusBlock: null,
+        backStack: [...state.backStack, state.view],
+        forwardStack: state.forwardStack.slice(0, -1),
+      };
     }),
   openEntity: (entityId, spaceId, focus) => {
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
@@ -169,11 +223,13 @@ export const useNavStore = create<NavState>((set, get) => ({
     );
     writeStoredRecents(recents);
     if (spaceId !== get().activeSpaceId) writeStoredActiveSpace(spaceId);
+    const view: View = { kind: "entity", entityId, spaceId };
     set({
-      view: { kind: "entity", entityId, spaceId },
+      view,
       activeSpaceId: spaceId,
       recents,
       focusBlock: focus ?? null,
+      ...pushHistory(get(), view),
     });
   },
   pruneRecents: (validIds) => {

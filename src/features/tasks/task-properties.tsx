@@ -245,11 +245,14 @@ function daysToFriday(): number {
 export function DueDatePicker({
   value,
   onSelect,
+  noun = "due date",
   align = "start",
   children,
 }: {
   value: string | null;
   onSelect: (day: string | null) => void;
+  /// Names the date in the search placeholder and the remove item.
+  noun?: string;
   align?: "start" | "end";
   children: ReactNode;
 }) {
@@ -271,7 +274,7 @@ export function DueDatePicker({
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-60" align={align} onKeyDown={stopKeys}>
         <Command loop>
-          <CommandInput placeholder="Set due date…" />
+          <CommandInput placeholder={`Set ${noun}…`} />
           <CommandList className="p-1">
             <CommandEmpty>No match.</CommandEmpty>
             <CommandGroup className="p-0">
@@ -283,9 +286,9 @@ export function DueDatePicker({
                 </CommandItem>
               ))}
               {value && (
-                <CommandItem value="Remove due date" onSelect={() => choose(null)}>
+                <CommandItem value={`Remove ${noun}`} onSelect={() => choose(null)}>
                   <IconX />
-                  Remove due date
+                  Remove {noun}
                 </CommandItem>
               )}
             </CommandGroup>

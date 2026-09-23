@@ -15,14 +15,13 @@ import { LabelDot } from "@/components/label-chip";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { listLabels } from "@/lib/api/labels";
-import { listTaskStatuses, listTasks, updateTaskStatus } from "@/lib/api/tasks";
+import { listTasks, updateTaskStatus } from "@/lib/api/tasks";
 import type { Task } from "@/lib/api/types";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import { TaskBoard } from "./TaskBoard";
-import { type TasksData, TasksDataContext } from "./task-controls";
+import { TasksDataContext, useTasksDataValue } from "./task-controls";
 import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { TaskList } from "./TaskList";
 import {
@@ -34,9 +33,7 @@ import {
   orderTasks,
   passesFilters,
   readDisplay,
-  sortStatuses,
   statusInTab,
-  statusKind,
   writeDisplay,
 } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
@@ -66,35 +63,12 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   const [draft, setDraft] = useState<TaskDraft>({});
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  const { data: rawStatuses = [] } = useQuery({
-    queryKey: ["task-statuses"],
-    queryFn: listTaskStatuses,
-  });
   const { data: tasks = [], isPending } = useQuery({
     queryKey: ["tasks", spaceId],
     queryFn: () => listTasks(spaceId),
   });
-  const { data: labels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
-    queryFn: () => listLabels(spaceId),
-  });
-
-  const data = useMemo<TasksData>(() => {
-    const statuses = sortStatuses(rawStatuses);
-    const statusById = new Map(statuses.map((s) => [s.id, s]));
-    return {
-      spaceId,
-      statuses,
-      labels,
-      statusById,
-      labelById: new Map(labels.map((l) => [l.id, l])),
-      kindOf: (id) => {
-        const status = statusById.get(id);
-        return status ? statusKind(status, statuses) : "unstarted";
-      },
-    };
-  }, [rawStatuses, labels, spaceId]);
-  const { statuses, kindOf } = data;
+  const data = useTasksDataValue(spaceId);
+  const { statuses, labels, kindOf } = data;
   const hasBacklog = statuses.some((s) => kindOf(s.id) === "backlog");
 
   const setDisplay = (next: DisplayOptions) => {

@@ -1,4 +1,6 @@
 import {
+  IconArrowLeft,
+  IconArrowRight,
   IconChevronRight,
   IconFolder,
   IconHistory,
@@ -10,9 +12,10 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useEffect } from "react";
 import { entityTarget } from "@/components/context-menu/registry";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { StatusButtonContent, useActionStatus } from "@/components/action-feedback";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UpdateCard } from "@/components/update-card";
@@ -20,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTaskParent } from "@/features/tasks/task-parent";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
 import { displayTitle } from "@/lib/entity-title";
@@ -28,7 +32,20 @@ import { useNavStore } from "@/lib/store/nav";
 import { APP_UPDATE_QUERY_KEY, checkForUpdate, useAppVersion } from "@/lib/updater";
 import { cn } from "@/lib/utils";
 
-function Crumb({ icon, label, onClick }: { icon: ReactNode; label: string; onClick?: () => void }) {
+function Crumb({
+  icon,
+  label,
+  entityKey,
+  onClick,
+}: {
+  icon: ReactNode;
+  /// Unset when the crumb is only an entity key.
+  label?: string;
+  /// An entity's `TSK-14` style key, shown ahead of any label.
+  entityKey?: string;
+  onClick?: () => void;
+}) {
+  const key = entityKey && <EntityKey entityKey={entityKey} className="text-foreground" />;
   if (onClick) {
     return (
       <Button
@@ -38,7 +55,8 @@ function Crumb({ icon, label, onClick }: { icon: ReactNode; label: string; onCli
         className="min-w-0 shrink-0 gap-1.5 px-1.5 text-sm [&_svg]:size-3.5"
       >
         {icon}
-        <span className="max-w-48 truncate">{label}</span>
+        {key}
+        {label && <span className="max-w-48 truncate">{label}</span>}
       </Button>
     );
   }
@@ -50,7 +68,8 @@ function Crumb({ icon, label, onClick }: { icon: ReactNode; label: string; onCli
       )}
     >
       {icon}
-      <span className="max-w-48 truncate">{label}</span>
+      {key}
+      {label && <span className="max-w-48 truncate">{label}</span>}
     </span>
   );
 }
@@ -88,12 +107,17 @@ function SpaceIndicator({ spaceId }: { spaceId: string }) {
 
 function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string }) {
   const setView = useNavStore((s) => s.setView);
+  const openEntity = useNavStore((s) => s.openEntity);
   const { data: entity } = useQuery({
     queryKey: ["entity", entityId],
     queryFn: () => getEntity(entityId),
   });
+  // Tasks read by their ID alone, as in Linear, and a Sub-task sits under its
+  // parent: Tasks › TSK-3 › TSK-7.
+  const parent = useTaskParent(entity);
 
   const moduleKey = entity ? moduleForEntityType(entity.type) : undefined;
+  const isTask = moduleKey === "tasks";
   const ModuleIcon = moduleKey ? MODULE_ICONS[moduleKey] : null;
 
   return (
@@ -109,11 +133,27 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
           />
         </>
       )}
+      {parent && (
+        <>
+          <Separator />
+          <span className="contents" {...entityTarget(parent)}>
+            <Crumb
+              icon={<EntityIcon entity={parent} size={14} />}
+              entityKey={parent.key}
+              onClick={() => openEntity(parent.id, parent.spaceId)}
+            />
+          </span>
+        </>
+      )}
       {entity && (
         <>
           <Separator />
           <span className="contents" {...entityTarget(entity)}>
-            <Crumb icon={<EntityIcon entity={entity} size={14} />} label={displayTitle(entity)} />
+            <Crumb
+              icon={<EntityIcon entity={entity} size={14} />}
+              entityKey={isTask ? entity.key : undefined}
+              label={isTask ? undefined : displayTitle(entity)}
+            />
           </span>
         </>
       )}
@@ -214,6 +254,79 @@ function Breadcrumbs() {
   }
 }
 
+/// Browser style Back and Forward through the views visited this session. Also on
+/// Cmd+[ and Cmd+], and the mouse's side buttons.
+function HistoryButtons() {
+  const canGoBack = useNavStore((s) => s.backStack.length > 0);
+  const canGoForward = useNavStore((s) => s.forwardStack.length > 0);
+
+  useEffect(() => {
+    const { goBack, goForward } = useNavStore.getState();
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+      if (e.key !== "[" && e.key !== "]") return;
+      e.preventDefault();
+      if (e.key === "[") goBack();
+      else goForward();
+    }
+    function onMouseUp(e: MouseEvent) {
+      if (e.button === 3) goBack();
+      if (e.button === 4) goForward();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
+  return (
+    <div className="flex shrink-0 items-center">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="iconSm"
+            aria-label="Go Back"
+            disabled={!canGoBack}
+            onClick={() => useNavStore.getState().goBack()}
+          >
+            <IconArrowLeft />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="flex items-center gap-2">
+          Go Back
+          <KbdGroup>
+            <Kbd>⌘</Kbd>
+            <Kbd>[</Kbd>
+          </KbdGroup>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="iconSm"
+            aria-label="Go Forward"
+            disabled={!canGoForward}
+            onClick={() => useNavStore.getState().goForward()}
+          >
+            <IconArrowRight />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="flex items-center gap-2">
+          Go Forward
+          <KbdGroup>
+            <Kbd>⌘</Kbd>
+            <Kbd>]</Kbd>
+          </KbdGroup>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function Titlebar() {
   return (
     <div
@@ -221,6 +334,7 @@ export function Titlebar() {
       className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border bg-background pr-3 pl-12"
     >
       <div className="ml-10 flex min-w-0 shrink-0 items-center gap-1.5">
+        <HistoryButtons />
         <Breadcrumbs />
       </div>
       <div data-tauri-drag-region className="min-w-0 flex-1" />

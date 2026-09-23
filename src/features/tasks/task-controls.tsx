@@ -1,12 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createContext, useContext } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useContext, useMemo } from "react";
 import { LabelChip } from "@/components/label-chip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { attachLabel, detachLabel } from "@/lib/api/labels";
-import { updateTaskDates, updateTaskStatus } from "@/lib/api/tasks";
+import { attachLabel, detachLabel, listLabels } from "@/lib/api/labels";
+import { listTaskStatuses, updateTaskDates, updateTaskStatus } from "@/lib/api/tasks";
 import type { Label, Task, TaskStatus } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { type StatusKind, dueTone } from "./task-model";
+import { type StatusKind, dueTone, sortStatuses, statusKind } from "./task-model";
 import {
   DueDatePicker,
   DueLabel,
@@ -36,9 +36,43 @@ export function useTasksData(): TasksData {
   return data;
 }
 
-function useRefreshTasks(spaceId: string) {
+/// Builds the shared data for a Space: statuses in order, its labels, and lookups.
+export function useTasksDataValue(spaceId: string): TasksData {
+  const { data: rawStatuses = [] } = useQuery({
+    queryKey: ["task-statuses"],
+    queryFn: listTaskStatuses,
+  });
+  const { data: labels = [] } = useQuery({
+    queryKey: ["labels", spaceId],
+    queryFn: () => listLabels(spaceId),
+  });
+  return useMemo<TasksData>(() => {
+    const statuses = sortStatuses(rawStatuses);
+    const statusById = new Map(statuses.map((s) => [s.id, s]));
+    return {
+      spaceId,
+      statuses,
+      labels,
+      statusById,
+      labelById: new Map(labels.map((l) => [l.id, l])),
+      kindOf: (id) => {
+        const status = statusById.get(id);
+        return status ? statusKind(status, statuses) : "unstarted";
+      },
+    };
+  }, [rawStatuses, labels, spaceId]);
+}
+
+/// Every view a task shows up in: the Space's list, a detail page, and the
+/// sub-task list and progress of a parent.
+export function useRefreshTasks(spaceId: string) {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] });
+  return () =>
+    Promise.all(
+      [["tasks", spaceId], ["task"], ["subtasks"], ["subtask-progress"]].map((queryKey) =>
+        queryClient.invalidateQueries({ queryKey }),
+      ),
+    );
 }
 
 /// The status glyph, which opens the status picker. Swaps to a spinner while saving

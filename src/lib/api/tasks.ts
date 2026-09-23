@@ -26,6 +26,11 @@ export function subtaskProgress(parentEntityId: string): Promise<number | null> 
   return invoke("subtask_progress", { parentEntityId });
 }
 
+/// One Task (or Sub-task) with its label ids, for its detail page.
+export function getTask(entityId: string): Promise<Task> {
+  return invoke("get_task", { entityId });
+}
+
 export function listTasks(spaceId: string): Promise<Task[]> {
   return invoke("list_tasks", { spaceId });
 }

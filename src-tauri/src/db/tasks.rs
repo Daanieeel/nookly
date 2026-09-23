@@ -174,15 +174,17 @@ pub fn list_subtasks(conn: &Connection, parent_entity_id: &str) -> AppResult<Vec
          JOIN entities e ON e.id = r.from_entity_id
          JOIN tasks t ON t.entity_id = e.id
          WHERE r.to_entity_id = ?1 AND r.relationship_type = 'sub-task-of'
-         ORDER BY e.created_at ASC",
+         ORDER BY e.deleted_at IS NOT NULL, e.created_at ASC",
     )?;
     let rows = stmt.query_map(params![parent_entity_id], row_to_task_joined)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 /// Average doneness % across sub-tasks, for progress rollup on the parent Task (§3.3).
+/// Trashed sub-tasks still list under their parent but no longer count.
 pub fn subtask_progress(conn: &Connection, parent_entity_id: &str) -> AppResult<Option<f64>> {
-    let subtasks = list_subtasks(conn, parent_entity_id)?;
+    let mut subtasks = list_subtasks(conn, parent_entity_id)?;
+    subtasks.retain(|t| t.entity.deleted_at.is_none());
     if subtasks.is_empty() {
         return Ok(None);
     }
@@ -213,6 +215,20 @@ pub fn get_task(conn: &Connection, entity_id: &str) -> AppResult<Task> {
     )?;
     stmt.query_row(params![entity_id], row_to_task_joined)
         .map_err(|_| AppError::NotFound(format!("task {entity_id}")))
+}
+
+/// One Task for its detail page, with its label ids filled in (ordered by name).
+pub fn get_task_with_labels(conn: &Connection, entity_id: &str) -> AppResult<Task> {
+    let mut task = get_task(conn, entity_id)?;
+    let mut stmt = conn.prepare(
+        "SELECT el.label_id FROM entity_labels el
+         JOIN labels l ON l.id = el.label_id
+         WHERE el.entity_id = ?1
+         ORDER BY l.name ASC",
+    )?;
+    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
+    task.label_ids = rows.collect::<Result<Vec<_>, _>>()?;
+    Ok(task)
 }
 
 pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
@@ -451,7 +467,7 @@ fn cli_list_sub_tasks(
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "task",
-        supports_blocks: false,
+        supports_blocks: true,
         description: "A to-do item. Progress rolls up from sub-tasks when any exist.",
         fields: TASK_UPDATE_FIELDS,
         relationship_types: &["sub-task-of", "relates-to", "blocks"],
@@ -465,7 +481,7 @@ inventory::submit! {
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "sub_task",
-        supports_blocks: false,
+        supports_blocks: true,
         description: "A one-level-deep child of a Task. Cannot itself have sub-tasks.",
         fields: SUB_TASK_FIELDS,
         relationship_types: &["sub-task-of", "relates-to", "blocks"],
@@ -544,5 +560,24 @@ mod tests {
             .find(|t| t.entity.id == bare.entity.id)
             .unwrap();
         assert!(unlabeled.label_ids.is_empty());
+    }
+
+    #[test]
+    fn trashed_subtasks_list_last_and_leave_progress() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let task = create_task(&conn, space.id.clone(), "Parent".into(), None, None).unwrap();
+        let trashed = create_subtask(&conn, task.entity.id.clone(), "Old".into()).unwrap();
+        let live = create_subtask(&conn, task.entity.id.clone(), "New".into()).unwrap();
+        update_task_status(&conn, &trashed.entity.id, "done").unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &trashed.entity.id).unwrap();
+
+        let subtasks = list_subtasks(&conn, &task.entity.id).unwrap();
+        let ids: Vec<_> = subtasks.iter().map(|t| t.entity.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![live.entity.id.as_str(), trashed.entity.id.as_str()]
+        );
+        assert_eq!(subtask_progress(&conn, &task.entity.id).unwrap(), Some(0.0));
     }
 }
