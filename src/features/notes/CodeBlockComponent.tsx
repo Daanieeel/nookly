@@ -1,4 +1,5 @@
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
+import { memo, useState } from "react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { asString, type JSONAttrValue } from "./block-markdown";
@@ -15,39 +16,65 @@ export function CodeBlockComponent({ node, updateAttributes }: ReactNodeViewProp
   // SAFETY: same attribute defs only ever write `filename` as `string | null`, also a subset
   // of `JSONAttrValue`.
   const filename = asString(node.attrs.filename as JSONAttrValue | undefined) ?? "";
+  // The copy button only exists while the pointer is over the block, so a page of
+  // code blocks doesn't mount a tooltip per block up front.
+  const [hovered, setHovered] = useState(false);
 
   return (
-    <NodeViewWrapper className="code-block-wrapper my-1">
-      <div className="code-block-header" contentEditable={false}>
-        <input
-          value={filename}
-          onChange={(event) => updateAttributes({ filename: event.target.value || null })}
-          placeholder="Untitled"
-          spellCheck={false}
-          className="code-block-filename"
-        />
-        <CodeBlockLanguagePicker
-          value={language}
-          onChange={(next) => updateAttributes({ language: next })}
-        />
-      </div>
-      <pre className="code-block-body group/code">
+    <NodeViewWrapper
+      className="code-block-wrapper my-1"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <CodeBlockHeader
+        language={language}
+        filename={filename}
+        updateAttributes={updateAttributes}
+      />
+      <pre className="code-block-body">
         <NodeViewContent<"code"> as="code" />
-        <div
-          className="absolute right-2 top-2 opacity-0 transition-opacity group-hover/code:opacity-100"
-          contentEditable={false}
-        >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <CopyButton
-                value={node.textContent}
-                className="flex items-center justify-center rounded-md border border-border bg-card p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
-              />
-            </TooltipTrigger>
-            <TooltipContent>Copy code</TooltipContent>
-          </Tooltip>
-        </div>
+        {hovered && (
+          <div className="absolute right-2 top-2 animate-in fade-in-0" contentEditable={false}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CopyButton
+                  value={node.textContent}
+                  className="flex items-center justify-center rounded-md border border-border bg-card p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+                />
+              </TooltipTrigger>
+              <TooltipContent>Copy code</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
       </pre>
     </NodeViewWrapper>
   );
 }
+
+/// Memoized so typing inside the block (a new `node` on every keystroke) doesn't
+/// re-render the filename input and language picker.
+const CodeBlockHeader = memo(function CodeBlockHeader({
+  language,
+  filename,
+  updateAttributes,
+}: {
+  language: string | null;
+  filename: string;
+  updateAttributes: ReactNodeViewProps["updateAttributes"];
+}) {
+  return (
+    <div className="code-block-header" contentEditable={false}>
+      <input
+        value={filename}
+        onChange={(event) => updateAttributes({ filename: event.target.value || null })}
+        placeholder="Untitled"
+        spellCheck={false}
+        className="code-block-filename"
+      />
+      <CodeBlockLanguagePicker
+        value={language}
+        onChange={(next) => updateAttributes({ language: next })}
+      />
+    </div>
+  );
+});

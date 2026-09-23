@@ -1,12 +1,11 @@
-import { findChildren } from "@tiptap/core";
 import { CodeBlock } from "@tiptap/extension-code-block";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import type { HighlighterCore, ThemedToken } from "@shikijs/core";
 import { CodeBlockComponent } from "./CodeBlockComponent";
-import { getShikiHighlighter, SHIKI_THEME_NAME } from "./shiki-highlighter";
+import { ensureShikiLanguage, getShikiHighlighter, SHIKI_THEME_NAME } from "./shiki-highlighter";
 
 /// Standard TextMate/VS Code bitmask values (`vscode-textmate`'s own `FontStyle` enum, defined
 /// locally rather than imported since that package only exports it as a type, not a runtime
@@ -26,48 +25,43 @@ function decorationStyle(token: ThemedToken): string | null {
   return style;
 }
 
-function getDecorations({
-  doc,
-  name,
-  defaultLanguage,
-  highlighter,
-}: {
-  doc: ProseMirrorNode;
-  name: string;
-  defaultLanguage: string;
-  highlighter: HighlighterCore | null;
-}): DecorationSet {
-  const decorations: Decoration[] = [];
-  if (highlighter) {
-    const loadedLanguages = new Set(highlighter.getLoadedLanguages());
-    findChildren(doc, (node) => node.type.name === name).forEach((block) => {
-      const from = block.pos + 1;
-      const code = block.node.textContent;
-      const language: string = block.node.attrs.language || defaultLanguage;
-      if (!code || !loadedLanguages.has(language)) return;
-      const lines = highlighter.codeToTokensBase(code, { lang: language, theme: SHIKI_THEME_NAME });
-      for (const line of lines) {
-        for (const token of line) {
-          const style = decorationStyle(token);
-          if (!style) continue;
-          decorations.push(
-            Decoration.inline(from + token.offset, from + token.offset + token.content.length, {
-              style,
-            }),
-          );
-        }
-      }
-    });
-  }
-  return DecorationSet.create(doc, decorations);
+/// One highlighted run inside a code block, relative to the block's own text.
+interface TokenSpan {
+  from: number;
+  to: number;
+  style: string;
 }
 
-/// Mirrors `@tiptap/extension-code-block-lowlight`'s own decoration plugin (recompute on any
-/// transaction that touches a code block's text or count, otherwise just remap the existing set)
-/// — see its `src/lowlight-plugin.ts` — with Shiki's tokenizer standing in for lowlight's, plus
-/// one addition: `view()` kicks off loading the (async-to-build, sync-to-use) highlighter singleton
-/// and forces a one-time recompute via a tagged empty transaction once it resolves, since the
-/// first code block can otherwise mount before the highlighter is ready.
+/// Per slice time budget for background tokenizing, so a page full of code blocks
+/// highlights over a few frames instead of freezing on open.
+const SLICE_BUDGET_MS = 8;
+/// Past this many distinct (language, code) pairs the cache is dropped wholesale.
+const MAX_CACHED_BLOCKS = 500;
+
+function tokenSpans(highlighter: HighlighterCore, code: string, language: string): TokenSpan[] {
+  const spans: TokenSpan[] = [];
+  const lines = highlighter.codeToTokensBase(code, { lang: language, theme: SHIKI_THEME_NAME });
+  for (const line of lines) {
+    for (const token of line) {
+      const style = decorationStyle(token);
+      if (!style) continue;
+      spans.push({ from: token.offset, to: token.offset + token.content.length, style });
+    }
+  }
+  return spans;
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/// Shiki highlighting as ProseMirror decorations, computed per code block and cached by
+/// (language, code) so unchanged blocks are never tokenized twice:
+/// - Edits only retokenize the code blocks a transaction actually touched, synchronously,
+///   so the block being typed in recolors on the same frame.
+/// - Everything else (the first paint of a page, a grammar that just finished loading) is
+///   tokenized in the background in short time slices, each followed by a tagged `refresh`
+///   transaction that rebuilds the set from the cache.
 function ShikiHighlightPlugin({
   name,
   defaultLanguage,
@@ -76,39 +70,138 @@ function ShikiHighlightPlugin({
   defaultLanguage: string;
 }) {
   const key = new PluginKey<DecorationSet>("shikiHighlight");
+  const cache = new Map<string, TokenSpan[]>();
+  // Languages with no grammar to load (plain text, typos); never worth retrying.
+  const unloadable = new Set<string>();
   let highlighter: HighlighterCore | null = null;
+  let view: EditorView | null = null;
+  let backgroundRunning = false;
+  let backgroundQueued = false;
+
+  const languageOf = (node: ProseMirrorNode): string => node.attrs.language || defaultLanguage;
+  const cacheKey = (language: string, code: string) => `${language}\u0000${code}`;
+  const isLoaded = (language: string) =>
+    highlighter?.getLoadedLanguages().includes(language) ?? false;
+
+  function tokenize(language: string, code: string): TokenSpan[] | undefined {
+    const k = cacheKey(language, code);
+    const hit = cache.get(k);
+    if (hit || !highlighter || !isLoaded(language)) return hit;
+    if (cache.size >= MAX_CACHED_BLOCKS) cache.clear();
+    const spans = tokenSpans(highlighter, code, language);
+    cache.set(k, spans);
+    return spans;
+  }
+
+  /// `sync` tokenizes on a cache miss (the block being edited); otherwise a miss is
+  /// left for the background pass to fill in.
+  function blockDecorations(node: ProseMirrorNode, pos: number, sync: boolean): Decoration[] {
+    const code = node.textContent;
+    if (!code) return [];
+    const language = languageOf(node);
+    const spans = sync ? tokenize(language, code) : cache.get(cacheKey(language, code));
+    if (!spans) {
+      if (!unloadable.has(language)) scheduleBackground();
+      return [];
+    }
+    const from = pos + 1;
+    return spans.map((span) =>
+      Decoration.inline(from + span.from, from + span.to, { style: span.style }),
+    );
+  }
+
+  function buildFromCache(doc: ProseMirrorNode): DecorationSet {
+    const decorations: Decoration[] = [];
+    doc.descendants((node, pos) => {
+      if (node.type.name !== name) return true;
+      decorations.push(...blockDecorations(node, pos, false));
+      return false;
+    });
+    return DecorationSet.create(doc, decorations);
+  }
+
+  /// Every code block whose (language, code) isn't cached yet.
+  function uncachedBlocks(doc: ProseMirrorNode): { language: string; code: string }[] {
+    const blocks: { language: string; code: string }[] = [];
+    doc.descendants((node) => {
+      if (node.type.name !== name) return true;
+      const code = node.textContent;
+      const language = languageOf(node);
+      if (code && !unloadable.has(language) && !cache.has(cacheKey(language, code)))
+        blocks.push({ language, code });
+      return false;
+    });
+    return blocks;
+  }
+
+  function scheduleBackground() {
+    if (backgroundRunning) {
+      backgroundQueued = true;
+      return;
+    }
+    backgroundRunning = true;
+    // Deferred so the transaction that found the miss finishes painting first.
+    setTimeout(() => {
+      runBackground().finally(() => {
+        backgroundRunning = false;
+        if (backgroundQueued) {
+          backgroundQueued = false;
+          scheduleBackground();
+        }
+      });
+    }, 0);
+  }
+
+  async function runBackground() {
+    highlighter = await getShikiHighlighter();
+    if (!view) return;
+    const languages = new Set(uncachedBlocks(view.state.doc).map((b) => b.language));
+    await Promise.all(
+      [...languages].map(async (language) => {
+        if (!(await ensureShikiLanguage(language))) unloadable.add(language);
+      }),
+    );
+    while (view) {
+      const pending = uncachedBlocks(view.state.doc).filter((b) => isLoaded(b.language));
+      if (pending.length === 0) return;
+      const started = performance.now();
+      for (const block of pending) {
+        tokenize(block.language, block.code);
+        if (performance.now() - started > SLICE_BUDGET_MS) break;
+      }
+      view.dispatch(view.state.tr.setMeta(key, "refresh"));
+      await yieldToBrowser();
+    }
+  }
 
   return new Plugin({
     key,
     state: {
-      init: (_, { doc }) => getDecorations({ doc, name, defaultLanguage, highlighter }),
-      apply(transaction, decorationSet, oldState, newState) {
-        if (transaction.getMeta(key) === "ready") {
-          return getDecorations({ doc: transaction.doc, name, defaultLanguage, highlighter });
+      init: (_, { doc }) => buildFromCache(doc),
+      apply(transaction, decorationSet, _oldState, newState) {
+        if (transaction.getMeta(key) === "refresh") return buildFromCache(newState.doc);
+        if (!transaction.docChanged) return decorationSet;
+
+        let next = decorationSet.map(transaction.mapping, newState.doc);
+        const { doc } = newState;
+        const touched = new Map<number, ProseMirrorNode>();
+        transaction.mapping.maps.forEach((stepMap, index) => {
+          const rest = transaction.mapping.slice(index + 1);
+          stepMap.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+            const from = Math.min(rest.map(newStart, -1), doc.content.size);
+            const to = Math.min(Math.max(rest.map(newEnd, 1), from), doc.content.size);
+            doc.nodesBetween(from, to, (node, pos) => {
+              if (node.type.name !== name) return true;
+              touched.set(pos, node);
+              return false;
+            });
+          });
+        });
+        for (const [pos, node] of touched) {
+          next = next.remove(next.find(pos, pos + node.nodeSize));
+          next = next.add(doc, blockDecorations(node, pos, true));
         }
-        const oldNodeName = oldState.selection.$head.parent.type.name;
-        const newNodeName = newState.selection.$head.parent.type.name;
-        const oldNodes = findChildren(oldState.doc, (node) => node.type.name === name);
-        const newNodes = findChildren(newState.doc, (node) => node.type.name === name);
-        const touchesCodeBlock =
-          transaction.docChanged &&
-          ([oldNodeName, newNodeName].includes(name) ||
-            newNodes.length !== oldNodes.length ||
-            transaction.steps.some((step) => {
-              // SAFETY: only replace-like steps (the only ones that can change a code block's
-              // text) carry numeric `from`/`to` — this narrows the `Step` union down to that
-              // shape before reading them.
-              const range = step as { from?: number; to?: number };
-              const { from, to } = range;
-              if (from === undefined || to === undefined) return false;
-              return oldNodes.some(
-                (node) => node.pos >= from && node.pos + node.node.nodeSize <= to,
-              );
-            }));
-        if (touchesCodeBlock) {
-          return getDecorations({ doc: transaction.doc, name, defaultLanguage, highlighter });
-        }
-        return decorationSet.map(transaction.mapping, transaction.doc);
+        return next;
       },
     },
     props: {
@@ -117,15 +210,11 @@ function ShikiHighlightPlugin({
       },
     },
     view(editorView) {
-      let cancelled = false;
-      getShikiHighlighter().then((loaded) => {
-        if (cancelled) return;
-        highlighter = loaded;
-        editorView.dispatch(editorView.state.tr.setMeta(key, "ready"));
-      });
+      view = editorView;
+      scheduleBackground();
       return {
         destroy() {
-          cancelled = true;
+          view = null;
         },
       };
     },

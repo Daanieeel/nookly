@@ -10,6 +10,7 @@ import type { Editor } from "@tiptap/react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { keepIfEqual } from "./pointer-frame";
 
 interface TableRect {
   top: number;
@@ -26,8 +27,10 @@ export function TableControls({ editor }: { editor: Editor | null }) {
 
   useEffect(() => {
     if (!editor) return;
+    let frame = 0;
 
-    const update = () => {
+    const measure = () => {
+      frame = 0;
       const { $from } = editor.state.selection;
       for (let depth = $from.depth; depth >= 0; depth--) {
         if ($from.node(depth).type.name !== "table") continue;
@@ -36,18 +39,24 @@ export function TableControls({ editor }: { editor: Editor | null }) {
         if (tableEl) {
           const tableBox = tableEl.getBoundingClientRect();
           const editorBox = editor.view.dom.getBoundingClientRect();
-          setRect({ top: tableBox.top - editorBox.top, left: tableBox.left - editorBox.left });
+          const next = { top: tableBox.top - editorBox.top, left: tableBox.left - editorBox.left };
+          setRect((prev) => keepIfEqual(prev, next));
         }
         return;
       }
       setRect(null);
     };
 
+    // Measured at most once per frame, not synchronously on every keystroke; a
+    // selection change also dispatches a transaction, so one listener covers both.
+    const update = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+
     update();
-    editor.on("selectionUpdate", update);
     editor.on("transaction", update);
     return () => {
-      editor.off("selectionUpdate", update);
+      cancelAnimationFrame(frame);
       editor.off("transaction", update);
     };
   }, [editor]);

@@ -8,6 +8,7 @@ import { createNote } from "@/lib/api/notes";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
+import { prefetchBlocks } from "./blocks-query";
 
 /// Notes are a page index, not a form (§2.3/§3.3) — creating one is a single quiet
 /// affordance that drops straight into the canvas, title-first inside the page itself.
@@ -55,6 +56,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
             key={note.id}
             type="button"
             onClick={() => openEntity(note.id, spaceId)}
+            onMouseEnter={() => prefetchBlocks(queryClient, note.id)}
             className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
           >
             <EntityIcon entity={note} className="shrink-0 text-muted-foreground" />

@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EntityIcon } from "@/components/entity-icon";
 import { Badge } from "@/components/ui/badge";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { prefetchBlocks } from "@/features/notes/blocks-query";
 
 export function EntityRow({
   entityId,
@@ -15,6 +16,7 @@ export function EntityRow({
   currentSpaceId: string;
   label?: string;
 }) {
+  const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: entity } = useQuery({
     queryKey: ["entity", entityId],
@@ -33,6 +35,7 @@ export function EntityRow({
     <button
       type="button"
       onClick={() => openEntity(entity.id, entity.spaceId)}
+      onMouseEnter={() => prefetchBlocks(queryClient, entity.id)}
       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
     >
       <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
