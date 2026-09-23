@@ -29,6 +29,7 @@ import {
   Details,
   Divider,
   EntityCard,
+  Image,
   Progress,
   Stats,
   Steps,
@@ -307,6 +308,7 @@ function HydratedBlockEditor({
       MathBlock,
       Diagram,
       EntityCard.configure({ spaceId, pageId: entityId }),
+      Image.configure({ spaceId }),
     ],
     editorProps: {
       attributes: {

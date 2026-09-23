@@ -432,6 +432,66 @@
     background: var(--popover);
     overflow: hidden;
   }
+  /* Image, video, audio and file blocks (`MediaBlock.tsx`). */
+  .tiptap-content .media-image,
+  .tiptap-content .media-video {
+    display: block;
+    max-width: 100%;
+    max-height: 36rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border);
+  }
+  .tiptap-content .media-video {
+    width: 100%;
+    background: #000;
+  }
+  .tiptap-content .media-caption {
+    width: 100%;
+    margin-top: 0.25rem;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+  .tiptap-content .media-caption::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0;
+  }
+  .tiptap-content [data-node-view-wrapper]:hover > .media-caption::placeholder,
+  .tiptap-content .media-caption:focus::placeholder {
+    opacity: 0.6;
+  }
+  .tiptap-content .media-card {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content .media-toolbar {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 150ms;
+  }
+  .tiptap-content .group\/media:hover .media-toolbar,
+  .tiptap-content .media-toolbar:focus-within {
+    opacity: 1;
+  }
+  .tiptap-content .media-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px dashed var(--input);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+  }
   .tiptap-content hr {
     margin: 0.75rem 0;
     border: none;

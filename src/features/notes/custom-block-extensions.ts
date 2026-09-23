@@ -13,6 +13,7 @@ import { TreeBlock } from "./TreeBlock";
 import { ATOM_BLOCK_ATTRS, type AtomBlockType } from "./custom-block-rows";
 import { DetailsBlock } from "./DetailsBlock";
 import { EntityCardBlock, type EntityCardOptions } from "./EntityCardBlock";
+import { MediaBlock, type MediaBlockOptions, type MediaKind } from "./MediaBlock";
 import { StatsBlock } from "./StatsBlock";
 import { StepsBlock } from "./StepsBlock";
 
@@ -100,6 +101,17 @@ export const EntityCard = atomBlock("entity_card", EntityCardBlock).extend<Entit
     return { spaceId: "", pageId: "" };
   },
 });
+
+/// A media block of one `kind`; `spaceId` is where uploads land.
+function mediaBlock(kind: Extract<MediaKind, AtomBlockType>) {
+  return atomBlock(kind, MediaBlock).extend<MediaBlockOptions>({
+    addOptions() {
+      return { kind, spaceId: "" };
+    },
+  });
+}
+
+export const Image = mediaBlock("image");
 
 /// StarterKit's horizontal rule (with its `---` input rule), named after the
 /// backend block type it saves as.

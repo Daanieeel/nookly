@@ -605,7 +605,6 @@ pub fn block_to_markdown(block: &Block) -> String {
             .map(|(i, l)| format!("{}. {l}", i + 1))
             .collect::<Vec<_>>()
             .join("\n"),
-        "image" => format!("![]({})", block.content),
         "embed" => format!("[embed]({})", block.content),
         // `content` is rows joined by "\n", cells within a row joined by "\t"
         // (§ table block), first row is the header — the editor's own storage
@@ -639,11 +638,40 @@ pub fn block_to_markdown(block: &Block) -> String {
 
 pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<String> {
     let blocks = list_blocks(conn, entity_id)?;
-    Ok(blocks
+    let markdown = blocks
         .iter()
         .map(block_to_markdown)
         .collect::<Vec<_>>()
-        .join("\n\n"))
+        .join("\n\n");
+    resolve_file_links(conn, &markdown)
+}
+
+/// Mention links to File entities (an image block, a file mentioned in text)
+/// point at the file itself in an export: a `file://` URL for an imported copy,
+/// the provider URL for a linked one. Every other mention stays as it is.
+fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
+    static TARGET: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)\)").unwrap());
+    let mut targets = std::collections::HashMap::new();
+    for id in TARGET.captures_iter(markdown).map(|c| c[1].to_string()) {
+        if targets.contains_key(&id) {
+            continue;
+        }
+        let file = crate::db::files::get_file(conn, &id).ok();
+        let target = file.and_then(|f| match (f.local_path, f.url) {
+            (Some(path), _) => url::Url::from_file_path(&path).ok().map(|u| u.to_string()),
+            (None, url) => url,
+        });
+        targets.insert(id, target);
+    }
+    Ok(TARGET
+        .replace_all(markdown, |caps: &regex::Captures| {
+            match targets.get(&caps[1]) {
+                Some(Some(target)) => format!("]({target})"),
+                _ => caps[0].to_string(),
+            }
+        })
+        .into_owned())
 }
 
 /// Search and the mention index read a custom block's raw content, not its
@@ -1151,6 +1179,42 @@ mod tests {
         assert!(list_mentioning_entities(&conn, &target.id)
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn export_points_file_mentions_at_the_file() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
+        let other = create_page(&conn, space.id.clone(), "note", "Other".into()).unwrap();
+        let file = crate::db::files::create_file_link(
+            &conn,
+            space.id,
+            "Slides".into(),
+            "https://example.com/slides.pdf".into(),
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            format!(
+                "See [Slides](mention:{}) and [Other](mention:{})",
+                file.entity.id, other.id
+            ),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let markdown = render_page_markdown(&conn, &page.id).unwrap();
+        assert!(markdown.contains("[Slides](https://example.com/slides.pdf)"));
+        assert!(markdown.contains(&format!("[Other](mention:{})", other.id)));
     }
 
     #[test]

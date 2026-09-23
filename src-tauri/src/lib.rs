@@ -136,6 +136,7 @@ pub fn run() {
             commands::files::import_file,
             commands::files::create_file_link,
             commands::files::list_files,
+            commands::files::get_file,
             commands::files::export_file,
             commands::bookmarks::create_bookmark,
             commands::bookmarks::list_bookmarks,

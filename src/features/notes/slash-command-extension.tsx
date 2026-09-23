@@ -4,6 +4,7 @@ import {
   IconChevronRight,
   IconHeading,
   IconInfoCircle,
+  IconPhoto,
   IconLink,
   IconMathFunction,
   IconMathXDivideY2,
@@ -247,6 +248,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Flowcharts and more with Mermaid",
     icon: <IconSchema size={15} />,
     run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("diagram").run(),
+  },
+  {
+    title: "Image",
+    group: "Links and media",
+    description: "Upload or link a picture",
+    icon: <IconPhoto size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "image", ""),
   },
   {
     title: "Linked item",

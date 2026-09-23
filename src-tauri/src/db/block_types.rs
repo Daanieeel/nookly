@@ -869,6 +869,72 @@ inventory::submit! {
     }
 }
 
+// --- image, video, audio, file ---------------------------------------------
+
+/// A media block's target: a File entity mention, or a plain URL.
+fn validate_media(content: &str) -> Result<(), String> {
+    let content = content.trim();
+    if content.is_empty()
+        || validate_mention_link(content).is_ok()
+        || content.starts_with("http://")
+        || content.starts_with("https://")
+    {
+        Ok(())
+    } else {
+        Err(
+            "expected a mention of a file entity, [name](mention:<file-id>), or an http(s) URL"
+                .into(),
+        )
+    }
+}
+
+/// The label and link target of a media block: the mention's title and its
+/// `mention:` target (turned into the file's own path on export), or the URL.
+fn media_link(block: &Block) -> Option<(String, String)> {
+    static LINK: OnceLock<regex::Regex> = OnceLock::new();
+    let re = LINK
+        .get_or_init(|| regex::Regex::new(r"^\[([^\]]*)\]\((mention:[a-zA-Z0-9-]+)\)$").unwrap());
+    let content = block.content.trim();
+    if content.is_empty() {
+        return None;
+    }
+    let caption = block
+        .attrs
+        .get("caption")
+        .map(|c| c.trim())
+        .filter(|c| !c.is_empty());
+    Some(match re.captures(content) {
+        Some(caps) => (caption.unwrap_or(&caps[1]).to_string(), caps[2].to_string()),
+        None => {
+            let name = content
+                .rsplit('/')
+                .find(|s| !s.is_empty())
+                .unwrap_or(content);
+            (caption.unwrap_or(name).to_string(), content.to_string())
+        }
+    })
+}
+
+const CAPTION_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "caption",
+    kind: AttrKind::Text,
+    description: "Optional caption shown under the media, and its text in markdown.",
+};
+
+const MEDIA_FORMAT: &str = "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into \
+                            Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under \
+                            its Mentioned in.";
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "image",
+        content_format: MEDIA_FORMAT,
+        attrs: &[CAPTION_ATTR],
+        validate: validate_media,
+        to_markdown: |block| media_link(block).map_or(String::new(), |(label, target)| format!("![{label}]({target})")),
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -1035,6 +1101,21 @@ mod tests {
         );
         let own = math_block_latex("\\begin{cases} x \\end{cases}");
         assert_eq!(own, "\\begin{cases} x \\end{cases}");
+    }
+
+    #[test]
+    fn media_blocks_link_their_target() {
+        let image = block(
+            "image",
+            "[photo.png](mention:f-1)",
+            &[("caption", "Campus")],
+        );
+        assert_eq!(
+            (lookup("image").unwrap().to_markdown)(&image),
+            "![Campus](mention:f-1)"
+        );
+        assert!(validate_content("image", "photo.png").is_err());
+        assert!(validate_content("image", "https://x.dev/a.png").is_ok());
     }
 
     #[test]
