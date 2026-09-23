@@ -3,9 +3,10 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList, type SuggestionListHandle } from "./suggestion-list";
 
@@ -223,7 +224,11 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
     const target = findTopLevelBlock(editor.view, block);
     if (!target) return;
     const inside = target.end + 1;
-    editor.chain().insertContentAt(target.end, { type: "paragraph" }).setTextSelection(inside).run();
+    editor
+      .chain()
+      .insertContentAt(target.end, { type: "paragraph" })
+      .setTextSelection(inside)
+      .run();
     item.run(editor, { from: inside, to: inside });
   };
 
@@ -237,17 +242,23 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
     setDragPreview({ html: block.outerHTML, x: event.clientX, y: event.clientY });
   };
 
+  // SAFETY: every custom property below only ever receives a pixel length measured
+  // from the live editor DOM (or the cursor) — `CSSProperties` just doesn't model
+  // custom properties.
+  const handleVars = {
+    "--handle-top": `${handle.top}px`,
+    "--handle-height": `${handle.height}px`,
+    "--menu-top": `${handle.top + handle.height + 4}px`,
+  } as CSSProperties;
+
   return (
     <>
       <div
-        className="absolute z-10 flex items-center gap-0.5 transition-opacity"
-        style={{
-          top: handle.top,
-          left: 2,
-          height: handle.height,
-          opacity: visible || menuBlock ? 1 : 0,
-          pointerEvents: visible || menuBlock ? "auto" : "none",
-        }}
+        className={cn(
+          "absolute top-(--handle-top) left-0.5 z-10 flex h-(--handle-height) items-center gap-0.5 transition-opacity",
+          visible || menuBlock ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        style={handleVars}
       >
         <Tooltip>
           <TooltipTrigger asChild>
@@ -255,7 +266,7 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-5 shrink-0 text-muted-foreground"
+              className="size-5 shrink-0"
               aria-label="Add block below"
               data-testid="block-add-button"
               onMouseDown={(event) => {
@@ -264,7 +275,7 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
                 setMenuBlock((open) => (open ? null : hoveredBlockRef.current));
               }}
             >
-              <IconPlus size={13} />
+              <IconPlus size={13} className="text-muted-foreground" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Add block below</TooltipContent>
@@ -275,38 +286,47 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-5 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing"
+              className="size-5 shrink-0 cursor-grab active:cursor-grabbing"
               aria-label="Drag to reorder block"
               data-testid="block-grip"
               onMouseDown={onGripMouseDown}
             >
-              <IconGripVertical size={13} />
+              <IconGripVertical size={13} className="text-muted-foreground" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Drag to reorder</TooltipContent>
         </Tooltip>
       </div>
       {menuBlock && (
-        <div
-          ref={menuRef}
-          className="absolute z-50"
-          style={{ top: handle.top + handle.height + 4, left: 2 }}
-        >
+        <div ref={menuRef} className="absolute top-(--menu-top) left-0.5 z-50" style={handleVars}>
           <SuggestionList ref={listRef} items={MENU_ITEMS} onSelect={insertBelow} searchable />
         </div>
       )}
       {indicator && (
         <div
-          className="pointer-events-none absolute z-10 h-0.5 rounded-full bg-primary"
-          style={{ top: indicator.top - 1, left: indicator.left, width: indicator.width }}
+          className="pointer-events-none absolute top-(--indicator-top) left-(--indicator-left) z-10 h-0.5 w-(--indicator-width) rounded-full bg-primary"
+          // SAFETY: pixel lengths measured from the drop target's DOM box.
+          style={
+            {
+              "--indicator-top": `${indicator.top - 1}px`,
+              "--indicator-left": `${indicator.left}px`,
+              "--indicator-width": `${indicator.width}px`,
+            } as CSSProperties
+          }
         />
       )}
       {dragPreview && (
         <div
-          className="tiptap-content pointer-events-none fixed z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
-          // `.tiptap-content`'s reserved handle-gutter padding-left doesn't apply
-          // to this standalone snapshot — it's not the editor's own content flow.
-          style={{ left: dragPreview.x + 14, top: dragPreview.y + 14, paddingLeft: 0 }}
+          // `px-2` (utilities layer) also overrides `.tiptap-content`'s handle-gutter
+          // padding, which doesn't apply to this standalone snapshot.
+          className="tiptap-content pointer-events-none fixed top-(--preview-y) left-(--preview-x) z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
+          // SAFETY: pixel offsets from the cursor's client coordinates.
+          style={
+            {
+              "--preview-x": `${dragPreview.x + 14}px`,
+              "--preview-y": `${dragPreview.y + 14}px`,
+            } as CSSProperties
+          }
           dangerouslySetInnerHTML={{ __html: dragPreview.html }}
         />
       )}

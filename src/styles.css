@@ -337,6 +337,15 @@
     background-color: var(--primary);
     pointer-events: none;
   }
+  /* Past the table's outer edge the handle would overflow `.tableWrapper`
+     (`overflow-x: auto`), toggling its scrollbar on every show/hide, which moves the
+     cursor off the handle and makes it flicker. */
+  .tiptap-content tr > :last-child .column-resize-handle {
+    right: 0;
+  }
+  .tiptap-content tr:last-child > * .column-resize-handle {
+    bottom: 0;
+  }
   .tiptap-content.resize-cursor {
     cursor: col-resize;
   }

@@ -56,10 +56,7 @@ export function BlockEditor({
   /// Pre-existing blocks bootstrap this as an identity mapping (§ notes rewrite).
   const idMapRef = useRef(new Map<string, string>());
   const persistedRef = useRef(
-    new Map<
-      string,
-      { content: string; blockType: string; language?: string; filename?: string }
-    >(),
+    new Map<string, { content: string; blockType: string; language?: string; filename?: string }>(),
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingNodesRef = useRef<JSONNode[] | null>(null);

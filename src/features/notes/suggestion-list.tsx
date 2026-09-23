@@ -13,14 +13,6 @@ export interface SuggestionListHandle {
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
-/// Rows visible before the list scrolls; the half row hints that there's more.
-const VISIBLE_ROWS = 5.5;
-/// One row with a description: `py-1.5` + `text-sm` label + `text-xs` line, plus `gap-0.5`.
-const ROW_HEIGHT_PX = 48;
-const ROW_GAP_PX = 2;
-const LIST_MAX_HEIGHT_PX =
-  VISIBLE_ROWS * ROW_HEIGHT_PX + Math.floor(VISIBLE_ROWS) * ROW_GAP_PX + 8;
-
 /// Shared popup body for the "/" block-type menu, the "@" mention menu, and the
 /// block gutter's "+" menu (§ notes rewrite). The "/" and "@" queries are typed
 /// straight into the document; `searchable` adds an in-popup input for callers
@@ -33,6 +25,11 @@ export const SuggestionList = forwardRef<
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchable) searchRef.current?.focus();
+  }, [searchable]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -74,7 +71,7 @@ export const SuggestionList = forwardRef<
       {searchable && (
         <div className="border-b border-border p-1">
           <Input
-            autoFocus
+            ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search blocks"
@@ -86,10 +83,11 @@ export const SuggestionList = forwardRef<
       {visible.length === 0 ? (
         <div className="p-2 text-xs text-muted-foreground">No results</div>
       ) : (
+        // Caps the list at 5.5 rows (the half row hints at more): a described row is
+        // 3rem (`py-1.5` + `text-sm` label + `text-xs` line), 5 `gap-0.5` gaps, `p-1`.
         <div
           ref={listRef}
-          className="flex flex-col gap-0.5 overflow-y-auto p-1"
-          style={{ maxHeight: LIST_MAX_HEIGHT_PX }}
+          className="flex max-h-[calc(5.5*3rem+5*0.125rem+0.5rem)] flex-col gap-0.5 overflow-y-auto p-1"
         >
           {visible.map((item, index) => (
             <button
@@ -110,9 +108,7 @@ export const SuggestionList = forwardRef<
               <span className="flex min-w-0 flex-col">
                 <span className="truncate font-medium">{item.label}</span>
                 {item.description && (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {item.description}
-                  </span>
+                  <span className="truncate text-xs text-muted-foreground">{item.description}</span>
                 )}
               </span>
             </button>

@@ -1,17 +1,15 @@
 import {
   IconCalendarStats,
   IconClipboardList,
-  IconPin,
-  IconPinFilled,
   IconRestore,
   IconSchool,
-  IconTrash,
   IconTrashFilled,
   IconWriting,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { EntityActions } from "@/components/entity-actions";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
@@ -27,7 +25,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { restoreEntity, softDeleteEntity, updateEntity } from "@/lib/api/entities";
 import { listRelationships } from "@/lib/api/relationships";
 import type { Entity, Relationship } from "@/lib/api/types";
@@ -66,11 +63,13 @@ function trashStats(type: string, relationships: Relationship[]): TrashStat[] {
 export function EntityDetailLayout({
   entity,
   headerExtra,
+  exportable = false,
   children,
 }: {
   entity: Entity;
-  /// Small, optional content rendered between the title and the pin/trash
-  /// actions — e.g. the Semester page's "Current" badge. Nothing else in the
+  /// Adds the Markdown export actions; only page entities (Notes, Jots, Refinements) render markdown.
+  exportable?: boolean;
+  /// Small, optional content rendered after the title — e.g. the Semester page's "Current" badge. Nothing else in the
   /// header varies per entity type (Course page convention).
   headerExtra?: React.ReactNode;
   children: React.ReactNode;
@@ -113,6 +112,16 @@ export function EntityDetailLayout({
   });
   const stats = trashStats(entity.type, relationships);
 
+  const actions = (className?: string) => (
+    <EntityActions
+      entity={entity}
+      exportable={exportable}
+      onTogglePin={() => togglePin.mutate()}
+      onTrash={() => setTrashConfirmOpen(true)}
+      className={className}
+    />
+  );
+
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
       {isDeleted && (
@@ -147,7 +156,11 @@ export function EntityDetailLayout({
                   title="Change icon"
                   className="flex size-6 shrink-0 items-center justify-center rounded-sm hover:bg-accent"
                 >
-                  <EntityIcon entity={entity} size={17} className="shrink-0 text-muted-foreground" />
+                  <EntityIcon
+                    entity={entity}
+                    size={17}
+                    className="shrink-0 text-muted-foreground"
+                  />
                 </button>
               }
             />
@@ -160,26 +173,12 @@ export function EntityDetailLayout({
               className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
             />
             {headerExtra}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => togglePin.mutate()}>
-                  {entity.pinned ? <IconPinFilled size={15} /> : <IconPin size={15} />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{entity.pinned ? "Unpin" : "Pin"}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setTrashConfirmOpen(true)}>
-                  <IconTrash size={15} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Move to Trash</TooltipContent>
-            </Tooltip>
+            {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
+            {actions("lg:hidden")}
           </div>
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">{children}</div>
         </div>
-        <RightSidebar entity={entity} />
+        <RightSidebar entity={entity} actions={actions} />
       </div>
 
       <AlertDialog open={trashConfirmOpen} onOpenChange={setTrashConfirmOpen}>

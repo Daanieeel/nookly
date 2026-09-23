@@ -92,6 +92,7 @@ pub fn run() {
             commands::notes::delete_block,
             commands::notes::reorder_blocks,
             commands::notes::render_page_markdown,
+            commands::notes::export_page_markdown,
             commands::courses::create_course,
             commands::courses::list_courses,
             commands::courses::create_semester,

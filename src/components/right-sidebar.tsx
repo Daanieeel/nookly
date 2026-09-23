@@ -15,7 +15,14 @@ import { useNavStore } from "@/lib/store/nav";
 /// §01). Collapsed state persists across sessions (same convention as the
 /// main `AppSidebar`'s own `sidebarCollapsed`) — a slim rail with just the
 /// expand toggle, not hidden entirely, so it's always one click away.
-export function RightSidebar({ entity }: { entity: Entity }) {
+export function RightSidebar({
+  entity,
+  actions,
+}: {
+  entity: Entity;
+  /// Entity actions (export/pin/more), laid out for this sidebar via `className`.
+  actions: (className?: string) => React.ReactNode;
+}) {
   const collapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const setCollapsed = useNavStore((s) => s.setRightSidebarCollapsed);
 
@@ -30,13 +37,14 @@ export function RightSidebar({ entity }: { entity: Entity }) {
           </TooltipTrigger>
           <TooltipContent side="left">Expand sidebar</TooltipContent>
         </Tooltip>
+        {actions("mt-2 flex-col")}
       </div>
     );
   }
 
   return (
     <div className="hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-border p-3 lg:flex">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" onClick={() => setCollapsed(true)}>
@@ -45,6 +53,7 @@ export function RightSidebar({ entity }: { entity: Entity }) {
           </TooltipTrigger>
           <TooltipContent side="left">Collapse sidebar</TooltipContent>
         </Tooltip>
+        {actions()}
       </div>
       {entity.type === "course" && <CourseSemesterPanel course={entity} />}
       <RelationshipsPanel entity={entity} />

@@ -1,7 +1,7 @@
 use crate::db::entities::Entity;
 use crate::db::notes::{self, Block, BlockPatch};
 use crate::db::DbState;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use tauri::State;
 
 #[tauri::command]
@@ -109,4 +109,18 @@ pub fn reorder_blocks(
 pub fn render_page_markdown(state: State<DbState>, entity_id: String) -> AppResult<String> {
     let conn = state.0.lock().unwrap();
     notes::render_page_markdown(&conn, &entity_id)
+}
+
+/// `path` comes from the native save dialog, so the user chose it explicitly.
+#[tauri::command]
+pub fn export_page_markdown(
+    state: State<DbState>,
+    entity_id: String,
+    path: String,
+) -> AppResult<()> {
+    let markdown = {
+        let conn = state.0.lock().unwrap();
+        notes::render_page_markdown(&conn, &entity_id)?
+    };
+    std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }

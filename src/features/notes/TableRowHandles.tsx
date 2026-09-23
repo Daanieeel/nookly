@@ -2,7 +2,8 @@ import { IconGripVertical } from "@tabler/icons-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface HandleRect {
   top: number;
@@ -223,28 +224,45 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
             y: event.clientY,
           });
         }}
-        className="absolute z-10 flex cursor-grab items-center justify-center rounded-sm border border-white/20 bg-accent text-muted-foreground shadow-sm transition-opacity active:cursor-grabbing"
-        style={{
-          top: handle.top,
-          left: handle.left - 8,
-          height: handle.height,
-          width: 16,
-          opacity: visible ? 1 : 0,
-          pointerEvents: visible ? "auto" : "none",
-        }}
+        className={cn(
+          "absolute top-(--grip-top) left-(--grip-left) z-10 flex h-(--grip-height) w-4 cursor-grab items-center justify-center rounded-sm border border-white/20 bg-accent text-muted-foreground shadow-sm transition-opacity active:cursor-grabbing",
+          visible ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        // SAFETY: pixel lengths measured from the hovered row's DOM box —
+        // `CSSProperties` just doesn't model custom properties.
+        style={
+          {
+            "--grip-top": `${handle.top}px`,
+            "--grip-left": `${handle.left - 8}px`,
+            "--grip-height": `${handle.height}px`,
+          } as CSSProperties
+        }
       >
         <IconGripVertical size={12} />
       </button>
       {indicator && (
         <div
-          className="pointer-events-none absolute z-10 h-0.5 rounded-full bg-primary"
-          style={{ top: indicator.top - 1, left: indicator.left, width: indicator.width }}
+          className="pointer-events-none absolute top-(--indicator-top) left-(--indicator-left) z-10 h-0.5 w-(--indicator-width) rounded-full bg-primary"
+          // SAFETY: pixel lengths measured from the drop target row's DOM box.
+          style={
+            {
+              "--indicator-top": `${indicator.top - 1}px`,
+              "--indicator-left": `${indicator.left}px`,
+              "--indicator-width": `${indicator.width}px`,
+            } as CSSProperties
+          }
         />
       )}
       {dragPreview && (
         <div
-          className="tiptap-content pointer-events-none fixed z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
-          style={{ left: dragPreview.x + 14, top: dragPreview.y + 14 }}
+          className="tiptap-content pointer-events-none fixed top-(--preview-y) left-(--preview-x) z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
+          // SAFETY: pixel offsets from the cursor's client coordinates.
+          style={
+            {
+              "--preview-x": `${dragPreview.x + 14}px`,
+              "--preview-y": `${dragPreview.y + 14}px`,
+            } as CSSProperties
+          }
           dangerouslySetInnerHTML={{ __html: dragPreview.html }}
         />
       )}

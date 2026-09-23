@@ -13,6 +13,8 @@ pub enum AppError {
     InvalidInput(String),
     #[error("database error: {0}")]
     Db(String),
+    #[error("file error: {0}")]
+    Io(String),
 }
 
 impl From<rusqlite::Error> for AppError {

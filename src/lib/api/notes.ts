@@ -61,3 +61,7 @@ export function reorderBlocks(entityId: string, orderedBlockIds: string[]): Prom
 export function renderPageMarkdown(entityId: string): Promise<string> {
   return invoke("render_page_markdown", { entityId });
 }
+
+export function exportPageMarkdown(entityId: string, path: string): Promise<void> {
+  return invoke("export_page_markdown", { entityId, path });
+}
