@@ -11,6 +11,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    name: Version is ahead of latest release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun run version:check
+
   frontend:
     name: Typecheck + lint + build (frontend)
     runs-on: ubuntu-latest
@@ -23,7 +33,7 @@ jobs:
       - run: bun run build
 
   rust:
-    name: cargo check (${{ matrix.os }})
+    name: cargo check + test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +61,10 @@ jobs:
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --locked
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test --locked
 
       - name: cargo clippy
         if: matrix.os == 'ubuntu-latest'
