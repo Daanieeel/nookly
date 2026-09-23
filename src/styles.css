@@ -281,9 +281,10 @@
     background: transparent;
     padding: 0;
   }
-  /* Syntax highlighting token colors come from Shiki decorations as inline `style` attributes
-     (see `code-block-extension.ts` / `shiki-theme.ts`) — every color there is already one of
-     this app's own accent tokens, so there's no separate stylesheet-side theme to keep in sync. */
+  /* Syntax highlighting token colors come from decorations as inline `style` attributes
+     (see `highlighter.ts`, `twinkleplop-highlighter.ts` / `shiki-theme.ts`) — every color there
+     is already one of this app's own accent tokens, so there's no separate stylesheet-side
+     theme to keep in sync. */
   .tiptap-content .tableWrapper {
     margin: 0.5rem 0;
     overflow-x: auto;

@@ -1,7 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { getShikiHighlighter } from "./features/notes/shiki-highlighter";
 import { initTheme } from "./lib/theme";
 // Bundled rather than fetched: the app runs offline, so fonts ship with the binary.
 import "@fontsource-variable/inter";
@@ -19,7 +18,3 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <App />
   </React.StrictMode>,
 );
-
-// Builds the syntax highlighter off the critical path, so the first page with a
-// code block doesn't wait for it.
-setTimeout(() => void getShikiHighlighter(), 0);

@@ -1,54 +1,44 @@
-import { createHighlighterCore, type HighlighterCore, type LanguageInput } from "@shikijs/core";
+import {
+  createHighlighterCore,
+  type HighlighterCore,
+  type LanguageInput,
+  type ThemedToken,
+} from "@shikijs/core";
 import { createJavaScriptRegexEngine } from "@shikijs/engine-javascript";
+import type { TokenSpan } from "./highlighter";
 import { nooklyShikiTheme, NOOKLY_THEME_NAME } from "./shiki-theme";
 
-export { NOOKLY_THEME_NAME as SHIKI_THEME_NAME };
-
-/// One entry per grammar `CodeBlockLanguagePicker` can select (`code-languages.ts`), plus `toml`
-/// — not a picker entry of its own (the picker folds it into "INI / TOML"), but a real Shiki
-/// grammar in its own right, unlike highlight.js which had no TOML grammar and aliased it onto
-/// INI. Each module embeds its own aliases (loading `typescript` also registers `ts`, loading
-/// `javascript` also registers `js`, etc. — verified against the installed package), so the
-/// fence shortcut's and CLI's raw `--language ts`/`js` values resolve with no extra mapping.
+/// Fallback grammars for the picker entries (`code-languages.ts`) twinkleplop doesn't ship yet;
+/// every other language is tokenized by `twinkleplop-highlighter.ts` instead (see
+/// `highlighter.ts`). `jsonc` stays here because twinkleplop's JSON grammar skips comments
+/// rather than coloring them. Each module embeds its own aliases, so a raw `--language` value
+/// like `c++` or `rb` resolves with no extra mapping.
 const LANGUAGE_LOADERS = {
-  bash: () => import("@shikijs/langs/bash"),
   cpp: () => import("@shikijs/langs/cpp"),
   csharp: () => import("@shikijs/langs/csharp"),
-  css: () => import("@shikijs/langs/css"),
-  go: () => import("@shikijs/langs/go"),
-  html: () => import("@shikijs/langs/html"),
   ini: () => import("@shikijs/langs/ini"),
-  toml: () => import("@shikijs/langs/toml"),
   java: () => import("@shikijs/langs/java"),
-  javascript: () => import("@shikijs/langs/javascript"),
-  jsx: () => import("@shikijs/langs/jsx"),
-  json: () => import("@shikijs/langs/json"),
   jsonc: () => import("@shikijs/langs/jsonc"),
-  markdown: () => import("@shikijs/langs/markdown"),
   php: () => import("@shikijs/langs/php"),
-  python: () => import("@shikijs/langs/python"),
   ruby: () => import("@shikijs/langs/ruby"),
-  rust: () => import("@shikijs/langs/rust"),
-  sql: () => import("@shikijs/langs/sql"),
-  typescript: () => import("@shikijs/langs/typescript"),
-  tsx: () => import("@shikijs/langs/tsx"),
-  yaml: () => import("@shikijs/langs/yaml"),
 } satisfies Record<string, () => Promise<{ default: LanguageInput }>>;
 
 let highlighterPromise: Promise<HighlighterCore> | null = null;
+/// Set once `highlighterPromise` resolves, for the synchronous `shikiSpans`.
+let highlighter: HighlighterCore | null = null;
 
-/// Lazily created once and reused for the app's lifetime, with no grammars loaded up front:
-/// each one is pulled in by `ensureShikiLanguage` the first time a code block actually uses it,
-/// so opening a page never waits on grammars it doesn't show. Uses the pure-JS regex engine (no
+/// Lazily created once, the first time a code block uses a fallback language, and reused for the
+/// app's lifetime. Each grammar is pulled in by `ensureShikiLanguage` on first use, so opening a
+/// page never waits on grammars it doesn't show. Uses the pure-JS regex engine (no
 /// WASM/Oniguruma) — this app only needs tokenizing for a handful of languages, not the full
 /// Oniguruma regex feature set, and it drops the ~450KB WASM binary that engine would otherwise
 /// pull in.
-export function getShikiHighlighter(): Promise<HighlighterCore> {
+function getShikiHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= createHighlighterCore({
     themes: [nooklyShikiTheme],
     langs: [],
     engine: createJavaScriptRegexEngine(),
-  });
+  }).then((created) => (highlighter = created));
   return highlighterPromise;
 }
 
@@ -69,16 +59,53 @@ export function ensureShikiLanguage(language: string): Promise<boolean> {
   let load = languageLoads.get(language);
   if (!load) {
     load = (async () => {
-      const highlighter = await getShikiHighlighter();
-      if (highlighter.getLoadedLanguages().includes(language)) return true;
+      const shiki = await getShikiHighlighter();
+      if (shiki.getLoadedLanguages().includes(language)) return true;
       const loaders = isLoaderKey(language)
         ? [LANGUAGE_LOADERS[language]]
         : Object.values(LANGUAGE_LOADERS);
       const modules = await Promise.all(loaders.map((loader) => loader()));
-      await highlighter.loadLanguage(...modules.map((mod) => mod.default));
-      return highlighter.getLoadedLanguages().includes(language);
+      await shiki.loadLanguage(...modules.map((mod) => mod.default));
+      return shiki.getLoadedLanguages().includes(language);
     })();
     languageLoads.set(language, load);
   }
   return load;
+}
+
+export function isShikiLanguageLoaded(language: string): boolean {
+  return highlighter?.getLoadedLanguages().includes(language) ?? false;
+}
+
+/// Standard TextMate/VS Code bitmask values (`vscode-textmate`'s own `FontStyle` enum, defined
+/// locally rather than imported since that package only exports it as a type, not a runtime
+/// value) — a token's `fontStyle` ORs these together.
+const FONT_STYLE_ITALIC = 1;
+const FONT_STYLE_BOLD = 2;
+const FONT_STYLE_UNDERLINE = 4;
+
+function decorationStyle(token: ThemedToken): string | null {
+  if (!token.color) return null;
+  let style = `color:${token.color}`;
+  if (token.fontStyle) {
+    if (token.fontStyle & FONT_STYLE_ITALIC) style += ";font-style:italic";
+    if (token.fontStyle & FONT_STYLE_BOLD) style += ";font-weight:700";
+    if (token.fontStyle & FONT_STYLE_UNDERLINE) style += ";text-decoration:underline";
+  }
+  return style;
+}
+
+/// Only valid once `ensureShikiLanguage` has resolved to `true` for `language`.
+export function shikiSpans(language: string, code: string): TokenSpan[] {
+  if (!highlighter) return [];
+  const spans: TokenSpan[] = [];
+  const lines = highlighter.codeToTokensBase(code, { lang: language, theme: NOOKLY_THEME_NAME });
+  for (const line of lines) {
+    for (const token of line) {
+      const style = decorationStyle(token);
+      if (!style) continue;
+      spans.push({ from: token.offset, to: token.offset + token.content.length, style });
+    }
+  }
+  return spans;
 }
