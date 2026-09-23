@@ -16,6 +16,9 @@ export const ATOM_BLOCK_ATTRS = {
   divider: [],
   entity_card: [],
   image: ["caption"],
+  video: ["caption"],
+  audio: ["caption"],
+  file: ["caption"],
 } as const satisfies Record<string, readonly string[]>;
 export type AtomBlockType = keyof typeof ATOM_BLOCK_ATTRS;
 

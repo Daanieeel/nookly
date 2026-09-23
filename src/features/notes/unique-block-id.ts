@@ -27,6 +27,9 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "diagram",
   "entity_card",
   "image",
+  "video",
+  "audio",
+  "file",
 ];
 
 function generateBlockId(): string {

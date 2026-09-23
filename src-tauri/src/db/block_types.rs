@@ -935,6 +935,36 @@ inventory::submit! {
     }
 }
 
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "video",
+        content_format: MEDIA_FORMAT,
+        attrs: &[CAPTION_ATTR],
+        validate: validate_media,
+        to_markdown: |block| media_link(block).map_or(String::new(), |(label, target)| format!("[{label}]({target})")),
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "audio",
+        content_format: MEDIA_FORMAT,
+        attrs: &[CAPTION_ATTR],
+        validate: validate_media,
+        to_markdown: |block| media_link(block).map_or(String::new(), |(label, target)| format!("[{label}]({target})")),
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "file",
+        content_format: MEDIA_FORMAT,
+        attrs: &[CAPTION_ATTR],
+        validate: validate_media,
+        to_markdown: |block| media_link(block).map_or(String::new(), |(label, target)| format!("[{label}]({target})")),
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -1114,6 +1144,13 @@ mod tests {
             (lookup("image").unwrap().to_markdown)(&image),
             "![Campus](mention:f-1)"
         );
+        let video = block("video", "https://x.dev/talk.mp4", &[]);
+        assert_eq!(
+            (lookup("video").unwrap().to_markdown)(&video),
+            "[talk.mp4](https://x.dev/talk.mp4)"
+        );
+        assert!(validate_content("file", "notes.pdf").is_err());
+        assert!(validate_content("audio", "[a.mp3](mention:f-2)").is_ok());
         assert!(validate_content("image", "photo.png").is_err());
         assert!(validate_content("image", "https://x.dev/a.png").is_ok());
     }

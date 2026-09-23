@@ -192,7 +192,10 @@ export type BlockType =
   | "equation"
   | "math"
   | "diagram"
-  | "entity_card";
+  | "entity_card"
+  | "video"
+  | "audio"
+  | "file";
 
 export interface SessionOccurrence {
   entity: Entity;

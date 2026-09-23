@@ -28,13 +28,16 @@ import {
   Callout,
   Details,
   Divider,
+  Audio,
   EntityCard,
+  FileBlock,
   Image,
   Progress,
   Stats,
   Steps,
   Timeline,
   Tree,
+  Video,
 } from "./custom-block-extensions";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -309,6 +312,9 @@ function HydratedBlockEditor({
       Diagram,
       EntityCard.configure({ spaceId, pageId: entityId }),
       Image.configure({ spaceId }),
+      Video.configure({ spaceId }),
+      Audio.configure({ spaceId }),
+      FileBlock.configure({ spaceId }),
     ],
     editorProps: {
       attributes: {

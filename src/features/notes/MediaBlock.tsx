@@ -140,9 +140,8 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
       <div
         className={cn(
           "group/media relative",
-          (kind === "image" || kind === "video") && source && !missing
-            ? "w-fit min-w-32 max-w-full"
-            : "w-full",
+          // An image keeps its own width, so the toolbar sits on its corner.
+          kind === "image" && source && !missing ? "w-fit min-w-32 max-w-full" : "w-full",
         )}
       >
         {missing || !source ? (

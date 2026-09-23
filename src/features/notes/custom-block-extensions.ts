@@ -112,6 +112,9 @@ function mediaBlock(kind: Extract<MediaKind, AtomBlockType>) {
 }
 
 export const Image = mediaBlock("image");
+export const Video = mediaBlock("video");
+export const Audio = mediaBlock("audio");
+export const FileBlock = mediaBlock("file");
 
 /// StarterKit's horizontal rule (with its `---` input rule), named after the
 /// backend block type it saves as.
