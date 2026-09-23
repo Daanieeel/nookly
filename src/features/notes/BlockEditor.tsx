@@ -225,16 +225,24 @@ export function BlockEditor({
   const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
   useEffect(() => {
     if (!editor || !blocks || focusBlock?.entityId !== entityId) return;
-    const frame = requestAnimationFrame(() => {
-      clearFocusBlock();
-      // Blocks created earlier in this editor session still carry their
-      // client id in the DOM, so map the server id back first.
-      const clientId =
-        [...idMapRef.current].find(([, serverId]) => serverId === focusBlock.blockId)?.[0] ??
-        focusBlock.blockId;
+    // Blocks created earlier in this editor session still carry their client
+    // id in the DOM, so map the server id back first.
+    const clientId =
+      [...idMapRef.current].find(([, serverId]) => serverId === focusBlock.blockId)?.[0] ??
+      focusBlock.blockId;
+    let frame = 0;
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+
+    function attempt() {
+      if (!editor) return;
       const element = editor.view.dom.querySelector(`[data-block-id="${CSS.escape(clientId)}"]`);
-      if (!(element instanceof HTMLElement)) return;
-      editor.commands.focus(editor.view.posAtDOM(element, 0), { scrollIntoView: false });
+      if (!(element instanceof HTMLElement)) {
+        // The node may not be rendered yet; give up after about half a second.
+        if (tries++ < 30) frame = requestAnimationFrame(attempt);
+        else clearFocusBlock();
+        return;
+      }
       element.scrollIntoView({ block: "center" });
       element.animate(
         [
@@ -243,8 +251,21 @@ export function BlockEditor({
         ],
         { duration: 1800, easing: "ease-out" },
       );
-    });
-    return () => cancelAnimationFrame(frame);
+      // Re-center once late layout (syntax highlighting, images) has settled,
+      // and only place the cursor after the closing overlay released focus.
+      settle = setTimeout(() => {
+        clearFocusBlock();
+        if (!element.isConnected) return;
+        element.scrollIntoView({ block: "center" });
+        editor.commands.focus(editor.view.posAtDOM(element, 0), { scrollIntoView: false });
+      }, 300);
+    }
+
+    frame = requestAnimationFrame(attempt);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(settle);
+    };
   }, [editor, blocks, focusBlock, entityId, clearFocusBlock]);
 
   useEffect(

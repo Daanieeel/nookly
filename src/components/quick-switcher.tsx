@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { EntityIcon } from "@/components/entity-icon";
+import { EntityIcon, iconForType } from "@/components/entity-icon";
 import {
   Highlighted,
   SpaceGlyph,
@@ -73,6 +73,7 @@ export function QuickSwitcher() {
         </SpotlightEmpty>
         {rows.map(({ entity, segments }) => {
           const space = spaceById.get(entity.spaceId);
+          const TypeIcon = iconForType(entity.type);
           return (
             <SpotlightItem
               key={entity.id}
@@ -86,14 +87,17 @@ export function QuickSwitcher() {
               <span className="min-w-0 flex-1 truncate">
                 <Highlighted segments={segments} />
               </span>
-              {space && (
-                <span className="flex max-w-40 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                  <SpaceGlyph space={space} size={12} />
-                  <span className="truncate">{space.name}</span>
+              <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                {space && (
+                  <span className="flex max-w-36 items-center gap-1.5">
+                    <SpaceGlyph space={space} size={12} />
+                    <span className="truncate">{space.name}</span>
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5">
+                  <TypeIcon size={12} className="shrink-0" />
+                  {labelForType(entity.type)}
                 </span>
-              )}
-              <span className="w-20 shrink-0 truncate text-right text-xs text-muted-foreground/70">
-                {labelForType(entity.type)}
               </span>
             </SpotlightItem>
           );

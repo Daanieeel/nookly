@@ -1,4 +1,4 @@
-import { IconArrowRight, IconBolt, IconChevronDown, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconBolt, IconCategory, IconFolder } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -8,7 +8,13 @@ import {
   statusOf,
   statusTextClass,
 } from "@/components/action-feedback";
-import { EntityIcon } from "@/components/entity-icon";
+import { EntityIcon, iconForType } from "@/components/entity-icon";
+import {
+  type ActiveFilter,
+  applyFilters,
+  type FilterField,
+  FilterMenu,
+} from "@/components/filter-menu";
 import {
   Highlighted,
   SpaceGlyph,
@@ -19,15 +25,6 @@ import {
   SpotlightItem,
   SpotlightList,
 } from "@/components/spotlight";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { createCourse } from "@/lib/api/courses";
 import { listEntities } from "@/lib/api/entities";
@@ -126,8 +123,7 @@ export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, openEntity, setView, activeSpaceId, recents } =
     useNavStore();
   const [query, setQuery] = useState("");
-  const [filterSpaceId, setFilterSpaceId] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<string | null>(null);
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const trimmed = query.trim();
@@ -139,8 +135,8 @@ export function CommandPalette() {
     enabled: paletteOpen,
   });
   const { data: hits = [], isFetching } = useQuery({
-    queryKey: ["search", trimmed, filterSpaceId],
-    queryFn: () => search(trimmed, filterSpaceId),
+    queryKey: ["search", trimmed],
+    queryFn: () => search(trimmed),
     enabled: trimmed.length > 0,
     placeholderData: keepPreviousData,
   });
@@ -195,13 +191,37 @@ export function CommandPalette() {
   useEffect(() => {
     if (paletteOpen) return;
     setQuery("");
-    setFilterSpaceId(null);
-    setFilterType(null);
+    setFilters([]);
     resetQuickCreate();
     resetGoToSpace();
   }, [paletteOpen, resetQuickCreate, resetGoToSpace]);
 
-  const filtered = filterSpaceId !== null || filterType !== null;
+  const filtered = filters.length > 0;
+  const filterFields: FilterField[] = [
+    {
+      id: "space",
+      label: "Space",
+      icon: IconFolder,
+      options: spaces.map((s) => ({
+        value: s.id,
+        label: s.name,
+        icon: <SpaceGlyph space={s} size={14} />,
+      })),
+    },
+    {
+      id: "type",
+      label: "Type",
+      icon: IconCategory,
+      options: TYPE_GROUPS.map((g) => {
+        const Icon = iconForType(g.types[0] ?? "");
+        return { value: g.key, label: g.label, icon: <Icon size={14} /> };
+      }),
+    },
+  ];
+  const passesFilters = <T extends { spaceId: string; type: string }>(items: T[]) =>
+    applyFilters(items, filters, (item, fieldId) =>
+      fieldId === "space" ? item.spaceId : typeGroupFor(item.type).key,
+    );
   const activeSpace = spaces.find((s) => s.id === activeSpaceId);
   // Filters narrow the search to existing things, so actions step aside.
   const createMatches = activeSpace && !filtered ? matchQuickCreate(trimmed) : [];
@@ -210,22 +230,21 @@ export function CommandPalette() {
     lowerQuery.length >= 2 && !filtered
       ? spaces.filter((s) => s.name.toLowerCase().startsWith(lowerQuery))
       : [];
-  const groups = groupHits(
-    filterType ? hits.filter((h) => typeGroupFor(h.type).key === filterType) : hits,
-    spaces,
-  );
-  // With a type filter set, every group is already the "view all" of itself.
-  const perGroupLimit = filterType ? Infinity : GROUP_PREVIEW_LIMIT;
+  const groups = groupHits(passesFilters(hits), spaces);
+  // With a type filter set, groups are already narrowed, so show them in full.
+  const perGroupLimit = filters.some((f) => f.fieldId === "type") ? Infinity : GROUP_PREVIEW_LIMIT;
 
   function refocusInput() {
     inputRef.current?.focus();
   }
 
   const entityById = new Map((entities ?? []).map((e) => [e.id, e]));
-  const recentEntities = recents.flatMap((r) => {
-    const entity = entityById.get(r.entityId);
-    return entity ? [entity] : [];
-  });
+  const recentEntities = passesFilters(
+    recents.flatMap((r) => {
+      const entity = entityById.get(r.entityId);
+      return entity ? [entity] : [];
+    }),
+  );
 
   function close() {
     setPaletteOpen(false);
@@ -327,20 +346,18 @@ export function CommandPalette() {
         onValueChange={setQuery}
         placeholder="Search, create, or jump anywhere…"
         onKeyDown={(e) => {
-          // Backspace on an empty input peels filters off, most specific first.
-          if (e.key !== "Backspace" || query !== "") return;
-          if (filterType) setFilterType(null);
-          else if (filterSpaceId) setFilterSpaceId(null);
+          // Backspace on an empty input removes the most recent filter.
+          if (e.key === "Backspace" && query === "" && filtered) setFilters(filters.slice(0, -1));
         }}
       />
-      <SearchFilters
-        spaces={spaces}
-        spaceId={filterSpaceId}
-        typeKey={filterType}
-        onSpaceChange={setFilterSpaceId}
-        onTypeChange={setFilterType}
-        onMenuClosed={refocusInput}
-      />
+      <div className="border-b border-border/70 px-4 py-2">
+        <FilterMenu
+          fields={filterFields}
+          filters={filters}
+          onFiltersChange={setFilters}
+          onDone={refocusInput}
+        />
+      </div>
       <SpotlightList>
         {trimmed.length === 0 ? (
           <>
@@ -365,19 +382,23 @@ export function CommandPalette() {
                 ))}
               </Command.Group>
             )}
-            <Command.Group heading="Quick actions">
-              {activeSpace && (
-                <>
-                  <SpotlightItem value="suggest-task" onSelect={() => setQuery("New Task ")}>
-                    <ActionGlyph />
-                    <span className="min-w-0 flex-1 truncate">New Task…</span>
-                    <InSpace space={activeSpace} />
-                  </SpotlightItem>
-                  {renderCreateItem({ ...CREATE_NOTE, title: "" })}
-                </>
-              )}
-              {otherSpaces.map(renderGoToItem)}
-            </Command.Group>
+            {filtered ? (
+              <SpotlightEmpty>Type to search within these filters.</SpotlightEmpty>
+            ) : (
+              <Command.Group heading="Quick actions">
+                {activeSpace && (
+                  <>
+                    <SpotlightItem value="suggest-task" onSelect={() => setQuery("New Task ")}>
+                      <ActionGlyph />
+                      <span className="min-w-0 flex-1 truncate">New Task…</span>
+                      <InSpace space={activeSpace} />
+                    </SpotlightItem>
+                    {renderCreateItem({ ...CREATE_NOTE, title: "" })}
+                  </>
+                )}
+                {otherSpaces.map(renderGoToItem)}
+              </Command.Group>
+            )}
           </>
         ) : (
           <>
@@ -399,10 +420,12 @@ export function CommandPalette() {
                     {group.hits.length > perGroupLimit && (
                       <SpotlightItem
                         value={`viewall-${space.id}-${group.key}`}
-                        onSelect={() => {
-                          setFilterSpaceId(space.id);
-                          setFilterType(group.key);
-                        }}
+                        onSelect={() =>
+                          setFilters([
+                            { fieldId: "space", operator: "is", values: [space.id] },
+                            { fieldId: "type", operator: "is", values: [group.key] },
+                          ])
+                        }
                         className="text-muted-foreground"
                       >
                         <IconArrowRight size={16} className="shrink-0" />
@@ -429,96 +452,6 @@ export function CommandPalette() {
         }
       />
     </SpotlightDialog>
-  );
-}
-
-function SearchFilters({
-  spaces,
-  spaceId,
-  typeKey,
-  onSpaceChange,
-  onTypeChange,
-  onMenuClosed,
-}: {
-  spaces: Space[];
-  spaceId: string | null;
-  typeKey: string | null;
-  onSpaceChange: (spaceId: string | null) => void;
-  onTypeChange: (typeKey: string | null) => void;
-  /// Hands focus back to the search input once a menu closes.
-  onMenuClosed: () => void;
-}) {
-  const space = spaces.find((s) => s.id === spaceId);
-  const type = TYPE_GROUPS.find((g) => g.key === typeKey);
-  const closeAutoFocus = (e: Event) => {
-    e.preventDefault();
-    onMenuClosed();
-  };
-
-  return (
-    <div className="flex items-center gap-1.5 border-b border-border/70 px-4 py-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant={space ? "secondary" : "ghost"} size="sm" className="gap-1.5">
-            {space && <SpaceGlyph space={space} size={12} />}
-            {space?.name ?? "All Spaces"}
-            <IconChevronDown />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" onCloseAutoFocus={closeAutoFocus}>
-          <DropdownMenuRadioGroup
-            value={spaceId ?? ""}
-            onValueChange={(v) => onSpaceChange(v || null)}
-          >
-            <DropdownMenuRadioItem value="">All Spaces</DropdownMenuRadioItem>
-            <DropdownMenuSeparator />
-            {spaces.map((s) => (
-              <DropdownMenuRadioItem key={s.id} value={s.id}>
-                <SpaceGlyph space={s} size={14} />
-                {s.name}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant={type ? "secondary" : "ghost"} size="sm" className="gap-1.5">
-            {type?.label ?? "All types"}
-            <IconChevronDown />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" onCloseAutoFocus={closeAutoFocus}>
-          <DropdownMenuRadioGroup
-            value={typeKey ?? ""}
-            onValueChange={(v) => onTypeChange(v || null)}
-          >
-            <DropdownMenuRadioItem value="">All types</DropdownMenuRadioItem>
-            <DropdownMenuSeparator />
-            {TYPE_GROUPS.map((g) => (
-              <DropdownMenuRadioItem key={g.key} value={g.key}>
-                {g.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {(space || type) && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            onSpaceChange(null);
-            onTypeChange(null);
-            onMenuClosed();
-          }}
-          className="ml-auto gap-1"
-        >
-          <IconX />
-          Clear filters
-        </Button>
-      )}
-    </div>
   );
 }
 

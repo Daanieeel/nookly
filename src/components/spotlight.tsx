@@ -30,6 +30,9 @@ export function SpotlightDialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-xs data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
+          // Selecting a result navigates away; handing focus back to the
+          // trigger would pull it off the page that just opened.
+          onCloseAutoFocus={(e) => e.preventDefault()}
           className={cn(
             "fixed top-[14vh] left-1/2 z-50 flex w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden",
             "rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-2xl outline-none",
