@@ -212,7 +212,7 @@ export function EntityDetailLayout({
               placeholder={`Untitled ${labelForType(entity.type)}`}
               disabled={isDeleted}
               aria-invalid={renameFailed || undefined}
-              className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+              className="min-w-0 flex-1 truncate bg-transparent font-heading text-base font-medium outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
             />
             {renameFailed && (
               <Tooltip>
