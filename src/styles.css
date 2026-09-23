@@ -481,6 +481,25 @@
   .tiptap-content .media-toolbar:focus-within {
     opacity: 1;
   }
+  .tiptap-content .embed-frame {
+    display: block;
+    width: 100%;
+    aspect-ratio: var(--embed-aspect);
+    height: var(--embed-height);
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content .bookmark-card {
+    height: 6.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+    transition: border-color 150ms;
+  }
+  .tiptap-content .bookmark-card:hover {
+    border-color: color-mix(in oklab, var(--border), var(--foreground) 15%);
+  }
   .tiptap-content .media-picker {
     display: flex;
     flex-wrap: wrap;

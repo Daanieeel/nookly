@@ -5,6 +5,10 @@ export function createBookmark(spaceId: string, url: string): Promise<Bookmark> 
   return invoke("create_bookmark", { spaceId, url });
 }
 
+export function getBookmark(entityId: string): Promise<Bookmark> {
+  return invoke("get_bookmark", { entityId });
+}
+
 export function listBookmarks(spaceId: string): Promise<Bookmark[]> {
   return invoke("list_bookmarks", { spaceId });
 }

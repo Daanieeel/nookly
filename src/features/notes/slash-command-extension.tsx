@@ -1,5 +1,6 @@
 import {
   IconBinaryTree,
+  IconBookmark,
   IconCode,
   IconChevronRight,
   IconHeading,
@@ -20,6 +21,7 @@ import {
   IconNumber,
   IconProgress,
   IconTimeline,
+  IconWorld,
   IconH1,
   IconH2,
   IconH3,
@@ -279,6 +281,20 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Attach any file to open later",
     icon: <IconPaperclip size={15} />,
     run: (editor, range) => insertRowBlock(editor, range, "file", ""),
+  },
+  {
+    title: "Web bookmark",
+    group: "Links and media",
+    description: "A preview card for a link",
+    icon: <IconBookmark size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "bookmark", ""),
+  },
+  {
+    title: "Embed",
+    group: "Links and media",
+    description: "YouTube, Figma, Maps and more, inline",
+    icon: <IconWorld size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "embed", ""),
   },
   {
     title: "Linked item",

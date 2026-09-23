@@ -965,6 +965,47 @@ inventory::submit! {
     }
 }
 
+// --- bookmark, embed -------------------------------------------------------
+
+fn validate_url(content: &str) -> Result<(), String> {
+    let content = content.trim();
+    if content.is_empty() || content.starts_with("http://") || content.starts_with("https://") {
+        Ok(())
+    } else {
+        Err("expected an http(s) URL".into())
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "bookmark",
+        content_format: "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create \
+                         takes the URL). Shown as a preview card with title, description and image.",
+        attrs: &[],
+        validate: validate_mention_link,
+        // The page export turns the mention into the bookmark's URL.
+        to_markdown: |block| block.content.trim().to_string(),
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "embed",
+        content_format: "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen \
+                         links play or display in place, anything else shows as a link.",
+        attrs: &[],
+        validate: validate_url,
+        to_markdown: |block| {
+            let url = block.content.trim();
+            if url.is_empty() {
+                String::new()
+            } else {
+                format!("[{url}]({url})")
+            }
+        },
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -1170,6 +1211,9 @@ mod tests {
         assert!(validate_content("stats", "1\ta\n2\tb\n3\tc\n4\td\n5\te").is_err());
         assert!(validate_content("details", "a\tb\tc").is_err());
         assert!(validate_content("divider", "").is_ok());
+        assert!(validate_content("embed", "https://youtu.be/x").is_ok());
+        assert!(validate_content("embed", "youtu.be/x").is_err());
+        assert!(validate_content("bookmark", "https://x.dev").is_err());
         assert!(validate_content("entity_card", "[Exam](mention:ab-12)").is_ok());
         assert!(validate_content("entity_card", "Exam").is_err());
         assert!(validate_content("checklist", "[ ] a\n[x] b").is_ok());

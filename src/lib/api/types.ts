@@ -195,7 +195,8 @@ export type BlockType =
   | "entity_card"
   | "video"
   | "audio"
-  | "file";
+  | "file"
+  | "bookmark";
 
 export interface SessionOccurrence {
   entity: Entity;

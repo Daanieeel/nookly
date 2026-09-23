@@ -605,7 +605,6 @@ pub fn block_to_markdown(block: &Block) -> String {
             .map(|(i, l)| format!("{}. {l}", i + 1))
             .collect::<Vec<_>>()
             .join("\n"),
-        "embed" => format!("[embed]({})", block.content),
         // `content` is rows joined by "\n", cells within a row joined by "\t"
         // (§ table block), first row is the header — the editor's own storage
         // shape, not markdown; this is the one place it becomes real markdown.
@@ -648,7 +647,8 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
 
 /// Mention links to File entities (an image block, a file mentioned in text)
 /// point at the file itself in an export: a `file://` URL for an imported copy,
-/// the provider URL for a linked one. Every other mention stays as it is.
+/// the provider URL for a linked one. Mentions of Bookmarks point at their URL.
+/// Every other mention stays as it is.
 fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
     static TARGET: std::sync::LazyLock<regex::Regex> =
         std::sync::LazyLock::new(|| regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)\)").unwrap());
@@ -658,10 +658,15 @@ fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
             continue;
         }
         let file = crate::db::files::get_file(conn, &id).ok();
-        let target = file.and_then(|f| match (f.local_path, f.url) {
-            (Some(path), _) => url::Url::from_file_path(&path).ok().map(|u| u.to_string()),
-            (None, url) => url,
-        });
+        let target = match file {
+            Some(f) => match (f.local_path, f.url) {
+                (Some(path), _) => url::Url::from_file_path(&path).ok().map(|u| u.to_string()),
+                (None, url) => url,
+            },
+            None => crate::db::bookmarks::get_bookmark(conn, &id)
+                .ok()
+                .map(|b| b.url),
+        };
         targets.insert(id, target);
     }
     Ok(TARGET

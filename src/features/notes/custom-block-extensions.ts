@@ -13,6 +13,7 @@ import { TreeBlock } from "./TreeBlock";
 import { ATOM_BLOCK_ATTRS, type AtomBlockType } from "./custom-block-rows";
 import { DetailsBlock } from "./DetailsBlock";
 import { EntityCardBlock, type EntityCardOptions } from "./EntityCardBlock";
+import { BookmarkBlock, EmbedBlock, type WebBlockOptions } from "./WebBlocks";
 import { MediaBlock, type MediaBlockOptions, type MediaKind } from "./MediaBlock";
 import { StatsBlock } from "./StatsBlock";
 import { StepsBlock } from "./StepsBlock";
@@ -115,6 +116,15 @@ export const Image = mediaBlock("image");
 export const Video = mediaBlock("video");
 export const Audio = mediaBlock("audio");
 export const FileBlock = mediaBlock("file");
+
+export const Embed = atomBlock("embed", EmbedBlock);
+
+/// A web bookmark card; `spaceId` is where new bookmarks land.
+export const WebBookmark = atomBlock("bookmark", BookmarkBlock).extend<WebBlockOptions>({
+  addOptions() {
+    return { spaceId: "" };
+  },
+});
 
 /// StarterKit's horizontal rule (with its `---` input rule), named after the
 /// backend block type it saves as.

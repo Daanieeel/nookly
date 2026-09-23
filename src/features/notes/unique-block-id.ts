@@ -30,6 +30,8 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "video",
   "audio",
   "file",
+  "embed",
+  "bookmark",
 ];
 
 function generateBlockId(): string {

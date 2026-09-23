@@ -15,6 +15,12 @@ pub fn create_bookmark(
 }
 
 #[tauri::command]
+pub fn get_bookmark(state: State<DbState>, entity_id: String) -> AppResult<Bookmark> {
+    let conn = state.0.lock().unwrap();
+    bookmarks::get_bookmark(&conn, &entity_id)
+}
+
+#[tauri::command]
 pub fn list_bookmarks(state: State<DbState>, space_id: String) -> AppResult<Vec<Bookmark>> {
     let conn = state.0.lock().unwrap();
     bookmarks::list_bookmarks(&conn, &space_id)

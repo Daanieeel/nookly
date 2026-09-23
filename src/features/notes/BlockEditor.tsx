@@ -29,6 +29,7 @@ import {
   Details,
   Divider,
   Audio,
+  Embed,
   EntityCard,
   FileBlock,
   Image,
@@ -38,6 +39,7 @@ import {
   Timeline,
   Tree,
   Video,
+  WebBookmark,
 } from "./custom-block-extensions";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -315,6 +317,8 @@ function HydratedBlockEditor({
       Video.configure({ spaceId }),
       Audio.configure({ spaceId }),
       FileBlock.configure({ spaceId }),
+      Embed,
+      WebBookmark.configure({ spaceId }),
     ],
     editorProps: {
       attributes: {

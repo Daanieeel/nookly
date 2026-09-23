@@ -140,6 +140,7 @@ pub fn run() {
             commands::files::export_file,
             commands::bookmarks::create_bookmark,
             commands::bookmarks::list_bookmarks,
+            commands::bookmarks::get_bookmark,
             commands::bookmarks::fetch_bookmark_metadata,
             commands::cli_install::cli_install_status,
             commands::cli_install::install_cli,

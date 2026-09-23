@@ -115,7 +115,6 @@ pub const KNOWN_BLOCK_TYPES: &[&str] = &[
     "bulleted_list",
     "numbered_list",
     "table",
-    "embed",
 ];
 
 inventory::collect!(EntitySchemaDef);

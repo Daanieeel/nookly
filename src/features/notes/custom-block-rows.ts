@@ -19,6 +19,8 @@ export const ATOM_BLOCK_ATTRS = {
   video: ["caption"],
   audio: ["caption"],
   file: ["caption"],
+  embed: [],
+  bookmark: [],
 } as const satisfies Record<string, readonly string[]>;
 export type AtomBlockType = keyof typeof ATOM_BLOCK_ATTRS;
 

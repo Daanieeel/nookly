@@ -126,9 +126,8 @@ function nonEmpty(nodes: JSONNode[]): JSONNode[] | undefined {
 }
 
 /// Builds this block's initial editor node from its persisted `content` string
-/// (§ notes rewrite). `image`/`embed` blocks predate the rich editor and have no
-/// node type here yet — they load as a plain paragraph so old content survives
-/// a round trip instead of being silently dropped.
+/// (§ notes rewrite). A block type this editor has no node for loads as a plain
+/// paragraph, so its content survives a round trip instead of being dropped.
 export function blockToNode(block: Block): JSONNode {
   const blockId = block.id;
   switch (block.blockType) {
