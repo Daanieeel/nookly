@@ -9,4 +9,5 @@ export const STORAGE_KEYS = {
   theme: "nookly:theme",
   notesSort: "nookly:notes-sort",
   jotsSort: "nookly:jots-sort",
+  tasksDisplay: "nookly:tasks-display",
 } as const;

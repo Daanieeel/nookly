@@ -110,6 +110,8 @@ export interface Task {
   statusId: string;
   startDate: string | null;
   dueDate: string | null;
+  /// Ordered by label name. Only filled by `listTasks`.
+  labelIds: string[];
 }
 
 export interface TaskDueTodaySummary {

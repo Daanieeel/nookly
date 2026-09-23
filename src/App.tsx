@@ -55,6 +55,8 @@ function Shell() {
   useExternalDbChanges();
   useScopedSelectAll();
   const isEntityView = view.kind === "entity";
+  // Views drawing their own edge to edge chrome, like the Linear style Tasks page.
+  const isBleedView = isEntityView || (view.kind === "module" && view.module === "tasks");
 
   return (
     <div
@@ -72,7 +74,7 @@ function Shell() {
           <SidebarInset className="min-h-0 min-w-0">
             <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
               <div
-                className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isEntityView ? "" : "p-6"}`}
+                className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
               >
                 <MainContent />
               </div>

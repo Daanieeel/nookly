@@ -41,6 +41,9 @@ pub struct Task {
     pub status_id: String,
     pub start_date: Option<String>,
     pub due_date: Option<String>,
+    /// Ids of this Task's Labels, ordered by label name. Only `list_tasks` fills it;
+    /// everywhere else it stays empty.
+    pub label_ids: Vec<String>,
 }
 
 fn task_row_to_task(
@@ -52,6 +55,7 @@ fn task_row_to_task(
         status_id: row.get("status_id")?,
         start_date: row.get("start_date")?,
         due_date: row.get("due_date")?,
+        label_ids: Vec::new(),
     })
 }
 
@@ -72,6 +76,7 @@ pub fn create_task(
         status_id: "backlog".into(),
         start_date,
         due_date,
+        label_ids: Vec::new(),
     })
 }
 
@@ -106,6 +111,7 @@ pub fn create_subtask(
         status_id: "backlog".into(),
         start_date: None,
         due_date: None,
+        label_ids: Vec::new(),
     })
 }
 
@@ -217,7 +223,28 @@ pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
          ORDER BY e.created_at ASC",
     )?;
     let rows = stmt.query_map(params![space_id], row_to_task_joined)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    let mut tasks = rows.collect::<Result<Vec<_>, _>>()?;
+
+    let index: std::collections::HashMap<String, usize> = tasks
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.entity.id.clone(), i))
+        .collect();
+    let mut stmt = conn.prepare(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         JOIN labels l ON l.id = el.label_id
+         WHERE e.space_id = ?1 AND e.type = 'task' AND e.deleted_at IS NULL
+         ORDER BY l.name ASC",
+    )?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        if let Some(&i) = index.get(&entity_id) {
+            tasks[i].label_ids.push(row.get(1)?);
+        }
+    }
+    Ok(tasks)
 }
 
 pub fn update_task_status(conn: &Connection, entity_id: &str, status_id: &str) -> AppResult<()> {
@@ -489,5 +516,33 @@ mod tests {
 
         let progress = subtask_progress(&conn, &task.entity.id).unwrap().unwrap();
         assert_eq!(progress, 50.0);
+    }
+
+    #[test]
+    fn list_tasks_carries_label_ids_sorted_by_name() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let task = create_task(&conn, space.id.clone(), "Laundry".into(), None, None).unwrap();
+        let bare = create_task(&conn, space.id.clone(), "Dishes".into(), None, None).unwrap();
+        let zeta =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Zeta".into(), "#f00".into())
+                .unwrap();
+        let alpha =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Alpha".into(), "#0f0".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &task.entity.id, &zeta.id).unwrap();
+        crate::db::labels::attach_label(&conn, &task.entity.id, &alpha.id).unwrap();
+
+        let tasks = list_tasks(&conn, &space.id).unwrap();
+        let labeled = tasks
+            .iter()
+            .find(|t| t.entity.id == task.entity.id)
+            .unwrap();
+        assert_eq!(labeled.label_ids, vec![alpha.id, zeta.id]);
+        let unlabeled = tasks
+            .iter()
+            .find(|t| t.entity.id == bare.entity.id)
+            .unwrap();
+        assert!(unlabeled.label_ids.is_empty());
     }
 }
