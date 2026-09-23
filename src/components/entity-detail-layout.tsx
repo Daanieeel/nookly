@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { restoreEntity, updateEntity } from "@/lib/api/entities";
 import type { Entity } from "@/lib/api/types";
 import { labelForType } from "@/lib/entity-title";
+import { viewAfterTrash } from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
 
 export function EntityDetailLayout({
@@ -26,6 +27,7 @@ export function EntityDetailLayout({
   headerExtra,
   exportable = false,
   bodyOverlay,
+  sidebar,
   children,
 }: {
   entity: Entity;
@@ -37,6 +39,8 @@ export function EntityDetailLayout({
   /// Floats over the scrolling body, e.g. a page's section navigator. Gets the
   /// body's scroll container, since the body scrolls rather than the window.
   bodyOverlay?: (scrollContainer: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
+  /// Type specific sections at the top of the right sidebar, e.g. a Task's properties.
+  sidebar?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -170,21 +174,23 @@ export function EntityDetailLayout({
           </div>
           {bodyOverlay?.(bodyRef)}
         </div>
-        <RightSidebar entity={entity} actions={actions} />
+        <RightSidebar entity={entity} actions={actions}>
+          {sidebar}
+        </RightSidebar>
       </div>
 
       <TrashEntityDialog
         entity={entity}
         open={trashConfirmOpen}
         onOpenChange={setTrashConfirmOpen}
-        onTrashed={() => setView({ kind: "dashboard" })}
+        onTrashed={() => setView(viewAfterTrash(entity))}
       />
     </div>
   );
 }
 
 /// Shown above a trashed entity's page, with the one action that undoes it.
-export function TrashedBanner({ entity }: { entity: Entity }) {
+function TrashedBanner({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
   const restore = useMutation({
     mutationFn: () => restoreEntity(entity.id),

@@ -23,6 +23,7 @@ import { createRelationship, listRelationshipTypes } from "@/lib/api/relationshi
 import { listSpaces } from "@/lib/api/spaces";
 import type { Entity } from "@/lib/api/types";
 import { copyEntityLink } from "@/lib/clipboard";
+import { viewAfterTrash } from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
 import {
   type EntityRecord,
@@ -182,7 +183,7 @@ registerActions("entity", [
           open
           onOpenChange={(open) => !open && close()}
           onTrashed={() => {
-            if (isViewing(entity)) useNavStore.getState().setView({ kind: "dashboard" });
+            if (isViewing(entity)) useNavStore.getState().setView(viewAfterTrash(entity));
             void helpers.refresh();
           }}
         />

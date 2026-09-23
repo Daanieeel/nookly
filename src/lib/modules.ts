@@ -11,7 +11,8 @@ import {
   IconNotes,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
-import { type ModuleKey, MODULE_KEYS } from "@/lib/store/nav";
+import type { Entity } from "@/lib/api/types";
+import { type ModuleKey, MODULE_KEYS, type View } from "@/lib/store/nav";
 
 export { MODULE_KEYS };
 export type { ModuleKey };
@@ -84,4 +85,11 @@ export function moduleForEntityType(type: string): ModuleKey | undefined {
     // and a non-match just falls through to `false` like any other string.
     (MODULE_ENTITY_TYPES[key] as string[]).includes(type),
   );
+}
+
+/// Where to land after trashing the entity being viewed: its module's list, e.g.
+/// the Tasks board for a Task, or the Dashboard when it has no module.
+export function viewAfterTrash(entity: Entity): View {
+  const module = moduleForEntityType(entity.type);
+  return module ? { kind: "module", spaceId: entity.spaceId, module } : { kind: "dashboard" };
 }

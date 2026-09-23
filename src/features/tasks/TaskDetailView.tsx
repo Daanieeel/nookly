@@ -1,31 +1,23 @@
 import {
-  IconAdjustmentsHorizontal,
   IconCaretDownFilled,
   IconCaretRightFilled,
-  IconChecklist,
   IconChevronDown,
-  IconChevronRight,
   IconChevronUp,
   IconCircleDashed,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FieldError, StatusIcon, useActionStatus } from "@/components/action-feedback";
+import { FieldError } from "@/components/action-feedback";
 import { entityTarget } from "@/components/context-menu/registry";
-import { EntityActions } from "@/components/entity-actions";
-import { TrashedBanner } from "@/components/entity-detail-layout";
-import { EntityKey, EntityKeyCopy } from "@/components/entity-key";
+import { EntityDetailLayout } from "@/components/entity-detail-layout";
+import { EntityKey } from "@/components/entity-key";
 import { LabelChip } from "@/components/label-chip";
-import { RightSidebar } from "@/components/right-sidebar";
-import { TrashEntityDialog } from "@/components/trash-entity-dialog";
 import { ProgressCircle } from "@/components/ui/progress-circle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { SidebarSection } from "@/features/relationships/SidebarSection";
 import { BlockEditor } from "@/features/notes/BlockEditor";
 import { attachLabel, detachLabel } from "@/lib/api/labels";
-import { updateEntity } from "@/lib/api/entities";
 import {
   createSubtask,
   getTask,
@@ -74,9 +66,9 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-/// A Task's page, modeled on Linear's issue view: a breadcrumb bar with previous and
-/// next, a large title over the description (the same block editor as Notes), the
-/// sub-tasks, and a properties panel at the top of the right sidebar.
+/// A Task's page: the same header and description editor as a Note, plus a
+/// previous and next stepper, the sub-tasks, and a properties panel at the top of
+/// the right sidebar, as in Linear's issue view.
 export function TaskDetailView({ entity }: { entity: Entity }) {
   const data = useTasksDataValue(entity.spaceId);
   return (
@@ -87,13 +79,9 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
 }
 
 function TaskPage({ entity }: { entity: Entity }) {
-  const queryClient = useQueryClient();
-  const setView = useNavStore((s) => s.setView);
   const openEntity = useNavStore((s) => s.openEntity);
   const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
-  const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
   const isSubtask = entity.type === "sub_task";
-  const isDeleted = !!entity.deletedAt;
 
   const { data: task } = useQuery({
     queryKey: ["task", entity.id],
@@ -105,159 +93,95 @@ function TaskPage({ entity }: { entity: Entity }) {
     enabled: !isSubtask,
   });
   const parent = useTaskParent(entity);
-  const neighbours = useTaskNeighbours(entity);
-
-  const togglePin = useMutation({
-    mutationFn: () => updateEntity(entity.id, { pinned: !entity.pinned }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
-  });
-  const pinStatus = useActionStatus(togglePin);
-  const actions = (className?: string) => (
-    <EntityActions
-      entity={entity}
-      exportable={false}
-      pin={{
-        status: pinStatus,
-        toggle: async () => {
-          await togglePin.mutateAsync();
-        },
-      }}
-      onTrash={() => setTrashConfirmOpen(true)}
-      className={className}
-    />
-  );
+  const neighbours = useTaskNeighbours(entity, parent);
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col">
-      {isDeleted && <TrashedBanner entity={entity} />}
-      <div
-        className={cn("flex min-h-0 min-w-0 flex-1", isDeleted && "opacity-50")}
-        inert={isDeleted || undefined}
-      >
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header
-            className="flex h-12 shrink-0 items-center gap-1 border-b border-border pr-2 pl-3"
-            {...entityTarget(entity)}
+    <EntityDetailLayout
+      entity={entity}
+      headerExtra={
+        neighbours && (
+          <TaskStepper
+            index={neighbours.index}
+            total={neighbours.total}
+            onStep={(next) => openEntity(next.entity.id, next.entity.spaceId)}
+            prev={neighbours.prev}
+            next={neighbours.next}
+          />
+        )
+      }
+      sidebar={task && <PropertiesPanel task={task} progress={progress ?? null} />}
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-col pb-24">
+        {/* Properties live in the sidebar; without it they sit above the description.
+            Indented by the editor's handle gutter (`.tiptap-content`) to line up with
+            its text, like everything below the editor. */}
+        {task && (
+          <div
+            className={cn(
+              "mb-2 flex flex-wrap items-center gap-1.5 pl-13",
+              !sidebarCollapsed && "lg:hidden",
+            )}
           >
-            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-sm">
-              <button
-                type="button"
-                onClick={() =>
-                  setView({ kind: "module", spaceId: entity.spaceId, module: "tasks" })
-                }
-                className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 font-medium hover:bg-accent"
-              >
-                <IconChecklist size={16} className="text-muted-foreground" />
-                Tasks
-              </button>
-              {parent && (
-                <>
-                  <IconChevronRight size={14} className="shrink-0 text-muted-foreground" />
-                  <button
-                    type="button"
-                    onClick={() => openEntity(parent.id, parent.spaceId)}
-                    className="flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 hover:bg-accent"
-                  >
-                    <EntityKey entityKey={parent.key} />
-                    <span className="hidden truncate text-muted-foreground md:inline">
-                      {displayTitle(parent)}
-                    </span>
-                  </button>
-                </>
-              )}
-              <IconChevronRight size={14} className="shrink-0 text-muted-foreground" />
-              <EntityKeyCopy entityKey={entity.key} />
-            </nav>
-            <div className="ml-auto flex items-center gap-0.5">
-              {neighbours && (
-                <TaskStepper
-                  index={neighbours.index}
-                  total={neighbours.total}
-                  onStep={(task) => openEntity(task.entity.id, task.entity.spaceId)}
-                  prev={neighbours.prev}
-                  next={neighbours.next}
-                />
-              )}
-              {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
-              {actions("lg:hidden")}
-            </div>
-          </header>
-
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-            <div
-              data-task-body
-              className="mx-auto flex w-full max-w-3xl flex-col px-6 pt-10 pb-24 md:px-10"
-            >
-              <TaskTitle entity={entity} />
-              {/* Properties live in the sidebar; without it they sit under the title. */}
-              {task && (
-                <div
-                  className={cn(
-                    "mt-3 flex flex-wrap items-center gap-1.5",
-                    !sidebarCollapsed && "lg:hidden",
-                  )}
-                >
-                  <TaskStatusControl task={task} />
-                  <TaskLabelsControl task={task} />
-                  <TaskDueControl task={task} />
-                </div>
-              )}
-              {/* Pulled left by the editor's handle gutter (`.tiptap-content`), so the
-                  description lines up with the title as in Linear. */}
-              <div className="mt-4 -ml-13">
-                <BlockEditor entityId={entity.id} spaceId={entity.spaceId} />
-              </div>
-              {!isSubtask && <SubtaskSection parent={entity} progress={progress ?? null} />}
-            </div>
+            <TaskStatusControl task={task} />
+            <TaskLabelsControl task={task} />
+            <TaskDueControl task={task} />
           </div>
-        </div>
-
-        <RightSidebar entity={entity} actions={actions}>
-          {task && <PropertiesPanel task={task} progress={progress ?? null} />}
-        </RightSidebar>
+        )}
+        <BlockEditor entityId={entity.id} spaceId={entity.spaceId} />
+        {!isSubtask && (
+          <div className="pl-13">
+            <SubtaskSection parent={entity} progress={progress ?? null} />
+          </div>
+        )}
       </div>
-
-      <TrashEntityDialog
-        entity={entity}
-        open={trashConfirmOpen}
-        onOpenChange={setTrashConfirmOpen}
-        onTrashed={() => setView({ kind: "module", spaceId: entity.spaceId, module: "tasks" })}
-      />
-    </div>
+    </EntityDetailLayout>
   );
 }
 
-/// Where this task sits in the Tasks page as it was last displayed (tab, grouping
-/// and ordering), for Linear's "3 / 12" stepper. Unset for sub-tasks.
-function useTaskNeighbours(entity: Entity) {
+/// Where this task sits among its neighbours, for Linear's "3 / 12" stepper. A Task
+/// steps through the Tasks page as it was last displayed (tab, grouping, ordering),
+/// or through every task when that tab hides it. A Sub-task steps through its
+/// siblings under the same parent.
+function useTaskNeighbours(entity: Entity, parent: Entity | null | undefined) {
   const { statuses, labels, kindOf } = useTasksData();
+  const isSubtask = entity.type === "sub_task";
   const { data: tasks } = useQuery({
     queryKey: ["tasks", entity.spaceId],
     queryFn: () => listTasks(entity.spaceId),
-    enabled: entity.type === "task",
+    enabled: !isSubtask,
   });
+  const { data: siblings } = useQuery({
+    queryKey: ["subtasks", parent?.id],
+    queryFn: () => (parent ? listSubtasks(parent.id) : []),
+    enabled: isSubtask && !!parent,
+  });
+
   return useMemo(() => {
-    if (!tasks || entity.type !== "task") return null;
-    const display = readDisplay();
-    const inView = tasks.filter((t) => statusInTab(t.statusId, display.tab, kindOf));
-    const ordered = groupTasks(
-      orderTasks(inView, display.ordering, statuses),
-      display.grouping,
-      statuses,
-      labels,
-    ).flatMap((g) => g.tasks);
-    // Label grouping can list a task twice; the first place counts.
-    const seen = new Set<string>();
-    const unique = ordered.filter((t) => !seen.has(t.entity.id) && !!seen.add(t.entity.id));
-    const index = unique.findIndex((t) => t.entity.id === entity.id);
-    if (index < 0) return null;
-    return {
-      index,
-      total: unique.length,
-      prev: unique[index - 1],
-      next: unique[index + 1],
-    };
-  }, [tasks, entity, statuses, labels, kindOf]);
+    let list: Task[] | undefined;
+    if (isSubtask) {
+      // Trashed siblings are skipped, unless this is the trashed one.
+      list = siblings?.filter((t) => !t.entity.deletedAt || t.entity.id === entity.id);
+    } else if (tasks) {
+      const display = readDisplay();
+      const ordered = (tab: typeof display.tab) => {
+        const inView = tasks.filter((t) => statusInTab(t.statusId, tab, kindOf));
+        const grouped = groupTasks(
+          orderTasks(inView, display.ordering, statuses),
+          display.grouping,
+          statuses,
+          labels,
+        ).flatMap((g) => g.tasks);
+        // Label grouping can list a task twice; the first place counts.
+        const seen = new Set<string>();
+        return grouped.filter((t) => !seen.has(t.entity.id) && !!seen.add(t.entity.id));
+      };
+      list = ordered(display.tab);
+      if (!list.some((t) => t.entity.id === entity.id)) list = ordered("all");
+    }
+    const index = list?.findIndex((t) => t.entity.id === entity.id) ?? -1;
+    if (!list || index < 0 || list.length < 2) return null;
+    return { index, total: list.length, prev: list[index - 1], next: list[index + 1] };
+  }, [isSubtask, siblings, tasks, entity.id, statuses, labels, kindOf]);
 }
 
 function TaskStepper({
@@ -315,69 +239,6 @@ function TaskStepper({
           </TooltipContent>
         </Tooltip>
       ))}
-    </div>
-  );
-}
-
-/// The title as a large, wrapping field. Saves on blur; Enter moves on to the
-/// description.
-function TaskTitle({ entity }: { entity: Entity }) {
-  const queryClient = useQueryClient();
-  const refresh = useRefreshTasks(entity.spaceId);
-  const [title, setTitle] = useState(entity.title);
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
-  // A fresh task opens with an empty title, so land the cursor there to type.
-  useEffect(() => {
-    if (!entity.title.trim() && !entity.deletedAt) ref.current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entity.id]);
-
-  const rename = useMutation({
-    mutationFn: (next: string) => updateEntity(entity.id, { title: next }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["entity", entity.id] });
-      await refresh();
-    },
-  });
-
-  return (
-    <div className="flex items-start gap-2">
-      <textarea
-        ref={ref}
-        value={title}
-        rows={1}
-        onChange={(e) => setTitle(e.target.value.replace(/\n/g, ""))}
-        onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
-          e.preventDefault();
-          const body = ref.current
-            ?.closest("[data-task-body]")
-            ?.querySelector<HTMLElement>("[contenteditable='true']");
-          if (body) body.focus();
-          else ref.current?.blur();
-        }}
-        placeholder="Task title"
-        aria-label="Task title"
-        aria-invalid={rename.isError || undefined}
-        data-task-title
-        className="field-sizing-content min-w-0 flex-1 resize-none bg-transparent font-heading text-2xl font-semibold outline-none placeholder:text-muted-foreground/60"
-      />
-      {rename.isError && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className="mt-2 flex shrink-0"
-              aria-label="Couldn't rename, leave the title to retry"
-            >
-              <StatusIcon status="error" idle={null} size={16} />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Couldn't rename, leave the title to retry</TooltipContent>
-        </Tooltip>
-      )}
     </div>
   );
 }
@@ -661,109 +522,107 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
   const dateField = setDates.variables?.field;
 
   return (
-    <SidebarSection icon={<IconAdjustmentsHorizontal size={14} />} title="Properties">
-      <div className="flex flex-col gap-0.5">
-        <PropertyRow label="Status">
-          <StatusPicker
-            statuses={statuses}
-            kindOf={kindOf}
-            value={task.statusId}
-            onSelect={(id) => setStatus.mutate(id)}
+    <section aria-label="Properties" className="flex flex-col gap-0.5">
+      <PropertyRow label="Status">
+        <StatusPicker
+          statuses={statuses}
+          kindOf={kindOf}
+          value={task.statusId}
+          onSelect={(id) => setStatus.mutate(id)}
+        >
+          <button
+            type="button"
+            aria-label={setStatus.isError ? "Couldn't change status, try again" : "Change Status"}
+            className={PROPERTY_VALUE}
           >
-            <button
-              type="button"
-              aria-label={setStatus.isError ? "Couldn't change status, try again" : "Change Status"}
-              className={PROPERTY_VALUE}
-            >
-              <PendingIcon
-                pending={setStatus.isPending}
-                failed={setStatus.isError}
-                idle={status && <TaskStatusIcon status={status} kind={kindOf(status.id)} />}
-              />
-              <span className="truncate">{status?.name ?? "No status"}</span>
-            </button>
-          </StatusPicker>
-        </PropertyRow>
+            <PendingIcon
+              pending={setStatus.isPending}
+              failed={setStatus.isError}
+              idle={status && <TaskStatusIcon status={status} kind={kindOf(status.id)} />}
+            />
+            <span className="truncate">{status?.name ?? "No status"}</span>
+          </button>
+        </StatusPicker>
+      </PropertyRow>
 
-        <PropertyRow label="Labels">
-          <LabelsPicker
-            labels={labels}
-            selected={task.labelIds}
-            onToggle={(id) => !toggleLabel.isPending && toggleLabel.mutate(id)}
-            pendingId={toggleLabel.isPending ? toggleLabel.variables : undefined}
-            failedId={toggleLabel.isError ? toggleLabel.variables : undefined}
-            align="end"
+      <PropertyRow label="Labels">
+        <LabelsPicker
+          labels={labels}
+          selected={task.labelIds}
+          onToggle={(id) => !toggleLabel.isPending && toggleLabel.mutate(id)}
+          pendingId={toggleLabel.isPending ? toggleLabel.variables : undefined}
+          failedId={toggleLabel.isError ? toggleLabel.variables : undefined}
+          align="end"
+        >
+          <button
+            type="button"
+            aria-label="Change Labels"
+            className={cn(PROPERTY_VALUE, "h-auto min-h-7 flex-wrap gap-1 py-1")}
           >
-            <button
-              type="button"
-              aria-label="Change Labels"
-              className={cn(PROPERTY_VALUE, "h-auto min-h-7 flex-wrap gap-1 py-1")}
-            >
-              {attached.length > 0 ? (
-                attached.map((l) => (
-                  <LabelChip key={l.id} label={l} className="rounded-full border-foreground/10" />
-                ))
-              ) : (
-                <span className="text-muted-foreground">Add label</span>
-              )}
-            </button>
-          </LabelsPicker>
-        </PropertyRow>
+            {attached.length > 0 ? (
+              attached.map((l) => (
+                <LabelChip key={l.id} label={l} className="rounded-full border-foreground/10" />
+              ))
+            ) : (
+              <span className="text-muted-foreground">Add label</span>
+            )}
+          </button>
+        </LabelsPicker>
+      </PropertyRow>
 
-        {(["start", "due"] as const).map((field) => {
-          const day = field === "start" ? task.startDate : task.dueDate;
-          const noun = field === "start" ? "start date" : "due date";
-          const failed = setDates.isError && dateField === field;
-          return (
-            <PropertyRow key={field} label={field === "start" ? "Start date" : "Due date"}>
-              <DueDatePicker
-                value={day}
-                noun={noun}
-                align="end"
-                onSelect={(next) => setDates.mutate({ field, day: next })}
+      {(["start", "due"] as const).map((field) => {
+        const day = field === "start" ? task.startDate : task.dueDate;
+        const noun = field === "start" ? "start date" : "due date";
+        const failed = setDates.isError && dateField === field;
+        return (
+          <PropertyRow key={field} label={field === "start" ? "Start date" : "Due date"}>
+            <DueDatePicker
+              value={day}
+              noun={noun}
+              align="end"
+              onSelect={(next) => setDates.mutate({ field, day: next })}
+            >
+              <button
+                type="button"
+                aria-label={failed ? `Couldn't set ${noun}, try again` : `Change ${noun}`}
+                className={PROPERTY_VALUE}
               >
-                <button
-                  type="button"
-                  aria-label={failed ? `Couldn't set ${noun}, try again` : `Change ${noun}`}
-                  className={PROPERTY_VALUE}
-                >
-                  {(setDates.isPending && dateField === field) || failed ? (
-                    <PendingIcon pending={!failed} failed={failed} idle={null} />
-                  ) : null}
-                  {day ? (
-                    <DueLabel
-                      day={day}
-                      tone={field === "due" ? dueTone(task, kindOf(task.statusId)) : null}
-                    />
-                  ) : (
-                    <span className="text-muted-foreground">Set {noun}</span>
-                  )}
-                </button>
-              </DueDatePicker>
-            </PropertyRow>
-          );
-        })}
-
-        {progress != null && (
-          <PropertyRow label="Progress">
-            <span className="flex h-7 items-center gap-2 px-2 text-sm tabular-nums">
-              <ProgressCircle value={progress} size={14} />
-              {Math.round(progress)}%
-            </span>
+                {(setDates.isPending && dateField === field) || failed ? (
+                  <PendingIcon pending={!failed} failed={failed} idle={null} />
+                ) : null}
+                {day ? (
+                  <DueLabel
+                    day={day}
+                    tone={field === "due" ? dueTone(task, kindOf(task.statusId)) : null}
+                  />
+                ) : (
+                  <span className="text-muted-foreground">Set {noun}</span>
+                )}
+              </button>
+            </DueDatePicker>
           </PropertyRow>
-        )}
+        );
+      })}
 
-        <PropertyRow label="Created">
-          <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
-            {formatTimestamp(task.entity.createdAt)}
+      {progress != null && (
+        <PropertyRow label="Progress">
+          <span className="flex h-7 items-center gap-2 px-2 text-sm tabular-nums">
+            <ProgressCircle value={progress} size={14} />
+            {Math.round(progress)}%
           </span>
         </PropertyRow>
-        <PropertyRow label="Updated">
-          <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
-            {formatTimestamp(task.entity.updatedAt)}
-          </span>
-        </PropertyRow>
-      </div>
-    </SidebarSection>
+      )}
+
+      <PropertyRow label="Created">
+        <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
+          {formatTimestamp(task.entity.createdAt)}
+        </span>
+      </PropertyRow>
+      <PropertyRow label="Updated">
+        <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
+          {formatTimestamp(task.entity.updatedAt)}
+        </span>
+      </PropertyRow>
+    </section>
   );
 }
