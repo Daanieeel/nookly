@@ -180,6 +180,9 @@
 @layer components {
   .tiptap-content {
     outline: none;
+    /* Reserved for the per-block add/drag handles in `BlockHandles.tsx` — its
+       `GUTTER_WIDTH` constant must stay in sync with this value. */
+    padding-left: 3.25rem;
   }
   .tiptap-content h1,
   .tiptap-content h2,
@@ -265,8 +268,14 @@
     margin: 0.5rem 0;
     overflow-x: auto;
   }
+  /* `separate` rather than `collapse`: collapsed borders ignore `border-radius`. Each cell
+     draws only its right/bottom edge, the first row/column add the outer top/left edge, so
+     no line is ever doubled. */
   .tiptap-content table {
-    border-collapse: collapse;
+    --table-border: color-mix(in oklab, var(--border), var(--foreground) 15%);
+    --table-radius: 0.375rem;
+    border-collapse: separate;
+    border-spacing: 0;
     table-layout: fixed;
     width: 100%;
   }
@@ -274,9 +283,28 @@
   .tiptap-content th {
     position: relative;
     min-width: 3rem;
-    border: 1px solid var(--border);
+    border-right: 1px solid var(--table-border);
+    border-bottom: 1px solid var(--table-border);
     padding: 0.375rem 0.5rem;
     vertical-align: top;
+  }
+  .tiptap-content tr:first-child > * {
+    border-top: 1px solid var(--table-border);
+  }
+  .tiptap-content tr > :first-child {
+    border-left: 1px solid var(--table-border);
+  }
+  .tiptap-content tr:first-child > :first-child {
+    border-top-left-radius: var(--table-radius);
+  }
+  .tiptap-content tr:first-child > :last-child {
+    border-top-right-radius: var(--table-radius);
+  }
+  .tiptap-content tr:last-child > :first-child {
+    border-bottom-left-radius: var(--table-radius);
+  }
+  .tiptap-content tr:last-child > :last-child {
+    border-bottom-right-radius: var(--table-radius);
   }
   .tiptap-content th {
     /* `--muted` equals `--background` in light mode (both #f2f2f2) — the header row would be
@@ -295,6 +323,7 @@
     inset: 0;
     z-index: 2;
     background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-radius: inherit;
     content: "";
     pointer-events: none;
   }

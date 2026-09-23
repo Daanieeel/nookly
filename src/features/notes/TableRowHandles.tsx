@@ -1,5 +1,6 @@
 import { IconGripVertical } from "@tabler/icons-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Selection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -61,6 +62,12 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
   const [handle, setHandle] = useState<HandleRect>({ top: -9999, left: -9999, height: 0 });
   const [visible, setVisible] = useState(false);
   const [indicator, setIndicator] = useState<Indicator | null>(null);
+  // Snapshot of the dragged `<tr>` (as markup, not a live node) shown next to the
+  // cursor during a drag — `html` is a clone of markup our own schema-controlled
+  // ProseMirror view already rendered, not external input.
+  const [dragPreview, setDragPreview] = useState<{ html: string; x: number; y: number } | null>(
+    null,
+  );
   const hoveredRowRef = useRef<HTMLTableRowElement | null>(null);
   const draggingRef = useRef(false);
   const sourceRowRef = useRef<HTMLTableRowElement | null>(null);
@@ -129,6 +136,7 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
     const onMouseMove = (event: MouseEvent) => {
       if (draggingRef.current) {
         updateIndicatorAt(event.clientX, event.clientY);
+        setDragPreview((prev) => (prev ? { ...prev, x: event.clientX, y: event.clientY } : prev));
         return;
       }
       const target = event.target;
@@ -150,6 +158,7 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
       document.body.style.userSelect = "";
       setIndicator(null);
       setVisible(false);
+      setDragPreview(null);
 
       const sourceRow = sourceRowRef.current;
       sourceRowRef.current = null;
@@ -171,9 +180,14 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
 
       const tr = editor.state.tr;
       tr.delete(source.start, source.end);
-      tr.insert(tr.mapping.map(insertPos), source.node);
+      const movedPos = tr.mapping.map(insertPos);
+      tr.insert(movedPos, source.node);
+      // Caret goes into the moved node, and `view.focus()` (unlike Tiptap's
+      // `focus()` command) doesn't scroll: a stale selection elsewhere in the doc
+      // would otherwise yank the page to it on drop.
+      tr.setSelection(Selection.near(tr.doc.resolve(movedPos + 1)));
       editor.view.dispatch(tr);
-      editor.commands.focus();
+      editor.view.focus();
     };
 
     document.addEventListener("mousemove", onMouseMove);
@@ -203,6 +217,11 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
           document.body.style.userSelect = "none";
           draggingRef.current = true;
           sourceRowRef.current = row;
+          setDragPreview({
+            html: `<table><tbody>${row.outerHTML}</tbody></table>`,
+            x: event.clientX,
+            y: event.clientY,
+          });
         }}
         className="absolute z-10 flex cursor-grab items-center justify-center rounded-sm border border-white/20 bg-accent text-muted-foreground shadow-sm transition-opacity active:cursor-grabbing"
         style={{
@@ -220,6 +239,13 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
         <div
           className="pointer-events-none absolute z-10 h-0.5 rounded-full bg-primary"
           style={{ top: indicator.top - 1, left: indicator.left, width: indicator.width }}
+        />
+      )}
+      {dragPreview && (
+        <div
+          className="tiptap-content pointer-events-none fixed z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
+          style={{ left: dragPreview.x + 14, top: dragPreview.y + 14 }}
+          dangerouslySetInnerHTML={{ __html: dragPreview.html }}
         />
       )}
     </>

@@ -9,6 +9,7 @@ import { createBlock, deleteBlock, listBlocks, reorderBlocks, updateBlock } from
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
+import { BlockHandles } from "./BlockHandles";
 import { CodeBlockWithHeader } from "./code-block-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -218,6 +219,7 @@ export function BlockEditor({
     <div className="relative">
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} />
+      <BlockHandles editor={editor} />
       <EditorContent editor={editor} />
     </div>
   );

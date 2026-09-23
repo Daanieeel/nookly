@@ -23,7 +23,7 @@ interface SlashItem {
   run: (editor: Editor, range: Range) => void;
 }
 
-const SLASH_ITEMS: SlashItem[] = [
+export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Text",
     description: "Plain paragraph",
@@ -89,7 +89,7 @@ const SLASH_ITEMS: SlashItem[] = [
   },
 ];
 
-function toListItem(item: SlashItem): SuggestionListItem {
+export function toListItem(item: SlashItem): SuggestionListItem {
   return { key: item.title, icon: item.icon, label: item.title, description: item.description };
 }
 
