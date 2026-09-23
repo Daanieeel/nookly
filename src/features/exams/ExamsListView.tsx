@@ -1,6 +1,12 @@
 import { IconCalendarPlus, IconCalendarStats, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+  FieldError,
+  StatusButtonContent,
+  statusOf,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Badge } from "@/components/ui/badge";
@@ -172,20 +178,29 @@ function CreateExamDialog({
 
   const create = useMutation({
     mutationFn: () => {
-      if (!course) throw new Error("pick a course");
+      if (!course) throw new Error("Pick a course first");
       return createExam(spaceId, `${displayTitle(course)} Exam`, course.id, examDate || null, null);
     },
-    onSuccess: (exam) => {
-      queryClient.invalidateQueries({ queryKey: ["exams", spaceId] });
-      setCourse(null);
-      setExamDate("");
-      onOpenChange(false);
-      openEntity(exam.entity.id, spaceId);
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exams", spaceId] }),
+  });
+  const createStatus = statusOf(create);
+  useCloseAfterSuccess(create, () => {
+    const exam = create.data;
+    setCourse(null);
+    setExamDate("");
+    onOpenChange(false);
+    create.reset();
+    if (exam) openEntity(exam.entity.id, spaceId);
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next && !create.isSuccess) create.reset();
+      }}
+    >
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>New exam</DialogTitle>
@@ -207,13 +222,25 @@ function CreateExamDialog({
             onChange={(e) => setExamDate(e.target.value)}
             className="h-8"
           />
+          <FieldError message={create.isError && create.error.message} />
           <p className="text-xs text-muted-foreground">
             Grade, weight and status can be filled in afterward.
           </p>
         </div>
         <DialogFooter>
-          <Button size="sm" disabled={!course || create.isPending} onClick={() => create.mutate()}>
-            Create
+          <Button
+            size="sm"
+            disabled={!course}
+            onClick={() =>
+              createStatus !== "pending" && createStatus !== "success" && create.mutate()
+            }
+          >
+            <StatusButtonContent
+              status={createStatus}
+              label="Create"
+              successLabel="Exam created"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>

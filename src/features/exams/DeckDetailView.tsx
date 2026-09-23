@@ -1,6 +1,12 @@
 import { IconCards } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+  StatusButtonContent,
+  statusOf,
+  useActionStatus,
+  type ActionStatus,
+} from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { Button } from "@/components/ui/button";
@@ -48,6 +54,14 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
   });
 
   const currentDue = dueCards[reviewIndex % Math.max(dueCards.length, 1)];
+  const addCardStatus = useActionStatus(addCard);
+  const reviewStatus = statusOf(review);
+  const reviewStatusFor = (remembered: boolean): ActionStatus =>
+    review.variables?.remembered === remembered ? reviewStatus : "idle";
+  const submitReview = (remembered: boolean) => {
+    if (!currentDue || review.isPending) return;
+    review.mutate({ cardId: currentDue.id, remembered });
+  };
 
   return (
     <EntityDetailLayout entity={entity}>
@@ -57,22 +71,30 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
             <span className="text-xs text-muted-foreground">{dueCards.length} due</span>
             <p className="text-lg">{revealed ? currentDue.back : currentDue.front}</p>
             {!revealed ? (
-              <Button variant="outline" onClick={() => setRevealed(true)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  review.reset();
+                  setRevealed(true);
+                }}
+              >
                 Show answer
               </Button>
             ) : (
               <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={() => review.mutate({ cardId: currentDue.id, remembered: false })}
-                >
-                  Forgot
+                <Button variant="destructive" onClick={() => submitReview(false)}>
+                  <StatusButtonContent
+                    status={reviewStatusFor(false)}
+                    label="Forgot"
+                    errorLabel="Couldn't save, try again"
+                  />
                 </Button>
-                <Button
-                  variant="positive"
-                  onClick={() => review.mutate({ cardId: currentDue.id, remembered: true })}
-                >
-                  Remembered
+                <Button variant="positive" onClick={() => submitReview(true)}>
+                  <StatusButtonContent
+                    status={reviewStatusFor(true)}
+                    label="Remembered"
+                    errorLabel="Couldn't save, try again"
+                  />
                 </Button>
               </div>
             )}
@@ -86,10 +108,15 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
           <Button
             size="sm"
             className="self-start"
-            disabled={!front.trim() || !back.trim()}
-            onClick={() => addCard.mutate()}
+            disabled={(!front.trim() || !back.trim()) && addCardStatus !== "success"}
+            onClick={() => front.trim() && back.trim() && !addCard.isPending && addCard.mutate()}
           >
-            Add card
+            <StatusButtonContent
+              status={addCardStatus}
+              label="Add card"
+              successLabel="Card added"
+              errorLabel="Couldn't add card, try again"
+            />
           </Button>
         </div>
 

@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "@/components/action-feedback";
 import { AddModuleMenu } from "@/components/add-module-menu";
 import { renderIconValue } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
@@ -235,14 +236,13 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
     },
   });
 
-  const del = useMutation({
-    mutationFn: () => deleteSpace(space.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["spaces"] });
-      if ("spaceId" in view && view.spaceId === space.id) setView({ kind: "dashboard" });
-      setDeleteConfirmOpen(false);
-    },
+  const del = useMutation({ mutationFn: () => deleteSpace(space.id) });
+  useCloseAfterSuccess(del, () => {
+    setDeleteConfirmOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["spaces"] });
+    if ("spaceId" in view && view.spaceId === space.id) setView({ kind: "dashboard" });
   });
+  const delStatus = statusOf(del);
 
   // The hover-revealed "+"/"…" toolbar must stay visible for as long as either
   // popover it opens is open — group-hover/focus-within alone drop out once
@@ -282,7 +282,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
         >
           <AddModuleMenu
             moduleKeys={unusedKeys}
-            onSelect={(key) => addModule.mutate(key)}
+            onSelect={(key) => addModule.mutateAsync(key)}
             onOpenChange={setAddModuleOpen}
             tooltip={`Add module to ${space.name}`}
             trigger={
@@ -347,7 +347,13 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
 
       <SpaceSettingsDialog space={space} open={settingsOpen} onOpenChange={setSettingsOpen} />
 
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <AlertDialog
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open && !del.isSuccess) del.reset();
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
@@ -369,13 +375,17 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={del.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                del.mutate();
+                if (delStatus === "idle" || delStatus === "error") del.mutate();
               }}
             >
-              Delete Space
+              <StatusButtonContent
+                status={delStatus}
+                label="Delete Space"
+                successLabel="Space deleted"
+                errorLabel="Couldn't delete, try again"
+              />
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -461,12 +471,17 @@ function CreateSpaceDialog({
 
   const create = useMutation({
     mutationFn: () => createSpace(name.trim(), icon, color),
-    onSuccess: (space) => {
-      queryClient.invalidateQueries({ queryKey: ["spaces"] });
-      setActiveSpace(space.id);
-      onOpenChange(false);
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["spaces"] }),
   });
+  useCloseAfterSuccess(create, () => {
+    if (create.data) setActiveSpace(create.data.id);
+    onOpenChange(false);
+  });
+  const createStatus = statusOf(create);
+  const { reset: resetCreate } = create;
+  useEffect(() => {
+    if (!open) resetCreate();
+  }, [open, resetCreate]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -518,8 +533,16 @@ function CreateSpaceDialog({
           ))}
         </div>
         <DialogFooter>
-          <Button disabled={!name.trim() || create.isPending} onClick={() => create.mutate()}>
-            Create
+          <Button
+            disabled={!name.trim()}
+            onClick={() => (createStatus === "idle" || createStatus === "error") && create.mutate()}
+          >
+            <StatusButtonContent
+              status={createStatus}
+              label="Create"
+              successLabel="Space created"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -553,11 +576,14 @@ function SpaceSettingsDialog({
 
   const save = useMutation({
     mutationFn: () => updateSpace(space.id, { name: name.trim(), icon: icon ?? "", color }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["spaces"] });
-      onOpenChange(false);
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["spaces"] }),
   });
+  useCloseAfterSuccess(save, () => onOpenChange(false));
+  const saveStatus = statusOf(save);
+  const { reset: resetSave } = save;
+  useEffect(() => {
+    if (!open) resetSave();
+  }, [open, resetSave]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -609,8 +635,16 @@ function SpaceSettingsDialog({
           ))}
         </div>
         <DialogFooter>
-          <Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>
-            Save
+          <Button
+            disabled={!name.trim()}
+            onClick={() => (saveStatus === "idle" || saveStatus === "error") && save.mutate()}
+          >
+            <StatusButtonContent
+              status={saveStatus}
+              label="Save"
+              successLabel="Saved"
+              errorLabel="Couldn't save, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>

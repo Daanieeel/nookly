@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FieldError } from "@/components/action-feedback";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { Input } from "@/components/ui/input";
 import {
@@ -60,9 +61,12 @@ export function AssignmentDetailView({ entity }: { entity: Entity }) {
             placeholder="Grade"
             defaultValue={assignment?.grade ?? ""}
             onBlur={(e) => e.target.value && setGrade.mutate(Number(e.target.value))}
+            aria-invalid={setGrade.isError || undefined}
             className="h-8 w-24"
           />
         </div>
+        <FieldError message={setStatus.isError && "Couldn't change status, pick it again"} />
+        <FieldError message={setGrade.isError && "Couldn't save the grade, try again"} />
         {assignment?.dueDate && (
           <p className="text-xs text-muted-foreground">Due {assignment.dueDate}</p>
         )}

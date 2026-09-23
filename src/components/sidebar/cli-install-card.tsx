@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconTerminal2, IconX } from "@tabler/icons-react";
+import { IconCheck, IconTerminal2, IconX } from "@tabler/icons-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { StatusAnnouncer, StatusIcon, statusOf } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,23 +36,41 @@ export function CliInstallCard() {
     staleTime: Infinity,
   });
   const queryClient = useQueryClient();
+  // Held after success so the card can confirm in place (with the shell hint)
+  // instead of vanishing the moment the status flips to installed.
+  const [installedHint, setInstalledHint] = useState<string | null>(null);
 
   const install = useMutation({
     mutationFn: installCli,
     onSuccess: (result) => {
+      setInstalledHint(result.shellHint ?? "Try `nookly cli schema` in a terminal.");
       queryClient.setQueryData(["cli-install-status"], result);
-      toast.success("CLI installed", {
-        description: result.shellHint ?? "Try `nookly cli schema` in a terminal.",
-      });
-    },
-    onError: (error) => {
-      toast.error("Couldn't install the CLI", {
-        description: error instanceof Error ? error.message : String(error),
-      });
     },
   });
+  const installStatus = statusOf(install);
 
-  if (!status || !status.supported || status.installed || dismissed) return null;
+  if (dismissed) return null;
+  if (installedHint) {
+    return (
+      <Card className="relative flex-col gap-2 p-2.5 group-data-[collapsible=icon]:hidden">
+        <div className="flex items-start gap-2 pr-4 text-xs">
+          <IconCheck className="mt-0.5 size-4 shrink-0 text-positive" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <p className="font-medium text-positive">CLI installed</p>
+            <p className="text-muted-foreground">{installedHint}</p>
+          </div>
+        </div>
+        <StatusAnnouncer message="CLI installed" />
+        <DismissButton
+          onDismiss={() => {
+            dismiss();
+            setDismissed(true);
+          }}
+        />
+      </Card>
+    );
+  }
+  if (!status || !status.supported || status.installed) return null;
 
   return (
     <Card className="relative flex-col gap-2 p-2.5 group-data-[collapsible=icon]:hidden">
@@ -68,28 +86,38 @@ export function CliInstallCard() {
       <Button
         size="sm"
         variant="secondary"
-        disabled={install.isPending}
-        onClick={() => install.mutate()}
+        onClick={() => !install.isPending && install.mutate()}
         className="h-7 w-full"
       >
-        Install CLI
+        <StatusIcon status={installStatus} idle={null} />
+        {installStatus === "error" ? "Couldn't install, try again" : "Install CLI"}
       </Button>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label="Dismiss CLI install suggestion"
-            onClick={() => {
-              dismiss();
-              setDismissed(true);
-            }}
-            className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded text-muted-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <IconX className="size-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">Dismiss</TooltipContent>
-      </Tooltip>
+      {install.isError && <p className="text-xs text-destructive">{install.error.message}</p>}
+      <StatusAnnouncer message={install.isError ? "Couldn't install the CLI" : null} />
+      <DismissButton
+        onDismiss={() => {
+          dismiss();
+          setDismissed(true);
+        }}
+      />
     </Card>
+  );
+}
+
+function DismissButton({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label="Dismiss CLI install suggestion"
+          onClick={onDismiss}
+          className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded text-muted-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <IconX className="size-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">Dismiss</TooltipContent>
+    </Tooltip>
   );
 }

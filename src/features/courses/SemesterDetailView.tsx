@@ -8,6 +8,14 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
 import { useEffect, useRef, useState } from "react";
+import {
+  StatusAnnouncer,
+  StatusButtonContent,
+  StatusIcon,
+  statusOf,
+  statusTextClass,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { EntityIcon } from "@/components/entity-icon";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +39,7 @@ import type { Entity } from "@/lib/api/types";
 import { BlockEditor } from "@/features/notes/BlockEditor";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { CourseCard } from "./CoursesListView";
 
@@ -66,7 +75,6 @@ export function SemesterDetailView({ entity }: { entity: Entity }) {
 
 function SemesterBody({ semester }: { semester: Entity }) {
   const spaceId = semester.spaceId;
-  const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
 
   const { data: notesEntity } = useQuery({
@@ -152,12 +160,6 @@ function SemesterBody({ semester }: { semester: Entity }) {
     (a) => !DONE_ASSIGNMENT_STATUSES.has(a.status),
   ).length;
 
-  const assignCourse = useMutation({
-    mutationFn: (courseId: string) => setCourseSemester(courseId, semester.id),
-    onSuccess: (_, courseId) =>
-      queryClient.invalidateQueries({ queryKey: ["relationships", courseId] }),
-  });
-
   return (
     <div className="flex w-full flex-col gap-6">
       {notesEntity ? (
@@ -196,9 +198,8 @@ function SemesterBody({ semester }: { semester: Entity }) {
             ))}
             <AddCourseCard
               spaceId={spaceId}
+              semesterId={semester.id}
               unassignedCourses={unassignedCourses}
-              onLinkExisting={(courseId) => assignCourse.mutate(courseId)}
-              onCreated={(courseId) => assignCourse.mutate(courseId)}
             />
           </div>
         </div>
@@ -256,33 +257,49 @@ function StatItem({
 /// Course, or create a new one pre-linked to it.
 function AddCourseCard({
   spaceId,
+  semesterId,
   unassignedCourses,
-  onLinkExisting,
-  onCreated,
 }: {
   spaceId: string;
+  semesterId: string;
   unassignedCourses: Entity[];
-  onLinkExisting: (courseId: string) => void;
-  onCreated: (courseId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-    else setTitle("");
-  }, [open]);
-
   const create = useMutation({
-    mutationFn: () => createCourse(spaceId, title.trim()),
+    mutationFn: async () => {
+      const course = await createCourse(spaceId, title.trim());
+      await setCourseSemester(course.id, semesterId);
+      return course;
+    },
     onSuccess: (course) => {
       queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
-      onCreated(course.id);
-      setOpen(false);
+      return queryClient.invalidateQueries({ queryKey: ["relationships", course.id] });
     },
   });
+  const link = useMutation({
+    mutationFn: (courseId: string) => setCourseSemester(courseId, semesterId),
+    onSuccess: (_, courseId) =>
+      queryClient.invalidateQueries({ queryKey: ["relationships", courseId] }),
+  });
+  const close = () => setOpen(false);
+  useCloseAfterSuccess(create, close);
+  useCloseAfterSuccess(link, close);
+  const busy = create.isPending || link.isPending || create.isSuccess || link.isSuccess;
+  const resetCreate = create.reset;
+  const resetLink = link.reset;
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+    else {
+      setTitle("");
+      resetCreate();
+      resetLink();
+    }
+  }, [open, resetCreate, resetLink]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -298,7 +315,7 @@ function AddCourseCard({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim()) create.mutate();
+            if (title.trim() && !busy) create.mutate();
           }}
           className="flex flex-col gap-2"
         >
@@ -309,8 +326,13 @@ function AddCourseCard({
             onChange={(e) => setTitle(e.target.value)}
             className="h-8 text-sm"
           />
-          <Button type="submit" size="sm" disabled={!title.trim() || create.isPending}>
-            Create & link
+          <Button type="submit" size="sm" disabled={!title.trim()}>
+            <StatusButtonContent
+              status={statusOf(create)}
+              label="Create & link"
+              successLabel="Created and linked"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </form>
         <div className="my-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -319,22 +341,40 @@ function AddCourseCard({
         {unassignedCourses.length === 0 ? (
           <p className="px-2 py-1 text-xs text-muted-foreground">No other courses in this Space.</p>
         ) : (
-          <div className="flex max-h-[104px] flex-col gap-0.5 overflow-y-auto">
-            {unassignedCourses.map((course) => (
-              <button
-                key={course.id}
-                type="button"
-                onClick={() => {
-                  onLinkExisting(course.id);
-                  setOpen(false);
-                }}
-                className="flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-2 text-left text-sm hover:bg-accent"
-              >
-                <EntityIcon entity={course} size={14} className="shrink-0 text-muted-foreground" />
-                <span className="truncate">{displayTitle(course)}</span>
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="flex max-h-[104px] flex-col gap-0.5 overflow-y-auto">
+              {unassignedCourses.map((course) => {
+                const status = link.variables === course.id ? statusOf(link) : "idle";
+                return (
+                  <button
+                    key={course.id}
+                    type="button"
+                    onClick={() => !busy && link.mutate(course.id)}
+                    className="flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-2 text-left text-sm hover:bg-accent"
+                  >
+                    <StatusIcon
+                      status={status}
+                      idle={
+                        <EntityIcon
+                          entity={course}
+                          size={14}
+                          className="shrink-0 text-muted-foreground"
+                        />
+                      }
+                    />
+                    <span className={cn("truncate", statusTextClass(status))}>
+                      {status === "error" ? "Couldn't link, try again" : displayTitle(course)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <StatusAnnouncer
+              message={
+                link.isSuccess ? "Course linked" : link.isError ? "Couldn't link course" : null
+              }
+            />
+          </>
         )}
       </PopoverContent>
     </Popover>

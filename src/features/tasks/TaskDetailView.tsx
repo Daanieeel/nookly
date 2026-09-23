@@ -1,6 +1,12 @@
 import { IconChevronDown, IconChevronRight, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+  FieldError,
+  StatusButtonContent,
+  StatusIcon,
+  useActionStatus,
+} from "@/components/action-feedback";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -77,6 +83,9 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
     },
   });
 
+  const addStatus = useActionStatus(addSubtask);
+  const failedSubtaskId = toggleSubtask.isError ? toggleSubtask.variables?.entityId : undefined;
+
   const doneStatus = statuses.find((s) => s.doneness >= 100);
   const todoStatus = statuses.find((s) => s.doneness <= 0) ?? statuses[0];
 
@@ -102,6 +111,7 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
             </span>
           )}
         </div>
+        <FieldError message={setStatus.isError && "Couldn't change status, pick it again"} />
 
         <div className="flex gap-3">
           <label
@@ -139,6 +149,7 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
             />
           </label>
         </div>
+        <FieldError message={setDates.isError && "Couldn't save the date, try again"} />
 
         {!isSubtask && (
           <div className="flex flex-col gap-2">
@@ -164,6 +175,7 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
                       key={s.entity.id}
                       subtask={s}
                       done={isDoneSubtask(s, statuses)}
+                      failed={failedSubtaskId === s.entity.id}
                       onToggle={(checked) => {
                         const target = checked ? doneStatus : todoStatus;
                         if (target) {
@@ -179,7 +191,9 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (newSubtask.trim()) addSubtask.mutate(newSubtask.trim());
+                    if (newSubtask.trim() && !addSubtask.isPending) {
+                      addSubtask.mutate(newSubtask.trim());
+                    }
                   }}
                   className="flex gap-2"
                 >
@@ -196,9 +210,16 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
                     disabled={!newSubtask.trim()}
                     className="gap-1"
                   >
-                    <IconPlus size={14} /> Add
+                    <StatusButtonContent
+                      status={addStatus}
+                      icon={<IconPlus size={14} />}
+                      label="Add"
+                      successLabel="Added"
+                      errorLabel="Try again"
+                    />
                   </Button>
                 </form>
+                <FieldError message={addSubtask.isError && "Couldn't add the sub-task"} />
               </div>
             )}
           </div>
@@ -215,10 +236,12 @@ function isDoneSubtask(subtask: Task, statuses: TaskStatus[]): boolean {
 function SubtaskRow({
   subtask,
   done,
+  failed,
   onToggle,
 }: {
   subtask: Task;
   done: boolean;
+  failed: boolean;
   onToggle: (checked: boolean) => void;
 }) {
   return (
@@ -227,6 +250,12 @@ function SubtaskRow({
       <span className={done ? "text-muted-foreground line-through" : undefined}>
         {displayTitle(subtask.entity)}
       </span>
+      {failed && (
+        <span className="ml-auto flex items-center gap-1 text-xs text-destructive" role="alert">
+          <StatusIcon status="error" idle={null} size={13} />
+          Couldn't update
+        </span>
+      )}
     </label>
   );
 }

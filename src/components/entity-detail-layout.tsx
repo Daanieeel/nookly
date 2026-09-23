@@ -9,6 +9,13 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import {
+  StatusAnnouncer,
+  StatusIcon,
+  statusOf,
+  useActionStatus,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { EntityActions } from "@/components/entity-actions";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
@@ -25,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { restoreEntity, softDeleteEntity, updateEntity } from "@/lib/api/entities";
 import { listRelationships } from "@/lib/api/relationships";
 import type { Entity, Relationship } from "@/lib/api/types";
@@ -94,13 +102,12 @@ export function EntityDetailLayout({
     mutationFn: (icon: string | null) => updateEntity(entity.id, { icon: icon ?? "" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
   });
-  const trash = useMutation({
-    mutationFn: () => softDeleteEntity(entity.id),
-    onSuccess: () => {
-      setTrashConfirmOpen(false);
-      setView({ kind: "dashboard" });
-    },
+  const trash = useMutation({ mutationFn: () => softDeleteEntity(entity.id) });
+  useCloseAfterSuccess(trash, () => {
+    setTrashConfirmOpen(false);
+    setView({ kind: "dashboard" });
   });
+  const trashStatus = statusOf(trash);
   const restore = useMutation({
     mutationFn: () => restoreEntity(entity.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
@@ -111,12 +118,21 @@ export function EntityDetailLayout({
     enabled: trashConfirmOpen,
   });
   const stats = trashStats(entity.type, relationships);
+  const pinStatus = useActionStatus(togglePin);
+  const restoreStatus = statusOf(restore);
+  const renameFailed = rename.isError;
+  const iconFailed = setIcon.isError;
 
   const actions = (className?: string) => (
     <EntityActions
       entity={entity}
       exportable={exportable}
-      onTogglePin={() => togglePin.mutate()}
+      pin={{
+        status: pinStatus,
+        toggle: async () => {
+          await togglePin.mutateAsync();
+        },
+      }}
       onTrash={() => setTrashConfirmOpen(true)}
       className={className}
     />
@@ -133,12 +149,12 @@ export function EntityDetailLayout({
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => restore.mutate()}
-            disabled={restore.isPending}
+            onClick={() => !restore.isPending && restore.mutate()}
           >
-            <IconRestore size={14} />
-            Restore
+            <StatusIcon status={restoreStatus} idle={<IconRestore size={14} />} />
+            {restoreStatus === "error" ? "Couldn't restore, try again" : "Restore"}
           </Button>
+          <StatusAnnouncer message={restoreStatus === "error" ? "Couldn't restore" : null} />
         </div>
       )}
       <div
@@ -153,13 +169,19 @@ export function EntityDetailLayout({
               trigger={
                 <button
                   type="button"
-                  title="Change icon"
+                  title={iconFailed ? "Couldn't change icon, try again" : "Change icon"}
                   className="flex size-6 shrink-0 items-center justify-center rounded-sm hover:bg-accent"
                 >
-                  <EntityIcon
-                    entity={entity}
+                  <StatusIcon
+                    status={iconFailed ? "error" : "idle"}
                     size={17}
-                    className="shrink-0 text-muted-foreground"
+                    idle={
+                      <EntityIcon
+                        entity={entity}
+                        size={17}
+                        className="shrink-0 text-muted-foreground"
+                      />
+                    }
                   />
                 </button>
               }
@@ -170,7 +192,26 @@ export function EntityDetailLayout({
               onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
               placeholder={`Untitled ${labelForType(entity.type)}`}
               disabled={isDeleted}
+              aria-invalid={renameFailed || undefined}
               className="min-w-0 flex-1 truncate bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+            />
+            {renameFailed && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="flex shrink-0"
+                    aria-label="Couldn't rename, leave the title to retry"
+                  >
+                    <StatusIcon status="error" idle={null} size={15} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Couldn't rename, leave the title to retry</TooltipContent>
+              </Tooltip>
+            )}
+            <StatusAnnouncer
+              message={
+                renameFailed ? "Couldn't rename" : iconFailed ? "Couldn't change icon" : null
+              }
             />
             {headerExtra}
             {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
@@ -181,7 +222,14 @@ export function EntityDetailLayout({
         <RightSidebar entity={entity} actions={actions} />
       </div>
 
-      <AlertDialog open={trashConfirmOpen} onOpenChange={setTrashConfirmOpen}>
+      <AlertDialog
+        open={trashConfirmOpen}
+        onOpenChange={(open) => {
+          setTrashConfirmOpen(open);
+          // A failed attempt shouldn't greet the next opening of the dialog.
+          if (!open && !trash.isSuccess) trash.reset();
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
@@ -219,14 +267,27 @@ export function EntityDetailLayout({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={trash.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                trash.mutate();
+                if (trashStatus === "idle" || trashStatus === "error") trash.mutate();
               }}
             >
-              Move to Trash
+              <StatusIcon status={trashStatus} idle={null} />
+              {trashStatus === "success"
+                ? "Moved to Trash"
+                : trashStatus === "error"
+                  ? "Couldn't move to Trash, try again"
+                  : "Move to Trash"}
             </AlertDialogAction>
+            <StatusAnnouncer
+              message={
+                trashStatus === "success"
+                  ? "Moved to Trash"
+                  : trashStatus === "error"
+                    ? "Couldn't move to Trash"
+                    : null
+              }
+            />
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

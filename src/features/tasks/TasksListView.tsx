@@ -10,6 +10,12 @@ import {
 import { IconChecklist, IconLayoutKanban, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import {
+  FieldError,
+  StatusButtonContent,
+  StatusIcon,
+  useActionStatus,
+} from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { Badge } from "@/components/ui/badge";
@@ -56,21 +62,21 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] });
 
-  const create = useMutation({
-    mutationFn: async (vars: NewTaskVars) => {
-      const task = await createTask(spaceId, vars.title, null, vars.dueDate);
-      if (vars.statusId && vars.statusId !== task.statusId) {
-        await updateTaskStatus(task.entity.id, vars.statusId);
-      }
-      return task;
-    },
-    onSuccess: invalidate,
-  });
+  // Each create surface owns its own mutation so its errors show on that surface.
+  const createWithStatus = async (vars: NewTaskVars): Promise<Task> => {
+    const task = await createTask(spaceId, vars.title, null, vars.dueDate);
+    if (vars.statusId && vars.statusId !== task.statusId) {
+      await updateTaskStatus(task.entity.id, vars.statusId);
+    }
+    await invalidate();
+    return task;
+  };
   const setStatus = useMutation({
     mutationFn: (vars: { entityId: string; statusId: string }) =>
       updateTaskStatus(vars.entityId, vars.statusId),
     onSuccess: invalidate,
   });
+  const failedTaskId = setStatus.isError ? setStatus.variables?.entityId : undefined;
 
   const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
 
@@ -94,7 +100,7 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
           </Tabs>
           <QuickCreateTask
             statuses={sortedStatuses}
-            onCreate={(vars) => create.mutate(vars)}
+            create={createWithStatus}
             trigger={
               <Button size="sm" className="gap-1.5">
                 <IconPlus size={14} /> New
@@ -109,14 +115,16 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
           statuses={sortedStatuses}
           tasks={tasks}
           onOpen={(id) => openEntity(id, spaceId)}
+          failedTaskId={failedTaskId}
           onDrop={(entityId, statusId) => setStatus.mutate({ entityId, statusId })}
-          onCreateInStatus={(statusId, title) => create.mutate({ title, statusId, dueDate: null })}
+          create={createWithStatus}
         />
       ) : (
         <TaskListGrouped
           statuses={sortedStatuses}
           tasks={tasks}
           onOpen={(id) => openEntity(id, spaceId)}
+          failedTaskId={failedTaskId}
           onStatusChange={(entityId, statusId) => setStatus.mutate({ entityId, statusId })}
         />
       )}
@@ -128,14 +136,16 @@ function TaskBoard({
   statuses,
   tasks,
   onOpen,
+  failedTaskId,
   onDrop,
-  onCreateInStatus,
+  create,
 }: {
   statuses: TaskStatus[];
   tasks: Task[];
   onOpen: (entityId: string) => void;
+  failedTaskId: string | undefined;
   onDrop: (entityId: string, statusId: string) => void;
-  onCreateInStatus: (statusId: string, title: string) => void;
+  create: (vars: NewTaskVars) => Promise<Task>;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -181,7 +191,8 @@ function TaskBoard({
             status={status}
             tasks={tasks.filter((t) => t.statusId === status.id)}
             onOpen={onOpen}
-            onCreate={(title) => onCreateInStatus(status.id, title)}
+            failedTaskId={failedTaskId}
+            onCreate={(title) => create({ title, statusId: status.id, dueDate: null })}
           />
         ))}
       </div>
@@ -194,12 +205,14 @@ function TaskColumn({
   status,
   tasks,
   onOpen,
+  failedTaskId,
   onCreate,
 }: {
   status: TaskStatus;
   tasks: Task[];
   onOpen: (entityId: string) => void;
-  onCreate: (title: string) => void;
+  failedTaskId: string | undefined;
+  onCreate: (title: string) => Promise<Task>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
   const [creating, setCreating] = useState(false);
@@ -210,10 +223,25 @@ function TaskColumn({
     if (creating) inputRef.current?.focus();
   }, [creating]);
 
-  function submit() {
-    if (title.trim()) onCreate(title.trim());
+  // The input stays mounted until the save lands, so a failure can show under it.
+  const create = useMutation({
+    mutationFn: onCreate,
+    onSuccess: () => {
+      setTitle("");
+      setCreating(false);
+    },
+  });
+
+  function cancel() {
     setTitle("");
     setCreating(false);
+    create.reset();
+  }
+
+  function submit() {
+    if (create.isPending) return;
+    if (title.trim()) create.mutate(title.trim());
+    else cancel();
   }
 
   return (
@@ -253,30 +281,33 @@ function TaskColumn({
           <DraggableTaskCard
             key={task.entity.id}
             task={task}
+            failed={failedTaskId === task.entity.id}
             onOpen={() => onOpen(task.entity.id)}
           />
         ))}
       </div>
 
       {creating ? (
-        <Input
-          ref={inputRef}
-          placeholder="Task title…"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={submit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              submit();
-            }
-            if (e.key === "Escape") {
-              setTitle("");
-              setCreating(false);
-            }
-          }}
-          className="h-8 text-sm"
-        />
+        <div className="flex flex-col gap-1">
+          <Input
+            ref={inputRef}
+            placeholder="Task title…"
+            value={title}
+            readOnly={create.isPending}
+            aria-invalid={create.isError || undefined}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => !create.isError && submit()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+              if (e.key === "Escape") cancel();
+            }}
+            className="h-8 text-sm"
+          />
+          <FieldError message={create.isError && "Couldn't add the task, press Enter to retry"} />
+        </div>
       ) : (
         tasks.length === 0 && (
           <p className="px-1 py-2 text-center text-xs text-muted-foreground">No tasks</p>
@@ -286,7 +317,15 @@ function TaskColumn({
   );
 }
 
-function DraggableTaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
+function DraggableTaskCard({
+  task,
+  failed,
+  onOpen,
+}: {
+  task: Task;
+  failed: boolean;
+  onOpen: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.entity.id,
     data: { statusId: task.statusId },
@@ -295,6 +334,7 @@ function DraggableTaskCard({ task, onOpen }: { task: Task; onOpen: () => void })
   return (
     <TaskCard
       task={task}
+      failed={failed}
       onOpen={onOpen}
       dragRef={setNodeRef}
       dragTransform={transform ?? undefined}
@@ -307,6 +347,7 @@ function DraggableTaskCard({ task, onOpen }: { task: Task; onOpen: () => void })
 
 function TaskCard({
   task,
+  failed = false,
   onOpen,
   dragRef,
   dragTransform,
@@ -315,6 +356,7 @@ function TaskCard({
   dragAttributes,
 }: {
   task: Task;
+  failed?: boolean;
   onOpen: () => void;
   dragRef?: (node: HTMLElement | null) => void;
   dragTransform?: { x: number; y: number };
@@ -342,6 +384,7 @@ function TaskCard({
         "flex flex-col gap-1.5 rounded-md border border-border bg-card p-2.5 text-left shadow-xs hover:border-ring/50 hover:shadow-sm",
         dragTransform && "translate-x-(--dnd-x) translate-y-(--dnd-y)",
         dragging && "opacity-40",
+        failed && "border-destructive/60",
       )}
       {...dragListeners}
       {...dragAttributes}
@@ -355,6 +398,12 @@ function TaskCard({
           {task.dueDate}
         </Badge>
       )}
+      {failed && (
+        <span role="alert" className="flex items-center gap-1 text-xs text-destructive">
+          <StatusIcon status="error" idle={null} size={12} />
+          Couldn't move, drag again
+        </span>
+      )}
     </button>
   );
 }
@@ -363,11 +412,13 @@ function TaskListGrouped({
   statuses,
   tasks,
   onOpen,
+  failedTaskId,
   onStatusChange,
 }: {
   statuses: TaskStatus[];
   tasks: Task[];
   onOpen: (entityId: string) => void;
+  failedTaskId: string | undefined;
   onStatusChange: (entityId: string, statusId: string) => void;
 }) {
   const groups = statuses
@@ -407,6 +458,15 @@ function TaskListGrouped({
                   {task.dueDate}
                 </Badge>
               )}
+              {failedTaskId === task.entity.id && (
+                <span
+                  role="alert"
+                  className="flex shrink-0 items-center gap-1 text-xs text-destructive"
+                >
+                  <StatusIcon status="error" idle={null} size={13} />
+                  Couldn't change status
+                </span>
+              )}
               <Select
                 value={task.statusId}
                 onValueChange={(statusId) => onStatusChange(task.entity.id, statusId)}
@@ -443,12 +503,12 @@ function TaskListGrouped({
 function QuickCreateTask({
   statuses,
   defaultStatusId,
-  onCreate,
+  create,
   trigger,
 }: {
   statuses: TaskStatus[];
   defaultStatusId?: string;
-  onCreate: (vars: NewTaskVars) => void;
+  create: (vars: NewTaskVars) => Promise<Task>;
   trigger: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -456,6 +516,15 @@ function QuickCreateTask({
   const [statusId, setStatusId] = useState<string | undefined>(defaultStatusId);
   const [dueDate, setDueDate] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const submitTask = useMutation({
+    mutationFn: create,
+    onSuccess: () => {
+      setTitle("");
+      setDueDate("");
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+  });
+  const submitStatus = useActionStatus(submitTask);
 
   useEffect(() => {
     if (open) {
@@ -466,15 +535,22 @@ function QuickCreateTask({
   }, [open, defaultStatusId, statuses]);
 
   function submit() {
-    if (!title.trim()) return;
-    onCreate({ title: title.trim(), statusId: statusId ?? null, dueDate: dueDate || null });
-    setTitle("");
-    setDueDate("");
-    requestAnimationFrame(() => inputRef.current?.focus());
+    if (!title.trim() || submitTask.isPending) return;
+    submitTask.mutate({
+      title: title.trim(),
+      statusId: statusId ?? null,
+      dueDate: dueDate || null,
+    });
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) submitTask.reset();
+      }}
+    >
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="end">
         <form
@@ -514,10 +590,16 @@ function QuickCreateTask({
               className="h-8 w-32"
             />
           </div>
+          <FieldError message={submitTask.isError && "Couldn't create the task"} />
           <div className="flex items-center justify-between pt-1">
             <span className="text-xs text-muted-foreground">Enter to add another</span>
-            <Button type="submit" size="sm" disabled={!title.trim()}>
-              Create
+            <Button type="submit" size="sm" disabled={!title.trim() && submitStatus === "idle"}>
+              <StatusButtonContent
+                status={submitStatus}
+                label="Create"
+                successLabel="Created"
+                errorLabel="Try again"
+              />
             </Button>
           </div>
         </form>

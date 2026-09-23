@@ -9,6 +9,14 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import {
+  type ActionStatus,
+  StatusAnnouncer,
+  StatusButtonContent,
+  StatusIcon,
+  statusTextClass,
+  useActionStatus,
+} from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +63,22 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
       setLinkTitle("");
     },
   });
+
+  const pickStatusRaw = useActionStatus(pickAndImport);
+  // A cancelled native open dialog resolves `null`: back to rest, not success.
+  const pickStatus: ActionStatus =
+    pickStatusRaw === "success" && pickAndImport.data === null ? "idle" : pickStatusRaw;
+  const dropStatus = useActionStatus(importPaths);
+  const linkStatus = useActionStatus(addLink);
+  const droppedCount = importPaths.variables?.length ?? 0;
+  const dropMessage =
+    dropStatus === "pending"
+      ? `Importing ${droppedCount === 1 ? "1 file" : `${droppedCount} files`}`
+      : dropStatus === "success"
+        ? `${droppedCount === 1 ? "1 file" : `${droppedCount} files`} imported`
+        : dropStatus === "error"
+          ? `Couldn't import dropped files: ${importPaths.error?.message ?? ""}`
+          : null;
 
   // Real OS drag-and-drop (§3.3): a browser-level `ondrop`/`dataTransfer.files` only
   // gives synthetic File objects with no filesystem path inside a Tauri webview, so
@@ -106,14 +130,34 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => pickAndImport.mutate()}
+            onClick={() => !pickAndImport.isPending && pickAndImport.mutate()}
           >
-            <IconUpload size={14} /> Import a file
+            <StatusButtonContent
+              status={pickStatus}
+              icon={<IconUpload size={14} />}
+              label="Import a file"
+              successLabel="File imported"
+              errorLabel="Couldn't import, try again"
+            />
           </Button>
-          <span className="text-xs text-muted-foreground">
-            Or drag files anywhere in this window — they're copied into Nookly's own storage, the
-            original stays untouched.
-          </span>
+          {/* Dropped files have no single control, so this hint line reports their import. */}
+          {dropMessage ? (
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-xs",
+                statusTextClass(dropStatus) ?? "text-muted-foreground",
+              )}
+            >
+              <StatusIcon status={dropStatus} idle={null} size={12} />
+              {dropMessage}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Or drag files anywhere in this window. They're copied into Nookly's own storage and
+              the original stays untouched.
+            </span>
+          )}
+          <StatusAnnouncer message={dropStatus === "pending" ? null : dropMessage} />
         </div>
         <div className="flex gap-2">
           <Input
@@ -128,8 +172,17 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
             onChange={(e) => setLinkUrl(e.target.value)}
             className="flex-1"
           />
-          <Button size="sm" disabled={!linkUrl.trim()} onClick={() => addLink.mutate()}>
-            Link
+          <Button
+            size="sm"
+            disabled={!linkUrl.trim() && linkStatus !== "success"}
+            onClick={() => linkUrl.trim() && !addLink.isPending && addLink.mutate()}
+          >
+            <StatusButtonContent
+              status={linkStatus}
+              label="Link"
+              successLabel="Linked"
+              errorLabel="Couldn't link, try again"
+            />
           </Button>
         </div>
       </div>

@@ -1,10 +1,12 @@
-import { IconPaperclip, IconX } from "@tabler/icons-react";
+import { IconPaperclip } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { StatusButtonContent, statusOf } from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
 import { createRelationship, deleteRelationship, listRelationships } from "@/lib/api/relationships";
 import type { Entity } from "@/lib/api/types";
 import { EntityRow } from "./EntityRow";
+import { RemoveLinkButton } from "./RemoveLinkButton";
 
 /// Right sidebar, section 2 of 3 (§3.5). Attachments are just `attached-file`
 /// relationships (§1.5) — bidirectional for free via the relationship graph (§3.6).
@@ -19,10 +21,7 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
     mutationFn: (toEntityId: string) => createRelationship(entity.id, toEntityId, "attached-file"),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
   });
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteRelationship(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
-  });
+  const createStatus = statusOf(create);
 
   const attachments = relationships.filter((r) => r.relationshipType === "attached-file");
   const isFile = entity.type === "file" || entity.type === "bookmark";
@@ -40,7 +39,12 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
           typeFilter={["file", "bookmark"]}
           trigger={
             <Button variant="ghost" size="sm" className="w-full justify-start gap-1.5">
-              <IconPaperclip size={14} /> Attach file or bookmark…
+              <StatusButtonContent
+                status={createStatus}
+                icon={<IconPaperclip size={14} />}
+                label="Attach file or bookmark…"
+                errorLabel="Couldn't attach, try again"
+              />
             </Button>
           }
           onSelect={(target) => create.mutate(target.id)}
@@ -62,13 +66,14 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
                   label={isOutgoing ? undefined : "attached to"}
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => remove.mutate(r.id)}
-                className="shrink-0 rounded p-1 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
-              >
-                <IconX size={12} />
-              </button>
+              <RemoveLinkButton
+                label="Remove attachment"
+                errorLabel="Couldn't remove attachment, try again"
+                onRemove={async () => {
+                  await deleteRelationship(r.id);
+                  await queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
+                }}
+              />
             </div>
           );
         })}

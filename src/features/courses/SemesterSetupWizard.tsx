@@ -1,6 +1,7 @@
 import { IconCheck } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -94,11 +95,16 @@ export function SemesterSetupWizard({
       }
       if (currentEntityId) await setCurrentSemester(spaceId, currentEntityId);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] });
-      onOpenChange(false);
-    },
+    // Also on error: semesters created before the failure should show up in the list.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
   });
+  useCloseAfterSuccess(finish, () => onOpenChange(false));
+  const resetFinish = finish.reset;
+  useEffect(() => {
+    if (open) resetFinish();
+  }, [open, resetFinish]);
+  const finishStatus = statusOf(finish);
+  const locked = finishStatus === "pending" || finishStatus === "success";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,19 +232,20 @@ export function SemesterSetupWizard({
 
         <DialogFooter>
           {step !== "system" && (
-            <Button
-              variant="outline"
-              onClick={() => setStep(PREV_STEP[step])}
-              disabled={finish.isPending}
-            >
+            <Button variant="outline" onClick={() => setStep(PREV_STEP[step])} disabled={locked}>
               Back
             </Button>
           )}
           {step !== "review" ? (
             <Button onClick={() => setStep(NEXT_STEP[step])}>Next</Button>
           ) : (
-            <Button onClick={() => finish.mutate()} disabled={finish.isPending}>
-              {finish.isPending ? "Creating…" : "Create semesters"}
+            <Button onClick={() => !locked && finish.mutate()}>
+              <StatusButtonContent
+                status={finishStatus}
+                label="Create semesters"
+                successLabel="Semesters created"
+                errorLabel="Couldn't create all semesters, try again"
+              />
             </Button>
           )}
         </DialogFooter>

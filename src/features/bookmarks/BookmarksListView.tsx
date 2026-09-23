@@ -1,3 +1,4 @@
+import { FieldError, StatusButtonContent, useActionStatus } from "@/components/action-feedback";
 import { IconBookmark } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -40,8 +41,10 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
     onError: () => setPendingUrl(null),
   });
 
+  const addStatus = useActionStatus(add);
+
   function submit(u: string) {
-    if (!u.trim()) return;
+    if (!u.trim() || add.isPending) return;
     setPendingUrl(u.trim());
     add.mutate(u.trim());
   }
@@ -49,23 +52,32 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
   return (
     <div className="flex max-w-3xl flex-col gap-4">
       <h1 className="text-lg font-semibold">Bookmarks</h1>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(url);
-        }}
-        className="flex gap-2"
-      >
-        <Input
-          placeholder="Paste a URL…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          className="flex-1"
-        />
-        <Button type="submit" size="sm" disabled={!url.trim() || add.isPending}>
-          Save
-        </Button>
-      </form>
+      <div className="flex flex-col gap-1">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit(url);
+          }}
+          className="flex gap-2"
+        >
+          <Input
+            placeholder="Paste a URL…"
+            value={url}
+            aria-invalid={add.isError || undefined}
+            onChange={(e) => setUrl(e.target.value)}
+            className="flex-1"
+          />
+          <Button type="submit" size="sm" disabled={!url.trim() && addStatus === "idle"}>
+            <StatusButtonContent
+              status={addStatus}
+              label="Save"
+              successLabel="Saved"
+              errorLabel="Try again"
+            />
+          </Button>
+        </form>
+        <FieldError message={add.isError && `Couldn't save the bookmark: ${add.error.message}`} />
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {pendingUrl && (

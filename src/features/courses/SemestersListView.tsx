@@ -1,7 +1,9 @@
 import {
+  IconArrowUpRight,
   IconCalendarWeek,
   IconChevronRight,
   IconDots,
+  IconFlag,
   IconGripVertical,
   IconPencil,
   IconPlus,
@@ -9,9 +11,18 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ActionStatus,
+  StatusAnnouncer,
+  StatusButtonContent,
+  StatusIcon,
+  statusOf,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import { FeedbackMenuItem } from "@/components/feedback-menu-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +41,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -97,9 +109,12 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
   const activeSemesterId = resolveActiveSemesterId(semesters);
 
   const reorder = useMutation({
-    mutationFn: (orderedIds: string[]) => reorderSemesters(orderedIds),
+    mutationFn: ({ orderedIds }: { orderedIds: string[]; draggedId: string }) =>
+      reorderSemesters(orderedIds),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
   });
+  const reorderStatusFor = (id: string): ActionStatus =>
+    reorder.variables?.draggedId === id ? statusOf(reorder) : "idle";
 
   const handleDrop = (targetId: string) => {
     if (!draggingId || draggingId === targetId) return;
@@ -108,7 +123,7 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
     const to = ids.indexOf(targetId);
     if (from === -1 || to === -1) return;
     ids.splice(to, 0, ...ids.splice(from, 1));
-    reorder.mutate(ids);
+    reorder.mutate({ orderedIds: ids, draggedId: draggingId });
     setDraggingId(null);
   };
 
@@ -148,6 +163,7 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
               spaceId={spaceId}
               courses={coursesBySemester.get(semester.entity.id) ?? []}
               dragging={draggingId === semester.entity.id}
+              reorderStatus={reorderStatusFor(semester.entity.id)}
               onDragStart={() => setDraggingId(semester.entity.id)}
               onDragEnd={() => setDraggingId(null)}
               onDropOn={() => handleDrop(semester.entity.id)}
@@ -167,10 +183,12 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
 function DateRangeForm({
   startDate,
   endDate,
+  status,
   onSave,
 }: {
   startDate: string;
   endDate: string;
+  status: ActionStatus;
   onSave: (startDate: string, endDate: string) => void;
 }) {
   const [start, setStart] = useState(startDate);
@@ -179,7 +197,7 @@ function DateRangeForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSave(start, end);
+        if (status !== "pending" && status !== "success") onSave(start, end);
       }}
       className="flex flex-col gap-2 p-1"
     >
@@ -210,7 +228,12 @@ function DateRangeForm({
         />
       </label>
       <Button type="submit" size="sm" disabled={!start && !end}>
-        Save
+        <StatusButtonContent
+          status={status}
+          label="Save"
+          successLabel="Saved"
+          errorLabel="Couldn't save, try again"
+        />
       </Button>
     </form>
   );
@@ -222,6 +245,7 @@ function SemesterRow({
   spaceId,
   courses,
   dragging,
+  reorderStatus,
   onDragStart,
   onDragEnd,
   onDropOn,
@@ -231,6 +255,8 @@ function SemesterRow({
   spaceId: string;
   courses: Entity[];
   dragging: boolean;
+  /// Pending or failed reorder, shown on the grip of the row that was dragged.
+  reorderStatus: ActionStatus;
   onDragStart: () => void;
   onDragEnd: () => void;
   onDropOn: () => void;
@@ -247,21 +273,35 @@ function SemesterRow({
     if (editingTitle) titleInputRef.current?.focus();
   }, [editingTitle]);
 
+  const [datesOpen, setDatesOpen] = useState(false);
   const setDates = useMutation({
     mutationFn: (patch: { startDate?: string; endDate?: string }) =>
       updateSemester(semester.entity.id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
   });
+  useCloseAfterSuccess(setDates, () => setDatesOpen(false));
+  const resetDates = setDates.reset;
+  useEffect(() => {
+    if (!datesOpen) resetDates();
+  }, [datesOpen, resetDates]);
 
+  // The input stays mounted until the rename lands, so a failure has somewhere to show.
   const rename = useMutation({
     mutationFn: (title: string) => updateEntity(semester.entity.id, { title }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] });
+      setEditingTitle(false);
+    },
   });
+  const renameStatus = statusOf(rename);
 
-  const flagCurrent = useMutation({
-    mutationFn: () => setCurrentSemester(spaceId, semester.entity.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
-  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeAtMenuOpen, setActiveAtMenuOpen] = useState(active);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const flagCurrent = () =>
+    setCurrentSemester(spaceId, semester.entity.id).then(() =>
+      queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    );
 
   const dateRange =
     semester.startDate && semester.endDate
@@ -292,50 +332,98 @@ function SemesterRow({
       )}
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <button
-          type="button"
-          className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
-          aria-label="Drag to reorder"
-        >
-          <IconGripVertical size={14} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+              aria-label={
+                reorderStatus === "error"
+                  ? "Couldn't reorder, drag to try again"
+                  : "Drag to reorder"
+              }
+            >
+              <StatusIcon
+                status={reorderStatus === "success" ? "idle" : reorderStatus}
+                idle={<IconGripVertical size={14} />}
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {reorderStatus === "error" ? "Couldn't reorder, drag to try again" : "Drag to reorder"}
+          </TooltipContent>
+        </Tooltip>
+        <StatusAnnouncer
+          message={reorderStatus === "error" ? "Couldn't reorder semesters" : null}
+        />
 
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="text-muted-foreground hover:text-foreground"
-          aria-label={expanded ? "Collapse" : "Expand"}
-        >
-          <IconChevronRight
-            size={14}
-            className={cn("transition-transform", expanded && "rotate-90")}
-          />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-muted-foreground hover:text-foreground"
+              aria-label={expanded ? "Collapse" : "Expand"}
+            >
+              <IconChevronRight
+                size={14}
+                className={cn("transition-transform", expanded && "rotate-90")}
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{expanded ? "Collapse" : "Expand"}</TooltipContent>
+        </Tooltip>
 
         <IconCalendarWeek size={14} className="shrink-0 text-muted-foreground" />
 
         {editingTitle ? (
-          <Input
-            ref={titleInputRef}
-            value={titleDraft}
-            onChange={(e) => setTitleDraft(e.target.value)}
-            onBlur={() => {
-              setEditingTitle(false);
-              if (titleDraft.trim() && titleDraft !== semester.entity.title) {
-                rename.mutate(titleDraft.trim());
-              } else {
-                setTitleDraft(displayTitle(semester.entity));
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") {
-                setTitleDraft(displayTitle(semester.entity));
-                setEditingTitle(false);
-              }
-            }}
-            className="h-7 w-44 text-sm font-medium"
-          />
+          <span className="flex items-center gap-1">
+            <Input
+              ref={titleInputRef}
+              value={titleDraft}
+              aria-invalid={renameStatus === "error" || undefined}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={() => {
+                if (rename.isPending) return;
+                if (titleDraft.trim() && titleDraft !== semester.entity.title) {
+                  rename.mutate(titleDraft.trim());
+                } else {
+                  rename.reset();
+                  setTitleDraft(displayTitle(semester.entity));
+                  setEditingTitle(false);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  rename.reset();
+                  setTitleDraft(displayTitle(semester.entity));
+                  setEditingTitle(false);
+                }
+              }}
+              className="h-7 w-44 text-sm font-medium"
+            />
+            {renameStatus !== "idle" && renameStatus !== "success" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="flex shrink-0"
+                    aria-label={
+                      renameStatus === "error" ? "Couldn't rename, press Enter to retry" : "Saving"
+                    }
+                  >
+                    <StatusIcon status={renameStatus} idle={null} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {renameStatus === "error" ? "Couldn't rename, press Enter to retry" : "Saving"}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <StatusAnnouncer
+              message={renameStatus === "error" ? "Couldn't rename semester" : null}
+            />
+          </span>
         ) : (
           <span className="flex min-w-0 items-center gap-1">
             <button
@@ -345,14 +433,19 @@ function SemesterRow({
             >
               {displayTitle(semester.entity)}
             </button>
-            <button
-              type="button"
-              onClick={() => setEditingTitle(true)}
-              aria-label="Rename semester"
-              className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:opacity-100"
-            >
-              <IconPencil size={12} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setEditingTitle(true)}
+                  aria-label="Rename semester"
+                  className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                >
+                  <IconPencil size={12} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Rename semester</TooltipContent>
+            </Tooltip>
           </span>
         )}
 
@@ -365,59 +458,70 @@ function SemesterRow({
         <CourseChips courses={courses} />
 
         <div className="ml-auto flex items-center gap-2">
-          {dateRange ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {dateRange}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56" align="end">
-                <DateRangeForm
-                  startDate={semester.startDate ?? ""}
-                  endDate={semester.endDate ?? ""}
-                  onSave={(startDate, endDate) => setDates.mutate({ startDate, endDate })}
-                />
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  Set dates
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56" align="end">
-                <DateRangeForm
-                  startDate=""
-                  endDate=""
-                  onSave={(startDate, endDate) => setDates.mutate({ startDate, endDate })}
-                />
-              </PopoverContent>
-            </Popover>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover open={datesOpen} onOpenChange={setDatesOpen}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
-                className="rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Semester actions"
+                className={cn(
+                  "text-xs text-muted-foreground hover:text-foreground",
+                  !dateRange && "underline-offset-2 hover:underline",
+                )}
               >
-                <IconDots size={14} />
+                {dateRange ?? "Set dates"}
               </button>
-            </DropdownMenuTrigger>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <DateRangeForm
+                startDate={semester.startDate ?? ""}
+                endDate={semester.endDate ?? ""}
+                status={statusOf(setDates)}
+                onSave={(startDate, endDate) => setDates.mutate({ startDate, endDate })}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(open) => {
+              // Judged at open, so the item keeps showing its success after the flag lands.
+              if (open) setActiveAtMenuOpen(active);
+              setMenuOpen(open);
+            }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Semester actions"
+                  >
+                    <IconDots size={14} />
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Semester actions</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled={active} onSelect={() => flagCurrent.mutate()}>
-                Flag as current
-              </DropdownMenuItem>
+              {activeAtMenuOpen ? (
+                <DropdownMenuItem disabled>
+                  <IconFlag size={14} className="text-muted-foreground" />
+                  Flag as current
+                </DropdownMenuItem>
+              ) : (
+                <FeedbackMenuItem
+                  icon={<IconFlag size={14} className="text-muted-foreground" />}
+                  label="Flag as current"
+                  successLabel="Flagged as current"
+                  errorLabel="Couldn't flag, try again"
+                  action={async () => {
+                    await flagCurrent();
+                  }}
+                  onDone={closeMenu}
+                />
+              )}
               <DropdownMenuItem onSelect={() => openEntity(semester.entity.id, spaceId)}>
+                <IconArrowUpRight size={14} className="text-muted-foreground" />
                 Open
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -494,26 +598,32 @@ function CreateSemesterDialog({
   const [year, setYear] = useState(new Date().getFullYear());
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-    else {
-      setTitle("");
-      setTermType("none");
-    }
-  }, [open]);
-
   const create = useMutation({
     mutationFn: () =>
       createSemester(spaceId, title.trim(), {
         termType: termType === "none" ? null : termType,
         year: termType === "none" ? null : year,
       }),
-    onSuccess: (entity) => {
-      queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] });
-      onOpenChange(false);
-      openEntity(entity.entity.id, spaceId);
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
   });
+  const { reset } = create;
+  useCloseAfterSuccess(create, () => {
+    onOpenChange(false);
+    if (create.data) openEntity(create.data.entity.id, spaceId);
+  });
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+    else {
+      setTitle("");
+      setTermType("none");
+      reset();
+    }
+  }, [open, reset]);
+
+  const submit = () => {
+    if (title.trim() && !create.isPending && !create.isSuccess) create.mutate();
+  };
 
   const allTerms = Object.values(ACADEMIC_SYSTEMS).flatMap((s) => s.terms);
   const seenKeys = new Set<string>();
@@ -530,7 +640,7 @@ function CreateSemesterDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim()) create.mutate();
+            submit();
           }}
           className="flex flex-col gap-2"
         >
@@ -560,8 +670,13 @@ function CreateSemesterDialog({
           </div>
         </form>
         <DialogFooter>
-          <Button disabled={!title.trim() || create.isPending} onClick={() => create.mutate()}>
-            Create
+          <Button disabled={!title.trim()} onClick={submit}>
+            <StatusButtonContent
+              status={statusOf(create)}
+              label="Create"
+              successLabel="Created"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>

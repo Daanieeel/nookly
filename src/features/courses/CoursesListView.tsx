@@ -14,6 +14,14 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, format, startOfDay } from "date-fns";
 import { useEffect, useRef, useState } from "react";
+import {
+  StatusAnnouncer,
+  StatusButtonContent,
+  StatusIcon,
+  statusOf,
+  statusTextClass,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Badge } from "@/components/ui/badge";
@@ -382,7 +390,12 @@ export function CourseCard({
         )}
 
         {semesterLinks.length === 0 && (
-          <div className="opacity-0 transition-opacity group-hover:opacity-100">
+          <div
+            className={cn(
+              "transition-opacity group-hover:opacity-100",
+              assignSemester.isIdle ? "opacity-0" : "opacity-100",
+            )}
+          >
             <EntityPickerPopover
               spaceId={spaceId}
               typeFilter="semester"
@@ -394,10 +407,22 @@ export function CourseCard({
                   onKeyDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
-                  <IconPlus size={11} /> Link semester
+                  <StatusIcon
+                    status={statusOf(assignSemester)}
+                    idle={<IconPlus size={11} />}
+                    size={11}
+                  />
+                  <span className={statusTextClass(statusOf(assignSemester))}>
+                    {assignSemester.isError ? "Couldn't link, try again" : "Link semester"}
+                  </span>
+                  <StatusAnnouncer
+                    message={assignSemester.isError ? "Couldn't link semester" : null}
+                  />
                 </button>
               }
-              onSelect={(semester) => assignSemester.mutate(semester.id)}
+              onSelect={(semester) =>
+                !assignSemester.isPending && assignSemester.mutate(semester.id)
+              }
             />
           </div>
         )}
@@ -582,20 +607,30 @@ function CreateCourseDialog({
   const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-    else setTitle("");
-  }, [open]);
-
   const create = useMutation({
     mutationFn: () => createCourse(spaceId, title.trim()),
-    onSuccess: (entity) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
       queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
-      onOpenChange(false);
-      openEntity(entity.id, spaceId);
     },
   });
+  const { reset } = create;
+  useCloseAfterSuccess(create, () => {
+    onOpenChange(false);
+    if (create.data) openEntity(create.data.id, spaceId);
+  });
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+    else {
+      setTitle("");
+      reset();
+    }
+  }, [open, reset]);
+
+  const submit = () => {
+    if (title.trim() && !create.isPending && !create.isSuccess) create.mutate();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -606,7 +641,7 @@ function CreateCourseDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim()) create.mutate();
+            submit();
           }}
         >
           <Input
@@ -617,8 +652,13 @@ function CreateCourseDialog({
           />
         </form>
         <DialogFooter>
-          <Button disabled={!title.trim() || create.isPending} onClick={() => create.mutate()}>
-            Create
+          <Button disabled={!title.trim()} onClick={submit}>
+            <StatusButtonContent
+              status={statusOf(create)}
+              label="Create"
+              successLabel="Created"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>

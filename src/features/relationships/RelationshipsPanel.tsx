@@ -1,6 +1,7 @@
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusButtonContent, statusOf } from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/api/relationships";
 import type { Entity } from "@/lib/api/types";
 import { EntityRow } from "./EntityRow";
+import { RemoveLinkButton } from "./RemoveLinkButton";
 
 /// Right sidebar, section 1 of 3 (§3.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
@@ -38,13 +40,7 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
     },
   });
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteRelationship(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
-      queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
-    },
-  });
+  const createStatus = statusOf(create);
 
   // `course-notes` is structural and points at an entity that must stay invisible
   // outside the Course page (§ course sub-dashboard) — never list it here, and
@@ -68,7 +64,13 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-medium text-muted-foreground">Relationships</h3>
-        <Select value={pickingType ?? undefined} onValueChange={setPickingType}>
+        <Select
+          value={pickingType ?? undefined}
+          onValueChange={(type) => {
+            create.reset();
+            setPickingType(type);
+          }}
+        >
           <SelectTrigger
             variant="ghost"
             size="sm"
@@ -92,13 +94,20 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
           exclude={entity.id}
           trigger={
             <Button variant="outline" size="sm" className="w-full justify-start">
-              Link "{pickingType}" to…
+              <StatusButtonContent
+                status={createStatus}
+                label={`Link "${pickingType}" to…`}
+                errorLabel="Couldn't link, try again"
+              />
             </Button>
           }
-          onSelect={(target) => {
-            create.mutate({ toEntityId: target.id, relationshipType: pickingType });
-            setPickingType(null);
-          }}
+          onSelect={(target) =>
+            // The trigger stays until success so a failure has a place to show.
+            create.mutate(
+              { toEntityId: target.id, relationshipType: pickingType },
+              { onSuccess: () => setPickingType(null) },
+            )
+          }
         />
       )}
 
@@ -117,13 +126,17 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
               <div className="min-w-0 flex-1">
                 <EntityRow entityId={otherId} currentSpaceId={entity.spaceId} label={label} />
               </div>
-              <button
-                type="button"
-                onClick={() => remove.mutate(r.id)}
-                className="shrink-0 rounded p-1 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
-              >
-                <IconX size={12} />
-              </button>
+              <RemoveLinkButton
+                label="Remove relationship"
+                errorLabel="Couldn't remove relationship, try again"
+                onRemove={async () => {
+                  await deleteRelationship(r.id);
+                  await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
+                    queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] }),
+                  ]);
+                }}
+              />
             </div>
           );
         })}

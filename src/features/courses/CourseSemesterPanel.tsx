@@ -1,7 +1,16 @@
 import { IconPencil, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  StatusAnnouncer,
+  StatusButtonContent,
+  StatusIcon,
+  statusOf,
+  useActionStatus,
+} from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { deleteRelationship, listRelationships } from "@/lib/api/relationships";
 import { setCourseSemester } from "@/lib/api/courses";
 import type { Entity } from "@/lib/api/types";
@@ -35,27 +44,38 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
     mutationFn: (relationshipId: string) => deleteRelationship(relationshipId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", course.id] }),
   });
+  const assignStatus = useActionStatus(assign);
+  const unassignStatus = statusOf(unassign);
+  const changeLabel =
+    assignStatus === "error" ? "Couldn't change semester, try again" : "Change semester";
+  const unassignLabel =
+    unassignStatus === "error" ? "Couldn't unassign, try again" : "Unassign semester";
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-medium text-muted-foreground">Semester</h3>
         {link && (
-          <EntityPickerPopover
-            spaceId={course.spaceId}
-            typeFilter="semester"
-            exclude={course.id}
-            trigger={
-              <button
-                type="button"
-                className="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Change semester"
-              >
-                <IconPencil size={13} />
-              </button>
-            }
-            onSelect={(semester) => assign.mutate(semester.id)}
-          />
+          <Tooltip>
+            <EntityPickerPopover
+              spaceId={course.spaceId}
+              typeFilter="semester"
+              exclude={course.id}
+              trigger={
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label={changeLabel}
+                  >
+                    <StatusIcon status={assignStatus} idle={<IconPencil size={13} />} size={13} />
+                  </button>
+                </TooltipTrigger>
+              }
+              onSelect={(semester) => !assign.isPending && assign.mutate(semester.id)}
+            />
+            <TooltipContent>{changeLabel}</TooltipContent>
+          </Tooltip>
         )}
       </div>
 
@@ -66,26 +86,47 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
           exclude={course.id}
           trigger={
             <Button variant="ghost" size="sm" className="w-full justify-start">
-              Assign to a semester…
+              <StatusButtonContent
+                status={assignStatus}
+                label="Assign to a semester…"
+                errorLabel="Couldn't assign, try again"
+              />
             </Button>
           }
-          onSelect={(semester) => assign.mutate(semester.id)}
+          onSelect={(semester) => !assign.isPending && assign.mutate(semester.id)}
         />
       ) : (
         <div className="group flex items-center gap-1">
           <div className="min-w-0 flex-1">
             <EntityRow entityId={link.toEntityId} currentSpaceId={course.spaceId} />
           </div>
-          <button
-            type="button"
-            onClick={() => unassign.mutate(link.id)}
-            className="shrink-0 rounded p-1 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
-            aria-label="Unassign semester"
-          >
-            <IconX size={12} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => !unassign.isPending && unassign.mutate(link.id)}
+                className={cn(
+                  "shrink-0 rounded p-1 text-muted-foreground hover:bg-accent group-hover:opacity-100",
+                  unassignStatus === "idle" ? "opacity-0" : "opacity-100",
+                )}
+                aria-label={unassignLabel}
+              >
+                <StatusIcon status={unassignStatus} idle={<IconX size={12} />} size={12} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{unassignLabel}</TooltipContent>
+          </Tooltip>
         </div>
       )}
+      <StatusAnnouncer
+        message={
+          assignStatus === "error"
+            ? "Couldn't assign semester"
+            : unassignStatus === "error"
+              ? "Couldn't unassign semester"
+              : null
+        }
+      />
     </div>
   );
 }

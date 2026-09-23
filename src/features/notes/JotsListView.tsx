@@ -1,6 +1,7 @@
 import { IconFeather, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusButtonContent, statusOf, statusTextClass } from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { listEntities } from "@/lib/api/entities";
 import { createBlock, createJot, createRefinement } from "@/lib/api/notes";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
 
 function titleFromContent(content: string): string {
   const firstLine = content.trim().split("\n")[0]?.trim() ?? "";
@@ -51,6 +53,12 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
     },
   });
 
+  const jotStatus = statusOf(createJotMut);
+  const refinementStatus = statusOf(createRefinementMut);
+  const saveJot = () => {
+    if (content.trim() && !createJotMut.isPending) createJotMut.mutate();
+  };
+
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       <h1 className="text-lg font-semibold">Jots & Refinements</h1>
@@ -58,7 +66,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (content.trim()) createJotMut.mutate();
+          saveJot();
         }}
         className="flex flex-col gap-2"
       >
@@ -69,7 +77,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (content.trim()) createJotMut.mutate();
+              saveJot();
             }
           }}
           rows={3}
@@ -78,18 +86,29 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => createRefinementMut.mutate()}
-            disabled={createRefinementMut.isPending}
-            className="flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            onClick={() => !createRefinementMut.isPending && createRefinementMut.mutate()}
+            className={cn(
+              "flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
+              statusTextClass(refinementStatus),
+            )}
           >
-            <IconPlus size={12} /> New Refinement
+            <StatusButtonContent
+              status={refinementStatus}
+              icon={<IconPlus size={12} />}
+              label="New Refinement"
+              errorLabel="Couldn't create Refinement, try again"
+            />
           </button>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
               Enter to save · Shift+Enter for a new line
             </span>
-            <Button type="submit" size="sm" disabled={!content.trim() || createJotMut.isPending}>
-              Save Jot
+            <Button type="submit" size="sm" disabled={!content.trim()}>
+              <StatusButtonContent
+                status={jotStatus}
+                label="Save Jot"
+                errorLabel="Couldn't save, try again"
+              />
             </Button>
           </div>
         </div>

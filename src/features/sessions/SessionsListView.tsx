@@ -3,6 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addWeeks, format, isSameDay, isToday, startOfWeek } from "date-fns";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
+import {
+  FieldError,
+  StatusButtonContent,
+  StatusIcon,
+  StatusAnnouncer,
+  statusOf,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEntity } from "@/lib/api/entities";
 import { listRelationships } from "@/lib/api/relationships";
 import {
@@ -94,12 +103,6 @@ export function SessionsListView({
     : allSessions;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  const queryClient = useQueryClient();
-  const cancelOccurrence = useMutation({
-    mutationFn: (entityId: string) => overrideOccurrence(entityId, { cancelled: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] }),
-  });
 
   return (
     <div className="flex flex-col gap-3">
@@ -195,9 +198,9 @@ export function SessionsListView({
                   {dayOccurrences.map((occ) => (
                     <SessionBlock
                       key={occ.entity.id}
+                      spaceId={spaceId}
                       occurrence={occ}
                       onOpen={() => openEntity(occ.entity.id, spaceId)}
-                      onCancel={() => cancelOccurrence.mutate(occ.entity.id)}
                     />
                   ))}
                 </div>
@@ -217,14 +220,22 @@ export function SessionsListView({
 }
 
 function SessionBlock({
+  spaceId,
   occurrence,
   onOpen,
-  onCancel,
 }: {
+  spaceId: string;
   occurrence: SessionOccurrence;
   onOpen: () => void;
-  onCancel: () => void;
 }) {
+  const queryClient = useQueryClient();
+  const cancel = useMutation({
+    mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] }),
+  });
+  const cancelStatus = statusOf(cancel);
+  const cancelLabel =
+    cancelStatus === "error" ? "Couldn't cancel occurrence, try again" : "Cancel occurrence";
   const top = topPxFor(occurrence.startTime);
   const height = heightPxFor(occurrence.startTime, occurrence.endTime);
   return (
@@ -253,15 +264,23 @@ function SessionBlock({
         </span>
       </button>
       {!occurrence.cancelled && (
-        <button
-          type="button"
-          aria-label="Cancel occurrence"
-          onClick={onCancel}
-          className="absolute top-0.5 right-0.5 rounded-sm p-0.5 opacity-0 hover:bg-accent group-hover:opacity-100"
-        >
-          <IconX size={11} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={cancelLabel}
+              onClick={() => !cancel.isPending && cancel.mutate()}
+              className={`absolute top-0.5 right-0.5 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100 ${
+                cancelStatus === "idle" ? "opacity-0" : "opacity-100"
+              }`}
+            >
+              <StatusIcon status={cancelStatus} idle={<IconX size={11} />} size={11} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{cancelLabel}</TooltipContent>
+        </Tooltip>
       )}
+      <StatusAnnouncer message={cancelStatus === "error" ? "Couldn't cancel occurrence" : null} />
     </div>
   );
 }
@@ -292,7 +311,7 @@ function QuickCreateSessionDialog({
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!draft || !course) throw new Error("missing course");
+      if (!draft || !course) throw new Error("Pick a course first");
       const date = format(draft.date, "yyyy-MM-dd");
       const startTime = `${String(draft.hour).padStart(2, "0")}:00`;
       const endTime = `${String(draft.hour + 1).padStart(2, "0")}:00`;
@@ -312,14 +331,22 @@ function QuickCreateSessionDialog({
         await createOneOffSession(spaceId, title.trim(), course.id, date, startTime, endTime, null);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] });
-      onOpenChange(false);
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] }),
+  });
+  const createStatus = statusOf(create);
+  useCloseAfterSuccess(create, () => {
+    onOpenChange(false);
+    create.reset();
   });
 
   return (
-    <Dialog open={draft !== null} onOpenChange={onOpenChange}>
+    <Dialog
+      open={draft !== null}
+      onOpenChange={(open) => {
+        onOpenChange(open);
+        if (!open) create.reset();
+      }}
+    >
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
@@ -329,7 +356,7 @@ function QuickCreateSessionDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim() && course) create.mutate();
+            if (title.trim() && course && !create.isPending) create.mutate();
           }}
           className="flex flex-col gap-3"
         >
@@ -349,6 +376,7 @@ function QuickCreateSessionDialog({
             }
             onSelect={setCourse}
           />
+          <FieldError message={create.isError && create.error.message} />
           <div className="flex items-center gap-2">
             <Checkbox
               id="session-repeat-weekly"
@@ -362,10 +390,15 @@ function QuickCreateSessionDialog({
         </form>
         <DialogFooter>
           <Button
-            disabled={!title.trim() || !course || create.isPending}
-            onClick={() => create.mutate()}
+            disabled={!title.trim() || !course}
+            onClick={() => !create.isPending && createStatus !== "success" && create.mutate()}
           >
-            Create
+            <StatusButtonContent
+              status={createStatus}
+              label="Create"
+              successLabel="Session created"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>

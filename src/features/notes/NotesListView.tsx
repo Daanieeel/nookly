@@ -1,11 +1,13 @@
 import { IconNotes, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { StatusButtonContent, statusOf, statusTextClass } from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { listEntities } from "@/lib/api/entities";
 import { createNote } from "@/lib/api/notes";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
 
 /// Notes are a page index, not a form (§2.3/§3.3) — creating one is a single quiet
 /// affordance that drops straight into the canvas, title-first inside the page itself.
@@ -27,17 +29,25 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
     },
   });
 
+  const createStatus = statusOf(create);
+
   return (
     <div className="flex max-w-2xl flex-col gap-1">
       <h1 className="mb-3 text-lg font-semibold">Notes</h1>
       <button
         type="button"
-        onClick={() => create.mutate()}
-        disabled={create.isPending}
-        className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+        onClick={() => !create.isPending && create.mutate()}
+        className={cn(
+          "flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground",
+          statusTextClass(createStatus),
+        )}
       >
-        <IconPlus size={15} className="shrink-0" />
-        New page
+        <StatusButtonContent
+          status={createStatus}
+          icon={<IconPlus size={15} className="shrink-0" />}
+          label="New page"
+          errorLabel="Couldn't create page, try again"
+        />
       </button>
       <div className="mt-2 flex flex-col">
         {notes.map((note) => (

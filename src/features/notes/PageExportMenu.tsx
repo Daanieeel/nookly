@@ -1,7 +1,8 @@
 import { IconDownload, IconFileDownload } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
-import { toast } from "sonner";
+import { FeedbackMenuItem } from "@/components/feedback-menu-item";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import {
@@ -22,7 +23,7 @@ function markdownFileName(entity: Entity): string {
   return `${base || "Untitled"}.md`;
 }
 
-/// Stays open on click and confirms in place instead of with a toast. `CopyButton`
+/// Stays open on click and confirms in place. `CopyButton`
 /// needs the markdown up front, so it's fetched when the menu opens (menu content
 /// only mounts while open, so each open refetches). The label turns green by keying
 /// off the `text-positive` class `CopyButton` puts on its check icon, so both
@@ -50,23 +51,37 @@ export function CopyPageMarkdownItem({ entity }: { entity: Entity }) {
   );
 }
 
-export async function savePageMarkdownFile(entity: Entity) {
+/// Resolves `false` when the user cancels the native save dialog.
+export async function savePageMarkdownFile(entity: Entity): Promise<boolean> {
   const path = await save({
     defaultPath: markdownFileName(entity),
     filters: [{ name: "Markdown", extensions: ["md"] }],
   });
-  if (!path) return;
-  try {
-    await exportPageMarkdown(entity.id, path);
-    toast.success("Markdown file saved");
-  } catch {
-    toast.error("Couldn't save markdown file");
-  }
+  if (!path) return false;
+  await exportPageMarkdown(entity.id, path);
+  return true;
+}
+
+/// The native save dialog can't carry feedback, so this item (which opened it) does.
+export function SaveMarkdownFileItem({ entity, onDone }: { entity: Entity; onDone: () => void }) {
+  return (
+    <FeedbackMenuItem
+      icon={<IconFileDownload size={14} className="text-muted-foreground" />}
+      label="Save as Markdown file..."
+      successLabel="Markdown file saved"
+      errorLabel="Couldn't save file, try again"
+      action={() => savePageMarkdownFile(entity)}
+      onDone={onDone}
+    />
+  );
 }
 
 export function PageExportMenu({ entity }: { entity: Entity }) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
@@ -79,10 +94,7 @@ export function PageExportMenu({ entity }: { entity: Entity }) {
       </Tooltip>
       <DropdownMenuContent align="end">
         <CopyPageMarkdownItem entity={entity} />
-        <DropdownMenuItem onSelect={() => savePageMarkdownFile(entity)}>
-          <IconFileDownload size={14} className="text-muted-foreground" />
-          Save as Markdown file...
-        </DropdownMenuItem>
+        <SaveMarkdownFileItem entity={entity} onDone={close} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

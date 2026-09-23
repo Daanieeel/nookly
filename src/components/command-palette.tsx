@@ -2,6 +2,12 @@ import { Command } from "cmdk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import {
+  StatusAnnouncer,
+  StatusIcon,
+  statusOf,
+  statusTextClass,
+} from "@/components/action-feedback";
 import { iconForType } from "@/components/entity-icon";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { createCourse } from "@/lib/api/courses";
@@ -12,6 +18,7 @@ import { listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
 
 /// Entity types simple enough to be created directly from the palette with just a
 /// title (§3.2/§9 — "typing task: jumps straight into task creation"). Anything
@@ -83,6 +90,7 @@ export function CommandPalette() {
 
   const quickCreate = useMutation({
     mutationFn: (vars: {
+      type: string;
       create: (spaceId: string, title: string) => Promise<Entity>;
       title: string;
     }) =>
@@ -115,10 +123,13 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setPaletteOpen]);
 
+  const { reset: resetQuickCreate } = quickCreate;
   useEffect(() => {
-    if (!paletteOpen) setQuery("");
-    else inputRef.current?.focus();
-  }, [paletteOpen]);
+    if (!paletteOpen) {
+      setQuery("");
+      resetQuickCreate();
+    } else inputRef.current?.focus();
+  }, [paletteOpen, resetQuickCreate]);
 
   return (
     <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
@@ -162,23 +173,39 @@ export function CommandPalette() {
                   >
                     {createMatches.map((m) => {
                       const Icon = iconForType(m.type);
+                      const status =
+                        quickCreate.variables?.type === m.type ? statusOf(quickCreate) : "idle";
+                      const errorLabel = `Couldn't create ${m.label}, try again`;
                       return (
                         <Command.Item
                           key={m.type}
                           value={`create-${m.type}`}
-                          onSelect={() =>
+                          onSelect={() => {
+                            if (quickCreate.isPending) return;
                             quickCreate.mutate({
+                              type: m.type,
                               create: m.create,
                               title: m.title || `Untitled ${m.label}`,
-                            })
-                          }
+                            });
+                          }}
                           className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                         >
-                          <Icon size={16} className="shrink-0 text-primary" />
-                          <span className="min-w-0 flex-1 truncate">
-                            New {m.label}
-                            {m.title ? `: ${m.title}` : "…"}
+                          <StatusIcon
+                            status={status}
+                            size={16}
+                            idle={<Icon size={16} className="shrink-0 text-primary" />}
+                          />
+                          <span className={cn("min-w-0 flex-1 truncate", statusTextClass(status))}>
+                            {status === "error" ? (
+                              errorLabel
+                            ) : (
+                              <>
+                                New {m.label}
+                                {m.title ? `: ${m.title}` : "…"}
+                              </>
+                            )}
                           </span>
+                          <StatusAnnouncer message={status === "error" ? errorLabel : null} />
                         </Command.Item>
                       );
                     })}

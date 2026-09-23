@@ -1,3 +1,9 @@
+import {
+  StatusButtonContent,
+  StatusIcon,
+  statusOf,
+  useCloseAfterSuccess,
+} from "@/components/action-feedback";
 import { IconClipboardCheck, IconClipboardPlus, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -95,6 +101,7 @@ export function AssignmentsListView({
       updateAssignmentStatus(vars.entityId, vars.status, null),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] }),
   });
+  const failedId = setStatus.isError ? setStatus.variables?.entityId : undefined;
 
   const scoped = filterCourseId
     ? assignments.filter((a) =>
@@ -146,6 +153,15 @@ export function AssignmentsListView({
             </button>
             {a.dueDate && (
               <span className="shrink-0 text-xs text-muted-foreground">{a.dueDate}</span>
+            )}
+            {failedId === a.entity.id && (
+              <span
+                role="alert"
+                className="flex shrink-0 items-center gap-1 text-xs text-destructive"
+              >
+                <StatusIcon status="error" idle={null} size={13} />
+                Couldn't change status
+              </span>
             )}
             <Select
               value={a.status}
@@ -203,17 +219,27 @@ function CreateAssignmentDialog({
         dueDate || null,
       );
     },
-    onSuccess: (assignment) => {
-      queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] }),
+  });
+  const createStatus = statusOf(create);
+
+  function handleOpenChange(next: boolean) {
+    onOpenChange(next);
+    if (!next) {
       setCourse(null);
       setDueDate("");
-      onOpenChange(false);
-      openEntity(assignment.entity.id, spaceId);
-    },
+      create.reset();
+    }
+  }
+
+  useCloseAfterSuccess(create, () => {
+    const created = create.data;
+    handleOpenChange(false);
+    if (created) openEntity(created.entity.id, spaceId);
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>New assignment</DialogTitle>
@@ -240,8 +266,17 @@ function CreateAssignmentDialog({
           </p>
         </div>
         <DialogFooter>
-          <Button size="sm" disabled={!course || create.isPending} onClick={() => create.mutate()}>
-            Create
+          <Button
+            size="sm"
+            disabled={!course}
+            onClick={() => (createStatus === "idle" || createStatus === "error") && create.mutate()}
+          >
+            <StatusButtonContent
+              status={createStatus}
+              label="Create"
+              successLabel="Created"
+              errorLabel="Couldn't create, try again"
+            />
           </Button>
         </DialogFooter>
       </DialogContent>

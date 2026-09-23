@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { listEntities } from "@/lib/api/entities";
 import { createBlock, deleteBlock, listBlocks, reorderBlocks, updateBlock } from "@/lib/api/notes";
 import { useNavStore } from "@/lib/store/nav";
@@ -60,6 +61,8 @@ export function BlockEditor({
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingNodesRef = useRef<JSONNode[] | null>(null);
+  // One toast per failure streak, not one per retry.
+  const saveFailingRef = useRef(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["blocks", entityId] });
 
@@ -126,6 +129,17 @@ export function BlockEditor({
         .map((i) => idMap.get(i.blockId))
         .filter((id): id is string => Boolean(id));
       if (orderedServerIds.length > 0) await reorderBlocks(entityId, orderedServerIds);
+    },
+    onSuccess: () => {
+      saveFailingRef.current = false;
+    },
+    // Autosave has no control to carry the error, so a toast is the fallback here.
+    onError: () => {
+      if (saveFailingRef.current) return;
+      saveFailingRef.current = true;
+      toast.error("Couldn't save changes", {
+        description: "They'll be saved again on your next edit.",
+      });
     },
     onSettled: () => {
       const pending = pendingNodesRef.current;
