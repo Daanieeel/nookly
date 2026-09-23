@@ -15,6 +15,7 @@ import { PinnedView } from "@/features/dashboard/PinnedView";
 import { RecentsView } from "@/features/dashboard/RecentsView";
 import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
+import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
 import { useNavStore } from "@/lib/store/nav";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ function MainContent() {
 
 function Shell() {
   const view = useNavStore((s) => s.view);
+  useExternalDbChanges();
   const isEntityView = view.kind === "entity";
 
   return (

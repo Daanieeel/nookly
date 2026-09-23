@@ -1,6 +1,6 @@
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
-import { Selection } from "@tiptap/pm/state";
+import { Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,7 +11,13 @@ import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "@/lib/api/
 import type { Block } from "@/lib/api/types";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
-import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
+import {
+  asString,
+  type BlockInput,
+  blockToNode,
+  type JSONNode,
+  nodeToBlockInput,
+} from "./block-markdown";
 import { BlockHandles } from "./BlockHandles";
 import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
@@ -50,9 +56,9 @@ export function BlockEditor({
   const saving = useIsMutating({ mutationKey: saveBlocksKey(entityId) }) > 0;
   const hydratedIdRef = useRef<string | null>(null);
   // The editor is only created once blocks are in, with them as its initial
-  // content: one render pass, and no `setContent` afterwards (which would emit
-  // an update and schedule a pointless save). Later refetches are ignored; the
-  // editor is the source of truth from then on.
+  // content: one render pass. After that the editor is the source of truth;
+  // `HydratedBlockEditor` only pulls in later refetches that bring changes made
+  // outside this editor (an agent writing through the CLI).
   if (!blocks || (saving && hydratedIdRef.current !== entityId)) {
     return <div className={cn(!compact && "min-h-40")} />;
   }
@@ -81,6 +87,7 @@ function HydratedBlockEditor({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
   const { data: entities = [] } = useQuery({
     queryKey: ["entities", spaceId],
     queryFn: () => listEntities(spaceId, false),
@@ -346,6 +353,88 @@ function HydratedBlockEditor({
     // structurally satisfies the `JSONNode` subset this module actually reads.
     runReconcile((doc.content ?? []) as JSONNode[]);
   };
+
+  /// Whether `blocks` is exactly what this editor last persisted, same order.
+  function matchesPersisted(blocks: Block[]) {
+    if (blocks.length !== persisted.size) return false;
+    const clientIdOf = new Map([...idMap].map(([clientId, serverId]) => [serverId, clientId]));
+    return blocks.every((block, index) => {
+      const clientId = clientIdOf.get(block.id);
+      const prior = clientId ? persisted.get(clientId) : undefined;
+      return (
+        prior !== undefined &&
+        orderRef.current[index] === block.id &&
+        prior.content === block.content &&
+        prior.blockType === block.blockType &&
+        prior.language === (block.language ?? undefined) &&
+        prior.filename === (block.filename ?? undefined)
+      );
+    });
+  }
+
+  /// Pulls in blocks changed outside this editor (an agent writing through the
+  /// CLI; `useExternalDbChanges` refetches on every external write). Local edits
+  /// win: while a save is pending or in flight this waits, and runs again once it
+  /// settles. Replaces the document without emitting an update (so no save) or an
+  /// undo step, and puts the cursor back at the same offset in the same block.
+  const syncFromServerRef = useRef(() => {});
+  syncFromServerRef.current = () => {
+    if (!editor || editor.isDestroyed) return;
+    if (debounceRef.current || pendingNodesRef.current || reconcile.isPending) return;
+    const blocks = queryClient.getQueryData(blocksQueryOptions(entityId).queryKey);
+    if (!blocks || matchesPersisted(blocks)) return;
+
+    let anchor: { blockId: string; offset: number } | null = null;
+    const { from } = editor.state.selection;
+    for (let i = 0, pos = 0; i < editor.state.doc.childCount; i++) {
+      const node = editor.state.doc.child(i);
+      if (from >= pos && from <= pos + node.nodeSize) {
+        const clientId = asString(node.attrs.blockId);
+        if (clientId) anchor = { blockId: idMap.get(clientId) ?? clientId, offset: from - pos };
+        break;
+      }
+      pos += node.nodeSize;
+    }
+
+    idMap.clear();
+    persisted.clear();
+    for (const block of blocks) {
+      idMap.set(block.id, block.id);
+      persisted.set(block.id, {
+        content: block.content,
+        blockType: block.blockType,
+        language: block.language ?? undefined,
+        filename: block.filename ?? undefined,
+      });
+    }
+    orderRef.current = blocks.map((block) => block.id);
+
+    editor
+      .chain()
+      .setMeta("addToHistory", false)
+      .setContent(
+        {
+          type: "doc",
+          content: blocks.length > 0 ? blocks.map(blockToNode) : [{ type: "paragraph" }],
+        },
+        { emitUpdate: false },
+      )
+      .run();
+
+    if (!anchor) return;
+    const { doc, tr } = editor.state;
+    for (let i = 0, pos = 0; i < doc.childCount; i++) {
+      const node = doc.child(i);
+      if (node.attrs.blockId === anchor.blockId) {
+        const at = Math.min(pos + anchor.offset, pos + node.nodeSize - 1, doc.content.size);
+        tr.setSelection(TextSelection.near(doc.resolve(at))).setMeta("addToHistory", false);
+        editor.view.dispatch(tr);
+        break;
+      }
+      pos += node.nodeSize;
+    }
+  };
+  useEffect(() => syncFromServerRef.current(), [serverBlocks, reconcile.isPending]);
 
   // Leaving the page inside the debounce window saves right away instead of
   // dropping the last edits. `useEditor` destroys its editor on a later tick, so

@@ -19,9 +19,16 @@ pub mod tasks;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
-use tauri::Manager;
+use std::time::Duration;
+use tauri::{Emitter, Manager};
 
 pub struct DbState(pub Mutex<Connection>);
+
+/// Emitted when another process (the CLI, usually an agent) committed to the
+/// database, so the frontend refetches instead of showing stale data.
+pub const EXTERNAL_CHANGE_EVENT: &str = "db:external-change";
+
+const EXTERNAL_CHANGE_POLL: Duration = Duration::from_millis(500);
 
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -35,7 +42,32 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_data_dir = app.path().app_data_dir()?;
     let conn = connect(&app_data_dir)?;
     app.manage(DbState(Mutex::new(conn)));
+    watch_external_changes(app.handle().clone());
     Ok(())
+}
+
+/// SQLite bumps `PRAGMA data_version` on a connection only when a *different*
+/// connection commits, so polling it on the app's own connection detects exactly
+/// the writes the GUI didn't make itself, with no change feed or file watcher.
+fn watch_external_changes(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let mut last: Option<i64> = None;
+        loop {
+            std::thread::sleep(EXTERNAL_CHANGE_POLL);
+            let state = app.state::<DbState>();
+            let version = match state.0.lock() {
+                Ok(conn) => conn
+                    .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
+                    .ok(),
+                Err(_) => None,
+            };
+            let Some(version) = version else { continue };
+            if last.is_some_and(|prev| prev != version) {
+                let _ = app.emit(EXTERNAL_CHANGE_EVENT, ());
+            }
+            last = Some(version);
+        }
+    });
 }
 
 /// Opens (creating if needed) the same `nookly.db` the GUI uses, and brings it
@@ -65,4 +97,32 @@ pub fn standalone_app_data_dir() -> Result<std::path::PathBuf, Box<dyn std::erro
     }
     let base = dirs::data_dir().ok_or("could not resolve platform data directory")?;
     Ok(base.join("com.nookly.app"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn data_version(conn: &Connection) -> i64 {
+        conn.query_row("PRAGMA data_version", [], |row| row.get(0))
+            .unwrap()
+    }
+
+    /// `watch_external_changes` relies on this: the app's own writes leave its
+    /// `data_version` alone, another connection's (the CLI's) change it.
+    #[test]
+    fn data_version_changes_only_for_other_connections() {
+        let dir = std::env::temp_dir().join(format!("nookly-data-version-{}", new_id()));
+        let app = connect(&dir).unwrap();
+        let cli = connect(&dir).unwrap();
+        let start = data_version(&app);
+
+        spaces::create_space(&app, "Own".into(), None, "#000".into()).unwrap();
+        assert_eq!(data_version(&app), start);
+
+        spaces::create_space(&cli, "External".into(), None, "#000".into()).unwrap();
+        assert_ne!(data_version(&app), start);
+
+        std::fs::remove_dir_all(dir).ok();
+    }
 }
