@@ -26,6 +26,7 @@ import { CodeBlockWithHeader } from "./code-block-extension";
 import {
   Callout,
   Details,
+  Divider,
   Progress,
   Stats,
   Steps,
@@ -272,6 +273,8 @@ function HydratedBlockEditor({
         },
         // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
         codeBlock: false,
+        // Replaced by `Divider`, the same rule saved as a `divider` block.
+        horizontalRule: false,
       }),
       CodeBlockWithHeader.configure({ defaultLanguage: "plaintext" }),
       Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
@@ -288,6 +291,7 @@ function HydratedBlockEditor({
       Steps,
       Stats,
       Details,
+      Divider,
     ],
     editorProps: {
       attributes: {

@@ -19,6 +19,7 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "steps",
   "stats",
   "details",
+  "divider",
 ];
 
 function generateBlockId(): string {

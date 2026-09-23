@@ -1,5 +1,5 @@
 import type { BlockAttrs, Block, BlockType } from "@/lib/api/types";
-import { isRowBlockType } from "./custom-block-rows";
+import { ATOM_BLOCK_ATTRS, isAtomBlockType } from "./custom-block-rows";
 
 /// The only attribute value shapes this module ever reads or writes (`blockId`
 /// strings, heading `level` numbers, mark `href` strings) — narrower than
@@ -157,25 +157,6 @@ export function blockToNode(block: Block): JSONNode {
         attrs: { blockId, variant: block.attrs.variant ?? "note" },
         content: nonEmpty(decodeInline(block.content)),
       };
-    case "timeline":
-    case "progress":
-    case "tree":
-    case "stats":
-    case "details":
-      return {
-        type: block.blockType,
-        attrs: { blockId, rows: block.content, title: block.attrs.title ?? null },
-      };
-    case "steps":
-      return {
-        type: "steps",
-        attrs: {
-          blockId,
-          rows: block.content,
-          title: block.attrs.title ?? null,
-          current: block.attrs.current ? Number(block.attrs.current) : null,
-        },
-      };
     case "table": {
       const rows = block.content.length > 0 ? block.content.split("\n") : [""];
       return {
@@ -191,6 +172,16 @@ export function blockToNode(block: Block): JSONNode {
       };
     }
     default:
+      if (isAtomBlockType(block.blockType)) {
+        const named = ATOM_BLOCK_ATTRS[block.blockType].map((name) => [
+          name,
+          block.attrs[name] || null,
+        ]);
+        return {
+          type: block.blockType,
+          attrs: { blockId, rows: block.content, ...Object.fromEntries(named) },
+        };
+      }
       return {
         type: "paragraph",
         attrs: { blockId },
@@ -252,16 +243,14 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return { blockId, blockType: "table", content: rows.join("\n") };
     }
     default:
-      if (!isRowBlockType(node.type)) return null;
+      if (!isAtomBlockType(node.type)) return null;
       return {
         blockId,
         blockType: node.type,
         content: asString(node.attrs?.rows) ?? "",
-        attrs: {
-          title: asString(node.attrs?.title) ?? "",
-          // Steps only: the step you're on, `""` when none is.
-          ...(node.type === "steps" && { current: String(asNumber(node.attrs?.current) ?? "") }),
-        },
+        attrs: Object.fromEntries(
+          ATOM_BLOCK_ATTRS[node.type].map((name) => [name, asString(node.attrs?.[name]) ?? ""]),
+        ),
       };
   }
 }

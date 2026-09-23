@@ -656,6 +656,26 @@ inventory::submit! {
     }
 }
 
+// --- divider ---------------------------------------------------------------
+
+fn validate_empty(content: &str) -> Result<(), String> {
+    if content.trim().is_empty() {
+        Ok(())
+    } else {
+        Err("a divider has no content, pass --content ''".into())
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "divider",
+        content_format: "Always empty (--content ''). A horizontal rule between sections.",
+        attrs: &[],
+        validate: validate_empty,
+        to_markdown: |_| "---".into(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -786,6 +806,8 @@ mod tests {
     fn content_and_attrs_are_validated() {
         assert!(validate_content("stats", "1\ta\n2\tb\n3\tc\n4\td\n5\te").is_err());
         assert!(validate_content("details", "a\tb\tc").is_err());
+        assert!(validate_content("divider", "").is_ok());
+        assert!(validate_content("divider", "text").is_err());
         let current = |v: &str| BlockAttrs::from([("current".to_string(), v.to_string())]);
         assert!(validate_attrs("steps", &current("2")).is_ok());
         assert!(validate_attrs("steps", &current("0")).is_err());

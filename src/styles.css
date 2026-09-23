@@ -281,6 +281,14 @@
     background: transparent;
     padding: 0;
   }
+  .tiptap-content hr {
+    margin: 0.75rem 0;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+  .tiptap-content hr.ProseMirror-selectednode {
+    border-top-color: var(--ring);
+  }
   /* Custom blocks (`custom-block-extensions.ts`). The row based ones share the code
      block's header and surface, so every structured block reads as one family. */
   .tiptap-content .custom-block {

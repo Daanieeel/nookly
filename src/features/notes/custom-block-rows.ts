@@ -3,20 +3,22 @@
 /// separated by a tab. Every row is kept, blank ones included, so a row the user
 /// just added survives a save.
 
-/// Blocks that keep everything in a `rows` string and an optional `title`. The
-/// editor node and the backend block type share the name.
-export const ROW_BLOCK_TYPES = [
-  "timeline",
-  "progress",
-  "tree",
-  "steps",
-  "stats",
-  "details",
-] as const;
-export type RowBlockType = (typeof ROW_BLOCK_TYPES)[number];
+/// Blocks edited through their own UI rather than as document text. The editor
+/// node and the backend block type share the name; the node keeps the block's
+/// content in `rows` and each attr listed here as a string, `null` when unset.
+export const ATOM_BLOCK_ATTRS = {
+  timeline: ["title"],
+  progress: ["title"],
+  tree: ["title"],
+  steps: ["title", "current"],
+  stats: ["title"],
+  details: ["title"],
+  divider: [],
+} as const satisfies Record<string, readonly string[]>;
+export type AtomBlockType = keyof typeof ATOM_BLOCK_ATTRS;
 
-export function isRowBlockType(type: string): type is RowBlockType {
-  return ROW_BLOCK_TYPES.some((rowType) => rowType === type);
+export function isAtomBlockType(type: string): type is AtomBlockType {
+  return Object.hasOwn(ATOM_BLOCK_ATTRS, type);
 }
 
 /// Tabs and line breaks separate cells and rows, so they can't live inside one.

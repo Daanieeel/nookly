@@ -14,12 +14,17 @@ export function StepsBlock(props: ReactNodeViewProps) {
   const { node, updateAttributes } = props;
   // SAFETY: the steps node only ever writes `rows` as a string.
   const steps = parseCells(asString(node.attrs.rows as JSONAttrValue | undefined) ?? "", 2);
-  // SAFETY: the steps node only ever writes `current` as a number or null.
-  const current = (node.attrs.current as number | null) ?? null;
+  // SAFETY: the steps node only ever writes `current` as a string or null; it's the
+  // 1 based number of the step you're on, unset before starting.
+  const currentAttr = asString(node.attrs.current as JSONAttrValue | undefined);
+  const current = currentAttr ? Number(currentAttr) : null;
   const { containerRef, focus, onArrow, removeBlock } = useRowKeyboard(props);
 
   const save = (next: string[][], nextCurrent: number | null = current) =>
-    updateAttributes({ rows: serializeCells(next), current: nextCurrent });
+    updateAttributes({
+      rows: serializeCells(next),
+      current: nextCurrent === null ? null : String(nextCurrent),
+    });
   const patch = (index: number, cell: number, text: string) =>
     save(
       steps.map((step, i) => (i === index ? step.map((c, j) => (j === cell ? text : c)) : step)),

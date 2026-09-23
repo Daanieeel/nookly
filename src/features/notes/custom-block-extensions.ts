@@ -1,3 +1,4 @@
+import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import {
   mergeAttributes,
   Node,
@@ -9,6 +10,7 @@ import { CalloutBlock } from "./CalloutBlock";
 import { ProgressBlock } from "./ProgressBlock";
 import { TimelineBlock } from "./TimelineBlock";
 import { TreeBlock } from "./TreeBlock";
+import { ATOM_BLOCK_ATTRS, type AtomBlockType } from "./custom-block-rows";
 import { DetailsBlock } from "./DetailsBlock";
 import { StatsBlock } from "./StatsBlock";
 import { StepsBlock } from "./StepsBlock";
@@ -42,13 +44,9 @@ export const Callout = Node.create({
   },
 });
 
-/// A block whose whole content is its `rows` string, edited through its own
-/// inputs rather than as document text.
-function rowBlock(
-  name: string,
-  component: ComponentType<ReactNodeViewProps>,
-  extraAttributes: Record<string, { default: null }> = {},
-) {
+/// A block whose whole content is its `rows` string plus the string attrs
+/// `ATOM_BLOCK_ATTRS` lists, edited through its own UI rather than as document text.
+export function atomBlock(name: AtomBlockType, component: ComponentType<ReactNodeViewProps>) {
   return Node.create({
     name,
     group: "block",
@@ -63,13 +61,17 @@ function rowBlock(
           parseHTML: (element: HTMLElement) => element.getAttribute("data-rows") ?? "",
           renderHTML: (attributes: { rows?: string }) => ({ "data-rows": attributes.rows }),
         },
-        title: {
-          default: null,
-          parseHTML: (element: HTMLElement) => element.getAttribute("data-title"),
-          renderHTML: (attributes: { title?: string | null }) =>
-            attributes.title ? { "data-title": attributes.title } : {},
-        },
-        ...extraAttributes,
+        ...Object.fromEntries(
+          ATOM_BLOCK_ATTRS[name].map((attr) => [
+            attr,
+            {
+              default: null,
+              parseHTML: (element: HTMLElement) => element.getAttribute(`data-${attr}`),
+              renderHTML: (attributes: Record<string, string | null>) =>
+                attributes[attr] ? { [`data-${attr}`]: attributes[attr] } : {},
+            },
+          ]),
+        ),
       };
     },
     parseHTML() {
@@ -84,10 +86,13 @@ function rowBlock(
   });
 }
 
-export const Timeline = rowBlock("timeline", TimelineBlock);
-export const Progress = rowBlock("progress", ProgressBlock);
-export const Tree = rowBlock("tree", TreeBlock);
-/// `current` is the 1 based number of the step you're on, `null` before starting.
-export const Steps = rowBlock("steps", StepsBlock, { current: { default: null } });
-export const Stats = rowBlock("stats", StatsBlock);
-export const Details = rowBlock("details", DetailsBlock);
+export const Timeline = atomBlock("timeline", TimelineBlock);
+export const Progress = atomBlock("progress", ProgressBlock);
+export const Tree = atomBlock("tree", TreeBlock);
+export const Steps = atomBlock("steps", StepsBlock);
+export const Stats = atomBlock("stats", StatsBlock);
+export const Details = atomBlock("details", DetailsBlock);
+
+/// StarterKit's horizontal rule (with its `---` input rule), named after the
+/// backend block type it saves as.
+export const Divider = HorizontalRule.extend({ name: "divider" });

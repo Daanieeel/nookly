@@ -2,6 +2,7 @@ import {
   IconBinaryTree,
   IconCode,
   IconInfoCircle,
+  IconSeparatorHorizontal,
   IconListCheck,
   IconListDetails,
   IconNumber,
@@ -78,6 +79,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: <IconInfoCircle size={15} />,
     run: (editor, range) =>
       editor.chain().focus().deleteRange(range).setNode("callout", { variant: "note" }).run(),
+  },
+  {
+    title: "Divider",
+    group: "Text",
+    description: "A line between sections",
+    icon: <IconSeparatorHorizontal size={15} />,
+    run: (editor, range) => editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
   },
   {
     title: "Code block",
