@@ -108,7 +108,7 @@ jobs:
 
       # Builds are unsigned until signing secrets are configured. When they are,
       # tauri-action picks up APPLE_CERTIFICATE / APPLE_ID / etc. from env.
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
