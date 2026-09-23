@@ -28,6 +28,7 @@ import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { UniqueBlockId } from "./unique-block-id";
+import { HeadingAnchors, type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
 const MENTION_HREF_PREFIX = "mention:";
@@ -40,9 +41,12 @@ export function BlockEditor({
   entityId,
   spaceId,
   compact = false,
+  onSectionsChange,
 }: {
   entityId: string;
   spaceId: string;
+  /// The page's headings, whenever they change, for a section navigator.
+  onSectionsChange?: (sections: PageSection[]) => void;
   /// Starts at a single empty line and grows with content, instead of the
   /// full-page canvas's `min-h-40` — for a Notes surface embedded inline
   /// inside another entity's page (e.g. Course Notes) rather than owning
@@ -71,6 +75,7 @@ export function BlockEditor({
       spaceId={spaceId}
       compact={compact}
       initialBlocks={blocks}
+      onSectionsChange={onSectionsChange}
     />
   );
 }
@@ -80,11 +85,13 @@ function HydratedBlockEditor({
   spaceId,
   compact,
   initialBlocks,
+  onSectionsChange,
 }: {
   entityId: string;
   spaceId: string;
   compact: boolean;
   initialBlocks: Block[];
+  onSectionsChange?: (sections: PageSection[]) => void;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
@@ -249,6 +256,7 @@ function HydratedBlockEditor({
       Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
       TableKit.configure({ table: { resizable: true } }),
       UniqueBlockId,
+      HeadingAnchors,
       BlockSelection,
       SlashCommand,
       Mention.configure({ getEntities: () => entitiesRef.current }),
@@ -276,6 +284,27 @@ function HydratedBlockEditor({
       debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
     },
   });
+
+  // Reports the headings after every change to the document, including edits
+  // pulled in from outside, but only when the outline itself changed.
+  const onSectionsChangeRef = useRef(onSectionsChange);
+  onSectionsChangeRef.current = onSectionsChange;
+  useEffect(() => {
+    if (!editor) return;
+    let last = "";
+    const report = () => {
+      const sections = pageSections(editor.state.doc);
+      const key = JSON.stringify(sections);
+      if (key === last) return;
+      last = key;
+      onSectionsChangeRef.current?.(sections);
+    };
+    report();
+    editor.on("transaction", report);
+    return () => {
+      editor.off("transaction", report);
+    };
+  }, [editor]);
 
   // Scrolls to a block requested from outside (a block level search result)
   // once the page has hydrated, then hands the request back.

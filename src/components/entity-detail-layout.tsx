@@ -25,6 +25,7 @@ export function EntityDetailLayout({
   entity,
   headerExtra,
   exportable = false,
+  bodyOverlay,
   children,
 }: {
   entity: Entity;
@@ -33,6 +34,9 @@ export function EntityDetailLayout({
   /// Small, optional content rendered after the title — e.g. the Semester page's "Current" badge. Nothing else in the
   /// header varies per entity type (Course page convention).
   headerExtra?: React.ReactNode;
+  /// Floats over the scrolling body, e.g. a page's section navigator. Gets the
+  /// body's scroll container, since the body scrolls rather than the window.
+  bodyOverlay?: (scrollContainer: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -110,7 +114,8 @@ export function EntityDetailLayout({
         className={`flex min-h-0 min-w-0 flex-1 ${isDeleted ? "opacity-50" : ""}`}
         inert={isDeleted || undefined}
       >
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Clipped so a floating `bodyOverlay` can never make the page itself scroll. */}
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-clip">
           <div
             className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2"
             {...entityTarget(entity)}
@@ -184,6 +189,7 @@ export function EntityDetailLayout({
           <div ref={bodyRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
             {children}
           </div>
+          {bodyOverlay?.(bodyRef)}
         </div>
         <RightSidebar entity={entity} actions={actions} />
       </div>

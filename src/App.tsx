@@ -17,6 +17,7 @@ import { RecentsView } from "@/features/dashboard/RecentsView";
 import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
 import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
+import { useScopedSelectAll } from "@/hooks/use-scoped-select-all";
 import { useNavStore } from "@/lib/store/nav";
 import "@/context-actions";
 
@@ -52,6 +53,7 @@ function MainContent() {
 function Shell() {
   const view = useNavStore((s) => s.view);
   useExternalDbChanges();
+  useScopedSelectAll();
   const isEntityView = view.kind === "entity";
 
   return (
