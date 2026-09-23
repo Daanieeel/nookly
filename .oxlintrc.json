@@ -18,8 +18,12 @@
   ],
   "jsPlugins": [
     { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" },
-    "@shadcn/lint"
+    "@shadcn/lint",
+    "eslint-plugin-better-tailwindcss"
   ],
+  "settings": {
+    "better-tailwindcss": { "entryPoint": "src/styles.css" }
+  },
   "plugins": ["jsx-a11y", "react-perf"],
   "rules": {
     "anti-slop/no-chained-type-assertions": "error",
@@ -69,7 +73,8 @@
     "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"] }],
     "shadcn/no-inline-styles": ["error", { "allow": ["transform", "transition"] }],
     "shadcn/no-unknown-classes": "error",
-    "shadcn/require-static-classes": "error"
+    "shadcn/require-static-classes": "error",
+    "better-tailwindcss/enforce-canonical-classes": "error"
   },
   "overrides": [
     {

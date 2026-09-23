@@ -326,7 +326,7 @@ function SemesterRow({
       }}
       className={cn(
         "group flex flex-col rounded-lg border bg-card transition-colors",
-        active ? "border-primary/60 bg-primary/[0.03]" : "border-border",
+        active ? "border-primary/60 bg-primary/3" : "border-border",
         dragging && "opacity-40",
         dragOver && "border-primary",
       )}
@@ -544,7 +544,7 @@ function SemesterRow({
                 key={course.id}
                 type="button"
                 onClick={() => openEntity(course.id, spaceId)}
-                className="flex items-center gap-1.5 rounded-sm px-1 py-1 text-left text-sm text-foreground hover:bg-accent"
+                className="flex items-center gap-1.5 rounded-sm p-1 text-left text-sm text-foreground hover:bg-accent"
               >
                 <EntityIcon entity={course} size={14} className="text-muted-foreground" />
                 {displayTitle(course)}

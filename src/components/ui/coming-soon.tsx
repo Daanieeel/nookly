@@ -28,7 +28,7 @@ function ComingSoon({
       />
       <div
         aria-hidden
-        className="bg-accent-purple/20 absolute top-1/2 left-1/2 size-64 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        className="bg-accent-purple/20 absolute top-1/2 left-1/2 size-64 -translate-1/2 rounded-full blur-3xl"
       />
       <div
         aria-hidden

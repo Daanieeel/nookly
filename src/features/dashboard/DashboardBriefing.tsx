@@ -77,7 +77,7 @@ export function DashboardBriefing() {
   return (
     <div className="flow-root mb-8">
       <DashboardMascotCorner />
-      <p className="text-2xl leading-relaxed text-foreground">
+      <p className="text-2xl/relaxed text-foreground">
         <span className="font-semibold">{briefing.greeting}!</span> {renderClause(sessionsClause)}
         <Filler>{briefing.connectors[0]}</Filler>
         {renderClause(tasksClause)}

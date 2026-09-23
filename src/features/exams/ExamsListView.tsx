@@ -135,7 +135,7 @@ export function ExamsListView({
             key={exam.entity.id}
             type="button"
             onClick={() => openEntity(exam.entity.id, spaceId)}
-            className="flex items-center gap-2.5 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+            className="flex items-center gap-2.5 rounded-sm p-2 text-left text-sm hover:bg-accent"
           >
             <UrgencyDot examDate={exam.examDate} status={exam.status} />
             <span className="min-w-0 flex-1 truncate">{displayTitle(exam.entity)}</span>

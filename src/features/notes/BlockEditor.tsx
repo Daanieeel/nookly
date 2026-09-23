@@ -178,7 +178,7 @@ export function BlockEditor({
     ],
     editorProps: {
       attributes: {
-        class: cn("tiptap-content text-sm leading-relaxed", !compact && "min-h-40"),
+        class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
       },
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {
         const target = event.target;

@@ -33,7 +33,7 @@ export function ThemeToggle({ iconOnly }: { iconOnly?: boolean } = {}) {
         size="sm"
         className={
           iconOnly
-            ? "h-auto w-auto justify-center gap-0 p-1.5 [&>svg:last-child]:hidden"
+            ? "size-auto justify-center gap-0 p-1.5 [&>svg:last-child]:hidden"
             : "h-auto w-full px-2 py-1.5"
         }
         aria-label="Switch theme"

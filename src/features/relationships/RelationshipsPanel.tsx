@@ -74,7 +74,7 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
           <SelectTrigger
             variant="ghost"
             size="sm"
-            className="h-6 w-6 justify-center p-0 [&>svg]:hidden"
+            className="size-6 justify-center p-0 [&>svg]:hidden"
           >
             <IconPlus size={14} />
           </SelectTrigger>

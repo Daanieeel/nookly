@@ -289,7 +289,7 @@ function CourseSection({
           </div>
         </Card>
       </CollapsibleTrigger>
-      <CollapsibleContent className="grid grid-cols-1 gap-3 pt-2 pb-2 pl-5 sm:grid-cols-2 lg:grid-cols-3">
+      <CollapsibleContent className="grid grid-cols-1 gap-3 py-2 pl-5 sm:grid-cols-2 lg:grid-cols-3">
         {courses.map(children)}
       </CollapsibleContent>
     </Collapsible>

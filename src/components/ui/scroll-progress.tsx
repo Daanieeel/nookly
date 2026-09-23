@@ -172,7 +172,7 @@ const ScrollProgress = ({
           ref={collapsedRef}
           className="inline-flex items-center gap-2.5 py-1.5 pl-2 pr-4"
         >
-          <span className="h-5 w-5" />
+          <span className="size-5" />
           <span
             ref={labelRef}
             className="whitespace-nowrap text-sm font-medium leading-none"
@@ -186,7 +186,7 @@ const ScrollProgress = ({
               key={s.id}
               className="flex items-center gap-3 px-3 py-2 text-sm font-medium leading-none"
             >
-              <span className="h-1.5 w-1.5" />
+              <span className="size-1.5" />
               <span className="whitespace-nowrap">{s.label}</span>
             </div>
           ))}
@@ -253,7 +253,7 @@ const ScrollProgress = ({
                         )}
                         <motion.span
                           className={cn(
-                            "relative h-1.5 w-1.5 shrink-0 rounded-full",
+                            "relative size-1.5 shrink-0 rounded-full",
                             isActive ? "bg-foreground" : "bg-foreground/30"
                           )}
                           initial={
@@ -308,7 +308,7 @@ const ScrollProgress = ({
                 transition={LAYER_FADE}
               >
                 <span className="shrink-0">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 -rotate-90" aria-hidden>
+                  <svg viewBox="0 0 24 24" className="size-5 -rotate-90" aria-hidden>
                     <circle
                       cx="12"
                       cy="12"

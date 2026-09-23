@@ -141,7 +141,7 @@ export function AssignmentsListView({
         {sorted.map((a) => (
           <div
             key={a.entity.id}
-            className="flex items-center gap-2.5 rounded-sm px-2 py-2 hover:bg-accent"
+            className="flex items-center gap-2.5 rounded-sm p-2 hover:bg-accent"
           >
             <UrgencyDot dueDate={a.dueDate} status={a.status} />
             <button
