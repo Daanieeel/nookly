@@ -226,10 +226,7 @@ const ScrollProgress = ({
                         {isActive && (
                           <motion.span
                             layoutId={`${layoutId}-active`}
-                            className={cn(
-                              "absolute inset-0 rounded-[14px] bg-accent/70",
-                              squircle,
-                            )}
+                            className={cn("absolute inset-0 rounded-[14px] bg-accent/70", squircle)}
                             transition={reduceMotion ? { duration: 0 } : SIZE_SPRING}
                           />
                         )}
