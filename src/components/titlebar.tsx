@@ -4,15 +4,18 @@ import {
   IconHistory,
   IconLayoutDashboard,
   IconPin,
+  IconRefresh,
   IconSearch,
   IconSettings,
   IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { entityTarget } from "@/components/context-menu/registry";
 import { EntityIcon } from "@/components/entity-icon";
+import { StatusButtonContent, useActionStatus } from "@/components/action-feedback";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UpdateCard } from "@/components/update-card";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,6 +25,7 @@ import { listSpaces } from "@/lib/api/spaces";
 import { displayTitle } from "@/lib/entity-title";
 import { MODULE_ICONS, MODULE_LABELS, moduleForEntityType } from "@/lib/modules";
 import { useNavStore } from "@/lib/store/nav";
+import { APP_UPDATE_QUERY_KEY, checkForUpdate, useAppVersion } from "@/lib/updater";
 import { cn } from "@/lib/utils";
 
 function Crumb({ icon, label, onClick }: { icon: ReactNode; label: string; onClick?: () => void }) {
@@ -138,8 +142,48 @@ function SettingsPopover() {
       <PopoverContent align="end" className="flex w-fit flex-col gap-2 p-3">
         <span className="text-xs font-medium text-muted-foreground">Theme</span>
         <ThemeToggle />
+        <VersionSection />
       </PopoverContent>
     </Popover>
+  );
+}
+
+function VersionSection() {
+  const version = useAppVersion();
+  const queryClient = useQueryClient();
+  const checkUpdate = useMutation({
+    mutationFn: () =>
+      queryClient.fetchQuery({
+        queryKey: APP_UPDATE_QUERY_KEY,
+        queryFn: checkForUpdate,
+        staleTime: 0,
+      }),
+  });
+  const status = useActionStatus(checkUpdate);
+
+  return (
+    <>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-muted-foreground">Version</span>
+          <span className="text-sm tabular-nums">{version ? `v${version}` : ""}</span>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => !checkUpdate.isPending && checkUpdate.mutate()}
+        >
+          <StatusButtonContent
+            status={status}
+            icon={<IconRefresh size={14} />}
+            label="Check for updates"
+            successLabel={checkUpdate.data ? "Update found" : "Up to date"}
+            errorLabel="Couldn't check"
+          />
+        </Button>
+      </div>
+      <UpdateCard className="max-w-64" />
+    </>
   );
 }
 

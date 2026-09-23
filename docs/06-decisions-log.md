@@ -167,3 +167,13 @@ Every language twinkleplop ships goes through it. Shiki only covers the picker l
 **Why:** the edited block is retokenized synchronously on every keystroke. Shiki's JS engine takes about 16ms for an 80 line block, a full frame, while twinkleplop takes under 0.1ms. First highlight after launch drops from about 300ms to about 20ms.
 
 **Rejected:** a full swap now (loses six languages), and staying on Shiki alone. Twinkleplop is 0.x, so versions are pinned exactly and its API is contained in `twinkleplop-highlighter.ts`.
+
+---
+
+### Updates come from GitHub Releases through the Tauri updater
+
+The app reads `latest.json` from the newest published release, checks on launch and every six hours, and installs plus restarts in one click from the sidebar card or the settings popover.
+
+**Why:** releases already live on GitHub, and `tauri-action` generates and uploads the signed update manifest for free.
+
+**Rejected:** a custom update server, and silent background installs.
