@@ -34,7 +34,12 @@ export function mathBlockLatex(source: string): string {
   if (source.includes("\\begin{")) return source;
   const rows = source
     .split("\n")
-    .map((line) => line.trim().replace(/(?:\\\\)+$/, "").trimEnd())
+    .map((line) =>
+      line
+        .trim()
+        .replace(/(?:\\\\)+$/, "")
+        .trimEnd(),
+    )
     .filter((line) => line !== "");
   return rows.length > 1
     ? `\\begin{aligned}\n${rows.join(" \\\\\n")}\n\\end{aligned}`

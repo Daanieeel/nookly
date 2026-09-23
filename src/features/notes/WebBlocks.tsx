@@ -2,6 +2,7 @@ import {
   IconBookmark,
   IconExternalLink,
   IconLink,
+  IconRefresh,
   IconReplace,
   IconWorld,
 } from "@tabler/icons-react";
@@ -9,7 +10,12 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
-import { FieldError, StatusButtonContent, useActionStatus } from "@/components/action-feedback";
+import {
+  FieldError,
+  StatusButtonContent,
+  StatusIcon,
+  useActionStatus,
+} from "@/components/action-feedback";
 import { entityTarget } from "@/components/context-menu/registry";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
@@ -241,44 +247,84 @@ export function BookmarkBlock({ node, updateAttributes, extension, editor }: Rea
   }
 
   return (
+    <BookmarkView
+      bookmarkId={bookmarkId}
+      editable={editor.isEditable}
+      onReplace={() => updateAttributes({ rows: "" })}
+    />
+  );
+}
+
+function BookmarkView({
+  bookmarkId,
+  editable,
+  onReplace,
+}: {
+  bookmarkId: string;
+  editable: boolean;
+  onReplace: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: bookmark, isError } = useQuery({
+    queryKey: ["bookmark", bookmarkId],
+    queryFn: () => getBookmark(bookmarkId),
+  });
+  // Fetched on its own when missing (a bookmark added offline), and again on
+  // Refresh Preview.
+  const refresh = useMutation({
+    mutationFn: (b: Bookmark) => fetchBookmarkMetadata(b.entity.id, b.url),
+    onSuccess: (fresh) => queryClient.setQueryData(["bookmark", bookmarkId], fresh),
+  });
+  const refreshStatus = useActionStatus(refresh);
+  const needsMetadata = bookmark !== undefined && bookmark.metadataFetchedAt === null;
+  useEffect(() => {
+    if (needsMetadata && bookmark && refresh.isIdle) refresh.mutate(bookmark);
+  }, [needsMetadata, bookmark, refresh]);
+
+  return (
     <NodeViewWrapper className="group/media relative my-1" contentEditable={false}>
-      <BookmarkCard bookmarkId={bookmarkId} />
-      {editor.isEditable && (
+      {isError ? (
+        <div className="media-card text-sm text-muted-foreground">
+          This bookmark no longer exists.
+        </div>
+      ) : bookmark ? (
+        <BookmarkCard bookmark={bookmark} />
+      ) : (
+        <div className="media-card h-24 animate-pulse" />
+      )}
+      {bookmark && (
         <div className="media-toolbar">
-          <ToolbarButton label="Replace Bookmark" onClick={() => updateAttributes({ rows: "" })}>
-            <IconReplace className="size-3.5" />
+          <ToolbarButton
+            label={refreshStatus === "error" ? "Couldn't Refresh, Try Again" : "Refresh Preview"}
+            onClick={() => !refresh.isPending && refresh.mutate(bookmark)}
+          >
+            <StatusIcon
+              status={refreshStatus}
+              idle={<IconRefresh className="size-3.5" />}
+              size={14}
+            />
           </ToolbarButton>
+          {editable && (
+            <ToolbarButton label="Replace Bookmark" onClick={onReplace}>
+              <IconReplace className="size-3.5" />
+            </ToolbarButton>
+          )}
         </div>
       )}
     </NodeViewWrapper>
   );
 }
 
-function BookmarkCard({ bookmarkId }: { bookmarkId: string }) {
-  const queryClient = useQueryClient();
-  const { data: bookmark, isError } = useQuery({
-    queryKey: ["bookmark", bookmarkId],
-    queryFn: () => getBookmark(bookmarkId),
-  });
-  // Metadata is fetched once, whenever it's missing (a bookmark added offline).
-  const refresh = useMutation({
-    mutationFn: (b: Bookmark) => fetchBookmarkMetadata(b.entity.id, b.url),
-    onSuccess: (fresh) => queryClient.setQueryData(["bookmark", bookmarkId], fresh),
-  });
-  const needsMetadata = bookmark !== undefined && bookmark.metadataFetchedAt === null;
-  useEffect(() => {
-    if (needsMetadata && bookmark && refresh.isIdle) refresh.mutate(bookmark);
-  }, [needsMetadata, bookmark, refresh]);
-
-  if (isError) {
-    return (
-      <div className="media-card text-sm text-muted-foreground">
-        This bookmark no longer exists.
-      </div>
-    );
-  }
-  if (!bookmark) return <div className="media-card h-24 animate-pulse" />;
-
+function BookmarkCard({ bookmark }: { bookmark: Bookmark }) {
+  // Remote images fail often (hotlink protection, moved files); a failed one
+  // disappears instead of leaving a broken image box.
+  const [broken, setBroken] = useState<{ favicon?: string; preview?: string }>({});
+  const favicon =
+    bookmark.faviconUrl && broken.favicon !== bookmark.faviconUrl ? bookmark.faviconUrl : null;
+  const preview =
+    bookmark.previewImageUrl && broken.preview !== bookmark.previewImageUrl
+      ? bookmark.previewImageUrl
+      : null;
   const title = bookmark.fetchedTitle || displayTitle(bookmark.entity);
   return (
     <button
@@ -296,18 +342,24 @@ function BookmarkCard({ bookmarkId }: { bookmarkId: string }) {
           <span className="line-clamp-2 text-xs text-muted-foreground">{bookmark.description}</span>
         )}
         <span className="mt-auto flex min-w-0 items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-          {bookmark.faviconUrl ? (
-            <img src={bookmark.faviconUrl} alt="" className="size-3.5 shrink-0 rounded-sm" />
+          {favicon ? (
+            <img
+              src={favicon}
+              alt=""
+              onError={() => setBroken((b) => ({ ...b, favicon }))}
+              className="size-3.5 shrink-0 rounded-sm"
+            />
           ) : (
             <IconLink className="size-3.5 shrink-0" />
           )}
           <span className="truncate">{hostOf(bookmark.url)}</span>
         </span>
       </span>
-      {bookmark.previewImageUrl && (
+      {preview && (
         <img
-          src={bookmark.previewImageUrl}
+          src={preview}
           alt=""
+          onError={() => setBroken((b) => ({ ...b, preview }))}
           className="hidden h-full w-44 shrink-0 border-l border-border object-cover sm:block"
         />
       )}
