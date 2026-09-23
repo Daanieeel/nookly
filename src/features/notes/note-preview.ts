@@ -16,6 +16,7 @@ export function previewLines(markdown: string): string[] {
         .replace(INLINE_CODE, "$1")
         .replace(PAIRED_MARKS, "$2")
         .replace(SINGLE_MARKS, "$1$2")
+        .replaceAll("\\$", "$")
         .trim(),
     )
     .filter(Boolean);

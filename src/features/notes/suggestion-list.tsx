@@ -1,4 +1,12 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +15,9 @@ export interface SuggestionListItem {
   icon: React.ReactNode;
   label: string;
   description?: string;
+  /// Heading the item is listed under. Items of one group must be adjacent;
+  /// groups left empty by a search disappear with their heading.
+  group?: string;
 }
 
 export interface SuggestionListHandle {
@@ -46,7 +57,9 @@ export const SuggestionList = forwardRef<
   useEffect(() => setSelected(0), [visible]);
 
   useEffect(() => {
-    listRef.current?.children[selected]?.scrollIntoView({ block: "nearest" });
+    listRef.current
+      ?.querySelector(`[data-index="${selected}"]`)
+      ?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
   const select = (visibleIndex: number) => {
@@ -108,28 +121,42 @@ export const SuggestionList = forwardRef<
           className="flex max-h-[calc(5.5*3rem+5*0.125rem+0.5rem)] flex-col gap-0.5 overflow-y-auto p-1"
         >
           {visible.map((item, index) => (
-            <button
-              key={item.key}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => select(index)}
-              className={cn(
-                "flex w-full shrink-0 items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-                index === selected
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent hover:text-accent-foreground",
+            <Fragment key={item.key}>
+              {item.group && item.group !== visible[index - 1]?.group && (
+                <div
+                  className={cn(
+                    "shrink-0 px-2 pb-0.5 text-xs font-medium text-muted-foreground",
+                    index > 0 ? "pt-2" : "pt-1",
+                  )}
+                >
+                  {item.group}
+                </div>
               )}
-            >
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                {item.icon}
-              </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate font-medium">{item.label}</span>
-                {item.description && (
-                  <span className="truncate text-xs text-muted-foreground">{item.description}</span>
+              <button
+                data-index={index}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => select(index)}
+                className={cn(
+                  "flex w-full shrink-0 items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                  index === selected
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground",
                 )}
-              </span>
-            </button>
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  {item.icon}
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium">{item.label}</span>
+                  {item.description && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {item.description}
+                    </span>
+                  )}
+                </span>
+              </button>
+            </Fragment>
           ))}
         </div>
       )}

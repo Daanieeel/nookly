@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Block, BlockPatch, BlockType, Entity, PageSummary } from "./types";
+import type { Block, BlockAttrs, BlockPatch, BlockType, Entity, PageSummary } from "./types";
 
 export function createNote(spaceId: string, title: string): Promise<Entity> {
   return invoke("create_note", { spaceId, title });
@@ -46,8 +46,17 @@ export function createBlock(
   position: number | null = null,
   language: string | null = null,
   filename: string | null = null,
+  attrs: BlockAttrs | null = null,
 ): Promise<Block> {
-  return invoke("create_block", { entityId, blockType, content, position, language, filename });
+  return invoke("create_block", {
+    entityId,
+    blockType,
+    content,
+    position,
+    language,
+    filename,
+    attrs,
+  });
 }
 
 export function updateBlock(blockId: string, patch: BlockPatch): Promise<Block> {

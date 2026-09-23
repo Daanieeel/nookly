@@ -177,3 +177,23 @@ The app reads `latest.json` from the newest published release, checks on launch 
 **Why:** releases already live on GitHub, and `tauri-action` generates and uploads the signed update manifest for free.
 
 **Rejected:** a custom update server, and silent background installs.
+
+---
+
+### Custom blocks export as mdxcn framed ASCII
+
+Custom blocks (callout, timeline, progress, tree, steps, stats, details) serialize to mdxcn's fenced ASCII figures, ported to Rust in `ascii_frame.rs` (MIT).
+
+**Why:** plain markdown has no form for a timeline or progress bar. A fenced figure keeps the export complete and reads the same in a README, GitHub or Linear.
+
+**Rejected:** installing mdxcn's React components (Geist Mono, dashed frames, their own tokens clash with the design system), and GFM alerts for callouts (kept one export style for every custom block).
+
+---
+
+### Media, bookmark and linked item blocks point at entities
+
+Image, video, audio and file blocks hold a mention of a File entity, a web bookmark block a Bookmark entity, and a linked item card any entity. Uploads are imported into the page's Space.
+
+**Why:** Files and Bookmarks already own that data. The block is a viewer, the mention puts the page under the entity's Mentioned in, and nothing becomes a fourth linking mechanism.
+
+**Rejected:** storing uploads privately inside the page, invisible to the Files module.

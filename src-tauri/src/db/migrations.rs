@@ -289,5 +289,10 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         );
         CREATE UNIQUE INDEX idx_entities_key ON entities(key_prefix, key_number);
         ",
+    ), M::up(
+        "
+        -- Settings of custom blocks (`block_types`), a JSON object of strings.
+        ALTER TABLE blocks ADD COLUMN attrs TEXT;
+        ",
     )])
 });

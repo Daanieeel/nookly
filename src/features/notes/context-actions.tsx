@@ -76,8 +76,8 @@ interface BlockKind {
 const isHeading = (level: number) => (node: ProseMirrorNode) =>
   node.type.name === "heading" && node.attrs.level === level;
 
-/// Same set and order as the slash menu, minus Table: a table isn't something
-/// existing text turns into.
+/// Same set and order as the slash menu, minus Table, Timeline, Progress and Tree:
+/// those aren't something existing text turns into.
 const BLOCK_KINDS: BlockKind[] = [
   {
     title: "Text",
@@ -100,6 +100,21 @@ const BLOCK_KINDS: BlockKind[] = [
     apply: (chain) => chain.setNode("heading", { level: 3 }),
   },
   {
+    title: "Quote",
+    matches: (node) => node.type.name === "blockquote",
+    apply: (chain) => chain.toggleBlockquote(),
+  },
+  {
+    title: "Callout",
+    matches: (node) => node.type.name === "callout",
+    apply: (chain) => chain.setNode("callout", { variant: "note" }),
+  },
+  {
+    title: "Code block",
+    matches: (node) => node.type.name === "codeBlock",
+    apply: (chain) => chain.toggleCodeBlock(),
+  },
+  {
     title: "Bulleted list",
     matches: (node) => node.type.name === "bulletList",
     apply: (chain) => chain.toggleBulletList(),
@@ -110,14 +125,9 @@ const BLOCK_KINDS: BlockKind[] = [
     apply: (chain) => chain.toggleOrderedList(),
   },
   {
-    title: "Quote",
-    matches: (node) => node.type.name === "blockquote",
-    apply: (chain) => chain.toggleBlockquote(),
-  },
-  {
-    title: "Code block",
-    matches: (node) => node.type.name === "codeBlock",
-    apply: (chain) => chain.toggleCodeBlock(),
+    title: "Checklist",
+    matches: (node) => node.type.name === "taskList",
+    apply: (chain) => chain.toggleTaskList(),
   },
 ];
 
@@ -231,8 +241,9 @@ registerActions("note.block", [
     label: "Turn Into…",
     icon: IconTransform,
     when: ({ editor, blockId }) => {
-      const name = locateBlock(editor, blockId)?.node.type.name;
-      return editor.isEditable && name !== undefined && name !== "table";
+      // Tables and the row based custom blocks hold no text to convert.
+      const type = locateBlock(editor, blockId)?.node.type;
+      return editor.isEditable && type !== undefined && type.name !== "table" && !type.isAtom;
     },
     run: (target, helpers) =>
       helpers.openPopover((close) => <TurnIntoPicker target={target} close={close} />),

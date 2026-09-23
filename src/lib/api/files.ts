@@ -9,6 +9,10 @@ export function createFileLink(spaceId: string, title: string, url: string): Pro
   return invoke("create_file_link", { spaceId, title, url });
 }
 
+export function getFile(entityId: string): Promise<FileEntity> {
+  return invoke("get_file", { entityId });
+}
+
 export function listFiles(spaceId: string): Promise<FileEntity[]> {
   return invoke("list_files", { spaceId });
 }

@@ -1,4 +1,6 @@
+pub mod ascii_frame;
 pub mod assignments;
+pub mod block_types;
 pub mod bookmarks;
 pub mod courses;
 pub mod decks;

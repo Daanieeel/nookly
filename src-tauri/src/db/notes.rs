@@ -1,3 +1,4 @@
+use crate::db::block_types::{self, BlockAttrs};
 use crate::db::entities::{row_to_entity, Entity};
 use crate::db::schema::{CreateInput, EntitySchemaDef, JsonMap};
 use crate::error::{AppError, AppResult};
@@ -16,6 +17,9 @@ pub struct Block {
     /// display filename) — always `None` for every other block type.
     pub language: Option<String>,
     pub filename: Option<String>,
+    /// Settings of a custom block (`block_types`), like a callout's `variant`.
+    /// Always empty on the standard block types.
+    pub attrs: BlockAttrs,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -29,6 +33,10 @@ fn row_to_block(row: &rusqlite::Row) -> rusqlite::Result<Block> {
         content: row.get("content")?,
         language: row.get("language")?,
         filename: row.get("filename")?,
+        attrs: row
+            .get::<_, Option<String>>("attrs")?
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default(),
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -136,7 +144,7 @@ const PREVIEW_CHARS: usize = 280;
 
 /// Block types whose content reads as prose in a preview; code, tables and media don't.
 const PREVIEW_BLOCK_TYPES: &str =
-    "'paragraph','heading1','heading2','heading3','quote','bulleted_list','numbered_list'";
+    "'paragraph','heading1','heading2','heading3','quote','callout','bulleted_list','numbered_list'";
 
 /// Relationship edges seen from `e`: `t` is whichever end isn't `e`.
 const OTHER_END_JOIN: &str = "JOIN relationships r ON r.from_entity_id = e.id OR r.to_entity_id = e.id
@@ -385,6 +393,12 @@ fn parse_table_row(line: &str) -> Vec<String> {
         .collect()
 }
 
+fn attrs_json(attrs: &BlockAttrs) -> Option<String> {
+    (!attrs.is_empty()).then(|| serde_json::to_string(attrs).expect("string map always serializes"))
+}
+
+/// A block with no attrs, which is every standard block type.
+#[cfg(test)]
 pub fn create_block(
     conn: &Connection,
     entity_id: &str,
@@ -394,6 +408,34 @@ pub fn create_block(
     language: Option<String>,
     filename: Option<String>,
 ) -> AppResult<Block> {
+    create_block_with_attrs(
+        conn,
+        entity_id,
+        block_type,
+        content,
+        position,
+        language,
+        filename,
+        BlockAttrs::new(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn create_block_with_attrs(
+    conn: &Connection,
+    entity_id: &str,
+    block_type: String,
+    content: String,
+    position: Option<i64>,
+    language: Option<String>,
+    filename: Option<String>,
+    attrs: BlockAttrs,
+) -> AppResult<Block> {
+    block_types::validate_attrs(&block_type, &attrs)?;
+    block_types::validate_content(&block_type, &content)?;
+    let mut merged = BlockAttrs::new();
+    block_types::merge_attrs(&block_type, &mut merged, attrs);
+    let attrs = merged;
     let content = if block_type == "table" {
         normalize_table_content(&content).0
     } else {
@@ -413,9 +455,9 @@ pub fn create_block(
     let id = super::new_id();
     let now = super::now();
     conn.execute(
-        "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
-        params![id, entity_id, position, block_type, content, language, filename, now],
+        "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, attrs, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
+        params![id, entity_id, position, block_type, content, language, filename, attrs_json(&attrs), now],
     )?;
     reindex_page(conn, entity_id)?;
     Ok(Block {
@@ -426,6 +468,7 @@ pub fn create_block(
         content,
         language,
         filename,
+        attrs,
         created_at: now.clone(),
         updated_at: now,
     })
@@ -442,6 +485,10 @@ pub struct BlockPatch {
     /// leaves it untouched. Only ever meaningful on a `code` block.
     pub language: Option<String>,
     pub filename: Option<String>,
+    /// Merged into the block's attrs; an empty value clears that attr. Keys the
+    /// (possibly new) block type doesn't declare are dropped.
+    #[serde(default)]
+    pub attrs: Option<BlockAttrs>,
 }
 
 pub fn get_block(conn: &Connection, block_id: &str) -> AppResult<Block> {
@@ -470,10 +517,22 @@ pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> App
     if block.block_type == "table" {
         block.content = normalize_table_content(&block.content).0;
     }
+    let attrs_patch = patch.attrs.unwrap_or_default();
+    block_types::validate_attrs(&block.block_type, &attrs_patch)?;
+    block_types::validate_content(&block.block_type, &block.content)?;
+    block_types::merge_attrs(&block.block_type, &mut block.attrs, attrs_patch);
     let now = super::now();
     conn.execute(
-        "UPDATE blocks SET content = ?1, block_type = ?2, language = ?3, filename = ?4, updated_at = ?5 WHERE id = ?6",
-        params![block.content, block.block_type, block.language, block.filename, now, block_id],
+        "UPDATE blocks SET content = ?1, block_type = ?2, language = ?3, filename = ?4, attrs = ?5, updated_at = ?6 WHERE id = ?7",
+        params![
+            block.content,
+            block.block_type,
+            block.language,
+            block.filename,
+            attrs_json(&block.attrs),
+            now,
+            block_id
+        ],
     )?;
     block.updated_at = now;
     reindex_page(conn, &block.entity_id)?;
@@ -507,8 +566,12 @@ pub fn reorder_blocks(
 }
 
 /// Every block type's plain-markdown serialization (§5.2/§8) — guarantees a complete,
-/// if not visually polished, export for any block.
+/// if not visually polished, export for any block. Custom blocks serialize through
+/// their own `block_types` definition.
 pub fn block_to_markdown(block: &Block) -> String {
+    if let Some(def) = block_types::lookup(&block.block_type) {
+        return (def.to_markdown)(block);
+    }
     match block.block_type.as_str() {
         "heading1" => format!("# {}", block.content),
         "heading2" => format!("## {}", block.content),
@@ -542,8 +605,6 @@ pub fn block_to_markdown(block: &Block) -> String {
             .map(|(i, l)| format!("{}. {l}", i + 1))
             .collect::<Vec<_>>()
             .join("\n"),
-        "image" => format!("![]({})", block.content),
-        "embed" => format!("[embed]({})", block.content),
         // `content` is rows joined by "\n", cells within a row joined by "\t"
         // (§ table block), first row is the header — the editor's own storage
         // shape, not markdown; this is the one place it becomes real markdown.
@@ -576,17 +637,61 @@ pub fn block_to_markdown(block: &Block) -> String {
 
 pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<String> {
     let blocks = list_blocks(conn, entity_id)?;
-    Ok(blocks
+    let markdown = blocks
         .iter()
         .map(block_to_markdown)
         .collect::<Vec<_>>()
-        .join("\n\n"))
+        .join("\n\n");
+    resolve_file_links(conn, &markdown)
 }
 
+/// Mention links to File entities (an image block, a file mentioned in text)
+/// point at the file itself in an export: a `file://` URL for an imported copy,
+/// the provider URL for a linked one. Mentions of Bookmarks point at their URL.
+/// Every other mention stays as it is.
+fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
+    static TARGET: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)\)").unwrap());
+    let mut targets = std::collections::HashMap::new();
+    for id in TARGET.captures_iter(markdown).map(|c| c[1].to_string()) {
+        if targets.contains_key(&id) {
+            continue;
+        }
+        let file = crate::db::files::get_file(conn, &id).ok();
+        let target = match file {
+            Some(f) => match (f.local_path, f.url) {
+                (Some(path), _) => url::Url::from_file_path(&path).ok().map(|u| u.to_string()),
+                (None, url) => url,
+            },
+            None => crate::db::bookmarks::get_bookmark(conn, &id)
+                .ok()
+                .map(|b| b.url),
+        };
+        targets.insert(id, target);
+    }
+    Ok(TARGET
+        .replace_all(markdown, |caps: &regex::Captures| {
+            match targets.get(&caps[1]) {
+                Some(Some(target)) => format!("]({target})"),
+                _ => caps[0].to_string(),
+            }
+        })
+        .into_owned())
+}
+
+/// Search and the mention index read a custom block's raw content, not its
+/// exported figure: the ASCII frame drops mention links and pads words with glyphs.
 fn reindex_page(conn: &Connection, entity_id: &str) -> AppResult<()> {
-    let markdown = render_page_markdown(conn, entity_id)?;
-    sync_page_mentions(conn, entity_id, &markdown)?;
-    crate::db::search::index_entity_content(conn, entity_id, &markdown)
+    let text = list_blocks(conn, entity_id)?
+        .iter()
+        .map(|block| match block_types::lookup(&block.block_type) {
+            Some(_) => block.content.replace('\t', " "),
+            None => block_to_markdown(block),
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    sync_page_mentions(conn, entity_id, &text)?;
+    crate::db::search::index_entity_content(conn, entity_id, &text)
 }
 
 pub fn list_pages(
@@ -950,6 +1055,7 @@ mod tests {
                 block_type: None,
                 language: None,
                 filename: None,
+                attrs: None,
             },
         )
         .unwrap();
@@ -964,6 +1070,7 @@ mod tests {
                 block_type: Some("heading1".into()),
                 language: None,
                 filename: None,
+                attrs: None,
             },
         )
         .unwrap();
@@ -1077,6 +1184,42 @@ mod tests {
         assert!(list_mentioning_entities(&conn, &target.id)
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn export_points_file_mentions_at_the_file() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
+        let other = create_page(&conn, space.id.clone(), "note", "Other".into()).unwrap();
+        let file = crate::db::files::create_file_link(
+            &conn,
+            space.id,
+            "Slides".into(),
+            "https://example.com/slides.pdf".into(),
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            format!(
+                "See [Slides](mention:{}) and [Other](mention:{})",
+                file.entity.id, other.id
+            ),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let markdown = render_page_markdown(&conn, &page.id).unwrap();
+        assert!(markdown.contains("[Slides](https://example.com/slides.pdf)"));
+        assert!(markdown.contains(&format!("[Other](mention:{})", other.id)));
     }
 
     #[test]

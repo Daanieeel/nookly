@@ -430,6 +430,7 @@ mod tests {
             content: content.into(),
             language: None,
             filename: None,
+            attrs: Default::default(),
             created_at: String::new(),
             updated_at: String::new(),
         }

@@ -42,6 +42,12 @@ pub fn list_files(state: State<DbState>, space_id: String) -> AppResult<Vec<File
     files::list_files(&conn, &space_id)
 }
 
+#[tauri::command]
+pub fn get_file(state: State<DbState>, entity_id: String) -> AppResult<FileEntity> {
+    let conn = state.0.lock().unwrap();
+    files::get_file(&conn, &entity_id)
+}
+
 /// Copies an imported file out of Nookly's storage to `destination`, e.g. a path
 /// picked in a native save dialog. Link-only files have nothing local to copy.
 #[tauri::command]

@@ -68,6 +68,7 @@ pub fn list_mentioning_entities(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn create_block(
     state: State<DbState>,
     entity_id: String,
@@ -76,10 +77,18 @@ pub fn create_block(
     position: Option<i64>,
     language: Option<String>,
     filename: Option<String>,
+    attrs: Option<crate::db::block_types::BlockAttrs>,
 ) -> AppResult<Block> {
     let conn = state.0.lock().unwrap();
-    notes::create_block(
-        &conn, &entity_id, block_type, content, position, language, filename,
+    notes::create_block_with_attrs(
+        &conn,
+        &entity_id,
+        block_type,
+        content,
+        position,
+        language,
+        filename,
+        attrs.unwrap_or_default(),
     )
 }
 
