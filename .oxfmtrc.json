@@ -1,4 +1,10 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["**/dist/**", "**/target/**", "tools/oxlint/anti-slop/**", "CHANGELOG.md"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/target/**",
+    "tools/oxlint/anti-slop/**",
+    "CHANGELOG.md",
+    "**/*.icon/**"
+  ]
 }
