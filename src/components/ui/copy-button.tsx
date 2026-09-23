@@ -42,7 +42,7 @@ export function CopyButton({
     >
       {children}
       {copied ? (
-        <CheckIcon className={cn("text-accent-green", iconClassName)} />
+        <CheckIcon className={cn("text-positive", iconClassName)} />
       ) : (
         <CopyIcon className={iconClassName} />
       )}

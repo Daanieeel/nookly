@@ -25,7 +25,7 @@ function markdownFileName(entity: Entity): string {
 /// Stays open on click and confirms in place instead of with a toast. `CopyButton`
 /// needs the markdown up front, so it's fetched when the menu opens (menu content
 /// only mounts while open, so each open refetches). The label turns green by keying
-/// off the `text-accent-green` class `CopyButton` puts on its check icon, so both
+/// off the `text-positive` class `CopyButton` puts on its check icon, so both
 /// change on the same frame without reaching into the primitive's state.
 export function CopyPageMarkdownItem({ entity }: { entity: Entity }) {
   const { data: markdown } = useQuery({
@@ -42,7 +42,7 @@ export function CopyPageMarkdownItem({ entity }: { entity: Entity }) {
     >
       <CopyButton
         value={markdown ?? ""}
-        className="w-full flex-row-reverse justify-end has-[.text-accent-green]:text-accent-green focus:has-[.text-accent-green]:text-accent-green [&>svg:not(.text-accent-green)]:text-muted-foreground"
+        className="w-full flex-row-reverse justify-end has-[.text-positive]:text-positive focus:has-[.text-positive]:text-positive [&>svg:not(.text-positive)]:text-muted-foreground"
       >
         Copy Page as Markdown
       </CopyButton>

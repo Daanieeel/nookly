@@ -120,6 +120,8 @@
   --color-accent-pink: var(--accent-pink);
   --color-accent-purple: var(--accent-purple);
   --color-accent-yellow: var(--accent-yellow);
+  --color-positive: var(--accent-green);
+  --color-caution: var(--accent-yellow);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

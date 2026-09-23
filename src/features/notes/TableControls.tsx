@@ -67,13 +67,13 @@ export function TableControls({ editor }: { editor: Editor | null }) {
         icon: IconRowInsertBottom,
         label: "Add row",
         onClick: () => editor.chain().focus().addRowAfter().run(),
-        iconClassName: "text-accent-green",
+        iconClassName: "text-positive",
       },
       {
         icon: IconColumnInsertRight,
         label: "Add column",
         onClick: () => editor.chain().focus().addColumnAfter().run(),
-        iconClassName: "text-accent-green",
+        iconClassName: "text-positive",
       },
     ],
     [
