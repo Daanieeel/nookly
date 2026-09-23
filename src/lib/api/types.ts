@@ -191,7 +191,8 @@ export type BlockType =
   | "toggle"
   | "equation"
   | "math"
-  | "diagram";
+  | "diagram"
+  | "entity_card";
 
 export interface SessionOccurrence {
   entity: Entity;

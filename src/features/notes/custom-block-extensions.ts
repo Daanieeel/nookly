@@ -12,6 +12,7 @@ import { TimelineBlock } from "./TimelineBlock";
 import { TreeBlock } from "./TreeBlock";
 import { ATOM_BLOCK_ATTRS, type AtomBlockType } from "./custom-block-rows";
 import { DetailsBlock } from "./DetailsBlock";
+import { EntityCardBlock, type EntityCardOptions } from "./EntityCardBlock";
 import { StatsBlock } from "./StatsBlock";
 import { StepsBlock } from "./StepsBlock";
 
@@ -92,6 +93,13 @@ export const Tree = atomBlock("tree", TreeBlock);
 export const Steps = atomBlock("steps", StepsBlock);
 export const Stats = atomBlock("stats", StatsBlock);
 export const Details = atomBlock("details", DetailsBlock);
+
+/// A card for a linked entity; `spaceId` is the page's Space.
+export const EntityCard = atomBlock("entity_card", EntityCardBlock).extend<EntityCardOptions>({
+  addOptions() {
+    return { spaceId: "", pageId: "" };
+  },
+});
 
 /// StarterKit's horizontal rule (with its `---` input rule), named after the
 /// backend block type it saves as.

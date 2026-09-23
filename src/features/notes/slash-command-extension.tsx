@@ -4,6 +4,7 @@ import {
   IconChevronRight,
   IconHeading,
   IconInfoCircle,
+  IconLink,
   IconMathFunction,
   IconMathXDivideY2,
   IconSchema,
@@ -34,7 +35,7 @@ import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 interface SlashItem {
   title: string;
   /// Heading in the "/" and "+" menus; items of a group stay adjacent.
-  group: "Text" | "Lists" | "Data" | "Math and diagrams";
+  group: "Text" | "Lists" | "Data" | "Math and diagrams" | "Links and media";
   description: string;
   icon: React.ReactNode;
   run: (editor: Editor, range: Range) => void;
@@ -246,6 +247,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Flowcharts and more with Mermaid",
     icon: <IconSchema size={15} />,
     run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("diagram").run(),
+  },
+  {
+    title: "Linked item",
+    group: "Links and media",
+    description: "A live card for a task, exam, course or page",
+    icon: <IconLink size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "entity_card", ""),
   },
 ];
 

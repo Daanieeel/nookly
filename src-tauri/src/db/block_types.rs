@@ -843,6 +843,32 @@ inventory::submit! {
     }
 }
 
+// --- entity card -----------------------------------------------------------
+
+/// The one `[title](mention:<id>)` link a card is, or nothing yet.
+fn validate_mention_link(content: &str) -> Result<(), String> {
+    static LINK: OnceLock<regex::Regex> = OnceLock::new();
+    let re =
+        LINK.get_or_init(|| regex::Regex::new(r"^\[[^\]]*\]\(mention:[a-zA-Z0-9-]+\)$").unwrap());
+    let content = content.trim();
+    if content.is_empty() || re.is_match(content) {
+        Ok(())
+    } else {
+        Err("expected one mention link, [Title](mention:<entity-id>)".into())
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "entity_card",
+        content_format: "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity \
+                         type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        attrs: &[],
+        validate: validate_mention_link,
+        to_markdown: |block| block.content.trim().to_string(),
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -1026,6 +1052,8 @@ mod tests {
         assert!(validate_content("stats", "1\ta\n2\tb\n3\tc\n4\td\n5\te").is_err());
         assert!(validate_content("details", "a\tb\tc").is_err());
         assert!(validate_content("divider", "").is_ok());
+        assert!(validate_content("entity_card", "[Exam](mention:ab-12)").is_ok());
+        assert!(validate_content("entity_card", "Exam").is_err());
         assert!(validate_content("checklist", "[ ] a\n[x] b").is_ok());
         assert!(validate_content("checklist", "- [ ] a").is_err());
         assert!(validate_content("divider", "text").is_err());

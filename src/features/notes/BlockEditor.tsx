@@ -28,6 +28,7 @@ import {
   Callout,
   Details,
   Divider,
+  EntityCard,
   Progress,
   Stats,
   Steps,
@@ -305,6 +306,7 @@ function HydratedBlockEditor({
       Equation,
       MathBlock,
       Diagram,
+      EntityCard.configure({ spaceId, pageId: entityId }),
     ],
     editorProps: {
       attributes: {

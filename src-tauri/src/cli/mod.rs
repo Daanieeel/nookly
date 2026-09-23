@@ -555,6 +555,7 @@ nookly cli note add-block <id> --type stats --content "$(printf '3.7\tGPA\n90\tC
 nookly cli note add-block <id> --type details --content "$(printf 'Room\tB 204\nOffice hours\tTue 14:00')"
 nookly cli note add-block <id> --type checklist --content "$(printf '[x] Buy notebook\n[ ] Print slides')"
 nookly cli note add-block <id> --type divider --content ''
+nookly cli note add-block <id> --type entity_card --content '[Midterm](mention:<exam-id>)'
 nookly cli note add-block <id> --type toggle --content "$(printf 'What is a monad?\nA monoid in the category of endofunctors.')"
 nookly cli note add-block <id> --type heading2 --content 'Week 1' --attr toggle=closed   # toggle heading
 nookly cli note add-block <id> --type equation --content '\int_0^1 x^2\,dx = \frac{1}{3}' --attr view=rendered
