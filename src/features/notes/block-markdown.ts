@@ -160,9 +160,21 @@ export function blockToNode(block: Block): JSONNode {
     case "timeline":
     case "progress":
     case "tree":
+    case "stats":
+    case "details":
       return {
         type: block.blockType,
         attrs: { blockId, rows: block.content, title: block.attrs.title ?? null },
+      };
+    case "steps":
+      return {
+        type: "steps",
+        attrs: {
+          blockId,
+          rows: block.content,
+          title: block.attrs.title ?? null,
+          current: block.attrs.current ? Number(block.attrs.current) : null,
+        },
       };
     case "table": {
       const rows = block.content.length > 0 ? block.content.split("\n") : [""];
@@ -245,7 +257,11 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
         blockId,
         blockType: node.type,
         content: asString(node.attrs?.rows) ?? "",
-        attrs: { title: asString(node.attrs?.title) ?? "" },
+        attrs: {
+          title: asString(node.attrs?.title) ?? "",
+          // Steps only: the step you're on, `""` when none is.
+          ...(node.type === "steps" && { current: String(asNumber(node.attrs?.current) ?? "") }),
+        },
       };
   }
 }

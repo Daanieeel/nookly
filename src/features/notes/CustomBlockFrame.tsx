@@ -21,7 +21,8 @@ export function CustomBlockFrame({
   icon: ReactNode;
   titlePlaceholder: string;
   addLabel: string;
-  onAdd: () => void;
+  /// Hidden when the block can't take another row.
+  onAdd?: () => void;
   children: ReactNode;
 }) {
   // SAFETY: the custom block nodes only ever write `title` as `string | null`.
@@ -40,10 +41,12 @@ export function CustomBlockFrame({
       </div>
       <div className="custom-block-body" contentEditable={false}>
         {children}
-        <Button variant="ghost" size="sm" onClick={onAdd} className="mt-1 h-6 gap-1 px-1.5">
-          <IconPlus className="size-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">{addLabel}</span>
-        </Button>
+        {onAdd && (
+          <Button variant="ghost" size="sm" onClick={onAdd} className="mt-1 h-6 gap-1 px-1.5">
+            <IconPlus className="size-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">{addLabel}</span>
+          </Button>
+        )}
       </div>
     </NodeViewWrapper>
   );

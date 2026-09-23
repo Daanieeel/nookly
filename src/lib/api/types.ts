@@ -182,7 +182,10 @@ export type BlockType =
   | "callout"
   | "timeline"
   | "progress"
-  | "tree";
+  | "tree"
+  | "steps"
+  | "stats"
+  | "details";
 
 export interface SessionOccurrence {
   entity: Entity;

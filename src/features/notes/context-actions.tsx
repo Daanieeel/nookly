@@ -100,6 +100,21 @@ const BLOCK_KINDS: BlockKind[] = [
     apply: (chain) => chain.setNode("heading", { level: 3 }),
   },
   {
+    title: "Quote",
+    matches: (node) => node.type.name === "blockquote",
+    apply: (chain) => chain.toggleBlockquote(),
+  },
+  {
+    title: "Callout",
+    matches: (node) => node.type.name === "callout",
+    apply: (chain) => chain.setNode("callout", { variant: "note" }),
+  },
+  {
+    title: "Code block",
+    matches: (node) => node.type.name === "codeBlock",
+    apply: (chain) => chain.toggleCodeBlock(),
+  },
+  {
     title: "Bulleted list",
     matches: (node) => node.type.name === "bulletList",
     apply: (chain) => chain.toggleBulletList(),
@@ -108,21 +123,6 @@ const BLOCK_KINDS: BlockKind[] = [
     title: "Numbered list",
     matches: (node) => node.type.name === "orderedList",
     apply: (chain) => chain.toggleOrderedList(),
-  },
-  {
-    title: "Quote",
-    matches: (node) => node.type.name === "blockquote",
-    apply: (chain) => chain.toggleBlockquote(),
-  },
-  {
-    title: "Code block",
-    matches: (node) => node.type.name === "codeBlock",
-    apply: (chain) => chain.toggleCodeBlock(),
-  },
-  {
-    title: "Callout",
-    matches: (node) => node.type.name === "callout",
-    apply: (chain) => chain.setNode("callout", { variant: "note" }),
   },
 ];
 

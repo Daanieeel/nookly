@@ -9,6 +9,9 @@ import { CalloutBlock } from "./CalloutBlock";
 import { ProgressBlock } from "./ProgressBlock";
 import { TimelineBlock } from "./TimelineBlock";
 import { TreeBlock } from "./TreeBlock";
+import { DetailsBlock } from "./DetailsBlock";
+import { StatsBlock } from "./StatsBlock";
+import { StepsBlock } from "./StepsBlock";
 
 /// Editor nodes of the custom blocks. Each maps to one backend block type of the
 /// same name (`block_types.rs`), which owns its content format and its export.
@@ -41,7 +44,11 @@ export const Callout = Node.create({
 
 /// A block whose whole content is its `rows` string, edited through its own
 /// inputs rather than as document text.
-function rowBlock(name: string, component: ComponentType<ReactNodeViewProps>) {
+function rowBlock(
+  name: string,
+  component: ComponentType<ReactNodeViewProps>,
+  extraAttributes: Record<string, { default: null }> = {},
+) {
   return Node.create({
     name,
     group: "block",
@@ -62,6 +69,7 @@ function rowBlock(name: string, component: ComponentType<ReactNodeViewProps>) {
           renderHTML: (attributes: { title?: string | null }) =>
             attributes.title ? { "data-title": attributes.title } : {},
         },
+        ...extraAttributes,
       };
     },
     parseHTML() {
@@ -79,3 +87,7 @@ function rowBlock(name: string, component: ComponentType<ReactNodeViewProps>) {
 export const Timeline = rowBlock("timeline", TimelineBlock);
 export const Progress = rowBlock("progress", ProgressBlock);
 export const Tree = rowBlock("tree", TreeBlock);
+/// `current` is the 1 based number of the step you're on, `null` before starting.
+export const Steps = rowBlock("steps", StepsBlock, { current: { default: null } });
+export const Stats = rowBlock("stats", StatsBlock);
+export const Details = rowBlock("details", DetailsBlock);

@@ -16,6 +16,9 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "timeline",
   "progress",
   "tree",
+  "steps",
+  "stats",
+  "details",
 ];
 
 function generateBlockId(): string {

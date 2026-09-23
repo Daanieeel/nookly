@@ -182,7 +182,7 @@ The app reads `latest.json` from the newest published release, checks on launch 
 
 ### Custom blocks export as mdxcn framed ASCII
 
-Callout, timeline, progress and tree blocks serialize to mdxcn's fenced ASCII figures, ported to Rust in `ascii_frame.rs` (MIT).
+Custom blocks (callout, timeline, progress, tree, steps, stats, details) serialize to mdxcn's fenced ASCII figures, ported to Rust in `ascii_frame.rs` (MIT).
 
 **Why:** plain markdown has no form for a timeline or progress bar. A fenced figure keeps the export complete and reads the same in a README, GitHub or Linear.
 

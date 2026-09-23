@@ -6,7 +6,6 @@
 //! ASCII, so an exported page reads the same in a README, GitHub or Linear.
 
 const MIN_INNER: usize = 48;
-const WRAP_WIDTH: usize = 56;
 
 fn width_of(text: &str) -> usize {
     text.chars().count()
@@ -33,13 +32,13 @@ pub fn col_width<'a>(values: impl IntoIterator<Item = &'a str>) -> usize {
 }
 
 /// Greedy word wrap; a single word longer than `width` stays on its own line.
-pub fn wrap_text(text: &str) -> Vec<String> {
+pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();
     for word in text.split_whitespace() {
         if current.is_empty() {
             current.push_str(word);
-        } else if width_of(&current) + 1 + width_of(word) > WRAP_WIDTH {
+        } else if width_of(&current) + 1 + width_of(word) > width {
             lines.push(std::mem::take(&mut current));
             current.push_str(word);
         } else {
@@ -115,8 +114,8 @@ mod tests {
     #[test]
     fn wrap_text_breaks_on_word_boundaries() {
         let long = "word ".repeat(20);
-        let lines = wrap_text(&long);
+        let lines = wrap_text(&long, 56);
         assert!(lines.len() > 1);
-        assert!(lines.iter().all(|l| width_of(l) <= WRAP_WIDTH));
+        assert!(lines.iter().all(|l| width_of(l) <= 56));
     }
 }

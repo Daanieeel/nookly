@@ -538,7 +538,7 @@ nookly cli note add-block <id> --type code --content 'console.log(1)' --language
 Omit it (or pass `--language ""` on `update-block`) for plain, unhighlighted text. Same
 `""`-clears convention for `--filename`.
 
-### Custom blocks: `callout`, `timeline`, `progress`, `tree`
+### Custom blocks: `callout`, `timeline`, `progress`, `tree`, `steps`, `stats`, `details`
 
 Blocks beyond plain markdown. Their settings are `--attr <name>=<value>` flags (repeatable,
 an empty value clears one). `describe note` lists each type's content format and attrs under
@@ -550,6 +550,9 @@ nookly cli note add-block <id> --type callout --content 'Bring a calculator' --a
 nookly cli note add-block <id> --type timeline --attr title=Semester --content "$(printf 'Oct 14\tLectures start\nNov 30\tMidterm\tnow\nFeb 10\tFinal exam\tnext')"
 nookly cli note add-block <id> --type progress --content "$(printf 'Chapters read\t7\t12\nExercises\t30\t40')"
 nookly cli note add-block <id> --type tree --content "$(printf 'Thesis\n  Intro\n  Methods\n    Survey')"
+nookly cli note add-block <id> --type steps --attr current=2 --content "$(printf 'Register\tBefore Oct 1\nPay the fee\nPick courses')"
+nookly cli note add-block <id> --type stats --content "$(printf '3.7\tGPA\n90\tCredits\tof 180')"
+nookly cli note add-block <id> --type details --content "$(printf 'Room\tB 204\nOffice hours\tTue 14:00')"
 ```
 
 ### Tables: tabs and newlines, NOT markdown pipe syntax

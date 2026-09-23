@@ -23,7 +23,15 @@ import {
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
-import { Callout, Progress, Timeline, Tree } from "./custom-block-extensions";
+import {
+  Callout,
+  Details,
+  Progress,
+  Stats,
+  Steps,
+  Timeline,
+  Tree,
+} from "./custom-block-extensions";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { TableControls } from "./TableControls";
@@ -277,6 +285,9 @@ function HydratedBlockEditor({
       Timeline,
       Progress,
       Tree,
+      Steps,
+      Stats,
+      Details,
     ],
     editorProps: {
       attributes: {

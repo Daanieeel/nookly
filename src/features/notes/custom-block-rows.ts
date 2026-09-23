@@ -5,7 +5,14 @@
 
 /// Blocks that keep everything in a `rows` string and an optional `title`. The
 /// editor node and the backend block type share the name.
-export const ROW_BLOCK_TYPES = ["timeline", "progress", "tree"] as const;
+export const ROW_BLOCK_TYPES = [
+  "timeline",
+  "progress",
+  "tree",
+  "steps",
+  "stats",
+  "details",
+] as const;
 export type RowBlockType = (typeof ROW_BLOCK_TYPES)[number];
 
 export function isRowBlockType(type: string): type is RowBlockType {
@@ -125,3 +132,25 @@ export function treeConnectors(rows: TreeRow[]): TreeConnectors[] {
     return { through, last: !hasLaterSibling[i] };
   });
 }
+
+/// Rows of plain text cells (steps, stats, details): `width` cells per row,
+/// missing ones read as empty.
+export function parseCells(content: string, width: number): string[][] {
+  return lines(content).map((line) => {
+    const cells = line.split("\t");
+    return Array.from({ length: width }, (_, i) => cells[i] ?? "");
+  });
+}
+
+/// Trailing empty cells are dropped, so an optional last cell stays optional.
+export function serializeCells(rows: string[][]): string {
+  return rows
+    .map((row) => {
+      const cells = row.map(sanitizeCell);
+      while (cells.length > 1 && cells[cells.length - 1] === "") cells.pop();
+      return cells.join("\t");
+    })
+    .join("\n");
+}
+
+export const MAX_STATS = 4;

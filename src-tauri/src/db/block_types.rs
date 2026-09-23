@@ -19,12 +19,28 @@ use std::sync::OnceLock;
 
 pub type BlockAttrs = BTreeMap<String, String>;
 
+#[derive(Debug, Clone, Copy)]
+pub enum AttrKind {
+    Text,
+    Enum(&'static [&'static str]),
+    /// A whole number of at least `min`.
+    Integer {
+        min: i64,
+    },
+}
+
 pub struct BlockAttrDef {
     pub name: &'static str,
-    /// Allowed values; empty means free text.
-    pub values: &'static [&'static str],
+    pub kind: AttrKind,
     pub description: &'static str,
 }
+
+/// The optional heading every framed block shares.
+const TITLE_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "title",
+    kind: AttrKind::Text,
+    description: "Optional heading shown above the block, and as the frame title in markdown.",
+};
 
 pub struct BlockTypeDef {
     pub block_type: &'static str,
@@ -64,8 +80,16 @@ pub fn describe_attrs(def: &BlockTypeDef) -> serde_json::Value {
         .map(|attr| {
             let mut value =
                 serde_json::json!({ "name": attr.name, "description": attr.description });
-            if !attr.values.is_empty() {
-                value["values"] = serde_json::json!(attr.values);
+            match attr.kind {
+                AttrKind::Text => value["kind"] = "text".into(),
+                AttrKind::Enum(values) => {
+                    value["kind"] = "enum".into();
+                    value["values"] = serde_json::json!(values);
+                }
+                AttrKind::Integer { min } => {
+                    value["kind"] = "integer".into();
+                    value["min"] = min.into();
+                }
             }
             value
         })
@@ -88,11 +112,25 @@ pub fn validate_attrs(block_type: &str, patch: &BlockAttrs) -> AppResult<()> {
                 )
             }));
         };
-        if !value.is_empty() && !attr.values.is_empty() && !attr.values.contains(&value.as_str()) {
-            return Err(AppError::InvalidInput(format!(
-                "attr '{key}' on '{block_type}' must be one of {}, got '{value}'",
-                attr.values.join(", ")
-            )));
+        if value.is_empty() {
+            continue;
+        }
+        match attr.kind {
+            AttrKind::Text => {}
+            AttrKind::Enum(values) if !values.contains(&value.as_str()) => {
+                return Err(AppError::InvalidInput(format!(
+                    "attr '{key}' on '{block_type}' must be one of {}, got '{value}'",
+                    values.join(", ")
+                )));
+            }
+            AttrKind::Enum(_) => {}
+            AttrKind::Integer { min } => {
+                if !value.parse::<i64>().is_ok_and(|n| n >= min) {
+                    return Err(AppError::InvalidInput(format!(
+                        "attr '{key}' on '{block_type}' must be a whole number >= {min}, got '{value}'"
+                    )));
+                }
+            }
         }
     }
     Ok(())
@@ -174,7 +212,7 @@ fn callout_to_markdown(block: &Block) -> String {
     let wrapped: Vec<String> = block
         .content
         .lines()
-        .flat_map(|line| wrap_text(&plain_inline(line)))
+        .flat_map(|line| wrap_text(&plain_inline(line), 56))
         .collect();
     let lines: Vec<String> = if wrapped.is_empty() {
         vec![glyph.to_string()]
@@ -200,7 +238,7 @@ inventory::submit! {
         content_format: "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         attrs: &[BlockAttrDef {
             name: "variant",
-            values: CALLOUT_VARIANTS,
+            kind: AttrKind::Enum(CALLOUT_VARIANTS),
             description: "Tone and icon of the callout. Defaults to note.",
         }],
         validate: accept_anything,
@@ -276,11 +314,7 @@ inventory::submit! {
         block_type: "timeline",
         content_format: "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. \
                          The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
-        attrs: &[BlockAttrDef {
-            name: "title",
-            values: &[],
-            description: "Optional heading shown above the timeline.",
-        }],
+        attrs: &[TITLE_ATTR],
         validate: validate_timeline,
         to_markdown: timeline_to_markdown,
     }
@@ -391,11 +425,7 @@ inventory::submit! {
         block_type: "progress",
         content_format: "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. \
                          Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
-        attrs: &[BlockAttrDef {
-            name: "title",
-            values: &[],
-            description: "Optional heading shown above the progress rows.",
-        }],
+        attrs: &[TITLE_ATTR],
         validate: validate_progress,
         to_markdown: progress_to_markdown,
     }
@@ -458,13 +488,171 @@ inventory::submit! {
         block_type: "tree",
         content_format: "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). \
                          For folders, outlines and org charts.",
-        attrs: &[BlockAttrDef {
-            name: "title",
-            values: &[],
-            description: "Optional heading shown above the tree.",
-        }],
+        attrs: &[TITLE_ATTR],
         validate: accept_anything,
         to_markdown: tree_to_markdown,
+    }
+}
+
+// --- steps -----------------------------------------------------------------
+
+fn validate_cells(content: &str, max: usize, shape: &str) -> Result<(), String> {
+    for (i, line) in non_empty_lines(content).enumerate() {
+        let cells = line.split('\t').count();
+        if cells > max {
+            return Err(format!(
+                "line {} has {cells} tab separated cells, expected {shape}",
+                i + 1
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_steps(content: &str) -> Result<(), String> {
+    validate_cells(content, 2, "<step>[\\t<detail>]")
+}
+
+fn steps_to_markdown(block: &Block) -> String {
+    let steps: Vec<(String, String)> = non_empty_lines(&block.content)
+        .map(|line| {
+            let (title, detail) = line.split_once('\t').unwrap_or((line, ""));
+            (plain_inline(title.trim()), plain_inline(detail.trim()))
+        })
+        .collect();
+    let mut lines = Vec::new();
+    for (i, (title, detail)) in steps.iter().enumerate() {
+        let head = wrap_text(title, 54);
+        lines.push(format!(
+            "{}  {}",
+            i + 1,
+            head.first().map_or("", String::as_str)
+        ));
+        lines.extend(head.iter().skip(1).map(|line| format!("   {line}")));
+        lines.extend(
+            wrap_text(detail, 54)
+                .iter()
+                .map(|line| format!("   {line}")),
+        );
+        if i + 1 < steps.len() {
+            lines.push("│".into());
+        }
+    }
+    fence(&frame(Some(title_of(block).unwrap_or("steps")), &lines))
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "steps",
+        content_format: "One step per line: <step>[\\t<detail>], cells separated by a literal tab \
+                         (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        attrs: &[
+            TITLE_ATTR,
+            BlockAttrDef {
+                name: "current",
+                kind: AttrKind::Integer { min: 1 },
+                description: "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+            },
+        ],
+        validate: validate_steps,
+        to_markdown: steps_to_markdown,
+    }
+}
+
+// --- stats -----------------------------------------------------------------
+
+const MAX_STATS: usize = 4;
+
+fn validate_stats(content: &str) -> Result<(), String> {
+    validate_cells(content, 3, "<value>\\t<label>[\\t<hint>]")?;
+    let count = non_empty_lines(content).count();
+    if count > MAX_STATS {
+        return Err(format!(
+            "{count} stats, at most {MAX_STATS} fit side by side"
+        ));
+    }
+    Ok(())
+}
+
+/// mdxcn's stat row: values over labels (and hints), each column as wide as its
+/// longest cell.
+fn stats_to_markdown(block: &Block) -> String {
+    let items: Vec<[String; 3]> = non_empty_lines(&block.content)
+        .map(|line| {
+            let mut cells = line.split('\t').map(|c| plain_inline(c.trim()));
+            [
+                cells.next().unwrap_or_default(),
+                cells.next().unwrap_or_default(),
+                cells.next().unwrap_or_default(),
+            ]
+        })
+        .collect();
+    let widths: Vec<usize> = items
+        .iter()
+        .map(|item| col_width(item.iter().map(String::as_str)))
+        .collect();
+    let row = |cell: usize| {
+        items
+            .iter()
+            .zip(&widths)
+            .map(|(item, width)| pad_end(&item[cell], *width))
+            .collect::<Vec<_>>()
+            .join("   ")
+            .trim_end()
+            .to_string()
+    };
+    let mut lines = vec![row(0), row(1)];
+    if items.iter().any(|item| !item[2].is_empty()) {
+        lines.push(row(2));
+    }
+    fence(&frame(title_of(block), &lines))
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "stats",
+        content_format: "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by \
+                         a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        attrs: &[TITLE_ATTR],
+        validate: validate_stats,
+        to_markdown: stats_to_markdown,
+    }
+}
+
+// --- details ---------------------------------------------------------------
+
+fn validate_details(content: &str) -> Result<(), String> {
+    validate_cells(content, 2, "<label>\\t<value>")
+}
+
+/// mdxcn's spec sheet: labels in one aligned column, values beside them.
+fn details_to_markdown(block: &Block) -> String {
+    let rows: Vec<(String, String)> = non_empty_lines(&block.content)
+        .map(|line| {
+            let (label, value) = line.split_once('\t').unwrap_or((line, ""));
+            (plain_inline(label.trim()), plain_inline(value.trim()))
+        })
+        .collect();
+    let labels = col_width(rows.iter().map(|(label, _)| label.as_str()));
+    let lines: Vec<String> = rows
+        .iter()
+        .map(|(label, value)| {
+            format!("{}  {value}", pad_end(label, labels))
+                .trim_end()
+                .to_string()
+        })
+        .collect();
+    fence(&frame(title_of(block), &lines))
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "details",
+        content_format: "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab \
+                         (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        attrs: &[TITLE_ATTR],
+        validate: validate_details,
+        to_markdown: details_to_markdown,
     }
 }
 
@@ -561,7 +749,48 @@ mod tests {
     }
 
     #[test]
+    fn steps_number_each_step_with_its_detail_below() {
+        let md = steps_to_markdown(&block("steps", "Register\tBefore Oct 1\nPay the fee", &[]));
+        assert!(md.contains("[ STEPS ]"));
+        assert_eq!(
+            body(&md),
+            vec!["1  Register", "   Before Oct 1", "│", "2  Pay the fee"]
+        );
+    }
+
+    #[test]
+    fn stats_matches_mdxcn_example() {
+        let md = stats_to_markdown(&block(
+            "stats",
+            "12,400\tdocs\n4,100\tcopies\n860\tshipped",
+            &[("title", "This week")],
+        ));
+        assert!(md.contains("+----------------- [ THIS WEEK ] ------------------+"));
+        assert_eq!(
+            body(&md),
+            vec!["12,400   4,100    860", "docs     copies   shipped"]
+        );
+    }
+
+    #[test]
+    fn details_align_labels() {
+        let md = details_to_markdown(&block(
+            "details",
+            "Family\tGeist Mono\nTracking\t+0.02em",
+            &[],
+        ));
+        assert_eq!(body(&md), vec!["Family    Geist Mono", "Tracking  +0.02em"]);
+    }
+
+    #[test]
     fn content_and_attrs_are_validated() {
+        assert!(validate_content("stats", "1\ta\n2\tb\n3\tc\n4\td\n5\te").is_err());
+        assert!(validate_content("details", "a\tb\tc").is_err());
+        let current = |v: &str| BlockAttrs::from([("current".to_string(), v.to_string())]);
+        assert!(validate_attrs("steps", &current("2")).is_ok());
+        assert!(validate_attrs("steps", &current("0")).is_err());
+        assert!(validate_attrs("steps", &current("two")).is_err());
+
         assert!(validate_content("progress", "Pages\t3\t10").is_ok());
         assert!(validate_content("progress", "Pages\tthree\t10").is_err());
         assert!(validate_content("progress", "Pages\t3\t0").is_err());
