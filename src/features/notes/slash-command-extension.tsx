@@ -14,7 +14,7 @@ import type { Editor, Range } from "@tiptap/react";
 import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import type { SuggestionListItem } from "./suggestion-list";
-import { createSuggestionRender } from "./suggestion-render";
+import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 
 interface SlashItem {
   title: string;
@@ -105,6 +105,7 @@ export const SlashCommand = Extension.create({
         pluginKey: new PluginKey("slashCommand"),
         char: "/",
         allowedPrefixes: null,
+        allow: allowOutsideCode,
         items: ({ query }) =>
           SLASH_ITEMS.filter((item) => item.title.toLowerCase().includes(query.toLowerCase())),
         command: ({ editor, range, props }) => props.run(editor, range),

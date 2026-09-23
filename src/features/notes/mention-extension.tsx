@@ -7,7 +7,7 @@ import type { Entity } from "@/lib/api/types";
 import { matchesTitleOrKey } from "@/lib/entity-key";
 import { displayTitle, labelForType } from "@/lib/entity-title";
 import type { SuggestionListItem } from "./suggestion-list";
-import { createSuggestionRender } from "./suggestion-render";
+import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 
 export interface MentionOptions {
   /// Read live so the popup always sees the Space's current entities without
@@ -54,6 +54,7 @@ export const Mention = Extension.create<MentionOptions>({
         editor: this.editor,
         pluginKey: new PluginKey("mention"),
         char: "@",
+        allow: allowOutsideCode,
         items: ({ query }) =>
           this.options
             .getEntities()

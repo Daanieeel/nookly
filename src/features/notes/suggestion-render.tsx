@@ -51,3 +51,11 @@ export function createSuggestionRender<I>(
     };
   };
 }
+
+/// `allow` guard shared by the "/" and "@" menus: code blocks and inline code are
+/// full of both characters (`//`, `</div>`, `@decorator`), so neither menu opens there.
+export const allowOutsideCode: NonNullable<SuggestionOptions["allow"]> = ({ state, range }) => {
+  const $from = state.doc.resolve(range.from);
+  if ($from.parent.type.spec.code) return false;
+  return !$from.marks().some((mark) => mark.type.spec.code);
+};
