@@ -443,14 +443,17 @@ pub struct BlockPatch {
     pub filename: Option<String>,
 }
 
+pub fn get_block(conn: &Connection, block_id: &str) -> AppResult<Block> {
+    conn.query_row(
+        "SELECT * FROM blocks WHERE id = ?1",
+        params![block_id],
+        row_to_block,
+    )
+    .map_err(|_| AppError::NotFound(format!("block {block_id}")))
+}
+
 pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> AppResult<Block> {
-    let mut block = conn
-        .query_row(
-            "SELECT * FROM blocks WHERE id = ?1",
-            params![block_id],
-            row_to_block,
-        )
-        .map_err(|_| AppError::NotFound(format!("block {block_id}")))?;
+    let mut block = get_block(conn, block_id)?;
     if let Some(content) = patch.content {
         block.content = content;
     }

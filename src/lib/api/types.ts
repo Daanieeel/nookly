@@ -66,6 +66,7 @@ export type AppError =
   | { kind: "NotFound"; message: string }
   | { kind: "UnknownRelationshipType"; message: string }
   | { kind: "CardinalityViolation"; message: string }
+  | { kind: "Conflict"; message: string }
   | { kind: "Db"; message: string };
 
 export interface SearchHit {

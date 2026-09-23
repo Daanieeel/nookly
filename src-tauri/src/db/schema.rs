@@ -158,6 +158,14 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
     let block_commands = def.supports_blocks.then(|| {
         serde_json::json!({
             "knownBlockTypes": KNOWN_BLOCK_TYPES,
+            "contentFormats": {
+                "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)).",
+                "heading1/heading2/heading3": "The heading text, no leading '#'.",
+                "quote": "The quote text, no leading '>'.",
+                "code": "The raw code. Set --language/--filename for the header row.",
+                "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+                "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+            },
             "list": format!("nookly cli {} blocks <id>", def.entity_type),
             "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>]", def.entity_type),
             "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>]", def.entity_type),
