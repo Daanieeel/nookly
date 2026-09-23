@@ -86,6 +86,14 @@
       }
     },
     {
+      "files": ["src/components/ui/scroll-progress.tsx"],
+      "rules": {
+        "anti-slop/no-runtime-typeof": "off",
+        "anti-slop/require-safety-comment-for-type-assertion": "off",
+        "shadcn/no-inline-styles": "off"
+      }
+    },
+    {
       "files": ["src/features/notes/language-marks.tsx"],
       "rules": {
         "shadcn/no-raw-colors": "off",
