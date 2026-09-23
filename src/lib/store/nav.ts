@@ -37,6 +37,7 @@ interface NavState {
   paletteOpen: boolean;
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
+  rightSidebarWidth: number;
   recents: RecentEntry[];
   setView: (view: View) => void;
   openEntity: (entityId: string, spaceId: string) => void;
@@ -48,6 +49,7 @@ interface NavState {
   setPaletteOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
+  setRightSidebarWidth: (width: number) => void;
 }
 
 function readStoredCollapsed(): boolean {
@@ -55,6 +57,25 @@ function readStoredCollapsed(): boolean {
     return localStorage.getItem("nookly:sidebar-collapsed") === "1";
   } catch {
     return false;
+  }
+}
+
+/// Bounds for the resizable right sidebar. The minimum fits its top row: four 36px
+/// icon buttons (collapse, export, pin, more) with their gaps and the `p-3` padding.
+export const RIGHT_SIDEBAR_MIN_WIDTH = 184;
+export const RIGHT_SIDEBAR_MAX_WIDTH = 480;
+export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 288;
+
+export function clampRightSidebarWidth(width: number): number {
+  return Math.min(RIGHT_SIDEBAR_MAX_WIDTH, Math.max(RIGHT_SIDEBAR_MIN_WIDTH, Math.round(width)));
+}
+
+function readStoredRightSidebarWidth(): number {
+  try {
+    const stored = Number(localStorage.getItem("nookly:right-sidebar-width"));
+    return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
+  } catch {
+    return RIGHT_SIDEBAR_DEFAULT_WIDTH;
   }
 }
 
@@ -108,6 +129,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   paletteOpen: false,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
+  rightSidebarWidth: readStoredRightSidebarWidth(),
   recents: readStoredRecents(),
   setView: (view) =>
     set((state) => {
@@ -151,5 +173,14 @@ export const useNavStore = create<NavState>((set, get) => ({
       // best-effort only
     }
     set({ rightSidebarCollapsed });
+  },
+  setRightSidebarWidth: (width) => {
+    const rightSidebarWidth = clampRightSidebarWidth(width);
+    try {
+      localStorage.setItem("nookly:right-sidebar-width", String(rightSidebarWidth));
+    } catch {
+      // best-effort only
+    }
+    set({ rightSidebarWidth });
   },
 }));
