@@ -163,7 +163,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             .chain(custom.iter().map(|d| d.block_type))
             .collect();
         let mut formats = serde_json::json!({
-                "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)).",
+                "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
                 "heading1/heading2/heading3": "The heading text, no leading '#'.",
                 "quote": "The quote text, no leading '>'.",
                 "code": "The raw code. Set --language/--filename for the header row.",

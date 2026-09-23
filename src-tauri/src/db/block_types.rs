@@ -769,6 +769,66 @@ inventory::submit! {
     }
 }
 
+// --- equation, math --------------------------------------------------------
+
+const SOURCE_VIEWS: &[&str] = &["source", "rendered"];
+
+const VIEW_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "view",
+    kind: AttrKind::Enum(SOURCE_VIEWS),
+    description:
+        "What the editor shows: the source code, or what it renders to. Defaults to source.",
+};
+
+/// A math block's lines as one display formula, rows of an `aligned` environment
+/// unless the source opens an environment itself. Mirrors `mathBlockLatex` in
+/// `src/features/notes/math.ts`.
+fn math_block_latex(source: &str) -> String {
+    if source.contains("\\begin{") {
+        return source.trim().to_string();
+    }
+    let rows: Vec<&str> = source
+        .lines()
+        .map(|line| line.trim().trim_end_matches("\\\\").trim_end())
+        .filter(|line| !line.is_empty())
+        .collect();
+    match rows.as_slice() {
+        [] => String::new(),
+        [row] => row.to_string(),
+        _ => format!(
+            "\\begin{{aligned}}\n{}\n\\end{{aligned}}",
+            rows.join(" \\\\\n")
+        ),
+    }
+}
+
+/// `$$` display math, which GitHub, Obsidian and most static site tools render.
+fn display_math(latex: &str) -> String {
+    format!("$$\n{}\n$$", latex.trim())
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "equation",
+        content_format: "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. \
+                         KaTeX syntax, including \\ce{} for chemistry.",
+        attrs: &[VIEW_ATTR],
+        validate: accept_anything,
+        to_markdown: |block| display_math(&block.content),
+    }
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "math",
+        content_format: "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations \
+                         and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        attrs: &[VIEW_ATTR],
+        validate: accept_anything,
+        to_markdown: |block| display_math(&math_block_latex(&block.content)),
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -920,6 +980,21 @@ mod tests {
         );
         let open = toggle_to_markdown(&block("toggle", "Q", &[("toggle", "open")]));
         assert_eq!(open, "<details open>\n<summary>Q</summary>\n\n</details>");
+    }
+
+    #[test]
+    fn math_exports_as_display_math() {
+        let equation =
+            (lookup("equation").unwrap().to_markdown)(&block("equation", "E = mc^2", &[]));
+        assert_eq!(equation, "$$\nE = mc^2\n$$");
+        let math =
+            (lookup("math").unwrap().to_markdown)(&block("math", "a &= b \\\\\n  &= c", &[]));
+        assert_eq!(
+            math,
+            "$$\n\\begin{aligned}\na &= b \\\\\n&= c\n\\end{aligned}\n$$"
+        );
+        let own = math_block_latex("\\begin{cases} x \\end{cases}");
+        assert_eq!(own, "\\begin{cases} x \\end{cases}");
     }
 
     #[test]

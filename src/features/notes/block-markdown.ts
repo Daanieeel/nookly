@@ -59,8 +59,14 @@ function asNumber(value: JSONAttrValue | undefined): number | undefined {
 /// Every inline run this editor round-trips: a mention link (§5.4, same
 /// `[title](mention:id)` shape `mention-utils.ts` already reads), bold, inline
 /// code, then italic — checked in that order since `**bold**` would otherwise be
-/// swallowed by a naive `*italic*` match.
-const INLINE_PATTERN = /\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\*([^*]+)\*/g;
+/// swallowed by a naive `*italic*` match. Before all of them, an escaped `\$` and
+/// inline math `$…$`: no space just inside either dollar and no digit right after
+/// the closing one, so "$5 and $10" stays text (the pandoc rule).
+const INLINE_PATTERN =
+  /\\\$|\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\*([^*]+)\*/g;
+
+/// Literal dollars are written `\$`, so they never read back as math.
+const unescapeDollars = (text: string) => text.replaceAll("\\$", "$");
 
 export function decodeInline(text: string): JSONNode[] {
   if (!text) return [];
@@ -69,19 +75,23 @@ export function decodeInline(text: string): JSONNode[] {
   for (const match of text.matchAll(INLINE_PATTERN)) {
     const index = match.index ?? 0;
     if (index > lastIndex) nodes.push({ type: "text", text: text.slice(lastIndex, index) });
-    const [, linkText, linkHref, boldText, codeText, italicText] = match;
-    if (linkText !== undefined) {
+    const [, latex, linkText, linkHref, boldText, codeText, italicText] = match;
+    if (match[0] === "\\$") {
+      nodes.push({ type: "text", text: "$" });
+    } else if (latex !== undefined) {
+      nodes.push({ type: "inlineMath", attrs: { latex } });
+    } else if (linkText !== undefined) {
       nodes.push({
         type: "text",
-        text: linkText,
+        text: unescapeDollars(linkText),
         marks: [{ type: "link", attrs: { href: linkHref } }],
       });
     } else if (boldText !== undefined) {
-      nodes.push({ type: "text", text: boldText, marks: [{ type: "bold" }] });
+      nodes.push({ type: "text", text: unescapeDollars(boldText), marks: [{ type: "bold" }] });
     } else if (codeText !== undefined) {
       nodes.push({ type: "text", text: codeText, marks: [{ type: "code" }] });
     } else if (italicText !== undefined) {
-      nodes.push({ type: "text", text: italicText, marks: [{ type: "italic" }] });
+      nodes.push({ type: "text", text: unescapeDollars(italicText), marks: [{ type: "italic" }] });
     }
     lastIndex = index + match[0].length;
   }
@@ -92,10 +102,12 @@ export function decodeInline(text: string): JSONNode[] {
 export function encodeInline(nodes: JSONNode[] = []): string {
   return nodes
     .map((node) => {
+      if (node.type === "inlineMath") return `$${asString(node.attrs?.latex) ?? ""}$`;
       if (node.type !== "text") return "";
       let text = node.text ?? "";
       const markTypes = new Set((node.marks ?? []).map((m) => m.type));
       if (markTypes.has("code")) text = `\`${text}\``;
+      else text = text.replaceAll("$", "\\$");
       if (markTypes.has("bold")) text = `**${text}**`;
       if (markTypes.has("italic")) text = `*${text}*`;
       const linkMark = node.marks?.find((m) => m.type === "link");
@@ -130,6 +142,13 @@ export function blockToNode(block: Block): JSONNode {
         content: nonEmpty(decodeInline(block.content)),
       };
     }
+    case "equation":
+    case "math":
+      return {
+        type: block.blockType,
+        attrs: { blockId, view: block.attrs.view ?? "source" },
+        content: block.content ? [{ type: "text", text: block.content }] : undefined,
+      };
     case "toggle": {
       const lines = block.content.length > 0 ? block.content.split("\n") : [""];
       return {
@@ -250,6 +269,14 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
         attrs: { toggle: asString(node.attrs?.toggle) ?? "" },
       };
     }
+    case "equation":
+    case "math":
+      return {
+        blockId,
+        blockType: node.type,
+        content: (node.content ?? []).map((n) => n.text ?? "").join(""),
+        attrs: { view: asString(node.attrs?.view) ?? "source" },
+      };
     case "toggle":
       return {
         blockId,

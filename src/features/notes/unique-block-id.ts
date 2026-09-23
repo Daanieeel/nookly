@@ -22,6 +22,8 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "divider",
   "taskList",
   "toggle",
+  "equation",
+  "math",
 ];
 
 function generateBlockId(): string {

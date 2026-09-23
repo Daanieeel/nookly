@@ -12,7 +12,7 @@ Every block type, standard or custom, **must** implement a markdown serializatio
 
 Ship only the standard blocks: paragraph, headings, lists, code, quote, table, image, and embed.
 
-Custom blocks: `callout`, `timeline`, `progress`, `tree`, `steps`, `stats`, `details`, `checklist`, `divider`, `toggle`, plus toggle headings (a `toggle` attr on a heading, folding the blocks up to the next heading of its level). Each is registered once in `src-tauri/src/db/block_types.rs` (content format, attrs, validation, markdown), which the CLI and export read. They export as [mdxcn](https://mdxcn.dev) framed ASCII in a code fence.
+Custom blocks: `callout`, `timeline`, `progress`, `tree`, `steps`, `stats`, `details`, `checklist`, `divider`, `toggle`, `equation`, `math`, plus inline math (`$…$` in any text, literal dollars as `\$`) and toggle headings (a `toggle` attr on a heading, folding the blocks up to the next heading of its level). Each is registered once in `src-tauri/src/db/block_types.rs` (content format, attrs, validation, markdown), which the CLI and export read. They export as [mdxcn](https://mdxcn.dev) framed ASCII in a code fence.
 
 Custom blocks from third party modules are still future work.
 

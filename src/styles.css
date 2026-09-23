@@ -387,6 +387,34 @@
   .tiptap-content .toggle-heading-chevron[data-open="true"] svg {
     transform: rotate(90deg);
   }
+  /* Equation, math block and diagram (`SourceBlock.tsx`): a code block that can
+     also show what its code renders to. */
+  .tiptap-content .source-block {
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+  }
+  .tiptap-content .source-block pre.code-block-body[hidden] {
+    display: none;
+  }
+  .tiptap-content .source-block-preview {
+    display: flex;
+    padding: 0.75rem 1rem;
+    background: var(--block-surface);
+    cursor: default;
+  }
+  .tiptap-content .source-block-preview .katex-display {
+    margin: 0;
+  }
+  .tiptap-content .inline-math {
+    padding: 0 0.125rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+  }
+  .tiptap-content .inline-math:hover,
+  .tiptap-content .inline-math-selected {
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
   .tiptap-content hr {
     margin: 0.75rem 0;
     border: none;

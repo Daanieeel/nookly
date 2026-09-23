@@ -4,6 +4,9 @@ import {
   IconChevronRight,
   IconHeading,
   IconInfoCircle,
+  IconMathFunction,
+  IconMathXDivideY2,
+  IconSum,
   IconSeparatorHorizontal,
   IconSquareCheck,
   IconListCheck,
@@ -30,7 +33,7 @@ import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 interface SlashItem {
   title: string;
   /// Heading in the "/" and "+" menus; items of a group stay adjacent.
-  group: "Text" | "Lists" | "Data";
+  group: "Text" | "Lists" | "Data" | "Math and diagrams";
   description: string;
   icon: React.ReactNode;
   run: (editor: Editor, range: Range) => void;
@@ -208,6 +211,33 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Dated events on a rail",
     icon: <IconTimeline size={15} />,
     run: (editor, range) => insertRowBlock(editor, range, "timeline", "\t"),
+  },
+  {
+    title: "Equation",
+    group: "Math and diagrams",
+    description: "One LaTeX formula, centered",
+    icon: <IconMathFunction size={15} />,
+    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("equation").run(),
+  },
+  {
+    title: "Math block",
+    group: "Math and diagrams",
+    description: "Lines of LaTeX for derivations and proofs",
+    icon: <IconSum size={15} />,
+    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("math").run(),
+  },
+  {
+    title: "Inline math",
+    group: "Math and diagrams",
+    description: "A formula inside the text, or type $x$",
+    icon: <IconMathXDivideY2 size={15} />,
+    run: (editor, range) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent({ type: "inlineMath", attrs: { latex: "" } })
+        .run(),
   },
 ];
 
