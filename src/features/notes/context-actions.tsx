@@ -4,17 +4,10 @@ import {
   IconCode,
   IconCopyPlus,
   IconFileDownload,
-  IconH1,
-  IconH2,
-  IconH3,
   IconItalic,
-  IconLetterCase,
   IconLink,
-  IconList,
-  IconListNumbers,
   IconMarkdown,
   IconPlus,
-  IconQuote,
   IconStrikethrough,
   IconTextSize,
   IconTransform,
@@ -32,7 +25,10 @@ import {
 import { getEntity } from "@/lib/api/entities";
 import { renderPageMarkdown } from "@/lib/api/notes";
 import { copyEntityLink, copyText, readClipboardText } from "@/lib/clipboard";
+import { useState } from "react";
 import { savePageMarkdownFile } from "./PageExportMenu";
+import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
+import { SuggestionList } from "./suggestion-list";
 
 declare module "@/components/context-menu/registry" {
   interface ContextTargets {
@@ -68,10 +64,11 @@ function locateBlock(editor: Editor, blockId: string): LocatedBlock | null {
   return found;
 }
 
+/// A block type existing text can turn into. `title` names its entry in
+/// `SLASH_ITEMS`, whose icon and description the picker shows, so it reads
+/// exactly like the "/" and gutter "+" menus.
 interface BlockKind {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
+  title: string;
   matches: (node: ProseMirrorNode) => boolean;
   apply: (chain: ChainedCommands) => ChainedCommands;
 }
@@ -83,62 +80,75 @@ const isHeading = (level: number) => (node: ProseMirrorNode) =>
 /// existing text turns into.
 const BLOCK_KINDS: BlockKind[] = [
   {
-    id: "paragraph",
-    label: "Text",
-    icon: <IconLetterCase size={14} />,
+    title: "Text",
     matches: (node) => node.type.name === "paragraph",
     apply: (chain) => chain.setParagraph(),
   },
   {
-    id: "heading1",
-    label: "Heading 1",
-    icon: <IconH1 size={14} />,
+    title: "Heading 1",
     matches: isHeading(1),
     apply: (chain) => chain.setNode("heading", { level: 1 }),
   },
   {
-    id: "heading2",
-    label: "Heading 2",
-    icon: <IconH2 size={14} />,
+    title: "Heading 2",
     matches: isHeading(2),
     apply: (chain) => chain.setNode("heading", { level: 2 }),
   },
   {
-    id: "heading3",
-    label: "Heading 3",
-    icon: <IconH3 size={14} />,
+    title: "Heading 3",
     matches: isHeading(3),
     apply: (chain) => chain.setNode("heading", { level: 3 }),
   },
   {
-    id: "bulleted_list",
-    label: "Bulleted list",
-    icon: <IconList size={14} />,
+    title: "Bulleted list",
     matches: (node) => node.type.name === "bulletList",
     apply: (chain) => chain.toggleBulletList(),
   },
   {
-    id: "numbered_list",
-    label: "Numbered list",
-    icon: <IconListNumbers size={14} />,
+    title: "Numbered list",
     matches: (node) => node.type.name === "orderedList",
     apply: (chain) => chain.toggleOrderedList(),
   },
   {
-    id: "quote",
-    label: "Quote",
-    icon: <IconQuote size={14} />,
+    title: "Quote",
     matches: (node) => node.type.name === "blockquote",
     apply: (chain) => chain.toggleBlockquote(),
   },
   {
-    id: "code",
-    label: "Code block",
-    icon: <IconCode size={14} />,
+    title: "Code block",
     matches: (node) => node.type.name === "codeBlock",
     apply: (chain) => chain.toggleCodeBlock(),
   },
 ];
+
+/// Every kind with its slash menu entry; the block's current kind is left out,
+/// since turning a block into what it already is does nothing.
+function turnIntoOptions(node: ProseMirrorNode | undefined) {
+  return BLOCK_KINDS.filter((kind) => !node || !kind.matches(node)).flatMap((kind) => {
+    const slash = SLASH_ITEMS.find((item) => item.title === kind.title);
+    return slash ? [{ kind, item: toListItem(slash) }] : [];
+  });
+}
+
+/// The block picker itself (search field, icons, descriptions), in the popover
+/// the menu leaves behind where it was opened.
+function TurnIntoPicker({ target, close }: { target: NoteBlockTarget; close: () => void }) {
+  const [options] = useState(() =>
+    turnIntoOptions(locateBlock(target.editor, target.blockId)?.node),
+  );
+  return (
+    <SuggestionList
+      embedded
+      searchable
+      items={options.map((option) => option.item)}
+      onSelect={(index) => {
+        const option = options[index];
+        close();
+        if (option) turnInto(target.editor, target.blockId, option.kind);
+      }}
+    />
+  );
+}
 
 /// Unwraps the block to plain paragraphs first, so every kind converts from
 /// every other one, lists and quotes included, with all their lines. The result
@@ -214,28 +224,18 @@ function formatItems({ editor }: NoteBlockTarget): MenuSubItem[] {
   }));
 }
 
-function turnIntoItems({ editor, blockId }: NoteBlockTarget): MenuSubItem[] {
-  const node = locateBlock(editor, blockId)?.node;
-  return BLOCK_KINDS.map((kind) => ({
-    id: kind.id,
-    label: kind.label,
-    icon: kind.icon,
-    checked: node ? kind.matches(node) : false,
-    run: () => turnInto(editor, blockId, kind),
-  }));
-}
-
 registerActions("note.block", [
   {
     id: "turn-into",
     group: "type",
-    label: "Turn Into",
+    label: "Turn Into…",
     icon: IconTransform,
     when: ({ editor, blockId }) => {
       const name = locateBlock(editor, blockId)?.node.type.name;
       return editor.isEditable && name !== undefined && name !== "table";
     },
-    useItems: turnIntoItems,
+    run: (target, helpers) =>
+      helpers.openPopover((close) => <TurnIntoPicker target={target} close={close} />),
   },
   {
     id: "format",
