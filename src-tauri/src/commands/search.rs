@@ -14,3 +14,10 @@ pub fn search(
     let conn = state.0.lock().unwrap();
     search::search(&conn, &query, space_id.as_deref())
 }
+
+/// Notes pages rendered inline on another entity's page (Course/Semester Notes).
+#[tauri::command]
+pub fn list_embedded_page_ids(state: State<DbState>) -> AppResult<Vec<String>> {
+    let conn = state.0.lock().unwrap();
+    search::list_embedded_page_ids(&conn)
+}

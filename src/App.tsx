@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { CommandsPalette } from "@/components/commands-palette";
 import { QuickSwitcher } from "@/components/quick-switcher";
 import { EntityDetailRouter } from "@/components/entity-detail-router";
 import { ModuleView } from "@/components/module-view";
@@ -74,6 +75,7 @@ function Shell() {
       </div>
       <CommandPalette />
       <QuickSwitcher />
+      <CommandsPalette />
       <Toaster />
     </div>
   );

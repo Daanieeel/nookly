@@ -1,13 +1,6 @@
 import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
-import { useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type Theme, useThemeStore } from "@/lib/theme";
 
 const ICON = { light: IconSun, dark: IconMoon, system: IconDeviceDesktop } satisfies Record<
   Theme,
@@ -17,43 +10,24 @@ const LABEL = { light: "Light", dark: "Dark", system: "System" } satisfies Recor
 // SAFETY: `LABEL` is keyed by every `Theme` variant and nothing else.
 const THEMES = Object.keys(LABEL) as Theme[];
 
-export function ThemeToggle({ iconOnly }: { iconOnly?: boolean } = {}) {
-  const [theme, setThemeState] = useState<Theme>(getStoredTheme);
-  const Icon = ICON[theme];
+export function ThemeToggle() {
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
 
   return (
-    <Select
-      value={theme}
-      onValueChange={(next: Theme) => {
-        setTheme(next);
-        setThemeState(next);
-      }}
-    >
-      <SelectTrigger
-        size="sm"
-        className={
-          iconOnly
-            ? "size-auto justify-center gap-0 p-1.5 [&>svg:last-child]:hidden"
-            : "h-auto w-full px-2 py-1.5"
-        }
-        aria-label="Switch theme"
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <Icon size={14} />
-          {!iconOnly && <SelectValue>{LABEL[theme]}</SelectValue>}
-        </span>
-      </SelectTrigger>
-      <SelectContent align="start" side={iconOnly ? "right" : "top"}>
+    // SAFETY: the only values Radix can emit are the `THEMES` trigger values below.
+    <Tabs value={theme} onValueChange={(next) => setTheme(next as Theme)}>
+      <TabsList>
         {THEMES.map((value) => {
-          const OptionIcon = ICON[value];
+          const Icon = ICON[value];
           return (
-            <SelectItem key={value} value={value}>
-              <OptionIcon size={14} />
+            <TabsTrigger key={value} value={value}>
+              <Icon size={14} />
               {LABEL[value]}
-            </SelectItem>
+            </TabsTrigger>
           );
         })}
-      </SelectContent>
-    </Select>
+      </TabsList>
+    </Tabs>
   );
 }

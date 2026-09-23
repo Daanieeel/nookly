@@ -63,6 +63,7 @@ pub fn run() {
             commands::relationships::delete_relationship,
             commands::relationships::list_relationship_types,
             commands::search::search,
+            commands::search::list_embedded_page_ids,
             commands::labels::create_label,
             commands::labels::list_labels,
             commands::labels::delete_label,

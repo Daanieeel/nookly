@@ -1,18 +1,21 @@
 import {
   IconChevronRight,
-  IconFileArrowRight,
   IconFolder,
   IconHistory,
   IconLayoutDashboard,
   IconPin,
   IconSearch,
+  IconSettings,
   IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { EntityIcon } from "@/components/entity-icon";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
 import { displayTitle } from "@/lib/entity-title";
@@ -111,6 +114,32 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
   );
 }
 
+function SettingsPopover() {
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="secondary"
+              size="iconSm"
+              className="ml-1 shrink-0"
+              aria-label="Settings"
+            >
+              <IconSettings size={14} />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Settings</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end" className="flex w-fit flex-col gap-2 p-3">
+        <span className="text-xs font-medium text-muted-foreground">Theme</span>
+        <ThemeToggle />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function Breadcrumbs() {
   const view = useNavStore((s) => s.view);
 
@@ -148,32 +177,48 @@ export function Titlebar() {
         <Breadcrumbs />
       </div>
       <div data-tauri-drag-region className="min-w-0 flex-1" />
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => useNavStore.getState().setSwitcherOpen(true)}
-        className="shrink-0 gap-1.5"
-      >
-        <IconFileArrowRight size={14} />
-        Quick open
-        <KbdGroup>
-          <Kbd>⌘</Kbd>
-          <Kbd>P</Kbd>
-        </KbdGroup>
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => useNavStore.getState().setPaletteOpen(true)}
-        className="shrink-0 gap-1.5"
-      >
-        <IconSearch size={14} />
-        Search
-        <KbdGroup>
-          <Kbd>⌘</Kbd>
-          <Kbd>K</Kbd>
-        </KbdGroup>
-      </Button>
+      {/* Flush together: each button's own padding is the spacing. */}
+      <div className="flex shrink-0 items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => useNavStore.getState().setCommandsOpen(true)}
+          className="shrink-0 gap-1.5"
+        >
+          Commands
+          <KbdGroup>
+            <Kbd>⌘</Kbd>
+            <Kbd>⇧</Kbd>
+            <Kbd>P</Kbd>
+          </KbdGroup>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => useNavStore.getState().setSwitcherOpen(true)}
+          className="shrink-0 gap-1.5"
+        >
+          Quick open
+          <KbdGroup>
+            <Kbd>⌘</Kbd>
+            <Kbd>P</Kbd>
+          </KbdGroup>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => useNavStore.getState().setPaletteOpen(true)}
+          className="shrink-0 gap-1.5"
+        >
+          <IconSearch size={14} />
+          Search
+          <KbdGroup>
+            <Kbd>⌘</Kbd>
+            <Kbd>K</Kbd>
+          </KbdGroup>
+        </Button>
+        <SettingsPopover />
+      </div>
     </div>
   );
 }

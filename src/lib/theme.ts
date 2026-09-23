@@ -1,3 +1,4 @@
+import { create } from "zustand";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
 
 export type Theme = "light" | "dark" | "system";
@@ -26,3 +27,13 @@ export function setTheme(theme: Theme): void {
 export function initTheme(): void {
   applyTheme(getStoredTheme());
 }
+
+/// The chosen theme, shared so every control (the sidebar toggle, the command
+/// palette's theme actions) reflects a change made from any of them.
+export const useThemeStore = create<{ theme: Theme; setTheme: (theme: Theme) => void }>((set) => ({
+  theme: getStoredTheme(),
+  setTheme: (theme) => {
+    setTheme(theme);
+    set({ theme });
+  },
+}));

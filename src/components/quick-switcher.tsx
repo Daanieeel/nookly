@@ -13,6 +13,7 @@ import {
 } from "@/components/spotlight";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { listEntities } from "@/lib/api/entities";
+import { listEmbeddedPageIds } from "@/lib/api/search";
 import { listSpaces } from "@/lib/api/spaces";
 import type { Entity } from "@/lib/api/types";
 import { displayTitle, labelForType } from "@/lib/entity-title";
@@ -36,15 +37,23 @@ export function QuickSwitcher() {
   const [query, setQuery] = useState("");
 
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
-  const { data: entities = [] } = useQuery({
+  const { data: allEntities = [] } = useQuery({
     queryKey: ["entities", "all"],
     queryFn: () => listEntities(null, false),
     enabled: open,
   });
+  // Notes embedded in a Course/Semester page aren't destinations of their own.
+  const { data: embeddedIds = [] } = useQuery({
+    queryKey: ["embedded-page-ids"],
+    queryFn: listEmbeddedPageIds,
+    enabled: open,
+  });
+  const embedded = new Set(embeddedIds);
+  const entities = allEntities.filter((e) => !embedded.has(e.id));
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "p") {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setOpen(!useNavStore.getState().switcherOpen);
       }
@@ -65,7 +74,13 @@ export function QuickSwitcher() {
   const spaceById = new Map(spaces.map((s) => [s.id, s]));
 
   return (
-    <SpotlightDialog open={open} onOpenChange={setOpen} title="Quick open">
+    <SpotlightDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Quick open"
+      dirty={query !== ""}
+      onClear={() => setQuery("")}
+    >
       <SpotlightInput value={query} onValueChange={setQuery} placeholder="Jump to…" />
       <SpotlightList>
         <SpotlightEmpty>

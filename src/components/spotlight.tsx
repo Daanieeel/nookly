@@ -16,12 +16,18 @@ export function SpotlightDialog({
   open,
   onOpenChange,
   title,
+  dirty,
+  onClear,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /// Screen reader name for the dialog.
   title: string;
+  /// Whether a query or filters are set. While dirty, Escape clears them via
+  /// `onClear` instead of closing; the next Escape closes.
+  dirty: boolean;
+  onClear: () => void;
   children: ReactNode;
 }) {
   return (
@@ -33,6 +39,11 @@ export function SpotlightDialog({
           // Selecting a result navigates away; handing focus back to the
           // trigger would pull it off the page that just opened.
           onCloseAutoFocus={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            if (!dirty) return;
+            e.preventDefault();
+            onClear();
+          }}
           className={cn(
             "fixed top-[14vh] left-1/2 z-50 flex w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden",
             "rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-2xl outline-none",

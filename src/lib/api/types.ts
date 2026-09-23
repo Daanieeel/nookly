@@ -78,6 +78,9 @@ export interface SearchHit {
   /// The matching block's text around the hit, matched terms wrapped in
   /// `\u0001` / `\u0002`. Only set alongside `blockId`.
   snippet: string | null;
+  /// The page the block lives in. Differs from `entityId` for notes embedded in
+  /// another entity's page, where the hit resolves to that owning entity.
+  blockEntityId: string | null;
 }
 
 export interface Label {

@@ -17,7 +17,6 @@ import { AddModuleMenu } from "@/components/add-module-menu";
 import { renderIconValue } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
-import { ThemeToggle } from "@/components/theme-toggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -182,9 +181,6 @@ export function AppSidebar() {
               <IconTrash />
               <span>Trash</span>
             </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <ThemeToggle />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

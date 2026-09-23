@@ -162,7 +162,9 @@
     user-select: none;
   }
   code:not(pre code) {
-    @apply bg-accent;
+    /* Translucent overlay rather than a flat token, so it always sits one step darker (light)
+       or lighter (dark) than whatever it's on: page, card, table cell or table header. */
+    background: color-mix(in oklab, var(--foreground) 8%, transparent);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     border-radius: 0.25rem;
     padding: 0.1em 0.4em;
@@ -185,6 +187,9 @@
     /* Reserved for the per-block add/drag handles in `BlockHandles.tsx` — its
        `GUTTER_WIDTH` constant must stay in sync with this value. */
     padding-left: 3.25rem;
+    /* Code block bodies and table body cells: halfway between the editor's own surface
+       (`--card`, see `App.tsx`) and the `--accent` table header, so the header still reads. */
+    --block-surface: color-mix(in oklab, var(--card), var(--accent) 50%);
   }
   .tiptap-content h1,
   .tiptap-content h2,
@@ -254,7 +259,7 @@
     position: relative;
     margin: 0;
     padding: 0.75rem;
-    background: var(--card);
+    background: var(--block-surface);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.8rem;
     overflow-x: auto;
@@ -289,6 +294,9 @@
     border-bottom: 1px solid var(--table-border);
     padding: 0.375rem 0.5rem;
     vertical-align: top;
+  }
+  .tiptap-content td {
+    background: var(--block-surface);
   }
   .tiptap-content tr:first-child > * {
     border-top: 1px solid var(--table-border);
