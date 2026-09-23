@@ -14,6 +14,7 @@ import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import {
   asString,
+  attrsKey,
   type BlockInput,
   blockToNode,
   type JSONNode,
@@ -22,6 +23,7 @@ import {
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
+import { Callout, Progress, Timeline, Tree } from "./custom-block-extensions";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { TableControls } from "./TableControls";
@@ -32,6 +34,26 @@ import { HeadingAnchors, type PageSection, pageSections } from "./heading-anchor
 
 const DEBOUNCE_MS = 600;
 const MENTION_HREF_PREFIX = "mention:";
+
+/// What a block was last saved as, compared on every save to skip unchanged ones.
+interface PersistedBlock {
+  content: string;
+  blockType: string;
+  language?: string;
+  filename?: string;
+  /// `attrsKey` of the block's attrs.
+  attrs: string;
+}
+
+function persistedOf(block: Block): PersistedBlock {
+  return {
+    content: block.content,
+    blockType: block.blockType,
+    language: block.language ?? undefined,
+    filename: block.filename ?? undefined,
+    attrs: attrsKey(block.attrs),
+  };
+}
 
 /// One continuous document, not N glued textareas (§ notes rewrite) — a single
 /// Tiptap/ProseMirror editor owns the whole page, exactly like Notion. Each
@@ -111,17 +133,7 @@ function HydratedBlockEditor({
   );
   const [persisted] = useState(
     () =>
-      new Map<string, { content: string; blockType: string; language?: string; filename?: string }>(
-        initialBlocks.map((block) => [
-          block.id,
-          {
-            content: block.content,
-            blockType: block.blockType,
-            language: block.language ?? undefined,
-            filename: block.filename ?? undefined,
-          },
-        ]),
-      ),
+      new Map<string, PersistedBlock>(initialBlocks.map((block) => [block.id, persistedOf(block)])),
   );
   /// Server block ids in the order last persisted, so a save that only edits
   /// text skips the `reorderBlocks` round trip.
@@ -153,7 +165,13 @@ function HydratedBlockEditor({
 
       for (const input of inputs) {
         const prior = previous.get(input.blockId);
-        const meta = { content: input.content, blockType: input.blockType };
+        const next: PersistedBlock = {
+          content: input.content,
+          blockType: input.blockType,
+          language: input.language,
+          filename: input.filename,
+          attrs: attrsKey(input.attrs),
+        };
         if (!prior) {
           const created = await createBlock(
             entityId,
@@ -162,18 +180,16 @@ function HydratedBlockEditor({
             null,
             input.language ?? null,
             input.filename ?? null,
+            input.attrs ?? null,
           );
           idMap.set(input.blockId, created.id);
-          previous.set(input.blockId, {
-            ...meta,
-            language: input.language,
-            filename: input.filename,
-          });
+          previous.set(input.blockId, next);
         } else if (
-          prior.content !== input.content ||
-          prior.blockType !== input.blockType ||
-          prior.language !== input.language ||
-          prior.filename !== input.filename
+          prior.content !== next.content ||
+          prior.blockType !== next.blockType ||
+          prior.language !== next.language ||
+          prior.filename !== next.filename ||
+          prior.attrs !== next.attrs
         ) {
           const serverId = idMap.get(input.blockId);
           if (serverId) {
@@ -185,13 +201,10 @@ function HydratedBlockEditor({
                 language: input.language ?? "",
                 filename: input.filename ?? "",
               }),
+              ...(input.attrs && { attrs: input.attrs }),
             });
           }
-          previous.set(input.blockId, {
-            ...meta,
-            language: input.language,
-            filename: input.filename,
-          });
+          previous.set(input.blockId, next);
         }
       }
 
@@ -260,6 +273,10 @@ function HydratedBlockEditor({
       BlockSelection,
       SlashCommand,
       Mention.configure({ getEntities: () => entitiesRef.current }),
+      Callout,
+      Timeline,
+      Progress,
+      Tree,
     ],
     editorProps: {
       attributes: {
@@ -399,7 +416,8 @@ function HydratedBlockEditor({
         prior.content === block.content &&
         prior.blockType === block.blockType &&
         prior.language === (block.language ?? undefined) &&
-        prior.filename === (block.filename ?? undefined)
+        prior.filename === (block.filename ?? undefined) &&
+        prior.attrs === attrsKey(block.attrs)
       );
     });
   }
@@ -432,12 +450,7 @@ function HydratedBlockEditor({
     persisted.clear();
     for (const block of blocks) {
       idMap.set(block.id, block.id);
-      persisted.set(block.id, {
-        content: block.content,
-        blockType: block.blockType,
-        language: block.language ?? undefined,
-        filename: block.filename ?? undefined,
-      });
+      persisted.set(block.id, persistedOf(block));
     }
     orderRef.current = blocks.map((block) => block.id);
 

@@ -127,6 +127,9 @@ export interface Block {
   /// `null` for every other block type.
   language: string | null;
   filename: string | null;
+  /// Settings of a custom block (callout `variant`, timeline `title`, ...). Always
+  /// empty on the standard block types.
+  attrs: BlockAttrs;
   createdAt: string;
   updatedAt: string;
 }
@@ -158,7 +161,11 @@ export interface BlockPatch {
   /// `""` clears the field; omit to leave it untouched. Only meaningful on a `code` block.
   language?: string;
   filename?: string;
+  /// Merged into the block's attrs; `""` clears one.
+  attrs?: BlockAttrs;
 }
+
+export type BlockAttrs = Record<string, string>;
 
 export type BlockType =
   | "paragraph"
@@ -171,7 +178,11 @@ export type BlockType =
   | "numbered_list"
   | "table"
   | "image"
-  | "embed";
+  | "embed"
+  | "callout"
+  | "timeline"
+  | "progress"
+  | "tree";
 
 export interface SessionOccurrence {
   entity: Entity;

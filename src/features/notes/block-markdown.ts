@@ -1,4 +1,5 @@
-import type { Block, BlockType } from "@/lib/api/types";
+import type { BlockAttrs, Block, BlockType } from "@/lib/api/types";
+import { isRowBlockType } from "./custom-block-rows";
 
 /// The only attribute value shapes this module ever reads or writes (`blockId`
 /// strings, heading `level` numbers, mark `href` strings) — narrower than
@@ -24,6 +25,19 @@ export interface BlockInput {
   /// select + filename input, read back off the `codeBlock` node's attrs.
   language?: string;
   filename?: string;
+  /// Custom blocks only: every attr the block type declares, `""` for unset, so
+  /// an update also clears what the user removed.
+  attrs?: BlockAttrs;
+}
+
+/// Comparable form of a block's attrs: unset (`""`) attrs are never stored, so
+/// they don't count as a difference.
+export function attrsKey(attrs: BlockAttrs | undefined): string {
+  return JSON.stringify(
+    Object.entries(attrs ?? {})
+      .filter(([, value]) => value !== "")
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
 }
 
 function isString(value: JSONAttrValue | undefined): value is string {
@@ -137,6 +151,19 @@ export function blockToNode(block: Block): JSONNode {
         })),
       };
     }
+    case "callout":
+      return {
+        type: "callout",
+        attrs: { blockId, variant: block.attrs.variant ?? "note" },
+        content: nonEmpty(decodeInline(block.content)),
+      };
+    case "timeline":
+    case "progress":
+    case "tree":
+      return {
+        type: block.blockType,
+        attrs: { blockId, rows: block.content, title: block.attrs.title ?? null },
+      };
     case "table": {
       const rows = block.content.length > 0 ? block.content.split("\n") : [""];
       return {
@@ -199,6 +226,13 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return { blockId, blockType: "bulleted_list", content: listLines(node) };
     case "orderedList":
       return { blockId, blockType: "numbered_list", content: listLines(node) };
+    case "callout":
+      return {
+        blockId,
+        blockType: "callout",
+        content: encodeInline(node.content),
+        attrs: { variant: asString(node.attrs?.variant) ?? "note" },
+      };
     case "table": {
       const rows = (node.content ?? []).map((row) =>
         (row.content ?? []).map((cell) => encodeInline(cell.content?.[0]?.content)).join("\t"),
@@ -206,6 +240,12 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return { blockId, blockType: "table", content: rows.join("\n") };
     }
     default:
-      return null;
+      if (!isRowBlockType(node.type)) return null;
+      return {
+        blockId,
+        blockType: node.type,
+        content: asString(node.attrs?.rows) ?? "",
+        attrs: { title: asString(node.attrs?.title) ?? "" },
+      };
   }
 }

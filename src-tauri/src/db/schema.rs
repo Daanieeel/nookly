@@ -156,19 +156,42 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         })
         .collect();
     let block_commands = def.supports_blocks.then(|| {
-        serde_json::json!({
-            "knownBlockTypes": KNOWN_BLOCK_TYPES,
-            "contentFormats": {
+        let custom = crate::db::block_types::all();
+        let known: Vec<&str> = KNOWN_BLOCK_TYPES
+            .iter()
+            .copied()
+            .chain(custom.iter().map(|d| d.block_type))
+            .collect();
+        let mut formats = serde_json::json!({
                 "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)).",
                 "heading1/heading2/heading3": "The heading text, no leading '#'.",
                 "quote": "The quote text, no leading '>'.",
                 "code": "The raw code. Set --language/--filename for the header row.",
                 "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
                 "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        });
+        let mut attrs = serde_json::Map::new();
+        for block_def in &custom {
+            formats[block_def.block_type] = serde_json::json!(block_def.content_format);
+            attrs.insert(
+                block_def.block_type.to_string(),
+                crate::db::block_types::describe_attrs(block_def),
+            );
+        }
+        serde_json::json!({
+            "knownBlockTypes": known,
+            "contentFormats": formats,
+            "blockAttrs": {
+                "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+                "byType": attrs,
+                "example": format!(
+                    "nookly cli {} add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning",
+                    def.entity_type
+                ),
             },
             "list": format!("nookly cli {} blocks <id>", def.entity_type),
-            "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>]", def.entity_type),
-            "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>]", def.entity_type),
+            "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]", def.entity_type),
+            "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]", def.entity_type),
             "delete": format!("nookly cli {} delete-block <block-id> --yes", def.entity_type),
             "reorder": format!("nookly cli {} reorder-blocks <id> <block-id> <block-id> ...", def.entity_type),
             // Called out separately from `add`/`update` above (not just the bracketed
@@ -292,7 +315,7 @@ pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
     }
     if def.supports_blocks {
         for block in crate::db::notes::list_blocks(conn, id)? {
-            crate::db::notes::create_block(
+            crate::db::notes::create_block_with_attrs(
                 conn,
                 &new_id,
                 block.block_type,
@@ -300,6 +323,7 @@ pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
                 None,
                 block.language,
                 block.filename,
+                block.attrs,
             )?;
         }
     }

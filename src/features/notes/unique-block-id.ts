@@ -12,6 +12,10 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "bulletList",
   "orderedList",
   "table",
+  "callout",
+  "timeline",
+  "progress",
+  "tree",
 ];
 
 function generateBlockId(): string {

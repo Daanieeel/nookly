@@ -12,7 +12,9 @@ Every block type, standard or custom, **must** implement a markdown serializatio
 
 Ship only the standard blocks: paragraph, headings, lists, code, quote, table, image, and embed.
 
-The block architecture is built to be extensible, but custom blocks themselves are a future extension point for modules. Do not build them now.
+Custom blocks: `callout`, `timeline`, `progress`, `tree`. Each is registered once in `src-tauri/src/db/block_types.rs` (content format, attrs, validation, markdown), which the CLI and export read. They export as [mdxcn](https://mdxcn.dev) framed ASCII in a code fence.
+
+Custom blocks from third party modules are still future work.
 
 ## Markdown Everywhere
 

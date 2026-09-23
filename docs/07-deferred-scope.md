@@ -9,7 +9,7 @@ Do **not** build any of these unless explicitly told to. Each one was considered
 - **Recurring Tasks.** Sessions have full recurrence (templates generating occurrences). Tasks do not get anything equivalent in v1.
 - **Runtime plugin architecture.** In v1, modules are compiled into the binary (see [philosophy](01-philosophy.md#compile-time-modules)). A dynamic module system that installs from inside the app is a future evolution, once the module API is proven.
 - **Per-Space Dashboards.** v1 has only the single global Dashboard. Dashboards that users create inside individual Spaces are a future feature.
-- **Custom blocks beyond the standard set.** The block architecture is built to be extensible, but custom third-party blocks are future work, not v1 (see [Notes](03-modules/notes.md)).
+- **Third party custom blocks.** Core ships a few custom blocks (see [Notes](03-modules/notes.md)); blocks contributed by community modules are future work.
 
 ## GoodNotes Import and the Handwritten Note Entity
 

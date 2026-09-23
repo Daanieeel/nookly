@@ -76,8 +76,8 @@ interface BlockKind {
 const isHeading = (level: number) => (node: ProseMirrorNode) =>
   node.type.name === "heading" && node.attrs.level === level;
 
-/// Same set and order as the slash menu, minus Table: a table isn't something
-/// existing text turns into.
+/// Same set and order as the slash menu, minus Table, Timeline, Progress and Tree:
+/// those aren't something existing text turns into.
 const BLOCK_KINDS: BlockKind[] = [
   {
     title: "Text",
@@ -118,6 +118,11 @@ const BLOCK_KINDS: BlockKind[] = [
     title: "Code block",
     matches: (node) => node.type.name === "codeBlock",
     apply: (chain) => chain.toggleCodeBlock(),
+  },
+  {
+    title: "Callout",
+    matches: (node) => node.type.name === "callout",
+    apply: (chain) => chain.setNode("callout", { variant: "note" }),
   },
 ];
 
@@ -231,8 +236,9 @@ registerActions("note.block", [
     label: "Turn Into…",
     icon: IconTransform,
     when: ({ editor, blockId }) => {
-      const name = locateBlock(editor, blockId)?.node.type.name;
-      return editor.isEditable && name !== undefined && name !== "table";
+      // Tables and the row based custom blocks hold no text to convert.
+      const type = locateBlock(editor, blockId)?.node.type;
+      return editor.isEditable && type !== undefined && type.name !== "table" && !type.isAtom;
     },
     run: (target, helpers) =>
       helpers.openPopover((close) => <TurnIntoPicker target={target} close={close} />),

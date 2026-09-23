@@ -281,6 +281,79 @@
     background: transparent;
     padding: 0;
   }
+  /* Custom blocks (`custom-block-extensions.ts`). The row based ones share the code
+     block's header and surface, so every structured block reads as one family. */
+  .tiptap-content .custom-block {
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+  }
+  .tiptap-content .custom-block-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2rem;
+    padding: 0 0.625rem;
+    background: var(--accent);
+    border-bottom: 1px solid var(--border);
+  }
+  .tiptap-content .custom-block-title {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+  .tiptap-content .custom-block-title::placeholder {
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+  .tiptap-content .custom-block-body {
+    padding: 0.5rem 0.625rem 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content .custom-block-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    padding: 0;
+  }
+  .tiptap-content .custom-block-input::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+  .tiptap-content .ProseMirror-selectednode.custom-block,
+  .tiptap-content .ProseMirror-selectednode > .custom-block {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  .tiptap-content .callout {
+    --callout-tone: var(--accent-blue);
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem 0.375rem 0.375rem;
+    border-radius: 0.375rem;
+    border: 1px solid color-mix(in oklab, var(--callout-tone) 25%, var(--border));
+    background: color-mix(in oklab, var(--callout-tone) 7%, var(--card));
+  }
+  .tiptap-content .callout[data-variant="tip"] {
+    --callout-tone: var(--accent-green);
+  }
+  .tiptap-content .callout[data-variant="warning"] {
+    --callout-tone: var(--accent-yellow);
+  }
+  .tiptap-content .callout[data-variant="danger"] {
+    --callout-tone: var(--destructive);
+  }
+  .tiptap-content .callout-icon {
+    color: var(--callout-tone);
+  }
+  .tiptap-content .callout p {
+    margin: 0;
+  }
   /* Syntax highlighting token colors come from decorations as inline `style` attributes
      (see `highlighter.ts`, `twinkleplop-highlighter.ts` / `shiki-theme.ts`) — every color there
      is already one of this app's own accent tokens, so there's no separate stylesheet-side

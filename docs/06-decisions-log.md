@@ -177,3 +177,13 @@ The app reads `latest.json` from the newest published release, checks on launch 
 **Why:** releases already live on GitHub, and `tauri-action` generates and uploads the signed update manifest for free.
 
 **Rejected:** a custom update server, and silent background installs.
+
+---
+
+### Custom blocks export as mdxcn framed ASCII
+
+Callout, timeline, progress and tree blocks serialize to mdxcn's fenced ASCII figures, ported to Rust in `ascii_frame.rs` (MIT).
+
+**Why:** plain markdown has no form for a timeline or progress bar. A fenced figure keeps the export complete and reads the same in a README, GitHub or Linear.
+
+**Rejected:** installing mdxcn's React components (Geist Mono, dashed frames, their own tokens clash with the design system), and GFM alerts for callouts (kept one export style for every custom block).

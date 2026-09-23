@@ -81,6 +81,8 @@ struct Args {
     flags: HashMap<String, String>,
     bool_flags: std::collections::HashSet<String>,
     fields: JsonMap,
+    /// Raw `--attr name=value` arguments, in order; parsed by `Args::attrs`.
+    attrs: Vec<String>,
 }
 
 fn parse_args(argv: &[String]) -> Args {
@@ -88,6 +90,7 @@ fn parse_args(argv: &[String]) -> Args {
     let mut flags = HashMap::new();
     let mut bool_flags = std::collections::HashSet::new();
     let mut fields = JsonMap::new();
+    let mut attrs = Vec::new();
 
     let mut i = 0;
     while i < argv.len() {
@@ -102,6 +105,11 @@ fn parse_args(argv: &[String]) -> Args {
                     continue;
                 }
                 i += 1;
+                continue;
+            }
+            if rest == "attr" {
+                attrs.extend(argv.get(i + 1).cloned());
+                i += 2;
                 continue;
             }
             if let Some((key, value)) = rest.split_once('=') {
@@ -132,6 +140,7 @@ fn parse_args(argv: &[String]) -> Args {
         flags,
         bool_flags,
         fields,
+        attrs,
     }
 }
 
@@ -162,6 +171,20 @@ impl Args {
     fn require_flag(&self, name: &str) -> AppResult<String> {
         self.flag(name)
             .ok_or_else(|| AppError::InvalidInput(format!("missing required flag: --{name}")))
+    }
+
+    /// Every `--attr name=value`; an empty value clears that attr on update.
+    fn attrs(&self) -> AppResult<crate::db::block_types::BlockAttrs> {
+        self.attrs
+            .iter()
+            .map(|kv| {
+                kv.split_once('=')
+                    .map(|(k, v)| (k.trim().to_string(), v.to_string()))
+                    .ok_or_else(|| {
+                        AppError::InvalidInput(format!("--attr expects <name>=<value>, got '{kv}'"))
+                    })
+            })
+            .collect()
     }
 
     fn has_bool(&self, name: &str) -> bool {
@@ -342,10 +365,12 @@ fn top_level_help() -> Value {
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
                      [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
             "blocks": "note/jot only (`describe <type>` reports supportsBlocks) — full block editing: \
-                       `nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>]`, \
-                       `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]`, \
+                       `nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
+                       `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
                        `delete-block <block-id> --yes`, `reorder-blocks <id> <block-id> <block-id> ...`. \
                        `--language`/`--filename` are the code block header row and only apply to `type=code`. \
+                       `--attr` sets a custom block's settings (callout variant, timeline title, ...); \
+                       `describe note` lists them under `blockAttrs`. \
                        See `describe note` for the full list of known block types. Every block write takes \
                        `--if-revision <rev>` (the page's revision from `get`).",
         },
@@ -476,8 +501,8 @@ Build a page's content with:
 ```
 nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]                        # list blocks in order
 nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>]  # matching lines only
-nookly cli <type> add-block <id> --type <blockType> --content <text> [--position <n>] [--language <l>] [--filename <f>]
-nookly cli <type> update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]
+nookly cli <type> add-block <id> --type <blockType> --content <text> [--position <n>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]
+nookly cli <type> update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]
 nookly cli <type> delete-block <block-id> --yes
 nookly cli <type> reorder-blocks <id> <block-id> <block-id> ...
 ```
@@ -512,6 +537,20 @@ nookly cli note add-block <id> --type code --content 'console.log(1)' --language
 `jsonc`, ... — anything is accepted, but only a recognized grammar actually highlights).
 Omit it (or pass `--language ""` on `update-block`) for plain, unhighlighted text. Same
 `""`-clears convention for `--filename`.
+
+### Custom blocks: `callout`, `timeline`, `progress`, `tree`
+
+Blocks beyond plain markdown. Their settings are `--attr <name>=<value>` flags (repeatable,
+an empty value clears one). `describe note` lists each type's content format and attrs under
+`contentFormats` and `blockAttrs`. Lines are tab separated like tables. In a page export they
+become framed ASCII figures.
+
+```
+nookly cli note add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning
+nookly cli note add-block <id> --type timeline --attr title=Semester --content "$(printf 'Oct 14\tLectures start\nNov 30\tMidterm\tnow\nFeb 10\tFinal exam\tnext')"
+nookly cli note add-block <id> --type progress --content "$(printf 'Chapters read\t7\t12\nExercises\t30\t40')"
+nookly cli note add-block <id> --type tree --content "$(printf 'Thesis\n  Intro\n  Methods\n    Survey')"
+```
 
 ### Tables: tabs and newlines, NOT markdown pipe syntax
 
@@ -957,8 +996,15 @@ fn block_command(
             let language = args.flag("language");
             let filename = args.flag("filename");
             let submitted_content = content.clone();
-            let block = crate::db::notes::create_block(
-                conn, &id, block_type, content, position, language, filename,
+            let block = crate::db::notes::create_block_with_attrs(
+                conn,
+                &id,
+                block_type,
+                content,
+                position,
+                language,
+                filename,
+                args.attrs()?,
             )?;
             let page_key = crate::db::entities::entity_key(conn, &id)?;
             let mut result = json!({ "pageId": id, "pageKey": page_key, "block": block.clone() });
@@ -983,6 +1029,7 @@ fn block_command(
                 block_type: args.flag("type"),
                 language: args.flag("language"),
                 filename: args.flag("filename"),
+                attrs: Some(args.attrs()?),
             };
             let block = crate::db::notes::update_block(conn, &block_id, patch)?;
             let changes = view::diff_values(&json!(before), &json!(block));

@@ -1,5 +1,9 @@
 import {
+  IconBinaryTree,
   IconCode,
+  IconInfoCircle,
+  IconProgress,
+  IconTimeline,
   IconH1,
   IconH2,
   IconH3,
@@ -87,7 +91,45 @@ export const SLASH_ITEMS: SlashItem[] = [
         .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
         .run(),
   },
+  {
+    title: "Callout",
+    description: "An aside that stands out",
+    icon: <IconInfoCircle size={15} />,
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setNode("callout", { variant: "note" }).run(),
+  },
+  {
+    title: "Timeline",
+    description: "Dated events on a rail",
+    icon: <IconTimeline size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "timeline", "\t"),
+  },
+  {
+    title: "Progress",
+    description: "Goals tracked against a target",
+    icon: <IconProgress size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "progress", "\t0\t10"),
+  },
+  {
+    title: "Tree",
+    description: "A nested outline with branches",
+    icon: <IconBinaryTree size={15} />,
+    run: (editor, range) => insertRowBlock(editor, range, "tree", ""),
+  },
 ];
+
+/// Replaces the (usually empty) block the command was typed in with a row block,
+/// then moves focus into its first input.
+function insertRowBlock(editor: Editor, range: Range, type: string, rows: string) {
+  const { from } = range;
+  editor.chain().focus().deleteRange(range).insertContent({ type, attrs: { rows } }).run();
+  requestAnimationFrame(() => {
+    const dom = editor.view.nodeDOM(Math.max(0, from - 1));
+    const target = dom instanceof HTMLElement ? dom : null;
+    const input = target?.querySelector<HTMLInputElement>('input[data-row="0"]');
+    input?.focus();
+  });
+}
 
 export function toListItem(item: SlashItem): SuggestionListItem {
   return { key: item.title, icon: item.icon, label: item.title, description: item.description };
