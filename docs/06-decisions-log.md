@@ -31,6 +31,7 @@ Each entry follows a lightweight ADR format: the decision, why it was made, and 
 ### Relationships are directed, use a fixed enum, and have unrestricted cardinality
 
 **Why:**
+
 - **Directed:** inverse labels are derived cleanly with no duplicate storage.
 - **Fixed enum:** the graph stays predictable and queryable, and modules extend it at build time.
 - **Unrestricted cardinality at the data layer:** the core engine stays simpler. Stricter rules (such as a single parent) apply only to specific structural relationship types where they are truly needed.

@@ -51,7 +51,9 @@ function getDecorations({
           const style = decorationStyle(token);
           if (!style) continue;
           decorations.push(
-            Decoration.inline(from + token.offset, from + token.offset + token.content.length, { style }),
+            Decoration.inline(from + token.offset, from + token.offset + token.content.length, {
+              style,
+            }),
           );
         }
       }
@@ -66,7 +68,13 @@ function getDecorations({
 /// one addition: `view()` kicks off loading the (async-to-build, sync-to-use) highlighter singleton
 /// and forces a one-time recompute via a tagged empty transaction once it resolves, since the
 /// first code block can otherwise mount before the highlighter is ready.
-function ShikiHighlightPlugin({ name, defaultLanguage }: { name: string; defaultLanguage: string }) {
+function ShikiHighlightPlugin({
+  name,
+  defaultLanguage,
+}: {
+  name: string;
+  defaultLanguage: string;
+}) {
   const key = new PluginKey<DecorationSet>("shikiHighlight");
   let highlighter: HighlighterCore | null = null;
 
@@ -93,7 +101,9 @@ function ShikiHighlightPlugin({ name, defaultLanguage }: { name: string; default
               const range = step as { from?: number; to?: number };
               const { from, to } = range;
               if (from === undefined || to === undefined) return false;
-              return oldNodes.some((node) => node.pos >= from && node.pos + node.node.nodeSize <= to);
+              return oldNodes.some(
+                (node) => node.pos >= from && node.pos + node.node.nodeSize <= to,
+              );
             }));
         if (touchesCodeBlock) {
           return getDecorations({ doc: transaction.doc, name, defaultLanguage, highlighter });
@@ -143,7 +153,10 @@ export const CodeBlockWithHeader = CodeBlock.extend({
   addProseMirrorPlugins() {
     return [
       ...(this.parent?.() ?? []),
-      ShikiHighlightPlugin({ name: this.name, defaultLanguage: this.options.defaultLanguage ?? "plaintext" }),
+      ShikiHighlightPlugin({
+        name: this.name,
+        defaultLanguage: this.options.defaultLanguage ?? "plaintext",
+      }),
     ];
   },
   addNodeView() {

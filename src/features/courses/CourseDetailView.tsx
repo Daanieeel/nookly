@@ -134,9 +134,7 @@ function CourseBody({ course }: { course: Entity }) {
   const nextExam = [...courseExams]
     .filter((e) => e.status !== "done" && e.examDate)
     .sort((a, b) => (a.examDate ?? "").localeCompare(b.examDate ?? ""))[0];
-  const openAssignments = courseAssignments.filter(
-    (a) => !DONE_ASSIGNMENT_STATUSES.has(a.status),
-  );
+  const openAssignments = courseAssignments.filter((a) => !DONE_ASSIGNMENT_STATUSES.has(a.status));
   const nextAssignmentDue = [...openAssignments]
     .filter((a) => a.dueDate)
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
@@ -159,7 +157,6 @@ function CourseBody({ course }: { course: Entity }) {
             : "grid grid-cols-1 gap-3 sm:grid-cols-3"
         }
       >
-
         <BentoCard
           icon={IconCalendarStats}
           label="Next Session"
@@ -168,7 +165,8 @@ function CourseBody({ course }: { course: Entity }) {
           {nextSession ? (
             <>
               <p className="text-sm font-medium">
-                {format(new Date(nextSession.date), "EEEE")} {formatSessionTime(nextSession.startTime)}
+                {format(new Date(nextSession.date), "EEEE")}{" "}
+                {formatSessionTime(nextSession.startTime)}
               </p>
               <p className="text-xs text-muted-foreground">in {dateLabel(nextSession.date)}</p>
             </>
@@ -206,7 +204,9 @@ function CourseBody({ course }: { course: Entity }) {
             </span>
           </p>
           {nextAssignmentDue?.dueDate && (
-            <p className="text-xs text-muted-foreground">due {dateLabel(nextAssignmentDue.dueDate)}</p>
+            <p className="text-xs text-muted-foreground">
+              due {dateLabel(nextAssignmentDue.dueDate)}
+            </p>
           )}
         </BentoCard>
 

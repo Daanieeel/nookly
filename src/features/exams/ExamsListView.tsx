@@ -86,11 +86,13 @@ export function ExamsListView({
   });
   const { data: filterCourse } = useQuery({
     queryKey: ["entity", filterCourseId],
+    // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
     queryFn: () => getEntity(filterCourseId as string),
     enabled: Boolean(filterCourseId),
   });
   const { data: courseRelationships = [] } = useQuery({
     queryKey: ["relationships", filterCourseId],
+    // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
     queryFn: () => listRelationships(filterCourseId as string, "to"),
     enabled: Boolean(filterCourseId),
   });

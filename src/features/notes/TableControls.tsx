@@ -7,7 +7,7 @@ import {
   IconTableRow,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -108,8 +108,12 @@ export function TableControls({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="absolute z-10 flex -translate-y-full items-center gap-3 rounded-md border border-border bg-popover p-0.5 shadow-sm"
-      style={{ top: rect.top, left: rect.left }}
+      className="absolute top-(--controls-top) left-(--controls-left) z-10 flex -translate-y-full items-center gap-3 rounded-md border border-border bg-popover p-0.5 shadow-sm"
+      style={
+        // SAFETY: both custom properties only ever receive pixel lengths built from
+        // `rect`. `CSSProperties` just doesn't model custom properties.
+        { "--controls-top": `${rect.top}px`, "--controls-left": `${rect.left}px` } as CSSProperties
+      }
     >
       {groups.map((group, i) => (
         <div key={i} className="flex items-center gap-0.5">

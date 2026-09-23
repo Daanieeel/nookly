@@ -1,0 +1,48 @@
+# Changelog config for git-cliff (https://git-cliff.org).
+# Used by `bun run changelog` and by the release workflow for release notes.
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to Nookly are listed here.\n
+"""
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim | upper_first }}\
+{% endfor %}
+{% endfor %}\n
+"""
+trim = true
+
+[git]
+# Commits don't follow Conventional Commits, so group by the first word instead.
+# Conventional prefixes (feat:, fix:, ...) still work.
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+commit_preprocessors = [
+  # Strip conventional prefixes so the entry reads as plain text.
+  { pattern = '^(feat|fix|docs|refactor|perf|chore|ci|build|style|test)(\(.*?\))?!?:\s*', replace = "" },
+]
+commit_parsers = [
+  { message = "^Merge ", skip = true },
+  # The release workflow's own changelog commit.
+  { message = "(?i)^update changelog for ", skip = true },
+  { message = "(?i)^(chore|ci|build|style|test)\\b", skip = true },
+  { message = "(?i)^(fix|fixed|fixes|bugfix)\\b", group = "<!-- 2 -->Fixed" },
+  { message = "(?i)^(docs?|readme)\\b|\\.md$", group = "<!-- 4 -->Documentation" },
+  { message = "(?i)^(add|added|adds|new|feat|introduce)\\b", group = "<!-- 0 -->Added" },
+  { message = "(?i)^(remove|removed|delete|deleted|drop)\\b", group = "<!-- 3 -->Removed" },
+  { message = ".*", group = "<!-- 1 -->Changed" },
+]
+protect_breaking_commits = false
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"
