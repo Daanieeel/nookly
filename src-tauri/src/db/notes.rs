@@ -167,7 +167,10 @@ fn parse_table_row(line: &str) -> Vec<String> {
     let t = line.trim();
     let inner = t.strip_prefix('|').unwrap_or(t);
     let inner = inner.strip_suffix('|').unwrap_or(inner);
-    inner.split('|').map(|cell| cell.trim().to_string()).collect()
+    inner
+        .split('|')
+        .map(|cell| cell.trim().to_string())
+        .collect()
 }
 
 pub fn create_block(
@@ -339,7 +342,11 @@ pub fn block_to_markdown(block: &Block) -> String {
             out.push('\n');
             out.push_str(&format!(
                 "|{}|",
-                header_cells.iter().map(|_| "---").collect::<Vec<_>>().join("|")
+                header_cells
+                    .iter()
+                    .map(|_| "---")
+                    .collect::<Vec<_>>()
+                    .join("|")
             ));
             for row in lines {
                 let cells: Vec<&str> = row.split('\t').collect();
@@ -514,8 +521,16 @@ mod tests {
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
 
-        create_block(&conn, &page.id, "heading1".into(), "Intro".into(), None, None, None)
-            .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "heading1".into(),
+            "Intro".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         create_block(
             &conn,
             &page.id,
@@ -700,6 +715,9 @@ mod tests {
         .unwrap();
 
         let markdown = block_to_markdown(&block);
-        assert_eq!(markdown, "| Name | Age |\n|---|---|\n| Alice | 30 |\n| Bob | 25 |");
+        assert_eq!(
+            markdown,
+            "| Name | Age |\n|---|---|\n| Alice | 30 |\n| Bob | 25 |"
+        );
     }
 }
