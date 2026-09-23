@@ -13,6 +13,7 @@ import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { BlockHandles } from "./BlockHandles";
+import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -240,6 +241,7 @@ function HydratedBlockEditor({
       Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
       TableKit.configure({ table: { resizable: true } }),
       UniqueBlockId,
+      BlockSelection,
       SlashCommand,
       Mention.configure({ getEntities: () => entitiesRef.current }),
     ],

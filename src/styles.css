@@ -337,6 +337,25 @@
     content: "";
     pointer-events: none;
   }
+  /* Whole blocks picked by their grip or by a multi-block selection
+     (`block-selection.ts`). An overlay rather than a background, so it also
+     tints blocks that paint their own surface (code blocks, table cells). */
+  .tiptap-content .block-selected {
+    position: relative;
+  }
+  .tiptap-content .block-selected::after {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-radius: var(--radius-sm);
+    content: "";
+    pointer-events: none;
+  }
+  .tiptap-content.has-block-selection::selection,
+  .tiptap-content.has-block-selection ::selection {
+    background: transparent;
+  }
   .tiptap-content .column-resize-handle {
     position: absolute;
     top: 0;
