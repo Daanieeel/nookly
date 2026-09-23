@@ -84,6 +84,7 @@ import {
   EXPANDABLE_MODULE_KEYS,
   ExpandableModuleChildren,
 } from "./sidebar/expandable-module-children";
+import { UpdateCard } from "@/components/update-card";
 import { CliInstallCard } from "./sidebar/cli-install-card";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
@@ -176,6 +177,9 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <CliInstallCard />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <UpdateCard className="group-data-[collapsible=icon]:hidden" />
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
