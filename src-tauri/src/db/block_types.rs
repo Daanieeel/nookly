@@ -75,7 +75,11 @@ pub fn all() -> Vec<&'static BlockTypeDef> {
 }
 
 pub fn describe_attrs(def: &BlockTypeDef) -> serde_json::Value {
-    def.attrs
+    describe_attr_defs(def.attrs)
+}
+
+pub fn describe_attr_defs(attrs: &[BlockAttrDef]) -> serde_json::Value {
+    attrs
         .iter()
         .map(|attr| {
             let mut value =
@@ -96,10 +100,29 @@ pub fn describe_attrs(def: &BlockTypeDef) -> serde_json::Value {
         .collect()
 }
 
+const TOGGLE_STATES: &[&str] = &["open", "closed"];
+
+/// Headings are a standard block type, but one attr turns them into a toggle
+/// heading that folds away the blocks under it.
+const HEADING_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
+    name: "toggle",
+    kind: AttrKind::Enum(TOGGLE_STATES),
+    description: "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the \
+                  next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+}];
+
+/// The attrs `block_type` accepts: a custom block's own, the heading attrs, or none.
+pub fn declared_attrs(block_type: &str) -> &'static [BlockAttrDef] {
+    match block_type {
+        "heading1" | "heading2" | "heading3" => HEADING_ATTRS,
+        _ => lookup(block_type).map_or(&[], |def| def.attrs),
+    }
+}
+
 /// Checks `patch` (the attrs a caller asked to set) against `block_type`'s
 /// declared attrs. An empty value clears the attr, so it's always accepted.
 pub fn validate_attrs(block_type: &str, patch: &BlockAttrs) -> AppResult<()> {
-    let declared = lookup(block_type).map_or(&[][..], |def| def.attrs);
+    let declared = declared_attrs(block_type);
     for (key, value) in patch {
         let Some(attr) = declared.iter().find(|a| a.name == key) else {
             let known: Vec<_> = declared.iter().map(|a| a.name).collect();
@@ -146,7 +169,7 @@ pub fn merge_attrs(block_type: &str, attrs: &mut BlockAttrs, patch: BlockAttrs) 
             attrs.insert(key, value);
         }
     }
-    let declared = lookup(block_type).map_or(&[][..], |def| def.attrs);
+    let declared = declared_attrs(block_type);
     attrs.retain(|key, _| declared.iter().any(|a| a.name == key));
 }
 
@@ -708,6 +731,44 @@ inventory::submit! {
     }
 }
 
+// --- toggle ----------------------------------------------------------------
+
+/// The summary line, then the body paragraphs, all plain markdown inside an
+/// HTML `<details>`, which GitHub and most renderers fold the same way.
+fn toggle_to_markdown(block: &Block) -> String {
+    let mut lines = block.content.lines();
+    let summary = lines.next().unwrap_or("").trim();
+    let body: Vec<&str> = lines.map(str::trim).filter(|l| !l.is_empty()).collect();
+    let open = if block.attrs.get("toggle").map(String::as_str) == Some("open") {
+        " open"
+    } else {
+        ""
+    };
+    let mut out = format!("<details{open}>\n<summary>{summary}</summary>\n");
+    if !body.is_empty() {
+        out.push('\n');
+        out.push_str(&body.join("\n\n"));
+        out.push('\n');
+    }
+    out.push_str("\n</details>");
+    out
+}
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "toggle",
+        content_format: "First line is the always visible summary, every further line one paragraph of the \
+                         folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        attrs: &[BlockAttrDef {
+            name: "toggle",
+            kind: AttrKind::Enum(TOGGLE_STATES),
+            description: "Whether the body shows. Defaults to closed.",
+        }],
+        validate: accept_anything,
+        to_markdown: toggle_to_markdown,
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
@@ -851,6 +912,17 @@ mod tests {
     }
 
     #[test]
+    fn toggle_exports_as_details() {
+        let md = toggle_to_markdown(&block("toggle", "Question\nFirst\nSecond", &[]));
+        assert_eq!(
+            md,
+            "<details>\n<summary>Question</summary>\n\nFirst\n\nSecond\n\n</details>"
+        );
+        let open = toggle_to_markdown(&block("toggle", "Q", &[("toggle", "open")]));
+        assert_eq!(open, "<details open>\n<summary>Q</summary>\n\n</details>");
+    }
+
+    #[test]
     fn details_align_labels() {
         let md = details_to_markdown(&block(
             "details",
@@ -884,6 +956,8 @@ mod tests {
         assert!(validate_attrs("callout", &attrs("variant", "loud")).is_err());
         assert!(validate_attrs("callout", &attrs("title", "x")).is_err());
         assert!(validate_attrs("paragraph", &attrs("title", "x")).is_err());
+        assert!(validate_attrs("heading2", &attrs("toggle", "closed")).is_ok());
+        assert!(validate_attrs("heading2", &attrs("toggle", "yes")).is_err());
     }
 
     #[test]

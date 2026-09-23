@@ -36,6 +36,7 @@ import {
 } from "./custom-block-extensions";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
+import { Toggle, ToggleHeading } from "./toggle-extension";
 import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
@@ -296,6 +297,8 @@ function HydratedBlockEditor({
       TaskList,
       // One level only: a checklist block stores one item per line.
       TaskItem.configure({ nested: false }),
+      Toggle,
+      ToggleHeading,
     ],
     editorProps: {
       attributes: {

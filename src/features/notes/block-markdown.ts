@@ -126,8 +126,19 @@ export function blockToNode(block: Block): JSONNode {
       const level = Number(block.blockType.slice(-1));
       return {
         type: "heading",
-        attrs: { blockId, level },
+        attrs: { blockId, level, toggle: block.attrs.toggle ?? null },
         content: nonEmpty(decodeInline(block.content)),
+      };
+    }
+    case "toggle": {
+      const lines = block.content.length > 0 ? block.content.split("\n") : [""];
+      return {
+        type: "toggle",
+        attrs: { blockId, toggle: block.attrs.toggle ?? "closed" },
+        content: lines.map((line) => ({
+          type: "paragraph",
+          content: nonEmpty(decodeInline(line)),
+        })),
       };
     }
     case "quote":
@@ -231,8 +242,21 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     case "heading": {
       const level = asNumber(node.attrs?.level) ?? 1;
       const blockType = HEADING_BLOCK_TYPES[level === 2 || level === 3 ? level : 1];
-      return { blockId, blockType, content: encodeInline(node.content) };
+      return {
+        blockId,
+        blockType,
+        content: encodeInline(node.content),
+        // Toggle headings only; `""` keeps a plain heading plain.
+        attrs: { toggle: asString(node.attrs?.toggle) ?? "" },
+      };
     }
+    case "toggle":
+      return {
+        blockId,
+        blockType: "toggle",
+        content: (node.content ?? []).map((p) => encodeInline(p.content)).join("\n"),
+        attrs: { toggle: asString(node.attrs?.toggle) ?? "closed" },
+      };
     case "blockquote":
       return { blockId, blockType: "quote", content: encodeInline(node.content?.[0]?.content) };
     case "codeBlock":

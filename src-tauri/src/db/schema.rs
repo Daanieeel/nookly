@@ -171,6 +171,10 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
                 "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
         });
         let mut attrs = serde_json::Map::new();
+        attrs.insert(
+            "heading1/heading2/heading3".into(),
+            crate::db::block_types::describe_attr_defs(crate::db::block_types::declared_attrs("heading1")),
+        );
         for block_def in &custom {
             formats[block_def.block_type] = serde_json::json!(block_def.content_format);
             attrs.insert(

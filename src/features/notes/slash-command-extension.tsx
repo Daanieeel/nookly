@@ -1,6 +1,8 @@
 import {
   IconBinaryTree,
   IconCode,
+  IconChevronRight,
+  IconHeading,
   IconInfoCircle,
   IconSeparatorHorizontal,
   IconSquareCheck,
@@ -18,7 +20,7 @@ import {
   IconQuote,
   IconTable,
 } from "@tabler/icons-react";
-import { PluginKey } from "@tiptap/pm/state";
+import { PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { Editor, Range } from "@tiptap/react";
 import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
@@ -65,6 +67,42 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: <IconH3 size={15} />,
     run: (editor, range) =>
       editor.chain().focus().deleteRange(range).setNode("heading", { level: 3 }).run(),
+  },
+  {
+    title: "Toggle heading",
+    group: "Text",
+    description: "A heading that folds its section",
+    icon: <IconHeading size={15} />,
+    run: (editor, range) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setNode("heading", { level: 2, toggle: "open" })
+        .run(),
+  },
+  {
+    title: "Toggle",
+    group: "Text",
+    description: "A line that folds text under it",
+    icon: <IconChevronRight size={15} />,
+    run: (editor, range) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .command(({ tr, state }) => {
+          const { $from } = tr.selection;
+          const paragraph = $from.parent;
+          const toggle = state.schema.nodes.toggle.create({ toggle: "open" }, [
+            state.schema.nodes.paragraph.create(null, paragraph.content),
+          ]);
+          const pos = $from.before();
+          tr.replaceWith(pos, $from.after(), toggle);
+          tr.setSelection(TextSelection.create(tr.doc, pos + 2 + paragraph.content.size));
+          return true;
+        })
+        .run(),
   },
   {
     title: "Quote",

@@ -347,6 +347,46 @@
     text-decoration: line-through;
     text-decoration-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
   }
+  /* Toggles (`toggle-extension.ts`): folded content stays in the document, hidden. */
+  .tiptap-content .toggle-block {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0.25rem 0;
+  }
+  .tiptap-content .toggle-block .toggle-content p {
+    margin: 0;
+  }
+  .tiptap-content .toggle-block .toggle-content p + p {
+    margin-top: 0.25rem;
+  }
+  .tiptap-content .toggle-block[data-toggle="closed"] .toggle-content p:not(:first-child) {
+    display: none;
+  }
+  .tiptap-content .toggle-folded {
+    display: none;
+  }
+  .tiptap-content .toggle-heading-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.25rem;
+    vertical-align: middle;
+    border-radius: 0.375rem;
+    color: var(--muted-foreground);
+    cursor: pointer;
+  }
+  .tiptap-content .toggle-heading-chevron:hover {
+    background: color-mix(in oklab, var(--accent) 60%, transparent);
+    color: var(--foreground);
+  }
+  .tiptap-content .toggle-heading-chevron svg {
+    transition: transform 150ms;
+  }
+  .tiptap-content .toggle-heading-chevron[data-open="true"] svg {
+    transform: rotate(90deg);
+  }
   .tiptap-content hr {
     margin: 0.75rem 0;
     border: none;

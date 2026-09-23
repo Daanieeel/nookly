@@ -187,7 +187,8 @@ export type BlockType =
   | "stats"
   | "details"
   | "divider"
-  | "checklist";
+  | "checklist"
+  | "toggle";
 
 export interface SessionOccurrence {
   entity: Entity;
