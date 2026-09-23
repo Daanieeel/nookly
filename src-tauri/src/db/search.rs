@@ -49,7 +49,9 @@ pub struct SearchHit {
     pub snippet: Option<String>,
 }
 
-const HIT_LIMIT: i64 = 50;
+/// Generous per kind (titles, blocks) so the palette's "View all (N)" counts
+/// stay accurate for any realistic single user dataset.
+const HIT_LIMIT: i64 = 200;
 
 /// Turns free user input into a safe FTS5 expression: every whitespace separated
 /// word becomes a quoted prefix term (`"word"*`), ANDed together, so punctuation

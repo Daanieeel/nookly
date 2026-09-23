@@ -1,9 +1,11 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { IconSearch } from "@tabler/icons-react";
+import { IconFolder, IconSearch } from "@tabler/icons-react";
 import { Command } from "cmdk";
-import type { ComponentProps, ReactNode, Ref } from "react";
+import type { ComponentProps, CSSProperties, ReactNode, Ref } from "react";
+import { renderIconValue } from "@/components/entity-icon";
 import { DialogPortal } from "@/components/ui/dialog";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import type { Space } from "@/lib/api/types";
 import type { TextSegment } from "@/lib/search-results";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +99,20 @@ export function SpotlightItem({ className, ...props }: ComponentProps<typeof Com
       )}
       {...props}
     />
+  );
+}
+
+/// A Space's own icon in its accent color (the one sanctioned colored icon).
+export function SpaceGlyph({ space, size }: { space: Space; size: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center text-(--space-color)"
+      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+      // string — `CSSProperties` just doesn't model custom properties.
+      style={{ "--space-color": space.color } as CSSProperties}
+    >
+      {space.icon ? renderIconValue(space.icon, size) : <IconFolder size={size} />}
+    </span>
   );
 }
 

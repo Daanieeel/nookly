@@ -1,17 +1,17 @@
-import { IconBolt, IconFolder } from "@tabler/icons-react";
+import { IconArrowRight, IconBolt, IconChevronDown, IconX } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   StatusAnnouncer,
   StatusIcon,
   statusOf,
   statusTextClass,
 } from "@/components/action-feedback";
-import { EntityIcon, renderIconValue } from "@/components/entity-icon";
+import { EntityIcon } from "@/components/entity-icon";
 import {
   Highlighted,
+  SpaceGlyph,
   SpotlightDialog,
   SpotlightEmpty,
   SpotlightFooter,
@@ -19,6 +19,15 @@ import {
   SpotlightItem,
   SpotlightList,
 } from "@/components/spotlight";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { createCourse } from "@/lib/api/courses";
 import { listEntities } from "@/lib/api/entities";
@@ -29,7 +38,13 @@ import { listSpaceModules, listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
 import { displayTitle } from "@/lib/entity-title";
 import { MODULE_KEYS } from "@/lib/modules";
-import { groupHits, snippetSegments, termSegments } from "@/lib/search-results";
+import {
+  groupHits,
+  snippetSegments,
+  termSegments,
+  TYPE_GROUPS,
+  typeGroupFor,
+} from "@/lib/search-results";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 
@@ -91,18 +106,8 @@ function matchQuickCreate(trimmed: string): QuickCreateMatch[] {
   return matches;
 }
 
-function SpaceGlyph({ space, size }: { space: Space; size: number }) {
-  return (
-    <span
-      className="flex shrink-0 items-center text-(--space-color)"
-      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-      // string — `CSSProperties` just doesn't model custom properties.
-      style={{ "--space-color": space.color } as CSSProperties}
-    >
-      {space.icon ? renderIconValue(space.icon, size) : <IconFolder size={size} />}
-    </span>
-  );
-}
+/// Items shown per Space and type group before collapsing into "View all (N)".
+const GROUP_PREVIEW_LIMIT = 3;
 
 /// Leading glyph for every quick action row, so "create a Task" never reads
 /// like "open an existing Task".
@@ -121,6 +126,9 @@ export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, openEntity, setView, activeSpaceId, recents } =
     useNavStore();
   const [query, setQuery] = useState("");
+  const [filterSpaceId, setFilterSpaceId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const trimmed = query.trim();
 
@@ -131,8 +139,8 @@ export function CommandPalette() {
     enabled: paletteOpen,
   });
   const { data: hits = [], isFetching } = useQuery({
-    queryKey: ["search", trimmed],
-    queryFn: () => search(trimmed),
+    queryKey: ["search", trimmed, filterSpaceId],
+    queryFn: () => search(trimmed, filterSpaceId),
     enabled: trimmed.length > 0,
     placeholderData: keepPreviousData,
   });
@@ -187,16 +195,31 @@ export function CommandPalette() {
   useEffect(() => {
     if (paletteOpen) return;
     setQuery("");
+    setFilterSpaceId(null);
+    setFilterType(null);
     resetQuickCreate();
     resetGoToSpace();
   }, [paletteOpen, resetQuickCreate, resetGoToSpace]);
 
+  const filtered = filterSpaceId !== null || filterType !== null;
   const activeSpace = spaces.find((s) => s.id === activeSpaceId);
-  const createMatches = activeSpace ? matchQuickCreate(trimmed) : [];
+  // Filters narrow the search to existing things, so actions step aside.
+  const createMatches = activeSpace && !filtered ? matchQuickCreate(trimmed) : [];
   const lowerQuery = trimmed.toLowerCase();
   const spaceMatches =
-    lowerQuery.length >= 2 ? spaces.filter((s) => s.name.toLowerCase().startsWith(lowerQuery)) : [];
-  const groups = groupHits(hits, spaces);
+    lowerQuery.length >= 2 && !filtered
+      ? spaces.filter((s) => s.name.toLowerCase().startsWith(lowerQuery))
+      : [];
+  const groups = groupHits(
+    filterType ? hits.filter((h) => typeGroupFor(h.type).key === filterType) : hits,
+    spaces,
+  );
+  // With a type filter set, every group is already the "view all" of itself.
+  const perGroupLimit = filterType ? Infinity : GROUP_PREVIEW_LIMIT;
+
+  function refocusInput() {
+    inputRef.current?.focus();
+  }
 
   const entityById = new Map((entities ?? []).map((e) => [e.id, e]));
   const recentEntities = recents.flatMap((r) => {
@@ -299,9 +322,24 @@ export function CommandPalette() {
   return (
     <SpotlightDialog open={paletteOpen} onOpenChange={setPaletteOpen} title="Search">
       <SpotlightInput
+        ref={inputRef}
         value={query}
         onValueChange={setQuery}
         placeholder="Search, create, or jump anywhere…"
+        onKeyDown={(e) => {
+          // Backspace on an empty input peels filters off, most specific first.
+          if (e.key !== "Backspace" || query !== "") return;
+          if (filterType) setFilterType(null);
+          else if (filterSpaceId) setFilterSpaceId(null);
+        }}
+      />
+      <SearchFilters
+        spaces={spaces}
+        spaceId={filterSpaceId}
+        typeKey={filterType}
+        onSpaceChange={setFilterSpaceId}
+        onTypeChange={setFilterType}
+        onMenuClosed={refocusInput}
       />
       <SpotlightList>
         {trimmed.length === 0 ? (
@@ -357,7 +395,20 @@ export function CommandPalette() {
                 </div>
                 {types.map((group) => (
                   <Command.Group key={group.key} heading={group.label}>
-                    {group.hits.map(renderHit)}
+                    {group.hits.slice(0, perGroupLimit).map(renderHit)}
+                    {group.hits.length > perGroupLimit && (
+                      <SpotlightItem
+                        value={`viewall-${space.id}-${group.key}`}
+                        onSelect={() => {
+                          setFilterSpaceId(space.id);
+                          setFilterType(group.key);
+                        }}
+                        className="text-muted-foreground"
+                      >
+                        <IconArrowRight size={16} className="shrink-0" />
+                        <span>View all ({group.hits.length})</span>
+                      </SpotlightItem>
+                    )}
                   </Command.Group>
                 ))}
               </div>
@@ -378,6 +429,96 @@ export function CommandPalette() {
         }
       />
     </SpotlightDialog>
+  );
+}
+
+function SearchFilters({
+  spaces,
+  spaceId,
+  typeKey,
+  onSpaceChange,
+  onTypeChange,
+  onMenuClosed,
+}: {
+  spaces: Space[];
+  spaceId: string | null;
+  typeKey: string | null;
+  onSpaceChange: (spaceId: string | null) => void;
+  onTypeChange: (typeKey: string | null) => void;
+  /// Hands focus back to the search input once a menu closes.
+  onMenuClosed: () => void;
+}) {
+  const space = spaces.find((s) => s.id === spaceId);
+  const type = TYPE_GROUPS.find((g) => g.key === typeKey);
+  const closeAutoFocus = (e: Event) => {
+    e.preventDefault();
+    onMenuClosed();
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 border-b border-border/70 px-4 py-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant={space ? "secondary" : "ghost"} size="sm" className="gap-1.5">
+            {space && <SpaceGlyph space={space} size={12} />}
+            {space?.name ?? "All Spaces"}
+            <IconChevronDown />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" onCloseAutoFocus={closeAutoFocus}>
+          <DropdownMenuRadioGroup
+            value={spaceId ?? ""}
+            onValueChange={(v) => onSpaceChange(v || null)}
+          >
+            <DropdownMenuRadioItem value="">All Spaces</DropdownMenuRadioItem>
+            <DropdownMenuSeparator />
+            {spaces.map((s) => (
+              <DropdownMenuRadioItem key={s.id} value={s.id}>
+                <SpaceGlyph space={s} size={14} />
+                {s.name}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant={type ? "secondary" : "ghost"} size="sm" className="gap-1.5">
+            {type?.label ?? "All types"}
+            <IconChevronDown />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" onCloseAutoFocus={closeAutoFocus}>
+          <DropdownMenuRadioGroup
+            value={typeKey ?? ""}
+            onValueChange={(v) => onTypeChange(v || null)}
+          >
+            <DropdownMenuRadioItem value="">All types</DropdownMenuRadioItem>
+            <DropdownMenuSeparator />
+            {TYPE_GROUPS.map((g) => (
+              <DropdownMenuRadioItem key={g.key} value={g.key}>
+                {g.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {(space || type) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            onSpaceChange(null);
+            onTypeChange(null);
+            onMenuClosed();
+          }}
+          className="ml-auto gap-1"
+        >
+          <IconX />
+          Clear filters
+        </Button>
+      )}
+    </div>
   );
 }
 

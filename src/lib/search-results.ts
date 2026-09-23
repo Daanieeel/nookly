@@ -3,7 +3,7 @@ import type { SearchHit, Space } from "@/lib/api/types";
 /// Fixed order of entity type subgroups inside a Space group in the Cmd+K
 /// results. Never re-sorted by count or relevance, so the grouped structure
 /// stays put while the user types; only items inside a subgroup are ranked.
-const TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
+export const TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
   { key: "tasks", label: "Tasks", types: ["task", "sub_task"] },
   { key: "notes", label: "Notes", types: ["note"] },
   { key: "jots", label: "Jots", types: ["jot"] },
@@ -32,7 +32,7 @@ export interface HitSpaceGroup {
   types: HitTypeGroup[];
 }
 
-function typeGroupFor(type: string): { key: string; label: string } {
+export function typeGroupFor(type: string): { key: string; label: string } {
   return TYPE_GROUPS.find((g) => g.types.includes(type)) ?? OTHER_GROUP;
 }
 

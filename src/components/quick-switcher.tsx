@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { EntityIcon } from "@/components/entity-icon";
 import {
   Highlighted,
+  SpaceGlyph,
   SpotlightDialog,
   SpotlightEmpty,
   SpotlightFooter,
@@ -14,7 +15,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { listEntities } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
 import type { Entity } from "@/lib/api/types";
-import { displayTitle } from "@/lib/entity-title";
+import { displayTitle, labelForType } from "@/lib/entity-title";
 import { fuzzyMatch, type TextSegment } from "@/lib/search-results";
 import { useNavStore } from "@/lib/store/nav";
 
@@ -61,7 +62,7 @@ export function QuickSwitcher() {
     query,
     recents.map((r) => r.entityId),
   );
-  const spaceName = new Map(spaces.map((s) => [s.id, s.name]));
+  const spaceById = new Map(spaces.map((s) => [s.id, s]));
 
   return (
     <SpotlightDialog open={open} onOpenChange={setOpen} title="Quick open">
@@ -70,24 +71,33 @@ export function QuickSwitcher() {
         <SpotlightEmpty>
           {query.trim() ? `Nothing matches “${query.trim()}”.` : "Nothing to open yet."}
         </SpotlightEmpty>
-        {rows.map(({ entity, segments }) => (
-          <SpotlightItem
-            key={entity.id}
-            value={entity.id}
-            onSelect={() => {
-              openEntity(entity.id, entity.spaceId);
-              setOpen(false);
-            }}
-          >
-            <EntityIcon entity={entity} size={16} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">
-              <Highlighted segments={segments} />
-            </span>
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {spaceName.get(entity.spaceId)}
-            </span>
-          </SpotlightItem>
-        ))}
+        {rows.map(({ entity, segments }) => {
+          const space = spaceById.get(entity.spaceId);
+          return (
+            <SpotlightItem
+              key={entity.id}
+              value={entity.id}
+              onSelect={() => {
+                openEntity(entity.id, entity.spaceId);
+                setOpen(false);
+              }}
+            >
+              <EntityIcon entity={entity} size={16} className="shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">
+                <Highlighted segments={segments} />
+              </span>
+              {space && (
+                <span className="flex max-w-40 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <SpaceGlyph space={space} size={12} />
+                  <span className="truncate">{space.name}</span>
+                </span>
+              )}
+              <span className="w-20 shrink-0 truncate text-right text-xs text-muted-foreground/70">
+                {labelForType(entity.type)}
+              </span>
+            </SpotlightItem>
+          );
+        })}
       </SpotlightList>
       <SpotlightFooter
         aside={
