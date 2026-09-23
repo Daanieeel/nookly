@@ -22,7 +22,7 @@ The rules combine. A deletion that would also delete 20 other entities, or disco
 
 ## Destructive and Irreversible
 
-*Examples: permanently delete, empty Trash.*
+_Examples: permanently delete, empty Trash._
 
 - State exactly what will be deleted, by name.
 - Explain that removal is permanent and cannot be recovered.
@@ -34,7 +34,7 @@ The rules combine. A deletion that would also delete 20 other entities, or disco
 
 ## Destructive but Reversible
 
-*Examples: move to Trash, archive, deactivate.*
+_Examples: move to Trash, archive, deactivate._
 
 - Name the item and the action.
 - Say explicitly that the action **can** be undone, and briefly how ("You can restore this from Trash").
@@ -46,7 +46,7 @@ In Nookly, regular deletes land here, because every delete is a soft delete and 
 
 ## Costly or Hard-to-Reverse
 
-*Examples: send, pay, submit, publish, share externally.*
+_Examples: send, pay, submit, publish, share externally._
 
 The risk here is not data loss but real-world consequences.
 
@@ -58,7 +58,7 @@ The risk here is not data loss but real-world consequences.
 
 ## Overwrite or Replace
 
-*Examples: save over an existing file, replace a version, reset to defaults.*
+_Examples: save over an existing file, replace a version, reset to defaults._
 
 - Name both sides: what is being replaced and what replaces it.
 - Make clear that the old version will be lost (or say where to find it, if versioning exists).
@@ -68,7 +68,7 @@ The risk here is not data loss but real-world consequences.
 
 ## Bulk or Scope-Expanding
 
-*Examples: delete all, apply to every item, remove access for a group.*
+_Examples: delete all, apply to every item, remove access for a group._
 
 The danger is scale, so surface the count and scope explicitly: "This will remove 6 people from this project."
 
@@ -79,7 +79,7 @@ The danger is scale, so surface the count and scope explicitly: "This will remov
 
 ## Leaving or Discarding Work
 
-*Examples: close with unsaved changes, cancel a flow, navigate away.*
+_Examples: close with unsaved changes, cancel a flow, navigate away._
 
 - Confirm the loss of **work**, not of data structures.
 - Describe what will be discarded in familiar terms: "Your unsaved changes will be lost," not "Unsaved state detected."
@@ -89,11 +89,11 @@ The danger is scale, so surface the count and scope explicitly: "This will remov
 
 ## Quick Reference
 
-| Category                   | What to name     | What to confirm           | Example button label  |
-| -------------------------- | ---------------- | ------------------------- | --------------------- |
-| Destructive, irreversible  | The item         | Permanent, no recovery    | Delete                |
-| Destructive, reversible    | The item         | Reversible, and how       | Move to Trash         |
-| Costly action              | The effect       | Real-world consequence    | Send, Publish, Pay    |
-| Overwrite                  | Old and new      | What is lost              | Overwrite, Replace    |
-| Bulk action                | The count, scope | Scale of impact           | Delete All (6 items)  |
-| Discard work               | The work         | Loss of unsaved effort    | Discard, Save and Exit |
+| Category                  | What to name     | What to confirm        | Example button label   |
+| ------------------------- | ---------------- | ---------------------- | ---------------------- |
+| Destructive, irreversible | The item         | Permanent, no recovery | Delete                 |
+| Destructive, reversible   | The item         | Reversible, and how    | Move to Trash          |
+| Costly action             | The effect       | Real-world consequence | Send, Publish, Pay     |
+| Overwrite                 | Old and new      | What is lost           | Overwrite, Replace     |
+| Bulk action               | The count, scope | Scale of impact        | Delete All (6 items)   |
+| Discard work              | The work         | Loss of unsaved effort | Discard, Save and Exit |

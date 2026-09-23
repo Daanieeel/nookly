@@ -81,19 +81,19 @@ Pages must **not** all look the same. The pattern of a generic input row, a butt
 
 Look at the nature of the data (is it time-based, document-based, visual, driven by status?) and design the layout around it. The table below is guidance, not a complete list.
 
-| Module             | Primary layout                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| Module             | Primary layout                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | Tasks              | Board with Linear-style columns per status by default. Toggle to a list or table grouped by status, label, or date. |
-| Notes              | Full-width document canvas. No list and detail split for the writing surface.                           |
-| Jots               | Fast, minimal capture surface with almost no chrome.                                                    |
-| Refinements        | Same canvas as Notes.                                                                                   |
-| Courses            | Card grid or compact list showing name, semester chips, and sequel or prequel indicators.               |
-| Sessions/Timetable | Calendar first, using a weekly timetable grid. A list is secondary.                                     |
-| Exams              | Timeline or upcoming-first list, sorted by date, with urgency emphasized. Grade and status as badges.   |
-| Assignments        | List that puts dates and status first. Visually distinct from Tasks despite the similarity.             |
-| Files              | Grid by default with file-type icons or thumbnails. List as a toggle.                                   |
-| Bookmarks          | Grid of rich preview cards showing favicon, title, and preview image.                                   |
-| Dashboard          | Bento grid with blocks of varying size. Should read clearly as a dashboard, unlike the list pages.      |
+| Notes              | Full-width document canvas. No list and detail split for the writing surface.                                       |
+| Jots               | Fast, minimal capture surface with almost no chrome.                                                                |
+| Refinements        | Same canvas as Notes.                                                                                               |
+| Courses            | Card grid or compact list showing name, semester chips, and sequel or prequel indicators.                           |
+| Sessions/Timetable | Calendar first, using a weekly timetable grid. A list is secondary.                                                 |
+| Exams              | Timeline or upcoming-first list, sorted by date, with urgency emphasized. Grade and status as badges.               |
+| Assignments        | List that puts dates and status first. Visually distinct from Tasks despite the similarity.                         |
+| Files              | Grid by default with file-type icons or thumbnails. List as a toggle.                                               |
+| Bookmarks          | Grid of rich preview cards showing favicon, title, and preview image.                                               |
+| Dashboard          | Bento grid with blocks of varying size. Should read clearly as a dashboard, unlike the list pages.                  |
 
 ## Content-Aware Creation Flows (top redesign priority)
 
