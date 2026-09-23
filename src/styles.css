@@ -227,7 +227,7 @@
     margin: 0.25rem 0;
   }
   .tiptap-content blockquote {
-    margin: 0.25rem 0;
+    margin: 0.5rem 0;
     padding-left: 0.75rem;
     border-left: 2px solid var(--border);
     color: var(--muted-foreground);
