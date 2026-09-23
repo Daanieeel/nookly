@@ -22,6 +22,10 @@ Dark and light themes are both fully supported and equally important. The primit
 
 The active Space's accent color shows up beyond its sidebar label, in highlights, accents, and tinting throughout that Space (see [Spaces](04-navigation-spaces.md#spaces)).
 
+## Remembered Customizations
+
+Layout and view choices the user makes, such as collapsing or resizing a sidebar, the theme, or the last active Space, are remembered across sessions and restarts. The app reopens the way the user left it. These preferences are stored per device and are not synced. See [Local Storage Keys](development/local-storage-key.md) for the keys and the rules for adding new ones.
+
 ## Command Palette
 
 Foundational and required for v1.

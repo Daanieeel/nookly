@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { STORAGE_KEYS } from "@/lib/storage-keys";
 
 export const MODULE_KEYS = [
   "tasks",
@@ -54,7 +55,7 @@ interface NavState {
 
 function readStoredCollapsed(): boolean {
   try {
-    return localStorage.getItem("nookly:sidebar-collapsed") === "1";
+    return localStorage.getItem(STORAGE_KEYS.sidebarCollapsed) === "1";
   } catch {
     return false;
   }
@@ -72,7 +73,7 @@ export function clampRightSidebarWidth(width: number): number {
 
 function readStoredRightSidebarWidth(): number {
   try {
-    const stored = Number(localStorage.getItem("nookly:right-sidebar-width"));
+    const stored = Number(localStorage.getItem(STORAGE_KEYS.rightSidebarWidth));
     return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
   } catch {
     return RIGHT_SIDEBAR_DEFAULT_WIDTH;
@@ -81,7 +82,7 @@ function readStoredRightSidebarWidth(): number {
 
 function readStoredRightSidebarCollapsed(): boolean {
   try {
-    return localStorage.getItem("nookly:right-sidebar-collapsed") === "1";
+    return localStorage.getItem(STORAGE_KEYS.rightSidebarCollapsed) === "1";
   } catch {
     return false;
   }
@@ -89,7 +90,7 @@ function readStoredRightSidebarCollapsed(): boolean {
 
 function readStoredActiveSpace(): string | null {
   try {
-    return localStorage.getItem("nookly:active-space");
+    return localStorage.getItem(STORAGE_KEYS.activeSpace);
   } catch {
     return null;
   }
@@ -97,8 +98,8 @@ function readStoredActiveSpace(): string | null {
 
 function writeStoredActiveSpace(spaceId: string | null) {
   try {
-    if (spaceId) localStorage.setItem("nookly:active-space", spaceId);
-    else localStorage.removeItem("nookly:active-space");
+    if (spaceId) localStorage.setItem(STORAGE_KEYS.activeSpace, spaceId);
+    else localStorage.removeItem(STORAGE_KEYS.activeSpace);
   } catch {
     // best-effort only
   }
@@ -106,7 +107,7 @@ function writeStoredActiveSpace(spaceId: string | null) {
 
 function readStoredRecents(): RecentEntry[] {
   try {
-    const raw = localStorage.getItem("nookly:recents");
+    const raw = localStorage.getItem(STORAGE_KEYS.recents);
     // SAFETY: this key is only ever written by `writeStoredRecents` below, with the
     // exact `RecentEntry[]` shape — never user-editable or written by anything else.
     return raw ? (JSON.parse(raw) as RecentEntry[]) : [];
@@ -117,7 +118,7 @@ function readStoredRecents(): RecentEntry[] {
 
 function writeStoredRecents(recents: RecentEntry[]) {
   try {
-    localStorage.setItem("nookly:recents", JSON.stringify(recents));
+    localStorage.setItem(STORAGE_KEYS.recents, JSON.stringify(recents));
   } catch {
     // best-effort only
   }
@@ -160,7 +161,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     try {
-      localStorage.setItem("nookly:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+      localStorage.setItem(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
     } catch {
       // best-effort only
     }
@@ -168,7 +169,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   },
   setRightSidebarCollapsed: (rightSidebarCollapsed) => {
     try {
-      localStorage.setItem("nookly:right-sidebar-collapsed", rightSidebarCollapsed ? "1" : "0");
+      localStorage.setItem(STORAGE_KEYS.rightSidebarCollapsed, rightSidebarCollapsed ? "1" : "0");
     } catch {
       // best-effort only
     }
@@ -177,7 +178,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   setRightSidebarWidth: (width) => {
     const rightSidebarWidth = clampRightSidebarWidth(width);
     try {
-      localStorage.setItem("nookly:right-sidebar-width", String(rightSidebarWidth));
+      localStorage.setItem(STORAGE_KEYS.rightSidebarWidth, String(rightSidebarWidth));
     } catch {
       // best-effort only
     }

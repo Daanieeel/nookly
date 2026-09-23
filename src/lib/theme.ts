@@ -1,9 +1,9 @@
+import { STORAGE_KEYS } from "@/lib/storage-keys";
+
 export type Theme = "light" | "dark" | "system";
 
-const STORAGE_KEY = "nookly-theme";
-
 export function getStoredTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(STORAGE_KEYS.theme);
   return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
 }
 
@@ -17,7 +17,7 @@ export function applyTheme(theme: Theme): void {
 }
 
 export function setTheme(theme: Theme): void {
-  localStorage.setItem(STORAGE_KEY, theme);
+  localStorage.setItem(STORAGE_KEYS.theme, theme);
   applyTheme(theme);
 }
 

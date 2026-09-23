@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCliInstallStatus, installCli } from "@/lib/api/cli";
-
-const DISMISS_KEY = "nookly:cli-install-card-dismissed";
+import { STORAGE_KEYS } from "@/lib/storage-keys";
 
 function isDismissed(): boolean {
   try {
-    return localStorage.getItem(DISMISS_KEY) === "1";
+    return localStorage.getItem(STORAGE_KEYS.cliInstallCardDismissed) === "1";
   } catch {
     return false;
   }
@@ -19,7 +18,7 @@ function isDismissed(): boolean {
 
 function dismiss() {
   try {
-    localStorage.setItem(DISMISS_KEY, "1");
+    localStorage.setItem(STORAGE_KEYS.cliInstallCardDismissed, "1");
   } catch {
     // Worst case the card reappears next launch — not worth failing over.
   }
