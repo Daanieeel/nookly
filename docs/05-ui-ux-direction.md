@@ -33,6 +33,36 @@ Foundational and required for v1.
 
 Default to bespoke components that understand their content instead of generic form controls. Compose them from existing primitives or add them alongside. Never replace a primitive.
 
+## Success and Error Feedback
+
+Show the result of an action on the element the user interacted with. Their attention is already there, so the answer belongs there too. Toasts are a fallback for the rare case where that is not possible, never the default.
+
+### In Place First
+
+- **Success:** the control confirms itself briefly, then returns to its resting state. A button swaps its icon for a green check, a row gets a subtle highlight, a field settles back quietly after saving.
+- **Error:** the control itself looks like it failed. An icon turns into a red warning, a field gets a destructive border with a short message directly below it, a row that failed to save stays marked.
+- **Pending:** if an action takes noticeable time, the same control shows a spinner or a disabled state, so the user never wonders whether the click registered.
+- **Dialogs and menus:** do not close the moment the user confirms. Keep the dialog open while the action runs, show the pending state on the button that was clicked, then show its success state for about a second before closing. On error, keep the dialog open with the error on that button or field. If a native OS dialog is involved (such as a save dialog), the control that opened it carries the pending and success states instead.
+- **Timing:** success states revert on their own after about two seconds. Error states stay until the user acts again or the cause is resolved. An error that disappears by itself is an error the user missed.
+- **Stable footprint:** swap icons, colors, or labels inside the existing box. Never shift the surrounding layout to make room for feedback.
+- **Tokens:** `text-positive` for success, `text-caution` for warnings that need attention but are not failures, the `destructive` tokens for errors. Color is never the only signal; always pair it with an icon or label change so the state reads without color.
+- **Accessibility:** update the accessible name or use an `aria-live` region so screen readers hear the change too.
+
+### Reference Implementation
+
+[`src/components/ui/copy-button.tsx`](../src/components/ui/copy-button.tsx) is the model to follow. Clicking copies the value and swaps the copy icon for a green checkmark for two seconds, then reverts. No toast, no layout shift, no extra UI. Components that wrap it can react to the same state, like `CopyPageMarkdownItem` in `PageExportMenu.tsx`, which turns its whole menu label green and keeps the menu open so the confirmation is visible.
+
+### When a Toast Is Acceptable
+
+Use a toast only when no interacted component is left on screen to carry the result:
+
+- The action removes the control that triggered it, such as deleting a row. Pair the toast with an Undo action where possible.
+- The action completes after the user has navigated away from the view that started it, so the control is no longer mounted.
+- The action had no visible control, such as a keyboard shortcut or a command palette command after the palette closed.
+- The failure is not tied to any single component, such as the backend being unreachable.
+
+When a toast is used, say exactly what happened and, for errors, what the user can do next. Never show a toast and an in place state for the same event.
+
 ---
 
 # Redesign Directive
