@@ -154,7 +154,7 @@ jobs:
             [ -n "$mac_arm" ] && echo "- [Apple Silicon]($mac_arm)"
             [ -n "$mac_intel" ] && echo "- [Intel]($mac_intel)"
             echo ""
-            echo "> Not code signed yet: macOS will say \`\"nookly.app\" is damaged and can't be opened\`. Fix: \`xattr -cr /Applications/nookly.app\`"
+            echo "> Not code signed yet: macOS will say \`\"Nookly.app\" is damaged and can't be opened\`. Fix: \`xattr -cr /Applications/Nookly.app\`"
             echo ""
             echo "**Windows:**"
             [ -n "$win_msi" ] && echo "- [Installer (.msi)]($win_msi)"
