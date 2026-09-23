@@ -86,6 +86,7 @@ pub fn run() {
             commands::notes::count_jots_without_refinement,
             commands::notes::count_jots_without_refinement_all_spaces,
             commands::notes::list_recent_notes,
+            commands::notes::list_note_summaries,
             commands::notes::list_blocks,
             commands::notes::list_mentioning_entities,
             commands::notes::create_block,

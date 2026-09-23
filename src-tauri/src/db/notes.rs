@@ -95,6 +95,98 @@ pub fn list_recent_notes(conn: &Connection, space_id: &str, limit: i64) -> AppRe
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// One row of the Notes list page: the entity plus what it takes to recognize a Note
+/// without opening it. Loaded in one call for the whole Space so the list never fans
+/// out into a `list_blocks` per row.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSummary {
+    pub entity: Entity,
+    /// Raw markdown of the leading text blocks, joined by `\n`, capped near
+    /// `PREVIEW_CHARS`. The frontend strips inline markdown for display.
+    pub preview: String,
+    /// Latest block edit, falling back to the entity's own `updated_at` (same rule
+    /// as `list_recent_notes`).
+    pub last_edited_at: String,
+    pub label_ids: Vec<String>,
+}
+
+const PREVIEW_CHARS: usize = 280;
+
+/// Block types whose content reads as prose in a preview; code, tables and media don't.
+const PREVIEW_BLOCK_TYPES: &str =
+    "'paragraph','heading1','heading2','heading3','quote','bulleted_list','numbered_list'";
+
+pub fn list_note_summaries(conn: &Connection, space_id: &str) -> AppResult<Vec<NoteSummary>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, COALESCE(MAX(b.updated_at, e.updated_at), e.updated_at) AS last_edited_at
+         FROM entities e
+         LEFT JOIN (SELECT entity_id, MAX(updated_at) AS updated_at FROM blocks GROUP BY entity_id) b
+           ON b.entity_id = e.id
+         WHERE e.space_id = ?1 AND e.type = 'note' AND e.deleted_at IS NULL
+         ORDER BY last_edited_at DESC",
+    )?;
+    let mut summaries = stmt
+        .query_map(params![space_id], |row| {
+            Ok(NoteSummary {
+                entity: row_to_entity(row)?,
+                preview: String::new(),
+                last_edited_at: row.get("last_edited_at")?,
+                label_ids: Vec::new(),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let index: std::collections::HashMap<String, usize> = summaries
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.entity.id.clone(), i))
+        .collect();
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT b.entity_id, b.content FROM blocks b JOIN entities e ON e.id = b.entity_id
+         WHERE e.space_id = ?1 AND e.type = 'note' AND e.deleted_at IS NULL
+           AND b.block_type IN ({PREVIEW_BLOCK_TYPES}) AND TRIM(b.content) != ''
+         ORDER BY b.entity_id, b.position ASC"
+    ))?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        let content: String = row.get(1)?;
+        let Some(&i) = index.get(&entity_id) else {
+            continue;
+        };
+        let preview = &mut summaries[i].preview;
+        if preview.chars().count() >= PREVIEW_CHARS {
+            continue;
+        }
+        if !preview.is_empty() {
+            preview.push('\n');
+        }
+        preview.push_str(content.trim());
+    }
+    for summary in &mut summaries {
+        if let Some((cut, _)) = summary.preview.char_indices().nth(PREVIEW_CHARS) {
+            summary.preview.truncate(cut);
+        }
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         JOIN labels l ON l.id = el.label_id
+         WHERE e.space_id = ?1 AND e.type = 'note' AND e.deleted_at IS NULL
+         ORDER BY l.name ASC",
+    )?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        if let Some(&i) = index.get(&entity_id) {
+            summaries[i].label_ids.push(row.get(1)?);
+        }
+    }
+    Ok(summaries)
+}
+
 pub fn list_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<Block>> {
     let mut stmt =
         conn.prepare("SELECT * FROM blocks WHERE entity_id = ?1 ORDER BY position ASC")?;
@@ -510,6 +602,72 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn note_summaries_carry_preview_recency_and_labels() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let empty = create_page(&conn, space.id.clone(), "note", "Empty".into()).unwrap();
+        let page = create_page(&conn, space.id.clone(), "note", "Lecture 1".into()).unwrap();
+        create_page(&conn, space.id.clone(), "jot", "Not a note".into()).unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "code".into(),
+            "let x = 1;".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "  ".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "First line".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "quote".into(),
+            "Second".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let label =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Exam".into(), "#f00".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &page.id, &label.id).unwrap();
+
+        let summaries = list_note_summaries(&conn, &space.id).unwrap();
+        assert_eq!(summaries.len(), 2);
+        let lecture = summaries.iter().find(|s| s.entity.id == page.id).unwrap();
+        assert_eq!(lecture.preview, "First line\nSecond");
+        assert_eq!(lecture.label_ids, vec![label.id]);
+        assert!(lecture.last_edited_at >= lecture.entity.updated_at);
+        let blank = summaries.iter().find(|s| s.entity.id == empty.id).unwrap();
+        assert!(blank.preview.is_empty() && blank.label_ids.is_empty());
+    }
 
     #[test]
     fn markdown_export_covers_every_block_type() {

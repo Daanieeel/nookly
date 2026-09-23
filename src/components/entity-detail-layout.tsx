@@ -8,7 +8,7 @@ import {
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   StatusAnnouncer,
   StatusIcon,
@@ -86,9 +86,17 @@ export function EntityDetailLayout({
   const setView = useNavStore((s) => s.setView);
   const [title, setTitle] = useState(entity.title);
   const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
 
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
+  // A fresh page opens with an empty title, so land the cursor there to type. Only on
+  // open (keyed by id), never again while the user is typing into the body.
+  useEffect(() => {
+    if (!entity.title.trim() && !entity.deletedAt) titleRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity.id]);
 
   const rename = useMutation({
     mutationFn: (newTitle: string) => updateEntity(entity.id, { title: newTitle }),
@@ -187,9 +195,20 @@ export function EntityDetailLayout({
               }
             />
             <input
+              ref={titleRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
+              onKeyDown={(e) => {
+                // Title first, content right after: Enter hands the cursor to the body.
+                if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+                const body = bodyRef.current?.querySelector<HTMLElement>(
+                  "[contenteditable='true']",
+                );
+                if (!body) return;
+                e.preventDefault();
+                body.focus();
+              }}
               placeholder={`Untitled ${labelForType(entity.type)}`}
               disabled={isDeleted}
               aria-invalid={renameFailed || undefined}
@@ -217,7 +236,9 @@ export function EntityDetailLayout({
             {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
             {actions("lg:hidden")}
           </div>
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">{children}</div>
+          <div ref={bodyRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+            {children}
+          </div>
         </div>
         <RightSidebar entity={entity} actions={actions} />
       </div>

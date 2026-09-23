@@ -7,4 +7,5 @@ export const STORAGE_KEYS = {
   recents: "nookly:recents",
   cliInstallCardDismissed: "nookly:cli-install-card-dismissed",
   theme: "nookly:theme",
+  notesSort: "nookly:notes-sort",
 } as const;

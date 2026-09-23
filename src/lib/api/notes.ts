@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Block, BlockPatch, BlockType, Entity } from "./types";
+import type { Block, BlockPatch, BlockType, Entity, NoteSummary } from "./types";
 
 export function createNote(spaceId: string, title: string): Promise<Entity> {
   return invoke("create_note", { spaceId, title });
@@ -23,6 +23,10 @@ export function countJotsWithoutRefinementAllSpaces(): Promise<number> {
 
 export function listRecentNotes(spaceId: string, limit = 5): Promise<Entity[]> {
   return invoke("list_recent_notes", { spaceId, limit });
+}
+
+export function listNoteSummaries(spaceId: string): Promise<NoteSummary[]> {
+  return invoke("list_note_summaries", { spaceId });
 }
 
 export function listBlocks(entityId: string): Promise<Block[]> {

@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::notes::{self, Block, BlockPatch};
+use crate::db::notes::{self, Block, BlockPatch, NoteSummary};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use tauri::State;
@@ -48,6 +48,12 @@ pub fn list_recent_notes(
 ) -> AppResult<Vec<Entity>> {
     let conn = state.0.lock().unwrap();
     notes::list_recent_notes(&conn, &space_id, limit)
+}
+
+#[tauri::command]
+pub fn list_note_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<NoteSummary>> {
+    let conn = state.0.lock().unwrap();
+    notes::list_note_summaries(&conn, &space_id)
 }
 
 #[tauri::command]

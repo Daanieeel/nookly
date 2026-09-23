@@ -125,6 +125,15 @@ export interface Block {
   updatedAt: string;
 }
 
+/// One Notes list row, loaded for the whole Space in one call.
+export interface NoteSummary {
+  entity: Entity;
+  /// Raw markdown of the leading text blocks joined by `\n`, capped around 280 chars.
+  preview: string;
+  lastEditedAt: string;
+  labelIds: string[];
+}
+
 export interface BlockPatch {
   content?: string;
   blockType?: BlockType;
