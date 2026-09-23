@@ -558,6 +558,7 @@ nookly cli note add-block <id> --type divider --content ''
 nookly cli note add-block <id> --type toggle --content "$(printf 'What is a monad?\nA monoid in the category of endofunctors.')"
 nookly cli note add-block <id> --type heading2 --content 'Week 1' --attr toggle=closed   # toggle heading
 nookly cli note add-block <id> --type equation --content '\int_0^1 x^2\,dx = \frac{1}{3}' --attr view=rendered
+nookly cli note add-block <id> --type diagram --content "$(printf 'flowchart LR\n  Idea --> Draft --> Done')" --attr view=rendered
 nookly cli note add-block <id> --type math --content "$(printf '(a+b)^2 &= (a+b)(a+b) \\\\\n&= a^2 + 2ab + b^2')"
 ```
 

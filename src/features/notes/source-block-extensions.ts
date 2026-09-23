@@ -1,4 +1,5 @@
-import { IconMathFunction, IconSum } from "@tabler/icons-react";
+import { IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
+import { renderDiagram } from "./diagram";
 import { TextSelection } from "@tiptap/pm/state";
 import { mergeAttributes, Node, ReactNodeViewRenderer } from "@tiptap/react";
 import { mathBlockLatex, renderMath } from "./math";
@@ -83,4 +84,14 @@ export const MathBlock = sourceBlock("math", {
   emptyLabel: "Empty math block",
   render: renderLatex(mathBlockLatex),
   centered: false,
+});
+
+/// A Mermaid diagram: flowcharts, sequence, class, state, gantt, mind maps, ...
+export const Diagram = sourceBlock("diagram", {
+  label: "Diagram",
+  icon: IconSchema,
+  sourceLabel: "Mermaid",
+  emptyLabel: "Empty diagram",
+  render: renderDiagram,
+  centered: true,
 });

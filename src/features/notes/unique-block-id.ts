@@ -24,6 +24,7 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "toggle",
   "equation",
   "math",
+  "diagram",
 ];
 
 function generateBlockId(): string {

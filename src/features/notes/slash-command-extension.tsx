@@ -6,6 +6,7 @@ import {
   IconInfoCircle,
   IconMathFunction,
   IconMathXDivideY2,
+  IconSchema,
   IconSum,
   IconSeparatorHorizontal,
   IconSquareCheck,
@@ -238,6 +239,13 @@ export const SLASH_ITEMS: SlashItem[] = [
         .deleteRange(range)
         .insertContent({ type: "inlineMath", attrs: { latex: "" } })
         .run(),
+  },
+  {
+    title: "Diagram",
+    group: "Math and diagrams",
+    description: "Flowcharts and more with Mermaid",
+    icon: <IconSchema size={15} />,
+    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("diagram").run(),
   },
 ];
 

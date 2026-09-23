@@ -144,6 +144,7 @@ export function blockToNode(block: Block): JSONNode {
     }
     case "equation":
     case "math":
+    case "diagram":
       return {
         type: block.blockType,
         attrs: { blockId, view: block.attrs.view ?? "source" },
@@ -271,6 +272,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     }
     case "equation":
     case "math":
+    case "diagram":
       return {
         blockId,
         blockType: node.type,

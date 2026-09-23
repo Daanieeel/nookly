@@ -38,7 +38,7 @@ import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { InlineMath } from "./InlineMath";
-import { Equation, MathBlock } from "./source-block-extensions";
+import { Diagram, Equation, MathBlock } from "./source-block-extensions";
 import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
@@ -304,6 +304,7 @@ function HydratedBlockEditor({
       InlineMath,
       Equation,
       MathBlock,
+      Diagram,
     ],
     editorProps: {
       attributes: {

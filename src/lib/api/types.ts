@@ -190,7 +190,8 @@ export type BlockType =
   | "checklist"
   | "toggle"
   | "equation"
-  | "math";
+  | "math"
+  | "diagram";
 
 export interface SessionOccurrence {
   entity: Entity;

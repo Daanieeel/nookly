@@ -829,6 +829,20 @@ inventory::submit! {
     }
 }
 
+// --- diagram ---------------------------------------------------------------
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "diagram",
+        content_format: "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, \
+                         stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        attrs: &[VIEW_ATTR],
+        validate: accept_anything,
+        // A mermaid fence, which GitHub, GitLab and Obsidian draw as the diagram.
+        to_markdown: |block| format!("```mermaid\n{}\n```", block.content.trim_end()),
+    }
+}
+
 // --- divider ---------------------------------------------------------------
 
 fn validate_empty(content: &str) -> Result<(), String> {
