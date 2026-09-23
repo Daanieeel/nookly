@@ -194,19 +194,45 @@ pub fn list_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<Block>> 
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Right sidebar's "Mentioned in" (§3.5) — the reverse of the frontend's own
-/// `extractMentionIds` (`mention-utils.ts`): every *other* entity that has at
-/// least one block containing an inline `[title](mention:<entity_id>)` link
-/// pointing at this one. `entity_id` is always a UUID (`new_id`), so it can't
-/// contain `LIKE` wildcards (`%`/`_`) and needs no escaping.
+/// Right sidebar's "Mentioned in" (§1.5): every *other* entity whose blocks hold an
+/// inline `[title](mention:<entity_id>)` link to this one, read from the `mentions`
+/// backlink index that `reindex_page` keeps in sync.
 pub fn list_mentioning_entities(conn: &Connection, entity_id: &str) -> AppResult<Vec<Entity>> {
-    let pattern = format!("%mention:{entity_id}%");
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT e.* FROM blocks b JOIN entities e ON e.id = b.entity_id
-         WHERE b.content LIKE ?1 AND e.deleted_at IS NULL AND e.id != ?2",
+        "SELECT e.* FROM mentions m JOIN entities e ON e.id = m.from_entity_id
+         WHERE m.to_entity_id = ?1 AND e.deleted_at IS NULL AND e.id != ?1
+         ORDER BY e.title COLLATE NOCASE ASC",
     )?;
-    let rows = stmt.query_map(params![pattern, entity_id], row_to_entity)?;
+    let rows = stmt.query_map(params![entity_id], row_to_entity)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Same syntax as the frontend's `MENTION_PATTERN` (`mention-utils.ts`).
+static MENTION_PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"\[[^\]]+\]\(mention:([a-zA-Z0-9-]+)\)").unwrap()
+});
+
+pub fn extract_mention_ids(content: &str) -> std::collections::BTreeSet<String> {
+    MENTION_PATTERN
+        .captures_iter(content)
+        .map(|c| c[1].to_string())
+        .collect()
+}
+
+/// Replaces this page's outgoing rows in the `mentions` backlink index.
+fn sync_page_mentions(conn: &Connection, entity_id: &str, markdown: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM mentions WHERE from_entity_id = ?1",
+        params![entity_id],
+    )?;
+    let mut stmt = conn
+        .prepare("INSERT OR IGNORE INTO mentions (from_entity_id, to_entity_id) VALUES (?1, ?2)")?;
+    for target in extract_mention_ids(markdown) {
+        if target != entity_id {
+            stmt.execute(params![entity_id, target])?;
+        }
+    }
+    Ok(())
 }
 
 /// A `table` block's real content format is rows joined by `\n`, cells within a row joined by
@@ -462,6 +488,7 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
 
 fn reindex_page(conn: &Connection, entity_id: &str) -> AppResult<()> {
     let markdown = render_page_markdown(conn, entity_id)?;
+    sync_page_mentions(conn, entity_id, &markdown)?;
     crate::db::search::index_entity_content(conn, entity_id, &markdown)
 }
 
@@ -850,6 +877,63 @@ mod tests {
         let mentioning = list_mentioning_entities(&conn, &target.id).unwrap();
         assert_eq!(mentioning.len(), 1);
         assert_eq!(mentioning[0].id, mentioner.id);
+    }
+
+    #[test]
+    fn mention_index_follows_block_edits_and_deletes() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let target = create_page(&conn, space.id.clone(), "note", "Target".into()).unwrap();
+        let mentioner = create_page(&conn, space.id.clone(), "note", "Mentioner".into()).unwrap();
+        let link = format!("See [Target](mention:{})", target.id);
+
+        let first = create_block(
+            &conn,
+            &mentioner.id,
+            "paragraph".into(),
+            link.clone(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let second = create_block(
+            &conn,
+            &mentioner.id,
+            "paragraph".into(),
+            link,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            list_mentioning_entities(&conn, &target.id).unwrap().len(),
+            1
+        );
+
+        update_block(
+            &conn,
+            &first.id,
+            BlockPatch {
+                content: Some("No link anymore".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            list_mentioning_entities(&conn, &target.id).unwrap().len(),
+            1
+        );
+
+        delete_block(&conn, &second.id).unwrap();
+        assert!(list_mentioning_entities(&conn, &target.id)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

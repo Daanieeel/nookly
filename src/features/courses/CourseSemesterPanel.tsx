@@ -1,4 +1,4 @@
-import { IconPencil, IconX } from "@tabler/icons-react";
+import { IconCalendarStats, IconPencil, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   StatusAnnouncer,
@@ -15,6 +15,7 @@ import { deleteRelationship, listRelationships } from "@/lib/api/relationships";
 import { setCourseSemester } from "@/lib/api/courses";
 import type { Entity } from "@/lib/api/types";
 import { EntityRow } from "@/features/relationships/EntityRow";
+import { SidebarSection } from "@/features/relationships/SidebarSection";
 
 /// Course page, right sidebar — bespoke Semester-assignment section. A Course
 /// belongs to at most one Semester at a time (`course-semester` relationship,
@@ -52,10 +53,11 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
     unassignStatus === "error" ? "Couldn't unassign, try again" : "Unassign semester";
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium text-muted-foreground">Semester</h3>
-        {link && (
+    <SidebarSection
+      icon={<IconCalendarStats size={14} />}
+      title="Semester"
+      action={
+        link && (
           <Tooltip>
             <EntityPickerPopover
               spaceId={course.spaceId}
@@ -76,9 +78,9 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
             />
             <TooltipContent>{changeLabel}</TooltipContent>
           </Tooltip>
-        )}
-      </div>
-
+        )
+      }
+    >
       {!link ? (
         <EntityPickerPopover
           spaceId={course.spaceId}
@@ -127,6 +129,6 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
               : null
         }
       />
-    </div>
+    </SidebarSection>
   );
 }

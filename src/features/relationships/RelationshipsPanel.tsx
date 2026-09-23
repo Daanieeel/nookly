@@ -1,10 +1,7 @@
-import { IconPlus } from "@tabler/icons-react";
+import { IconLink, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { StatusButtonContent, statusOf } from "@/components/action-feedback";
-import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import {
   createRelationship,
   deleteRelationship,
@@ -13,13 +10,14 @@ import {
 } from "@/lib/api/relationships";
 import type { Entity } from "@/lib/api/types";
 import { EntityRow } from "./EntityRow";
+import { RelatePickerPopover } from "./RelatePickerPopover";
 import { RemoveLinkButton } from "./RemoveLinkButton";
+import { SidebarSection } from "./SidebarSection";
 
-/// Right sidebar, section 1 of 3 (§3.5) — every relationship except attachments,
+/// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
 export function RelationshipsPanel({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
-  const [pickingType, setPickingType] = useState<string | null>(null);
 
   const { data: relationships = [] } = useQuery({
     queryKey: ["relationships", entity.id],
@@ -40,7 +38,8 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
     },
   });
-  const createStatus = statusOf(create);
+  // The new row appearing is the confirmation, so the trigger shows no success state.
+  const createStatus = create.isSuccess ? "idle" : statusOf(create);
 
   // `course-notes` is structural and points at an entity that must stay invisible
   // outside the Course page (§ course sub-dashboard) — never list it here, and
@@ -61,59 +60,29 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
   const pickableTypes = types.filter((t) => !HIDDEN_TYPES.has(t.name));
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium text-muted-foreground">Relationships</h3>
-        <Select
-          value={pickingType ?? undefined}
-          onValueChange={(type) => {
-            create.reset();
-            setPickingType(type);
-          }}
-        >
-          <SelectTrigger
+    <SidebarSection icon={<IconLink size={14} />} title="Relationships" count={visible.length}>
+      <RelatePickerPopover
+        spaceId={entity.spaceId}
+        exclude={entity.id}
+        types={pickableTypes}
+        trigger={
+          <Button
             variant="ghost"
             size="sm"
-            className="size-6 justify-center p-0 [&>svg]:hidden"
+            className="h-7 w-full justify-start gap-1.5 px-2 font-normal [&_svg]:size-3.5"
           >
-            <IconPlus size={14} />
-          </SelectTrigger>
-          <SelectContent>
-            {pickableTypes.map((t) => (
-              <SelectItem key={t.name} value={t.name}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {pickingType && (
-        <EntityPickerPopover
-          spaceId={entity.spaceId}
-          exclude={entity.id}
-          trigger={
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <StatusButtonContent
-                status={createStatus}
-                label={`Link "${pickingType}" to…`}
-                errorLabel="Couldn't link, try again"
-              />
-            </Button>
-          }
-          onSelect={(target) =>
-            // The trigger stays until success so a failure has a place to show.
-            create.mutate(
-              { toEntityId: target.id, relationshipType: pickingType },
-              { onSuccess: () => setPickingType(null) },
-            )
-          }
-        />
-      )}
-
-      {visible.length === 0 && (
-        <p className="text-xs text-muted-foreground">No relationships yet.</p>
-      )}
+            <StatusButtonContent
+              status={createStatus}
+              icon={<IconPlus size={14} />}
+              label="Relate to…"
+              errorLabel="Couldn't link, try again"
+            />
+          </Button>
+        }
+        onSelect={(target, relationshipType) =>
+          create.mutate({ toEntityId: target.id, relationshipType })
+        }
+      />
 
       <div className="flex flex-col gap-0.5">
         {visible.map((r) => {
@@ -132,8 +101,12 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
                 onRemove={async () => {
                   await deleteRelationship(r.id);
                   await Promise.all([
-                    queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
-                    queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] }),
+                    queryClient.invalidateQueries({
+                      queryKey: ["relationships", entity.id],
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: ["jots-without-refinement"],
+                    }),
                   ]);
                 }}
               />
@@ -141,6 +114,6 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
           );
         })}
       </div>
-    </div>
+    </SidebarSection>
   );
 }

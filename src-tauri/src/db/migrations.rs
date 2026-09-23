@@ -235,5 +235,22 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
             DELETE FROM blocks_fts WHERE block_id = old.id;
         END;
         ",
+    ), M::up(
+        "
+        -- Backlink index for the right sidebar's 'Mentioned in' (§1.5): one row
+        -- per (mentioning page, mentioned entity). Mentions live in block markdown
+        -- and stay outside the relationship graph, so this is rebuilt per page by
+        -- `notes::reindex_page` on every block write rather than by triggers.
+        CREATE TABLE mentions (
+            from_entity_id TEXT NOT NULL,
+            to_entity_id TEXT NOT NULL,
+            PRIMARY KEY (from_entity_id, to_entity_id)
+        );
+        CREATE INDEX idx_mentions_to ON mentions(to_entity_id);
+        INSERT OR IGNORE INTO mentions (from_entity_id, to_entity_id)
+            SELECT DISTINCT b.entity_id, e.id FROM blocks b
+            JOIN entities e ON b.content LIKE '%](mention:' || e.id || ')%'
+            WHERE e.id != b.entity_id;
+        ",
     )])
 });

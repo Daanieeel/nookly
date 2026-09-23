@@ -78,7 +78,7 @@ function readStoredCollapsed(): boolean {
 
 /// Bounds for the resizable right sidebar. The minimum fits its top row: four 36px
 /// icon buttons (collapse, export, pin, more) with their gaps and the `p-3` padding.
-export const RIGHT_SIDEBAR_MIN_WIDTH = 184;
+export const RIGHT_SIDEBAR_MIN_WIDTH = 224;
 export const RIGHT_SIDEBAR_MAX_WIDTH = 480;
 export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 288;
 

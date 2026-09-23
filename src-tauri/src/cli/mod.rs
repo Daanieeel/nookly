@@ -204,7 +204,7 @@ fn top_level_help() -> Value {
             "usage": "nookly cli <entity-type> <list|get|create|update|delete|restore> ...",
             "entityTypes": entity_types,
             "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted]",
-            "get": "nookly cli <entity-type> get <id>  (includes relationships + labels)",
+            "get": "nookly cli <entity-type> get <id>  (includes relationships, labels + mentionedIn backlinks)",
             "create": "nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]",
             "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]",
             "delete": "nookly cli <entity-type> delete <id> --yes  (soft delete only — goes to Trash, never permanent)",
@@ -271,7 +271,7 @@ Almost everything is one of:
 
 ```
 nookly cli <entity-type> list [--space <id>] [--include-deleted]
-nookly cli <entity-type> get <id>                    # includes relationships + labels
+nookly cli <entity-type> get <id>                    # includes relationships, labels + mentionedIn
 nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
 nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]
 nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, not permanent
@@ -729,8 +729,8 @@ fn extract_id(data: &Value) -> AppResult<String> {
         .ok_or_else(|| AppError::Db("internal: could not locate id in create/get result".into()))
 }
 
-/// Wraps a `get`/`create`/`update` payload with its relationships and labels —
-/// the right sidebar's three sections (§ philosophy), so an agent gets full
+/// Wraps a `get`/`create`/`update` payload with its relationships, labels and
+/// backlinks (the right sidebar's "Mentioned in", § philosophy), so an agent gets full
 /// context on an entity in one call instead of chasing it down separately.
 fn enrich(conn: &Connection, entity_type: &str, id: &str, data: Value) -> AppResult<Value> {
     let relationships = crate::db::relationships::list_relationships(
@@ -739,11 +739,16 @@ fn enrich(conn: &Connection, entity_type: &str, id: &str, data: Value) -> AppRes
         crate::db::relationships::Direction::Both,
     )?;
     let labels = crate::db::labels::list_labels_for_entity(conn, id)?;
+    let mentioned_in: Vec<Value> = crate::db::notes::list_mentioning_entities(conn, id)?
+        .into_iter()
+        .map(|e| json!({ "id": e.id, "type": e.entity_type, "title": e.title }))
+        .collect();
     Ok(json!({
         "entityType": entity_type,
         "data": data,
         "relationships": relationships,
         "labels": labels,
+        "mentionedIn": mentioned_in,
     }))
 }
 

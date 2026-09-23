@@ -37,7 +37,7 @@ There are exactly three sanctioned ways to link things. Do not add a fourth.
 2. **Attachments:** a File or URL held by an entity. Modeled as a relationship type, not a separate engine.
 3. **Mentions:** an inline @mention in markdown. Contextual and unstructured, kept outside the formal graph.
 
-The right sidebar always shows these sections in this order: Relationships, Attachments, Mentioned.
+The right sidebar always shows these sections in this order: Relationships, Attachments, Mentioned, Mentioned in. Mentioned in lists the pages whose content mentions this entity, read from a backlink index that is rebuilt whenever a page's content changes.
 
 ## Cross-Space Relationships
 

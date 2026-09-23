@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CourseSemesterPanel } from "@/features/courses/CourseSemesterPanel";
 import { AttachmentsPanel } from "@/features/relationships/AttachmentsPanel";
+import { MentionedInPanel } from "@/features/relationships/MentionedInPanel";
 import { MentionedPanel } from "@/features/relationships/MentionedPanel";
 import { RelationshipsPanel } from "@/features/relationships/RelationshipsPanel";
 import type { Entity } from "@/lib/api/types";
@@ -17,7 +18,7 @@ import {
 
 const KEYBOARD_STEP_PX = 16;
 
-/// Fixed section order (§3.5): Relationships, then Attachments, then Mentioned.
+/// Fixed section order (§1.5): Relationships, Attachments, Mentioned, Mentioned in.
 /// A Course additionally gets a bespoke Semester-assignment section ahead of
 /// Relationships (still the same underlying `course-semester` relationship,
 /// just a purpose-built picker instead of a generic row — bespoke-UI pillar,
@@ -113,7 +114,8 @@ export function RightSidebar({
         }}
         className="absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2 before:transition-colors hover:before:bg-primary/50 focus-visible:before:bg-primary/50 active:before:bg-primary"
       />
-      <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto border-l border-border p-3">
+      {/* Full height for the border and resize handle; sections stay anchored at the top. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto border-l border-border p-3">
         <div className="flex items-center justify-between gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -129,6 +131,7 @@ export function RightSidebar({
         <RelationshipsPanel entity={entity} />
         <AttachmentsPanel entity={entity} />
         <MentionedPanel entity={entity} />
+        <MentionedInPanel entity={entity} />
       </div>
     </div>
   );

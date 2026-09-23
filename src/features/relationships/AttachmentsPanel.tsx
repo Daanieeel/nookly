@@ -1,4 +1,4 @@
-import { IconPaperclip } from "@tabler/icons-react";
+import { IconPaperclip, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, statusOf } from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
@@ -7,8 +7,9 @@ import { createRelationship, deleteRelationship, listRelationships } from "@/lib
 import type { Entity } from "@/lib/api/types";
 import { EntityRow } from "./EntityRow";
 import { RemoveLinkButton } from "./RemoveLinkButton";
+import { SidebarHint, SidebarSection } from "./SidebarSection";
 
-/// Right sidebar, section 2 of 3 (§3.5). Attachments are just `attached-file`
+/// Right sidebar, section 2 of 4 (§1.5). Attachments are just `attached-file`
 /// relationships (§1.5) — bidirectional for free via the relationship graph (§3.6).
 export function AttachmentsPanel({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
@@ -21,27 +22,32 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
     mutationFn: (toEntityId: string) => createRelationship(entity.id, toEntityId, "attached-file"),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
   });
-  const createStatus = statusOf(create);
+  // The new row appearing is the confirmation, so the trigger shows no success state.
+  const createStatus = create.isSuccess ? "idle" : statusOf(create);
 
   const attachments = relationships.filter((r) => r.relationshipType === "attached-file");
   const isFile = entity.type === "file" || entity.type === "bookmark";
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium text-muted-foreground">Attachments</h3>
-      </div>
-
+    <SidebarSection
+      icon={<IconPaperclip size={14} />}
+      title="Attachments"
+      count={attachments.length}
+    >
       {!isFile && (
         <EntityPickerPopover
           spaceId={entity.spaceId}
           exclude={entity.id}
           typeFilter={["file", "bookmark"]}
           trigger={
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-full justify-start gap-1.5 px-2 font-normal [&_svg]:size-3.5"
+            >
               <StatusButtonContent
                 status={createStatus}
-                icon={<IconPaperclip size={14} />}
+                icon={<IconPlus size={14} />}
                 label="Attach file or bookmark…"
                 errorLabel="Couldn't attach, try again"
               />
@@ -51,7 +57,9 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
         />
       )}
 
-      {attachments.length === 0 && <p className="text-xs text-muted-foreground">No attachments.</p>}
+      {isFile && attachments.length === 0 && (
+        <SidebarHint>Attach this from any page to see it listed here.</SidebarHint>
+      )}
 
       <div className="flex flex-col gap-0.5">
         {attachments.map((r) => {
@@ -71,13 +79,15 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
                 errorLabel="Couldn't remove attachment, try again"
                 onRemove={async () => {
                   await deleteRelationship(r.id);
-                  await queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
+                  await queryClient.invalidateQueries({
+                    queryKey: ["relationships", entity.id],
+                  });
                 }}
               />
             </div>
           );
         })}
       </div>
-    </div>
+    </SidebarSection>
   );
 }

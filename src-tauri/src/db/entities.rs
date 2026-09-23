@@ -181,6 +181,10 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
         params![id],
     )?;
     conn.execute("DELETE FROM blocks WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM mentions WHERE from_entity_id = ?1 OR to_entity_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM tasks WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM courses WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM semesters WHERE entity_id = ?1", params![id])?;
