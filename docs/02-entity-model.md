@@ -1,56 +1,62 @@
 # Entity Model
 
-## Base Fields (every entity)
+## Base Fields
 
-- `id` — stable unique id
-- `space_id` — mandatory, exactly one Space
-- `type` — module/entity type
-- `title` — explicit, user-editable, always present. Modules may auto-generate default (e.g. Session title), user can still rename.
-- `created_at` / `updated_at`
-- `pinned` — bool. Powers Pinned sidebar section.
-- `icon` — optional per-instance (emoji or icon-lib icon). Falls back to per-entity-type default icon if unset. Fallback icon renders neutral/muted color, NEVER Space accent color. Exception: Space's own icon renders in Space accent color.
+Every entity has these fields:
 
-## Soft Delete / Trash
+- `id`: a stable, unique id.
+- `space_id`: required. Every entity belongs to exactly one Space.
+- `type`: the module or entity type.
+- `title`: always present and always editable by the user. A module may generate a default title (a Session, for example), but the user can still rename it.
+- `created_at` and `updated_at`.
+- `pinned`: a boolean that powers the Pinned section of the sidebar.
+- `icon`: optional, set per instance (an emoji or an icon library icon). When unset, the entity falls back to its type's default icon. Fallback icons render in a neutral, muted color and **never** in the Space accent color. The only exception is a Space's own icon, which renders in the Space accent color.
 
-- All deletes are soft. `deleted_at` timestamp. Goes to Trash.
-- No auto-purge by default. Manual empty only. Auto-purge = opt-in setting.
-- Soft-deleted entity stays visible in all relationships/attachments/mentions/pickers, rendered at reduced opacity. Never hard-removed from graph on delete.
+## Soft Delete and Trash
+
+- Every delete is a soft delete. It sets a `deleted_at` timestamp and moves the entity to Trash.
+- Trash is never purged automatically by default. The user empties it by hand. Auto-purge is an opt-in setting.
+- A soft-deleted entity stays visible everywhere it is referenced: relationships, attachments, mentions, and pickers. It renders at reduced opacity. Deleting never removes it from the graph.
 
 ## No Version History
 
-No git. No durable rollback system. Rejected due to file-attachment bloat (see 06).
-Undo/redo = in-memory action stack, session-scoped only. Not persisted across restarts (v1).
+There is no git and no durable rollback system. Both were rejected because file attachments would bloat the history (see [the decision](06-decisions-log.md#no-git-backed-local-repo-and-no-version-history)).
 
-## Relationship System — Implementation
+Undo and redo use an in-memory action stack scoped to the session. In v1 it does not survive a restart.
 
-Edge shape: `(from_entity, to_entity, relationship_type)`. Directed. Inverse label auto-derived, not stored twice.
+## Relationship System Implementation
+
+An edge has the shape `(from_entity, to_entity, relationship_type)`. Edges are directed. The inverse label is derived automatically and never stored a second time.
 
 ### Relationship Types
 
-Fixed enum. Core types ship (`relates-to`, `blocks`, etc). Modules register own types at build time (e.g. Courses → `sequel-of`).
+Types come from a fixed enum. Core ships types such as `relates-to` and `blocks`. Modules register their own types at build time (Courses registers `sequel-of`, for example).
 
-### Structural Relationships (strict subset, enforced at data layer)
+### Structural Relationships
 
-- Task ↔ Sub-task — progress rollup, cascading. Sub-tasks cannot have sub-sub-tasks. One level max.
-- Session ↔ Course — Session MUST have exactly one Course.
-- Exam ↔ Course — Exam MUST have exactly one Course.
-- Index Card Deck ↔ Exam — Deck MUST have exactly one Exam.
-- Study Block ↔ Exam — Study Block MUST have exactly one Exam.
-- Assignment ↔ Course — Assignment MUST have exactly one Course.
+Structural relationships are a strict subset of relationships whose rules are enforced at the data layer:
 
-Everything else (Course sequel/prequel, Exam/Assignment→Task, Exam/Assignment→Note, File/Bookmark attachments) = generic unrestricted relationship.
+- **Task and Sub-task:** progress rolls up and changes cascade. Nesting is one level deep only, so a Sub-task cannot have its own Sub-tasks.
+- **Session and Course:** a Session must have exactly one Course.
+- **Exam and Course:** an Exam must have exactly one Course.
+- **Index Card Deck and Exam:** a Deck must have exactly one Exam.
+- **Study Block and Exam:** a Study Block must have exactly one Exam.
+- **Assignment and Course:** an Assignment must have exactly one Course.
 
-### Block-Level Addressability (Notes/Pages only)
+Everything else is a generic, unrestricted relationship. That includes Course sequels and prequels, Exams or Assignments linked to Tasks or Notes, and File or Bookmark attachments.
 
-Individual blocks inside a Note have stable IDs. Blocks (not just whole page) can be relationship targets. Relationship picker/search must resolve to block granularity for Notes.
+### Block-Level Addressing (Notes only)
 
-### Attachment Bidirectionality
+Every block inside a Note has a stable id, so an individual block can be a relationship target, not just the whole page. For Notes, the relationship picker and search must resolve down to individual blocks.
 
-Attachments are directed relationships. Reverse lookup ("attached to: X, Y") is automatically queryable — falls out of graph, no extra modeling.
+### Attachments Work in Both Directions
 
-## Labels (freeform tags)
+Attachments are directed relationships, so the reverse lookup ("attached to X and Y") comes for free from the graph. No extra modeling is needed.
 
-Generic system, any module can use, not owned by Tasks specifically.
+## Labels
+
+Labels are freeform tags. They are a generic system that any module can use. Tasks do not own them.
+
 Fields: `name`, `color`, `space_id`.
-Strictly Space-siloed. No global labels. Same label name in two Spaces = two separate entities. This is intended.
-Label picker inside a Space only shows/creates labels scoped to that Space.
+
+Labels are strictly siloed per Space. There are no global labels. The same label name in two Spaces is two separate entities, and that is intended. The label picker only shows and creates labels for the current Space.

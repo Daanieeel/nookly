@@ -1,25 +1,27 @@
-# Module: Notes / Pages
+# Module: Notes
 
-Notion-style block-based editor.
+A block-based editor in the style of Notion.
 
 ## Blocks
 
-True block model. Each block independently addressable, reorderable, relatable (see 02, block-level addressability).
-Every block type (standard or custom) MUST implement markdown-serialization method. Guarantees full-page plain-markdown export always works, even for custom blocks. Export completeness > export prettiness.
+A true block model. Every block can be addressed, reordered, and used as a relationship target on its own (see [block-level addressing](../02-entity-model.md#block-level-addressing-notes-only)).
+
+Every block type, standard or custom, **must** implement a markdown serialization method. This guarantees that exporting a full page to plain markdown always works, even with custom blocks. A complete export matters more than a pretty one.
 
 ## v1 Scope
 
-Ship standard blocks only: paragraph, headings, lists, code, quote, table, image, embed.
-Custom block architecture built extensible, but actual custom blocks = future module-extension point. Not built now.
+Ship only the standard blocks: paragraph, headings, lists, code, quote, table, image, and embed.
 
-## Universal Markdown
+The block architecture is built to be extensible, but custom blocks themselves are a future extension point for modules. Do not build them now.
 
-Custom markdown available everywhere free text exists app-wide, not just Notes (Tasks, Exams, etc. too).
+## Markdown Everywhere
 
-## Layout Direction (UI)
+Custom markdown works in every free text field across the app, not just in Notes. Tasks, Exams, and every other module support it too.
 
-Full-width document canvas. No sidebar-list-plus-detail-pane split for writing surface. Page IS the canvas.
+## Layout Direction
+
+A full-width document canvas. The writing surface never uses a list plus detail pane split. The page itself is the canvas.
 
 ## Creation UX
 
-New Note drops user straight into canvas, cursor focused, ready to type. Title-first, content-immediate. No intermediate form step.
+A new Note drops the user straight into the canvas with the cursor focused and ready to type. The title comes first and content follows immediately. There is no intermediate form.

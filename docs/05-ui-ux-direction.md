@@ -1,118 +1,123 @@
 # UI/UX Direction
 
-Built on existing, frozen primitive component library + Tailwind design system. Never modify primitives. Compose or add new ones alongside.
+Everything is built on the existing primitive component library and Tailwind design system, both of which are frozen. Never modify a primitive. Compose primitives or add new components alongside them.
 
 ## Visual Reference
 
-Linear desktop, Notion desktop, Vercel dashboard, Supabase dashboard. Use as north star.
-Dense but calm. Never cramped, never sparse. Density from row height/hierarchy, not cramming.
-Subtle borders/elevation, not heavy boxes/shadows.
-Muted neutral base. Color used sparingly, intentionally (accents, status).
+Treat Linear desktop, Notion desktop, the Vercel dashboard, and the Supabase dashboard as the north star.
+
+- Dense but calm: never cramped and never sparse. Density comes from row height and hierarchy, not from cramming.
+- Subtle borders and elevation instead of heavy boxes and shadows.
+- A muted, neutral base. Color is used sparingly and on purpose, for accents and status.
 
 ## Visual Tone
 
-Dense/utilitarian. Compact, high info density, minimal whitespace, built for speed/keyboard use. Matches existing primitive styling already.
+Dense and utilitarian: compact, high information density, little whitespace, built for speed and keyboard use. The existing primitives already look this way.
 
 ## Color Theme
 
-Theme-agnostic. Dark and light both fully supported, equally primary. Already supported by primitives/Tailwind config.
+Dark and light themes are both fully supported and equally important. The primitives and Tailwind config already handle both.
 
 ## Space Color Bleed
 
-Active Space's accent color visible beyond sidebar label: highlights, accents, tinting throughout that Space's context.
+The active Space's accent color shows up beyond its sidebar label, in highlights, accents, and tinting throughout that Space (see [Spaces](04-navigation-spaces.md#spaces)).
 
 ## Command Palette
 
-Foundational, must-have, v1.
-`Cmd+K` — quick nav, quick-create, quick-search (tied to full-text search).
-`Cmd+P` — quick-open/jump-to (Linear/VSCode-style).
+Foundational and required for v1.
+
+- `Cmd+K`: quick navigation, quick create, and quick search (backed by full-text search).
+- `Cmd+P`: quick open, to jump to any item in the style of Linear or VS Code.
 
 ## Component Philosophy
 
-Default to bespoke, content-aware components over generic form controls. Compose from or add alongside existing primitives. Never replace.
+Default to bespoke components that understand their content instead of generic form controls. Compose them from existing primitives or add them alongside. Never replace a primitive.
 
 ---
 
-# Redesign Directive (applies to current + all future builds)
+# Redesign Directive
 
-## The Core Problem (do not repeat this mistake)
+This applies to the current build and every future one.
 
-Every page must NOT look the same. No "generic input row + button + plain list" pattern anywhere. This violates bespoke-UI pillar directly.
+## The Core Problem (do not repeat it)
 
-## Layout Differentiation Table
+Pages must **not** all look the same. The pattern of a generic input row, a button, and a plain list must not appear anywhere. It directly violates the bespoke UI principle.
 
-Look at data's nature (time-based? document-based? visual/media-based? status-driven?) and design layout around that. Table below = guidance, not exhaustive:
+## Layouts per Module
 
-| Module             | Primary Layout                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------ |
-| Tasks              | Board (Linear-style columns by status) default. List/table toggle, grouped by status/label/date. |
-| Notes/Pages        | Full-width document canvas. No list+detail split for writing surface.                            |
-| Jots               | Fast, minimal, near-zero-chrome capture surface.                                                 |
-| Refinements        | Same canvas as Notes.                                                                            |
-| Courses            | Card-grid or compact list. Name, semester chips, sequel/prequel indicators.                      |
-| Sessions/Timetable | Calendar/timetable-first (weekly grid). List = secondary.                                        |
-| Exams              | Timeline/upcoming-first list, sorted by date, urgency-emphasized. Grade/status = visual badge.   |
-| Assignments        | Date-forward, status-forward list. Visually distinct from Tasks despite similarity.              |
-| Files              | Grid view default, file-type icons/thumbnails. List = toggle.                                    |
-| Bookmarks          | Rich preview cards (favicon, title, preview image), grid layout.                                 |
-| Dashboard          | Bento-grid, non-uniform block sizes. Reads as "dashboard," distinct from list-based pages.       |
+Look at the nature of the data (is it time-based, document-based, visual, driven by status?) and design the layout around it. The table below is guidance, not a complete list.
 
-## Content-Aware "Add New" Workflows (highest-priority redesign area)
+| Module             | Primary layout                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| Tasks              | Board with Linear-style columns per status by default. Toggle to a list or table grouped by status, label, or date. |
+| Notes              | Full-width document canvas. No list and detail split for the writing surface.                           |
+| Jots               | Fast, minimal capture surface with almost no chrome.                                                    |
+| Refinements        | Same canvas as Notes.                                                                                   |
+| Courses            | Card grid or compact list showing name, semester chips, and sequel or prequel indicators.               |
+| Sessions/Timetable | Calendar first, using a weekly timetable grid. A list is secondary.                                     |
+| Exams              | Timeline or upcoming-first list, sorted by date, with urgency emphasized. Grade and status as badges.   |
+| Assignments        | List that puts dates and status first. Visually distinct from Tasks despite the similarity.             |
+| Files              | Grid by default with file-type icons or thumbnails. List as a toggle.                                   |
+| Bookmarks          | Grid of rich preview cards showing favicon, title, and preview image.                                   |
+| Dashboard          | Bento grid with blocks of varying size. Should read clearly as a dashboard, unlike the list pages.      |
+
+## Content-Aware Creation Flows (top redesign priority)
 
 ### General Principle
 
-Creation should feel deliberate, satisfying. Like Linear's "press C" or Notion's "+ New page." Never a bureaucratic form.
+Creating something should feel deliberate and satisfying, like pressing C in Linear or clicking "+ New page" in Notion. It should never feel like filling out a bureaucratic form.
 
 ### Entry Points
 
-Replace static input+button rows with:
+Replace static input and button rows with:
 
-- Command palette creation (Cmd+K/Cmd+P), fuzzy type selection ("new task" jumps to task creation).
-- Contextual "+" affordances where creation makes sense (hover status column → add with status pre-filled; hover calendar day → add session on that day).
-- Single minimal floating/persistent "New" action (Linear-style), not a fixed input bar baked into layout.
+- **Command palette creation** (`Cmd+K` or `Cmd+P`) with fuzzy type selection, so typing "new task" jumps straight into task creation.
+- **Contextual "+" affordances** wherever creation makes sense. Hovering a status column adds a task with that status filled in; hovering a calendar day adds a session on that day.
+- **A single, minimal "New" action** that floats or stays in place, like Linear's. Not an input bar fixed into the layout.
 
-### Creation Surface — per type examples
+### Creation Surface per Type
 
-- New Task: lightweight keyboard-first quick-create overlay. Title + inline status/label/date pickers. Support create-then-immediately-create-another without closing.
-- New Note/Page: drop straight into document canvas, cursor focused. Title-first, content-immediate. No intermediate form.
-- New Jot: near-instant. One keystroke/click from anywhere → blank capture surface, zero friction.
-- New Session: created from calendar view directly (click/drag time slot). Calendar IS the creation surface.
-- New Exam/Assignment: ask for the 1-2 things that matter most first (Course, date). Defer grade/status to post-creation detail view.
-- New Bookmark: paste-URL-first. Live preview of fetched metadata (or offline placeholder) immediately on paste.
-- New File: drag-and-drop primary (onto Files grid or any entity's Attachments section). File picker = fallback.
-- New Space: walk through icon + color + optional template as small, visually engaging sequence. "Make it yours" moment, not 3 plain text fields.
+- **New Task:** a lightweight, keyboard-first quick-create overlay with a title and inline pickers for status, label, and date. The user can create one after another without closing it.
+- **New Note:** drops straight into the document canvas with the cursor focused. Title first, content immediately after. No intermediate form.
+- **New Jot:** near instant. One keystroke or click from anywhere opens a blank capture surface with no friction.
+- **New Session:** created directly in the calendar by clicking or dragging across a time slot. The calendar is the creation surface.
+- **New Exam or Assignment:** ask for the one or two things that matter most first (the Course and the date). Leave grade and status for the detail view after creation.
+- **New Bookmark:** starts from a pasted URL. Show a live preview of the fetched metadata (or an offline placeholder) the moment it is pasted.
+- **New File:** drag and drop is the main way in, onto the Files grid or any entity's Attachments section. The file picker is a fallback.
+- **New Space:** a short, visually engaging sequence for picking an icon, a color, and optionally a template. It should feel like a "make it yours" moment, not three plain text fields.
 
 ### Consistency Within Variety
 
-- Fast keyboard accessibility always (Tab/Enter flow, Escape to cancel, no mouse-required paths).
-- Immediate visual feedback on creation (subtle animation/highlight on new item). No silent list refresh.
-- Max 2-3 visible fields before submit allowed. More than that = wrong, defer rest to post-creation detail view.
+- Always fully usable from the keyboard: Tab and Enter move through the flow, Escape cancels, and nothing requires a mouse.
+- Give immediate visual feedback when something is created, such as a subtle animation or highlight on the new item. Never refresh the list silently.
+- Show at most two or three fields before the user can submit. Needing more is a design error; move the rest to the detail view.
 
-## Component-Level Styling Consistency
+## Consistent Component Styling
 
-Governing principle: inputs/selects/textareas are SECONDARY information relative to actual content. Style them accordingly.
+**Guiding principle:** inputs, selects, and textareas are secondary to the actual content. Style them that way.
 
-- Inputs, selects, textareas should visually match `button-secondary` styling: same height, background, border, corner radius.
-- Reserve `button-primary` / louder visual weight for actual primary actions (confirm creation, submit change, destructive action). Not for routine data entry controls.
-- Audit every input/select/textarea usage. Align height/background/border with `button-secondary` so mixed rows (input + button) read as one cohesive cluster.
+- Inputs, selects, and textareas should match `button-secondary`: same height, background, border, and corner radius.
+- Save `button-primary` and other loud styles for real primary actions (confirming a creation, submitting a change, a destructive action). Never use them for routine data entry controls.
+- Audit every input, select, and textarea. Align their height, background, and border with `button-secondary` so a row mixing inputs and buttons reads as one cohesive group.
 
 Checks:
 
-- Height mismatch between button and adjacent input = bug, fix everywhere it occurs.
-- Input should never be visually louder (brighter bg, harsher border) than surrounding buttons. Should recede.
-- If primitive library lacks shared sizing/tone token used by both button-secondary and inputs, that's a real gap — fix at token/primitive level (extend, don't replace) so this can't recur page by page.
+- A height mismatch between a button and the input next to it is a bug. Fix it everywhere it appears.
+- An input should never be louder than the buttons around it (brighter background, harsher border). It should recede.
+- If the primitive library lacks a shared size or tone token that both `button-secondary` and inputs can use, that is a real gap. Fix it at the token or primitive level by extending, not replacing, so the problem cannot come back page by page.
 
 ## Responsiveness
 
-Every view adapts across window sizes (resizable desktop window, not fixed canvas).
-Sidebar collapses to icons-only or toggleable at narrow widths.
-List/table views reflow columns or switch to card layout at narrow widths. Don't default to clipping/horizontal scroll.
-Nothing assumes single fixed viewport size.
+Nookly runs in a resizable desktop window, not a fixed canvas, so every view must adapt to any window size.
+
+- At narrow widths the sidebar collapses to icons only or becomes toggleable.
+- At narrow widths, list and table views reflow their columns or switch to a card layout. Do not fall back to clipping or horizontal scrolling.
+- Nothing may assume a single fixed viewport size.
 
 ## Process Expectations
 
-1. Full pass, not spot-fix. Every page sharing generic layout template needs module-specific redesign.
-2. Sidebar first — most visibly broken, app's front door.
-3. "Add new" flows = highest-value area. Prioritize here if time constrained.
-4. Never modify existing primitives/tokens. Compose differently or add new bespoke components alongside.
-5. Done-check: every page visually distinguishable from every other page at a glance, no text needed. If two pages could be mistaken from a blurry screenshot, not done.
+1. Do a full pass, not spot fixes. Every page that shares the generic layout template needs a redesign specific to its module.
+2. Start with the sidebar. It is the most visibly broken part and the front door of the app.
+3. Creation flows are the most valuable area. If time is short, prioritize them.
+4. Never modify existing primitives or tokens. Compose them differently or add new bespoke components alongside them.
+5. **Done check:** every page must be distinguishable from every other page at a glance, without reading any text. If two pages could be confused in a blurry screenshot, the work is not done.

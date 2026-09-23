@@ -1,36 +1,38 @@
-# Module: Tasks (renamed from Todos)
+# Module: Tasks (formerly Todos)
 
-Ticket-style. Deadlines, labels, grouping. Jira/Linear inspired.
+Ticket-style tasks with deadlines, labels, and grouping, inspired by Jira and Linear.
 
 ## Status
 
-Linear-style customizable. Default set ships. User can rename/delete defaults, add custom statuses.
-Each status: color, label, "doneness" %.
-Config = global, not per-Space (see 01).
+Customizable in the style of Linear. A default set of statuses ships with the app, and the user can rename or delete them and add their own.
+
+Each status has a color, a label, and a "doneness" percentage. Status config is global, never per Space (see [philosophy](../01-philosophy.md#module-config-is-always-global)).
 
 ## Dates
 
-Two fields: `start_date`, `due_date`. Enables future timeline/Gantt view.
+Two fields: `start_date` and `due_date`. Having both makes a future timeline or Gantt view possible.
 
 ## Labels
 
-Freeform, Space-scoped (see 02). Grouping (by label/status/date) = view-level display concern, not stored structural concept.
+Freeform and scoped to a Space (see [labels](../02-entity-model.md#labels)). Grouping by label, status, or date is a display concern of the view, not something stored in the data.
 
 ## Sub-tasks
 
-Dedicated Sub-task page type. Linked via structural Task↔Sub-task relationship (see 02). Progress rollup, cascading behavior. One level max, no sub-sub-tasks.
+Sub-tasks are their own page type, linked through the structural Task and Sub-task relationship (see [structural relationships](../02-entity-model.md#structural-relationships)). Progress rolls up and changes cascade. Nesting is one level deep only.
 
 ## Recurring Tasks
 
-Out of scope v1. Do not build.
+Out of scope for v1. Do not build.
 
-## Layout Direction (UI)
+## Layout Direction
 
-Default: board view (Linear-style columns by status). Toggle: dense list/table grouped by status/label/date.
-Sub-tasks: inline collapsible checklist inside Task detail view. Not separate rows in main list.
+**Default:** a board view with Linear-style columns per status. A toggle switches to a dense list or table grouped by status, label, or date.
+
+**Sub-tasks:** an inline, collapsible checklist inside the Task detail view. They do not appear as separate rows in the main list.
 
 ## Creation UX
 
-Lightweight keyboard-first quick-create overlay. Title + inline status/label/date pickers. Not a full form.
-Support "create then immediately create another" without closing overlay.
-Contextual "+" on hover over board column = create directly into that status.
+A lightweight, keyboard-first quick-create overlay with a title field and inline pickers for status, label, and date. Not a full form.
+
+- The user can create one task and immediately start the next without closing the overlay.
+- Hovering a board column reveals a "+" that creates a task directly in that status.

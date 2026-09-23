@@ -1,33 +1,34 @@
-# Module: Files & Bookmarks
+# Module: Files and Bookmarks
 
-## Files (renamed from Documents)
+## Files (formerly Documents)
 
-Full first-class entity. Participates in relationship system like everything else.
+A full, first-class entity that participates in the relationship system like everything else.
 
-Storage: files copied into app-managed local storage folder. Fully decoupled from original source location on disk. Predictable, portable, survives user moving/deleting original.
+**Storage:** files are copied into a local folder the app manages. The copy is fully independent of the original, so it stays predictable and portable and survives the user moving or deleting the source file.
 
-Files-as-links (cloud docs, e.g. Google Doc, Dropbox file): provider-aware. Detects/tags Google Drive, Dropbox, iCloud specifically. Generic URL field = fallback for unrecognized providers.
+**Files as links** (cloud documents such as a Google Doc or a Dropbox file) are provider-aware. Google Drive, Dropbox, and iCloud are detected and tagged specifically. Any other provider falls back to a generic URL field.
 
-Attachment reverse-lookup is automatic (bidirectional via relationship graph, see 02). No extra modeling needed.
+Reverse lookup for attachments is automatic because the relationship graph works in both directions (see [attachments](../02-entity-model.md#attachments-work-in-both-directions)). No extra modeling is needed.
 
-## URLs / Bookmarks
+## Bookmarks
 
-New entity. Distinct from Files-as-links:
+A separate entity from files as links:
 
-- Files-as-links = cloud-storage documents, treated as a document.
-- URL/Bookmark = arbitrary webpage, treated as a reference/link.
+- A **file as link** is a document stored in the cloud and is treated as a document.
+- A **Bookmark** is any webpage and is treated as a reference.
 
-Metadata: auto-fetch title, favicon, preview image/description when online.
-Offline: show placeholder + "added on [date]" timestamp. Fetch metadata opportunistically once online, cache for later.
+**Metadata:** when online, fetch the title, favicon, and preview image or description automatically. When offline, show a placeholder with an "added on [date]" timestamp, then fetch the metadata once the app is back online and cache it.
 
-Lives inside a Space like any other page. Not global/Space-independent.
+Bookmarks live inside a Space like any other page. They are not global.
 
-## Layout Direction (UI)
+## Layout Direction
 
-Files: grid view default, file-type icons/thumbnails (Finder-style / Vercel asset view). List view = toggle option, not default.
-Bookmarks: rich preview cards (favicon, title, preview image) in a grid. Not a plain link list.
+**Files:** a grid by default, with file-type icons or thumbnails, like Finder or the Vercel asset view. A list view is available as a toggle but is never the default.
+
+**Bookmarks:** a grid of rich preview cards showing favicon, title, and preview image. Not a plain list of links.
 
 ## Creation UX
 
-Files: drag-and-drop primary method (onto Files grid, or onto any entity's Attachments section directly). Traditional file picker = fallback only.
-Bookmarks: paste-URL-first flow. Moment URL is pasted, show live preview of fetched metadata (or offline placeholder) as confirmation.
+**Files:** drag and drop is the main way in, either onto the Files grid or straight onto any entity's Attachments section. The standard file picker is only a fallback.
+
+**Bookmarks:** start from a pasted URL. The moment a URL is pasted, show a live preview of the fetched metadata (or the offline placeholder) as confirmation.

@@ -1,8 +1,10 @@
-# How to replicate this data table setup
+# How To: Data Tables
 
-This document distills everything learned building the data tables in this admin panel (`src/routes/_layout/{users,pages,groups,locales}/index.tsx`, `src/routes/_layout/translations/$namespace.tsx`). It is written so another coding assistant can reproduce the same setup — including the non-obvious bugs — in a different React + Vite + Tailwind v4 + shadcn/ui project.
+> **Origin:** this guide was written while building the data tables for a separate admin panel project, not Nookly. File paths such as `src/routes/_layout/users/index.tsx`, the `/admin` base path, and the Users, Pages, Groups, Locales, and Translations tables all refer to that project. Nookly does not ship this table stack yet. Treat the steps and gotchas as reusable, and adapt the paths, routing, and backend contract to Nookly when you apply them.
 
-It assumes: React 19, Vite, Tailwind v4, `@tanstack/react-query`, a shadcn/ui-based component library already in the project (`components/ui/*`), and (for server-mode tables) `@tanstack/react-router` for routing.
+This document collects everything learned building those data tables, including the non-obvious bugs, so another coding assistant can reproduce the same setup in a different React + Vite + Tailwind v4 + shadcn/ui project.
+
+It assumes React 19, Vite, Tailwind v4, `@tanstack/react-query`, and a shadcn/ui based component library already in the project (`components/ui/*`). Server mode tables also assume `@tanstack/react-router` for routing.
 
 ## What this gives you
 
@@ -499,7 +501,7 @@ Run through this after installing — every one of these was a real, reported bu
 3. **`SelectTrigger` height overrides that silently do nothing.** If your `SelectTrigger` component controls height via a `size` prop mapped to an attribute variant (e.g. `data-[size=default]:h-7`, `data-[size=sm]:h-6` — check your own `components/ui/select.tsx`), a plain `className="h-8"` passed from a consumer may or may not win depending on Tailwind's compiled rule order — it's not guaranteed the way a same-specificity `cn()`/tailwind-merge override normally is. Use the `!` important-modifier to force it: `className="h-8!"`. (A literal `data-size:h-8` — copied from some other project's convention — is a no-op if your component actually uses `data-[size=default]:` semantics; check your actual base component before trusting a copied override class.)
 4. **Wrong corner radius on interactive elements.** Vendored `data-table-sort-list.tsx` and `data-table-range-filter.tsx` hardcode a bare `rounded` (sharp, `0.25rem`) on several buttons/selects/inputs, overriding your theme's `rounded-md`. Grep for `\brounded\b` (not `rounded-*`) across the installed files and delete these overrides so they inherit the component defaults.
 5. **Clickable column headers need `cursor-pointer` explicitly.** Tailwind's preflight resets `button { cursor: default }`; a `<DropdownMenuTrigger>`-based sortable header (not a `<Button>`, which already carries `cursor-pointer` in its base classes) needs it added by hand in `data-table-column-header.tsx`.
-6. **Sort field list doesn't hide already-active or wrong-type columns for you correctly by icon** — see §9's patch.
+6. **The sort field list does not show column icons by default.** The filter menu does, so the two popovers look inconsistent. See the patch in §9.
 
 ## 12. Verifying it actually works
 

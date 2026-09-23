@@ -1,17 +1,18 @@
-# Module: Jots & Refinements
+# Module: Jots and Refinements
 
-Two distinct page types. NOT a rigid 1:1 pairing.
+Two distinct page types. They are **not** a rigid one-to-one pair.
 
-- Jot: raw, in-the-moment capture (e.g. during lecture).
-- Refinement: polished/expanded version.
+- **Jot:** a raw capture made in the moment, during a lecture for example.
+- **Refinement:** a polished, expanded version.
 
-Linked via standard generic relationship system. Same mechanism as everything else. No dedicated pairing structure.
+They are linked through the standard generic relationship system, the same way everything else is. There is no dedicated pairing structure.
 
-## Layout Direction (UI)
+## Layout Direction
 
-Jot: fast, minimal, near-zero chrome capture surface. Large text area. Optimized for speed.
-Refinement: same document canvas as Notes module (Refinement = a Note, conceptually).
+**Jot:** a fast, minimal capture surface with almost no chrome and a large text area. Built for speed.
+
+**Refinement:** the same document canvas as the Notes module. Conceptually, a Refinement is a Note.
 
 ## Creation UX
 
-Jot creation must be near-instant. One keystroke/click from anywhere → blank capture surface. Zero friction.
+Creating a Jot must feel instant. One keystroke or click from anywhere opens a blank capture surface with no friction.

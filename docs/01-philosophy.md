@@ -1,51 +1,52 @@
 # Core Philosophy
 
-## Primitives Frozen
+## Primitives Are Frozen
 
-Component library + Tailwind design system already exist. Never edit existing primitives. Add new ones freely.
+The component library and Tailwind design system already exist. Never edit an existing primitive. Adding new ones is always fine.
 
-## Data Providers vs Viewers
+## Data Providers and Viewers
 
-Two module roles.
+A module plays one of two roles:
 
-- Provider: owns schema/storage for an entity type.
-- Viewer: renders a Provider's data.
-  Both community-buildable. Multiple Viewers can exist per Provider. Installing Viewer auto-installs required Provider(s), resolved at build-config time (see 06, compile-time modules decision).
+- **Provider:** owns the schema and storage for an entity type.
+- **Viewer:** renders a Provider's data.
+
+The community can build both. A single Provider can have many Viewers. Installing a Viewer automatically installs the Providers it needs, resolved when the build is configured (see [compile-time modules](06-decisions-log.md#modules-are-packaged-at-compile-time-not-loaded-as-runtime-plugins)).
 
 ## Opinionated, Not Flexible
 
-Many specialized, constrained page types. Not one flexible canvas (anti-Notion). Inspired by Jira/Linear. Breadth comes from many modules, not from config options per module.
+Nookly offers many specialized, constrained page types instead of one flexible canvas. It is deliberately the opposite of Notion and takes its cues from Jira and Linear. Breadth comes from adding more modules, not from adding config options to each module.
 
-## Bespoke UI Pillar
+## Bespoke UI
 
-Every component should be purpose-built to its data. Not generic form controls. Applies everywhere, sidebar included. Equal priority to modularity, not secondary.
+Every component should be built for the data it shows, not assembled from generic form controls. This applies everywhere, the sidebar included. Bespoke UI is as important as modularity, not secondary to it.
 
-## Relationship System = Core Linking Mechanism
+## The Relationship System Links Everything
 
-Pages don't nest. Every page belongs to exactly one Space. Cross-entity, cross-module, cross-Space linking happens via one relationship system only.
+Pages do not nest, and every page belongs to exactly one Space. All linking, whether across entities, modules, or Spaces, goes through a single relationship system.
 
-Properties:
+Relationships are:
 
-- Directed. Always from → to. Inverse label auto-derived for display.
-- Fixed enum of types. Core ships some. Modules can register new types at build time. Not freeform per-user strings.
-- Unrestricted cardinality by default. Specific "structural" relationship types can enforce stricter rules (see 02).
+- **Directed.** Every edge runs from one entity to another. The inverse label is derived automatically for display.
+- **Typed from a fixed enum.** Core ships a set of types, and modules can register more at build time. Users cannot create freeform relationship strings.
+- **Unrestricted in cardinality by default.** Specific structural relationship types can enforce stricter rules (see [structural relationships](02-entity-model.md#structural-relationships)).
 
-Three sanctioned link mechanisms. No fourth allowed:
+There are exactly three sanctioned ways to link things. Do not add a fourth.
 
-1. Relationships — formal typed graph.
-2. Attachments — File/URL held by entity. Modeled as a relationship type, not separate engine.
-3. Mentions — inline @mention in markdown. Contextual, unstructured.
+1. **Relationships:** the formal, typed graph.
+2. **Attachments:** a File or URL held by an entity. Modeled as a relationship type, not a separate engine.
+3. **Mentions:** an inline @mention in markdown. Contextual and unstructured, kept outside the formal graph.
 
-Right sidebar section order (fixed): Relationships → Attachments → Mentioned.
+The right sidebar always shows these sections in this order: Relationships, Attachments, Mentioned.
 
 ## Cross-Space Relationships
 
-Allowed freely. UI must visually flag when related item lives in a different Space than current view.
+Relationships may freely cross Spaces. The UI must visibly flag any related item that lives in a different Space than the one being viewed.
 
-## Module Config = Always Global
+## Module Config Is Always Global
 
-Never per-Space. Spaces are folders only, not scoping boundaries.
+Config is never set per Space. Spaces are folders, not scoping boundaries.
 
 ## Compile-Time Modules
 
-Modules = source code compiled into Tauri binary. "Install module" = add to build + recompile. No runtime plugin loading, no in-app marketplace. Future evolution, not now.
+Modules are source code compiled into the Tauri binary. Installing a module means adding it to the build and recompiling. There is no runtime plugin loading and no in-app marketplace. Those may come later, but not now.

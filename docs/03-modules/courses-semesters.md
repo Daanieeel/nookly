@@ -1,17 +1,17 @@
-# Module: Courses & Semesters
+# Module: Courses and Semesters
 
 ## Course
 
-Tracks university course. Belongs to at most one Semester at a time.
+Tracks a university course. A Course belongs to at most one Semester at a time.
 
-Prequel/Sequel = typed generic relationships (`sequel-of` / `prequel-of`). NOT dedicated schema fields. Reuses core relationship system.
+Prequels and sequels are typed generic relationships (`sequel-of` and `prequel-of`), not dedicated schema fields. They reuse the core relationship system.
 
-Course↔Semester = generic `course-semester` relationship, capped at one Semester per Course (`OneToPerFrom` cardinality) — a Semester has unrestricted Courses. Reassigning a Course to a different Semester replaces the old link (`set_course_semester`), it doesn't add a second one. NOT a date-range field.
+A Course is linked to its Semester through the generic `course-semester` relationship. It is capped at one Semester per Course (`OneToPerFrom` cardinality), while a Semester can hold any number of Courses. Assigning a Course to a different Semester replaces the old link (`set_course_semester`) instead of adding a second one. The Semester is not stored as a date range field.
 
 ## Semester
 
-Full entity (e.g. "WS 2026/27"). Not a string/tag field on Course. Participates in relationship system.
+A full entity (for example "WS 2026/27"), not a string or tag on the Course. It participates in the relationship system like any other entity.
 
-## Layout Direction (UI)
+## Layout Direction
 
-Card-grid or compact list. Show course identity: name, semester chips, sequel/prequel indicators. Not a bare table.
+A card grid or compact list that shows each course's identity: name, semester chips, and sequel or prequel indicators. Not a bare table.

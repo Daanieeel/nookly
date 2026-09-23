@@ -1,32 +1,31 @@
-# Module: Sessions / Timetable
+# Module: Sessions and Timetable
 
-Entity representing single class occurrence (e.g. one lecture).
+A Session represents a single class occurrence, such as one lecture.
 
 ## Recurrence
 
-Single recurring Session Template (e.g. "Algorithms I, Mon 10-12, weekly") generates Session occurrences.
-Editing template affects future, not-yet-passed occurrences only.
+A recurring Session Template (for example "Algorithms I, Mon 10 to 12, weekly") generates Session occurrences. Editing the template only affects future occurrences that have not happened yet.
 
-Occurrence can override individually: time, date, cancelled-status, location/notes. Standard calendar-style override. Editing template never retroactively rewrites an already-overridden occurrence.
+Each occurrence can override its own time, date, cancelled status, location, and notes, just like overrides in a standard calendar. Editing the template never rewrites an occurrence that has already been overridden.
 
-One-off Sessions (irregular dates, low-ECTS courses) = occurrence with no parent template. Same entity type, just template-less. No separate "one-off Session" type.
+One-off Sessions (irregular dates, courses with few ECTS) are simply occurrences with no parent template. They use the same entity type. There is no separate "one-off Session" type.
 
 ## Structural Relationship
 
-Session ↔ Course. MUST always have exactly one Course. Enforced at data layer (see 02).
+Session and Course. A Session must always have exactly one Course. This is enforced at the data layer (see [structural relationships](../02-entity-model.md#structural-relationships)).
 
 ## Relationship Targeting
 
-All relationships (Jots, Refinements, Tasks, Files) target the SPECIFIC occurrence, never the template. Template's only job = generate occurrences. Template itself does not participate in relationship graph.
+Every relationship (Jots, Refinements, Tasks, Files) targets a **specific occurrence**, never the template. The template's only job is to generate occurrences, and it does not take part in the relationship graph.
 
 ## Future
 
-Groundwork for calendar view. Not built yet, but data model supports it.
+The data model lays the groundwork for a calendar view. The view itself is not built yet.
 
-## Layout Direction (UI)
+## Layout Direction
 
-Calendar/timetable-first view (weekly grid). This is time-based data — calendar is primary. Flat list view = secondary only.
+Calendar first, using a weekly timetable grid. This is time-based data, so the calendar is the primary view. A flat list is secondary.
 
 ## Creation UX
 
-Created contextually from calendar view. Click/drag time slot. Calendar IS the creation surface, not an abstract form.
+Sessions are created in context from the calendar by clicking or dragging across a time slot. The calendar itself is the creation surface, not an abstract form.

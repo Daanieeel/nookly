@@ -1,26 +1,26 @@
-# Nookly — Docs Index
+# Nookly Docs Index
 
-Nookly. Modular open-source desktop app. Personal life organizer. Tauri build. Primarily for one user, extensible by community.
+Nookly is a modular, open source desktop app for organizing your personal life. It is built with Tauri, designed first for a single user, and meant to be extended by the community.
 
-Read files in this folder before building features. Do not skip.
+Read the files in this folder before building any feature. Do not skip this step.
 
 ## Files
 
-- `01-philosophy.md` — core rules. Read first. Always.
-- `02-entity-model.md` — base entity, relationships, soft-delete.
-- `03-modules/*.md` — one file per module. Read only the ones relevant to task.
-- `04-navigation-spaces.md` — sidebar, Spaces, Dashboard, Pinned, Search.
-- `05-ui-ux-direction.md` — visual system, redesign rules, component consistency.
-- `06-decisions-log.md` — why decisions were made. Check before reversing any decision.
-- `07-deferred-scope.md` — explicitly NOT in scope. Do not build these unless told.
-- `08-vision-and-motivation.md` — the "why" behind the app. Use for judgment calls not covered elsewhere.
-- `skills/**` — contains more specific skill files
+- [`01-philosophy.md`](01-philosophy.md): the core rules. Always read this first.
+- [`02-entity-model.md`](02-entity-model.md): the base entity, relationships, and soft delete.
+- [`03-modules/`](03-modules/): one file per module. Read only the ones relevant to your task.
+- [`04-navigation-spaces.md`](04-navigation-spaces.md): the sidebar, Spaces, Dashboard, Pinned, Search, and Recents.
+- [`05-ui-ux-direction.md`](05-ui-ux-direction.md): the visual system, redesign rules, and component consistency.
+- [`06-decisions-log.md`](06-decisions-log.md): why decisions were made. Check it before reversing any decision.
+- [`07-deferred-scope.md`](07-deferred-scope.md): what is explicitly out of scope. Do not build any of it unless told to.
+- [`08-vision-and-motivation.md`](08-vision-and-motivation.md): the reasoning behind the app. Use it for judgment calls the other docs do not cover.
+- [`skills/`](skills/): focused guides for specific tasks.
 
 ## Hard Rules (never violate)
 
-1. Never modify existing primitive components or design tokens. Add new ones only.
-2. All module config is global. Never per-Space.
-3. Relationship system is the only linking mechanism. Never invent a new one.
-4. Every entity: soft-delete only. Never hard-delete.
-5. No git. No version history system. Not in scope.
-6. Modules compile into binary. No runtime plugin loading.
+1. Never modify existing primitive components or design tokens. Only add new ones.
+2. All module config is global. It is never set per Space.
+3. The relationship system is the only way to link entities. Never invent another one.
+4. Every entity is soft deleted. Never hard delete.
+5. No git and no version history system. Both are out of scope.
+6. Modules are compiled into the binary. There is no runtime plugin loading.

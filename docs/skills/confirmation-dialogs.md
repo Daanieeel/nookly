@@ -2,112 +2,98 @@
 
 ## General Principle
 
-Every confirmation dialog should let the user answer, at a glance:
-**what is affected, what happens to it, and can it be undone.**
+Every confirmation dialog should let the user answer three questions at a glance:
+**What is affected? What happens to it? Can it be undone?**
 
-If any of those three isn't obvious from the dialog text alone, the dialog
-has failed — no matter how the buttons are labeled or colored.
+If the dialog text alone does not make all three obvious, the dialog has failed, no matter how its buttons are labeled or colored.
 
-A few rules apply across every category below:
+These rules apply to every category below:
 
-- Name the specific thing affected. Never rely on the user remembering
-  what they clicked.
-- Use a specific action verb on the button ("Delete," "Send," "Overwrite"),
-  never "OK," "Yes," or "Confirm."
-- Separate the risky action from the safe one visually — color, spacing,
-  or position — so a rushed click doesn't default to harm.
-- Never ask a generic yes/no question the user can dismiss without
-  reading, like "Are you sure?"
-- State consequences in plain language, not system terms. "This will
-  email 400 people" beats "Submit form." States consequences must almost always come in
-  stat boxes or exact mentions instead of paragraphs.
-- When mentioning a resource/entity, use code blocks or boxes (possibly containing its entity icon)
-  to make the mention more obvious. It does not have to be clickable/a link
+- **Name the specific thing affected.** Never rely on the user remembering what they clicked.
+- **Put a specific action verb on the button** ("Delete," "Send," "Overwrite"), never "OK," "Yes," or "Confirm."
+- **Separate the risky action from the safe one visually** (color, spacing, or position), so a rushed click does not default to harm.
+- **Never ask a generic yes or no question** the user can dismiss without reading, such as "Are you sure?"
+- **State consequences in plain language, not system terms.** "This will email 400 people" beats "Submit form." Show consequences as stat boxes or exact figures rather than in paragraphs.
+- **Make entity mentions stand out.** Show the entity in a code-style box or chip, ideally with its entity icon. It does not need to be clickable.
 
-All of these rules can be combined. E.g.: a deletion that would delete 20 other entities
-or disconnect it from 15 others needs the deletion traits as well as it needs its
-consequences stated.
+The rules combine. A deletion that would also delete 20 other entities, or disconnect the item from 15 others, needs everything a deletion dialog needs **and** a clear statement of those consequences.
 
 ---
 
-## Destructive – Irreversible
+## Destructive and Irreversible
 
-*(delete, permanently remove, empty trash)*
+*Examples: permanently delete, empty Trash.*
 
-States exactly what will be deleted, by name. Explains that removal is
-permanent — not recoverable. Uses a clear label like "Delete," never
-"OK." Separates the destructive button from safe ones. Never uses a
-vague "Are you sure?"
-
----
-
-## Destructive – Reversible
-
-*(archive, move to trash, unpublish, deactivate)*
-
-Names the item and the action. Explicitly says the action **can** be
-undone, and briefly says how ("You can restore this from Trash within
-30 days"). Avoids alarming language that implies permanence when it
-isn't — that erodes trust and trains users to over-hesitate later.
+- State exactly what will be deleted, by name.
+- Explain that removal is permanent and cannot be recovered.
+- Use a clear label like "Delete," never "OK."
+- Separate the destructive button from the safe ones.
+- Never fall back on a vague "Are you sure?"
 
 ---
 
-## Costly or Hard-to-Reverse Actions
+## Destructive but Reversible
 
-*(send, pay, submit, publish, share externally)*
+*Examples: move to Trash, archive, deactivate.*
 
-The risk here isn't data loss — it's real-world consequence. Confirm
-the *effect*, not the mechanics: "This will email 400 subscribers,"
-not "Submit newsletter?" Show key details that change the impact
-(recipient count, amount, audience) directly in the dialog so the user
-isn't confirming blind. Action label should name the consequence:
-"Send," "Publish," "Pay $42.00."
+- Name the item and the action.
+- Say explicitly that the action **can** be undone, and briefly how ("You can restore this from Trash").
+- Avoid alarming language that implies permanence when there is none. Overstating the risk erodes trust and teaches users to hesitate for no reason.
+
+In Nookly, regular deletes land here, because every delete is a soft delete and Trash is never purged automatically by default (see [soft delete](../02-entity-model.md#soft-delete-and-trash)).
+
+---
+
+## Costly or Hard-to-Reverse
+
+*Examples: send, pay, submit, publish, share externally.*
+
+The risk here is not data loss but real-world consequences.
+
+- Confirm the **effect**, not the mechanics: "This will email 400 subscribers," not "Submit newsletter?"
+- Show the details that change the impact (recipient count, amount, audience) directly in the dialog, so the user is not confirming blind.
+- Name the consequence in the action label: "Send," "Publish," "Pay $42.00."
 
 ---
 
 ## Overwrite or Replace
 
-*(save over an existing file, replace a version, reset to default)*
+*Examples: save over an existing file, replace a version, reset to defaults.*
 
-Names both sides: what's being replaced and what it's being replaced
-with. Makes clear the old version will be lost (or where to find it,
-if versioning exists). Action label reflects the trade: "Overwrite,"
-"Replace," not "Save."
-
----
-
-## Bulk or Scope-Expanding Actions
-
-*(delete all, apply to every item, remove access for a group)*
-
-The danger is scale, so the dialog must surface the count and scope
-explicitly: "This will remove 6 people from this project." Where
-possible, let the user see or adjust the affected set before
-confirming, rather than trusting a single blanket confirmation. Avoid
-under-selling scope with vague phrasing like "selected items" — say
-the number.
+- Name both sides: what is being replaced and what replaces it.
+- Make clear that the old version will be lost (or say where to find it, if versioning exists).
+- Let the label reflect the trade: "Overwrite" or "Replace," not "Save."
 
 ---
 
-## Leaving or Discarding State
+## Bulk or Scope-Expanding
 
-*(close with unsaved changes, cancel a flow, navigate away)*
+*Examples: delete all, apply to every item, remove access for a group.*
 
-Confirms loss of **work**, not loss of data structures. Say what will
-be discarded in familiar terms: "Your unsaved changes will be lost,"
-not "Unsaved state detected." Offer a safe exit when feasible ("Save
-and exit" alongside "Discard") rather than forcing a binary
-lose-it-or-stay choice.
+The danger is scale, so surface the count and scope explicitly: "This will remove 6 people from this project."
+
+- Where possible, let the user see or adjust the affected set before confirming, instead of trusting one blanket confirmation.
+- Do not undersell the scope with vague phrases like "selected items." Say the number.
+
+---
+
+## Leaving or Discarding Work
+
+*Examples: close with unsaved changes, cancel a flow, navigate away.*
+
+- Confirm the loss of **work**, not of data structures.
+- Describe what will be discarded in familiar terms: "Your unsaved changes will be lost," not "Unsaved state detected."
+- Offer a safe way out when feasible ("Save and exit" next to "Discard") instead of forcing a choice between losing the work and staying.
 
 ---
 
 ## Quick Reference
 
-| Category | What to name | What to confirm | Button label example |
-|---|---|---|---|
-| Destructive – irreversible | The item | Permanent, no recovery | Delete |
-| Destructive – reversible | The item | Reversible + how | Archive |
-| Costly action | The effect | Real-world consequence | Send, Publish, Pay |
-| Overwrite | Old vs. new | What's lost | Overwrite, Replace |
-| Bulk action | The count/scope | Scale of impact | Delete All (6 items) |
-| Discard state | The work | Loss of unsaved effort | Discard, Save & Exit |
+| Category                   | What to name     | What to confirm           | Example button label  |
+| -------------------------- | ---------------- | ------------------------- | --------------------- |
+| Destructive, irreversible  | The item         | Permanent, no recovery    | Delete                |
+| Destructive, reversible    | The item         | Reversible, and how       | Move to Trash         |
+| Costly action              | The effect       | Real-world consequence    | Send, Publish, Pay    |
+| Overwrite                  | Old and new      | What is lost              | Overwrite, Replace    |
+| Bulk action                | The count, scope | Scale of impact           | Delete All (6 items)  |
+| Discard work               | The work         | Loss of unsaved effort    | Discard, Save and Exit |

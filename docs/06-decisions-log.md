@@ -1,108 +1,150 @@
 # Decisions Log
 
-ADR-style. Decision → Why → Alternatives rejected. Check before reversing any decision.
+Each entry follows a lightweight ADR format: the decision, why it was made, and which alternatives were rejected. Check this log before reversing any decision.
 
 ---
 
-**Modules: Data Provider vs Viewer split**
-Why: lets community reskin data without forking/editing original module. Keeps core modules stable, additive-only.
-Rejected: single flat "module" concept — would force UI and data ownership together, blocking alternate viewers.
+### Modules split into Data Providers and Viewers
+
+**Why:** the community can reskin data without forking or editing the original module. Core modules stay stable and only ever grow.
+
+**Rejected:** a single, flat "module" concept. It would tie UI and data ownership together and block alternate viewers.
 
 ---
 
-**Opinionated modules over flexible canvas**
-Why: Notion's total flexibility overstimulates. Jira/Linear constrained page types keep capture focused. Many specialized modules = enough variety without per-module overstimulation.
-Rejected: one universal flexible block-canvas for everything (pure Notion clone).
+### Opinionated modules over a flexible canvas
+
+**Why:** Notion's total flexibility is overstimulating. Constrained page types, as in Jira and Linear, keep capture focused. Many specialized modules give enough variety without overwhelming any single one.
+
+**Rejected:** one universal, flexible block canvas for everything (a pure Notion clone).
 
 ---
 
-**Relationship system as sole linking mechanism**
-Why: pages can't nest (each page = exactly one Space). Needed one consistent way to connect anything to anything, including cross-module, cross-Space.
-Rejected: letting each module invent its own linking/reference fields ad hoc (e.g. Course Prequel/Sequel as dedicated fields) — creates competing mechanisms, defeats "one core mechanism" goal.
+### The relationship system is the only linking mechanism
+
+**Why:** pages cannot nest, since each one belongs to exactly one Space. Nookly needs one consistent way to connect anything to anything, across modules and Spaces.
+
+**Rejected:** letting each module invent its own ad hoc linking or reference fields (for example, Course prequel and sequel as dedicated fields). That creates competing mechanisms and defeats the goal of a single core one.
 
 ---
 
-**Directed relationships, fixed enum, unrestricted cardinality**
-Why: directed = clean auto-derived inverse labels, no dual storage. Fixed enum = queryable/predictable graph, modules extend at build time. Unrestricted cardinality at data layer = simpler core engine; strictness (one-parent-only etc) pushed to specific structural relationship types only where truly needed.
-Rejected: freeform string relationship labels (ungovernable), symmetric-by-default (loses directionality info), enforced cardinality on all types (over-constrains generic case).
+### Relationships are directed, use a fixed enum, and have unrestricted cardinality
+
+**Why:**
+- **Directed:** inverse labels are derived cleanly with no duplicate storage.
+- **Fixed enum:** the graph stays predictable and queryable, and modules extend it at build time.
+- **Unrestricted cardinality at the data layer:** the core engine stays simpler. Stricter rules (such as a single parent) apply only to specific structural relationship types where they are truly needed.
+
+**Rejected:** freeform string labels (impossible to govern), symmetric relationships by default (loses direction), and enforced cardinality on every type (overconstrains the generic case).
 
 ---
 
-**Attachments and Mentions are relationship subtypes, not separate systems**
-Why: avoids a 4th competing linking mechanism. Attachment = relationship type "attached-file." Mention = inline markdown reference, kept separate from formal graph since it's contextual not structural.
-Rejected: fully separate attachment engine and mention engine with no relation to core relationship system.
+### Attachments are a relationship type; Mentions stay outside the graph
+
+**Why:** this avoids a fourth competing linking mechanism. An Attachment is the relationship type "attached-file." A Mention is an inline markdown reference and stays separate from the formal graph, because it is contextual rather than structural.
+
+**Rejected:** fully separate attachment and mention engines with no connection to the core relationship system.
 
 ---
 
-**Labels are Space-siloed, not global**
-Why: user doesn't want "Algorithms" label bleeding into Work space, or "Department XYZ" polluting Study space. Space-siloing solves this for free via existing space_id field.
-Rejected: global labels with optional "make visible everywhere" flag — added UI complexity for a need already solved by siloing.
+### Labels are siloed per Space, not global
+
+**Why:** the user does not want an "Algorithms" label bleeding into the Work Space, or "Department XYZ" cluttering the Study Space. Siloing solves this for free through the existing `space_id` field.
+
+**Rejected:** global labels with an optional "show everywhere" flag. It adds UI complexity for a need siloing already covers.
 
 ---
 
-**Task↔Sub-task, Session↔Course, Exam↔Course, Deck↔Exam, Study Block↔Exam, Assignment↔Course = structural relationships**
-Why: these pairs are meaningless without their parent (a session without a course doesn't make sense). Structural = data-layer enforced, not just convention. Distinguishes from generic (unenforced) relationships like Course sequel-of.
-Rejected: treating all relationships as equally generic — would allow orphaned Sessions/Exams/Assignments with no parent, which never makes real-world sense.
+### Six pairs are structural relationships
+
+Task and Sub-task, Session and Course, Exam and Course, Deck and Exam, Study Block and Exam, and Assignment and Course.
+
+**Why:** the child is meaningless without its parent. A session without a course makes no sense. Structural relationships are enforced at the data layer, not just by convention, which sets them apart from generic, unenforced ones like a Course `sequel-of`.
+
+**Rejected:** treating every relationship as equally generic. That would allow orphaned Sessions, Exams, and Assignments with no parent, which never makes sense in the real world.
 
 ---
 
-**Learning Schedule → new "Study Block" entity, not reused Session or Task**
-Why: Session↔Course is structural (must have a course) — study prep isn't a course lecture, would violate that rule. Task = checklist item, not calendar-native — bad fit for time-boxed study blocks and future calendar view.
-Rejected: reusing Session (violates structural rule), reusing Task (wrong semantics, breaks calendar view design).
+### Study schedules use a new Study Block entity, not Sessions or Tasks
+
+**Why:** a Session must have a Course, and study prep is not a lecture, so reusing Sessions would break that rule. A Task is a checklist item and not native to a calendar, which makes it a poor fit for time-boxed study and the future calendar view.
+
+**Rejected:** reusing Session (breaks the structural rule) and reusing Task (wrong semantics, breaks the calendar view design).
 
 ---
 
-**Compile-time module packaging, not runtime plugins**
-Why: app is personal-first, technical audience (open source, forkable). Recompiling to add a module is acceptable for this audience. Avoids building a whole plugin-runtime/sandboxing/versioning subsystem before module API is proven.
-Rejected: runtime plugin architecture (WASM/dynamic loading) for v1 — premature abstraction, real engineering cost, no proven API to stabilize yet. Deferred to future.
+### Modules are packaged at compile time, not loaded as runtime plugins
+
+**Why:** the app is personal first and its audience is technical (open source and forkable). Recompiling to add a module is acceptable for that audience, and it avoids building a whole plugin runtime with sandboxing and versioning before the module API is proven.
+
+**Rejected:** a runtime plugin architecture (WASM or dynamic loading) for v1. It is premature abstraction with real engineering cost and no proven API to stabilize yet. Deferred to the future.
 
 ---
 
-**No git-backed local repo, no version history**
-Why: originally proposed to power undo/rollback and optional data publishing. Rejected once user considered file/attachment bloat in a git repo — binary files make repo history huge and impractical.
-Resolution: undo/redo = in-memory session-scoped action stack only. Durable history entirely out of scope until cloud sync (future), where large files push to S3-like storage instead of being versioned locally.
+### No git-backed local repo and no version history
+
+**Why:** git was originally proposed to power undo, rollback, and optional data publishing. It was dropped once the user considered attachment bloat: binary files make a repo's history huge and impractical.
+
+**Resolution:** undo and redo use an in-memory action stack scoped to the session. Durable history is fully out of scope until cloud sync arrives, at which point large files go to S3-like storage instead of being versioned locally.
 
 ---
 
-**Soft-delete everywhere, no hard delete, no auto-purge by default**
-Why: with git/version-history rejected, soft-delete + Trash is the ONLY safety net left for accidental deletion.
-Resolution: reduced-opacity rendering wherever a soft-deleted entity is still referenced (relationships/attachments/mentions) instead of hiding/breaking links.
+### Soft delete everywhere, no hard delete, no auto-purge by default
+
+**Why:** with git and version history rejected, soft delete plus Trash is the **only** remaining safety net against accidental deletion.
+
+**Resolution:** wherever a soft-deleted entity is still referenced (relationships, attachments, mentions), render it at reduced opacity instead of hiding it or breaking the link.
 
 ---
 
-**Spaces are a hard wall — no cross-Space views except Dashboard, Pinned, Search**
-Why: matches Notion's actual behavior (which the user explicitly referenced via screenshot). Keeps mental model simple: Space = folder, not a scoping/config boundary.
-Rejected: global per-module views (e.g. "all Tasks across all Spaces") — user confirmed Spaces should behave as a hard wall, cross-space needs are covered by Pinned + future Dashboard instead.
+### Spaces are a hard wall with a short list of exceptions
+
+The exceptions are Dashboard, Pinned, and Search, plus Recents, which was added later (see below).
+
+**Why:** this matches how Notion actually behaves, which the user pointed to with a screenshot. It keeps the mental model simple: a Space is a folder, not a boundary for scoping or config.
+
+**Rejected:** global views per module (for example "all Tasks in every Space"). The user confirmed that Spaces should be a hard wall and that Pinned and the Dashboard cover cross-Space needs.
 
 ---
 
-**Single global Dashboard (not per-Space, not multiple)**
-Why: user wants one bento-style customizable page for quick cross-space access. Per-space dashboards explicitly wanted later, but deliberately deferred to keep this decision small and shippable now.
+### A single global Dashboard (not per Space, not multiple)
+
+**Why:** the user wants one customizable, bento-style page for quick access across Spaces. Per-Space dashboards are wanted eventually, but were deliberately deferred to keep this decision small and shippable now.
 
 ---
 
-**Files copied into local storage (not path-referenced)**
-Why: predictable, portable, survives user moving/renaming/deleting the original file elsewhere on disk.
-Rejected: path-only reference — fragile, breaks silently if source file moves.
+### Files are copied into local storage, not referenced by path
+
+**Why:** it is predictable and portable, and it survives the user moving, renaming, or deleting the original file elsewhere on disk.
+
+**Rejected:** storing only a path reference. It is fragile and breaks silently when the source file moves.
 
 ---
 
-**Files-as-links: provider-aware (Drive/Dropbox/iCloud) with generic URL fallback**
-Why: enables future provider-specific features (thumbnails, live status) without blocking on it now. Generic URL fallback covers everything else without extra engineering.
+### Files as links are provider-aware (Drive, Dropbox, iCloud) with a generic URL fallback
+
+**Why:** it opens the door to provider-specific features later (thumbnails, live status) without blocking on them now. The generic URL fallback covers everything else with no extra engineering.
 
 ---
 
-**Bookmarks are a separate entity from Files-as-links**
-Why: semantically different intents — Files-as-links = "this is a document," Bookmarks = "this is a reference/webpage." Conflating them would confuse the Attachments UI and export semantics.
+### Bookmarks are a separate entity from files as links
+
+**Why:** the intent differs. A file as link says "this is a document"; a Bookmark says "this is a reference or webpage." Merging them would muddle the Attachments UI and the meaning of exports.
 
 ---
 
-**Full-text search is app-wide, ignores the Space hard wall**
-Why: search is a utility action, not a "view" — user shouldn't have to guess which Space something lives in just to find it.
-Rejected: Space-scoped search (would contradict the point of having one unified app for one person's whole life).
+### Full-text search spans the whole app and ignores the Space wall
+
+**Why:** search is a utility action, not a view. The user should not have to guess which Space something lives in just to find it.
+
+**Rejected:** search scoped to a Space. It would undercut the point of having one unified app for one person's whole life.
 
 ---
 
-**Recents = fourth sanctioned cross-Space exception (Dashboard, Pinned, Search, Recents)**
-Why: fast return to actually-used items without drilling Space → module → entity every time; distinct from Pinned (manual curation) — this is automatic, usage-driven.
-Rejected: folding it into Pinned (conflates manual curation with usage history) or making cross-Space a general capability modules can opt into (explicitly rejected by the existing "one at a time, deliberately" rule).
+### Recents is the fourth sanctioned cross-Space exception
+
+The full list is now Dashboard, Pinned, Search, and Recents.
+
+**Why:** it offers a fast way back to items actually in use without drilling from Space to module to entity every time. It differs from Pinned, which is curated by hand, because it is automatic and driven by usage.
+
+**Rejected:** folding it into Pinned (mixes manual curation with usage history), and making cross-Space access a general capability that modules can opt into (already ruled out by the "one at a time, deliberately" rule).

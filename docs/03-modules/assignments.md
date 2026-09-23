@@ -1,14 +1,15 @@
 # Module: Assignments (University)
 
-Structural relationship: Assignment ↔ Course. MUST have exactly one Course.
+**Structural relationship:** Assignment and Course. Every Assignment must have exactly one Course.
 
-Generic relationship: Assignment ↔ Tasks. "Matching Todos" = independent Task entities related to Assignment. Assignment has NO built-in checklist/rollup behavior of its own. Fully delegates to Tasks module (same pattern as Exam↔Tasks).
+**Generic relationship:** Assignment and Tasks. An Assignment's "matching todos" are independent Task entities related to it. The Assignment has no checklist or progress rollup of its own and hands all of that to the Tasks module, the same pattern Exams use.
 
 ## Native Fields
 
-`due_date`, `status` (not-started / in-progress / submitted / graded), optional `grade`.
-No Index Cards, no Study Blocks — those stay Exam-specific only.
+`due_date`, `status` (not started, in progress, submitted, graded), and an optional `grade`.
 
-## Layout Direction (UI)
+Assignments do not get Index Cards or Study Blocks. Those stay specific to Exams.
 
-Similar to Exams: date-forward, status-forward list. Distinct visual treatment from generic Tasks despite conceptual similarity.
+## Layout Direction
+
+Like Exams: a list that puts dates and status first. It should look clearly different from generic Tasks even though the two are conceptually similar.
