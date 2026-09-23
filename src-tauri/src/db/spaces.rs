@@ -112,6 +112,12 @@ pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
     )?;
     conn.execute(
         &format!(
+            "DELETE FROM mentions WHERE from_entity_id IN ({IN_SPACE}) OR to_entity_id IN ({IN_SPACE})"
+        ),
+        params![id],
+    )?;
+    conn.execute(
+        &format!(
             "DELETE FROM entity_labels WHERE entity_id IN ({IN_SPACE}) OR label_id IN (SELECT id FROM labels WHERE space_id = ?2)"
         ),
         params![id, id],

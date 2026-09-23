@@ -49,3 +49,8 @@ export function updateTaskDates(
 ): Promise<void> {
   return invoke("update_task_dates", { entityId, startDate, dueDate });
 }
+
+/// Turns a top-level Task without Sub-tasks into a Sub-task of `parentEntityId`.
+export function convertToSubtask(entityId: string, parentEntityId: string): Promise<Task> {
+  return invoke("convert_to_subtask", { entityId, parentEntityId });
+}

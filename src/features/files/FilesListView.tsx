@@ -17,8 +17,10 @@ import {
   statusTextClass,
   useActionStatus,
 } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,7 +103,14 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   }, [spaceId]);
 
   return (
-    <div className="flex max-w-4xl flex-col gap-4">
+    <div
+      className="flex max-w-4xl flex-col gap-4"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "Import a File…",
+        create: () => !pickAndImport.isPending && pickAndImport.mutate(),
+      })}
+    >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Files</h1>
         <div className="flex items-center gap-0.5 rounded-md border border-input bg-accent p-0.5">
@@ -199,6 +208,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
               <div
                 key={f.entity.id}
                 className="group flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center hover:bg-accent"
+                {...entityTarget(f.entity, f)}
               >
                 <EntityIcon
                   entity={f.entity}
@@ -209,6 +219,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                   {displayTitle(f.entity)}
                 </span>
                 <div className="flex min-h-4 items-center gap-1.5">
+                  <EntityKey entityKey={f.entity.key} />
                   {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
                   {f.url && (
                     <a
@@ -239,8 +250,10 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
               <div
                 key={f.entity.id}
                 className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                {...entityTarget(f.entity, f)}
               >
                 <EntityIcon entity={f.entity} className="shrink-0 text-muted-foreground" />
+                <EntityKey entityKey={f.entity.key} />
                 <span className="min-w-0 flex-1 truncate">{displayTitle(f.entity)}</span>
                 {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
                 {f.url && (

@@ -19,22 +19,37 @@ pub enum Cardinality {
     OneFromPerTo,
 }
 
+/// Which side of an edge follows the other when an entity moves to another Space,
+/// so a structural child (a Sub-task, a Course's Sessions, its embedded notes page)
+/// never gets stranded in the old Space.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MovesWith {
+    /// Moving either side leaves the other where it is.
+    Independent,
+    /// The `from` entity is owned by the `to` entity (Sub-task -> Task): it moves along
+    /// with its owner and can't be moved on its own.
+    FromFollowsTo,
+    /// The `to` entity is owned by the `from` entity (Course -> its notes page).
+    ToFollowsFrom,
+}
+
 pub struct RelationshipTypeDef {
     pub name: &'static str,
     pub inverse_label: &'static str,
     pub cardinality: Cardinality,
+    pub moves_with: MovesWith,
 }
 
 inventory::collect!(RelationshipTypeDef);
 
 inventory::submit! {
-    RelationshipTypeDef { name: "relates-to", inverse_label: "related from", cardinality: Cardinality::Unrestricted }
+    RelationshipTypeDef { name: "relates-to", inverse_label: "related from", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "blocks", inverse_label: "blocked by", cardinality: Cardinality::Unrestricted }
+    RelationshipTypeDef { name: "blocks", inverse_label: "blocked by", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "attached-file", inverse_label: "attached to", cardinality: Cardinality::Unrestricted }
+    RelationshipTypeDef { name: "attached-file", inverse_label: "attached to", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 
 fn registry() -> &'static HashMap<&'static str, &'static RelationshipTypeDef> {
@@ -197,7 +212,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     inventory::submit! {
-        RelationshipTypeDef { name: "test-one-to-per-from", inverse_label: "test inverse", cardinality: Cardinality::OneToPerFrom }
+        RelationshipTypeDef { name: "test-one-to-per-from", inverse_label: "test inverse", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
     }
 
     fn setup() -> Connection {

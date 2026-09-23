@@ -17,6 +17,8 @@ export interface Entity {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /// Short readable id, Jira style: a three letter type prefix and a number, `TSK-14`.
+  key: string;
 }
 
 export interface Semester {
@@ -41,6 +43,8 @@ export interface EntityPatch {
   title?: string;
   icon?: string;
   pinned?: boolean;
+  /// Moves the entity, with everything it structurally owns, to another Space.
+  spaceId?: string;
 }
 
 export interface Relationship {
@@ -64,6 +68,7 @@ export type AppError =
   | { kind: "NotFound"; message: string }
   | { kind: "UnknownRelationshipType"; message: string }
   | { kind: "CardinalityViolation"; message: string }
+  | { kind: "Conflict"; message: string }
   | { kind: "Db"; message: string };
 
 export interface SearchHit {
@@ -72,7 +77,8 @@ export interface SearchHit {
   title: string;
   type: string;
   icon: string | null;
-  /// Set when the match came from one block of a Note/Jot/Refinement rather
+  key: string;
+  /// Set when the match came from one block of a Note/Jot rather
   /// than the entity's title.
   blockId: string | null;
   /// The matching block's text around the hit, matched terms wrapped in
@@ -123,6 +129,27 @@ export interface Block {
   filename: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/// One Notes list row, loaded for the whole Space in one call.
+export interface PageSummary {
+  entity: Entity;
+  /// Raw markdown of the leading text blocks joined by `\n`, capped around 280 chars.
+  preview: string;
+  lastEditedAt: string;
+  labelIds: string[];
+  /// Jot rows only: Notes this Jot is linked to, i.e. was refined into.
+  linked: Entity[];
+  /// Jot rows only: the most recent related Session occurrence.
+  session: SessionContext | null;
+}
+
+export interface SessionContext {
+  entity: Entity;
+  date: string;
+  startTime: string;
+  courseId: string | null;
+  courseTitle: string | null;
 }
 
 export interface BlockPatch {

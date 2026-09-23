@@ -9,7 +9,6 @@ const TYPE_LABELS = new Map<string, string>([
   ["sub_task", "Task"],
   ["note", "Note"],
   ["jot", "Jot"],
-  ["refinement", "Refinement"],
   ["course", "Course"],
   ["course_notes", "Course Notes"],
   ["semester", "Semester"],

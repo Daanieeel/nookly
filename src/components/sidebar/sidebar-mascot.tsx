@@ -5,7 +5,7 @@ import { getWeekYear, MascotFigure } from "@/components/mascot-figure";
 import { Card } from "@/components/ui/card";
 import { listAssignmentsAllSpaces } from "@/lib/api/assignments";
 import { listExamsAllSpaces } from "@/lib/api/exams";
-import { countJotsWithoutRefinementAllSpaces } from "@/lib/api/notes";
+import { countUnrefinedJotsAllSpaces } from "@/lib/api/notes";
 import { listSessionsToday } from "@/lib/api/sessions";
 import { countOpenTasksDueOrOverdue, countTasksDueToday } from "@/lib/api/tasks";
 
@@ -27,8 +27,8 @@ export function SidebarMascot() {
   });
   const { data: sessions } = useQuery({ queryKey: ["sessions-today"], queryFn: listSessionsToday });
   const { data: jotCount } = useQuery({
-    queryKey: ["jots-without-refinement-all"],
-    queryFn: countJotsWithoutRefinementAllSpaces,
+    queryKey: ["unrefined-jots", "all"],
+    queryFn: countUnrefinedJotsAllSpaces,
   });
   const { data: exams } = useQuery({ queryKey: ["exams-all"], queryFn: listExamsAllSpaces });
   const { data: assignments } = useQuery({

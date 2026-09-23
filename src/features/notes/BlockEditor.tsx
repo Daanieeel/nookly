@@ -1,18 +1,26 @@
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
-import { Selection } from "@tiptap/pm/state";
+import { Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { contextTargetAt, makeTarget } from "@/components/context-menu/registry";
 import { listEntities } from "@/lib/api/entities";
 import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "@/lib/api/notes";
 import type { Block } from "@/lib/api/types";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
-import { type BlockInput, blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
-import { BlockHandles } from "./BlockHandles";
+import {
+  asString,
+  type BlockInput,
+  blockToNode,
+  type JSONNode,
+  nodeToBlockInput,
+} from "./block-markdown";
+import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
+import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -20,6 +28,7 @@ import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { UniqueBlockId } from "./unique-block-id";
+import { HeadingAnchors, type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
 const MENTION_HREF_PREFIX = "mention:";
@@ -32,9 +41,12 @@ export function BlockEditor({
   entityId,
   spaceId,
   compact = false,
+  onSectionsChange,
 }: {
   entityId: string;
   spaceId: string;
+  /// The page's headings, whenever they change, for a section navigator.
+  onSectionsChange?: (sections: PageSection[]) => void;
   /// Starts at a single empty line and grows with content, instead of the
   /// full-page canvas's `min-h-40` — for a Notes surface embedded inline
   /// inside another entity's page (e.g. Course Notes) rather than owning
@@ -49,9 +61,9 @@ export function BlockEditor({
   const saving = useIsMutating({ mutationKey: saveBlocksKey(entityId) }) > 0;
   const hydratedIdRef = useRef<string | null>(null);
   // The editor is only created once blocks are in, with them as its initial
-  // content: one render pass, and no `setContent` afterwards (which would emit
-  // an update and schedule a pointless save). Later refetches are ignored; the
-  // editor is the source of truth from then on.
+  // content: one render pass. After that the editor is the source of truth;
+  // `HydratedBlockEditor` only pulls in later refetches that bring changes made
+  // outside this editor (an agent writing through the CLI).
   if (!blocks || (saving && hydratedIdRef.current !== entityId)) {
     return <div className={cn(!compact && "min-h-40")} />;
   }
@@ -63,6 +75,7 @@ export function BlockEditor({
       spaceId={spaceId}
       compact={compact}
       initialBlocks={blocks}
+      onSectionsChange={onSectionsChange}
     />
   );
 }
@@ -72,14 +85,17 @@ function HydratedBlockEditor({
   spaceId,
   compact,
   initialBlocks,
+  onSectionsChange,
 }: {
   entityId: string;
   spaceId: string;
   compact: boolean;
   initialBlocks: Block[];
+  onSectionsChange?: (sections: PageSection[]) => void;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
   const { data: entities = [] } = useQuery({
     queryKey: ["entities", spaceId],
     queryFn: () => listEntities(spaceId, false),
@@ -240,6 +256,8 @@ function HydratedBlockEditor({
       Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
       TableKit.configure({ table: { resizable: true } }),
       UniqueBlockId,
+      HeadingAnchors,
+      BlockSelection,
       SlashCommand,
       Mention.configure({ getEntities: () => entitiesRef.current }),
     ],
@@ -253,7 +271,9 @@ function HydratedBlockEditor({
         const href = target.getAttribute("href");
         if (href?.startsWith(MENTION_HREF_PREFIX)) {
           event.preventDefault();
-          openEntity(href.slice(MENTION_HREF_PREFIX.length), spaceId);
+          // `mention:<id>#<blockId>` links one block of the page.
+          const [targetId, blockId] = href.slice(MENTION_HREF_PREFIX.length).split("#");
+          openEntity(targetId, spaceId, blockId ? { entityId: targetId, blockId } : undefined);
           return true;
         }
         return false;
@@ -264,6 +284,27 @@ function HydratedBlockEditor({
       debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
     },
   });
+
+  // Reports the headings after every change to the document, including edits
+  // pulled in from outside, but only when the outline itself changed.
+  const onSectionsChangeRef = useRef(onSectionsChange);
+  onSectionsChangeRef.current = onSectionsChange;
+  useEffect(() => {
+    if (!editor) return;
+    let last = "";
+    const report = () => {
+      const sections = pageSections(editor.state.doc);
+      const key = JSON.stringify(sections);
+      if (key === last) return;
+      last = key;
+      onSectionsChangeRef.current?.(sections);
+    };
+    report();
+    editor.on("transaction", report);
+    return () => {
+      editor.off("transaction", report);
+    };
+  }, [editor]);
 
   // Scrolls to a block requested from outside (a block level search result)
   // once the page has hydrated, then hands the request back.
@@ -345,6 +386,88 @@ function HydratedBlockEditor({
     runReconcile((doc.content ?? []) as JSONNode[]);
   };
 
+  /// Whether `blocks` is exactly what this editor last persisted, same order.
+  function matchesPersisted(blocks: Block[]) {
+    if (blocks.length !== persisted.size) return false;
+    const clientIdOf = new Map([...idMap].map(([clientId, serverId]) => [serverId, clientId]));
+    return blocks.every((block, index) => {
+      const clientId = clientIdOf.get(block.id);
+      const prior = clientId ? persisted.get(clientId) : undefined;
+      return (
+        prior !== undefined &&
+        orderRef.current[index] === block.id &&
+        prior.content === block.content &&
+        prior.blockType === block.blockType &&
+        prior.language === (block.language ?? undefined) &&
+        prior.filename === (block.filename ?? undefined)
+      );
+    });
+  }
+
+  /// Pulls in blocks changed outside this editor (an agent writing through the
+  /// CLI; `useExternalDbChanges` refetches on every external write). Local edits
+  /// win: while a save is pending or in flight this waits, and runs again once it
+  /// settles. Replaces the document without emitting an update (so no save) or an
+  /// undo step, and puts the cursor back at the same offset in the same block.
+  const syncFromServerRef = useRef(() => {});
+  syncFromServerRef.current = () => {
+    if (!editor || editor.isDestroyed) return;
+    if (debounceRef.current || pendingNodesRef.current || reconcile.isPending) return;
+    const blocks = queryClient.getQueryData(blocksQueryOptions(entityId).queryKey);
+    if (!blocks || matchesPersisted(blocks)) return;
+
+    let anchor: { blockId: string; offset: number } | null = null;
+    const { from } = editor.state.selection;
+    for (let i = 0, pos = 0; i < editor.state.doc.childCount; i++) {
+      const node = editor.state.doc.child(i);
+      if (from >= pos && from <= pos + node.nodeSize) {
+        const clientId = asString(node.attrs.blockId);
+        if (clientId) anchor = { blockId: idMap.get(clientId) ?? clientId, offset: from - pos };
+        break;
+      }
+      pos += node.nodeSize;
+    }
+
+    idMap.clear();
+    persisted.clear();
+    for (const block of blocks) {
+      idMap.set(block.id, block.id);
+      persisted.set(block.id, {
+        content: block.content,
+        blockType: block.blockType,
+        language: block.language ?? undefined,
+        filename: block.filename ?? undefined,
+      });
+    }
+    orderRef.current = blocks.map((block) => block.id);
+
+    editor
+      .chain()
+      .setMeta("addToHistory", false)
+      .setContent(
+        {
+          type: "doc",
+          content: blocks.length > 0 ? blocks.map(blockToNode) : [{ type: "paragraph" }],
+        },
+        { emitUpdate: false },
+      )
+      .run();
+
+    if (!anchor) return;
+    const { doc, tr } = editor.state;
+    for (let i = 0, pos = 0; i < doc.childCount; i++) {
+      const node = doc.child(i);
+      if (node.attrs.blockId === anchor.blockId) {
+        const at = Math.min(pos + anchor.offset, pos + node.nodeSize - 1, doc.content.size);
+        tr.setSelection(TextSelection.near(doc.resolve(at))).setMeta("addToHistory", false);
+        editor.view.dispatch(tr);
+        break;
+      }
+      pos += node.nodeSize;
+    }
+  };
+  useEffect(() => syncFromServerRef.current(), [serverBlocks, reconcile.isPending]);
+
   // Leaving the page inside the debounce window saves right away instead of
   // dropping the last edits. `useEditor` destroys its editor on a later tick, so
   // the document is still readable here.
@@ -355,8 +478,42 @@ function HydratedBlockEditor({
     [],
   );
 
+  /// Saves anything still pending, then maps a block's client id to its stored
+  /// id, which is what a link to the block has to point at.
+  const resolveStoredId = async (blockId: string): Promise<string | null> => {
+    if (debounceRef.current) flushRef.current();
+    const saveKey = { mutationKey: saveBlocksKey(entityId) };
+    for (let tries = 0; tries < 100 && queryClient.isMutating(saveKey) > 0; tries++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return idMap.get(blockId) ?? null;
+  };
+
+  /// Right-clicking a block, or the gutter beside it, targets that block; the
+  /// rest of the canvas targets the page as a whole.
+  const blockContextTarget = contextTargetAt((event) => {
+    if (!editor) return undefined;
+    const dom = editor.view.dom;
+    const box = dom.getBoundingClientRect();
+    const inGutter = event.clientX >= box.left && event.clientX < box.left + GUTTER_WIDTH;
+    const probed = inGutter
+      ? document.elementFromPoint(box.left + GUTTER_WIDTH + 1, event.clientY)
+      : event.target instanceof Element
+        ? event.target
+        : null;
+    const element = topLevelElement(dom, probed);
+    const block = element && findTopLevelBlock(editor.view, element);
+    const blockId = block ? asString(block.node.attrs.blockId) : undefined;
+    return blockId
+      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId })
+      : makeTarget("note.canvas", {
+          editor,
+          overText: event.target instanceof Node && dom.contains(event.target),
+        });
+  });
+
   return (
-    <div className="relative">
+    <div className="relative" {...blockContextTarget}>
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} />
       <BlockHandles editor={editor} />

@@ -17,6 +17,8 @@
 //!   the whole data model (entity types, their fields, relationship types);
 //!   `nookly cli describe <entity-type>` dumps just one.
 
+mod view;
+
 use crate::db::schema::{self, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
@@ -63,6 +65,17 @@ fn print_json(value: &Value) {
 
 // --- argv parsing -----------------------------------------------------------
 
+/// Flags that never take a value, so `get NOT-1 --summary NOT-2` doesn't read
+/// `NOT-2` as the value of `--summary`.
+const BOOL_FLAGS: &[&str] = &[
+    "yes",
+    "include-deleted",
+    "summary",
+    "dry-run",
+    "regex",
+    "case-sensitive",
+];
+
 struct Args {
     positional: Vec<String>,
     flags: HashMap<String, String>,
@@ -96,10 +109,11 @@ fn parse_args(argv: &[String]) -> Args {
                 i += 1;
                 continue;
             }
-            let takes_value = argv
-                .get(i + 1)
-                .map(|next| !next.starts_with("--"))
-                .unwrap_or(false);
+            let takes_value = !BOOL_FLAGS.contains(&rest)
+                && argv
+                    .get(i + 1)
+                    .map(|next| !next.starts_with("--"))
+                    .unwrap_or(false);
             if takes_value {
                 flags.insert(rest.to_string(), argv[i + 1].clone());
                 i += 2;
@@ -136,6 +150,11 @@ impl Args {
             .ok_or_else(|| AppError::InvalidInput(format!("missing required argument: <{name}>")))
     }
 
+    /// An entity id positional, also accepting the entity's key (`TSK-14`).
+    fn require_entity(&self, conn: &Connection, index: usize, name: &str) -> AppResult<String> {
+        crate::db::entities::resolve_entity_ref(conn, &self.require_positional(index, name)?)
+    }
+
     fn flag(&self, name: &str) -> Option<String> {
         self.flags.get(name).cloned()
     }
@@ -149,8 +168,60 @@ impl Args {
         self.bool_flags.contains(name) || self.flags.get(name).map(|v| v == "true").unwrap_or(false)
     }
 
+    /// Comma separated `--fields a,b,c`, trimmed, empties dropped.
+    fn field_list(&self) -> Option<Vec<String>> {
+        self.flag("fields").map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|f| !f.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+    }
+
+    fn usize_flag(&self, name: &str) -> AppResult<Option<usize>> {
+        self.flag(name)
+            .map(|v| {
+                v.parse::<usize>().map_err(|_| {
+                    AppError::InvalidInput(format!(
+                        "--{name} expects a non negative integer, got '{v}'"
+                    ))
+                })
+            })
+            .transpose()
+    }
+
+    /// Every positional from `index` on, resolved from id or key.
+    fn entities_from(&self, conn: &Connection, index: usize, name: &str) -> AppResult<Vec<String>> {
+        if self.positional.len() <= index {
+            return Err(AppError::InvalidInput(format!(
+                "missing required argument: <{name}>"
+            )));
+        }
+        self.positional[index..]
+            .iter()
+            .map(|raw| crate::db::entities::resolve_entity_ref(conn, raw))
+            .collect()
+    }
+
+    /// `--if-revision <rev>`: refuses the write unless `current` still matches.
+    fn check_revision(&self, current: &Value) -> AppResult<()> {
+        let Some(expected) = self.flag("if-revision") else {
+            return Ok(());
+        };
+        let actual = view::revision(current);
+        if expected == actual {
+            Ok(())
+        } else {
+            Err(AppError::Conflict(format!(
+                "expected revision {expected} but the entity is now at {actual}; someone changed it since \
+                 you read it. Re-read it (get / blocks), reapply your change, and retry with the new revision"
+            )))
+        }
+    }
+
     fn require_yes(&self) -> AppResult<()> {
-        if self.has_bool("yes") {
+        if self.has_bool("yes") || self.has_bool("dry-run") {
             Ok(())
         } else {
             Err(AppError::InvalidInput(
@@ -162,7 +233,25 @@ impl Args {
 
 // --- dispatch -----------------------------------------------------------
 
+/// `--dry-run` anywhere runs the command inside a savepoint that is always rolled
+/// back: every validation, cardinality check and write happens for real, then none
+/// of it is kept. Works for every command with no per-command code. Database
+/// changes only; a `file create` from `localPath` still copies the file on disk.
 fn dispatch(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
+    if !argv.iter().any(|a| a == "--dry-run") {
+        return dispatch_command(conn, argv);
+    }
+    conn.execute_batch("SAVEPOINT cli_dry_run")?;
+    let result = dispatch_command(conn, argv);
+    conn.execute_batch("ROLLBACK TO cli_dry_run; RELEASE cli_dry_run")?;
+    Ok(json!({
+        "dryRun": true,
+        "note": "nothing was written; rerun without --dry-run (and with --yes where required) to apply",
+        "result": result?,
+    }))
+}
+
+fn dispatch_command(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     let Some(head) = argv.first().cloned() else {
         return Ok(top_level_help());
     };
@@ -180,8 +269,36 @@ fn dispatch(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
             let args = parse_args(&argv[1..]);
             let query = args.require_positional(0, "query")?;
             let space_id = args.flag("space");
-            let hits = crate::db::search::search(conn, &query, space_id.as_deref())?;
-            Ok(json!({ "query": query, "count": hits.len(), "items": hits }))
+            let types: Option<Vec<String>> = args.flag("type").map(|raw| {
+                raw.split(',')
+                    .map(|t| t.trim().to_string())
+                    .filter(|t| !t.is_empty())
+                    .collect()
+            });
+            for t in types.iter().flatten() {
+                schema::lookup(t).ok_or_else(|| unknown_entity_type(t))?;
+            }
+            let scope = args.flag("in");
+            if let Some(scope) = &scope {
+                if scope != "title" && scope != "content" {
+                    return Err(AppError::InvalidInput(format!(
+                        "--in expects 'title' (titles and keys) or 'content' (block text), got '{scope}'"
+                    )));
+                }
+            }
+            let hits: Vec<_> = crate::db::search::search(conn, &query, space_id.as_deref())?
+                .into_iter()
+                .filter(|h| types.as_ref().is_none_or(|ts| ts.contains(&h.entity_type)))
+                .filter(|h| match scope.as_deref() {
+                    Some("title") => h.block_id.is_none(),
+                    Some("content") => h.block_id.is_some(),
+                    _ => true,
+                })
+                .collect();
+            let total = hits.len();
+            let limit = args.usize_flag("limit")?.unwrap_or(total);
+            let items: Vec<_> = hits.into_iter().take(limit).collect();
+            Ok(json!({ "query": query, "count": total, "returned": items.len(), "items": items }))
         }
         "relate" => relate(conn, &parse_args(&argv[1..])),
         "unrelate" => unrelate(conn, &parse_args(&argv[1..])),
@@ -201,29 +318,55 @@ fn top_level_help() -> Value {
         "discovery": "Run `nookly cli schema` first — it dumps every entity type's fields and every \
                       relationship type in one call, so you never need to hardcode this app's data model.",
         "entityCommands": {
-            "usage": "nookly cli <entity-type> <list|get|create|update|delete|restore> ...",
+            "usage": "nookly cli <entity-type> <list|get|create|update|duplicate|delete|restore> ...",
+            "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, \
+                    entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
-            "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted]",
-            "get": "nookly cli <entity-type> get <id>  (includes relationships + labels)",
+            "describe": "nookly cli describe <entity-type>  (or `nookly cli <entity-type>` with no verb): \
+                         that type's fields, block commands and relationship types",
+            "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since <30m|24h|7d|date|timestamp>] \
+                     [--fields a,b,...] [--limit <n>]  (--since keeps rows changed since then, newest first; \
+                     block pages also report lastEditedAt, blockCount and bodySize so you can gauge a get first)",
+            "get": "nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b,...]  (includes relationships, \
+                    labels, mentionedIn backlinks, a `size` hint and a `revision`. --summary cuts long strings to \
+                    excerpts and adds a heading outline for block pages; --fields returns just those fields, e.g. \
+                    title,updatedAt. Several ids return {count, items}, a bad id becomes an {ref, error} row)",
             "create": "nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]",
-            "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]",
-            "delete": "nookly cli <entity-type> delete <id> --yes  (soft delete only — goes to Trash, never permanent)",
+            "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] \
+                       [--field name=value ...] [--if-revision <rev>]  (response lists `changes`, before and after per field. \
+                       --space moves the entity and everything it structurally owns, e.g. a Task's sub-tasks, to that Space)",
+            "duplicate": "nookly cli <entity-type> duplicate <id>  (a copy in the same Space titled \"<title> (copy)\", \
+                          with the same fields, icon, labels and block content)",
+            "delete": "nookly cli <entity-type> delete <id> --yes [--if-revision <rev>]  (soft delete only — goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
-            "blocks": "note/jot/refinement only (`describe <type>` reports supportsBlocks) — full block editing: \
-                       `nookly cli <type> blocks <id>`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>]`, \
+            "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
+                     [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
+            "blocks": "note/jot only (`describe <type>` reports supportsBlocks) — full block editing: \
+                       `nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>]`, \
                        `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]`, \
                        `delete-block <block-id> --yes`, `reorder-blocks <id> <block-id> <block-id> ...`. \
                        `--language`/`--filename` are the code block header row and only apply to `type=code`. \
-                       See `describe note` for the full list of known block types.",
+                       See `describe note` for the full list of known block types. Every block write takes \
+                       `--if-revision <rev>` (the page's revision from `get`).",
+        },
+        "safety": {
+            "dryRun": "Add --dry-run to any command: it runs for real inside a transaction that is always rolled \
+                       back, so you see the exact result (and `changes` for update/update-block) with nothing \
+                       written. --yes is not needed with --dry-run. Database only: a file import still copies the file.",
+            "ifRevision": "`get` returns a `revision`. Pass it back as --if-revision <rev> on update, delete or any \
+                           block write; if the entity changed in between, the write is refused with a `Conflict` \
+                           error instead of overwriting someone else's edit.",
         },
         "coreCommands": {
-            "relate": "nookly cli relate <from-id> <relationship-type> <to-id> --yes",
-            "unrelate": "nookly cli unrelate <relationship-id> --yes",
-            "search": "nookly cli search <query> [--space <id>]",
-            "describe": "nookly cli describe <entity-type>",
             "schema": "nookly cli schema  (the whole data model: every entity type + relationship type)",
+            "describe": "nookly cli describe <entity-type>  (one entity type: fields, block commands, relationship types)",
+            "relate": "nookly cli relate <from-id> <relationship-type> <to-id> [<to-id> ...] --yes  (several targets \
+                       are created all or nothing)",
+            "unrelate": "nookly cli unrelate <relationship-id> --yes",
+            "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
+                       [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
             "space": "nookly cli space <list|create|update|delete> ...",
-            "label": "nookly cli label <list|create|delete|attach|detach> ...",
+            "label": "nookly cli label <list|create|delete|attach|detach> ...  (attach/detach take several label ids)",
             "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
                                    agent that's never used this CLI before — start here, not with \
                                    this --help output, if this is your first call)",
@@ -270,22 +413,58 @@ relationship type, run one of these instead.
 Almost everything is one of:
 
 ```
-nookly cli <entity-type> list [--space <id>] [--include-deleted]
-nookly cli <entity-type> get <id>                    # includes relationships + labels
+nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since 24h] [--fields a,b] [--limit <n>]
+nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b]   # includes relationships, labels + mentionedIn
 nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
-nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]
+nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] [--field name=value ...]
+nookly cli <entity-type> duplicate <id>               # copy in the same Space, same fields, labels and blocks
 nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, not permanent
 nookly cli <entity-type> restore <id>
 ```
+
+Every entity carries a short `key` next to its `id`, like `TSK-14` or `NOT-3`: a three
+letter type prefix and a number. Anywhere a command takes an entity id (including `relate`,
+`label attach`, block commands and entity reference `--field` values) you can pass the key
+instead. `search` matches keys too. Space, label, block and relationship ids have no key.
+
+## Reading cheaply
+
+Pages can be large. Before pulling one whole:
+
+- `list` rows of block pages carry `bodySize` (`chars`, `approxTokens`), `blockCount` and
+  `lastEditedAt`. `get` always reports `size` for its payload.
+- `get <id> --summary` cuts every long string to an excerpt and, for pages, adds the heading
+  `outline` with block ids and indexes.
+- `get <id> --fields title,updatedAt` returns only those fields (`id` and `key` always come along).
+- `<type> grep <id> <pattern> [--context 2]` returns just the matching lines with their block
+  id and index; `<type> blocks <id> --offset <n> --limit <n>` then fetches that section.
+- `get` takes several ids at once; `list --since 24h` (or `7d`, a date, a timestamp) shows what
+  changed recently, newest first.
+- `search <query> --type note --in content` narrows search to one entity type and to block
+  text (`--in title` for titles and keys).
+
+## Writing safely
+
+- `--dry-run` works on every command: it really runs inside a transaction that is then rolled
+  back, so validation errors, cardinality checks and the resulting payload are all real, and
+  nothing is kept. `--yes` isn't required alongside it. `update` and `update-block` responses
+  (dry or not) list `changes` with before and after values, and a line diff for long text.
+- `get` returns a `revision`. Pass it back as `--if-revision <rev>` on `update`, `delete` or any
+  block write; if someone changed the entity since you read it you get a `Conflict` error
+  instead of silently overwriting their edit. Re-read, reapply, retry.
+- There is no version history: once a write lands, the previous content is gone (deletes of
+  entities go to Trash, though). Use the two tools above before writing, not after.
+- `relate <from> <type> <to> <to> ...` and `label attach <entity> <label> <label> ...` take
+  several targets in one call, all or nothing.
 
 `--field` is for whatever extra fields that *specific* entity type declares beyond the
 universal ones (title/icon/pinned) — `describe <entity-type>` lists exactly which field names
 are valid and whether each is settable on create, update, or both. Passing an unknown field
 name is an error, not a silent no-op.
 
-## Notes, Jots, Refinements: block-based pages, not a markdown blob
+## Notes and Jots: block-based pages, not a markdown blob
 
-`note`, `jot`, and `refinement` are "pages" — their content is a sequence of typed blocks
+`note` and `jot` are "pages" — their content is a sequence of typed blocks
 (heading, paragraph, code, list, table, ...), not one big string. **There is no `--field
 body=<markdown>` shortcut** — an earlier version of this CLI had one, and it was removed
 deliberately, because it let agents skip ever learning the real block commands (and a
@@ -295,7 +474,8 @@ error message tells you this and points back here.
 Build a page's content with:
 
 ```
-nookly cli <type> blocks <id>                                                    # list blocks in order
+nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]                        # list blocks in order
+nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>]  # matching lines only
 nookly cli <type> add-block <id> --type <blockType> --content <text> [--position <n>] [--language <l>] [--filename <f>]
 nookly cli <type> update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]
 nookly cli <type> delete-block <block-id> --yes
@@ -303,7 +483,18 @@ nookly cli <type> reorder-blocks <id> <block-id> <block-id> ...
 ```
 
 One call per element — a heading, a paragraph, a code block, one list, one table — not one
-call with a whole document jammed into `--content`. `describe <type>` lists every known
+call with a whole document jammed into `--content`. A list is ONE block, not one block per
+item: `bulleted_list` and `numbered_list` content is every item of the list, one per line,
+with no `1. ` or `- ` markers (the editor numbers items within the block, so one block per
+item renders as a column of "1."s). An advisory `warning` flags either mistake, and every
+list block in `blocks` output carries `display`: the marker each line renders with in the
+editor (`1.`, `2.`, ... or `•`) and `restartsAfterList`, true when the block renders as a new
+list right after another list of the same type. Check it instead of guessing what the GUI shows.
+
+```
+nookly cli note add-block <id> --type numbered_list --content "$(printf 'First\nSecond\nThird')"
+```
+ `describe <type>` lists every known
 `blockType`. If you land a `paragraph` block whose content still looks like a whole unsplit
 document (headings, fences, several paragraphs), the response carries an advisory `warning`
 telling you to split it — the write still succeeds, but fix it before moving on.
@@ -341,12 +532,12 @@ Relationships link any two entities (or, for Notes, individual blocks) with a ty
 that exists):
 
 ```
-nookly cli relate <from-id> <relationship-type> <to-id> --yes
+nookly cli relate <from-id> <relationship-type> <to-id> [<to-id> ...] --yes
 nookly cli unrelate <relationship-id> --yes
-nookly cli search <query> [--space <id>]              # full-text, across every entity type
+nookly cli search <query> [--space <id>] [--type <t>] [--in title|content] [--limit <n>]
 ```
 
-Search matches entity titles and, for Notes/Jots/Refinements, individual blocks. A block hit
+Search matches entity titles and, for Notes/Jots, individual blocks. A block hit
 carries `blockId` plus a `snippet` whose matched terms are wrapped in `\u0001` / `\u0002`.
 
 ## Spaces and Labels
@@ -458,6 +649,26 @@ fn validate_fields(
     Ok(())
 }
 
+/// `--field` values of `EntityRef` fields may be keys (`courseId=CRS-2`); swaps them
+/// for ids before the module's own adapter sees them.
+fn resolve_ref_fields(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    fields: &JsonMap,
+) -> AppResult<JsonMap> {
+    let mut resolved = fields.clone();
+    for f in def.fields {
+        if !matches!(f.kind, schema::FieldKind::EntityRef(_)) {
+            continue;
+        }
+        if let Some(Value::String(raw)) = resolved.get(f.name) {
+            let id = crate::db::entities::resolve_entity_ref(conn, raw)?;
+            resolved.insert(f.name.to_string(), Value::String(id));
+        }
+    }
+    Ok(resolved)
+}
+
 fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppResult<Value> {
     let def = schema::lookup(entity_type).ok_or_else(|| unknown_entity_type(entity_type))?;
     let Some(verb) = rest.first() else {
@@ -466,21 +677,31 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
     let args = parse_args(&rest[1..]);
 
     match verb.as_str() {
-        "list" => {
-            let items = (def.list)(conn, args.flag("space").as_deref(), args.has_bool("include-deleted"))?;
-            Ok(json!({ "entityType": entity_type, "count": items.len(), "items": items }))
-        }
+        "list" => list_entities(conn, def, &args),
         "get" => {
-            let id = args.require_positional(0, "id")?;
-            let data = (def.get)(conn, &id)?;
-            enrich(conn, entity_type, &id, data)
+            if args.positional.len() <= 1 {
+                let id = args.require_entity(conn, 0, "id")?;
+                return get_entity(conn, def, &id, &args);
+            }
+            // Bulk: one bad ref doesn't sink the rest, it becomes an `error` row.
+            let items: Vec<Value> = args
+                .positional
+                .iter()
+                .map(|raw| {
+                    crate::db::entities::resolve_entity_ref(conn, raw)
+                        .and_then(|id| get_entity(conn, def, &id, &args))
+                        .unwrap_or_else(|e| json!({ "ref": raw, "error": e }))
+                })
+                .collect();
+            Ok(json!({ "entityType": entity_type, "count": items.len(), "items": items }))
         }
         "create" => {
             validate_fields(entity_type, def, &args.fields, true)?;
             let space_id = args.require_flag("space")?;
             let title = args.require_flag("title")?;
             let icon = args.flag("icon");
-            let input = schema::CreateInput { space_id, title, fields: args.fields.clone() };
+            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let input = schema::CreateInput { space_id, title, fields };
             let data = (def.create)(conn, input)?;
             let id = extract_id(&data)?;
             // `icon` is base-entity data (§ entity model), not a module field —
@@ -490,7 +711,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                 crate::db::entities::update_entity(
                     conn,
                     &id,
-                    crate::db::entities::EntityPatch { title: None, icon, pinned: None },
+                    crate::db::entities::EntityPatch { icon, ..Default::default() },
                 )?;
                 (def.get)(conn, &id)?
             } else {
@@ -499,62 +720,173 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             enrich(conn, entity_type, &id, data)
         }
         "update" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             validate_fields(entity_type, def, &args.fields, false)?;
+            let before = (def.get)(conn, &id)?;
+            args.check_revision(&before)?;
             let title = args.flag("title");
             let icon = args.flag("icon");
             let pinned = args.flag("pinned").map(|v| v == "true");
-            if title.is_some() || icon.is_some() || pinned.is_some() {
+            let space_id = args.flag("space");
+            if title.is_some() || icon.is_some() || pinned.is_some() || space_id.is_some() {
                 crate::db::entities::update_entity(
                     conn,
                     &id,
-                    crate::db::entities::EntityPatch { title, icon, pinned },
+                    crate::db::entities::EntityPatch { title, icon, pinned, space_id },
                 )?;
             }
-            let data = (def.update)(conn, &id, &args.fields)?;
-            enrich(conn, entity_type, &id, data)
+            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            (def.update)(conn, &id, &fields)?;
+            let after = (def.get)(conn, &id)?;
+            let changes = view::diff_values(&before, &after);
+            let mut result = enrich(conn, entity_type, &id, after)?;
+            result["changes"] = json!(changes);
+            Ok(result)
         }
         "delete" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             args.require_yes()?;
+            args.check_revision(&(def.get)(conn, &id)?)?;
             crate::db::entities::soft_delete_entity(conn, &id)?;
-            Ok(json!({ "deleted": id, "note": "soft delete only — recoverable with `restore`, see Trash" }))
+            let key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(json!({ "deleted": id, "key": key, "note": "soft delete only — recoverable with `restore`, see Trash" }))
+        }
+        "duplicate" => {
+            let id = args.require_entity(conn, 0, "id")?;
+            let data = schema::duplicate(conn, &id)?;
+            let new_id = extract_id(&data)?;
+            enrich(conn, entity_type, &new_id, data)
         }
         "restore" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             crate::db::entities::restore_entity(conn, &id)?;
             let data = (def.get)(conn, &id)?;
             enrich(conn, entity_type, &id, data)
         }
-        "blocks" | "add-block" | "update-block" | "delete-block" | "reorder-blocks" => {
+        "blocks" | "grep" | "add-block" | "update-block" | "delete-block" | "reorder-blocks" => {
             if !def.supports_blocks {
                 return Err(AppError::InvalidInput(format!(
                     "'{entity_type}' has no block content — block commands only apply to types where \
                      `describe {entity_type}` reports supportsBlocks: true"
                 )));
             }
-            block_command(conn, entity_type, verb, &args)
+            block_command(conn, def, verb, &args)
         }
         other => Err(AppError::InvalidInput(format!(
             "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
-             update, delete, restore, blocks, add-block, update-block, delete-block, reorder-blocks"
+             update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, reorder-blocks"
         ))),
     }
 }
 
-/// Block-level editing (§2.1: Notes/Jots/Refinements are "block-level
+/// `list` with the read side options every type gets: `--since` (recently changed,
+/// newest first), `--fields` projection, and for block pages a size hint per row so
+/// an agent can tell what a `get` would cost before making it.
+fn list_entities(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    args: &Args,
+) -> AppResult<Value> {
+    let mut items = (def.list)(
+        conn,
+        args.flag("space").as_deref(),
+        args.has_bool("include-deleted"),
+    )?;
+    if def.supports_blocks {
+        for item in &mut items {
+            let id = extract_id(item)?;
+            let blocks = crate::db::notes::list_blocks(conn, &id)?;
+            let body = crate::db::notes::render_page_markdown(conn, &id)?;
+            // Block edits don't touch the entity's own `updatedAt` (same rule as the
+            // Notes list's "last edited"), so recency has to look at the blocks too.
+            let last_edited = blocks
+                .iter()
+                .map(|b| b.updated_at.as_str())
+                .chain(view::lookup(item, "updatedAt").and_then(Value::as_str))
+                .filter_map(|ts| view::parse_timestamp(ts).map(|parsed| (parsed, ts.to_string())))
+                .max_by_key(|(parsed, _)| *parsed)
+                .map(|(_, raw)| raw);
+            item["lastEditedAt"] = json!(last_edited);
+            item["blockCount"] = json!(blocks.len());
+            item["bodySize"] = view::size_hint(body.len());
+        }
+    }
+    if let Some(since) = args.flag("since") {
+        let since = view::parse_since(&since)?;
+        let changed_at = |item: &Value| {
+            view::lookup(item, "lastEditedAt")
+                .or_else(|| view::lookup(item, "updatedAt"))
+                .and_then(Value::as_str)
+                .and_then(view::parse_timestamp)
+        };
+        items.retain(|item| changed_at(item).is_some_and(|ts| ts >= since));
+        items.sort_by_key(|item| std::cmp::Reverse(changed_at(item)));
+    }
+    let total = items.len();
+    let limit = args.usize_flag("limit")?.unwrap_or(total);
+    let fields = args.field_list();
+    let items: Vec<Value> = items
+        .into_iter()
+        .take(limit)
+        .map(|item| match &fields {
+            Some(fields) => view::project(&item, fields),
+            None => item,
+        })
+        .collect();
+    Ok(
+        json!({ "entityType": def.entity_type, "count": total, "returned": items.len(), "items": items }),
+    )
+}
+
+/// One entity for `get`: the enriched payload plus its `revision` and `size`, then
+/// shaped by `--fields` (projection) or `--summary` (long strings cut to excerpts,
+/// plus a heading outline for block pages).
+fn get_entity(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    id: &str,
+    args: &Args,
+) -> AppResult<Value> {
+    let data = (def.get)(conn, id)?;
+    let revision = view::revision(&data);
+    let size = view::size_hint(view::serialized_len(&data));
+    let mut result = enrich(conn, def.entity_type, id, data)?;
+    result["revision"] = json!(revision);
+    result["size"] = size;
+
+    if let Some(fields) = args.field_list() {
+        return Ok(json!({
+            "entityType": def.entity_type,
+            "revision": revision,
+            "data": view::project(&result, &fields),
+        }));
+    }
+    if args.has_bool("summary") {
+        let truncated = view::summarize(&mut result["data"], view::SUMMARY_CHARS);
+        result["truncated"] = Value::Object(truncated);
+        if def.supports_blocks {
+            let blocks = crate::db::notes::list_blocks(conn, id)?;
+            result["blockCount"] = json!(blocks.len());
+            result["outline"] = json!(view::outline(&blocks));
+        }
+    }
+    Ok(result)
+}
+
+/// Block-level editing (§2.1: Notes/Jots are "block-level
 /// addressable" pages) for any entity type that opts in via
-/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`/`refinement`,
+/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`,
 /// but generic: a future page-like module gets these commands for free.
 /// Blocks aren't entities themselves (no base entity fields — same reasoning
 /// as Index Cards, see `db::decks`), so they live outside the `<entity-type>
 /// list/get/create/update/delete` pattern as their own small set of verbs.
 fn block_command(
     conn: &Connection,
-    entity_type: &str,
+    def: &schema::EntitySchemaDef,
     verb: &str,
     args: &Args,
 ) -> AppResult<Value> {
+    let entity_type = def.entity_type;
     fn require_page(conn: &Connection, entity_type: &str, id: &str) -> AppResult<()> {
         let entity = crate::db::entities::get_entity(conn, id)?;
         if entity.entity_type != entity_type {
@@ -568,14 +900,55 @@ fn block_command(
 
     match verb {
         "blocks" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             require_page(conn, entity_type, &id)?;
             let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            Ok(json!({ "pageId": id, "count": blocks.len(), "items": blocks }))
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            let total = blocks.len();
+            let offset = args.usize_flag("offset")?.unwrap_or(0);
+            let limit = args.usize_flag("limit")?.unwrap_or(total);
+            let items: Vec<_> = view::blocks_json(&blocks)
+                .into_iter()
+                .skip(offset)
+                .take(limit)
+                .collect();
+            Ok(json!({
+                "pageId": id,
+                "pageKey": page_key,
+                "count": total,
+                "offset": offset,
+                "returned": items.len(),
+                "items": items,
+            }))
+        }
+        "grep" => {
+            let id = args.require_entity(conn, 0, "id")?;
+            require_page(conn, entity_type, &id)?;
+            let pattern = args.require_positional(1, "pattern")?;
+            let re = view::build_pattern(
+                &pattern,
+                args.has_bool("regex"),
+                args.has_bool("case-sensitive"),
+            )?;
+            let context = args.usize_flag("context")?.unwrap_or(0).min(20);
+            let max = args.usize_flag("max")?.unwrap_or(50);
+            let blocks = crate::db::notes::list_blocks(conn, &id)?;
+            let found = view::grep_blocks(&blocks, &re, context, max);
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(json!({
+                "pageId": id,
+                "pageKey": page_key,
+                "pattern": pattern,
+                "count": found.total,
+                "returned": found.items.len(),
+                "blockCount": blocks.len(),
+                "items": found.items,
+            }))
         }
         "add-block" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             require_page(conn, entity_type, &id)?;
+            args.check_revision(&(def.get)(conn, &id)?)?;
             let block_type = args.require_flag("type")?;
             let content = args.require_flag("content")?;
             let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
@@ -587,17 +960,23 @@ fn block_command(
             let block = crate::db::notes::create_block(
                 conn, &id, block_type, content, position, language, filename,
             )?;
-            let mut result = json!({ "pageId": id, "block": block.clone() });
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            let mut result = json!({ "pageId": id, "pageKey": page_key, "block": block.clone() });
             if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &id, &block)? {
                 result["warning"] = json!(warning);
             }
             if let Some(warning) = table_normalize_warning(&block, &submitted_content) {
                 result["warning"] = json!(warning);
             }
+            if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
+                result["warning"] = json!(warning);
+            }
             Ok(result)
         }
         "update-block" => {
             let block_id = args.require_positional(0, "block-id")?;
+            let before = crate::db::notes::get_block(conn, &block_id)?;
+            args.check_revision(&(def.get)(conn, &before.entity_id)?)?;
             let submitted_content = args.flag("content");
             let patch = crate::db::notes::BlockPatch {
                 content: submitted_content.clone(),
@@ -606,7 +985,8 @@ fn block_command(
                 filename: args.flag("filename"),
             };
             let block = crate::db::notes::update_block(conn, &block_id, patch)?;
-            let mut result = json!({ "block": block.clone() });
+            let changes = view::diff_values(&json!(before), &json!(block));
+            let mut result = json!({ "block": block.clone(), "changes": changes });
             if let Some(submitted) = &submitted_content {
                 if let Some(warning) = table_normalize_warning(&block, submitted) {
                     result["warning"] = json!(warning);
@@ -616,17 +996,23 @@ fn block_command(
             if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &page_id, &block)? {
                 result["warning"] = json!(warning);
             }
+            if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
+                result["warning"] = json!(warning);
+            }
             Ok(result)
         }
         "delete-block" => {
             let block_id = args.require_positional(0, "block-id")?;
             args.require_yes()?;
+            let block = crate::db::notes::get_block(conn, &block_id)?;
+            args.check_revision(&(def.get)(conn, &block.entity_id)?)?;
             crate::db::notes::delete_block(conn, &block_id)?;
-            Ok(json!({ "deleted": block_id }))
+            Ok(json!({ "deleted": block_id, "block": block }))
         }
         "reorder-blocks" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             require_page(conn, entity_type, &id)?;
+            args.check_revision(&(def.get)(conn, &id)?)?;
             let ordered_ids: Vec<String> = args.positional[1..].to_vec();
             if ordered_ids.is_empty() {
                 return Err(AppError::InvalidInput(
@@ -636,7 +1022,10 @@ fn block_command(
             }
             crate::db::notes::reorder_blocks(conn, &id, ordered_ids)?;
             let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            Ok(json!({ "pageId": id, "count": blocks.len(), "items": blocks }))
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(
+                json!({ "pageId": id, "pageKey": page_key, "count": blocks.len(), "items": view::blocks_json(&blocks) }),
+            )
         }
         _ => unreachable!("dispatch guarantees verb is one of the block commands"),
     }
@@ -674,6 +1063,51 @@ fn table_normalize_warning(
          intended, resubmit with real tabs between cells."
             .to_string(),
     )
+}
+
+/// A list block holds the whole list, one item per line, and the editor numbers items
+/// within that one block. Flags the two ways an agent gets this wrong: one block per
+/// item (so every numbered item renders as its own "1."), and typing the `1. `/`- `
+/// markers into the content (rendered on top of the real ones). Advisory only.
+fn list_mistake_warning(
+    conn: &Connection,
+    entity_type: &str,
+    block: &crate::db::notes::Block,
+) -> AppResult<Option<String>> {
+    let marker = match block.block_type.as_str() {
+        "numbered_list" => regex::Regex::new(r"^\s*\d+[.)]\s").expect("valid regex"),
+        "bulleted_list" => regex::Regex::new(r"^\s*[-*+]\s").expect("valid regex"),
+        _ => return Ok(None),
+    };
+    let blocks = crate::db::notes::list_blocks(conn, &block.entity_id)?;
+    let index = blocks.iter().position(|b| b.id == block.id);
+    let neighbour = index.and_then(|i| {
+        [i.checked_sub(1), Some(i + 1)]
+            .into_iter()
+            .flatten()
+            .filter_map(|j| blocks.get(j))
+            .find(|b| b.block_type == block.block_type)
+    });
+    if let Some(neighbour) = neighbour {
+        return Ok(Some(format!(
+            "This '{kind}' block sits right next to another '{kind}' block ({other}). A list block \
+             holds the WHOLE list, one item per line in --content, and items are numbered within \
+             that one block; two adjacent list blocks render as two separate lists (a numbered \
+             list restarts at 1). Merge them: `nookly cli {entity_type} update-block {other} \
+             --content <all items joined by newlines>`, then `delete-block {this} --yes`.",
+            kind = block.block_type,
+            other = neighbour.id,
+            this = block.id,
+        )));
+    }
+    if block.content.lines().any(|line| marker.is_match(line)) {
+        return Ok(Some(format!(
+            "Some lines of this '{}' block start with a list marker ('1. ', '- ', ...). The editor \
+             adds markers itself, so these render twice. Pass the bare item text, one item per line.",
+            block.block_type
+        )));
+    }
+    Ok(None)
 }
 
 fn paragraph_mistake_warning(
@@ -722,15 +1156,12 @@ fn extract_id(data: &Value) -> AppResult<String> {
     // Every registered `get`/`create` shape nests the base entity either
     // directly (id at the top) or under `entity` (subtype structs) or
     // `entity.id` (page types wrap it as `{entity, body}`).
-    let candidate = data.get("id").or_else(|| data.pointer("/entity/id"));
-    candidate
-        .and_then(Value::as_str)
-        .map(str::to_string)
+    schema::payload_id(data)
         .ok_or_else(|| AppError::Db("internal: could not locate id in create/get result".into()))
 }
 
-/// Wraps a `get`/`create`/`update` payload with its relationships and labels —
-/// the right sidebar's three sections (§ philosophy), so an agent gets full
+/// Wraps a `get`/`create`/`update` payload with its relationships, labels and
+/// backlinks (the right sidebar's "Mentioned in", § philosophy), so an agent gets full
 /// context on an entity in one call instead of chasing it down separately.
 fn enrich(conn: &Connection, entity_type: &str, id: &str, data: Value) -> AppResult<Value> {
     let relationships = crate::db::relationships::list_relationships(
@@ -739,28 +1170,78 @@ fn enrich(conn: &Connection, entity_type: &str, id: &str, data: Value) -> AppRes
         crate::db::relationships::Direction::Both,
     )?;
     let labels = crate::db::labels::list_labels_for_entity(conn, id)?;
+    let mentioned_in: Vec<Value> = crate::db::notes::list_mentioning_entities(conn, id)?
+        .into_iter()
+        .map(|e| json!({ "id": e.id, "key": e.key, "type": e.entity_type, "title": e.title }))
+        .collect();
+    let relationships = relationships
+        .into_iter()
+        .map(|r| relationship_json(conn, r))
+        .collect::<AppResult<Vec<_>>>()?;
     Ok(json!({
         "entityType": entity_type,
         "data": data,
         "relationships": relationships,
         "labels": labels,
+        "mentionedIn": mentioned_in,
     }))
 }
 
+/// Runs `f` all or nothing: on any error every write it made is rolled back.
+fn atomically<T>(conn: &Connection, f: impl FnOnce() -> AppResult<T>) -> AppResult<T> {
+    conn.execute_batch("SAVEPOINT cli_batch")?;
+    match f() {
+        Ok(value) => {
+            conn.execute_batch("RELEASE cli_batch")?;
+            Ok(value)
+        }
+        Err(e) => {
+            conn.execute_batch("ROLLBACK TO cli_batch; RELEASE cli_batch")?;
+            Err(e)
+        }
+    }
+}
+
+/// `relate <from> <type> <to> [<to> ...]`: one call, many targets, all or nothing.
+/// A single target keeps the single relationship response shape.
 fn relate(conn: &Connection, args: &Args) -> AppResult<Value> {
-    let from_id = args.require_positional(0, "from-id")?;
+    let from_id = args.require_entity(conn, 0, "from-id")?;
     let relationship_type = args.require_positional(1, "relationship-type")?;
-    let to_id = args.require_positional(2, "to-id")?;
+    let to_ids = args.entities_from(conn, 2, "to-id")?;
     args.require_yes()?;
-    let rel = crate::db::relationships::create_relationship(
-        conn,
-        from_id,
-        to_id,
-        relationship_type,
-        None,
-        None,
-    )?;
-    Ok(serde_json::to_value(rel).expect("Relationship always serializes"))
+    let created = atomically(conn, || {
+        to_ids
+            .iter()
+            .map(|to_id| {
+                let rel = crate::db::relationships::create_relationship(
+                    conn,
+                    from_id.clone(),
+                    to_id.clone(),
+                    relationship_type.clone(),
+                    None,
+                    None,
+                )?;
+                relationship_json(conn, rel)
+            })
+            .collect::<AppResult<Vec<_>>>()
+    })?;
+    if created.len() == 1 {
+        return Ok(created.into_iter().next().expect("one item"));
+    }
+    Ok(json!({ "count": created.len(), "items": created }))
+}
+
+/// A relationship with both ends' keys next to their ids.
+fn relationship_json(
+    conn: &Connection,
+    rel: crate::db::relationships::Relationship,
+) -> AppResult<Value> {
+    let from_key = crate::db::entities::entity_key(conn, &rel.from_entity_id)?;
+    let to_key = crate::db::entities::entity_key(conn, &rel.to_entity_id)?;
+    let mut value = serde_json::to_value(rel).expect("Relationship always serializes");
+    value["fromEntityKey"] = json!(from_key);
+    value["toEntityKey"] = json!(to_key);
+    Ok(value)
 }
 
 fn unrelate(conn: &Connection, args: &Args) -> AppResult<Value> {
@@ -820,8 +1301,8 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "list": "nookly cli label list --space <id>",
             "create": "nookly cli label create --space <id> --name <name> --color <hex>",
             "delete": "nookly cli label delete <id> --yes",
-            "attach": "nookly cli label attach <entity-id> <label-id>",
-            "detach": "nookly cli label detach <entity-id> <label-id>",
+            "attach": "nookly cli label attach <entity-id> <label-id> [<label-id> ...]",
+            "detach": "nookly cli label detach <entity-id> <label-id> [<label-id> ...]",
             "note": "Labels are space-siloed (§ entity model) — the same name in two Spaces is two separate labels.",
         }));
     };
@@ -846,16 +1327,28 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             Ok(json!({ "deleted": id }))
         }
         "attach" => {
-            let entity_id = args.require_positional(0, "entity-id")?;
-            let label_id = args.require_positional(1, "label-id")?;
-            crate::db::labels::attach_label(conn, &entity_id, &label_id)?;
-            Ok(json!({ "attached": label_id, "to": entity_id }))
+            let entity_id = args.require_entity(conn, 0, "entity-id")?;
+            args.require_positional(1, "label-id")?;
+            let label_ids = &args.positional[1..];
+            atomically(conn, || {
+                label_ids.iter().try_for_each(|label_id| {
+                    crate::db::labels::attach_label(conn, &entity_id, label_id)
+                })
+            })?;
+            let key = crate::db::entities::entity_key(conn, &entity_id)?;
+            Ok(json!({ "attached": label_ids, "to": entity_id, "toKey": key }))
         }
         "detach" => {
-            let entity_id = args.require_positional(0, "entity-id")?;
-            let label_id = args.require_positional(1, "label-id")?;
-            crate::db::labels::detach_label(conn, &entity_id, &label_id)?;
-            Ok(json!({ "detached": label_id, "from": entity_id }))
+            let entity_id = args.require_entity(conn, 0, "entity-id")?;
+            args.require_positional(1, "label-id")?;
+            let label_ids = &args.positional[1..];
+            atomically(conn, || {
+                label_ids.iter().try_for_each(|label_id| {
+                    crate::db::labels::detach_label(conn, &entity_id, label_id)
+                })
+            })?;
+            let key = crate::db::entities::entity_key(conn, &entity_id)?;
+            Ok(json!({ "detached": label_ids, "from": entity_id, "fromKey": key }))
         }
         other => Err(AppError::InvalidInput(format!(
             "unknown label command '{other}'. Expected one of: list, create, delete, attach, detach"

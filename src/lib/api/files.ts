@@ -12,3 +12,8 @@ export function createFileLink(spaceId: string, title: string, url: string): Pro
 export function listFiles(spaceId: string): Promise<FileEntity[]> {
   return invoke("list_files", { spaceId });
 }
+
+/// Copies an imported file out of Nookly's storage to `destination`.
+export function exportFile(entityId: string, destination: string): Promise<void> {
+  return invoke("export_file", { entityId, destination });
+}

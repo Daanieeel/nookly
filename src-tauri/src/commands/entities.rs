@@ -54,3 +54,14 @@ pub fn hard_delete_entity(state: State<DbState>, id: String) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     entities::hard_delete_entity(&conn, &id)
 }
+
+/// A copy of the entity in the same Space, through its registered schema.
+#[tauri::command]
+pub fn duplicate_entity(state: State<DbState>, id: String) -> AppResult<Entity> {
+    let conn = state.0.lock().unwrap();
+    let data = crate::db::schema::duplicate(&conn, &id)?;
+    let new_id = crate::db::schema::payload_id(&data).ok_or_else(|| {
+        crate::error::AppError::Db("internal: could not locate id in duplicate result".into())
+    })?;
+    entities::get_entity(&conn, &new_id)
+}

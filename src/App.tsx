@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { ContextMenuHost } from "@/components/context-menu/context-menu-host";
 import { CommandsPalette } from "@/components/commands-palette";
 import { QuickSwitcher } from "@/components/quick-switcher";
 import { EntityDetailRouter } from "@/components/entity-detail-router";
@@ -13,8 +14,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
 import { RecentsView } from "@/features/dashboard/RecentsView";
+import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
+import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
+import { useScopedSelectAll } from "@/hooks/use-scoped-select-all";
 import { useNavStore } from "@/lib/store/nav";
+import "@/context-actions";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +52,8 @@ function MainContent() {
 
 function Shell() {
   const view = useNavStore((s) => s.view);
+  useExternalDbChanges();
+  useScopedSelectAll();
   const isEntityView = view.kind === "entity";
 
   return (
@@ -76,6 +83,8 @@ function Shell() {
       <CommandPalette />
       <QuickSwitcher />
       <CommandsPalette />
+      <QuickJotDialog />
+      <ContextMenuHost />
       <Toaster />
     </div>
   );

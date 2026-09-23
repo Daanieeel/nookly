@@ -10,6 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
+import { entityTarget } from "@/components/context-menu/registry";
 import { EntityIcon } from "@/components/entity-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -107,7 +108,9 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
       {entity && (
         <>
           <Separator />
-          <Crumb icon={<EntityIcon entity={entity} size={14} />} label={displayTitle(entity)} />
+          <span className="contents" {...entityTarget(entity)}>
+            <Crumb icon={<EntityIcon entity={entity} size={14} />} label={displayTitle(entity)} />
+          </span>
         </>
       )}
     </>

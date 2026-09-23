@@ -4,9 +4,10 @@ import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { EntityIcon } from "@/components/entity-icon";
 import type { Entity } from "@/lib/api/types";
-import { displayTitle } from "@/lib/entity-title";
+import { matchesTitleOrKey } from "@/lib/entity-key";
+import { displayTitle, labelForType } from "@/lib/entity-title";
 import type { SuggestionListItem } from "./suggestion-list";
-import { createSuggestionRender } from "./suggestion-render";
+import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 
 export interface MentionOptions {
   /// Read live so the popup always sees the Space's current entities without
@@ -33,7 +34,7 @@ function toListItem(entity: Entity): SuggestionListItem {
     key: entity.id,
     icon: <EntityIcon entity={entity} size={14} />,
     label: displayTitle(entity),
-    description: entity.type,
+    description: `${entity.key} · ${labelForType(entity.type)}`,
   };
 }
 
@@ -53,10 +54,11 @@ export const Mention = Extension.create<MentionOptions>({
         editor: this.editor,
         pluginKey: new PluginKey("mention"),
         char: "@",
+        allow: allowOutsideCode,
         items: ({ query }) =>
           this.options
             .getEntities()
-            .filter((e) => e.title.toLowerCase().includes(query.toLowerCase()))
+            .filter((e) => matchesTitleOrKey(e, query, displayTitle(e)))
             .slice(0, 8),
         command: ({ editor, range, props }) => insertMention(editor, range, props),
         render: createSuggestionRender(toListItem),

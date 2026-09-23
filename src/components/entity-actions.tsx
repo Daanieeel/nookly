@@ -103,10 +103,9 @@ export function EntityActions({
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={onTrash}>
+          <DropdownMenuItem variant="destructive" onSelect={onTrash}>
             <IconTrash size={14} className="text-destructive" />
-            {/* Red only while highlighted; the item's `destructive` variant would keep it red always. */}
-            <span className="in-data-highlighted:text-destructive">Move {noun} to Trash</span>
+            Move {noun} to Trash
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

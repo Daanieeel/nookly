@@ -220,7 +220,7 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         ",
     ), M::up(
         "
-        -- Block-level full-text search (Cmd+K): one row per Note/Jot/Refinement
+        -- Block-level full-text search (Cmd+K): one row per Note/Jot
         -- block, kept in sync by triggers so every block write path (editor,
         -- CLI, Space deletion) stays indexed without touching each call site.
         CREATE VIRTUAL TABLE blocks_fts USING fts5(block_id UNINDEXED, content);
@@ -234,6 +234,60 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         CREATE TRIGGER blocks_fts_delete AFTER DELETE ON blocks BEGIN
             DELETE FROM blocks_fts WHERE block_id = old.id;
         END;
+        ",
+    ), M::up(
+        "
+        -- Backlink index for the right sidebar's 'Mentioned in' (§1.5): one row
+        -- per (mentioning page, mentioned entity). Mentions live in block markdown
+        -- and stay outside the relationship graph, so this is rebuilt per page by
+        -- `notes::reindex_page` on every block write rather than by triggers.
+        CREATE TABLE mentions (
+            from_entity_id TEXT NOT NULL,
+            to_entity_id TEXT NOT NULL,
+            PRIMARY KEY (from_entity_id, to_entity_id)
+        );
+        CREATE INDEX idx_mentions_to ON mentions(to_entity_id);
+        INSERT OR IGNORE INTO mentions (from_entity_id, to_entity_id)
+            SELECT DISTINCT b.entity_id, e.id FROM blocks b
+            JOIN entities e ON b.content LIKE '%](mention:' || e.id || ')%'
+            WHERE e.id != b.entity_id;
+        ",
+    ), M::up(
+        "
+        -- The Refinement type is gone: a Jot is refined into a regular Note now.
+        UPDATE entities SET type = 'note' WHERE type = 'refinement';
+        INSERT OR IGNORE INTO space_modules (space_id, module_key, added_at)
+            SELECT DISTINCT space_id, 'notes', strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')
+            FROM entities WHERE type = 'note';
+        ",
+    ), M::up(
+        "
+        -- Jira style entity keys (TSK-14). The CASE mirrors `entities::key_prefix`;
+        -- existing rows are numbered per prefix in creation order.
+        ALTER TABLE entities ADD COLUMN key_prefix TEXT NOT NULL DEFAULT 'ENT';
+        ALTER TABLE entities ADD COLUMN key_number INTEGER NOT NULL DEFAULT 0;
+        UPDATE entities SET key_prefix = CASE type
+            WHEN 'task' THEN 'TSK' WHEN 'sub_task' THEN 'TSK'
+            WHEN 'note' THEN 'NOT'
+            WHEN 'jot' THEN 'JOT'
+            WHEN 'course' THEN 'CRS'
+            WHEN 'course_notes' THEN 'CNT'
+            WHEN 'semester' THEN 'SEM'
+            WHEN 'session' THEN 'SES' WHEN 'session_template' THEN 'SES'
+            WHEN 'exam' THEN 'EXM'
+            WHEN 'index_card_deck' THEN 'DCK'
+            WHEN 'study_block' THEN 'STB'
+            WHEN 'assignment' THEN 'ASG'
+            WHEN 'file' THEN 'FIL'
+            WHEN 'bookmark' THEN 'BMK'
+            ELSE 'ENT' END;
+        UPDATE entities SET key_number = (
+            SELECT n FROM (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY key_prefix ORDER BY created_at, id) AS n
+                FROM entities
+            ) numbered WHERE numbered.id = entities.id
+        );
+        CREATE UNIQUE INDEX idx_entities_key ON entities(key_prefix, key_number);
         ",
     )])
 });

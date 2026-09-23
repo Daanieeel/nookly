@@ -33,3 +33,9 @@ export function restoreEntity(id: string): Promise<void> {
 export function hardDeleteEntity(id: string): Promise<void> {
   return invoke("hard_delete_entity", { id });
 }
+
+/// A copy in the same Space, titled "<title> (copy)", with the same fields, icon,
+/// labels and block content.
+export function duplicateEntity(id: string): Promise<Entity> {
+  return invoke("duplicate_entity", { id });
+}

@@ -16,8 +16,10 @@ import {
   StatusIcon,
   useActionStatus,
 } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,7 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [mode, setMode] = useState<ViewMode>("board");
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
 
   const { data: statuses = [] } = useQuery({
     queryKey: ["task-statuses"],
@@ -81,7 +84,14 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div
+      className="flex h-full flex-col gap-4"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Task",
+        create: () => setQuickCreateOpen(true),
+      })}
+    >
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Tasks</h1>
         <div className="flex items-center gap-2">
@@ -99,6 +109,8 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
             </TabsList>
           </Tabs>
           <QuickCreateTask
+            open={quickCreateOpen}
+            onOpenChange={setQuickCreateOpen}
             statuses={sortedStatuses}
             create={createWithStatus}
             trigger={
@@ -251,6 +263,7 @@ function TaskColumn({
         "group/col flex w-64 shrink-0 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors",
         isOver && "bg-muted/70",
       )}
+      {...contextTarget("tasks.column", { status, startCreate: () => setCreating(true) })}
     >
       <div className="flex items-center justify-between px-1 pb-1">
         <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -380,6 +393,7 @@ function TaskCard({
           : undefined
       }
       onClick={onOpen}
+      {...entityTarget(task.entity)}
       className={cn(
         "flex flex-col gap-1.5 rounded-md border border-border bg-card p-2.5 text-left shadow-xs hover:border-ring/50 hover:shadow-sm",
         dragTransform && "translate-x-(--dnd-x) translate-y-(--dnd-y)",
@@ -391,7 +405,10 @@ function TaskCard({
     >
       <span className="flex items-start gap-1.5 text-sm">
         <EntityIcon entity={task.entity} className="mt-0.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">{displayTitle(task.entity)}</span>
+        <span className="min-w-0 flex-1">
+          <EntityKey entityKey={task.entity.key} className="mr-1.5" />
+          {displayTitle(task.entity)}
+        </span>
       </span>
       {task.dueDate && (
         <Badge variant="outline" className="w-fit">
@@ -444,6 +461,7 @@ function TaskListGrouped({
             <div
               key={task.entity.id}
               className="group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent"
+              {...entityTarget(task.entity)}
             >
               <button
                 type="button"
@@ -451,6 +469,7 @@ function TaskListGrouped({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
               >
                 <EntityIcon entity={task.entity} className="shrink-0 text-muted-foreground" />
+                <EntityKey entityKey={task.entity.key} />
                 <span className="truncate group-hover:underline">{displayTitle(task.entity)}</span>
               </button>
               {task.dueDate && (
@@ -501,17 +520,21 @@ function TaskListGrouped({
 /// pickers, not a full form. Enter creates and keeps the popover open, focused and
 /// cleared, for rapid batch entry; Escape closes.
 function QuickCreateTask({
+  open,
+  onOpenChange: setOpen,
   statuses,
   defaultStatusId,
   create,
   trigger,
 }: {
+  /// Controlled, so the view's context menu can open it too.
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   statuses: TaskStatus[];
   defaultStatusId?: string;
   create: (vars: NewTaskVars) => Promise<Task>;
   trigger: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [statusId, setStatusId] = useState<string | undefined>(defaultStatusId);
   const [dueDate, setDueDate] = useState("");

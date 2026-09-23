@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Block, BlockPatch, BlockType, Entity } from "./types";
+import type { Block, BlockPatch, BlockType, Entity, PageSummary } from "./types";
 
 export function createNote(spaceId: string, title: string): Promise<Entity> {
   return invoke("create_note", { spaceId, title });
@@ -9,20 +9,24 @@ export function createJot(spaceId: string, title: string): Promise<Entity> {
   return invoke("create_jot", { spaceId, title });
 }
 
-export function createRefinement(spaceId: string, title: string): Promise<Entity> {
-  return invoke("create_refinement", { spaceId, title });
+export function countUnrefinedJots(spaceId: string): Promise<number> {
+  return invoke("count_unrefined_jots", { spaceId });
 }
 
-export function countJotsWithoutRefinement(spaceId: string): Promise<number> {
-  return invoke("count_jots_without_refinement", { spaceId });
-}
-
-export function countJotsWithoutRefinementAllSpaces(): Promise<number> {
-  return invoke("count_jots_without_refinement_all_spaces");
+export function countUnrefinedJotsAllSpaces(): Promise<number> {
+  return invoke("count_unrefined_jots_all_spaces");
 }
 
 export function listRecentNotes(spaceId: string, limit = 5): Promise<Entity[]> {
   return invoke("list_recent_notes", { spaceId, limit });
+}
+
+export function listNoteSummaries(spaceId: string): Promise<PageSummary[]> {
+  return invoke("list_note_summaries", { spaceId });
+}
+
+export function listJotSummaries(spaceId: string): Promise<PageSummary[]> {
+  return invoke("list_jot_summaries", { spaceId });
 }
 
 export function listBlocks(entityId: string): Promise<Block[]> {

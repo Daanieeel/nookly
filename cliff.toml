@@ -1,5 +1,5 @@
 # Changelog config for git-cliff (https://git-cliff.org).
-# Used by `bun run changelog` and by the release workflow for release notes.
+# Used by `bun run changelog` and by the release workflow for CHANGELOG.md.
 
 [changelog]
 header = """

@@ -1,9 +1,10 @@
 name: Release
 
 # Push a tag like `v0.2.0` to build installers for every platform and attach
-# them to a draft GitHub release, with notes generated from the commits since
-# the previous tag. Once every build succeeds, CHANGELOG.md on `main` is
-# regenerated and committed. Review the draft, then publish it by hand.
+# them to a draft GitHub release. Once every build succeeds, SHA256SUMS is
+# uploaded, the notes are rewritten (GitHub's generated "What's Changed" plus
+# download links), and CHANGELOG.md on `main` is regenerated and committed.
+# Review the draft, then publish it by hand.
 on:
   push:
     tags: ["v*"]
@@ -43,27 +44,9 @@ jobs:
             exit 1
           fi
 
-  changelog:
-    name: Generate release notes
-    needs: verify-version
-    runs-on: ubuntu-latest
-    outputs:
-      notes: ${{ steps.cliff.outputs.content }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ env.TAG }}
-          fetch-depth: 0
-      # Commits since the previous tag, grouped per `cliff.toml`.
-      - id: cliff
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --latest --strip all
-
   build:
     name: Build (${{ matrix.name }})
-    needs: changelog
+    needs: verify-version
     strategy:
       fail-fast: false
       matrix:
@@ -114,10 +97,81 @@ jobs:
         with:
           tagName: ${{ env.TAG }}
           releaseName: Nookly ${{ env.TAG }}
-          releaseBody: ${{ needs.changelog.outputs.notes }}
+          releaseBody: "See the assets below to download and install for your platform."
           releaseDraft: true
           prerelease: ${{ contains(env.TAG, '-') }}
           args: --target ${{ matrix.target }}
+
+  notes:
+    name: Checksums and release notes
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Generate and upload SHA256SUMS
+        run: |
+          set -euo pipefail
+          mkdir release-assets
+          gh release download "$TAG" --repo "$REPO" --dir release-assets
+          cd release-assets
+          find . -maxdepth 1 -type f ! -name "SHA256SUMS*" ! -name "latest.json" ! -name "*.sig" -exec sha256sum {} + \
+            | sed 's| \./|  |' | sort -k 2 > ../SHA256SUMS
+          cd ..
+          gh release upload "$TAG" SHA256SUMS --repo "$REPO" --clobber
+
+      - name: Build release notes (changelog + download links)
+        run: |
+          set -euo pipefail
+
+          gh api "repos/$REPO/releases/generate-notes" -f tag_name="$TAG" --jq .body > changelog.md
+
+          assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+
+          find_url() {
+            name=$(echo "$assets" | grep -Ei "$1" | head -n1 || true)
+            [ -n "$name" ] && echo "https://github.com/$REPO/releases/download/$TAG/$name" || true
+          }
+
+          mac_arm=$(find_url '_aarch64\.dmg$')
+          mac_intel=$(find_url '_x(64|86_64)\.dmg$')
+          win_msi=$(find_url '\.msi$')
+          win_exe=$(find_url '-setup\.exe$')
+          deb=$(find_url '\.deb$')
+          rpm=$(find_url '\.rpm$')
+          appimage=$(find_url '\.AppImage$')
+          sha256sums=$(find_url '^SHA256SUMS$')
+
+          {
+            cat changelog.md
+            echo ""
+            echo "---"
+            echo ""
+            echo "See the assets below to download and install for your platform."
+            echo ""
+            echo "**macOS:**"
+            [ -n "$mac_arm" ] && echo "- [Apple Silicon]($mac_arm)"
+            [ -n "$mac_intel" ] && echo "- [Intel]($mac_intel)"
+            echo ""
+            echo "> Not code signed yet: macOS will say \`\"Nookly.app\" is damaged and can't be opened\`. Fix: \`xattr -cr /Applications/Nookly.app\`"
+            echo ""
+            echo "**Windows:**"
+            [ -n "$win_msi" ] && echo "- [Installer (.msi)]($win_msi)"
+            [ -n "$win_exe" ] && echo "- [Installer (.exe)]($win_exe)"
+            echo ""
+            echo "**Linux:**"
+            [ -n "$deb" ] && echo "- [.deb (Debian/Ubuntu)]($deb)"
+            [ -n "$rpm" ] && echo "- [.rpm (Fedora/RHEL)]($rpm)"
+            [ -n "$appimage" ] && echo "- [AppImage]($appimage)"
+            if [ -n "$sha256sums" ]; then
+              echo ""
+              echo "**Verification:**"
+              echo "- [SHA256SUMS]($sha256sums)"
+            fi
+          } > notes.md
+
+          gh release edit "$TAG" --repo "$REPO" --notes-file notes.md
 
   update-changelog:
     name: Update CHANGELOG.md

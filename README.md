@@ -13,7 +13,7 @@ Nookly runs on your computer, keeps your data in a local database, and is open s
 - **Spaces** keep separate areas of your life apart, like university, work or personal projects.
 - **Tasks** in the style of Jira and Linear, with custom statuses, deadlines, labels and real subtasks.
 - **Notes** with a block editor for headings, lists, tables and syntax highlighted code. Any page can be exported to plain Markdown.
-- **Jots and Refinements** for capturing raw thoughts quickly and turning them into polished pages later.
+- **Jots** for capturing raw thoughts quickly and refining them into Notes later.
 - **University modules** for Courses, Semesters, Sessions, Exams (with index cards and study blocks) and Assignments.
 - **Files and Bookmarks** so reference material lives next to the work it belongs to.
 - **Relationships** connect any item to any other, in both directions. Attach a file to a task, link a note to an exam, or find everything related to a course.
@@ -64,7 +64,7 @@ nookly cli task create --space <space-id> --title "Write CLI" --field dueDate=20
 nookly cli relate <from-id> sub-task-of <to-id> --yes
 ```
 
-Notes, Jots and Refinements can also be edited block by block:
+Notes and Jots can also be edited block by block:
 
 ```sh
 nookly cli note blocks <note-id>

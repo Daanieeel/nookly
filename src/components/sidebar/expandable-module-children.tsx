@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { entityTarget } from "@/components/context-menu/registry";
 import { EntityIcon } from "@/components/entity-icon";
 import { SidebarMenuSubButton, SidebarMenuSubItem } from "@/components/ui/sidebar";
 import { listCourses } from "@/lib/api/courses";
@@ -33,7 +34,7 @@ export function ExpandableModuleChildren({
   return (
     <>
       {children.map((child) => (
-        <SidebarMenuSubItem key={child.id}>
+        <SidebarMenuSubItem key={child.id} {...entityTarget(child)}>
           <SidebarMenuSubButton
             onClick={() => useNavStore.getState().openEntity(child.id, spaceId)}
           >

@@ -93,6 +93,11 @@
 }
 
 @theme inline {
+  /* Inter for all regular text, Inter Tight for headlines (`font-heading`). */
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading:
+    "Inter Tight Variable", "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -148,7 +153,15 @@
   }
   body {
     @apply text-foreground bg-background;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {
@@ -214,7 +227,7 @@
     margin: 0.25rem 0;
   }
   .tiptap-content blockquote {
-    margin: 0.25rem 0;
+    margin: 0.5rem 0;
     padding-left: 0.75rem;
     border-left: 2px solid var(--border);
     color: var(--muted-foreground);
@@ -268,9 +281,10 @@
     background: transparent;
     padding: 0;
   }
-  /* Syntax highlighting token colors come from Shiki decorations as inline `style` attributes
-     (see `code-block-extension.ts` / `shiki-theme.ts`) — every color there is already one of
-     this app's own accent tokens, so there's no separate stylesheet-side theme to keep in sync. */
+  /* Syntax highlighting token colors come from decorations as inline `style` attributes
+     (see `highlighter.ts`, `twinkleplop-highlighter.ts` / `shiki-theme.ts`) — every color there
+     is already one of this app's own accent tokens, so there's no separate stylesheet-side
+     theme to keep in sync. */
   .tiptap-content .tableWrapper {
     margin: 0.5rem 0;
     overflow-x: auto;
@@ -336,6 +350,25 @@
     border-radius: inherit;
     content: "";
     pointer-events: none;
+  }
+  /* Whole blocks picked by their grip or by a multi-block selection
+     (`block-selection.ts`). An overlay rather than a background, so it also
+     tints blocks that paint their own surface (code blocks, table cells). */
+  .tiptap-content .block-selected {
+    position: relative;
+  }
+  .tiptap-content .block-selected::after {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-radius: var(--radius-sm);
+    content: "";
+    pointer-events: none;
+  }
+  .tiptap-content.has-block-selection::selection,
+  .tiptap-content.has-block-selection ::selection {
+    background: transparent;
   }
   .tiptap-content .column-resize-handle {
     position: absolute;

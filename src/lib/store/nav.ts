@@ -45,6 +45,7 @@ interface NavState {
   paletteOpen: boolean;
   switcherOpen: boolean;
   commandsOpen: boolean;
+  quickJotOpen: boolean;
   focusBlock: FocusBlock | null;
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
@@ -62,6 +63,7 @@ interface NavState {
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
+  setQuickJotOpen: (open: boolean) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
@@ -78,7 +80,7 @@ function readStoredCollapsed(): boolean {
 
 /// Bounds for the resizable right sidebar. The minimum fits its top row: four 36px
 /// icon buttons (collapse, export, pin, more) with their gaps and the `p-3` padding.
-export const RIGHT_SIDEBAR_MIN_WIDTH = 184;
+export const RIGHT_SIDEBAR_MIN_WIDTH = 224;
 export const RIGHT_SIDEBAR_MAX_WIDTH = 480;
 export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 288;
 
@@ -147,6 +149,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   paletteOpen: false,
   switcherOpen: false,
   commandsOpen: false,
+  quickJotOpen: false,
   focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
@@ -190,6 +193,9 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(switcherOpen ? { ...NO_OVERLAY, switcherOpen } : { switcherOpen }),
   setCommandsOpen: (commandsOpen) =>
     set(commandsOpen ? { ...NO_OVERLAY, commandsOpen } : { commandsOpen }),
+  // Never closed by another overlay opening, since it may hold unsaved text.
+  setQuickJotOpen: (quickJotOpen) =>
+    set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     try {

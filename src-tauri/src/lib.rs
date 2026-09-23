@@ -39,6 +39,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             db::setup(app)?;
@@ -58,6 +59,7 @@ pub fn run() {
             commands::entities::soft_delete_entity,
             commands::entities::restore_entity,
             commands::entities::hard_delete_entity,
+            commands::entities::duplicate_entity,
             commands::relationships::create_relationship,
             commands::relationships::list_relationships,
             commands::relationships::delete_relationship,
@@ -78,14 +80,16 @@ pub fn run() {
             commands::tasks::list_tasks,
             commands::tasks::update_task_status,
             commands::tasks::update_task_dates,
+            commands::tasks::convert_to_subtask,
             commands::tasks::count_tasks_due_today,
             commands::tasks::count_open_tasks_due_or_overdue,
             commands::notes::create_note,
             commands::notes::create_jot,
-            commands::notes::create_refinement,
-            commands::notes::count_jots_without_refinement,
-            commands::notes::count_jots_without_refinement_all_spaces,
+            commands::notes::count_unrefined_jots,
+            commands::notes::count_unrefined_jots_all_spaces,
             commands::notes::list_recent_notes,
+            commands::notes::list_note_summaries,
+            commands::notes::list_jot_summaries,
             commands::notes::list_blocks,
             commands::notes::list_mentioning_entities,
             commands::notes::create_block,
@@ -130,6 +134,7 @@ pub fn run() {
             commands::files::import_file,
             commands::files::create_file_link,
             commands::files::list_files,
+            commands::files::export_file,
             commands::bookmarks::create_bookmark,
             commands::bookmarks::list_bookmarks,
             commands::bookmarks::fetch_bookmark_metadata,

@@ -11,6 +11,9 @@ pub enum AppError {
     CardinalityViolation(String),
     #[error("invalid input: {0}")]
     InvalidInput(String),
+    /// A write guarded by `--if-revision` found the entity changed since that revision.
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("database error: {0}")]
     Db(String),
     #[error("file error: {0}")]

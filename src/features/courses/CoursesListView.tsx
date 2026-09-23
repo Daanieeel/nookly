@@ -22,8 +22,10 @@ import {
   statusTextClass,
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityPickerPopover } from "@/components/entity-picker";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -140,7 +142,14 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   const cardsProps = { spaceId, sessions, exams, assignments };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      className="flex flex-col gap-3"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Course",
+        create: () => setCreateOpen(true),
+      })}
+    >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Courses</h1>
         <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
@@ -348,14 +357,17 @@ export function CourseCard({
   });
 
   return (
-    <GalleryCard className="group" onClick={onOpen}>
+    <GalleryCard className="group" onClick={onOpen} {...entityTarget(course)}>
       <GalleryCardBanner
         color={gradientForName(displayTitle(course))}
         icon={<EntityIcon entity={course} size={22} className="text-black" />}
       />
       <GalleryCardBody>
-        <span className="block truncate text-sm font-medium group-hover:underline">
-          {displayTitle(course)}
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="min-w-0 truncate text-sm font-medium group-hover:underline">
+            {displayTitle(course)}
+          </span>
+          <EntityKey entityKey={course.key} className="ml-auto" />
         </span>
 
         <CourseStats

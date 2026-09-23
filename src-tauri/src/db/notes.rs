@@ -34,7 +34,7 @@ fn row_to_block(row: &rusqlite::Row) -> rusqlite::Result<Block> {
     })
 }
 
-/// Creates the page entity. `page_type` lets Jots/Refinements (§5.3) reuse the same
+/// Creates the page entity. `page_type` lets Jots (§5.3) reuse the same
 /// block storage under their own entity type rather than a dedicated schema.
 pub fn create_page(
     conn: &Connection,
@@ -45,34 +45,38 @@ pub fn create_page(
     crate::db::entities::create_entity(conn, space_id, page_type.into(), title, None)
 }
 
-/// Counts Jots with no outgoing `relates-to` link to a Refinement (§ sidebar badges).
-/// Jots/Refinements are linked via the generic relationship system, not a dedicated
-/// pairing structure, so this is an anti-join rather than a foreign-key check.
-pub fn count_jots_without_refinement(conn: &Connection, space_id: &str) -> AppResult<i64> {
+/// A live Note related to Jot `e` through any relationship, in either direction: the
+/// Jot has been refined into it. Same rule as `PageSummary::linked`, so the sidebar
+/// badge matches the list's "Unrefined" preset.
+const LINKED_NOTE: &str = "SELECT 1 FROM relationships r JOIN entities t
+           ON t.id = CASE WHEN r.from_entity_id = e.id THEN r.to_entity_id ELSE r.from_entity_id END
+         WHERE (r.from_entity_id = e.id OR r.to_entity_id = e.id)
+           AND t.type = 'note' AND t.deleted_at IS NULL";
+
+/// Counts Jots with no linked Note (§ sidebar badges). Jots and Notes are linked via
+/// the generic relationship system, not a dedicated pairing structure,
+/// so this is an anti-join rather than a foreign-key check.
+pub fn count_unrefined_jots(conn: &Connection, space_id: &str) -> AppResult<i64> {
     let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities e
+        &format!(
+            "SELECT COUNT(*) FROM entities e
          WHERE e.space_id = ?1 AND e.type = 'jot' AND e.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM relationships r JOIN entities t ON t.id = r.to_entity_id
-           WHERE r.from_entity_id = e.id AND r.relationship_type = 'relates-to'
-             AND t.type = 'refinement' AND t.deleted_at IS NULL
-         )",
+         AND NOT EXISTS ({LINKED_NOTE})"
+        ),
         params![space_id],
         |row| row.get(0),
     )?;
     Ok(count)
 }
 
-/// Cross-Space sibling of `count_jots_without_refinement`, for the Dashboard briefing.
-pub fn count_jots_without_refinement_all_spaces(conn: &Connection) -> AppResult<i64> {
+/// Cross-Space sibling of `count_unrefined_jots`, for the Dashboard briefing.
+pub fn count_unrefined_jots_all_spaces(conn: &Connection) -> AppResult<i64> {
     let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities e
+        &format!(
+            "SELECT COUNT(*) FROM entities e
          WHERE e.type = 'jot' AND e.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM relationships r JOIN entities t ON t.id = r.to_entity_id
-           WHERE r.from_entity_id = e.id AND r.relationship_type = 'relates-to'
-             AND t.type = 'refinement' AND t.deleted_at IS NULL
-         )",
+         AND NOT EXISTS ({LINKED_NOTE})"
+        ),
         [],
         |row| row.get(0),
     )?;
@@ -95,6 +99,187 @@ pub fn list_recent_notes(conn: &Connection, space_id: &str, limit: i64) -> AppRe
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// One row of a page list (Notes or Jots): the entity plus what it
+/// takes to recognize a page without opening it. Loaded in one call for the whole
+/// Space so the list never fans out into a `list_blocks` per row.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageSummary {
+    pub entity: Entity,
+    /// Raw markdown of the leading text blocks, joined by `\n`, capped near
+    /// `PREVIEW_CHARS`. The frontend strips inline markdown for display.
+    pub preview: String,
+    /// Latest block edit, falling back to the entity's own `updated_at` (same rule
+    /// as `list_recent_notes`).
+    pub last_edited_at: String,
+    pub label_ids: Vec<String>,
+    /// Jot rows only: every Note linked to this Jot through any relationship, in
+    /// either direction. Trashed pages stay
+    /// listed (rendered dimmed) like everywhere else a reference shows.
+    pub linked: Vec<Entity>,
+    /// Jot rows only: the most recent Session occurrence this page is
+    /// related to, in either direction.
+    pub session: Option<SessionContext>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionContext {
+    pub entity: Entity,
+    pub date: String,
+    pub start_time: String,
+    pub course_id: Option<String>,
+    pub course_title: Option<String>,
+}
+
+const PREVIEW_CHARS: usize = 280;
+
+/// Block types whose content reads as prose in a preview; code, tables and media don't.
+const PREVIEW_BLOCK_TYPES: &str =
+    "'paragraph','heading1','heading2','heading3','quote','bulleted_list','numbered_list'";
+
+/// Relationship edges seen from `e`: `t` is whichever end isn't `e`.
+const OTHER_END_JOIN: &str = "JOIN relationships r ON r.from_entity_id = e.id OR r.to_entity_id = e.id
+     JOIN entities t ON t.id = CASE WHEN r.from_entity_id = e.id THEN r.to_entity_id ELSE r.from_entity_id END";
+
+pub fn list_note_summaries(conn: &Connection, space_id: &str) -> AppResult<Vec<PageSummary>> {
+    list_page_summaries(conn, space_id, "'note'")
+}
+
+/// Jots for their list page, with the linked Notes and Session context each row shows.
+pub fn list_jot_summaries(conn: &Connection, space_id: &str) -> AppResult<Vec<PageSummary>> {
+    let mut summaries = list_page_summaries(conn, space_id, "'jot'")?;
+    let index = summary_index(&summaries);
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT e.id AS owner_id, t.* FROM entities e {OTHER_END_JOIN}
+         WHERE e.space_id = ?1 AND e.deleted_at IS NULL AND e.type = 'jot'
+           AND t.type = 'note'
+         ORDER BY t.title COLLATE NOCASE ASC"
+    ))?;
+    let rows = stmt.query_map(params![space_id], |row| {
+        Ok((row.get::<_, String>("owner_id")?, row_to_entity(row)?))
+    })?;
+    for row in rows {
+        let (owner_id, entity) = row?;
+        if let Some(&i) = index.get(&owner_id) {
+            summaries[i].linked.push(entity);
+        }
+    }
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT e.id AS owner_id, t.*, s.date, s.start_time,
+                c.id AS course_id, c.title AS course_title
+         FROM entities e {OTHER_END_JOIN}
+         JOIN sessions s ON s.entity_id = t.id
+         LEFT JOIN relationships rc ON rc.from_entity_id = t.id AND rc.relationship_type = 'session-course'
+         LEFT JOIN entities c ON c.id = rc.to_entity_id
+         WHERE e.space_id = ?1 AND e.deleted_at IS NULL AND e.type = 'jot'
+           AND t.type = 'session'
+         ORDER BY s.date DESC, s.start_time DESC"
+    ))?;
+    let rows = stmt.query_map(params![space_id], |row| {
+        Ok((
+            row.get::<_, String>("owner_id")?,
+            SessionContext {
+                entity: row_to_entity(row)?,
+                date: row.get("date")?,
+                start_time: row.get("start_time")?,
+                course_id: row.get("course_id")?,
+                course_title: row.get("course_title")?,
+            },
+        ))
+    })?;
+    for row in rows {
+        let (owner_id, session) = row?;
+        if let Some(&i) = index.get(&owner_id) {
+            summaries[i].session.get_or_insert(session);
+        }
+    }
+    Ok(summaries)
+}
+
+fn summary_index(summaries: &[PageSummary]) -> std::collections::HashMap<String, usize> {
+    summaries
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.entity.id.clone(), i))
+        .collect()
+}
+
+/// `types_sql` is a fixed, quoted type list from the callers above, never user input.
+fn list_page_summaries(
+    conn: &Connection,
+    space_id: &str,
+    types_sql: &str,
+) -> AppResult<Vec<PageSummary>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT e.*, COALESCE(MAX(b.updated_at, e.updated_at), e.updated_at) AS last_edited_at
+         FROM entities e
+         LEFT JOIN (SELECT entity_id, MAX(updated_at) AS updated_at FROM blocks GROUP BY entity_id) b
+           ON b.entity_id = e.id
+         WHERE e.space_id = ?1 AND e.type IN ({types_sql}) AND e.deleted_at IS NULL
+         ORDER BY last_edited_at DESC"
+    ))?;
+    let mut summaries = stmt
+        .query_map(params![space_id], |row| {
+            Ok(PageSummary {
+                entity: row_to_entity(row)?,
+                preview: String::new(),
+                last_edited_at: row.get("last_edited_at")?,
+                label_ids: Vec::new(),
+                linked: Vec::new(),
+                session: None,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let index = summary_index(&summaries);
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT b.entity_id, b.content FROM blocks b JOIN entities e ON e.id = b.entity_id
+         WHERE e.space_id = ?1 AND e.type IN ({types_sql}) AND e.deleted_at IS NULL
+           AND b.block_type IN ({PREVIEW_BLOCK_TYPES}) AND TRIM(b.content) != ''
+         ORDER BY b.entity_id, b.position ASC"
+    ))?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        let content: String = row.get(1)?;
+        let Some(&i) = index.get(&entity_id) else {
+            continue;
+        };
+        let preview = &mut summaries[i].preview;
+        if preview.chars().count() >= PREVIEW_CHARS {
+            continue;
+        }
+        if !preview.is_empty() {
+            preview.push('\n');
+        }
+        preview.push_str(content.trim());
+    }
+    for summary in &mut summaries {
+        if let Some((cut, _)) = summary.preview.char_indices().nth(PREVIEW_CHARS) {
+            summary.preview.truncate(cut);
+        }
+    }
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         JOIN labels l ON l.id = el.label_id
+         WHERE e.space_id = ?1 AND e.type IN ({types_sql}) AND e.deleted_at IS NULL
+         ORDER BY l.name ASC"
+    ))?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        if let Some(&i) = index.get(&entity_id) {
+            summaries[i].label_ids.push(row.get(1)?);
+        }
+    }
+    Ok(summaries)
+}
+
 pub fn list_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<Block>> {
     let mut stmt =
         conn.prepare("SELECT * FROM blocks WHERE entity_id = ?1 ORDER BY position ASC")?;
@@ -102,19 +287,46 @@ pub fn list_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<Block>> 
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Right sidebar's "Mentioned in" (§3.5) — the reverse of the frontend's own
-/// `extractMentionIds` (`mention-utils.ts`): every *other* entity that has at
-/// least one block containing an inline `[title](mention:<entity_id>)` link
-/// pointing at this one. `entity_id` is always a UUID (`new_id`), so it can't
-/// contain `LIKE` wildcards (`%`/`_`) and needs no escaping.
+/// Right sidebar's "Mentioned in" (§1.5): every *other* entity whose blocks hold an
+/// inline `[title](mention:<entity_id>)` link to this one, read from the `mentions`
+/// backlink index that `reindex_page` keeps in sync.
 pub fn list_mentioning_entities(conn: &Connection, entity_id: &str) -> AppResult<Vec<Entity>> {
-    let pattern = format!("%mention:{entity_id}%");
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT e.* FROM blocks b JOIN entities e ON e.id = b.entity_id
-         WHERE b.content LIKE ?1 AND e.deleted_at IS NULL AND e.id != ?2",
+        "SELECT e.* FROM mentions m JOIN entities e ON e.id = m.from_entity_id
+         WHERE m.to_entity_id = ?1 AND e.deleted_at IS NULL AND e.id != ?1
+         ORDER BY e.title COLLATE NOCASE ASC",
     )?;
-    let rows = stmt.query_map(params![pattern, entity_id], row_to_entity)?;
+    let rows = stmt.query_map(params![entity_id], row_to_entity)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Same syntax as the frontend's `MENTION_PATTERN` (`mention-utils.ts`). A `#<blockId>`
+/// suffix links one block of the page; the backlink still counts the whole page.
+static MENTION_PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"\[[^\]]+\]\(mention:([a-zA-Z0-9-]+)(?:#[a-zA-Z0-9_-]+)?\)").unwrap()
+});
+
+pub fn extract_mention_ids(content: &str) -> std::collections::BTreeSet<String> {
+    MENTION_PATTERN
+        .captures_iter(content)
+        .map(|c| c[1].to_string())
+        .collect()
+}
+
+/// Replaces this page's outgoing rows in the `mentions` backlink index.
+fn sync_page_mentions(conn: &Connection, entity_id: &str, markdown: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM mentions WHERE from_entity_id = ?1",
+        params![entity_id],
+    )?;
+    let mut stmt = conn
+        .prepare("INSERT OR IGNORE INTO mentions (from_entity_id, to_entity_id) VALUES (?1, ?2)")?;
+    for target in extract_mention_ids(markdown) {
+        if target != entity_id {
+            stmt.execute(params![entity_id, target])?;
+        }
+    }
+    Ok(())
 }
 
 /// A `table` block's real content format is rows joined by `\n`, cells within a row joined by
@@ -232,14 +444,17 @@ pub struct BlockPatch {
     pub filename: Option<String>,
 }
 
+pub fn get_block(conn: &Connection, block_id: &str) -> AppResult<Block> {
+    conn.query_row(
+        "SELECT * FROM blocks WHERE id = ?1",
+        params![block_id],
+        row_to_block,
+    )
+    .map_err(|_| AppError::NotFound(format!("block {block_id}")))
+}
+
 pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> AppResult<Block> {
-    let mut block = conn
-        .query_row(
-            "SELECT * FROM blocks WHERE id = ?1",
-            params![block_id],
-            row_to_block,
-        )
-        .map_err(|_| AppError::NotFound(format!("block {block_id}")))?;
+    let mut block = get_block(conn, block_id)?;
     if let Some(content) = patch.content {
         block.content = content;
     }
@@ -370,6 +585,7 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
 
 fn reindex_page(conn: &Connection, entity_id: &str) -> AppResult<()> {
     let markdown = render_page_markdown(conn, entity_id)?;
+    sync_page_mentions(conn, entity_id, &markdown)?;
     crate::db::search::index_entity_content(conn, entity_id, &markdown)
 }
 
@@ -391,11 +607,11 @@ pub fn list_pages(
 
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
 //
-// Notes, Jots and Refinements (§5.2/§5.3) are all "page" entities backed by
-// the same block storage, distinguished only by `entities.type`. One set of
-// adapters, three registrations.
+// Notes and Jots (§5.2/§5.3) are both "page" entities backed by the same block
+// storage, distinguished only by `entities.type`. One set of adapters, two
+// registrations.
 
-/// Pages (Notes/Jots/Refinements) have no `--field` values of their own — deliberately: an
+/// Pages (Notes/Jots) have no `--field` values of their own — deliberately: an
 /// earlier revision offered `--field body=<markdown>` as a shortcut past the real block
 /// commands, and agents reached for it instead of ever learning `add-block`/`update-block`
 /// (so e.g. a `code` block created this way had no way to get a `--language`/`--filename`
@@ -454,16 +670,6 @@ fn cli_list_jots(
 ) -> AppResult<Vec<serde_json::Value>> {
     cli_list_pages("jot")(conn, space_id, include_deleted)
 }
-fn cli_create_refinement(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
-    cli_create_page("refinement")(conn, input)
-}
-fn cli_list_refinements(
-    conn: &Connection,
-    space_id: Option<&str>,
-    include_deleted: bool,
-) -> AppResult<Vec<serde_json::Value>> {
-    cli_list_pages("refinement")(conn, space_id, include_deleted)
-}
 
 inventory::submit! {
     EntitySchemaDef {
@@ -483,7 +689,7 @@ inventory::submit! {
     EntitySchemaDef {
         entity_type: "jot",
         supports_blocks: true,
-        description: "A quick, unrefined capture. Link to a `refinement` via `relates-to` once processed.",
+        description: "A quick, unrefined capture. Link it to the `note` it was refined into via `relates-to`.",
         fields: &[],
         relationship_types: &["relates-to"],
         create: cli_create_jot,
@@ -493,23 +699,145 @@ inventory::submit! {
     }
 }
 
-inventory::submit! {
-    EntitySchemaDef {
-        entity_type: "refinement",
-        supports_blocks: true,
-        description: "A processed/cleaned-up write-up, usually linked from one or more Jots.",
-        fields: &[],
-        relationship_types: &["relates-to"],
-        create: cli_create_refinement,
-        update: cli_update_page,
-        get: cli_get_page,
-        list: cli_list_refinements,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn note_summaries_carry_preview_recency_and_labels() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let empty = create_page(&conn, space.id.clone(), "note", "Empty".into()).unwrap();
+        let page = create_page(&conn, space.id.clone(), "note", "Lecture 1".into()).unwrap();
+        create_page(&conn, space.id.clone(), "jot", "Not a note".into()).unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "code".into(),
+            "let x = 1;".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "  ".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            "First line".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "quote".into(),
+            "Second".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let label =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Exam".into(), "#f00".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &page.id, &label.id).unwrap();
+
+        let summaries = list_note_summaries(&conn, &space.id).unwrap();
+        assert_eq!(summaries.len(), 2);
+        let lecture = summaries.iter().find(|s| s.entity.id == page.id).unwrap();
+        assert_eq!(lecture.preview, "First line\nSecond");
+        assert_eq!(lecture.label_ids, vec![label.id]);
+        assert!(lecture.last_edited_at >= lecture.entity.updated_at);
+        let blank = summaries.iter().find(|s| s.entity.id == empty.id).unwrap();
+        assert!(blank.preview.is_empty() && blank.label_ids.is_empty());
+    }
+
+    #[test]
+    fn jot_summaries_carry_links_sessions_and_unrefined_count() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let jot = create_page(&conn, space.id.clone(), "jot", "".into()).unwrap();
+        let loose = create_page(&conn, space.id.clone(), "jot", "".into()).unwrap();
+        let note = create_page(&conn, space.id.clone(), "note", "Polished".into()).unwrap();
+        let other = create_page(&conn, space.id.clone(), "note", "Unrelated".into()).unwrap();
+        let course =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Algorithms".into())
+                .unwrap();
+        let session = crate::db::sessions::create_one_off_session(
+            &conn,
+            space.id.clone(),
+            "Lecture".into(),
+            course.id.clone(),
+            "2026-09-21".into(),
+            "10:00".into(),
+            "11:30".into(),
+            None,
+        )
+        .unwrap();
+        // Note to Jot, so the reverse direction has to count as a link too.
+        crate::db::relationships::create_relationship(
+            &conn,
+            note.id.clone(),
+            jot.id.clone(),
+            "relates-to".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        crate::db::relationships::create_relationship(
+            &conn,
+            jot.id.clone(),
+            session.entity.id.clone(),
+            "relates-to".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        // Jot to Jot is not a refinement.
+        crate::db::relationships::create_relationship(
+            &conn,
+            loose.id.clone(),
+            jot.id.clone(),
+            "relates-to".into(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let summaries = list_jot_summaries(&conn, &space.id).unwrap();
+        assert_eq!(summaries.len(), 2);
+        let linked_jot = summaries.iter().find(|s| s.entity.id == jot.id).unwrap();
+        assert_eq!(linked_jot.linked.len(), 1);
+        assert_eq!(linked_jot.linked[0].id, note.id);
+        let context = linked_jot.session.as_ref().unwrap();
+        assert_eq!(context.entity.id, session.entity.id);
+        assert_eq!(context.course_title.as_deref(), Some("Algorithms"));
+        let alone = summaries.iter().find(|s| s.entity.id == loose.id).unwrap();
+        assert!(alone.linked.is_empty() && alone.session.is_none());
+        assert_eq!(count_unrefined_jots(&conn, &space.id).unwrap(), 1);
+        assert!(summaries.iter().all(|s| s.entity.id != other.id));
+    }
 
     #[test]
     fn markdown_export_covers_every_block_type() {
@@ -692,6 +1020,63 @@ mod tests {
         let mentioning = list_mentioning_entities(&conn, &target.id).unwrap();
         assert_eq!(mentioning.len(), 1);
         assert_eq!(mentioning[0].id, mentioner.id);
+    }
+
+    #[test]
+    fn mention_index_follows_block_edits_and_deletes() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let target = create_page(&conn, space.id.clone(), "note", "Target".into()).unwrap();
+        let mentioner = create_page(&conn, space.id.clone(), "note", "Mentioner".into()).unwrap();
+        let link = format!("See [Target](mention:{})", target.id);
+
+        let first = create_block(
+            &conn,
+            &mentioner.id,
+            "paragraph".into(),
+            link.clone(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let second = create_block(
+            &conn,
+            &mentioner.id,
+            "paragraph".into(),
+            link,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            list_mentioning_entities(&conn, &target.id).unwrap().len(),
+            1
+        );
+
+        update_block(
+            &conn,
+            &first.id,
+            BlockPatch {
+                content: Some("No link anymore".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            list_mentioning_entities(&conn, &target.id).unwrap().len(),
+            1
+        );
+
+        delete_block(&conn, &second.id).unwrap();
+        assert!(list_mentioning_entities(&conn, &target.id)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

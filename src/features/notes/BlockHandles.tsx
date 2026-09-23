@@ -7,8 +7,9 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
+import { type BlockRange, BlockRangeSelection } from "./block-selection";
 import { keepIfEqual, perFrame } from "./pointer-frame";
+import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList, type SuggestionListHandle } from "./suggestion-list";
 
 const MENU_ITEMS = SLASH_ITEMS.map(toListItem);
@@ -16,7 +17,7 @@ const MENU_ITEMS = SLASH_ITEMS.map(toListItem);
 /// Reserved left-gutter width in `.tiptap-content` (`src/styles.css`) — kept as a
 /// constant here instead of read from CSS because it also drives the
 /// elementFromPoint probe below; the two must stay in sync by hand.
-const GUTTER_WIDTH = 52;
+export const GUTTER_WIDTH = 52;
 
 interface HandleRect {
   top: number;
@@ -30,7 +31,24 @@ interface Indicator {
   width: number;
 }
 
-interface ResolvedBlock {
+/// How far the pointer must travel after pressing a grip before it counts as a
+/// drag instead of a click.
+const DRAG_THRESHOLD_PX = 4;
+
+/// A grip press not yet resolved into a click (select `range`) or a drag (move it).
+interface PendingGrip {
+  range: BlockRange;
+  x: number;
+  y: number;
+}
+
+interface DragSource extends BlockRange {
+  elements: Set<HTMLElement>;
+  /// The dragged blocks were a block selection, so they stay selected after the drop.
+  selected: boolean;
+}
+
+export interface ResolvedBlock {
   start: number;
   end: number;
   node: ProseMirrorNode;
@@ -40,13 +58,45 @@ interface ResolvedBlock {
 /// rendered it from `renderHTML` or a node view owns it (code blocks' React view,
 /// tables' `TableView` wrapper). Node views don't copy node attrs onto their DOM,
 /// so `data-block-id` can't be used to find those; structure can.
-function topLevelElement(dom: HTMLElement, el: Element | null): HTMLElement | null {
+export function topLevelElement(dom: HTMLElement, el: Element | null): HTMLElement | null {
   let current = el;
   while (current && current.parentElement !== dom) current = current.parentElement;
   return current instanceof HTMLElement ? current : null;
 }
 
-function findTopLevelBlock(view: EditorView, el: HTMLElement): ResolvedBlock | null {
+/// Pinned to the block's first line, not centered on the whole block, so tall
+/// blocks (tables, code blocks, long lists) keep their handle at their top.
+function measureBlock(dom: HTMLElement, block: HTMLElement): HandleRect {
+  const blockBox = block.getBoundingClientRect();
+  const editorBox = dom.getBoundingClientRect();
+  const lineHeight = Number.parseFloat(getComputedStyle(block).lineHeight);
+  return {
+    top: blockBox.top - editorBox.top,
+    left: blockBox.left - editorBox.left,
+    height: Math.min(blockBox.height, Number.isFinite(lineHeight) ? lineHeight : 24),
+  };
+}
+
+/// The top-level DOM elements of every block in `range`.
+function rangeElements(view: EditorView, range: BlockRange): HTMLElement[] {
+  const elements: HTMLElement[] = [];
+  view.state.doc.nodesBetween(range.from, range.to, (_node, pos) => {
+    const dom = view.nodeDOM(pos);
+    if (dom instanceof HTMLElement) elements.push(dom);
+    return false;
+  });
+  return elements;
+}
+
+/// The current selection when it's a block selection of more than one block.
+function multiBlockSelection(view: EditorView): BlockRangeSelection | null {
+  const { selection } = view.state;
+  if (!(selection instanceof BlockRangeSelection)) return null;
+  const first = view.state.doc.nodeAt(selection.from);
+  return first && selection.from + first.nodeSize < selection.to ? selection : null;
+}
+
+export function findTopLevelBlock(view: EditorView, el: HTMLElement): ResolvedBlock | null {
   let result: ResolvedBlock | null = null;
   view.state.doc.forEach((node, offset) => {
     if (!result && view.nodeDOM(offset) === el) {
@@ -81,7 +131,10 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
   );
   const hoveredBlockRef = useRef<HTMLElement | null>(null);
   const draggingRef = useRef(false);
-  const sourceBlockRef = useRef<HTMLElement | null>(null);
+  const sourceRef = useRef<DragSource | null>(null);
+  const pendingGripRef = useRef<PendingGrip | null>(null);
+  // Top of a multi-block selection, where its own batch drag handle sits.
+  const [selectionHandle, setSelectionHandle] = useState<HandleRect | null>(null);
   // Block the "+" menu was opened from; handles stay pinned to it while open.
   const [menuBlock, setMenuBlock] = useState<HTMLElement | null>(null);
   const menuBlockRef = useRef<HTMLElement | null>(null);
@@ -93,18 +146,7 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
     if (!editor) return;
     const dom = editor.view.dom;
 
-    const measure = (block: HTMLElement) => {
-      const blockBox = block.getBoundingClientRect();
-      const editorBox = dom.getBoundingClientRect();
-      // Pinned to the block's first line, not centered on the whole block, so tall
-      // blocks (tables, code blocks, long lists) keep the handles at their top.
-      const lineHeight = Number.parseFloat(getComputedStyle(block).lineHeight);
-      return {
-        top: blockBox.top - editorBox.top,
-        left: blockBox.left - editorBox.left,
-        height: Math.min(blockBox.height, Number.isFinite(lineHeight) ? lineHeight : 24),
-      };
-    };
+    const measure = (block: HTMLElement) => measureBlock(dom, block);
 
     const resolveBlockAt = (clientX: number, clientY: number): HTMLElement | null => {
       const editorBox = dom.getBoundingClientRect();
@@ -115,7 +157,7 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
 
     const updateIndicatorAt = (clientX: number, clientY: number) => {
       const block = resolveBlockAt(clientX, clientY);
-      if (!block || block === sourceBlockRef.current) {
+      if (!block || sourceRef.current?.elements.has(block)) {
         setIndicator(null);
         return;
       }
@@ -131,7 +173,30 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       );
     };
 
+    const beginDrag = (pending: PendingGrip, x: number, y: number) => {
+      const selection = editor.state.selection;
+      const elements = rangeElements(editor.view, pending.range);
+      document.body.style.userSelect = "none";
+      draggingRef.current = true;
+      sourceRef.current = {
+        ...pending.range,
+        elements: new Set(elements),
+        selected:
+          selection instanceof BlockRangeSelection &&
+          selection.from === pending.range.from &&
+          selection.to === pending.range.to,
+      };
+      setDragPreview({ html: elements.map((el) => el.outerHTML).join(""), x, y });
+    };
+
     const onMouseMove = (event: MouseEvent) => {
+      const pending = pendingGripRef.current;
+      if (pending && !draggingRef.current) {
+        const moved = Math.hypot(event.clientX - pending.x, event.clientY - pending.y);
+        if (moved < DRAG_THRESHOLD_PX) return;
+        pendingGripRef.current = null;
+        beginDrag(pending, event.clientX, event.clientY);
+      }
       if (draggingRef.current) {
         updateIndicatorAt(event.clientX, event.clientY);
         setDragPreview((prev) => (prev ? { ...prev, x: event.clientX, y: event.clientY } : prev));
@@ -139,7 +204,10 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       }
       if (menuBlockRef.current) return;
       const block = resolveBlockAt(event.clientX, event.clientY);
-      if (block) {
+      // Blocks inside a multi-block selection share the selection's own handle.
+      const selection = multiBlockSelection(editor.view);
+      const selected = selection && rangeElements(editor.view, selection).includes(block ?? dom);
+      if (block && !selected) {
         hoveredBlockRef.current = block;
         setHandle((prev) => keepIfEqual(prev, measure(block)));
         setVisible(true);
@@ -150,6 +218,18 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
     };
 
     const onMouseUp = (event: MouseEvent) => {
+      // A grip press that never became a drag is a click: select the block.
+      const pending = pendingGripRef.current;
+      if (pending) {
+        pendingGripRef.current = null;
+        const { from, to } = pending.range;
+        editor.view.dispatch(
+          editor.state.tr.setSelection(BlockRangeSelection.create(editor.state.doc, from, to)),
+        );
+        editor.view.focus();
+        return;
+      }
+
       if (!draggingRef.current) return;
       draggingRef.current = false;
       document.body.style.userSelect = "";
@@ -157,29 +237,33 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       setVisible(false);
       setDragPreview(null);
 
-      const sourceBlock = sourceBlockRef.current;
-      sourceBlockRef.current = null;
-      if (!sourceBlock) return;
+      const source = sourceRef.current;
+      sourceRef.current = null;
+      if (!source) return;
 
       const targetBlock = resolveBlockAt(event.clientX, event.clientY);
-      if (!targetBlock || targetBlock === sourceBlock) return;
-
-      const source = findTopLevelBlock(editor.view, sourceBlock);
+      if (!targetBlock || source.elements.has(targetBlock)) return;
       const target = findTopLevelBlock(editor.view, targetBlock);
-      if (!source || !target || source.start === target.start) return;
+      if (!target) return;
 
       const targetBox = targetBlock.getBoundingClientRect();
       const before = event.clientY < targetBox.top + targetBox.height / 2;
       const insertPos = before ? target.start : target.end;
 
       const tr = editor.state.tr;
-      tr.delete(source.start, source.end);
+      const moved = tr.doc.slice(source.from, source.to).content;
+      tr.delete(source.from, source.to);
       const movedPos = tr.mapping.map(insertPos);
-      tr.insert(movedPos, source.node);
-      // Caret goes into the moved node, and `view.focus()` (unlike Tiptap's
-      // `focus()` command) doesn't scroll: a stale selection elsewhere in the doc
-      // would otherwise yank the page to it on drop.
-      tr.setSelection(Selection.near(tr.doc.resolve(movedPos + 1)));
+      tr.insert(movedPos, moved);
+      // A dragged block selection stays selected; otherwise the caret goes into
+      // the moved block. `view.focus()` (unlike Tiptap's `focus()` command)
+      // doesn't scroll: a stale selection elsewhere in the doc would otherwise
+      // yank the page to it on drop.
+      tr.setSelection(
+        source.selected
+          ? BlockRangeSelection.create(tr.doc, movedPos, movedPos + moved.size)
+          : Selection.near(tr.doc.resolve(movedPos + 1)),
+      );
       editor.view.dispatch(tr);
       editor.view.focus();
     };
@@ -191,6 +275,32 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       onMouseMoveFrame.cancel();
       document.removeEventListener("mousemove", onMouseMoveFrame);
       document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [editor]);
+
+  // Keeps the batch handle pinned to the first block of a multi-block selection.
+  useEffect(() => {
+    if (!editor) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const selection = multiBlockSelection(editor.view);
+      const first = selection && editor.view.nodeDOM(selection.from);
+      if (!(first instanceof HTMLElement)) {
+        setSelectionHandle(null);
+        return;
+      }
+      const next = measureBlock(editor.view.dom, first);
+      setSelectionHandle((prev) => keepIfEqual(prev, next));
+    };
+    const update = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    update();
+    editor.on("transaction", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      editor.off("transaction", update);
     };
   }, [editor]);
 
@@ -237,14 +347,30 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
     item.run(editor, { from: inside, to: inside });
   };
 
+  // Resolved into a click or a drag by the document listeners above.
   const onGripMouseDown = (event: React.MouseEvent) => {
     const block = hoveredBlockRef.current;
-    if (!block) return;
+    const target = block && findTopLevelBlock(editor.view, block);
+    if (!target) return;
     event.preventDefault();
-    document.body.style.userSelect = "none";
-    draggingRef.current = true;
-    sourceBlockRef.current = block;
-    setDragPreview({ html: block.outerHTML, x: event.clientX, y: event.clientY });
+    const range = { from: target.start, to: target.end };
+    pendingGripRef.current = {
+      range,
+      x: event.clientX,
+      y: event.clientY,
+    };
+  };
+
+  const onSelectionGripMouseDown = (event: React.MouseEvent) => {
+    const selection = multiBlockSelection(editor.view);
+    if (!selection) return;
+    event.preventDefault();
+    const range = { from: selection.from, to: selection.to };
+    pendingGripRef.current = {
+      range,
+      x: event.clientX,
+      y: event.clientY,
+    };
   };
 
   // SAFETY: every custom property below only ever receives a pixel length measured
@@ -302,6 +428,34 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
           <TooltipContent>Drag to reorder</TooltipContent>
         </Tooltip>
       </div>
+      {selectionHandle && (
+        <div
+          className="absolute top-(--selection-top) left-0.5 z-10 flex h-(--selection-height) w-10.5 items-center justify-end"
+          // SAFETY: pixel lengths measured from the first selected block's DOM box.
+          style={
+            {
+              "--selection-top": `${selectionHandle.top}px`,
+              "--selection-height": `${selectionHandle.height}px`,
+            } as CSSProperties
+          }
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-5 shrink-0 cursor-grab active:cursor-grabbing"
+                aria-label="Drag to move selected blocks"
+                onMouseDown={onSelectionGripMouseDown}
+              >
+                <IconGripVertical size={13} className="text-primary" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Drag to move selected blocks</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       {menuBlock && (
         <div ref={menuRef} className="absolute top-(--menu-top) left-0.5 z-50" style={handleVars}>
           <SuggestionList ref={listRef} items={MENU_ITEMS} onSelect={insertBelow} searchable />

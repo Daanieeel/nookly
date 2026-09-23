@@ -16,7 +16,7 @@ Session and Course. A Session must always have exactly one Course. This is enfor
 
 ## Relationship Targeting
 
-Every relationship (Jots, Refinements, Tasks, Files) targets a **specific occurrence**, never the template. The template's only job is to generate occurrences, and it does not take part in the relationship graph.
+Every relationship (Jots, Notes, Tasks, Files) targets a **specific occurrence**, never the template. The template's only job is to generate occurrences, and it does not take part in the relationship graph.
 
 ## Future
 

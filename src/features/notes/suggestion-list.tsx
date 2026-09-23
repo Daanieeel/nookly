@@ -20,8 +20,15 @@ export interface SuggestionListHandle {
 /// the full `items` list, so filtering stays invisible to the caller.
 export const SuggestionList = forwardRef<
   SuggestionListHandle,
-  { items: SuggestionListItem[]; onSelect: (index: number) => void; searchable?: boolean }
->(function SuggestionList({ items, onSelect, searchable = false }, ref) {
+  {
+    items: SuggestionListItem[];
+    onSelect: (index: number) => void;
+    searchable?: boolean;
+    /// Inside a surface that already draws the card (a popover): no border,
+    /// background or shadow of its own, and the host's width.
+    embedded?: boolean;
+  }
+>(function SuggestionList({ items, onSelect, searchable = false, embedded = false }, ref) {
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -47,33 +54,44 @@ export const SuggestionList = forwardRef<
     if (item) onSelect(items.indexOf(item));
   };
 
-  useImperativeHandle(ref, () => ({
-    onKeyDown(event) {
-      if (visible.length === 0) return false;
-      if (event.key === "ArrowDown") {
-        setSelected((i) => (i + 1) % visible.length);
-        return true;
-      }
-      if (event.key === "ArrowUp") {
-        setSelected((i) => (i - 1 + visible.length) % visible.length);
-        return true;
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        select(selected);
-        return true;
-      }
-      return false;
-    },
-  }));
+  const handleKey = (event: KeyboardEvent): boolean => {
+    if (visible.length === 0) return false;
+    if (event.key === "ArrowDown") {
+      setSelected((i) => (i + 1) % visible.length);
+      return true;
+    }
+    if (event.key === "ArrowUp") {
+      setSelected((i) => (i - 1 + visible.length) % visible.length);
+      return true;
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      select(selected);
+      return true;
+    }
+    return false;
+  };
+
+  useImperativeHandle(ref, () => ({ onKeyDown: handleKey }));
 
   return (
-    <div className="flex w-64 flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg">
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden",
+        !embedded &&
+          "w-64 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg",
+      )}
+    >
       {searchable && (
         <div className="border-b border-border p-1">
           <Input
             ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            // Hosts that route keys through `onKeyDown` (the gutter menu) stop
+            // them before they get here; anywhere else the field drives the list.
+            onKeyDown={(event) => {
+              if (handleKey(event.nativeEvent)) event.preventDefault();
+            }}
             placeholder="Search blocks"
             aria-label="Search blocks"
             className="h-7 text-xs"

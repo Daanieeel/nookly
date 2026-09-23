@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import { listAssignmentsAllSpaces } from "@/lib/api/assignments";
 import { listExamsAllSpaces } from "@/lib/api/exams";
-import { countJotsWithoutRefinementAllSpaces } from "@/lib/api/notes";
+import { countUnrefinedJotsAllSpaces } from "@/lib/api/notes";
 import { listSessionsToday } from "@/lib/api/sessions";
 import { countOpenTasksDueOrOverdue } from "@/lib/api/tasks";
 import { DashboardMascotCorner } from "./DashboardMascotCorner";
@@ -58,8 +58,8 @@ export function DashboardBriefing() {
     queryFn: listAssignmentsAllSpaces,
   });
   const { data: jotCount = 0 } = useQuery({
-    queryKey: ["jots-without-refinement-all"],
-    queryFn: countJotsWithoutRefinementAllSpaces,
+    queryKey: ["unrefined-jots", "all"],
+    queryFn: countUnrefinedJotsAllSpaces,
   });
 
   // Re-render on the next minute boundary so the greeting/mascot pick up a new

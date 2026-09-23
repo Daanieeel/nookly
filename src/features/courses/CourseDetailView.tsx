@@ -9,6 +9,7 @@ import {
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { differenceInCalendarDays, format, startOfDay } from "date-fns";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
+import { entityTarget } from "@/components/context-menu/registry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -233,6 +234,7 @@ function CourseBody({ course }: { course: Entity }) {
           .map((s) => (
             <SectionRow
               key={s.entity.id}
+              entity={s.entity}
               title={displayTitle(s.entity)}
               meta={`${format(new Date(s.date), "EEE MMM d")} · ${formatSessionTime(s.startTime)}`}
               onClick={() => openEntity(s.entity.id, spaceId)}
@@ -252,6 +254,7 @@ function CourseBody({ course }: { course: Entity }) {
           .map((e) => (
             <SectionRow
               key={e.entity.id}
+              entity={e.entity}
               title={displayTitle(e.entity)}
               meta={e.examDate ?? undefined}
               badge={e.status}
@@ -272,6 +275,7 @@ function CourseBody({ course }: { course: Entity }) {
           .map((a) => (
             <SectionRow
               key={a.entity.id}
+              entity={a.entity}
               title={displayTitle(a.entity)}
               meta={a.dueDate ?? undefined}
               badge={a.status}
@@ -343,11 +347,14 @@ function CourseSection({
 }
 
 function SectionRow({
+  entity,
   title,
   meta,
   badge,
   onClick,
 }: {
+  /// What the row stands for, so a right-click opens that entity's menu.
+  entity: Entity;
   title: string;
   meta?: string;
   badge?: string;
@@ -357,6 +364,7 @@ function SectionRow({
     <button
       type="button"
       onClick={onClick}
+      {...entityTarget(entity)}
       className="flex items-center gap-2.5 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-accent"
     >
       <span className="min-w-0 flex-1 truncate">{title}</span>

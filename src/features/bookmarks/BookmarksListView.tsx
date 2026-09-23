@@ -2,12 +2,15 @@ import { FieldError, StatusButtonContent, useActionStatus } from "@/components/a
 import { IconBookmark } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
+import { EntityKey } from "@/components/entity-key";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createBookmark, fetchBookmarkMetadata, listBookmarks } from "@/lib/api/bookmarks";
+import { readClipboardText } from "@/lib/clipboard";
 import { displayTitle } from "@/lib/entity-title";
 
 /// Paste-a-URL-first creation (§3.3 New Bookmark): the entity is created the moment
@@ -50,7 +53,14 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-4">
+    <div
+      className="flex max-w-3xl flex-col gap-4"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Bookmark from Clipboard",
+        create: () => void readClipboardText().then(submit),
+      })}
+    >
       <h1 className="text-lg font-semibold">Bookmarks</h1>
       <div className="flex flex-col gap-1">
         <form
@@ -92,7 +102,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
           </Card>
         )}
         {bookmarks.map((b) => (
-          <Card key={b.entity.id} className="overflow-hidden py-0">
+          <Card key={b.entity.id} className="overflow-hidden py-0" {...entityTarget(b.entity, b)}>
             {b.previewImageUrl && (
               <img src={b.previewImageUrl} alt="" className="h-28 w-full object-cover" />
             )}
@@ -102,6 +112,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
                 <span className="truncate text-sm font-medium">
                   {b.fetchedTitle || displayTitle(b.entity)}
                 </span>
+                <EntityKey entityKey={b.entity.key} className="ml-auto" />
               </div>
               {b.description && (
                 <p className="line-clamp-2 text-xs text-muted-foreground">{b.description}</p>

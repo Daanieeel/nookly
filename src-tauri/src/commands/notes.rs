@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::notes::{self, Block, BlockPatch};
+use crate::db::notes::{self, Block, BlockPatch, PageSummary};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use tauri::State;
@@ -10,8 +10,8 @@ pub fn create_note(state: State<DbState>, space_id: String, title: String) -> Ap
     notes::create_page(&conn, space_id, "note", title)
 }
 
-/// Jots (raw capture) and Refinements (polished version) are just Notes pages under
-/// a different entity type, linked afterwards via the generic relationship system (§5.3).
+/// Jots (raw capture) are Notes pages under a different entity type, refined into a
+/// regular Note linked afterwards via the generic relationship system (§5.3).
 #[tauri::command]
 pub fn create_jot(state: State<DbState>, space_id: String, title: String) -> AppResult<Entity> {
     let conn = state.0.lock().unwrap();
@@ -19,25 +19,15 @@ pub fn create_jot(state: State<DbState>, space_id: String, title: String) -> App
 }
 
 #[tauri::command]
-pub fn create_refinement(
-    state: State<DbState>,
-    space_id: String,
-    title: String,
-) -> AppResult<Entity> {
+pub fn count_unrefined_jots(state: State<DbState>, space_id: String) -> AppResult<i64> {
     let conn = state.0.lock().unwrap();
-    notes::create_page(&conn, space_id, "refinement", title)
+    notes::count_unrefined_jots(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn count_jots_without_refinement(state: State<DbState>, space_id: String) -> AppResult<i64> {
+pub fn count_unrefined_jots_all_spaces(state: State<DbState>) -> AppResult<i64> {
     let conn = state.0.lock().unwrap();
-    notes::count_jots_without_refinement(&conn, &space_id)
-}
-
-#[tauri::command]
-pub fn count_jots_without_refinement_all_spaces(state: State<DbState>) -> AppResult<i64> {
-    let conn = state.0.lock().unwrap();
-    notes::count_jots_without_refinement_all_spaces(&conn)
+    notes::count_unrefined_jots_all_spaces(&conn)
 }
 
 #[tauri::command]
@@ -48,6 +38,18 @@ pub fn list_recent_notes(
 ) -> AppResult<Vec<Entity>> {
     let conn = state.0.lock().unwrap();
     notes::list_recent_notes(&conn, &space_id, limit)
+}
+
+#[tauri::command]
+pub fn list_note_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<PageSummary>> {
+    let conn = state.0.lock().unwrap();
+    notes::list_note_summaries(&conn, &space_id)
+}
+
+#[tauri::command]
+pub fn list_jot_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<PageSummary>> {
+    let conn = state.0.lock().unwrap();
+    notes::list_jot_summaries(&conn, &space_id)
 }
 
 #[tauri::command]

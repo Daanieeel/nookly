@@ -89,8 +89,8 @@ pub struct EntitySchemaDef {
     /// Documentation only, for `describe` — the relationship engine itself
     /// doesn't restrict edges by entity type beyond structural cardinality.
     pub relationship_types: &'static [&'static str],
-    /// Whether this type's content lives in block storage (Notes/Jots/
-    /// Refinements — §2.1's "block-level addressable" pages) rather than
+    /// Whether this type's content lives in block storage (Notes/Jots —
+    /// §2.1's "block-level addressable" pages) rather than
     /// (or in addition to) `fields`. When true, the CLI generically offers
     /// `blocks`/`add-block`/`update-block`/`delete-block`/`reorder-blocks`
     /// for this type — see `cli::block_command`. A future module opts into
@@ -158,6 +158,14 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
     let block_commands = def.supports_blocks.then(|| {
         serde_json::json!({
             "knownBlockTypes": KNOWN_BLOCK_TYPES,
+            "contentFormats": {
+                "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)).",
+                "heading1/heading2/heading3": "The heading text, no leading '#'.",
+                "quote": "The quote text, no leading '>'.",
+                "code": "The raw code. Set --language/--filename for the header row.",
+                "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+                "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+            },
             "list": format!("nookly cli {} blocks <id>", def.entity_type),
             "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>]", def.entity_type),
             "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>]", def.entity_type),
@@ -184,7 +192,8 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         "supportsBlocks": def.supports_blocks,
         "blockCommands": block_commands,
         "baseFields": [
-            { "name": "id", "kind": "text", "description": "Stable unique id, generated" },
+            { "name": "id", "kind": "text", "description": "Stable unique id (UUID), generated" },
+            { "name": "key", "kind": "text", "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is" },
             { "name": "spaceId", "kind": "entity_ref(space)", "description": "Space this entity belongs to" },
             { "name": "title", "kind": "text", "description": "User-editable title, set via --title" },
             { "name": "icon", "kind": "text", "description": "Optional emoji/icon, set via --icon" },
@@ -196,6 +205,105 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         "fields": fields,
         "relationshipTypes": def.relationship_types,
     })
+}
+
+/// The base entity id inside a registered `get`/`create` payload: at the top
+/// (`id`) or nested under `entity` for subtype structs.
+pub fn payload_id(data: &Value) -> Option<String> {
+    data.get("id")
+        .or_else(|| data.pointer("/entity/id"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+/// Copies an entity through its own registered `get` and `create`, so every type
+/// that registers a schema can be duplicated with no code of its own. Each field
+/// is read back from the `get` payload by name; an entity reference `get` doesn't
+/// report (a Sub-task's `parentId`) comes from the entity's structural edge to an
+/// entity of that type. Icon, labels and block content come along too. The copy
+/// lands in the same Space, titled "<title> (copy)".
+pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
+    use crate::db::relationships::{
+        list_relationships, lookup_relationship_type, Cardinality, Direction,
+    };
+
+    let entity = crate::db::entities::get_entity(conn, id)?;
+    let def = lookup(&entity.entity_type).ok_or_else(|| {
+        crate::error::AppError::InvalidInput(format!(
+            "'{}' can't be duplicated",
+            entity.entity_type
+        ))
+    })?;
+    let data = (def.get)(conn, id)?;
+    let relationships = list_relationships(conn, id, Direction::From)?;
+
+    let mut fields = JsonMap::new();
+    for field in def.fields {
+        let reported = data.get(field.name).filter(|v| !v.is_null()).cloned();
+        let value = reported.or_else(|| {
+            let FieldKind::EntityRef(target_type) = field.kind else {
+                return None;
+            };
+            relationships
+                .iter()
+                .filter(|r| {
+                    lookup_relationship_type(&r.relationship_type)
+                        .is_some_and(|t| t.cardinality == Cardinality::OneToPerFrom)
+                })
+                .find_map(|r| {
+                    let target = crate::db::entities::get_entity(conn, &r.to_entity_id).ok()?;
+                    (target.entity_type == target_type).then_some(Value::String(target.id))
+                })
+        });
+        if let Some(value) = value {
+            fields.insert(field.name.to_string(), value);
+        }
+    }
+
+    let title = if entity.title.trim().is_empty() {
+        String::new()
+    } else {
+        format!("{} (copy)", entity.title)
+    };
+    let created = (def.create)(
+        conn,
+        CreateInput {
+            space_id: entity.space_id.clone(),
+            title,
+            fields,
+        },
+    )?;
+    let new_id = payload_id(&created).ok_or_else(|| {
+        crate::error::AppError::Db("internal: could not locate id in create result".into())
+    })?;
+
+    if entity.icon.is_some() {
+        crate::db::entities::update_entity(
+            conn,
+            &new_id,
+            crate::db::entities::EntityPatch {
+                icon: entity.icon,
+                ..Default::default()
+            },
+        )?;
+    }
+    for label in crate::db::labels::list_labels_for_entity(conn, id)? {
+        crate::db::labels::attach_label(conn, &new_id, &label.id)?;
+    }
+    if def.supports_blocks {
+        for block in crate::db::notes::list_blocks(conn, id)? {
+            crate::db::notes::create_block(
+                conn,
+                &new_id,
+                block.block_type,
+                block.content,
+                None,
+                block.language,
+                block.filename,
+            )?;
+        }
+    }
+    (def.get)(conn, &new_id)
 }
 
 pub fn field_str(fields: &JsonMap, name: &str) -> Option<String> {

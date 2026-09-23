@@ -19,7 +19,7 @@ export type { ModuleKey };
 export const MODULE_LABELS = {
   tasks: "Tasks",
   notes: "Notes",
-  jots: "Jots & Refinements",
+  jots: "Jots",
   courses: "Courses",
   semesters: "Semesters",
   sessions: "Sessions",
@@ -32,7 +32,7 @@ export const MODULE_LABELS = {
 export const MODULE_DESCRIPTIONS = {
   tasks: "Track to-dos on a board or list, grouped by status.",
   notes: "Write freeform pages with headings, lists, and blocks.",
-  jots: "Capture quick thoughts and refine them later.",
+  jots: "Capture quick thoughts and refine them into Notes later.",
   courses: "Organize a course into semesters and materials.",
   semesters: "Group courses by term and see what's in each one.",
   sessions: "Plan study or work sessions with reusable templates.",
@@ -61,7 +61,7 @@ export const MODULE_ICONS = {
 export const MODULE_ENTITY_TYPES = {
   tasks: ["task", "sub_task"],
   notes: ["note"],
-  jots: ["jot", "refinement"],
+  jots: ["jot"],
   courses: ["course", "course_notes"],
   semesters: ["semester"],
   sessions: ["session", "session_template"],

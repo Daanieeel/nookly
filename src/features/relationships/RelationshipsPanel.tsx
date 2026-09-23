@@ -1,10 +1,7 @@
-import { IconPlus } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { IconLink, IconPlus } from "@tabler/icons-react";
+import { type Query, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, statusOf } from "@/components/action-feedback";
-import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import {
   createRelationship,
   deleteRelationship,
@@ -13,13 +10,37 @@ import {
 } from "@/lib/api/relationships";
 import type { Entity } from "@/lib/api/types";
 import { EntityRow } from "./EntityRow";
+import { RelatePickerPopover } from "./RelatePickerPopover";
 import { RemoveLinkButton } from "./RemoveLinkButton";
+import { SidebarSection } from "./SidebarSection";
 
-/// Right sidebar, section 1 of 3 (§3.5) — every relationship except attachments,
+/// The Jots list shows each row's linked pages and Session, from any Space's list.
+function isJotSummaries(query: Query): boolean {
+  return query.queryKey[2] === "jot-summaries";
+}
+
+/// `course-notes` is structural and points at an entity that must stay invisible
+/// outside the Course page (§ course sub-dashboard) — never list it here, and
+/// never offer it as a linkable type from the "+" picker either.
+/// `semester-notes` is a real `note` entity but is already rendered inline at
+/// the top of the Semester page (PLAN §2) — hide the relationship row too so
+/// it isn't shown twice.
+/// `course-semester` gets its own bespoke section (`CourseSemesterPanel`) on a
+/// Course's own page, so hide it here only for Course entities — a Semester's
+/// page still lists its Courses through this generic panel as normal.
+export function hiddenRelationshipTypes(entity: Entity): Set<string> {
+  return new Set([
+    "attached-file",
+    "course-notes",
+    "semester-notes",
+    ...(entity.type === "course" ? ["course-semester"] : []),
+  ]);
+}
+
+/// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
 export function RelationshipsPanel({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
-  const [pickingType, setPickingType] = useState<string | null>(null);
 
   const { data: relationships = [] } = useQuery({
     queryKey: ["relationships", entity.id],
@@ -35,85 +56,43 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       createRelationship(entity.id, vars.toEntityId, vars.relationshipType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
-      // Jots/Refinements link via this same generic relationship system (§ sidebar
-      // badges) — cheap to recompute rather than special-case jot/refinement here.
-      queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
+      // A Jot counts as refined once linked to a Note through this same generic
+      // relationship system (§ sidebar badges), so recount on every link change.
+      queryClient.invalidateQueries({ queryKey: ["unrefined-jots"] });
+      queryClient.invalidateQueries({ predicate: isJotSummaries });
     },
   });
-  const createStatus = statusOf(create);
+  // The new row appearing is the confirmation, so the trigger shows no success state.
+  const createStatus = create.isSuccess ? "idle" : statusOf(create);
 
-  // `course-notes` is structural and points at an entity that must stay invisible
-  // outside the Course page (§ course sub-dashboard) — never list it here, and
-  // never offer it as a linkable type from the "+" picker either.
-  // `semester-notes` is a real `note` entity but is already rendered inline at
-  // the top of the Semester page (PLAN §2) — hide the relationship row too so
-  // it isn't shown twice.
-  // `course-semester` gets its own bespoke section (`CourseSemesterPanel`) on a
-  // Course's own page, so hide it here only for Course entities — a Semester's
-  // page still lists its Courses through this generic panel as normal.
-  const HIDDEN_TYPES = new Set([
-    "attached-file",
-    "course-notes",
-    "semester-notes",
-    ...(entity.type === "course" ? ["course-semester"] : []),
-  ]);
-  const visible = relationships.filter((r) => !HIDDEN_TYPES.has(r.relationshipType));
-  const pickableTypes = types.filter((t) => !HIDDEN_TYPES.has(t.name));
+  const hidden = hiddenRelationshipTypes(entity);
+  const visible = relationships.filter((r) => !hidden.has(r.relationshipType));
+  const pickableTypes = types.filter((t) => !hidden.has(t.name));
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium text-muted-foreground">Relationships</h3>
-        <Select
-          value={pickingType ?? undefined}
-          onValueChange={(type) => {
-            create.reset();
-            setPickingType(type);
-          }}
-        >
-          <SelectTrigger
+    <SidebarSection icon={<IconLink size={14} />} title="Relationships" count={visible.length}>
+      <RelatePickerPopover
+        spaceId={entity.spaceId}
+        exclude={entity.id}
+        types={pickableTypes}
+        trigger={
+          <Button
             variant="ghost"
             size="sm"
-            className="size-6 justify-center p-0 [&>svg]:hidden"
+            className="h-7 w-full justify-start gap-1.5 px-2 font-normal [&_svg]:size-3.5"
           >
-            <IconPlus size={14} />
-          </SelectTrigger>
-          <SelectContent>
-            {pickableTypes.map((t) => (
-              <SelectItem key={t.name} value={t.name}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {pickingType && (
-        <EntityPickerPopover
-          spaceId={entity.spaceId}
-          exclude={entity.id}
-          trigger={
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <StatusButtonContent
-                status={createStatus}
-                label={`Link "${pickingType}" to…`}
-                errorLabel="Couldn't link, try again"
-              />
-            </Button>
-          }
-          onSelect={(target) =>
-            // The trigger stays until success so a failure has a place to show.
-            create.mutate(
-              { toEntityId: target.id, relationshipType: pickingType },
-              { onSuccess: () => setPickingType(null) },
-            )
-          }
-        />
-      )}
-
-      {visible.length === 0 && (
-        <p className="text-xs text-muted-foreground">No relationships yet.</p>
-      )}
+            <StatusButtonContent
+              status={createStatus}
+              icon={<IconPlus size={14} />}
+              label="Relate to…"
+              errorLabel="Couldn't link, try again"
+            />
+          </Button>
+        }
+        onSelect={(target, relationshipType) =>
+          create.mutate({ toEntityId: target.id, relationshipType })
+        }
+      />
 
       <div className="flex flex-col gap-0.5">
         {visible.map((r) => {
@@ -132,8 +111,13 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
                 onRemove={async () => {
                   await deleteRelationship(r.id);
                   await Promise.all([
-                    queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
-                    queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] }),
+                    queryClient.invalidateQueries({
+                      queryKey: ["relationships", entity.id],
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: ["unrefined-jots"],
+                    }),
+                    queryClient.invalidateQueries({ predicate: isJotSummaries }),
                   ]);
                 }}
               />
@@ -141,6 +125,6 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
           );
         })}
       </div>
-    </div>
+    </SidebarSection>
   );
 }
