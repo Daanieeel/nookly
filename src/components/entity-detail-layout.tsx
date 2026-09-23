@@ -17,6 +17,7 @@ import {
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
 import { EntityActions } from "@/components/entity-actions";
+import { EntityKeyCopy } from "@/components/entity-key";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
@@ -75,7 +76,7 @@ export function EntityDetailLayout({
   children,
 }: {
   entity: Entity;
-  /// Adds the Markdown export actions; only page entities (Notes, Jots, Refinements) render markdown.
+  /// Adds the Markdown export actions; only page entities (Notes, Jots) render markdown.
   exportable?: boolean;
   /// Small, optional content rendered after the title — e.g. the Semester page's "Current" badge. Nothing else in the
   /// header varies per entity type (Course page convention).
@@ -194,6 +195,7 @@ export function EntityDetailLayout({
                 </button>
               }
             />
+            <EntityKeyCopy entityKey={entity.key} />
             <input
               ref={titleRef}
               value={title}

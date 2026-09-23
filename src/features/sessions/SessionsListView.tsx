@@ -12,6 +12,7 @@ import {
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -256,6 +257,7 @@ function SessionBlock({
       <button
         type="button"
         onClick={onOpen}
+        title={`${occurrence.entity.key} ${displayTitle(occurrence.entity)}`}
         className={`size-full px-1.5 py-1 text-left text-xs ${
           occurrence.cancelled ? "line-through opacity-60" : "hover:bg-primary/15"
         }`}
@@ -263,6 +265,7 @@ function SessionBlock({
         <span className="block truncate font-medium">{displayTitle(occurrence.entity)}</span>
         <span className="block truncate text-xs opacity-80">
           {occurrence.startTime}–{occurrence.endTime}
+          <EntityKey entityKey={occurrence.entity.key} className="ml-1.5 text-current" />
         </span>
       </button>
       {!occurrence.cancelled && (

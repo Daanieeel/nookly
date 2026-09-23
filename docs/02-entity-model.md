@@ -9,6 +9,7 @@ Every entity has these fields:
 - `type`: the module or entity type.
 - `title`: always present and always editable by the user. A module may generate a default title (a Session, for example), but the user can still rename it.
 - `created_at` and `updated_at`.
+- `key`: a short readable id like `TSK-14`. A three letter prefix per type and a number counted per prefix, assigned at creation and never reused. Shown in every page header and list, and matched by every search.
 - `pinned`: a boolean that powers the Pinned section of the sidebar.
 - `icon`: optional, set per instance (an emoji or an icon library icon). When unset, the entity falls back to its type's default icon. Fallback icons render in a neutral, muted color and **never** in the Space accent color. The only exception is a Space's own icon, which renders in the Space accent color.
 

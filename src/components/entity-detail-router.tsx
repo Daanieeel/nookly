@@ -25,7 +25,6 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <TaskDetailView entity={entity} />;
     case "note":
     case "jot":
-    case "refinement":
       return <PageDetailView entity={entity} />;
     case "exam":
       return <ExamDetailView entity={entity} />;

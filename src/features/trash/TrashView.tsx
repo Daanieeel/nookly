@@ -4,6 +4,7 @@ import { useState } from "react";
 import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +81,7 @@ function TrashRow({ entity, spaceName }: { entity: Entity; spaceName: string | u
   return (
     <div className="flex items-center gap-2 rounded-sm px-2 py-1 opacity-60 hover:bg-accent hover:opacity-100">
       <EntityIcon entity={entity} size={14} className="shrink-0 text-muted-foreground" />
+      <EntityKey entityKey={entity.key} />
       <span className="min-w-0 flex-1 truncate text-xs">{displayTitle(entity)}</span>
       <span className="shrink-0 text-xs text-muted-foreground/70">
         {spaceName ?? "Unknown Space"}

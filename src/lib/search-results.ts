@@ -7,7 +7,6 @@ export const TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
   { key: "tasks", label: "Tasks", types: ["task", "sub_task"] },
   { key: "notes", label: "Notes", types: ["note"] },
   { key: "jots", label: "Jots", types: ["jot"] },
-  { key: "refinements", label: "Refinements", types: ["refinement"] },
   { key: "courses", label: "Courses", types: ["course"] },
   { key: "semesters", label: "Semesters", types: ["semester"] },
   { key: "sessions", label: "Sessions", types: ["session", "session_template"] },

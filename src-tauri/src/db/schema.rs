@@ -89,8 +89,8 @@ pub struct EntitySchemaDef {
     /// Documentation only, for `describe` — the relationship engine itself
     /// doesn't restrict edges by entity type beyond structural cardinality.
     pub relationship_types: &'static [&'static str],
-    /// Whether this type's content lives in block storage (Notes/Jots/
-    /// Refinements — §2.1's "block-level addressable" pages) rather than
+    /// Whether this type's content lives in block storage (Notes/Jots —
+    /// §2.1's "block-level addressable" pages) rather than
     /// (or in addition to) `fields`. When true, the CLI generically offers
     /// `blocks`/`add-block`/`update-block`/`delete-block`/`reorder-blocks`
     /// for this type — see `cli::block_command`. A future module opts into
@@ -184,7 +184,8 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         "supportsBlocks": def.supports_blocks,
         "blockCommands": block_commands,
         "baseFields": [
-            { "name": "id", "kind": "text", "description": "Stable unique id, generated" },
+            { "name": "id", "kind": "text", "description": "Stable unique id (UUID), generated" },
+            { "name": "key", "kind": "text", "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is" },
             { "name": "spaceId", "kind": "entity_ref(space)", "description": "Space this entity belongs to" },
             { "name": "title", "kind": "text", "description": "User-editable title, set via --title" },
             { "name": "icon", "kind": "text", "description": "Optional emoji/icon, set via --icon" },

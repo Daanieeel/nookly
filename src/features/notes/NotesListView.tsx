@@ -19,23 +19,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { listLabels } from "@/lib/api/labels";
 import { createNote, listNoteSummaries } from "@/lib/api/notes";
-import type { Label, NoteSummary } from "@/lib/api/types";
+import type { Label, PageSummary } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { formatEditedAt } from "@/lib/relative-time";
+import { matchesKey } from "@/lib/entity-key";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
 import { useNavStore } from "@/lib/store/nav";
 import { type DataTableFeatures, dataTableFeatures } from "@/lib/table-features";
 import { prefetchBlocks } from "./blocks-query";
+import { keyColumn } from "./key-column";
 import { notePreviewText } from "./note-preview";
 
 interface NoteRow {
-  summary: NoteSummary;
+  summary: PageSummary;
   title: string;
   preview: string;
   labels: Label[];
 }
 
-const SORTABLE_COLUMNS = new Set(["title", "edited"]);
+const SORTABLE_COLUMNS = new Set(["key", "title", "edited"]);
 const DEFAULT_SORTING: SortingState = [{ id: "edited", desc: true }];
 const MAX_ROW_LABELS = 3;
 
@@ -75,6 +77,7 @@ function passesLabelFilters(row: NoteRow, filters: ActiveFilter[]): boolean {
 }
 
 const columns: ColumnDef<DataTableFeatures, NoteRow>[] = [
+  keyColumn<NoteRow>(),
   {
     id: "title",
     accessorFn: (row) => row.title,
@@ -188,7 +191,8 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
         (r) =>
           (!needle ||
             r.title.toLowerCase().includes(needle) ||
-            r.preview.toLowerCase().includes(needle)) &&
+            r.preview.toLowerCase().includes(needle) ||
+            matchesKey(r.summary.entity.key, query)) &&
           passesLabelFilters(r, filters),
       ),
     [rows, needle, filters],

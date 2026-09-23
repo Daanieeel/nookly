@@ -3,6 +3,7 @@ import { IconBookmark } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
+import { EntityKey } from "@/components/entity-key";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
                 <span className="truncate text-sm font-medium">
                   {b.fetchedTitle || displayTitle(b.entity)}
                 </span>
+                <EntityKey entityKey={b.entity.key} className="ml-auto" />
               </div>
               {b.description && (
                 <p className="line-clamp-2 text-xs text-muted-foreground">{b.description}</p>

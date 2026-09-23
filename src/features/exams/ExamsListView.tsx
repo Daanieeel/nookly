@@ -9,6 +9,7 @@ import {
 } from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityPickerPopover } from "@/components/entity-picker";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -140,6 +141,7 @@ export function ExamsListView({
             className="flex items-center gap-2.5 rounded-sm p-2 text-left text-sm hover:bg-accent"
           >
             <UrgencyDot examDate={exam.examDate} status={exam.status} />
+            <EntityKey entityKey={exam.entity.key} />
             <span className="min-w-0 flex-1 truncate">{displayTitle(exam.entity)}</span>
             {exam.examDate && (
               <span className="shrink-0 text-xs text-muted-foreground">{exam.examDate}</span>

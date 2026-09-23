@@ -1,5 +1,5 @@
 import { IconLink, IconPlus } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type Query, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, statusOf } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,11 @@ import { EntityRow } from "./EntityRow";
 import { RelatePickerPopover } from "./RelatePickerPopover";
 import { RemoveLinkButton } from "./RemoveLinkButton";
 import { SidebarSection } from "./SidebarSection";
+
+/// The Jots list shows each row's linked pages and Session, from any Space's list.
+function isJotSummaries(query: Query): boolean {
+  return query.queryKey[2] === "jot-summaries";
+}
 
 /// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
@@ -33,9 +38,10 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       createRelationship(entity.id, vars.toEntityId, vars.relationshipType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
-      // Jots/Refinements link via this same generic relationship system (§ sidebar
-      // badges) — cheap to recompute rather than special-case jot/refinement here.
-      queryClient.invalidateQueries({ queryKey: ["jots-without-refinement"] });
+      // A Jot counts as refined once linked to a Note through this same generic
+      // relationship system (§ sidebar badges), so recount on every link change.
+      queryClient.invalidateQueries({ queryKey: ["unrefined-jots"] });
+      queryClient.invalidateQueries({ predicate: isJotSummaries });
     },
   });
   // The new row appearing is the confirmation, so the trigger shows no success state.
@@ -105,8 +111,9 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
                       queryKey: ["relationships", entity.id],
                     }),
                     queryClient.invalidateQueries({
-                      queryKey: ["jots-without-refinement"],
+                      queryKey: ["unrefined-jots"],
                     }),
+                    queryClient.invalidateQueries({ predicate: isJotSummaries }),
                   ]);
                 }}
               />

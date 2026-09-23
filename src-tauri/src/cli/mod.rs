@@ -136,6 +136,11 @@ impl Args {
             .ok_or_else(|| AppError::InvalidInput(format!("missing required argument: <{name}>")))
     }
 
+    /// An entity id positional, also accepting the entity's key (`TSK-14`).
+    fn require_entity(&self, conn: &Connection, index: usize, name: &str) -> AppResult<String> {
+        crate::db::entities::resolve_entity_ref(conn, &self.require_positional(index, name)?)
+    }
+
     fn flag(&self, name: &str) -> Option<String> {
         self.flags.get(name).cloned()
     }
@@ -202,6 +207,8 @@ fn top_level_help() -> Value {
                       relationship type in one call, so you never need to hardcode this app's data model.",
         "entityCommands": {
             "usage": "nookly cli <entity-type> <list|get|create|update|delete|restore> ...",
+            "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, \
+                    entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
             "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted]",
             "get": "nookly cli <entity-type> get <id>  (includes relationships, labels + mentionedIn backlinks)",
@@ -209,7 +216,7 @@ fn top_level_help() -> Value {
             "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]",
             "delete": "nookly cli <entity-type> delete <id> --yes  (soft delete only — goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
-            "blocks": "note/jot/refinement only (`describe <type>` reports supportsBlocks) — full block editing: \
+            "blocks": "note/jot only (`describe <type>` reports supportsBlocks) — full block editing: \
                        `nookly cli <type> blocks <id>`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>]`, \
                        `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>]`, \
                        `delete-block <block-id> --yes`, `reorder-blocks <id> <block-id> <block-id> ...`. \
@@ -278,14 +285,19 @@ nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, n
 nookly cli <entity-type> restore <id>
 ```
 
+Every entity carries a short `key` next to its `id`, like `TSK-14` or `NOT-3`: a three
+letter type prefix and a number. Anywhere a command takes an entity id (including `relate`,
+`label attach`, block commands and entity reference `--field` values) you can pass the key
+instead. `search` matches keys too. Space, label, block and relationship ids have no key.
+
 `--field` is for whatever extra fields that *specific* entity type declares beyond the
 universal ones (title/icon/pinned) — `describe <entity-type>` lists exactly which field names
 are valid and whether each is settable on create, update, or both. Passing an unknown field
 name is an error, not a silent no-op.
 
-## Notes, Jots, Refinements: block-based pages, not a markdown blob
+## Notes and Jots: block-based pages, not a markdown blob
 
-`note`, `jot`, and `refinement` are "pages" — their content is a sequence of typed blocks
+`note` and `jot` are "pages" — their content is a sequence of typed blocks
 (heading, paragraph, code, list, table, ...), not one big string. **There is no `--field
 body=<markdown>` shortcut** — an earlier version of this CLI had one, and it was removed
 deliberately, because it let agents skip ever learning the real block commands (and a
@@ -346,7 +358,7 @@ nookly cli unrelate <relationship-id> --yes
 nookly cli search <query> [--space <id>]              # full-text, across every entity type
 ```
 
-Search matches entity titles and, for Notes/Jots/Refinements, individual blocks. A block hit
+Search matches entity titles and, for Notes/Jots, individual blocks. A block hit
 carries `blockId` plus a `snippet` whose matched terms are wrapped in `\u0001` / `\u0002`.
 
 ## Spaces and Labels
@@ -458,6 +470,26 @@ fn validate_fields(
     Ok(())
 }
 
+/// `--field` values of `EntityRef` fields may be keys (`courseId=CRS-2`); swaps them
+/// for ids before the module's own adapter sees them.
+fn resolve_ref_fields(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    fields: &JsonMap,
+) -> AppResult<JsonMap> {
+    let mut resolved = fields.clone();
+    for f in def.fields {
+        if !matches!(f.kind, schema::FieldKind::EntityRef(_)) {
+            continue;
+        }
+        if let Some(Value::String(raw)) = resolved.get(f.name) {
+            let id = crate::db::entities::resolve_entity_ref(conn, raw)?;
+            resolved.insert(f.name.to_string(), Value::String(id));
+        }
+    }
+    Ok(resolved)
+}
+
 fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppResult<Value> {
     let def = schema::lookup(entity_type).ok_or_else(|| unknown_entity_type(entity_type))?;
     let Some(verb) = rest.first() else {
@@ -471,7 +503,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             Ok(json!({ "entityType": entity_type, "count": items.len(), "items": items }))
         }
         "get" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             let data = (def.get)(conn, &id)?;
             enrich(conn, entity_type, &id, data)
         }
@@ -480,7 +512,8 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             let space_id = args.require_flag("space")?;
             let title = args.require_flag("title")?;
             let icon = args.flag("icon");
-            let input = schema::CreateInput { space_id, title, fields: args.fields.clone() };
+            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let input = schema::CreateInput { space_id, title, fields };
             let data = (def.create)(conn, input)?;
             let id = extract_id(&data)?;
             // `icon` is base-entity data (§ entity model), not a module field —
@@ -499,7 +532,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             enrich(conn, entity_type, &id, data)
         }
         "update" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             validate_fields(entity_type, def, &args.fields, false)?;
             let title = args.flag("title");
             let icon = args.flag("icon");
@@ -511,17 +544,19 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                     crate::db::entities::EntityPatch { title, icon, pinned },
                 )?;
             }
-            let data = (def.update)(conn, &id, &args.fields)?;
+            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let data = (def.update)(conn, &id, &fields)?;
             enrich(conn, entity_type, &id, data)
         }
         "delete" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             args.require_yes()?;
             crate::db::entities::soft_delete_entity(conn, &id)?;
-            Ok(json!({ "deleted": id, "note": "soft delete only — recoverable with `restore`, see Trash" }))
+            let key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(json!({ "deleted": id, "key": key, "note": "soft delete only — recoverable with `restore`, see Trash" }))
         }
         "restore" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             crate::db::entities::restore_entity(conn, &id)?;
             let data = (def.get)(conn, &id)?;
             enrich(conn, entity_type, &id, data)
@@ -542,9 +577,9 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
     }
 }
 
-/// Block-level editing (§2.1: Notes/Jots/Refinements are "block-level
+/// Block-level editing (§2.1: Notes/Jots are "block-level
 /// addressable" pages) for any entity type that opts in via
-/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`/`refinement`,
+/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`,
 /// but generic: a future page-like module gets these commands for free.
 /// Blocks aren't entities themselves (no base entity fields — same reasoning
 /// as Index Cards, see `db::decks`), so they live outside the `<entity-type>
@@ -568,13 +603,14 @@ fn block_command(
 
     match verb {
         "blocks" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             require_page(conn, entity_type, &id)?;
             let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            Ok(json!({ "pageId": id, "count": blocks.len(), "items": blocks }))
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(json!({ "pageId": id, "pageKey": page_key, "count": blocks.len(), "items": blocks }))
         }
         "add-block" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             require_page(conn, entity_type, &id)?;
             let block_type = args.require_flag("type")?;
             let content = args.require_flag("content")?;
@@ -587,7 +623,8 @@ fn block_command(
             let block = crate::db::notes::create_block(
                 conn, &id, block_type, content, position, language, filename,
             )?;
-            let mut result = json!({ "pageId": id, "block": block.clone() });
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            let mut result = json!({ "pageId": id, "pageKey": page_key, "block": block.clone() });
             if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &id, &block)? {
                 result["warning"] = json!(warning);
             }
@@ -625,7 +662,7 @@ fn block_command(
             Ok(json!({ "deleted": block_id }))
         }
         "reorder-blocks" => {
-            let id = args.require_positional(0, "id")?;
+            let id = args.require_entity(conn, 0, "id")?;
             require_page(conn, entity_type, &id)?;
             let ordered_ids: Vec<String> = args.positional[1..].to_vec();
             if ordered_ids.is_empty() {
@@ -636,7 +673,8 @@ fn block_command(
             }
             crate::db::notes::reorder_blocks(conn, &id, ordered_ids)?;
             let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            Ok(json!({ "pageId": id, "count": blocks.len(), "items": blocks }))
+            let page_key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(json!({ "pageId": id, "pageKey": page_key, "count": blocks.len(), "items": blocks }))
         }
         _ => unreachable!("dispatch guarantees verb is one of the block commands"),
     }
@@ -741,8 +779,12 @@ fn enrich(conn: &Connection, entity_type: &str, id: &str, data: Value) -> AppRes
     let labels = crate::db::labels::list_labels_for_entity(conn, id)?;
     let mentioned_in: Vec<Value> = crate::db::notes::list_mentioning_entities(conn, id)?
         .into_iter()
-        .map(|e| json!({ "id": e.id, "type": e.entity_type, "title": e.title }))
+        .map(|e| json!({ "id": e.id, "key": e.key, "type": e.entity_type, "title": e.title }))
         .collect();
+    let relationships = relationships
+        .into_iter()
+        .map(|r| relationship_json(conn, r))
+        .collect::<AppResult<Vec<_>>>()?;
     Ok(json!({
         "entityType": entity_type,
         "data": data,
@@ -753,9 +795,9 @@ fn enrich(conn: &Connection, entity_type: &str, id: &str, data: Value) -> AppRes
 }
 
 fn relate(conn: &Connection, args: &Args) -> AppResult<Value> {
-    let from_id = args.require_positional(0, "from-id")?;
+    let from_id = args.require_entity(conn, 0, "from-id")?;
     let relationship_type = args.require_positional(1, "relationship-type")?;
-    let to_id = args.require_positional(2, "to-id")?;
+    let to_id = args.require_entity(conn, 2, "to-id")?;
     args.require_yes()?;
     let rel = crate::db::relationships::create_relationship(
         conn,
@@ -765,7 +807,20 @@ fn relate(conn: &Connection, args: &Args) -> AppResult<Value> {
         None,
         None,
     )?;
-    Ok(serde_json::to_value(rel).expect("Relationship always serializes"))
+    relationship_json(conn, rel)
+}
+
+/// A relationship with both ends' keys next to their ids.
+fn relationship_json(
+    conn: &Connection,
+    rel: crate::db::relationships::Relationship,
+) -> AppResult<Value> {
+    let from_key = crate::db::entities::entity_key(conn, &rel.from_entity_id)?;
+    let to_key = crate::db::entities::entity_key(conn, &rel.to_entity_id)?;
+    let mut value = serde_json::to_value(rel).expect("Relationship always serializes");
+    value["fromEntityKey"] = json!(from_key);
+    value["toEntityKey"] = json!(to_key);
+    Ok(value)
 }
 
 fn unrelate(conn: &Connection, args: &Args) -> AppResult<Value> {
@@ -851,16 +906,18 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             Ok(json!({ "deleted": id }))
         }
         "attach" => {
-            let entity_id = args.require_positional(0, "entity-id")?;
+            let entity_id = args.require_entity(conn, 0, "entity-id")?;
             let label_id = args.require_positional(1, "label-id")?;
             crate::db::labels::attach_label(conn, &entity_id, &label_id)?;
-            Ok(json!({ "attached": label_id, "to": entity_id }))
+            let key = crate::db::entities::entity_key(conn, &entity_id)?;
+            Ok(json!({ "attached": label_id, "to": entity_id, "toKey": key }))
         }
         "detach" => {
-            let entity_id = args.require_positional(0, "entity-id")?;
+            let entity_id = args.require_entity(conn, 0, "entity-id")?;
             let label_id = args.require_positional(1, "label-id")?;
             crate::db::labels::detach_label(conn, &entity_id, &label_id)?;
-            Ok(json!({ "detached": label_id, "from": entity_id }))
+            let key = crate::db::entities::entity_key(conn, &entity_id)?;
+            Ok(json!({ "detached": label_id, "from": entity_id, "fromKey": key }))
         }
         other => Err(AppError::InvalidInput(format!(
             "unknown label command '{other}'. Expected one of: list, create, delete, attach, detach"

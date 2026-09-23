@@ -45,6 +45,7 @@ interface NavState {
   paletteOpen: boolean;
   switcherOpen: boolean;
   commandsOpen: boolean;
+  quickJotOpen: boolean;
   focusBlock: FocusBlock | null;
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
@@ -62,6 +63,7 @@ interface NavState {
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
+  setQuickJotOpen: (open: boolean) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
@@ -147,6 +149,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   paletteOpen: false,
   switcherOpen: false,
   commandsOpen: false,
+  quickJotOpen: false,
   focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
@@ -190,6 +193,9 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(switcherOpen ? { ...NO_OVERLAY, switcherOpen } : { switcherOpen }),
   setCommandsOpen: (commandsOpen) =>
     set(commandsOpen ? { ...NO_OVERLAY, commandsOpen } : { commandsOpen }),
+  // Never closed by another overlay opening, since it may hold unsaved text.
+  setQuickJotOpen: (quickJotOpen) =>
+    set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     try {

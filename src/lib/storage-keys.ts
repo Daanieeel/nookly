@@ -8,4 +8,5 @@ export const STORAGE_KEYS = {
   cliInstallCardDismissed: "nookly:cli-install-card-dismissed",
   theme: "nookly:theme",
   notesSort: "nookly:notes-sort",
+  jotsSort: "nookly:jots-sort",
 } as const;

@@ -23,6 +23,7 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { FeedbackMenuItem } from "@/components/feedback-menu-item";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -426,6 +427,7 @@ function SemesterRow({
           </span>
         ) : (
           <span className="flex min-w-0 items-center gap-1">
+            <EntityKey entityKey={semester.entity.key} className="mr-0.5" />
             <button
               type="button"
               onClick={() => openEntity(semester.entity.id, spaceId)}
@@ -547,6 +549,7 @@ function SemesterRow({
                 className="flex items-center gap-1.5 rounded-sm p-1 text-left text-sm text-foreground hover:bg-accent"
               >
                 <EntityIcon entity={course} size={14} className="text-muted-foreground" />
+                <EntityKey entityKey={course.key} />
                 {displayTitle(course)}
               </button>
             ))
@@ -567,7 +570,7 @@ function CourseChips({ courses }: { courses: Entity[] }) {
       {shown.map((course) => (
         <span
           key={course.id}
-          title={displayTitle(course)}
+          title={`${course.key} ${displayTitle(course)}`}
           className="flex size-5 items-center justify-center rounded-full border border-card bg-muted text-muted-foreground"
         >
           <EntityIcon entity={course} size={11} />

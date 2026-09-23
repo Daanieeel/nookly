@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
@@ -39,6 +40,7 @@ export function EntityRow({
       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
     >
       <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
+      <EntityKey entityKey={entity.key} />
       <span className={`truncate ${entity.deletedAt ? "opacity-50" : ""}`}>
         {displayTitle(entity)}
       </span>

@@ -18,6 +18,7 @@ import {
 } from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -391,7 +392,10 @@ function TaskCard({
     >
       <span className="flex items-start gap-1.5 text-sm">
         <EntityIcon entity={task.entity} className="mt-0.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">{displayTitle(task.entity)}</span>
+        <span className="min-w-0 flex-1">
+          <EntityKey entityKey={task.entity.key} className="mr-1.5" />
+          {displayTitle(task.entity)}
+        </span>
       </span>
       {task.dueDate && (
         <Badge variant="outline" className="w-fit">
@@ -451,6 +455,7 @@ function TaskListGrouped({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
               >
                 <EntityIcon entity={task.entity} className="shrink-0 text-muted-foreground" />
+                <EntityKey entityKey={task.entity.key} />
                 <span className="truncate group-hover:underline">{displayTitle(task.entity)}</span>
               </button>
               {task.dueDate && (

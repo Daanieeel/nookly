@@ -10,7 +10,7 @@ pub fn module_keys_for_entity_type(entity_type: &str) -> &'static [&'static str]
     match entity_type {
         "task" | "sub_task" => &["tasks"],
         "note" => &["notes"],
-        "jot" | "refinement" => &["jots"],
+        "jot" => &["jots"],
         "course" => &["courses", "semesters"],
         "course_notes" => &["courses"],
         "semester" => &["semesters"],

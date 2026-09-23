@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { EntityPickerPopover } from "@/components/entity-picker";
+import { EntityKey } from "@/components/entity-key";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -146,6 +147,7 @@ export function AssignmentsListView({
             className="flex items-center gap-2.5 rounded-sm p-2 hover:bg-accent"
           >
             <UrgencyDot dueDate={a.dueDate} status={a.status} />
+            <EntityKey entityKey={a.entity.key} />
             <button
               type="button"
               onClick={() => openEntity(a.entity.id, spaceId)}

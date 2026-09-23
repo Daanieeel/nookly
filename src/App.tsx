@@ -13,6 +13,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
 import { RecentsView } from "@/features/dashboard/RecentsView";
+import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
 import { useNavStore } from "@/lib/store/nav";
 
@@ -76,6 +77,7 @@ function Shell() {
       <CommandPalette />
       <QuickSwitcher />
       <CommandsPalette />
+      <QuickJotDialog />
       <Toaster />
     </div>
   );

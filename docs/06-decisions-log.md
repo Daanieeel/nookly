@@ -149,3 +149,11 @@ The full list is now Dashboard, Pinned, Search, and Recents.
 **Why:** it offers a fast way back to items actually in use without drilling from Space to module to entity every time. It differs from Pinned, which is curated by hand, because it is automatic and driven by usage.
 
 **Rejected:** folding it into Pinned (mixes manual curation with usage history), and making cross-Space access a general capability that modules can opt into (already ruled out by the "one at a time, deliberately" rule).
+
+---
+
+### Jots are refined into Notes, there is no Refinement type
+
+**Why:** a Refinement was already conceptually a Note on the same canvas. A second page type only split the same content across two lists.
+
+**Rejected:** keeping Refinement as its own entity type.

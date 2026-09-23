@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { createCourse } from "@/lib/api/courses";
-import { createJot, createNote, createRefinement } from "@/lib/api/notes";
+import { createJot, createNote } from "@/lib/api/notes";
 import { listSpaceModules, listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
 import type { Entity, Space } from "@/lib/api/types";
@@ -61,7 +61,6 @@ const QUICK_CREATE_TYPES: QuickCreateType[] = [
   },
   { type: "note", label: "Note", create: createNote },
   { type: "jot", label: "Jot", create: createJot },
-  { type: "refinement", label: "Refinement", create: createRefinement },
   { type: "course", label: "Course", create: createCourse },
 ];
 

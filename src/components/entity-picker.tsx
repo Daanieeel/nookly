@@ -2,9 +2,11 @@ import { Command } from "cmdk";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listEntities } from "@/lib/api/entities";
 import type { Entity } from "@/lib/api/types";
+import { keyKeywords } from "@/lib/entity-key";
 import { displayTitle } from "@/lib/entity-title";
 
 export function EntityPickerPopover({
@@ -50,7 +52,8 @@ export function EntityPickerPopover({
               .map((entity) => (
                 <Command.Item
                   key={entity.id}
-                  value={displayTitle(entity)}
+                  value={`${displayTitle(entity)} ${entity.id}`}
+                  keywords={keyKeywords(entity.key)}
                   onSelect={() => {
                     onSelect(entity);
                     setOpen(false);
@@ -58,6 +61,7 @@ export function EntityPickerPopover({
                   className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                 >
                   <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
+                  <EntityKey entityKey={entity.key} />
                   <span className="min-w-0 flex-1 truncate">{displayTitle(entity)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{entity.type}</span>
                 </Command.Item>

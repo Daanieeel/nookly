@@ -3,9 +3,11 @@ import { IconChevronLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listEntities } from "@/lib/api/entities";
 import type { Entity, RelationshipTypeInfo } from "@/lib/api/types";
+import { keyKeywords } from "@/lib/entity-key";
 import { displayTitle } from "@/lib/entity-title";
 
 /// Two steps in one popover: pick the relationship type, then the target entity.
@@ -98,6 +100,7 @@ export function RelatePickerPopover({
                     <Command.Item
                       key={entity.id}
                       value={`${displayTitle(entity)} ${entity.id}`}
+                      keywords={keyKeywords(entity.key)}
                       onSelect={() => {
                         onSelect(entity, type);
                         setOpen(false);
@@ -106,6 +109,7 @@ export function RelatePickerPopover({
                       className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
                     >
                       <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
+                      <EntityKey entityKey={entity.key} />
                       <span className="min-w-0 flex-1 truncate">{displayTitle(entity)}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{entity.type}</span>
                     </Command.Item>

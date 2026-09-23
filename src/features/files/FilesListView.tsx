@@ -19,6 +19,7 @@ import {
 } from "@/components/action-feedback";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,6 +210,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                   {displayTitle(f.entity)}
                 </span>
                 <div className="flex min-h-4 items-center gap-1.5">
+                  <EntityKey entityKey={f.entity.key} />
                   {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
                   {f.url && (
                     <a
@@ -241,6 +243,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                 className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
               >
                 <EntityIcon entity={f.entity} className="shrink-0 text-muted-foreground" />
+                <EntityKey entityKey={f.entity.key} />
                 <span className="min-w-0 flex-1 truncate">{displayTitle(f.entity)}</span>
                 {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
                 {f.url && (

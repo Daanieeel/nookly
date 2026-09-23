@@ -41,7 +41,9 @@ pub struct SearchHit {
     #[serde(rename = "type")]
     pub entity_type: String,
     pub icon: Option<String>,
-    /// Set when the match came from one block of a Note/Jot/Refinement rather
+    /// The entity's `TSK-14` style key (`Entity::key`).
+    pub key: String,
+    /// Set when the match came from one block of a Note/Jot rather
     /// than the entity's title. A page can yield several block hits.
     pub block_id: Option<String>,
     /// The matching block's text around the hit, matched terms wrapped in
@@ -98,9 +100,62 @@ fn match_expression(query: &str, column: Option<&str>) -> Option<String> {
 /// of looser FTS ranking), followed by block-level hits ordered by FTS relevance.
 /// Soft-deleted entities never appear.
 pub fn search(conn: &Connection, query: &str, space_id: Option<&str>) -> AppResult<Vec<SearchHit>> {
-    let mut hits = search_titles(conn, query, space_id)?;
+    let mut hits = search_keys(conn, query, space_id)?;
+    let key_ids: std::collections::HashSet<String> =
+        hits.iter().map(|h| h.entity_id.clone()).collect();
+    hits.extend(
+        search_titles(conn, query, space_id)?
+            .into_iter()
+            .filter(|h| !key_ids.contains(&h.entity_id)),
+    );
     hits.extend(search_blocks(conn, query, space_id)?);
     Ok(hits)
+}
+
+/// Splits a key shaped query (`TSK-14`, `tsk14`, `tsk 1`) into its prefix and number
+/// digits. Needs at least one digit, so a bare `not` stays a title search.
+pub fn parse_key_query(query: &str) -> Option<(String, String)> {
+    let query = query.trim();
+    if !query
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == ' ')
+    {
+        return None;
+    }
+    let compact: String = query.chars().filter(char::is_ascii_alphanumeric).collect();
+    let (prefix, digits) = compact.split_at_checked(3)?;
+    let valid = prefix.chars().all(|c| c.is_ascii_alphabetic())
+        && !digits.is_empty()
+        && digits.chars().all(|c| c.is_ascii_digit());
+    valid.then(|| (prefix.to_ascii_uppercase(), digits.to_string()))
+}
+
+/// Entities whose key starts with the typed one (`TSK-1` finds TSK-1, then TSK-10...),
+/// exact match first. Same visibility rules as `search_titles`.
+fn search_keys(
+    conn: &Connection,
+    query: &str,
+    space_id: Option<&str>,
+) -> AppResult<Vec<SearchHit>> {
+    let Some((prefix, digits)) = parse_key_query(query) else {
+        return Ok(Vec::new());
+    };
+    let mut stmt = conn.prepare(&format!(
+        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
+                e.key_prefix || '-' || e.key_number
+         FROM entities e
+         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'
+           AND NOT EXISTS (
+             SELECT 1 FROM relationships r
+             WHERE r.to_entity_id = e.id AND r.relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})
+           )
+           AND (?3 IS NULL OR e.space_id = ?3)
+           AND e.key_prefix = ?1 AND CAST(e.key_number AS TEXT) LIKE ?2 || '%'
+         ORDER BY length(CAST(e.key_number AS TEXT)), e.key_number
+         LIMIT ?4"
+    ))?;
+    let rows = stmt.query_map(params![prefix, digits, space_id, HIT_LIMIT], row_to_hit)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 fn search_titles(
@@ -115,7 +170,8 @@ fn search_titles(
     // same invisibility rule `list_entities` enforces for mentions/pickers/Dashboard.
     // Embedded notes pages are skipped too: their title just echoes the owner's.
     let mut stmt = conn.prepare(&format!(
-        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL
+        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
+                e.key_prefix || '-' || e.key_number
          FROM entities e
          JOIN (SELECT entity_id, rank FROM search_index WHERE search_index MATCH ?1) si ON si.entity_id = e.id
          WHERE e.deleted_at IS NULL AND e.type != 'course_notes'
@@ -152,7 +208,8 @@ fn search_blocks(
         "SELECT COALESCE(o.id, e.id), COALESCE(o.space_id, e.space_id),
                 COALESCE(o.title, e.title), COALESCE(o.type, e.type),
                 CASE WHEN o.id IS NULL THEN e.icon ELSE o.icon END,
-                b.id, f.snip, e.id
+                b.id, f.snip, e.id,
+                COALESCE(o.key_prefix, e.key_prefix) || '-' || COALESCE(o.key_number, e.key_number)
          FROM (
            SELECT block_id, rank, snippet(blocks_fts, 1, char(1), char(2), '…', 16) AS snip
            FROM blocks_fts WHERE blocks_fts MATCH ?1
@@ -182,6 +239,7 @@ fn row_to_hit(row: &rusqlite::Row) -> rusqlite::Result<SearchHit> {
         block_id: row.get(5)?,
         snippet: row.get(6)?,
         block_entity_id: row.get(7)?,
+        key: row.get(8)?,
     })
 }
 
@@ -190,6 +248,33 @@ mod tests {
     use super::*;
     use crate::db::entities::create_entity;
     use crate::db::spaces::create_space;
+
+    #[test]
+    fn search_finds_entities_by_key() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let first =
+            create_entity(&conn, space.id.clone(), "note".into(), "A".into(), None).unwrap();
+        for title in ["B", "C", "D", "E", "F", "G", "H", "I", "J"] {
+            create_entity(&conn, space.id.clone(), "note".into(), title.into(), None).unwrap();
+        }
+        let tenth =
+            create_entity(&conn, space.id.clone(), "note".into(), "K".into(), None).unwrap();
+        assert_eq!(first.key, "NOT-1");
+        assert_eq!(tenth.key, "NOT-11");
+
+        let hits = search(&conn, "not-1", None).unwrap();
+        assert_eq!(hits[0].entity_id, first.id);
+        let keys: Vec<&str> = hits.iter().take(3).map(|h| h.key.as_str()).collect();
+        assert_eq!(keys, ["NOT-1", "NOT-10", "NOT-11"]);
+        assert_eq!(hits[2].entity_id, tenth.id);
+        assert_eq!(search(&conn, "NOT 11", None).unwrap()[0].key, "NOT-11");
+        assert_eq!(parse_key_query("not"), None);
+        assert_eq!(parse_key_query("tsk14"), Some(("TSK".into(), "14".into())));
+    }
 
     #[test]
     fn search_finds_indexed_title() {

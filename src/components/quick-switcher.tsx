@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { EntityIcon, iconForType } from "@/components/entity-icon";
+import { EntityKey } from "@/components/entity-key";
 import {
   Highlighted,
   SpaceGlyph,
@@ -16,6 +17,7 @@ import { listEntities } from "@/lib/api/entities";
 import { listEmbeddedPageIds } from "@/lib/api/search";
 import { listSpaces } from "@/lib/api/spaces";
 import type { Entity } from "@/lib/api/types";
+import { matchesKey } from "@/lib/entity-key";
 import { displayTitle, labelForType } from "@/lib/entity-title";
 import { fuzzyMatch, type TextSegment } from "@/lib/search-results";
 import { useNavStore } from "@/lib/store/nav";
@@ -99,6 +101,7 @@ export function QuickSwitcher() {
               }}
             >
               <EntityIcon entity={entity} size={16} className="shrink-0 text-muted-foreground" />
+              <EntityKey entityKey={entity.key} />
               <span className="min-w-0 flex-1 truncate">
                 <Highlighted segments={segments} />
               </span>
@@ -150,6 +153,11 @@ function rankRows(entities: Entity[], query: string, recentIds: string[]): Switc
   }
   return entities
     .flatMap((entity) => {
+      // A typed key (`TSK-14`) ranks its entity above every title match.
+      if (matchesKey(entity.key, query)) {
+        const segments = [{ text: displayTitle(entity), match: false }];
+        return [{ entity, match: { tier: -1, spread: entity.key.length, segments } }];
+      }
       const match = fuzzyMatch(displayTitle(entity), query);
       return match ? [{ entity, match }] : [];
     })

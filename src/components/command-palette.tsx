@@ -2,6 +2,7 @@ import { IconArrowRight, IconCategory, IconFolder } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { EntityKey } from "@/components/entity-key";
 import { EntityIcon, iconForType } from "@/components/entity-icon";
 import {
   type ActiveFilter,
@@ -143,6 +144,7 @@ export function CommandPalette() {
         className="items-start"
       >
         <EntityIcon entity={hit} size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+        <EntityKey entityKey={hit.key} className="mt-px leading-5" />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           {hit.snippet ? (
             <>

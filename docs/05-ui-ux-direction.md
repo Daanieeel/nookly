@@ -86,7 +86,6 @@ Look at the nature of the data (is it time-based, document-based, visual, driven
 | Tasks              | Board with Linear-style columns per status by default. Toggle to a list or table grouped by status, label, or date. |
 | Notes              | Full-width document canvas. No list and detail split for the writing surface.                                       |
 | Jots               | Fast, minimal capture surface with almost no chrome.                                                                |
-| Refinements        | Same canvas as Notes.                                                                                               |
 | Courses            | Card grid or compact list showing name, semester chips, and sequel or prequel indicators.                           |
 | Sessions/Timetable | Calendar first, using a weekly timetable grid. A list is secondary.                                                 |
 | Exams              | Timeline or upcoming-first list, sorted by date, with urgency emphasized. Grade and status as badges.               |

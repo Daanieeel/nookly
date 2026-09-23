@@ -8,7 +8,7 @@ import { SidebarHint, SidebarSection } from "./SidebarSection";
 
 /// Right sidebar, section 3 of 4 (§1.5): this page's own outgoing inline
 /// `@mention`s, found in its block content. Always empty for entity types with
-/// no blocks (only Notes/Jots/Refinements have any), with no type check needed.
+/// no blocks (only Notes/Jots have any), with no type check needed.
 export function MentionedPanel({ entity }: { entity: Entity }) {
   const { data: blocks = [] } = useQuery({
     queryKey: ["blocks", entity.id],
