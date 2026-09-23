@@ -19,6 +19,24 @@ function isJotSummaries(query: Query): boolean {
   return query.queryKey[2] === "jot-summaries";
 }
 
+/// `course-notes` is structural and points at an entity that must stay invisible
+/// outside the Course page (§ course sub-dashboard) — never list it here, and
+/// never offer it as a linkable type from the "+" picker either.
+/// `semester-notes` is a real `note` entity but is already rendered inline at
+/// the top of the Semester page (PLAN §2) — hide the relationship row too so
+/// it isn't shown twice.
+/// `course-semester` gets its own bespoke section (`CourseSemesterPanel`) on a
+/// Course's own page, so hide it here only for Course entities — a Semester's
+/// page still lists its Courses through this generic panel as normal.
+export function hiddenRelationshipTypes(entity: Entity): Set<string> {
+  return new Set([
+    "attached-file",
+    "course-notes",
+    "semester-notes",
+    ...(entity.type === "course" ? ["course-semester"] : []),
+  ]);
+}
+
 /// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
 export function RelationshipsPanel({ entity }: { entity: Entity }) {
@@ -47,23 +65,9 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
   // The new row appearing is the confirmation, so the trigger shows no success state.
   const createStatus = create.isSuccess ? "idle" : statusOf(create);
 
-  // `course-notes` is structural and points at an entity that must stay invisible
-  // outside the Course page (§ course sub-dashboard) — never list it here, and
-  // never offer it as a linkable type from the "+" picker either.
-  // `semester-notes` is a real `note` entity but is already rendered inline at
-  // the top of the Semester page (PLAN §2) — hide the relationship row too so
-  // it isn't shown twice.
-  // `course-semester` gets its own bespoke section (`CourseSemesterPanel`) on a
-  // Course's own page, so hide it here only for Course entities — a Semester's
-  // page still lists its Courses through this generic panel as normal.
-  const HIDDEN_TYPES = new Set([
-    "attached-file",
-    "course-notes",
-    "semester-notes",
-    ...(entity.type === "course" ? ["course-semester"] : []),
-  ]);
-  const visible = relationships.filter((r) => !HIDDEN_TYPES.has(r.relationshipType));
-  const pickableTypes = types.filter((t) => !HIDDEN_TYPES.has(t.name));
+  const hidden = hiddenRelationshipTypes(entity);
+  const visible = relationships.filter((r) => !hidden.has(r.relationshipType));
+  const pickableTypes = types.filter((t) => !hidden.has(t.name));
 
   return (
     <SidebarSection icon={<IconLink size={14} />} title="Relationships" count={visible.length}>

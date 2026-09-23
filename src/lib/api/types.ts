@@ -43,6 +43,8 @@ export interface EntityPatch {
   title?: string;
   icon?: string;
   pinned?: boolean;
+  /// Moves the entity, with everything it structurally owns, to another Space.
+  spaceId?: string;
 }
 
 export interface Relationship {

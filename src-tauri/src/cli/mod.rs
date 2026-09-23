@@ -318,7 +318,7 @@ fn top_level_help() -> Value {
         "discovery": "Run `nookly cli schema` first — it dumps every entity type's fields and every \
                       relationship type in one call, so you never need to hardcode this app's data model.",
         "entityCommands": {
-            "usage": "nookly cli <entity-type> <list|get|create|update|delete|restore> ...",
+            "usage": "nookly cli <entity-type> <list|get|create|update|duplicate|delete|restore> ...",
             "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, \
                     entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
@@ -332,8 +332,11 @@ fn top_level_help() -> Value {
                     excerpts and adds a heading outline for block pages; --fields returns just those fields, e.g. \
                     title,updatedAt. Several ids return {count, items}, a bad id becomes an {ref, error} row)",
             "create": "nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]",
-            "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...] \
-                       [--if-revision <rev>]  (response lists `changes`, before and after per field)",
+            "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] \
+                       [--field name=value ...] [--if-revision <rev>]  (response lists `changes`, before and after per field. \
+                       --space moves the entity and everything it structurally owns, e.g. a Task's sub-tasks, to that Space)",
+            "duplicate": "nookly cli <entity-type> duplicate <id>  (a copy in the same Space titled \"<title> (copy)\", \
+                          with the same fields, icon, labels and block content)",
             "delete": "nookly cli <entity-type> delete <id> --yes [--if-revision <rev>]  (soft delete only — goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
@@ -413,7 +416,8 @@ Almost everything is one of:
 nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since 24h] [--fields a,b] [--limit <n>]
 nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b]   # includes relationships, labels + mentionedIn
 nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
-nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--field name=value ...]
+nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] [--field name=value ...]
+nookly cli <entity-type> duplicate <id>               # copy in the same Space, same fields, labels and blocks
 nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, not permanent
 nookly cli <entity-type> restore <id>
 ```
@@ -707,7 +711,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                 crate::db::entities::update_entity(
                     conn,
                     &id,
-                    crate::db::entities::EntityPatch { title: None, icon, pinned: None },
+                    crate::db::entities::EntityPatch { icon, ..Default::default() },
                 )?;
                 (def.get)(conn, &id)?
             } else {
@@ -723,11 +727,12 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             let title = args.flag("title");
             let icon = args.flag("icon");
             let pinned = args.flag("pinned").map(|v| v == "true");
-            if title.is_some() || icon.is_some() || pinned.is_some() {
+            let space_id = args.flag("space");
+            if title.is_some() || icon.is_some() || pinned.is_some() || space_id.is_some() {
                 crate::db::entities::update_entity(
                     conn,
                     &id,
-                    crate::db::entities::EntityPatch { title, icon, pinned },
+                    crate::db::entities::EntityPatch { title, icon, pinned, space_id },
                 )?;
             }
             let fields = resolve_ref_fields(conn, def, &args.fields)?;
@@ -746,6 +751,12 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             let key = crate::db::entities::entity_key(conn, &id)?;
             Ok(json!({ "deleted": id, "key": key, "note": "soft delete only — recoverable with `restore`, see Trash" }))
         }
+        "duplicate" => {
+            let id = args.require_entity(conn, 0, "id")?;
+            let data = schema::duplicate(conn, &id)?;
+            let new_id = extract_id(&data)?;
+            enrich(conn, entity_type, &new_id, data)
+        }
         "restore" => {
             let id = args.require_entity(conn, 0, "id")?;
             crate::db::entities::restore_entity(conn, &id)?;
@@ -763,7 +774,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
         }
         other => Err(AppError::InvalidInput(format!(
             "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
-             update, delete, restore, blocks, grep, add-block, update-block, delete-block, reorder-blocks"
+             update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, reorder-blocks"
         ))),
     }
 }
@@ -1145,10 +1156,7 @@ fn extract_id(data: &Value) -> AppResult<String> {
     // Every registered `get`/`create` shape nests the base entity either
     // directly (id at the top) or under `entity` (subtype structs) or
     // `entity.id` (page types wrap it as `{entity, body}`).
-    let candidate = data.get("id").or_else(|| data.pointer("/entity/id"));
-    candidate
-        .and_then(Value::as_str)
-        .map(str::to_string)
+    schema::payload_id(data)
         .ok_or_else(|| AppError::Db("internal: could not locate id in create/get result".into()))
 }
 

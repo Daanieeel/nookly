@@ -70,8 +70,7 @@ pub fn update_metadata(
             entity_id,
             crate::db::entities::EntityPatch {
                 title: Some(title),
-                icon: None,
-                pinned: None,
+                ..Default::default()
             },
         )?;
     }

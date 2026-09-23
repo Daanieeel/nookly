@@ -1,12 +1,12 @@
 use crate::db::entities::Entity;
-use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "study-block-exam", inverse_label: "has study block", cardinality: Cardinality::OneToPerFrom }
+    RelationshipTypeDef { name: "study-block-exam", inverse_label: "has study block", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
 #[derive(Debug, Clone, Serialize)]

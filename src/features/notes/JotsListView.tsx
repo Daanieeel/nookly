@@ -23,6 +23,7 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { EmptyState } from "@/components/empty-state";
@@ -335,7 +336,14 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
 
   if (!isPending && rows.length === 0) {
     return (
-      <div className="flex w-full flex-col gap-4">
+      <div
+        className="flex w-full flex-col gap-4"
+        {...contextTarget("module-view", {
+          spaceId,
+          createLabel: "New Jot",
+          create: () => setQuickJotOpen(true),
+        })}
+      >
         <h1 className="text-lg font-semibold">Jots</h1>
         <EmptyState
           icon={IconFeather}
@@ -348,7 +356,14 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div
+      className="flex w-full flex-col gap-3"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Jot",
+        create: () => setQuickJotOpen(true),
+      })}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
           Jots
@@ -403,6 +418,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           table={table}
           onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
           onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
+          rowContextTarget={(row) => entityTarget(row.summary.entity)}
         />
       ) : (
         !isPending && (

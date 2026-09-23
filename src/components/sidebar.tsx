@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "@/components/action-feedback";
 import { AddModuleMenu } from "@/components/add-module-menu";
+import { contextTarget } from "@/components/context-menu/registry";
 import { renderIconValue } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
@@ -100,7 +101,11 @@ export function AppSidebar() {
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
 
   return (
-    <Sidebar collapsible="icon" variant="floating">
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      {...contextTarget("sidebar", { createSpace: () => setCreateOpen(true) })}
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem className="mb-4">
@@ -252,7 +257,14 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
       onOpenChange={(open) => setActiveSpace(open ? space.id : null)}
       className="group/space"
     >
-      <SidebarMenuItem>
+      <SidebarMenuItem
+        {...contextTarget("space", {
+          space,
+          expanded,
+          toggle: () => setActiveSpace(expanded ? null : space.id),
+          openSettings: () => setSettingsOpen(true),
+        })}
+      >
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={space.name} className="pr-12">
             <span className="relative flex size-4 shrink-0 items-center justify-center">
@@ -407,7 +419,10 @@ function ModuleSubRow({
 
   return (
     <>
-      <SidebarMenuSubItem className="relative">
+      <SidebarMenuSubItem
+        className="relative"
+        {...contextTarget("space-module", { spaceId: space.id, module: moduleKey })}
+      >
         <SidebarMenuSubButton
           isActive={active}
           onClick={onNavigate}

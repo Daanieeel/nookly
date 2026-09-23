@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { StatusButtonContent, statusOf } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { DataTable, type DataTableGroup } from "@/components/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { EmptyState } from "@/components/empty-state";
@@ -233,7 +234,10 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
 
   if (!isPending && rows.length === 0) {
     return (
-      <div className="flex w-full flex-col gap-4">
+      <div
+        className="flex w-full flex-col gap-4"
+        {...contextTarget("module-view", { spaceId, createLabel: "New Note", create: startNote })}
+      >
         <h1 className="text-lg font-semibold">Notes</h1>
         <EmptyState
           icon={IconNotes}
@@ -249,7 +253,10 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div
+      className="flex w-full flex-col gap-3"
+      {...contextTarget("module-view", { spaceId, createLabel: "New Note", create: startNote })}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
           Notes
@@ -300,6 +307,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
           groups={groups}
           onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
           onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
+          rowContextTarget={(row) => entityTarget(row.summary.entity)}
         />
       ) : (
         !isPending && (

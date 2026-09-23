@@ -1,6 +1,7 @@
 /// Mentions (§1.5) are plain markdown links with a `mention:` URL scheme — no custom
 /// syntax to special-case on export (§8), since a markdown renderer already handles them.
-const MENTION_PATTERN = /\[([^\]]+)\]\(mention:([a-zA-Z0-9-]+)\)/g;
+/// A `#<blockId>` suffix links one block of the page (§ block-level addressing).
+const MENTION_PATTERN = /\[([^\]]+)\]\(mention:([a-zA-Z0-9-]+)(?:#[a-zA-Z0-9_-]+)?\)/g;
 
 export function extractMentionIds(content: string): string[] {
   const ids = new Set<string>();

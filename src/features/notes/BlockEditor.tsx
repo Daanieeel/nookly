@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { contextTargetAt, makeTarget } from "@/components/context-menu/registry";
 import { listEntities } from "@/lib/api/entities";
 import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "@/lib/api/notes";
 import type { Block } from "@/lib/api/types";
@@ -18,7 +19,7 @@ import {
   type JSONNode,
   nodeToBlockInput,
 } from "./block-markdown";
-import { BlockHandles } from "./BlockHandles";
+import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
 import { Mention } from "./mention-extension";
@@ -262,7 +263,9 @@ function HydratedBlockEditor({
         const href = target.getAttribute("href");
         if (href?.startsWith(MENTION_HREF_PREFIX)) {
           event.preventDefault();
-          openEntity(href.slice(MENTION_HREF_PREFIX.length), spaceId);
+          // `mention:<id>#<blockId>` links one block of the page.
+          const [targetId, blockId] = href.slice(MENTION_HREF_PREFIX.length).split("#");
+          openEntity(targetId, spaceId, blockId ? { entityId: targetId, blockId } : undefined);
           return true;
         }
         return false;
@@ -446,8 +449,42 @@ function HydratedBlockEditor({
     [],
   );
 
+  /// Saves anything still pending, then maps a block's client id to its stored
+  /// id, which is what a link to the block has to point at.
+  const resolveStoredId = async (blockId: string): Promise<string | null> => {
+    if (debounceRef.current) flushRef.current();
+    const saveKey = { mutationKey: saveBlocksKey(entityId) };
+    for (let tries = 0; tries < 100 && queryClient.isMutating(saveKey) > 0; tries++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return idMap.get(blockId) ?? null;
+  };
+
+  /// Right-clicking a block, or the gutter beside it, targets that block; the
+  /// rest of the canvas targets the page as a whole.
+  const blockContextTarget = contextTargetAt((event) => {
+    if (!editor) return undefined;
+    const dom = editor.view.dom;
+    const box = dom.getBoundingClientRect();
+    const inGutter = event.clientX >= box.left && event.clientX < box.left + GUTTER_WIDTH;
+    const probed = inGutter
+      ? document.elementFromPoint(box.left + GUTTER_WIDTH + 1, event.clientY)
+      : event.target instanceof Element
+        ? event.target
+        : null;
+    const element = topLevelElement(dom, probed);
+    const block = element && findTopLevelBlock(editor.view, element);
+    const blockId = block ? asString(block.node.attrs.blockId) : undefined;
+    return blockId
+      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId })
+      : makeTarget("note.canvas", {
+          editor,
+          overText: event.target instanceof Node && dom.contains(event.target),
+        });
+  });
+
   return (
-    <div className="relative">
+    <div className="relative" {...blockContextTarget}>
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} />
       <BlockHandles editor={editor} />

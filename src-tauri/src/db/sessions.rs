@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use chrono::{Datelike, Days, NaiveDate};
@@ -7,7 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "session-course", inverse_label: "has session", cardinality: Cardinality::OneToPerFrom }
+    RelationshipTypeDef { name: "session-course", inverse_label: "has session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
 #[derive(Debug, Clone, Serialize)]

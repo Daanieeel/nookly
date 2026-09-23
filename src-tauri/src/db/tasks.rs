@@ -1,11 +1,11 @@
-use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "sub-task-of", inverse_label: "has sub-task", cardinality: Cardinality::OneToPerFrom }
+    RelationshipTypeDef { name: "sub-task-of", inverse_label: "has sub-task", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -107,6 +107,58 @@ pub fn create_subtask(
         start_date: None,
         due_date: None,
     })
+}
+
+/// Turns a top-level Task into a Sub-task of `parent_entity_id`, moving it into the
+/// parent's Space first. Only a Task with no Sub-tasks of its own can become one,
+/// keeping nesting at one level (§3.3).
+pub fn convert_to_subtask(
+    conn: &Connection,
+    entity_id: &str,
+    parent_entity_id: &str,
+) -> AppResult<Task> {
+    let entity = crate::db::entities::get_entity(conn, entity_id)?;
+    let parent = crate::db::entities::get_entity(conn, parent_entity_id)?;
+    if entity.entity_type != "task" {
+        return Err(AppError::InvalidInput(format!(
+            "{} is already a sub-task",
+            entity.key
+        )));
+    }
+    if parent.entity_type != "task" || parent.id == entity.id {
+        return Err(AppError::CardinalityViolation(
+            "a sub-task's parent must be another top-level task".into(),
+        ));
+    }
+    if !list_subtasks(conn, entity_id)?.is_empty() {
+        return Err(AppError::CardinalityViolation(format!(
+            "{} has sub-tasks of its own, and sub-tasks can't have sub-tasks",
+            entity.key
+        )));
+    }
+    if parent.space_id != entity.space_id {
+        crate::db::entities::update_entity(
+            conn,
+            entity_id,
+            crate::db::entities::EntityPatch {
+                space_id: Some(parent.space_id),
+                ..Default::default()
+            },
+        )?;
+    }
+    conn.execute(
+        "UPDATE entities SET type = 'sub_task', updated_at = ?1 WHERE id = ?2",
+        params![crate::db::now(), entity_id],
+    )?;
+    crate::db::relationships::create_relationship(
+        conn,
+        entity_id.to_string(),
+        parent_entity_id.to_string(),
+        "sub-task-of".into(),
+        None,
+        None,
+    )?;
+    get_task(conn, entity_id)
 }
 
 pub fn list_subtasks(conn: &Connection, parent_entity_id: &str) -> AppResult<Vec<Task>> {
@@ -242,6 +294,13 @@ pub fn update_task_dates(
 
 const TASK_UPDATE_FIELDS: &[FieldDef] = &[
     FieldDef {
+        name: "parentId",
+        kind: FieldKind::EntityRef("task"),
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Setting it turns this task into a sub-task of that task. Only a task without sub-tasks of its own can be converted, and it can't be undone through this field.",
+    },
+    FieldDef {
         name: "statusId",
         kind: FieldKind::Text,
         required_on_create: false,
@@ -296,6 +355,10 @@ const SUB_TASK_FIELDS: &[FieldDef] = &[
 ];
 
 fn apply_task_fields(conn: &Connection, entity_id: &str, fields: &JsonMap) -> AppResult<()> {
+    let is_task = crate::db::entities::get_entity(conn, entity_id)?.entity_type == "task";
+    if let Some(parent_id) = crate::db::schema::field_str(fields, "parentId").filter(|_| is_task) {
+        convert_to_subtask(conn, entity_id, &parent_id)?;
+    }
     if let Some(status_id) = crate::db::schema::field_str(fields, "statusId") {
         update_task_status(conn, entity_id, &status_id)?;
     }

@@ -11,6 +11,7 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
@@ -194,6 +195,10 @@ export function SessionsListView({
                       key={h}
                       type="button"
                       onClick={() => setDraft({ date: day, hour: h })}
+                      {...contextTarget("sessions.slot", {
+                        hour: h,
+                        startCreate: () => setDraft({ date: day, hour: h }),
+                      })}
                       aria-label={`New session at ${h}:00 on ${format(day, "EEEE")}`}
                       className="block h-12 w-full shrink-0 border-b border-border last:border-b-0 hover:bg-accent/60"
                     />
@@ -253,6 +258,7 @@ function SessionBlock({
       // offset can't be a static Tailwind class, so it's threaded through a CSS
       // custom property instead of a direct inline `top`/`height` declaration.
       style={{ "--occ-top": `${top}px`, "--occ-height": `${height}px` } as CSSProperties}
+      {...entityTarget(occurrence.entity, occurrence)}
     >
       <button
         type="button"

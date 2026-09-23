@@ -20,6 +20,7 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
 import { EntityIcon } from "@/components/entity-icon";
 import { FeedbackMenuItem } from "@/components/feedback-menu-item";
@@ -129,7 +130,14 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div
+      className="flex flex-col gap-6"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Semester",
+        create: () => setCreateOpen(true),
+      })}
+    >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Semesters</h1>
         <div className="flex items-center gap-1.5">
@@ -312,6 +320,7 @@ function SemesterRow({
 
   return (
     <div
+      {...entityTarget(semester.entity, semester)}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -546,6 +555,7 @@ function SemesterRow({
                 key={course.id}
                 type="button"
                 onClick={() => openEntity(course.id, spaceId)}
+                {...entityTarget(course)}
                 className="flex items-center gap-1.5 rounded-sm p-1 text-left text-sm text-foreground hover:bg-accent"
               >
                 <EntityIcon entity={course} size={14} className="text-muted-foreground" />

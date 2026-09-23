@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { DataTableColumnMeta, DataTableFeatures } from "@/lib/table-features";
+import type { ContextTargetProps } from "@/components/context-menu/registry";
 import { cn } from "@/lib/utils";
 
 /// Splits the (already sorted) rows into labelled sections, in this order. A row goes
@@ -37,6 +38,7 @@ export function DataTable<TData extends RowData>({
   table,
   onRowClick,
   onRowFocus,
+  rowContextTarget,
   groups,
   className,
 }: {
@@ -45,6 +47,8 @@ export function DataTable<TData extends RowData>({
   onRowClick?: (row: TData) => void;
   /// Fires on hover and keyboard focus, e.g. to prefetch what a click will open.
   onRowFocus?: (row: TData) => void;
+  /// What a right-click on the row opens, from `contextTarget`/`entityTarget`.
+  rowContextTarget?: (row: TData) => ContextTargetProps;
   groups?: DataTableGroup<TData>[];
   className?: string;
 }) {
@@ -71,6 +75,7 @@ export function DataTable<TData extends RowData>({
       }
       onMouseEnter={onRowFocus ? () => onRowFocus(row.original) : undefined}
       onFocus={onRowFocus ? () => onRowFocus(row.original) : undefined}
+      {...rowContextTarget?.(row.original)}
       className={cn(
         onRowClick &&
           "cursor-pointer outline-none focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",

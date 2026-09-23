@@ -1,23 +1,23 @@
 use crate::db::entities::Entity;
-use crate::db::relationships::{Cardinality, RelationshipTypeDef};
+use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "sequel-of", inverse_label: "prequel-of", cardinality: Cardinality::Unrestricted }
+    RelationshipTypeDef { name: "sequel-of", inverse_label: "prequel-of", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
     // A Course belongs to at most one Semester (`OneToPerFrom` = the `from`
     // side, Course, capped at one); a Semester has unrestricted Courses.
-    RelationshipTypeDef { name: "course-semester", inverse_label: "has course", cardinality: Cardinality::OneToPerFrom }
+    RelationshipTypeDef { name: "course-semester", inverse_label: "has course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "course-notes", inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom }
+    RelationshipTypeDef { name: "course-notes", inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "semester-notes", inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom }
+    RelationshipTypeDef { name: "semester-notes", inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 
 #[derive(Debug, Clone, Serialize)]

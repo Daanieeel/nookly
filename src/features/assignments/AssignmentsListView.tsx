@@ -7,6 +7,7 @@ import {
 import { IconClipboardCheck, IconClipboardPlus, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { EntityKey } from "@/components/entity-key";
@@ -116,7 +117,14 @@ export function AssignmentsListView({
   const sorted = sortByUrgency(scoped);
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div
+      className="flex max-w-2xl flex-col gap-4"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Assignment",
+        create: () => setCreateOpen(true),
+      })}
+    >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Assignments</h1>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
@@ -145,6 +153,7 @@ export function AssignmentsListView({
           <div
             key={a.entity.id}
             className="flex items-center gap-2.5 rounded-sm p-2 hover:bg-accent"
+            {...entityTarget(a.entity, a)}
           >
             <UrgencyDot dueDate={a.dueDate} status={a.status} />
             <EntityKey entityKey={a.entity.key} />

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { ContextMenuHost } from "@/components/context-menu/context-menu-host";
 import { CommandsPalette } from "@/components/commands-palette";
 import { QuickSwitcher } from "@/components/quick-switcher";
 import { EntityDetailRouter } from "@/components/entity-detail-router";
@@ -17,6 +18,7 @@ import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
 import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
 import { useNavStore } from "@/lib/store/nav";
+import "@/context-actions";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +82,7 @@ function Shell() {
       <QuickSwitcher />
       <CommandsPalette />
       <QuickJotDialog />
+      <ContextMenuHost />
       <Toaster />
     </div>
   );

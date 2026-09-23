@@ -7,6 +7,7 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
+import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { EntityKey } from "@/components/entity-key";
@@ -108,7 +109,14 @@ export function ExamsListView({
   const sorted = sortByUrgency(scoped);
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div
+      className="flex max-w-2xl flex-col gap-4"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Exam",
+        create: () => setCreateOpen(true),
+      })}
+    >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Exams</h1>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
@@ -138,6 +146,7 @@ export function ExamsListView({
             key={exam.entity.id}
             type="button"
             onClick={() => openEntity(exam.entity.id, spaceId)}
+            {...entityTarget(exam.entity, exam)}
             className="flex items-center gap-2.5 rounded-sm p-2 text-left text-sm hover:bg-accent"
           >
             <UrgencyDot examDate={exam.examDate} status={exam.status} />

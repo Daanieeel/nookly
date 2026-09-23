@@ -41,3 +41,19 @@ pub fn list_files(state: State<DbState>, space_id: String) -> AppResult<Vec<File
     let conn = state.0.lock().unwrap();
     files::list_files(&conn, &space_id)
 }
+
+/// Copies an imported file out of Nookly's storage to `destination`, e.g. a path
+/// picked in a native save dialog. Link-only files have nothing local to copy.
+#[tauri::command]
+pub fn export_file(state: State<DbState>, entity_id: String, destination: String) -> AppResult<()> {
+    let file = {
+        let conn = state.0.lock().unwrap();
+        files::get_file(&conn, &entity_id)?
+    };
+    let source = file.local_path.ok_or_else(|| {
+        AppError::InvalidInput("this file is a link, there is no local copy to export".into())
+    })?;
+    std::fs::copy(&source, &destination)
+        .map(|_| ())
+        .map_err(|err| AppError::Io(err.to_string()))
+}

@@ -17,7 +17,7 @@ const MENU_ITEMS = SLASH_ITEMS.map(toListItem);
 /// Reserved left-gutter width in `.tiptap-content` (`src/styles.css`) — kept as a
 /// constant here instead of read from CSS because it also drives the
 /// elementFromPoint probe below; the two must stay in sync by hand.
-const GUTTER_WIDTH = 52;
+export const GUTTER_WIDTH = 52;
 
 interface HandleRect {
   top: number;
@@ -48,7 +48,7 @@ interface DragSource extends BlockRange {
   selected: boolean;
 }
 
-interface ResolvedBlock {
+export interface ResolvedBlock {
   start: number;
   end: number;
   node: ProseMirrorNode;
@@ -58,7 +58,7 @@ interface ResolvedBlock {
 /// rendered it from `renderHTML` or a node view owns it (code blocks' React view,
 /// tables' `TableView` wrapper). Node views don't copy node attrs onto their DOM,
 /// so `data-block-id` can't be used to find those; structure can.
-function topLevelElement(dom: HTMLElement, el: Element | null): HTMLElement | null {
+export function topLevelElement(dom: HTMLElement, el: Element | null): HTMLElement | null {
   let current = el;
   while (current && current.parentElement !== dom) current = current.parentElement;
   return current instanceof HTMLElement ? current : null;
@@ -96,7 +96,7 @@ function multiBlockSelection(view: EditorView): BlockRangeSelection | null {
   return first && selection.from + first.nodeSize < selection.to ? selection : null;
 }
 
-function findTopLevelBlock(view: EditorView, el: HTMLElement): ResolvedBlock | null {
+export function findTopLevelBlock(view: EditorView, el: HTMLElement): ResolvedBlock | null {
   let result: ResolvedBlock | null = null;
   view.state.doc.forEach((node, offset) => {
     if (!result && view.nodeDOM(offset) === el) {

@@ -300,9 +300,10 @@ pub fn list_mentioning_entities(conn: &Connection, entity_id: &str) -> AppResult
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Same syntax as the frontend's `MENTION_PATTERN` (`mention-utils.ts`).
+/// Same syntax as the frontend's `MENTION_PATTERN` (`mention-utils.ts`). A `#<blockId>`
+/// suffix links one block of the page; the backlink still counts the whole page.
 static MENTION_PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r"\[[^\]]+\]\(mention:([a-zA-Z0-9-]+)\)").unwrap()
+    regex::Regex::new(r"\[[^\]]+\]\(mention:([a-zA-Z0-9-]+)(?:#[a-zA-Z0-9_-]+)?\)").unwrap()
 });
 
 pub fn extract_mention_ids(content: &str) -> std::collections::BTreeSet<String> {

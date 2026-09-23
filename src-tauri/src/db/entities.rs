@@ -152,6 +152,8 @@ pub struct EntityPatch {
     /// `Some` sets the icon; clearing it back to the type default isn't exposed here.
     pub icon: Option<String>,
     pub pinned: Option<bool>,
+    /// Moves the entity, and everything structurally owned by it, to another Space.
+    pub space_id: Option<String>,
 }
 
 pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResult<Entity> {
@@ -165,6 +167,10 @@ pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResu
     if let Some(pinned) = patch.pinned {
         entity.pinned = pinned;
     }
+    if let Some(space_id) = patch.space_id.filter(|s| *s != entity.space_id) {
+        move_to_space(conn, id, &space_id)?;
+        entity.space_id = space_id;
+    }
     let now = super::now();
     conn.execute(
         "UPDATE entities SET title = ?1, icon = ?2, pinned = ?3, updated_at = ?4 WHERE id = ?5",
@@ -173,6 +179,85 @@ pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResu
     entity.updated_at = now;
     search::index_entity_title(conn, &entity.id, &entity.space_id, &entity.title)?;
     Ok(entity)
+}
+
+/// Moves `id` to `space_id` along with everything it structurally owns (see
+/// `MovesWith`), so a Sub-task or a Course's Sessions never stay behind in the old
+/// Space. Labels are siloed per Space, so labels from the old one are detached.
+fn move_to_space(conn: &Connection, id: &str, space_id: &str) -> AppResult<()> {
+    use crate::db::relationships::{
+        list_relationships, lookup_relationship_type, Direction, MovesWith,
+    };
+
+    let space_exists: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM spaces WHERE id = ?1",
+        params![space_id],
+        |row| row.get(0),
+    )?;
+    if space_exists == 0 {
+        return Err(AppError::NotFound(format!("space {space_id}")));
+    }
+
+    let owned_by =
+        |r: &crate::db::relationships::Relationship, current: &str| match lookup_relationship_type(
+            &r.relationship_type,
+        )
+        .map(|def| def.moves_with)
+        {
+            Some(MovesWith::FromFollowsTo) if r.from_entity_id == current => {
+                Some(r.to_entity_id.clone())
+            }
+            Some(MovesWith::ToFollowsFrom) if r.to_entity_id == current => {
+                Some(r.from_entity_id.clone())
+            }
+            _ => None,
+        };
+    let relationships = list_relationships(conn, id, Direction::Both)?;
+    if let Some(owner) = relationships.iter().find_map(|r| owned_by(r, id)) {
+        return Err(AppError::InvalidInput(format!(
+            "{} belongs to {} and moves together with it; move {} instead",
+            entity_key(conn, id)?,
+            entity_key(conn, &owner)?,
+            entity_key(conn, &owner)?,
+        )));
+    }
+
+    let mut moving = vec![id.to_string()];
+    let mut seen = std::collections::HashSet::new();
+    while let Some(current) = moving.pop() {
+        if !seen.insert(current.clone()) {
+            continue;
+        }
+        for r in list_relationships(conn, &current, Direction::Both)? {
+            let other = if r.from_entity_id == current {
+                &r.to_entity_id
+            } else {
+                &r.from_entity_id
+            };
+            if owned_by(&r, other).as_deref() == Some(current.as_str()) {
+                moving.push(other.clone());
+            }
+        }
+    }
+
+    let now = super::now();
+    for moved in &seen {
+        let entity = get_entity(conn, moved)?;
+        conn.execute(
+            "UPDATE entities SET space_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![space_id, now, moved],
+        )?;
+        search::index_entity_title(conn, moved, space_id, &entity.title)?;
+        conn.execute(
+            "DELETE FROM entity_labels WHERE entity_id = ?1
+             AND label_id IN (SELECT id FROM labels WHERE space_id != ?2)",
+            params![moved, space_id],
+        )?;
+        for module_key in space_modules::module_keys_for_entity_type(&entity.entity_type) {
+            space_modules::add_space_module(conn, space_id, module_key)?;
+        }
+    }
+    Ok(())
 }
 
 pub fn entity_exists(conn: &Connection, id: &str) -> AppResult<bool> {
@@ -419,5 +504,124 @@ mod tests {
         let conn = setup();
         let result = soft_delete_entity(&conn, "does-not-exist");
         assert!(result.is_err());
+    }
+
+    fn two_spaces(conn: &Connection) -> (String, String) {
+        let a = create_space(conn, "A".into(), None, "#000".into()).unwrap();
+        let b = create_space(conn, "B".into(), None, "#000".into()).unwrap();
+        (a.id, b.id)
+    }
+
+    fn move_to(conn: &Connection, id: &str, space_id: &str) -> AppResult<Entity> {
+        update_entity(
+            conn,
+            id,
+            EntityPatch {
+                space_id: Some(space_id.into()),
+                ..Default::default()
+            },
+        )
+    }
+
+    #[test]
+    fn moving_carries_structural_children_and_drops_foreign_labels() {
+        let conn = setup();
+        let (a, b) = two_spaces(&conn);
+        let course = crate::db::courses::create_course(&conn, a.clone(), "Algo".into()).unwrap();
+        let session = crate::db::sessions::create_one_off_session(
+            &conn,
+            a.clone(),
+            "Lecture".into(),
+            course.id.clone(),
+            "2026-01-05".into(),
+            "10:00".into(),
+            "11:00".into(),
+            None,
+        )
+        .unwrap();
+        let label =
+            crate::db::labels::create_label(&conn, a.clone(), "x".into(), "#fff".into()).unwrap();
+        crate::db::labels::attach_label(&conn, &course.id, &label.id).unwrap();
+
+        let moved = move_to(&conn, &course.id, &b).unwrap();
+        assert_eq!(moved.space_id, b);
+        assert_eq!(get_entity(&conn, &session.entity.id).unwrap().space_id, b);
+        assert!(crate::db::labels::list_labels_for_entity(&conn, &course.id)
+            .unwrap()
+            .is_empty());
+        assert!(space_modules::list_space_modules(&conn, &b)
+            .unwrap()
+            .contains(&"sessions".to_string()));
+    }
+
+    #[test]
+    fn a_structural_child_cannot_move_on_its_own() {
+        let conn = setup();
+        let (a, b) = two_spaces(&conn);
+        let task = crate::db::tasks::create_task(&conn, a, "Parent".into(), None, None).unwrap();
+        let sub = crate::db::tasks::create_subtask(&conn, task.entity.id, "Child".into()).unwrap();
+        assert!(matches!(
+            move_to(&conn, &sub.entity.id, &b),
+            Err(AppError::InvalidInput(_))
+        ));
+    }
+
+    #[test]
+    fn duplicate_copies_fields_labels_and_structural_parent() {
+        let conn = setup();
+        let (a, _) = two_spaces(&conn);
+        let task = crate::db::tasks::create_task(
+            &conn,
+            a.clone(),
+            "Parent".into(),
+            None,
+            Some("2026-02-01".into()),
+        )
+        .unwrap();
+        let sub = crate::db::tasks::create_subtask(&conn, task.entity.id.clone(), "Child".into())
+            .unwrap();
+        let label = crate::db::labels::create_label(&conn, a, "x".into(), "#fff".into()).unwrap();
+        crate::db::labels::attach_label(&conn, &task.entity.id, &label.id).unwrap();
+
+        let copy = crate::db::schema::duplicate(&conn, &task.entity.id).unwrap();
+        let copy_id = crate::db::schema::payload_id(&copy).unwrap();
+        assert_ne!(copy_id, task.entity.id);
+        assert_eq!(copy["entity"]["title"], "Parent (copy)");
+        assert_eq!(copy["dueDate"], "2026-02-01");
+        assert_eq!(
+            crate::db::labels::list_labels_for_entity(&conn, &copy_id)
+                .unwrap()
+                .len(),
+            1
+        );
+
+        let sub_copy = crate::db::schema::duplicate(&conn, &sub.entity.id).unwrap();
+        let sub_copy_id = crate::db::schema::payload_id(&sub_copy).unwrap();
+        let siblings = crate::db::tasks::list_subtasks(&conn, &task.entity.id).unwrap();
+        assert!(siblings.iter().any(|t| t.entity.id == sub_copy_id));
+    }
+
+    #[test]
+    fn a_task_converts_into_a_sub_task_once() {
+        let conn = setup();
+        let (a, _) = two_spaces(&conn);
+        let parent =
+            crate::db::tasks::create_task(&conn, a.clone(), "Parent".into(), None, None).unwrap();
+        let task = crate::db::tasks::create_task(&conn, a, "Loose".into(), None, None).unwrap();
+        crate::db::tasks::convert_to_subtask(&conn, &task.entity.id, &parent.entity.id).unwrap();
+        assert_eq!(
+            get_entity(&conn, &task.entity.id).unwrap().entity_type,
+            "sub_task"
+        );
+        assert_eq!(
+            crate::db::tasks::list_subtasks(&conn, &parent.entity.id)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            crate::db::tasks::convert_to_subtask(&conn, &parent.entity.id, &task.entity.id)
+                .is_err()
+        );
     }
 }

@@ -81,3 +81,13 @@ pub fn update_task_dates(
     let conn = state.0.lock().unwrap();
     tasks::update_task_dates(&conn, &entity_id, start_date, due_date)
 }
+
+#[tauri::command]
+pub fn convert_to_subtask(
+    state: State<DbState>,
+    entity_id: String,
+    parent_entity_id: String,
+) -> AppResult<Task> {
+    let conn = state.0.lock().unwrap();
+    tasks::convert_to_subtask(&conn, &entity_id, &parent_entity_id)
+}
