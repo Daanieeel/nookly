@@ -267,6 +267,9 @@ export interface FileEntity {
   provider: "google_drive" | "dropbox" | "icloud" | null;
   url: string | null;
   originalFilename: string | null;
+  /// Where a referenced file lives on disk; set without `localPath` until it's
+  /// copied into storage.
+  sourcePath: string | null;
 }
 
 export interface Bookmark {

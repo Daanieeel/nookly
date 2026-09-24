@@ -1,9 +1,25 @@
-import { IconDownload, IconExternalLink, IconFolderOpen } from "@tabler/icons-react";
+import {
+  IconBookmark,
+  IconCloudDownload,
+  IconCopy,
+  IconDownload,
+  IconExternalLink,
+  IconFileUpload,
+  IconFolderOpen,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { save } from "@tauri-apps/plugin-dialog";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { registerEntityType } from "@/components/context-menu/registry";
-import { exportFile, listFiles } from "@/lib/api/files";
+import { convertEntity } from "@/lib/api/entities";
+import {
+  copyFileIntoStorage,
+  downloadLinkedFile,
+  exportFile,
+  listFiles,
+  replaceFile,
+  revealFile,
+} from "@/lib/api/files";
 import type { Entity, FileEntity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 
@@ -36,15 +52,61 @@ registerEntityType<FileEntity>({
       group: "type",
       label: REVEAL_LABEL,
       icon: IconFolderOpen,
-      when: ({ record }) => Boolean(record?.localPath),
-      run: ({ record }) => (record?.localPath ? revealItemInDir(record.localPath) : undefined),
+      when: ({ record }) => Boolean(record?.localPath || record?.sourcePath),
+      run: ({ entity }) => revealFile(entity.id),
+    },
+    {
+      id: "download-local-copy",
+      group: "type",
+      label: "Download Local Copy",
+      icon: IconCloudDownload,
+      when: ({ record }) => Boolean(record?.url && !record.localPath && !record.sourcePath),
+      run: async ({ entity }, helpers) => {
+        const result = await downloadLinkedFile(entity.id);
+        if (result.kind === "webpage") throw new Error("it's a webpage, not a file");
+        await helpers.refresh();
+      },
+    },
+    {
+      id: "copy-into-storage",
+      group: "type",
+      label: "Copy into Nookly",
+      icon: IconCopy,
+      when: ({ record }) => Boolean(record?.sourcePath && !record.localPath),
+      run: async ({ entity }, helpers) => {
+        await copyFileIntoStorage(entity.id);
+        await helpers.refresh();
+      },
+    },
+    {
+      id: "convert-to-bookmark",
+      group: "type",
+      label: "Convert to Bookmark",
+      icon: IconBookmark,
+      when: ({ record }) => Boolean(record?.url),
+      run: async ({ entity }, helpers) => {
+        await convertEntity(entity.id, "bookmark");
+        await helpers.refresh();
+      },
+    },
+    {
+      id: "replace-file",
+      group: "type",
+      label: "Replace File…",
+      icon: IconFileUpload,
+      run: async ({ entity }, helpers) => {
+        const picked = await open({ multiple: false, directory: false });
+        if (!picked || Array.isArray(picked)) return false;
+        await replaceFile(entity.id, picked);
+        await helpers.refresh();
+      },
     },
     {
       id: "save-copy",
       group: "type",
       label: "Save a Copy…",
       icon: IconDownload,
-      when: ({ record }) => Boolean(record?.localPath),
+      when: ({ record }) => Boolean(record?.localPath || record?.sourcePath),
       run: async ({ entity, record }) => {
         const path = await save({
           defaultPath: record?.originalFilename ?? displayTitle(entity),

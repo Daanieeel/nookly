@@ -304,5 +304,10 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         -- A local snapshot of the bookmarked page, the card's main preview.
         ALTER TABLE bookmarks ADD COLUMN screenshot_path TEXT;
         ",
+    ), M::up(
+        "
+        -- A file referenced where it lives on disk instead of copied into storage.
+        ALTER TABLE files ADD COLUMN source_path TEXT;
+        ",
     )])
 });

@@ -341,7 +341,7 @@ fn top_level_help() -> Value {
         "discovery": "Run `nookly cli schema` first — it dumps every entity type's fields and every \
                       relationship type in one call, so you never need to hardcode this app's data model.",
         "entityCommands": {
-            "usage": "nookly cli <entity-type> <list|get|create|update|duplicate|delete|restore> ...",
+            "usage": "nookly cli <entity-type> <list|get|create|update|duplicate|convert|delete|restore> ...",
             "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, \
                     entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
@@ -360,6 +360,9 @@ fn top_level_help() -> Value {
                        --space moves the entity and everything it structurally owns, e.g. a Task's sub-tasks, to that Space)",
             "duplicate": "nookly cli <entity-type> duplicate <id>  (a copy in the same Space titled \"<title> (copy)\", \
                           with the same fields, icon, labels and block content)",
+            "convert": "nookly cli <entity-type> convert <id> --to <entity-type> [--if-revision <rev>]  (turns the entity into \
+                        another type in place, keeping its id, relationships, labels and pin; `describe <type>` lists \
+                        `convertsTo`, e.g. a file from a link becoming a bookmark)",
             "delete": "nookly cli <entity-type> delete <id> --yes [--if-revision <rev>]  (soft delete only — goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
@@ -443,6 +446,7 @@ nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b]   # incl
 nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
 nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] [--field name=value ...]
 nookly cli <entity-type> duplicate <id>               # copy in the same Space, same fields, labels and blocks
+nookly cli <entity-type> convert <id> --to <type>     # same entity, another type; `describe` lists convertsTo
 nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, not permanent
 nookly cli <entity-type> restore <id>
 ```
@@ -813,6 +817,15 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             let data = schema::duplicate(conn, &id)?;
             let new_id = extract_id(&data)?;
             enrich(conn, entity_type, &new_id, data)
+        }
+        "convert" => {
+            let id = args.require_entity(conn, 0, "id")?;
+            let to = args.require_flag("to")?;
+            args.check_revision(&(def.get)(conn, &id)?)?;
+            schema::convert(conn, &id, &to)?;
+            let target = schema::lookup(&to).ok_or_else(|| unknown_entity_type(&to))?;
+            let data = (target.get)(conn, &id)?;
+            enrich(conn, &to, &id, data)
         }
         "restore" => {
             let id = args.require_entity(conn, 0, "id")?;

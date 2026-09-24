@@ -13,7 +13,7 @@
 //! part of a module's own `fields` list — `fields` only ever describes the
 //! module-specific (subtype) data.
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -118,6 +118,66 @@ pub const KNOWN_BLOCK_TYPES: &[&str] = &[
 ];
 
 inventory::collect!(EntitySchemaDef);
+
+/// Turns an entity of one type into another in place: same id, relationships,
+/// labels and pin, a new key. Registered next to the types it joins, like a
+/// File that is really a webpage becoming a Bookmark. The CLI's generic
+/// `convert` verb and the GUI's `convert_entity` both read this registry.
+pub struct ConversionDef {
+    pub from: &'static str,
+    pub to: &'static str,
+    pub description: &'static str,
+    pub run: fn(&Connection, &str) -> AppResult<()>,
+}
+
+inventory::collect!(ConversionDef);
+
+pub fn conversions_from(entity_type: &str) -> Vec<&'static ConversionDef> {
+    inventory::iter::<ConversionDef>()
+        .filter(|c| c.from == entity_type)
+        .collect()
+}
+
+/// Converts `id` to `to`, refusing pairs nobody registered.
+pub fn convert(conn: &Connection, id: &str, to: &str) -> AppResult<()> {
+    let from = crate::db::entities::get_entity(conn, id)?.entity_type;
+    let def = conversions_from(&from)
+        .into_iter()
+        .find(|c| c.to == to)
+        .ok_or_else(|| {
+            let targets: Vec<&str> = conversions_from(&from).iter().map(|c| c.to).collect();
+            AppError::InvalidInput(format!(
+                "a {from} can't become a {to}; it converts to: {}",
+                if targets.is_empty() {
+                    "nothing".to_string()
+                } else {
+                    targets.join(", ")
+                }
+            ))
+        })?;
+    (def.run)(conn, id)
+}
+
+/// Re-types an entity row: new `type`, the new type's key prefix with the next
+/// number, and the new type's module enabled in its Space. The caller moves the
+/// type specific row itself.
+pub fn retype_entity(conn: &Connection, id: &str, to: &str) -> AppResult<()> {
+    let prefix = crate::db::entities::key_prefix(to);
+    let number: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(key_number), 0) + 1 FROM entities WHERE key_prefix = ?1",
+        rusqlite::params![prefix],
+        |row| row.get(0),
+    )?;
+    conn.execute(
+        "UPDATE entities SET type = ?1, key_prefix = ?2, key_number = ?3, updated_at = ?4 WHERE id = ?5",
+        rusqlite::params![to, prefix, number, crate::db::now(), id],
+    )?;
+    let space_id = crate::db::entities::get_entity(conn, id)?.space_id;
+    for module_key in crate::db::space_modules::module_keys_for_entity_type(to) {
+        crate::db::space_modules::add_space_module(conn, &space_id, module_key)?;
+    }
+    Ok(())
+}
 
 fn registry() -> &'static HashMap<&'static str, &'static EntitySchemaDef> {
     static REGISTRY: OnceLock<HashMap<&'static str, &'static EntitySchemaDef>> = OnceLock::new();
@@ -229,6 +289,14 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         ],
         "fields": fields,
         "relationshipTypes": def.relationship_types,
+        "convertsTo": conversions_from(def.entity_type)
+            .iter()
+            .map(|c| serde_json::json!({
+                "type": c.to,
+                "description": c.description,
+                "command": format!("nookly cli {} convert <id> --to {}", def.entity_type, c.to),
+            }))
+            .collect::<Vec<_>>(),
     })
 }
 

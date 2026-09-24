@@ -4,9 +4,9 @@
 
 A full, first-class entity that participates in the relationship system like everything else.
 
-**Storage:** files are copied into a local folder the app manages. The copy is fully independent of the original, so it stays predictable and portable and survives the user moving or deleting the source file.
+**Storage:** files are copied into a local folder the app manages. The copy is fully independent of the original, so it stays predictable and portable and survives the user moving or deleting the source file. The exception is a path typed or pasted into the Files bar: that file is referenced where it lives, and "Copy into Nookly" makes it independent later. A pasted link is downloaded into storage; a link that turns out to be a webpage is offered as a Bookmark instead, and a File that came from a link can be converted into one. A stored file can be replaced by a newer version, keeping the same entity; there is no version history.
 
-**Files as links** (cloud documents such as a Google Doc or a Dropbox file) are provider-aware. Google Drive, Dropbox, and iCloud are detected and tagged specifically. Any other provider falls back to a generic URL field.
+**Files from links** (cloud documents such as a Google Doc or a Dropbox file) are provider-aware. Google Drive, Docs and Dropbox share links are rewritten to their direct download (Docs, Sheets and Slides as PDF) and the provider is tagged; the source URL is kept.
 
 Reverse lookup for attachments is automatic because the relationship graph works in both directions (see [attachments](../02-entity-model.md#attachments-work-in-both-directions)). No extra modeling is needed.
 

@@ -856,3 +856,12 @@
   inset: 0;
   animation: sidebar-stat-out 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+/* A highlighted run in the file viewer's code, styled from the highlighter's
+   inline CSS mapped onto custom properties (`files/code-viewer.tsx`). */
+.code-token {
+  color: var(--token-color, inherit);
+  font-style: var(--token-font-style, normal);
+  font-weight: var(--token-font-weight, inherit);
+  text-decoration: var(--token-decoration, none);
+}

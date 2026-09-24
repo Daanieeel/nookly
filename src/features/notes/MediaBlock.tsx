@@ -100,9 +100,12 @@ function useSource(content: string): SourceState {
   if (!file) return { source: null, missing: isError };
   return {
     source: {
-      src: file.localPath ? convertFileSrc(file.localPath) : file.url,
+      src:
+        (file.localPath ?? file.sourcePath)
+          ? convertFileSrc(file.localPath ?? file.sourcePath ?? "")
+          : file.url,
       name: file.originalFilename ?? displayTitle(file.entity),
-      localPath: file.localPath,
+      localPath: file.localPath ?? file.sourcePath,
       url: file.url,
     },
     missing: false,

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
 import { preferences } from "@/lib/preferences";
@@ -38,3 +39,17 @@ export const useThemeStore = create<{ theme: Theme; setTheme: (theme: Theme) => 
     set({ theme });
   },
 }));
+
+/// Whether the app currently draws dark, following the system when the theme
+/// is "system".
+export function useIsDark(): boolean {
+  const theme = useThemeStore((s) => s.theme);
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setSystemDark(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return theme === "dark" || (theme === "system" && systemDark);
+}

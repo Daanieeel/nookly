@@ -1,28 +1,30 @@
 import {
+  IconArrowUp,
+  IconCaretDownFilled,
+  IconCaretRightFilled,
   IconCategory,
   IconDragDrop,
   IconExternalLink,
   IconFile,
   IconFileUpload,
-  IconLayoutGrid,
   IconLink,
-  IconList,
+  IconWorld,
+  IconX,
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { homeDir, join } from "@tauri-apps/api/path";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type ActionStatus,
   StatusAnnouncer,
   StatusButtonContent,
   StatusIcon,
-  statusOf,
   statusTextClass,
   useActionStatus,
-  useCloseAfterSuccess,
 } from "@/components/action-feedback";
 import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
@@ -33,35 +35,43 @@ import {
   FilterMenu,
   applyFilters,
 } from "@/components/filter-menu";
-import { moveRowFocus } from "@/components/grouped-view/grouping";
+import { FLOATING_BAR_INPUT, FloatingBar } from "@/components/floating-bar";
+import {
+  buildGroups,
+  isCollapsed,
+  moveRowFocus,
+  toggleId,
+} from "@/components/grouped-view/grouping";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { hostOf, useCaptureScreenshot } from "@/features/bookmarks/bookmark-model";
 import { useCreateShortcut } from "@/hooks/use-create-shortcut";
-import { createFileLink, importFile, listFiles } from "@/lib/api/files";
+import { createBookmark, fetchBookmarkMetadata } from "@/lib/api/bookmarks";
+import { convertEntity } from "@/lib/api/entities";
+import { importFile, importFileFromUrl, listFiles, referenceFile } from "@/lib/api/files";
 import type { FileEntity } from "@/lib/api/types";
 import { formatShortDate } from "@/lib/datetime";
 import { displayTitle } from "@/lib/entity-title";
-import { preferences } from "@/lib/preferences";
-import { STORAGE_KEYS } from "@/lib/storage-keys";
-import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
-import { FILE_KINDS, fileExtension, fileKind } from "./file-kind";
-
-type Layout = "grid" | "list";
-
-function readLayout(): Layout {
-  return preferences.get(STORAGE_KEYS.filesLayout) === "list" ? "list" : "grid";
-}
+import { FileDisplayMenu } from "./FileDisplayMenu";
+import {
+  FILE_KINDS,
+  fileExtension,
+  fileKind,
+  filePath,
+  isReference,
+  isViewable,
+} from "./file-kind";
+import {
+  type DisplayOptions,
+  fileGroupDefs,
+  orderFiles,
+  readDisplay,
+  writeDisplay,
+} from "./file-model";
+import { useNavStore } from "@/lib/store/nav";
 
 /// Marks items that just arrived for a moment, so a new file never appears silently.
 function useFreshIds() {
@@ -73,15 +83,45 @@ function useFreshIds() {
   return [fresh, mark] as const;
 }
 
+/// A local path as typed, pasted or copied from Finder: absolute, `~/`, or a
+/// `file://` URL, with shell escapes and wrapping quotes removed. Null for
+/// anything else.
+async function localPath(text: string): Promise<string | null> {
+  const raw = text.trim().replace(/^(["'])(.*)\1$/, "$2");
+  if (raw.startsWith("file://")) return decodeURIComponent(new URL(raw).pathname);
+  const unescaped = raw.replace(/\\(.)/g, "$1");
+  if (unescaped.startsWith("~/")) return join(await homeDir(), unescaped.slice(2));
+  if (unescaped.startsWith("/")) return unescaped;
+  return null;
+}
+
+/// "example.com/x" gets its scheme; anything that isn't a web address is null.
+function webUrl(text: string): string | null {
+  const raw = text.trim();
+  if (!/^(https?:\/\/)?[\w-]+(\.[\w-]+)+(:\d+)?(\/\S*)?$/i.test(raw)) return null;
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+type Added =
+  | { kind: "files"; files: FileEntity[]; fromLink: boolean }
+  | { kind: "webpage"; url: string };
+
+/// What the bar offers after a link: a webpage to save as a Bookmark, or a
+/// downloaded file the viewer can't show, which may be better as a Bookmark.
+type Offer = { kind: "webpage"; url: string } | { kind: "unviewable"; file: FileEntity };
+
 /// Files like Finder's icon view: a grid of type tinted tiles by default, a dense
-/// list as the toggle. Dropping files anywhere on the window is the main way in;
-/// "Import file" and "Add link" are the fallbacks.
+/// list as the alternative. Dropping files anywhere on the window is the main way
+/// in; the floating bar takes a link or a path, or opens the file picker.
 export function FilesListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [layout, setLayoutState] = useState<Layout>(readLayout);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
-  const [linkOpen, setLinkOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [text, setText] = useState("");
+  const [offer, setOffer] = useState<Offer | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [fresh, markFresh] = useFreshIds();
 
@@ -90,9 +130,9 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     queryFn: () => listFiles(spaceId),
   });
 
-  const setLayout = (next: Layout) => {
-    setLayoutState(next);
-    preferences.set(STORAGE_KEYS.filesLayout, next);
+  const setDisplay = (next: DisplayOptions) => {
+    setDisplayState(next);
+    writeDisplay(next);
   };
 
   const imported = (created: FileEntity[]) => {
@@ -112,11 +152,64 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     mutationFn: (paths: string[]) => Promise.all(paths.map((path) => importFile(spaceId, path))),
     onSuccess: imported,
   });
+  /// A typed path imports that file; a link downloads what's behind it, unless
+  /// it's a webpage, which is offered as a Bookmark instead.
+  const addFromText = useMutation({
+    mutationFn: async (value: string): Promise<Added> => {
+      const path = await localPath(value);
+      // A typed path is referenced where it is; copying it in is one click later.
+      if (path)
+        return { kind: "files", files: [await referenceFile(spaceId, path)], fromLink: false };
+      const url = webUrl(value);
+      if (!url) throw new Error("that's neither a link nor a file path");
+      const result = await importFileFromUrl(spaceId, url);
+      return result.kind === "file"
+        ? { kind: "files", files: [result.file], fromLink: true }
+        : { kind: "webpage", url };
+    },
+    onSuccess: async (added) => {
+      if (added.kind === "webpage") {
+        setOffer({ kind: "webpage", url: added.url });
+        return;
+      }
+      setText("");
+      await imported(added.files);
+      const [file] = added.files;
+      if (added.fromLink && file && !isViewable(file)) setOffer({ kind: "unviewable", file });
+    },
+  });
+  const capture = useCaptureScreenshot(spaceId);
+  /// A webpage becomes a new Bookmark; an unviewable download converts in place,
+  /// keeping its id, labels and relationships.
+  const saveBookmark = useMutation({
+    mutationFn: async (target: Offer) => {
+      const id =
+        target.kind === "webpage"
+          ? (await createBookmark(spaceId, target.url)).entity.id
+          : (await convertEntity(target.file.entity.id, "bookmark")).id;
+      const url = target.kind === "webpage" ? target.url : (target.file.url ?? "");
+      fetchBookmarkMetadata(id, url)
+        .catch(() => {})
+        .finally(() => capture.mutate(id));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
+      setText("");
+      // The check shows on the bar for a moment before it returns to the field.
+      setTimeout(() => {
+        setOffer(null);
+        saveBookmark.reset();
+      }, 2000);
+    },
+  });
 
   const pickStatusRaw = useActionStatus(pickAndImport);
   // A cancelled native open dialog resolves `null`: back to rest, not success.
   const pickStatus: ActionStatus =
     pickStatusRaw === "success" && pickAndImport.data === null ? "idle" : pickStatusRaw;
+  const addStatus = useActionStatus(addFromText);
+  const bookmarkStatus = useActionStatus(saveBookmark);
   const dropStatus = useActionStatus(importPaths);
   const droppedCount = importPaths.variables?.length ?? 0;
   const droppedLabel = droppedCount === 1 ? "1 file" : `${droppedCount} files`;
@@ -133,6 +226,15 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     if (!pickAndImport.isPending) pickAndImport.mutate();
   }, [pickAndImport]);
   useCreateShortcut(startImport);
+
+  const submitText = () => {
+    if (text.trim() && !addFromText.isPending) addFromText.mutate(text);
+  };
+  const dismissOffer = () => {
+    setOffer(null);
+    addFromText.reset();
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
 
   // A browser `ondrop` only hands over File objects without a filesystem path
   // inside a Tauri webview, so `importFile` can't use them. Tauri's own drag and
@@ -167,10 +269,51 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     ];
   }, [files]);
 
-  const visible = applyFilters(files, filters, (f) => fileKind(f).id).sort((a, b) =>
-    b.entity.createdAt.localeCompare(a.entity.createdAt),
+  const visible = orderFiles(
+    applyFilters(files, filters, (f) => fileKind(f).id),
+    display.ordering,
   );
+  const defs = fileGroupDefs(display.grouping);
+  const groups = buildGroups(
+    visible,
+    defs ?? [{ id: "all", name: "All files", match: () => true }],
+    null,
+  ).filter((g) => g.items.length > 0);
   const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
+
+  const renderItems = (items: FileEntity[]) =>
+    display.layout === "grid" ? (
+      <ul
+        aria-label="Files"
+        className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-4"
+      >
+        {items.map((f) => (
+          <FileTile
+            key={f.entity.id}
+            file={f}
+            fresh={fresh.has(f.entity.id)}
+            onOpen={() => openFile(f)}
+          />
+        ))}
+      </ul>
+    ) : (
+      <div>
+        {items.map((f) => (
+          <FileRow
+            key={f.entity.id}
+            file={f}
+            fresh={fresh.has(f.entity.id)}
+            onOpen={() => openFile(f)}
+          />
+        ))}
+      </div>
+    );
+
+  const addError = addFromText.isError
+    ? `Couldn't add it: ${addFromText.error.message}`
+    : saveBookmark.isError
+      ? `Couldn't save the bookmark: ${saveBookmark.error.message}`
+      : null;
 
   return (
     <div
@@ -202,32 +345,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
-          <LayoutToggle layout={layout} onChange={setLayout} />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-1 gap-1.5"
-            onClick={() => setLinkOpen(true)}
-          >
-            <IconLink />
-            Add link
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" className="gap-1.5" onClick={startImport}>
-                <StatusButtonContent
-                  status={pickStatus}
-                  icon={<IconFileUpload />}
-                  label="Import file"
-                  successLabel="Imported"
-                  errorLabel="Couldn't import, try again"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              Import a file <Kbd>C</Kbd>
-            </TooltipContent>
-          </Tooltip>
+          <FileDisplayMenu display={display} onChange={setDisplay} />
         </div>
       </header>
 
@@ -236,8 +354,8 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           <EmptyState
             icon={IconDragDrop}
             title="No files yet"
-            description="Drop files anywhere in this window. Nookly keeps its own copy, the original stays untouched."
-            action={{ label: "Import file", onClick: startImport }}
+            description="Drop files anywhere in this window, or paste a link to a file below. Nookly keeps its own copy."
+            action={{ label: "Choose files", onClick: startImport }}
           />
         </div>
       ) : visible.length === 0 ? (
@@ -247,34 +365,126 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
             Clear filters
           </Button>
         </div>
-      ) : layout === "grid" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ul
-            aria-label="Files"
-            className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-4"
-          >
-            {visible.map((f) => (
-              <FileTile
-                key={f.entity.id}
-                file={f}
-                fresh={fresh.has(f.entity.id)}
-                onOpen={() => openFile(f)}
-              />
-            ))}
-          </ul>
-        </div>
       ) : (
         // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-        <div className="min-h-0 flex-1 overflow-y-auto pb-6" onKeyDown={moveRowFocus}>
-          {visible.map((f) => (
-            <FileRow
-              key={f.entity.id}
-              file={f}
-              fresh={fresh.has(f.entity.id)}
-              onOpen={() => openFile(f)}
-            />
-          ))}
+        <div className="min-h-0 flex-1 overflow-y-auto pb-24" onKeyDown={moveRowFocus}>
+          {defs === null
+            ? renderItems(visible)
+            : groups.map((group) => (
+                <GroupSection
+                  key={group.id}
+                  name={group.name}
+                  count={group.items.length}
+                  collapsed={isCollapsed(collapsed, group.id, false)}
+                  onToggle={() => setCollapsed((prev) => toggleId(prev, group.id))}
+                >
+                  {renderItems(group.items)}
+                </GroupSection>
+              ))}
         </div>
+      )}
+
+      {offer ? (
+        <FloatingBar
+          onSubmit={() => bookmarkStatus === "idle" && saveBookmark.mutate(offer)}
+          failed={saveBookmark.isError}
+        >
+          {offer.kind === "webpage" ? (
+            <>
+              <IconWorld size={16} className="shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-sm" title={offer.url}>
+                <span className="font-medium">{hostOf(offer.url)}</span>
+                <span className="text-muted-foreground"> is a webpage, not a file.</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <StatusIcon status="success" idle={null} />
+              <span className="min-w-0 flex-1 truncate text-sm" title={offer.file.url ?? undefined}>
+                <span className="font-medium">{displayTitle(offer.file.entity)}</span>
+                <span className="text-muted-foreground"> added, but it can't be shown here.</span>
+              </span>
+            </>
+          )}
+          <Button type="submit" variant="secondary" size="sm" className="shrink-0">
+            <StatusButtonContent
+              status={bookmarkStatus}
+              label={offer.kind === "webpage" ? "Save as Bookmark" : "Convert to Bookmark"}
+              successLabel="Saved to Bookmarks"
+              errorLabel="Couldn't save, try again"
+            />
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="iconSm"
+                aria-label={offer.kind === "webpage" ? "Dismiss" : "Keep as File"}
+                onClick={dismissOffer}
+              >
+                <IconX />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{offer.kind === "webpage" ? "Dismiss" : "Keep as File"}</TooltipContent>
+          </Tooltip>
+        </FloatingBar>
+      ) : (
+        <FloatingBar onSubmit={submitText} failed={addError !== null}>
+          <IconLink size={16} className="shrink-0 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            placeholder="Paste a link or file path"
+            aria-label={addError ?? "Link or file path"}
+            aria-invalid={addError !== null || undefined}
+            title={addError ?? undefined}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (addFromText.isError) addFromText.reset();
+            }}
+            onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+            className={FLOATING_BAR_INPUT}
+          />
+          {(text.trim() || addStatus !== "idle") && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label={addError ? "Couldn't add, try again" : "Add File"}
+                >
+                  <StatusIcon status={addStatus} idle={<IconArrowUp />} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{addError ?? "Add File"}</TooltipContent>
+            </Tooltip>
+          )}
+          <span className="shrink-0 text-xs text-muted-foreground">or</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                onClick={startImport}
+              >
+                <StatusButtonContent
+                  status={pickStatus}
+                  icon={<IconFileUpload />}
+                  label="Choose Files"
+                  successLabel="Imported"
+                  errorLabel="Couldn't import, try again"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              Choose files to import <Kbd>C</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </FloatingBar>
       )}
 
       {isDragOver && (
@@ -285,42 +495,43 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           </span>
         </div>
       )}
-
-      <AddLinkDialog
-        spaceId={spaceId}
-        open={linkOpen}
-        onOpenChange={setLinkOpen}
-        onCreated={(f) => markFresh([f.entity.id])}
-      />
     </div>
   );
 }
 
-function LayoutToggle({ layout, onChange }: { layout: Layout; onChange: (l: Layout) => void }) {
-  const options = [
-    { id: "grid", label: "Grid View", icon: IconLayoutGrid },
-    { id: "list", label: "List View", icon: IconList },
-  ] as const;
+function GroupSection({
+  name,
+  count,
+  collapsed,
+  onToggle,
+  children,
+}: {
+  name: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-0.5 rounded-md border border-input bg-accent p-0.5">
-      {options.map((o) => (
-        <Tooltip key={o.id}>
-          <TooltipTrigger asChild>
-            <Button
-              variant={layout === o.id ? "secondary" : "ghost"}
-              size="iconSm"
-              className="size-6"
-              aria-label={o.label}
-              aria-pressed={layout === o.id}
-              onClick={() => onChange(o.id)}
-            >
-              <o.icon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{o.label}</TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
+    <section aria-label={name}>
+      <div className="sticky top-0 z-30 flex h-9 items-center border-b border-border bg-card px-2">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+          className="flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-accent/60"
+        >
+          {collapsed ? (
+            <IconCaretRightFilled size={10} className="text-muted-foreground" />
+          ) : (
+            <IconCaretDownFilled size={10} className="text-muted-foreground" />
+          )}
+          <span className="truncate font-medium">{name}</span>
+          <span className="text-muted-foreground tabular-nums">{count}</span>
+        </button>
+      </div>
+      {!collapsed && children}
+    </section>
   );
 }
 
@@ -329,17 +540,19 @@ function fileMeta(file: FileEntity): string {
   const kind = fileKind(file);
   const ext = fileExtension(file);
   const label = kind.id === "other" && ext ? ext.toUpperCase() : kind.label;
-  return `${label} · ${formatShortDate(file.entity.createdAt)}`;
+  const where = isReference(file) ? " · On disk" : "";
+  return `${label} · ${formatShortDate(file.entity.createdAt)}${where}`;
 }
 
 function FilePreview({ file }: { file: FileEntity }) {
   const kind = fileKind(file);
   const [broken, setBroken] = useState(false);
   const ext = fileExtension(file);
-  if (kind.id === "image" && file.localPath && !broken) {
+  const path = filePath(file);
+  if (kind.id === "image" && path && !broken) {
     return (
       <img
-        src={convertFileSrc(file.localPath)}
+        src={convertFileSrc(path)}
         alt=""
         loading="lazy"
         onError={() => setBroken(true)}
@@ -471,87 +684,5 @@ function FileRow({
         {file.url && <OpenLinkButton url={file.url} />}
       </span>
     </div>
-  );
-}
-
-/// A cloud document by URL: Google Drive, Dropbox and iCloud are recognized from
-/// the address, anything else is kept as a plain link.
-function AddLinkDialog({
-  spaceId,
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  spaceId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated: (file: FileEntity) => void;
-}) {
-  const queryClient = useQueryClient();
-  const [url, setUrl] = useState("");
-  const [title, setTitle] = useState("");
-
-  const create = useMutation({
-    mutationFn: () => createFileLink(spaceId, title.trim() || url.trim(), url.trim()),
-    onSuccess: (file) => {
-      onCreated(file);
-      return queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
-    },
-  });
-  const createStatus = statusOf(create);
-
-  function handleOpenChange(next: boolean) {
-    onOpenChange(next);
-    if (!next) {
-      setUrl("");
-      setTitle("");
-      create.reset();
-    }
-  }
-
-  useCloseAfterSuccess(create, () => handleOpenChange(false));
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Add a link</DialogTitle>
-        </DialogHeader>
-        <form
-          id="add-file-link"
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (url.trim() && (createStatus === "idle" || createStatus === "error")) {
-              create.mutate();
-            }
-          }}
-        >
-          <Input
-            aria-label="URL"
-            placeholder="Google Drive, Dropbox, iCloud or any URL"
-            value={url}
-            aria-invalid={create.isError || undefined}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <Input
-            aria-label="Title"
-            placeholder="Title (optional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </form>
-        <DialogFooter>
-          <Button size="sm" type="submit" form="add-file-link" disabled={!url.trim()}>
-            <StatusButtonContent
-              status={createStatus}
-              label="Add link"
-              successLabel="Added"
-              errorLabel="Couldn't add, try again"
-            />
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

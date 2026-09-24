@@ -1196,11 +1196,13 @@ mod tests {
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
         let other = create_page(&conn, space.id.clone(), "note", "Other".into()).unwrap();
-        let file = crate::db::files::create_file_link(
+        let file = crate::db::files::store_file(
             &conn,
+            &std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id())),
             space.id,
-            "Slides".into(),
-            "https://example.com/slides.pdf".into(),
+            "slides.pdf",
+            b"%PDF",
+            Some("https://example.com/slides.pdf"),
         )
         .unwrap();
         create_block(
@@ -1218,7 +1220,8 @@ mod tests {
         .unwrap();
 
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
-        assert!(markdown.contains("[Slides](https://example.com/slides.pdf)"));
+        // The stored copy wins over the link it was downloaded from.
+        assert!(markdown.contains("[Slides](file://"));
         assert!(markdown.contains(&format!("[Other](mention:{})", other.id)));
     }
 

@@ -39,3 +39,9 @@ export function hardDeleteEntity(id: string): Promise<void> {
 export function duplicateEntity(id: string): Promise<Entity> {
   return invoke("duplicate_entity", { id });
 }
+
+/// Turns an entity into another type in place (same id, relationships and
+/// labels), through the conversions the backend registers.
+export function convertEntity(id: string, to: string): Promise<Entity> {
+  return invoke("convert_entity", { id, to });
+}

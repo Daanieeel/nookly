@@ -197,3 +197,11 @@ Image, video, audio and file blocks hold a mention of a File entity, a web bookm
 **Why:** Files and Bookmarks already own that data. The block is a viewer, the mention puts the page under the entity's Mentioned in, and nothing becomes a fourth linking mechanism.
 
 **Rejected:** storing uploads privately inside the page, invisible to the Files module.
+
+### Files are real files; a typed path is referenced until copied
+
+A pasted link is downloaded into storage, and a webpage is offered as a Bookmark instead. A path typed into the Files bar is referenced where it lives; "Copy into Nookly" copies it in. Drops and the file picker still copy right away. A File can convert into a Bookmark in place through the generic `convert` registry.
+
+**Why:** the file viewer needs the bytes, and a link to a webpage is a reference, which is what Bookmarks are for. Referencing a typed path keeps a file that is still being edited elsewhere in sync.
+
+**Rejected:** link only Files the viewer can't open, and a one off CLI command for the conversion.

@@ -65,3 +65,16 @@ pub fn duplicate_entity(state: State<DbState>, id: String) -> AppResult<Entity> 
     })?;
     entities::get_entity(&conn, &new_id)
 }
+
+/// Turns an entity into another type in place, through the conversions
+/// registered in `schema` (the same ones the CLI's `convert` verb offers).
+#[tauri::command]
+pub fn convert_entity(
+    state: State<DbState>,
+    id: String,
+    to: String,
+) -> AppResult<crate::db::entities::Entity> {
+    let conn = state.0.lock().unwrap();
+    crate::db::schema::convert(&conn, &id, &to)?;
+    crate::db::entities::get_entity(&conn, &id)
+}

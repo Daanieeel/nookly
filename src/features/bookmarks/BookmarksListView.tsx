@@ -14,6 +14,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { StatusIcon, useActionStatus } from "@/components/action-feedback";
 import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
+import { FLOATING_BAR_INPUT, FloatingBar } from "@/components/floating-bar";
 import { type ActiveFilter, type FilterField, FilterMenu } from "@/components/filter-menu";
 import {
   buildGroups,
@@ -286,48 +287,35 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
         </div>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(url);
-        }}
-        className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4"
-      >
-        <div
-          className={cn(
-            "pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-xl border border-border bg-popover py-1.5 pr-1.5 pl-3 shadow-lg transition-colors focus-within:border-foreground/30",
-            add.isError && "border-destructive/60",
-          )}
-        >
-          <IconLink size={16} className="shrink-0 text-muted-foreground" />
-          <input
-            ref={inputRef}
-            placeholder="Paste a URL to save it"
-            aria-label={add.isError ? `Couldn't save the bookmark: ${add.error.message}` : "URL"}
-            aria-invalid={add.isError || undefined}
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-            className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          <Kbd className="max-sm:hidden">C</Kbd>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="submit"
-                size="iconSm"
-                aria-label={add.isError ? "Couldn't save, try again" : "Save Bookmark"}
-                disabled={!url.trim() && addStatus === "idle"}
-              >
-                <StatusIcon status={addStatus} idle={<IconArrowUp />} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {add.isError ? "Couldn't save, try again" : "Save Bookmark"}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </form>
+      <FloatingBar onSubmit={() => submit(url)} failed={add.isError}>
+        <IconLink size={16} className="shrink-0 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          placeholder="Paste a URL to save it"
+          aria-label={add.isError ? `Couldn't save the bookmark: ${add.error.message}` : "URL"}
+          aria-invalid={add.isError || undefined}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+          className={FLOATING_BAR_INPUT}
+        />
+        <Kbd className="max-sm:hidden">C</Kbd>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="submit"
+              size="iconSm"
+              aria-label={add.isError ? "Couldn't save, try again" : "Save Bookmark"}
+              disabled={!url.trim() && addStatus === "idle"}
+            >
+              <StatusIcon status={addStatus} idle={<IconArrowUp />} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {add.isError ? "Couldn't save, try again" : "Save Bookmark"}
+          </TooltipContent>
+        </Tooltip>
+      </FloatingBar>
     </div>
   );
 }
