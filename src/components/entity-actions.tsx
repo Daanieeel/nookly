@@ -1,4 +1,5 @@
-import { IconDots, IconPin, IconPinFilled, IconTrash } from "@tabler/icons-react";
+import { IconDots, IconNotes, IconPin, IconPinFilled, IconTrash } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { type ActionStatus, StatusAnnouncer, StatusIcon } from "@/components/action-feedback";
 import { FeedbackMenuItem } from "@/components/feedback-menu-item";
@@ -16,11 +17,13 @@ import {
   PageExportMenu,
   SaveMarkdownFileItem,
 } from "@/features/notes/PageExportMenu";
+import { refineJotIntoNote } from "@/features/notes/refine-jot";
 import type { Entity } from "@/lib/api/types";
 import { labelForType } from "@/lib/entity-title";
 import { cn } from "@/lib/utils";
 
-/// Export (pages only), Pin, and an overflow menu repeating both plus Move to Trash.
+/// Export (pages only), Pin, and an overflow menu repeating both plus Move to Trash
+/// (and, for Jots, Refine into New Note).
 /// Pin's own success is the icon swapping state; pending and errors show on the
 /// control that was used.
 export function EntityActions({
@@ -36,6 +39,7 @@ export function EntityActions({
   onTrash: () => void;
   className?: string;
 }) {
+  const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const noun = exportable ? "Page" : labelForType(entity.type);
@@ -87,6 +91,21 @@ export function EntityActions({
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end">
+          {entity.type === "jot" && (
+            <>
+              <FeedbackMenuItem
+                icon={<IconNotes size={14} className="text-muted-foreground" />}
+                label="Refine into New Note"
+                successLabel="Note created"
+                errorLabel="Couldn't create Note, try again"
+                action={async () => {
+                  await refineJotIntoNote(entity, queryClient);
+                }}
+                onDone={closeMenu}
+              />
+              <DropdownMenuSeparator />
+            </>
+          )}
           <FeedbackMenuItem
             icon={pinIcon(14, "text-muted-foreground")}
             label={pinLabel}

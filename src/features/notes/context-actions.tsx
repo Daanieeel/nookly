@@ -7,6 +7,7 @@ import {
   IconItalic,
   IconLink,
   IconMarkdown,
+  IconNotes,
   IconPlus,
   IconStrikethrough,
   IconTextSize,
@@ -27,6 +28,7 @@ import { renderPageMarkdown } from "@/lib/api/notes";
 import { copyEntityLink, copyText, readClipboardText } from "@/lib/clipboard";
 import { useState } from "react";
 import { savePageMarkdownFile } from "./PageExportMenu";
+import { refineJotIntoNote } from "./refine-jot";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
 
@@ -360,6 +362,17 @@ registerEntityType<EntityRecord>({
   types: ["note", "jot"],
   actions: [
     labelsAction(),
+    {
+      id: "refine-jot",
+      group: "create",
+      label: "Refine into New Note",
+      icon: IconNotes,
+      when: ({ entity }) => entity.type === "jot" && !entity.deletedAt,
+      errorLabel: "Couldn't create Note, try again",
+      run: async ({ entity }, helpers) => {
+        await refineJotIntoNote(entity, helpers.queryClient);
+      },
+    },
     {
       id: "copy-markdown",
       group: "share",
