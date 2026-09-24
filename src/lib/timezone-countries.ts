@@ -465,7 +465,9 @@ export const TIMEZONE_COUNTRY = {
 // the ISO country code here. `countryForTimezone`'s "GB" is still correct and unchanged (it also
 // feeds `Intl.DisplayNames`, which only recognizes real ISO codes); this only remaps which SVG
 // file gets requested.
-const FLAG_ASSET_CODE_OVERRIDE = { GB: "GBR" } satisfies Record<string, string>;
+// Likewise there is no plain "BQ.svg", only the three islands; the only BQ zone
+// (America/Kralendijk) is on Bonaire.
+const FLAG_ASSET_CODE_OVERRIDE = { GB: "GBR", BQ: "BQ-BO" } satisfies Record<string, string>;
 
 /// The code to pass to `<Flag code={...}>` for a country — usually just the ISO code itself,
 /// except where react-flagpack's own asset set doesn't ship a same-named alpha-2 file for it.

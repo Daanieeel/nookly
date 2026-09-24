@@ -104,7 +104,11 @@ pub fn update_exam(
     Ok(())
 }
 
-pub fn update_exam_date(conn: &Connection, entity_id: &str, exam_date: Option<String>) -> AppResult<()> {
+pub fn update_exam_date(
+    conn: &Connection,
+    entity_id: &str,
+    exam_date: Option<String>,
+) -> AppResult<()> {
     conn.execute(
         "UPDATE exams SET exam_date = ?1 WHERE entity_id = ?2",
         params![exam_date, entity_id],
@@ -112,7 +116,11 @@ pub fn update_exam_date(conn: &Connection, entity_id: &str, exam_date: Option<St
     Ok(())
 }
 
-pub fn update_exam_weight(conn: &Connection, entity_id: &str, weight: Option<f64>) -> AppResult<()> {
+pub fn update_exam_weight(
+    conn: &Connection,
+    entity_id: &str,
+    weight: Option<f64>,
+) -> AppResult<()> {
     conn.execute(
         "UPDATE exams SET weight = ?1 WHERE entity_id = ?2",
         params![weight, entity_id],
@@ -177,7 +185,8 @@ const EXAM_FIELDS: &[FieldDef] = &[
         kind: FieldKind::EntityRef("course"),
         required_on_create: true,
         writable_on_update: true,
-        description: "The Course this exam belongs to (structural: exactly one). Updating it moves the exam.",
+        description:
+            "The Course this exam belongs to (structural: exactly one). Updating it moves the exam.",
     },
     FieldDef {
         name: "examDate",
@@ -191,7 +200,8 @@ const EXAM_FIELDS: &[FieldDef] = &[
         kind: FieldKind::Float,
         required_on_create: false,
         writable_on_update: true,
-        description: "Weight toward the course grade, as a fraction like 0.2. Pass null to clear it.",
+        description:
+            "Weight toward the course grade, as a fraction like 0.2. Pass null to clear it.",
     },
     FieldDef {
         name: "grade",

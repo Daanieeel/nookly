@@ -3,11 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { StatusIcon } from "@/components/action-feedback";
 import { PROPERTY_VALUE } from "@/components/property-row";
 import { NumberInput } from "@/components/ui/number-input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface SaveState {
@@ -25,10 +21,7 @@ function SaveIcon({ pending, failed }: SaveState) {
     return () => clearTimeout(timer);
   }, [pending]);
   return (
-    <StatusIcon
-      status={pending && slow ? "pending" : failed ? "error" : "idle"}
-      idle={null}
-    />
+    <StatusIcon status={pending && slow ? "pending" : failed ? "error" : "idle"} idle={null} />
   );
 }
 
@@ -72,11 +65,7 @@ export function NumberProperty({
   if (draft === null) {
     return (
       <div className="relative flex items-center">
-        <button
-          type="button"
-          onClick={() => setDraft(startAt)}
-          className={PROPERTY_VALUE}
-        >
+        <button type="button" onClick={() => setDraft(startAt)} className={PROPERTY_VALUE}>
           <span className="text-muted-foreground">{addLabel}</span>
         </button>
         <span className="pointer-events-none absolute right-2">

@@ -1,3 +1,4 @@
+import { BookmarkSheet } from "@/features/bookmarks/BookmarkSheet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
@@ -62,7 +63,8 @@ function Shell() {
   // Views drawing their own edge to edge chrome, like the Linear style Tasks page.
   const isBleedView =
     isEntityView ||
-    (view.kind === "module" && ["tasks", "assignments", "exams"].includes(view.module));
+    (view.kind === "module" &&
+      ["tasks", "assignments", "exams", "files", "bookmarks"].includes(view.module));
 
   return (
     <div
@@ -92,6 +94,7 @@ function Shell() {
       <QuickSwitcher />
       <CommandsPalette />
       <QuickJotDialog />
+      <BookmarkSheet />
       <ContextMenuHost />
       <Toaster />
     </div>

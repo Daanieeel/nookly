@@ -2,6 +2,7 @@ import {
   IconCalendarEvent,
   IconCheck,
   IconLoader2,
+  IconPlus,
   IconAlertTriangle,
   IconTag,
   IconX,
@@ -177,33 +178,48 @@ export function StatusPicker({
 }
 
 /// Toggles labels one by one and stays open, so several can be set in a row.
+/// With `onCreate`, a search that matches no label offers to create it.
 export function LabelsPicker({
   labels,
   selected,
   onToggle,
+  onCreate,
   pendingId,
   failedId,
+  creating = false,
   align = "start",
   children,
 }: {
   labels: Label[];
   selected: string[];
   onToggle: (labelId: string) => void;
+  onCreate?: (name: string) => void;
   pendingId?: string;
   failedId?: string;
+  /// True while `onCreate` runs.
+  creating?: boolean;
   align?: "start" | "end";
   children: ReactNode;
 }) {
+  const [search, setSearch] = useState("");
+  const name = search.trim();
+  const exists = labels.some((l) => l.name.toLowerCase() === name.toLowerCase());
   return (
-    <Popover>
+    <Popover onOpenChange={(open) => !open && setSearch("")}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-56" align={align} onKeyDown={stopKeys}>
         <Command loop>
-          <CommandInput placeholder="Add labels…" />
+          <CommandInput
+            placeholder={onCreate ? "Find or create labels…" : "Add labels…"}
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList className="p-1">
-            <CommandEmpty>
-              {labels.length === 0 ? "No labels in this Space yet." : "No label found."}
-            </CommandEmpty>
+            {!(onCreate && name) && (
+              <CommandEmpty>
+                {labels.length === 0 ? "No labels in this Space yet." : "No label found."}
+              </CommandEmpty>
+            )}
             {labels.map((label) => {
               const checked = selected.includes(label.id);
               return (
@@ -225,6 +241,22 @@ export function LabelsPicker({
                 </CommandItem>
               );
             })}
+            {onCreate && name && !exists && (
+              <CommandItem
+                value={`create ${name}`}
+                forceMount
+                onSelect={() => {
+                  if (creating) return;
+                  onCreate(name);
+                  setSearch("");
+                }}
+              >
+                <span className="flex size-4 items-center justify-center">
+                  <PendingIcon pending={creating} failed={false} idle={<IconPlus size={14} />} />
+                </span>
+                <span className="truncate">Create “{name}”</span>
+              </CommandItem>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

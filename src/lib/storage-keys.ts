@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
   jotsPreset: "nookly:jots-preset",
   tasksDisplay: "nookly:tasks-display",
   assignmentsDisplay: "nookly:assignments-display",
+  filesLayout: "nookly:files-layout",
+  bookmarksDisplay: "nookly:bookmarks-display",
   relatedTab: "nookly:related-tab",
   timezone: "nookly:timezone",
   dateFormat: "nookly:date-format",

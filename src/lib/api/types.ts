@@ -277,4 +277,6 @@ export interface Bookmark {
   previewImageUrl: string | null;
   description: string | null;
   metadataFetchedAt: string | null;
+  /// Attached Label ids, ordered by label name.
+  labelIds: string[];
 }

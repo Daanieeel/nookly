@@ -64,6 +64,12 @@ interface NavState {
   /// `focus` scrolls to a block once its page renders; its `entityId` is the
   /// page holding the block, which may be embedded in the opened entity.
   openEntity: (entityId: string, spaceId: string, focus?: FocusBlock) => void;
+  /// The Bookmark shown in the details sheet, over whatever view is open.
+  bookmarkSheetId: string | null;
+  /// Bookmarks have no page of their own: an entity view opened for one steps
+  /// back to where it came from (or the Bookmarks page) and opens the sheet.
+  showBookmark: (entityId: string, spaceId: string) => void;
+  setBookmarkSheetId: (entityId: string | null) => void;
   /// Drops recents whose entity id isn't in `validIds` (deleted/trashed since
   /// being opened), so a stale entry doesn't sit in the list — or inflate its
   /// count — forever.
@@ -209,6 +215,18 @@ export const useNavStore = create<NavState>((set, get) => ({
       ...pushHistory(get(), view),
     });
   },
+  bookmarkSheetId: null,
+  showBookmark: (entityId, spaceId) =>
+    set((state) => {
+      const previous = state.backStack.at(-1);
+      const fallback: View = { kind: "module", spaceId, module: "bookmarks" };
+      return {
+        view: previous ?? fallback,
+        backStack: previous ? state.backStack.slice(0, -1) : state.backStack,
+        bookmarkSheetId: entityId,
+      };
+    }),
+  setBookmarkSheetId: (bookmarkSheetId) => set({ bookmarkSheetId }),
   pruneRecents: (validIds) => {
     const recents = get().recents.filter((r) => validIds.has(r.entityId));
     if (recents.length === get().recents.length) return;

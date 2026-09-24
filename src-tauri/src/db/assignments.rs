@@ -104,7 +104,11 @@ pub fn update_assignment_due_date(
 
 /// Moves an assignment to another Course, replacing its one `assignment-course`
 /// link rather than erroring on the cardinality rule.
-pub fn set_assignment_course(conn: &Connection, entity_id: &str, course_id: String) -> AppResult<()> {
+pub fn set_assignment_course(
+    conn: &Connection,
+    entity_id: &str,
+    course_id: String,
+) -> AppResult<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
@@ -265,7 +269,8 @@ mod tests {
         let conn = setup();
         let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
         let algo = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
-        let a = create_assignment(&conn, space.id, "Sheet 1".into(), algo.id.clone(), None).unwrap();
+        let a =
+            create_assignment(&conn, space.id, "Sheet 1".into(), algo.id.clone(), None).unwrap();
 
         assert!(set_assignment_course(&conn, &a.entity.id, "missing".into()).is_err());
         assert_eq!(course_of(&conn, &a.entity.id), algo.id);

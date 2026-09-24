@@ -40,31 +40,51 @@ pub fn update_exam(
 }
 
 #[tauri::command]
-pub fn update_exam_date(state: State<DbState>, entity_id: String, exam_date: Option<String>) -> AppResult<()> {
+pub fn update_exam_date(
+    state: State<DbState>,
+    entity_id: String,
+    exam_date: Option<String>,
+) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     exams::update_exam_date(&conn, &entity_id, exam_date)
 }
 
 #[tauri::command]
-pub fn update_exam_weight(state: State<DbState>, entity_id: String, weight: Option<f64>) -> AppResult<()> {
+pub fn update_exam_weight(
+    state: State<DbState>,
+    entity_id: String,
+    weight: Option<f64>,
+) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     exams::update_exam_weight(&conn, &entity_id, weight)
 }
 
 #[tauri::command]
-pub fn update_exam_grade(state: State<DbState>, entity_id: String, grade: Option<f64>) -> AppResult<()> {
+pub fn update_exam_grade(
+    state: State<DbState>,
+    entity_id: String,
+    grade: Option<f64>,
+) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     exams::update_exam_grade(&conn, &entity_id, grade)
 }
 
 #[tauri::command]
-pub fn update_exam_room(state: State<DbState>, entity_id: String, room: Option<String>) -> AppResult<()> {
+pub fn update_exam_room(
+    state: State<DbState>,
+    entity_id: String,
+    room: Option<String>,
+) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     exams::update_exam_room(&conn, &entity_id, room)
 }
 
 #[tauri::command]
-pub fn set_exam_course(state: State<DbState>, entity_id: String, course_id: String) -> AppResult<()> {
+pub fn set_exam_course(
+    state: State<DbState>,
+    entity_id: String,
+    course_id: String,
+) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     exams::set_exam_course(&conn, &entity_id, course_id)
 }
