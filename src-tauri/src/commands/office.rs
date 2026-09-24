@@ -24,9 +24,12 @@ fn soffice() -> Option<PathBuf> {
         "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
         "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
     ];
+    let user_app = dirs::home_dir()
+        .map(|home| home.join("Applications/LibreOffice.app/Contents/MacOS/soffice"));
     known
         .iter()
         .map(PathBuf::from)
+        .chain(user_app)
         .find(|p| p.is_file())
         .or_else(|| {
             let path = std::env::var_os("PATH")?;

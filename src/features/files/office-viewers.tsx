@@ -1,10 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { IconAlertTriangle, IconBeer, IconDownload, IconExternalLink } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type ExcelJS from "exceljs";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { StatusIcon } from "@/components/action-feedback";
+import { StatusButtonContent, StatusIcon } from "@/components/action-feedback";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { convertOfficeToPdf, officeConverterAvailable } from "@/lib/api/office";
+import {
+  LIBREOFFICE_INSTALL_EVENT,
+  type LibreOfficeInstallProgress,
+  convertOfficeToPdf,
+  installLibreOffice,
+  libreofficeInstallOptions,
+  officeConverterAvailable,
+} from "@/lib/api/office";
 import type { FileEntity } from "@/lib/api/types";
 import { useIsDark } from "@/lib/theme";
 import { InvertibleDocument, PdfViewer } from "./document-frame";
@@ -370,8 +381,141 @@ function ConvertedViewer({
   });
 
   if (checking) return <Loading label="Opening…" />;
-  if (!available) return fallback("Install LibreOffice to preview this file here.");
+  if (!available) {
+    return (
+      <div className="relative size-full">
+        {fallback()}
+        <InstallLibreOffice />
+      </div>
+    );
+  }
   if (isError) return fallback("LibreOffice couldn't convert this file.");
   if (!pdf) return <Loading label="Converting with LibreOffice…" />;
   return <PdfViewer src={convertFileSrc(pdf)} name={name} />;
+}
+
+const LIBREOFFICE_DOWNLOADS = "https://www.libreoffice.org/download/download-libreoffice/";
+
+/// "Downloading 42%", "Installing…": what an install is doing right now.
+function progressLabel(progress: LibreOfficeInstallProgress | null): string {
+  if (!progress || progress.phase === "starting") return "Starting…";
+  if (progress.phase === "downloading") {
+    return progress.percent === null
+      ? "Downloading…"
+      : `Downloading ${Math.round(progress.percent)}%`;
+  }
+  return progress.phase === "installing" ? "Installing…" : "Installed";
+}
+
+/// A card along the bottom of the viewer offering one click LibreOffice installs:
+/// through Homebrew when it's there, or the official disk image, which Nookly
+/// checks before copying it to Applications. Elsewhere, the download page.
+function InstallLibreOffice() {
+  const queryClient = useQueryClient();
+  const [progress, setProgress] = useState<LibreOfficeInstallProgress | null>(null);
+  const { data: options } = useQuery({
+    queryKey: ["libreoffice-install-options"],
+    queryFn: libreofficeInstallOptions,
+  });
+  const install = useMutation({
+    mutationFn: (method: "brew" | "direct") => installLibreOffice(method),
+    onMutate: () => setProgress(null),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["office-converter"] }),
+        queryClient.invalidateQueries({ queryKey: ["office-pdf"] }),
+      ]),
+  });
+
+  useEffect(() => {
+    const unlisten = listen<LibreOfficeInstallProgress>(LIBREOFFICE_INSTALL_EVENT, (event) =>
+      setProgress(event.payload),
+    );
+    return () => {
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
+
+  if (!options) return null;
+  const running = install.isPending ? install.variables : undefined;
+  const failed = install.isError ? install.variables : undefined;
+  const button = (method: "brew" | "direct", label: string, icon: ReactNode) => {
+    // The recommended route is the caution one: Homebrew when it's there.
+    const variant = method === "brew" || !options.brew ? "caution" : "ghost";
+    return (
+      <Button
+        variant={variant}
+        size="sm"
+        className="gap-1.5"
+        disabled={install.isPending && running !== method}
+        onClick={() => !install.isPending && install.mutate(method)}
+      >
+        <StatusButtonContent
+          status={running === method ? "pending" : failed === method ? "error" : "idle"}
+          icon={icon}
+          label={running === method ? progressLabel(progress) : label}
+          errorLabel="Couldn't install, try again"
+          pendingClassName={variant === "caution" ? "text-caution" : undefined}
+        />
+      </Button>
+    );
+  };
+
+  const actions =
+    !options.brew && !options.direct ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        className="gap-1.5"
+        onClick={() => void openUrl(LIBREOFFICE_DOWNLOADS)}
+      >
+        <IconExternalLink />
+        Get LibreOffice
+      </Button>
+    ) : (
+      <>
+        <Button
+          variant="linkMuted"
+          size="sm"
+          className="mr-auto gap-1.5 px-0"
+          onClick={() => void openUrl(LIBREOFFICE_DOWNLOADS)}
+        >
+          Downloads Page
+          <IconExternalLink />
+        </Button>
+        {options.direct && button("direct", "Download and Install", <IconDownload />)}
+        {options.brew && options.direct && (
+          <span className="text-xs text-muted-foreground">or</span>
+        )}
+        {options.brew && button("brew", "Install with Homebrew", <IconBeer />)}
+      </>
+    );
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+      <section
+        aria-label="Install LibreOffice"
+        className="pointer-events-auto flex w-full max-w-xl flex-col gap-3 rounded-xl border border-border bg-popover p-3 shadow-lg"
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-caution/15 text-caution">
+            <IconAlertTriangle size={16} />
+          </span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p className="text-sm font-medium">Install LibreOffice to preview this file here</p>
+            <p className="text-xs text-muted-foreground">
+              Slides, older Office files, OpenDocument and iWork files are shown through
+              LibreOffice. Free and open source, converts on your device, no account needed.
+            </p>
+            {install.isError && (
+              <p className="text-xs text-destructive" role="alert">
+                {install.error.message}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+      </section>
+    </div>
+  );
 }
