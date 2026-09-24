@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { StatusIcon } from "@/components/action-feedback";
 import { PROPERTY_VALUE } from "@/components/property-row";
 import { NumberInput } from "@/components/ui/number-input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface SaveState {
@@ -11,9 +15,21 @@ interface SaveState {
   failed: boolean;
 }
 
-/// A spinner while saving, a warning after a failed save, nothing otherwise.
+/// A spinner while a save runs longer than a moment, a warning after a failed
+/// save, nothing otherwise. Quick local saves never flash the spinner.
 function SaveIcon({ pending, failed }: SaveState) {
-  return <StatusIcon status={pending ? "pending" : failed ? "error" : "idle"} idle={null} />;
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!pending) return setSlow(false);
+    const timer = setTimeout(() => setSlow(true), 300);
+    return () => clearTimeout(timer);
+  }, [pending]);
+  return (
+    <StatusIcon
+      status={pending && slow ? "pending" : failed ? "error" : "idle"}
+      idle={null}
+    />
+  );
 }
 
 /// A number property as a stepper, saved a moment after the last change. Unset,
@@ -55,10 +71,18 @@ export function NumberProperty({
 
   if (draft === null) {
     return (
-      <button type="button" onClick={() => setDraft(startAt)} className={PROPERTY_VALUE}>
-        <SaveIcon pending={pending} failed={failed} />
-        <span className="text-muted-foreground">{addLabel}</span>
-      </button>
+      <div className="relative flex items-center">
+        <button
+          type="button"
+          onClick={() => setDraft(startAt)}
+          className={PROPERTY_VALUE}
+        >
+          <span className="text-muted-foreground">{addLabel}</span>
+        </button>
+        <span className="pointer-events-none absolute right-2">
+          <SaveIcon pending={pending} failed={failed} />
+        </span>
+      </div>
     );
   }
   return (
@@ -72,7 +96,9 @@ export function NumberProperty({
         className="h-7 w-28"
       />
       {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-      <SaveIcon pending={pending} failed={failed} />
+      <span className="flex size-3.5 shrink-0 items-center">
+        <SaveIcon pending={pending} failed={failed} />
+      </span>
       <Tooltip>
         <TooltipTrigger asChild>
           <button

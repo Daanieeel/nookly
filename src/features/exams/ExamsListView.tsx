@@ -7,16 +7,28 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   FieldError,
   StatusButtonContent,
   statusOf,
   useCloseAfterSuccess,
 } from "@/components/action-feedback";
-import { contextTarget, entityTarget } from "@/components/context-menu/registry";
+import {
+  contextTarget,
+  entityTarget,
+} from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
-import { EntityPickerPopover, EntityPickerValue } from "@/components/entity-picker";
+import {
+  EntityPickerPopover,
+  EntityPickerValue,
+} from "@/components/entity-picker";
 import {
   type ActiveFilter,
   type FilterField,
@@ -34,7 +46,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CourseChip, useCourseLookup } from "@/features/courses/course-lookup";
 import { moveRowFocus } from "@/components/grouped-view/grouping";
 import { useCreateShortcut } from "@/hooks/use-create-shortcut";
@@ -48,11 +64,14 @@ import { formatShortDate, formatWeekday } from "@/lib/datetime";
 /// Grid shared by every timeline row: date, rail, content. The rail's center is
 /// where the connecting line runs.
 const ROW_GRID =
-  "grid grid-cols-[4.5rem_2rem_minmax(0,1fr)] sm:grid-cols-[6rem_2.5rem_minmax(0,1fr)]";
-const LINE = "absolute left-[calc(4.5rem+1rem)] w-px sm:left-[calc(6rem+1.25rem)]";
+  "grid grid-cols-[4.5rem_2rem_minmax(0,1fr)] sm:grid-cols-[5.5rem_2.5rem_minmax(0,1fr)]";
+const LINE =
+  "absolute left-[calc(4.5rem+1rem)] w-px sm:left-[calc(5.5rem+1.25rem)]";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
-  return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
+  return courseId
+    ? [{ fieldId: "course", operator: "is", values: [courseId] }]
+    : [];
 }
 
 /// "20% of grade". Weight is stored as a fraction (`0.2`); whole numbers are
@@ -81,7 +100,9 @@ export function ExamsListView({
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
-  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
+  const [filters, setFilters] = useState<ActiveFilter[]>(() =>
+    courseFilter(filterCourseId),
+  );
 
   useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
 
@@ -106,11 +127,18 @@ export function ExamsListView({
     [courses],
   );
 
-  const visible = applyFilters(exams, filters, (exam) => courseOf.get(exam.entity.id)?.id ?? "");
+  const visible = applyFilters(
+    exams,
+    filters,
+    (exam) => courseOf.get(exam.entity.id)?.id ?? "",
+  );
   const now = new Date();
   const dated = visible
     .filter((e): e is Exam & { examDate: string } => e.examDate !== null)
-    .map((exam) => ({ exam, days: differenceInCalendarDays(parseISO(exam.examDate), now) }))
+    .map((exam) => ({
+      exam,
+      days: differenceInCalendarDays(parseISO(exam.examDate), now),
+    }))
     .sort((a, b) => a.exam.examDate.localeCompare(b.exam.examDate));
   const past = dated.filter((d) => d.days < 0);
   const [next, ...later] = dated.filter((d) => d.days >= 0);
@@ -139,11 +167,20 @@ export function ExamsListView({
         </h1>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
           <div className="min-w-0 flex-1">
-            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+            <FilterMenu
+              fields={filterFields}
+              filters={filters}
+              onFiltersChange={setFilters}
+            />
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-1 gap-1.5"
+                onClick={startCreate}
+              >
                 <IconPlus />
                 New exam
               </Button>
@@ -166,15 +203,20 @@ export function ExamsListView({
         </div>
       ) : visible.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No exams match these filters.</p>
+          <p className="text-sm text-muted-foreground">
+            No exams match these filters.
+          </p>
           <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
             Clear filters
           </Button>
         </div>
       ) : (
         // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-        <div className="min-h-0 flex-1 overflow-y-auto" onKeyDown={moveRowFocus}>
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          onKeyDown={moveRowFocus}
+        >
+          <div className="flex w-full flex-col gap-6 py-8 pr-4 pl-8">
             {dated.length > 0 && (
               <div className="relative">
                 <span aria-hidden className={cn(LINE, "inset-y-3 bg-border")} />
@@ -183,26 +225,44 @@ export function ExamsListView({
                     <PastNode key={exam.entity.id} {...nodeProps(exam)} />
                   ))}
                   <TodayMarker />
-                  {next && <NextNode days={next.days} {...nodeProps(next.exam)} />}
+                  {next && (
+                    <NextNode days={next.days} {...nodeProps(next.exam)} />
+                  )}
                   {later.map(({ exam, days }) => (
-                    <FutureNode key={exam.entity.id} days={days} {...nodeProps(exam)} />
+                    <FutureNode
+                      key={exam.entity.id}
+                      days={days}
+                      {...nodeProps(exam)}
+                    />
                   ))}
                 </ol>
               </div>
             )}
             {undated.length > 0 && (
               <section aria-label="Not scheduled yet" className="flex flex-col">
-                <p className={cn(ROW_GRID, "pb-1 text-xs font-medium text-muted-foreground")}>
+                <p
+                  className={cn(
+                    ROW_GRID,
+                    "pb-1 text-xs font-medium text-muted-foreground",
+                  )}
+                >
                   <span className="col-start-3 pl-1">Not scheduled yet</span>
                 </p>
                 <div className="relative">
                   <span
                     aria-hidden
-                    className={cn(LINE, "inset-y-3 border-l border-dashed border-border")}
+                    className={cn(
+                      LINE,
+                      "inset-y-3 border-l border-dashed border-border",
+                    )}
                   />
                   <ol className="flex flex-col">
                     {undated.map((exam) => (
-                      <FutureNode key={exam.entity.id} days={null} {...nodeProps(exam)} />
+                      <FutureNode
+                        key={exam.entity.id}
+                        days={null}
+                        {...nodeProps(exam)}
+                      />
                     ))}
                   </ol>
                 </div>
@@ -212,7 +272,11 @@ export function ExamsListView({
         </div>
       )}
 
-      <CreateExamDialog spaceId={spaceId} open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateExamDialog
+        spaceId={spaceId}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
     </div>
   );
 }
@@ -252,8 +316,10 @@ function NodeRow({
         onClick={onOpen}
         className="peer absolute inset-0 cursor-pointer rounded-md outline-none"
       />
-      <div className="pointer-events-none relative pr-3 text-right">{date}</div>
-      <div className="pointer-events-none relative flex justify-center">{node}</div>
+      <div className="pointer-events-none relative pr-3">{date}</div>
+      <div className="pointer-events-none relative flex justify-center">
+        {node}
+      </div>
       <div className="pointer-events-none relative min-w-0 rounded-md px-3 transition-colors group-hover:bg-accent/40 peer-focus-visible:bg-accent/50">
         {children}
       </div>
@@ -264,9 +330,14 @@ function NodeRow({
 function DateLabel({ day, className }: { day: string; className?: string }) {
   const date = parseISO(day);
   return (
-    <time dateTime={day} className={cn("flex flex-col leading-tight tabular-nums", className)}>
+    <time
+      dateTime={day}
+      className={cn("flex flex-col leading-tight tabular-nums", className)}
+    >
       <span className="text-xs font-medium">{formatShortDate(date)}</span>
-      <span className="text-xs text-muted-foreground">{formatWeekday(date)}</span>
+      <span className="text-xs text-muted-foreground">
+        {formatWeekday(date)}
+      </span>
     </time>
   );
 }
@@ -282,7 +353,9 @@ function Meta({ exam, course }: { exam: Exam; course: Entity | undefined }) {
           {exam.room}
         </span>
       )}
-      {weight && <span className="text-xs text-muted-foreground">{weight}</span>}
+      {weight && (
+        <span className="text-xs text-muted-foreground">{weight}</span>
+      )}
     </span>
   );
 }
@@ -303,10 +376,14 @@ function PastNode({ exam, course, onOpen }: NodeProps) {
       className="py-1 opacity-60 transition-opacity hover:opacity-100 focus-within:opacity-100"
       // SAFETY: only `PastNode`s, which always carry a date, reach this.
       date={<DateLabel day={exam.examDate as string} />}
-      node={<span className="size-2 rounded-full bg-muted-foreground/50 ring-4 ring-card" />}
+      node={
+        <span className="size-2 rounded-full bg-muted-foreground/50 ring-4 ring-card" />
+      }
     >
       <div className="flex h-9 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm">{displayTitle(exam.entity)}</span>
+        <span className="min-w-0 flex-1 truncate text-sm">
+          {displayTitle(exam.entity)}
+        </span>
         {course && <CourseChip course={course} className="max-sm:hidden" />}
         {exam.grade !== null ? (
           <GradeBadge grade={exam.grade} />
@@ -325,7 +402,7 @@ function PastNode({ exam, course, onOpen }: NodeProps) {
 function TodayMarker() {
   return (
     <li aria-hidden className={cn(ROW_GRID, "items-center py-2")}>
-      <span className="pr-3 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
+      <span className="pr-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         Today
       </span>
       <span className="flex justify-center">
@@ -336,14 +413,21 @@ function TodayMarker() {
   );
 }
 
-function NextNode({ exam, course, onOpen, days }: NodeProps & { days: number }) {
+function NextNode({
+  exam,
+  course,
+  onOpen,
+  days,
+}: NodeProps & { days: number }) {
   return (
     <NodeRow
       exam={exam}
       onOpen={onOpen}
       className="py-3"
       // SAFETY: the next exam is picked from dated exams only.
-      date={<DateLabel day={exam.examDate as string} className="text-primary" />}
+      date={
+        <DateLabel day={exam.examDate as string} className="text-primary" />
+      }
       node={
         <span className="relative flex size-4 items-center justify-center">
           <span className="absolute -inset-1.5 animate-pulse rounded-full bg-primary/25 motion-reduce:hidden" />
@@ -353,17 +437,27 @@ function NextNode({ exam, course, onOpen, days }: NodeProps & { days: number }) 
     >
       <div className="-mx-3 flex items-center gap-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <span className="text-xs font-medium tracking-wide text-primary uppercase">Next up</span>
-          <span className="truncate text-base font-semibold">{displayTitle(exam.entity)}</span>
+          <span className="text-xs font-medium tracking-wide text-primary uppercase">
+            Next up
+          </span>
+          <span className="truncate text-base font-semibold">
+            {displayTitle(exam.entity)}
+          </span>
           <Meta exam={exam} course={course} />
         </div>
         <div className="flex shrink-0 flex-col items-end leading-none">
           {days <= 1 ? (
-            <span className="text-2xl font-semibold text-primary">{countdown(days)}</span>
+            <span className="text-2xl font-semibold text-primary">
+              {countdown(days)}
+            </span>
           ) : (
             <>
-              <span className="text-3xl font-semibold text-primary tabular-nums">{days}</span>
-              <span className="mt-1 text-xs text-muted-foreground">days to go</span>
+              <span className="text-3xl font-semibold text-primary tabular-nums">
+                {days}
+              </span>
+              <span className="mt-1 text-xs text-muted-foreground">
+                days to go
+              </span>
             </>
           )}
           {exam.status === "studying" && (
@@ -377,7 +471,12 @@ function NextNode({ exam, course, onOpen, days }: NodeProps & { days: number }) 
   );
 }
 
-function FutureNode({ exam, course, onOpen, days }: NodeProps & { days: number | null }) {
+function FutureNode({
+  exam,
+  course,
+  onOpen,
+  days,
+}: NodeProps & { days: number | null }) {
   return (
     <NodeRow
       exam={exam}
@@ -401,7 +500,9 @@ function FutureNode({ exam, course, onOpen, days }: NodeProps & { days: number |
     >
       <div className="flex items-center gap-3 py-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="truncate text-sm font-medium">{displayTitle(exam.entity)}</span>
+          <span className="truncate text-sm font-medium">
+            {displayTitle(exam.entity)}
+          </span>
           <Meta exam={exam} course={course} />
         </div>
         {exam.status === "studying" && (
@@ -436,11 +537,20 @@ function CreateExamDialog({
   const create = useMutation({
     mutationFn: () => {
       if (!course) throw new Error("Pick a course first");
-      return createExam(spaceId, `${displayTitle(course)} Exam`, course.id, examDate || null, null);
+      return createExam(
+        spaceId,
+        `${displayTitle(course)} Exam`,
+        course.id,
+        examDate || null,
+        null,
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exams", spaceId] });
-      if (course) queryClient.invalidateQueries({ queryKey: ["relationships", course.id] });
+      if (course)
+        queryClient.invalidateQueries({
+          queryKey: ["relationships", course.id],
+        });
     },
   });
   const createStatus = statusOf(create);
@@ -470,8 +580,15 @@ function CreateExamDialog({
             spaceId={spaceId}
             typeFilter="course"
             trigger={
-              <Button variant="secondary" size="sm" className="w-full justify-start">
-                <EntityPickerValue entity={course} placeholder="Pick a course…" />
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <EntityPickerValue
+                  entity={course}
+                  placeholder="Pick a course…"
+                />
               </Button>
             }
             onSelect={setCourse}
@@ -492,7 +609,9 @@ function CreateExamDialog({
             size="sm"
             disabled={!course}
             onClick={() =>
-              createStatus !== "pending" && createStatus !== "success" && create.mutate()
+              createStatus !== "pending" &&
+              createStatus !== "success" &&
+              create.mutate()
             }
           >
             <StatusButtonContent
