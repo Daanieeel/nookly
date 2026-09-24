@@ -1,5 +1,5 @@
-import { IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconCalendarUser, IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addWeeks, format, isSameDay, isToday, startOfWeek } from "date-fns";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -40,6 +40,18 @@ import type { Entity, SessionOccurrence } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
+import { listExternalEvents } from "@/lib/api/externalCalendars";
+import { CalendarConnectionsDialog } from "./external-calendars/CalendarConnectionsDialog";
+import { EXTERNAL_EVENTS_KEY } from "./external-calendars/external-calendar-sync";
+import { ExternalEventBlock, ExternalEventChip } from "./external-calendars/ExternalEventBlock";
+import {
+  type EventSegment,
+  type BlockPosition,
+  type Lane,
+  eventsForDay,
+  lanePosition,
+  layoutLanes,
+} from "./external-calendars/overlay-layout";
 
 const START_HOUR = 8;
 const END_HOUR = 22;
@@ -51,15 +63,31 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-function topPxFor(startTime: string): number {
-  const px = ((timeToMinutes(startTime) - START_HOUR * 60) / 60) * HOUR_PX;
+const MIN_BLOCK_PX = 18;
+/// The shortest span a block renders at, in minutes, for laying out columns.
+const MIN_BLOCK_MINUTES = (MIN_BLOCK_PX / HOUR_PX) * 60;
+/// Height of one all day row under the day headers.
+const ALL_DAY_ROW_PX = 22;
+/// All day rows shown before the strip stops growing; the rest scroll.
+const MAX_ALL_DAY_ROWS = 3;
+
+function topPxFor(minutes: number): number {
+  const px = ((minutes - START_HOUR * 60) / 60) * HOUR_PX;
   return Math.max(0, Math.min(px, (END_HOUR - START_HOUR) * HOUR_PX));
 }
 
-function heightPxFor(startTime: string, endTime: string): number {
-  const px = ((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60) * HOUR_PX;
-  return Math.max(18, px);
+function heightPxFor(startMin: number, endMin: number): number {
+  const px = ((endMin - startMin) / 60) * HOUR_PX;
+  return Math.max(MIN_BLOCK_PX, px);
 }
+
+function blockPosition(startMin: number, endMin: number, lane: Lane): BlockPosition {
+  return lanePosition(topPxFor(startMin), heightPxFor(startMin, endMin), lane);
+}
+
+type DayItem =
+  | { kind: "session"; occurrence: SessionOccurrence; startMin: number; endMin: number }
+  | ({ kind: "external" } & EventSegment);
 
 interface DraftSlot {
   date: Date;
@@ -79,6 +107,7 @@ export function SessionsListView({
 }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [draft, setDraft] = useState<DraftSlot | null>(null);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
   const openEntity = useNavStore((s) => s.openEntity);
   const setView = useNavStore((s) => s.setView);
 
@@ -108,6 +137,46 @@ export function SessionsListView({
     : allSessions;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // External calendars are a read only overlay, never Sessions. Hidden while the
+  // view is narrowed to one Course, since they belong to none.
+  const fromKey = format(addDays(weekStart, -1), "yyyy-MM-dd");
+  const toKey = format(addDays(weekStart, 7), "yyyy-MM-dd");
+  const { data: externalEvents = [] } = useQuery({
+    queryKey: [...EXTERNAL_EVENTS_KEY, fromKey, toKey],
+    queryFn: () => listExternalEvents(fromKey, toKey),
+    enabled: !filterCourseId,
+    placeholderData: keepPreviousData,
+  });
+  const dayColumns = days.map((day) => {
+    const { timed, allDay } = filterCourseId
+      ? { timed: [], allDay: [] }
+      : eventsForDay(externalEvents, format(day, "yyyy-MM-dd"));
+    const items: DayItem[] = [
+      ...sessions
+        .filter((s) => isSameDay(new Date(s.date), day))
+        .map((occurrence) => ({
+          kind: "session" as const,
+          occurrence,
+          startMin: timeToMinutes(occurrence.startTime),
+          endMin: timeToMinutes(occurrence.endTime),
+        })),
+      // Clipped to the grid's hours; the block's label keeps the real times.
+      ...timed.flatMap((segment) => {
+        const startMin = Math.max(segment.startMin, START_HOUR * 60);
+        const endMin = Math.min(segment.endMin, END_HOUR * 60);
+        const visible =
+          startMin < END_HOUR * 60 && Math.max(endMin, segment.startMin + 1) > startMin;
+        return visible ? [{ kind: "external" as const, ...segment, startMin, endMin }] : [];
+      }),
+    ];
+    return { day, items, lanes: layoutLanes(items, MIN_BLOCK_MINUTES), allDay };
+  });
+  const allDayRows = Math.min(
+    MAX_ALL_DAY_ROWS,
+    Math.max(0, ...dayColumns.map((c) => c.allDay.length)),
+  );
+  const allDayHeightPx = allDayRows * ALL_DAY_ROW_PX + 4;
 
   return (
     <div className="flex flex-col gap-3">
@@ -140,6 +209,20 @@ export function SessionsListView({
           <span className="pl-2 text-xs text-muted-foreground">
             {formatShortDate(weekStart)} – {formatShortDate(addDays(weekStart, 6))}
           </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Calendar connections"
+                className="ml-1"
+                onClick={() => setConnectionsOpen(true)}
+              >
+                <IconCalendarUser size={15} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Calendar connections</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -163,6 +246,15 @@ export function SessionsListView({
         <div className="flex min-w-[720px] flex-1">
           <div className="flex w-12 shrink-0 flex-col border-r border-border">
             <div className="h-10 shrink-0 border-b border-border" />
+            {allDayRows > 0 && (
+              <div
+                className="h-(--all-day-height) shrink-0 border-b border-border px-1 pt-1 text-right text-xs text-muted-foreground"
+                // SAFETY: a plain pixel length derived from the row count.
+                style={{ "--all-day-height": `${allDayHeightPx}px` } as CSSProperties}
+              >
+                All day
+              </div>
+            )}
             {HOURS.map((h) => (
               <div
                 key={h}
@@ -173,8 +265,7 @@ export function SessionsListView({
             ))}
           </div>
 
-          {days.map((day) => {
-            const dayOccurrences = sessions.filter((s) => isSameDay(new Date(s.date), day));
+          {dayColumns.map(({ day, items, lanes, allDay }) => {
             return (
               <div
                 key={day.toISOString()}
@@ -190,6 +281,17 @@ export function SessionsListView({
                   <span>{formatWeekday(day, "short")}</span>
                   <span>{format(day, "d")}</span>
                 </div>
+                {allDayRows > 0 && (
+                  <div
+                    className="flex h-(--all-day-height) shrink-0 flex-col gap-0.5 overflow-y-auto border-b border-border p-0.5"
+                    // SAFETY: a plain pixel length derived from the row count.
+                    style={{ "--all-day-height": `${allDayHeightPx}px` } as CSSProperties}
+                  >
+                    {allDay.map((event) => (
+                      <ExternalEventChip key={event.id} event={event} />
+                    ))}
+                  </div>
+                )}
                 <div className="relative">
                   {HOURS.map((h) => (
                     <button
@@ -204,20 +306,33 @@ export function SessionsListView({
                       className="block h-12 w-full shrink-0 border-b border-border last:border-b-0 hover:bg-accent/60"
                     />
                   ))}
-                  {dayOccurrences.map((occ) => (
-                    <SessionBlock
-                      key={occ.entity.id}
-                      spaceId={spaceId}
-                      occurrence={occ}
-                      onOpen={() => openEntity(occ.entity.id, spaceId)}
-                    />
-                  ))}
+                  {items.map((item) => {
+                    const lane = lanes.get(item) ?? { lane: 0, lanes: 1 };
+                    const position = blockPosition(item.startMin, item.endMin, lane);
+                    return item.kind === "session" ? (
+                      <SessionBlock
+                        key={item.occurrence.entity.id}
+                        spaceId={spaceId}
+                        occurrence={item.occurrence}
+                        position={position}
+                        onOpen={() => openEntity(item.occurrence.entity.id, spaceId)}
+                      />
+                    ) : (
+                      <ExternalEventBlock
+                        key={item.event.id}
+                        event={item.event}
+                        position={position}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      <CalendarConnectionsDialog open={connectionsOpen} onOpenChange={setConnectionsOpen} />
 
       <QuickCreateSessionDialog
         spaceId={spaceId}
@@ -231,10 +346,12 @@ export function SessionsListView({
 function SessionBlock({
   spaceId,
   occurrence,
+  position,
   onOpen,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
+  position: BlockPosition;
   onOpen: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -245,20 +362,25 @@ function SessionBlock({
   const cancelStatus = statusOf(cancel);
   const cancelLabel =
     cancelStatus === "error" ? "Couldn't cancel occurrence, try again" : "Cancel occurrence";
-  const top = topPxFor(occurrence.startTime);
-  const height = heightPxFor(occurrence.startTime, occurrence.endTime);
   return (
     <div
-      className={`group absolute inset-x-1 top-(--occ-top) h-(--occ-height) overflow-hidden rounded-md border ${
+      className={`group absolute top-(--occ-top) left-(--occ-left) h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md border ${
         occurrence.cancelled
           ? "border-border bg-muted text-muted-foreground"
           : "border-primary/30 bg-primary/10 text-foreground"
       }`}
-      // SAFETY: `--occ-top`/`--occ-height` only ever receive plain pixel-length
-      // strings computed from this occurrence's own start/end time — a per-row
-      // offset can't be a static Tailwind class, so it's threaded through a CSS
-      // custom property instead of a direct inline `top`/`height` declaration.
-      style={{ "--occ-top": `${top}px`, "--occ-height": `${height}px` } as CSSProperties}
+      // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
+      // lengths computed from this occurrence's own start/end time and column
+      // (`blockPosition`) — a per-row offset can't be a static Tailwind class, so
+      // it's threaded through CSS custom properties instead of inline declarations.
+      style={
+        {
+          "--occ-top": `${position.top}px`,
+          "--occ-height": `${position.height}px`,
+          "--occ-left": position.left,
+          "--occ-width": position.width,
+        } as CSSProperties
+      }
       {...entityTarget(occurrence.entity, occurrence)}
     >
       <button

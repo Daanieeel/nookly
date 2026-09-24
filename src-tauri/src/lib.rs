@@ -1,7 +1,10 @@
+use tauri::Manager;
+
 mod cli;
 mod commands;
 mod db;
 mod error;
+mod external_calendars;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -46,6 +49,9 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             db::setup(app)?;
+            app.manage(external_calendars::ExternalCalendarState::load(
+                &app.path().app_data_dir()?,
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -181,6 +187,14 @@ pub fn run() {
             commands::bookmark_screenshot::capture_bookmark_screenshot,
             commands::cli_install::cli_install_status,
             commands::cli_install::install_cli,
+            commands::external_calendars::external_calendar_status,
+            commands::external_calendars::connect_google_calendar,
+            commands::external_calendars::cancel_google_calendar_connect,
+            commands::external_calendars::connect_icloud_calendar,
+            commands::external_calendars::set_external_calendar_selected,
+            commands::external_calendars::disconnect_external_calendar,
+            commands::external_calendars::sync_external_calendars,
+            commands::external_calendars::list_external_events,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

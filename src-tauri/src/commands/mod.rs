@@ -6,6 +6,7 @@ pub mod courses;
 pub mod decks;
 pub mod entities;
 pub mod exams;
+pub mod external_calendars;
 pub mod files;
 pub mod labels;
 pub mod notes;

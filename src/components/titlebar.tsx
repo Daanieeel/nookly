@@ -1,6 +1,7 @@
 import {
   IconArrowLeft,
   IconArrowRight,
+  IconCalendarUser,
   IconChevronRight,
   IconFolder,
   IconLayoutDashboard,
@@ -11,7 +12,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, type ReactNode, useEffect } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { entityTarget } from "@/components/context-menu/registry";
 import { EntityIcon } from "@/components/entity-icon";
 import { EntityKey } from "@/components/entity-key";
@@ -25,6 +26,10 @@ import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  CalendarConnectionsDialog,
+  useExternalCalendarStatus,
+} from "@/features/sessions/external-calendars/CalendarConnectionsDialog";
 import { useTaskParent } from "@/features/tasks/task-parent";
 import { getEntity } from "@/lib/api/entities";
 import { listSpaces } from "@/lib/api/spaces";
@@ -164,36 +169,68 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
 }
 
 function SettingsPopover() {
+  const [open, setOpen] = useState(false);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
   return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              variant="secondary"
-              size="iconSm"
-              className="ml-1 shrink-0"
-              aria-label="Settings"
-            >
-              <IconSettings size={14} />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Settings</TooltipContent>
-      </Tooltip>
-      <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Theme</span>
-          <ThemeToggle />
-        </div>
-        <UiSeparator />
-        <DateTimeSettings />
-        <UiSeparator />
-        <div className="flex flex-col gap-2">
-          <VersionSection />
-        </div>
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="iconSm"
+                className="ml-1 shrink-0"
+                aria-label="Settings"
+              >
+                <IconSettings size={14} />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Settings</TooltipContent>
+        </Tooltip>
+        <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Theme</span>
+            <ThemeToggle />
+          </div>
+          <UiSeparator />
+          <DateTimeSettings />
+          <UiSeparator />
+          <CalendarConnectionsSetting
+            onOpen={() => {
+              setOpen(false);
+              setConnectionsOpen(true);
+            }}
+          />
+          <UiSeparator />
+          <div className="flex flex-col gap-2">
+            <VersionSection />
+          </div>
+        </PopoverContent>
+      </Popover>
+      <CalendarConnectionsDialog open={connectionsOpen} onOpenChange={setConnectionsOpen} />
+    </>
+  );
+}
+
+/// Entry to the read only external calendar overlay shown on Sessions.
+function CalendarConnectionsSetting({ onOpen }: { onOpen: () => void }) {
+  const { data: status } = useExternalCalendarStatus();
+  const count = status?.connections.length ?? 0;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground">Calendars</span>
+        <span className="text-sm">
+          {count === 0 ? "Not connected" : count === 1 ? "1 connected" : `${count} connected`}
+        </span>
+      </div>
+      <Button variant="secondary" size="sm" onClick={onOpen}>
+        <IconCalendarUser size={14} />
+        Manage
+      </Button>
+    </div>
   );
 }
 

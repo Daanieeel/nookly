@@ -15,6 +15,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
 import { QuickJotDialog } from "@/features/notes/QuickJot";
+import { useExternalCalendarSync } from "@/features/sessions/external-calendars/external-calendar-sync";
 import { TrashView } from "@/features/trash/TrashView";
 import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
 import { useScopedSelectAll } from "@/hooks/use-scoped-select-all";
@@ -52,6 +53,7 @@ function MainContent() {
 function Shell() {
   const view = useNavStore((s) => s.view);
   useExternalDbChanges();
+  useExternalCalendarSync();
   useScopedSelectAll();
   // Formatters read the date settings directly; re-rendering from the root applies
   // a changed format everywhere at once.

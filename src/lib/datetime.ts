@@ -190,3 +190,27 @@ export function formatMonth(value: Date): string {
     year: "numeric",
   }).format(value);
 }
+
+export interface ZonedDayMinutes {
+  day: string;
+  minutes: number;
+}
+
+/// An instant's calendar day (`YYYY-MM-DD`) and minutes past midnight in the
+/// chosen zone, for placing it on a day grid.
+export function zonedDayMinutes(iso: string): ZonedDayMinutes {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: timeZone(),
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  return {
+    day: `${get("year")}-${get("month")}-${get("day")}`,
+    minutes: Number(get("hour")) * 60 + Number(get("minute")),
+  };
+}

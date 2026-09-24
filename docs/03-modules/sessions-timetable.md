@@ -29,3 +29,16 @@ Calendar first, using a weekly timetable grid. This is time-based data, so the c
 ## Creation UX
 
 Sessions are created in context from the calendar by clicking or dragging across a time slot. The calendar itself is the creation surface, not an abstract form.
+
+## External Calendar Overlay
+
+Google Calendar and iCloud events are drawn on the calendar as a read only overlay (see [the decision](../06-decisions-log.md#external-calendars-are-a-read-only-overlay-not-sessions)). Connect each provider separately under Settings or the calendar's connections button, then pick which calendars to show.
+
+| Provider        | Access                                                             |
+| --------------- | ------------------------------------------------------------------ |
+| Google Calendar | OAuth in the browser, read only calendar list and events scopes    |
+| iCloud          | CalDAV with an app specific password from the user's Apple Account |
+
+- Code lives in `src-tauri/src/external_calendars/`. Events and connections are cached in `external-calendars.json` in the app data folder, credentials in the OS keychain.
+- The overlay polls every 15 minutes while the window is visible and always renders from cache. A failed sync keeps the cached events and shows its error in the connections dialog.
+- Google needs `NOOKLY_GOOGLE_CLIENT_ID` and `NOOKLY_GOOGLE_CLIENT_SECRET` (a Desktop app OAuth client) set at build time. Without them the Google option is disabled.

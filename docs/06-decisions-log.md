@@ -239,3 +239,13 @@ A `ChildCollectionDef` registered next to a type's schema gives the CLI `<plural
 **Why:** decks are studied daily, well before and apart from any exam (vocabulary, general knowledge). A deck can still be filed under one Exam and shows on its Decks tab.
 
 **Rejected:** keeping decks inside Exams with a required Exam, which forces an exam to exist before any card can be written.
+
+---
+
+### External calendars are a read only overlay, not Sessions
+
+Google Calendar and iCloud events show on the Sessions calendar but are never entities: no Space, no relationships, no Course, no CLI exposure. Nookly never writes to either calendar.
+
+**Why:** converting them to Sessions would force a Course onto events like "Dentist" and break the Session and Course structural rule.
+
+**Rejected:** importing external events as Sessions or any other entity type, and two way sync.

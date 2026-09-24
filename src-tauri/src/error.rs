@@ -18,6 +18,9 @@ pub enum AppError {
     Db(String),
     #[error("file error: {0}")]
     Io(String),
+    /// An external calendar provider failed; the message is shown to the user as is.
+    #[error("{0}")]
+    Remote(String),
 }
 
 impl From<rusqlite::Error> for AppError {
