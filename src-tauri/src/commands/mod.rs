@@ -1,4 +1,5 @@
 pub mod assignments;
+pub mod bookmark_screenshot;
 pub mod bookmarks;
 pub mod cli_install;
 pub mod courses;

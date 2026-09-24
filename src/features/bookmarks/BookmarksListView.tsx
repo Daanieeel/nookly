@@ -38,14 +38,20 @@ import {
   type DisplayOptions,
   bookmarkGroupDefs,
   bookmarkTitle,
+  hostOf,
   orderBookmarks,
   readDisplay,
+  useCaptureScreenshot,
   useSpaceLabels,
   writeDisplay,
 } from "./bookmark-model";
-import { Favicon, Preview, hostOf } from "./bookmark-preview";
+import { Favicon, Preview } from "./bookmark-preview";
 
 const MAX_CHIPS = 3;
+
+/// Bookmarks already sent for a snapshot this session, so one that can't be
+/// captured isn't retried on every visit. "Refresh Preview" always retries.
+const captureAttempted = new Set<string>();
 
 function looksLikeUrl(text: string): boolean {
   return /^(https?:\/\/)?[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(text.trim());
@@ -89,14 +95,17 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
     writeDisplay(next);
   };
 
+  const capture = useCaptureScreenshot(spaceId);
   const add = useMutation({
     mutationFn: async (u: string) => {
       const bookmark = await createBookmark(spaceId, u);
+      captureAttempted.add(bookmark.entity.id);
       // Best effort: offline, the card keeps its placeholder until metadata is
-      // refreshed later.
+      // refreshed later. The `og:image` shows while the page itself is captured.
       fetchBookmarkMetadata(bookmark.entity.id, u)
         .then(() => queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] }))
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => capture.mutate(bookmark.entity.id));
       return bookmark;
     },
     onSuccess: async (bookmark) => {
@@ -119,6 +128,16 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
     },
     [add],
   );
+
+  // Bookmarks saved before snapshots existed, or whose capture failed last session.
+  const { mutate: captureMutate } = capture;
+  useEffect(() => {
+    for (const b of bookmarks) {
+      if (b.screenshotPath || captureAttempted.has(b.entity.id)) continue;
+      captureAttempted.add(b.entity.id);
+      captureMutate(b.entity.id);
+    }
+  }, [bookmarks, captureMutate]);
 
   const focusInput = useCallback(() => inputRef.current?.focus(), []);
   useCreateShortcut(focusInput);

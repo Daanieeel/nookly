@@ -23,8 +23,14 @@ import type { Bookmark } from "@/lib/api/types";
 import { formatDateTime } from "@/lib/datetime";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
-import { bookmarkTitle, useBookmarkLabels, useSpaceLabels } from "./bookmark-model";
-import { Favicon, Preview, hostOf } from "./bookmark-preview";
+import {
+  bookmarkTitle,
+  hostOf,
+  useBookmarkLabels,
+  useCaptureScreenshot,
+  useSpaceLabels,
+} from "./bookmark-model";
+import { Favicon, Preview } from "./bookmark-preview";
 
 /// A Bookmark's details, sliding in from the right over whatever is open.
 /// Bookmarks have no page of their own; this sheet is where they're opened.
@@ -63,9 +69,11 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
       queryClient.invalidateQueries({ queryKey: ["bookmark", entity.id] }),
       queryClient.invalidateQueries({ queryKey: ["bookmarks", entity.spaceId] }),
     ]);
+  const capture = useCaptureScreenshot(entity.spaceId);
   const refresh = useMutation({
     mutationFn: () => fetchBookmarkMetadata(entity.id, bookmark.url),
     onSuccess: refreshAll,
+    onSettled: () => capture.mutate(entity.id),
   });
   const rename = useMutation({
     mutationFn: (title: string) => updateEntity(entity.id, { title }),
@@ -77,7 +85,10 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
       await updateBookmarkUrl(entity.id, url);
       await fetchBookmarkMetadata(entity.id, url).catch(() => {});
     },
-    onSuccess: refreshAll,
+    onSuccess: async () => {
+      await refreshAll();
+      capture.mutate(entity.id);
+    },
   });
   const togglePin = useMutation({
     mutationFn: () => updateEntity(entity.id, { pinned: !entity.pinned }),

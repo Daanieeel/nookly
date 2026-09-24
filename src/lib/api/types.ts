@@ -277,6 +277,9 @@ export interface Bookmark {
   previewImageUrl: string | null;
   description: string | null;
   metadataFetchedAt: string | null;
+  /// Local snapshot of the page, the main preview; `previewImageUrl` stands in
+  /// while none exists.
+  screenshotPath: string | null;
   /// Attached Label ids, ordered by label name.
   labelIds: string[];
 }

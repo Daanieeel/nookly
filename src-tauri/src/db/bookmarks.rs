@@ -14,6 +14,9 @@ pub struct Bookmark {
     pub preview_image_url: Option<String>,
     pub description: Option<String>,
     pub metadata_fetched_at: Option<String>,
+    /// A local JPEG snapshot of the page, captured by the GUI; preferred over
+    /// `preview_image_url` when present.
+    pub screenshot_path: Option<String>,
     /// Attached Label ids, ordered by label name.
     pub label_ids: Vec<String>,
 }
@@ -27,6 +30,7 @@ fn row_to_bookmark(row: &rusqlite::Row) -> rusqlite::Result<Bookmark> {
         preview_image_url: row.get("preview_image_url")?,
         description: row.get("description")?,
         metadata_fetched_at: row.get("metadata_fetched_at")?,
+        screenshot_path: row.get("screenshot_path")?,
         label_ids: Vec::new(),
     })
 }
@@ -60,6 +64,7 @@ pub fn create_bookmark(conn: &Connection, space_id: String, url: String) -> AppR
         preview_image_url: None,
         description: None,
         metadata_fetched_at: None,
+        screenshot_path: None,
         label_ids: Vec::new(),
     })
 }
@@ -72,9 +77,10 @@ pub fn update_bookmark_url(conn: &Connection, entity_id: &str, url: String) -> A
     if current.url == url {
         return Ok(current);
     }
+    remove_screenshot_file(current.screenshot_path.as_deref());
     conn.execute(
         "UPDATE bookmarks SET url = ?1, fetched_title = NULL, favicon_url = NULL, preview_image_url = NULL,
-         description = NULL, metadata_fetched_at = NULL WHERE entity_id = ?2",
+         description = NULL, metadata_fetched_at = NULL, screenshot_path = NULL WHERE entity_id = ?2",
         params![url, entity_id],
     )?;
     let title = if current.entity.title == current.url || current.entity.title.trim().is_empty() {
@@ -129,9 +135,29 @@ pub fn update_metadata(
     Ok(())
 }
 
+/// Records a new snapshot of the page and deletes the one it replaces.
+pub fn set_screenshot(conn: &Connection, entity_id: &str, path: &str) -> AppResult<Bookmark> {
+    let previous = get_bookmark(conn, entity_id)?.screenshot_path;
+    conn.execute(
+        "UPDATE bookmarks SET screenshot_path = ?1 WHERE entity_id = ?2",
+        params![path, entity_id],
+    )?;
+    if previous.as_deref() != Some(path) {
+        remove_screenshot_file(previous.as_deref());
+    }
+    get_bookmark(conn, entity_id)
+}
+
+/// Snapshots are a cache the app regenerates, so a failed delete is harmless.
+fn remove_screenshot_file(path: Option<&str>) {
+    if let Some(path) = path {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 pub fn list_bookmarks(conn: &Connection, space_id: &str) -> AppResult<Vec<Bookmark>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at
+        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at, b.screenshot_path
          FROM entities e JOIN bookmarks b ON b.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at DESC",
     )?;
@@ -162,7 +188,7 @@ pub fn list_bookmarks(conn: &Connection, space_id: &str) -> AppResult<Vec<Bookma
 
 pub fn get_bookmark(conn: &Connection, entity_id: &str) -> AppResult<Bookmark> {
     let mut bookmark = conn.query_row(
-        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at
+        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at, b.screenshot_path
          FROM entities e JOIN bookmarks b ON b.entity_id = e.id WHERE e.id = ?1",
         params![entity_id],
         row_to_bookmark,

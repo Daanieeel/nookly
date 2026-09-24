@@ -299,5 +299,10 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         -- Where an exam takes place, free text like \"H 0104\".
         ALTER TABLE exams ADD COLUMN room TEXT;
         ",
+    ), M::up(
+        "
+        -- A local snapshot of the bookmarked page, the card's main preview.
+        ALTER TABLE bookmarks ADD COLUMN screenshot_path TEXT;
+        ",
     )])
 });

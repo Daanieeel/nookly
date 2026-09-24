@@ -1,12 +1,21 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { GroupDef } from "@/components/grouped-view/grouping";
+import { captureBookmarkScreenshot } from "@/lib/api/bookmarks";
 import { attachLabel, createLabel, detachLabel, listLabels } from "@/lib/api/labels";
 import type { Bookmark, Label } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { preferences } from "@/lib/preferences";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
-import { hostOf } from "./bookmark-preview";
+
+/// "example.com" for `https://www.example.com/a/b`, the raw text if it isn't a URL.
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
 
 export type Layout = "grid" | "list";
 export type Grouping = "none" | "site" | "label" | "added";
@@ -176,4 +185,31 @@ export function useBookmarkLabels(bookmark: Bookmark) {
     onSuccess: refresh,
   });
   return { toggle, create };
+}
+
+const CAPTURE_KEY = ["bookmark-screenshot"];
+
+/// Captures a page snapshot, refreshing the lists that show the bookmark. Runs
+/// quietly: a failed capture leaves the `og:image` in place.
+export function useCaptureScreenshot(spaceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: CAPTURE_KEY,
+    mutationFn: (entityId: string) => captureBookmarkScreenshot(entityId),
+    onSettled: (_, __, entityId) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["bookmark", entityId] }),
+        queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] }),
+      ]),
+  });
+}
+
+/// True while this bookmark's page is being captured, wherever it was started.
+export function useCapturing(entityId: string): boolean {
+  return (
+    useIsMutating({
+      mutationKey: CAPTURE_KEY,
+      predicate: (m) => m.state.variables === entityId,
+    }) > 0
+  );
 }

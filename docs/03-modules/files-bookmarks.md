@@ -17,7 +17,7 @@ A separate entity from files as links:
 - A **file as link** is a document stored in the cloud and is treated as a document.
 - A **Bookmark** is any webpage and is treated as a reference.
 
-**Metadata:** when online, fetch the title, favicon, and preview image or description automatically. When offline, show a placeholder with an "added on [date]" timestamp, then fetch the metadata once the app is back online and cache it.
+**Metadata:** when online, fetch the title, favicon, and preview image or description automatically. The main preview is a local snapshot of the page itself, rendered off screen (macOS only so far); the page's `og:image` stands in while it is captured or when capture fails. When offline, show a placeholder with an "added on [date]" timestamp, then fetch the metadata once the app is back online and cache it.
 
 Bookmarks live inside a Space like any other page. They are not global.
 

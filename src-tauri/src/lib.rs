@@ -152,6 +152,7 @@ pub fn run() {
             commands::bookmarks::get_bookmark,
             commands::bookmarks::fetch_bookmark_metadata,
             commands::bookmarks::update_bookmark_url,
+            commands::bookmark_screenshot::capture_bookmark_screenshot,
             commands::cli_install::cli_install_status,
             commands::cli_install::install_cli,
         ])

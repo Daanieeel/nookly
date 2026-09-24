@@ -21,3 +21,9 @@ export function fetchBookmarkMetadata(entityId: string, url: string): Promise<Bo
 export function updateBookmarkUrl(entityId: string, url: string): Promise<Bookmark> {
   return invoke("update_bookmark_url", { entityId, url });
 }
+
+/// Renders the page off screen and stores a snapshot as its preview. macOS only
+/// so far; elsewhere it fails and the card keeps its `og:image`.
+export function captureBookmarkScreenshot(entityId: string): Promise<Bookmark> {
+  return invoke("capture_bookmark_screenshot", { entityId });
+}
