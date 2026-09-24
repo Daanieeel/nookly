@@ -30,20 +30,37 @@ export function Favicon({ bookmark, large = false }: { bookmark: Bookmark; large
   );
 }
 
-/// `eager` for previews outside the page's own scroll area: WebKit never starts a
-/// lazy load inside a fixed, transformed panel like the details sheet.
+/// Preview images far off the card's 1.91:1 shape, like a wide logo, get
+/// letterboxed instead of cropped into an unreadable slice.
+function fitsCover(img: HTMLImageElement): boolean {
+  const ratio = img.naturalWidth / img.naturalHeight;
+  return ratio > 1.3 && ratio < 2.6;
+}
+
+/// `eager` for previews outside the page's own scroll area: WebKit may never
+/// start a lazy load inside a fixed, transformed panel like the details sheet.
 export function Preview({ bookmark, eager = false }: { bookmark: Bookmark; eager?: boolean }) {
   const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+  const [containSrc, setContainSrc] = useState<string | null>(null);
   if (bookmark.previewImageUrl && brokenSrc !== bookmark.previewImageUrl) {
+    const contain = containSrc === bookmark.previewImageUrl;
+    // Transparent images are drawn for a light page, as link previews elsewhere
+    // show them; opaque photos cover the backdrop entirely.
     return (
-      <img
-        src={bookmark.previewImageUrl}
-        alt=""
-        loading={eager ? "eager" : "lazy"}
-        referrerPolicy="no-referrer"
-        onError={() => setBrokenSrc(bookmark.previewImageUrl)}
-        className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-      />
+      <div className="size-full bg-white">
+        <img
+          src={bookmark.previewImageUrl}
+          alt=""
+          loading={eager ? "eager" : "lazy"}
+          referrerPolicy="no-referrer"
+          onLoad={(e) => !fitsCover(e.currentTarget) && setContainSrc(bookmark.previewImageUrl)}
+          onError={() => setBrokenSrc(bookmark.previewImageUrl)}
+          className={cn(
+            "size-full transition-transform duration-300 group-hover:scale-[1.02]",
+            contain ? "object-contain p-6" : "object-cover",
+          )}
+        />
+      </div>
     );
   }
   // No preview image: the site's own icon, large, on a quiet surface.
