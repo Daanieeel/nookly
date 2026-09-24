@@ -117,6 +117,7 @@ pub fn run() {
             commands::courses::set_course_semester,
             commands::courses::get_course_notes,
             commands::courses::get_semester_notes,
+            commands::courses::get_course_grades,
             commands::sessions::create_session_template,
             commands::sessions::generate_occurrences,
             commands::sessions::create_one_off_session,

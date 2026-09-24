@@ -299,18 +299,105 @@ pub fn get_or_create_semester_notes(conn: &Connection, semester_id: &str) -> App
     Ok(note)
 }
 
+/// A Course's grade rolled up from its Exams and Assignments.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseGrades {
+    /// Weighted mean of the graded items, on whatever scale the grades use.
+    /// `None` until something with weight is graded.
+    pub grade: Option<f64>,
+    /// Share of the course's total weight that is graded, from 0 to 1.
+    pub graded_weight: f64,
+    pub graded_count: usize,
+    pub item_count: usize,
+}
+
+/// Exams with a weight count for exactly that share. Assignments and Exams
+/// without one split whatever weight is left evenly, so a course with no
+/// weights at all is a plain mean. Weights above 1 are read as percentages.
+fn roll_up_grades(items: &[(Option<f64>, Option<f64>)]) -> CourseGrades {
+    let weights: Vec<Option<f64>> = items
+        .iter()
+        .map(|(weight, _)| {
+            weight
+                .filter(|w| *w >= 0.0)
+                .map(|w| if w > 1.0 { w / 100.0 } else { w })
+        })
+        .collect();
+    let fixed: f64 = weights.iter().flatten().sum();
+    let unweighted = weights.iter().filter(|w| w.is_none()).count();
+    let share = if unweighted > 0 {
+        (1.0 - fixed).max(0.0) / unweighted as f64
+    } else {
+        0.0
+    };
+
+    let (mut total, mut graded, mut sum, mut graded_count) = (0.0, 0.0, 0.0, 0);
+    for ((_, grade), weight) in items.iter().zip(&weights) {
+        let weight = weight.unwrap_or(share);
+        total += weight;
+        if let Some(grade) = grade {
+            graded += weight;
+            sum += weight * grade;
+            graded_count += 1;
+        }
+    }
+    CourseGrades {
+        grade: (graded > 0.0).then(|| sum / graded),
+        graded_weight: if total > 0.0 { graded / total } else { 0.0 },
+        graded_count,
+        item_count: items.len(),
+    }
+}
+
+pub fn get_course_grades(conn: &Connection, course_id: &str) -> AppResult<CourseGrades> {
+    let mut stmt = conn.prepare(
+        "SELECT x.weight, x.grade FROM exams x
+         JOIN entities e ON e.id = x.entity_id
+         JOIN relationships r ON r.from_entity_id = x.entity_id AND r.relationship_type = 'exam-course'
+         WHERE r.to_entity_id = ?1 AND e.deleted_at IS NULL
+         UNION ALL
+         SELECT NULL, a.grade FROM assignments a
+         JOIN entities e ON e.id = a.entity_id
+         JOIN relationships r ON r.from_entity_id = a.entity_id AND r.relationship_type = 'assignment-course'
+         WHERE r.to_entity_id = ?1 AND e.deleted_at IS NULL",
+    )?;
+    let items = stmt
+        .query_map(params![course_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(roll_up_grades(&items))
+}
+
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
 
 fn cli_create_course(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let entity = create_course(conn, input.space_id, input.title)?;
-    Ok(serde_json::to_value(entity).expect("Entity always serializes"))
+    course_payload(conn, entity)
 }
 
 fn cli_get_course(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(
-        serde_json::to_value(crate::db::entities::get_entity(conn, id)?)
-            .expect("Entity always serializes"),
-    )
+    course_payload(conn, crate::db::entities::get_entity(conn, id)?)
+}
+
+/// The Course entity plus its `grades` computed field.
+fn course_payload(conn: &Connection, entity: Entity) -> AppResult<serde_json::Value> {
+    let grades = get_course_grades(conn, &entity.id)?;
+    let mut value = serde_json::to_value(entity).expect("Entity always serializes");
+    value["grades"] = serde_json::to_value(grades).expect("CourseGrades always serializes");
+    Ok(value)
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "course",
+        name: "grades",
+        kind: FieldKind::Object,
+        description: "Read only rollup of the course's Exam and Assignment grades: \
+                      { grade, gradedWeight, gradedCount, itemCount }. `grade` is the weighted mean of graded items \
+                      (null until one is graded). Exams with a weight count for that share, Assignments and \
+                      unweighted Exams split the remaining weight evenly. `gradedWeight` is the graded share of \
+                      total weight, 0 to 1.",
+    }
 }
 
 fn cli_update_course(
@@ -331,10 +418,10 @@ fn cli_list_courses(
     let space_id = space_id.ok_or_else(|| {
         crate::error::AppError::InvalidInput("course list requires --space <space-id>".into())
     })?;
-    Ok(list_courses(conn, space_id)?
+    list_courses(conn, space_id)?
         .into_iter()
-        .map(|e| serde_json::to_value(e).expect("Entity always serializes"))
-        .collect())
+        .map(|e| course_payload(conn, e))
+        .collect()
 }
 
 inventory::submit! {
@@ -747,5 +834,76 @@ mod tests {
             .collect();
         assert_eq!(semester_links.len(), 1);
         assert_eq!(semester_links[0].to_entity_id, spring.entity.id);
+    }
+
+    #[test]
+    fn grades_without_weights_are_a_plain_mean() {
+        let grades = roll_up_grades(&[(None, Some(1.0)), (None, Some(2.0)), (None, None)]);
+        assert_eq!(grades.grade, Some(1.5));
+        assert!((grades.graded_weight - 2.0 / 3.0).abs() < 1e-9);
+        assert_eq!((grades.graded_count, grades.item_count), (2, 3));
+    }
+
+    #[test]
+    fn weighted_exams_leave_the_rest_to_unweighted_items() {
+        // Exam 60% graded 2.0, two assignments share 40%, one graded 1.0.
+        let grades = roll_up_grades(&[(Some(0.6), Some(2.0)), (None, Some(1.0)), (None, None)]);
+        assert!((grades.grade.unwrap() - (0.6 * 2.0 + 0.2) / 0.8).abs() < 1e-9);
+        assert!((grades.graded_weight - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn percentage_weights_and_empty_courses() {
+        let grades = roll_up_grades(&[(Some(100.0), Some(1.7)), (None, Some(4.0))]);
+        assert_eq!(grades.grade, Some(1.7));
+        let empty = roll_up_grades(&[]);
+        assert_eq!((empty.grade, empty.graded_weight), (None, 0.0));
+    }
+
+    #[test]
+    fn course_grades_read_linked_exams_and_assignments() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let other = create_course(&conn, space.id.clone(), "Other".into()).unwrap();
+        let exam = crate::db::exams::create_exam(
+            &conn,
+            space.id.clone(),
+            "Final".into(),
+            course.id.clone(),
+            None,
+            Some(0.5),
+        )
+        .unwrap();
+        crate::db::exams::update_exam_grade(&conn, &exam.entity.id, Some(2.0)).unwrap();
+        let assignment = crate::db::assignments::create_assignment(
+            &conn,
+            space.id.clone(),
+            "Sheet 1".into(),
+            course.id.clone(),
+            None,
+        )
+        .unwrap();
+        crate::db::assignments::update_assignment_status(
+            &conn,
+            &assignment.entity.id,
+            "graded".into(),
+            Some(1.0),
+        )
+        .unwrap();
+        crate::db::exams::create_exam(
+            &conn,
+            space.id.clone(),
+            "Elsewhere".into(),
+            other.id,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let grades = get_course_grades(&conn, &course.id).unwrap();
+        assert_eq!(grades.grade, Some(1.5));
+        assert_eq!(grades.item_count, 2);
+        assert_eq!(grades.graded_weight, 1.0);
     }
 }

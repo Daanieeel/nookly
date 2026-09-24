@@ -40,6 +40,9 @@ pub enum FieldKind {
     /// References another entity by id. `entity_type` names the referenced
     /// type, so an agent calling `describe` knows what to pass.
     EntityRef(&'static str),
+    /// A JSON object. Only read only computed fields use it; the description
+    /// names its keys.
+    Object,
 }
 
 impl FieldKind {
@@ -53,6 +56,7 @@ impl FieldKind {
             FieldKind::Date => Value::String("date".into()),
             FieldKind::DateTime => Value::String("datetime".into()),
             FieldKind::Enum(values) => serde_json::json!({ "type": "enum", "values": values }),
+            FieldKind::Object => Value::String("object".into()),
             FieldKind::EntityRef(entity_type) => {
                 serde_json::json!({ "type": "entity_ref", "entityType": entity_type })
             }
@@ -131,6 +135,25 @@ pub struct ConversionDef {
 }
 
 inventory::collect!(ConversionDef);
+
+/// A read only value an entity type's `get` and `list` payloads carry, worked
+/// out from other entities rather than stored, like a Course's grade from its
+/// Exams and Assignments. Registered next to the type's schema so `describe`
+/// lists it; setting one with `--field` is refused as an unknown field.
+pub struct ComputedFieldDef {
+    pub entity_type: &'static str,
+    pub name: &'static str,
+    pub kind: FieldKind,
+    pub description: &'static str,
+}
+
+inventory::collect!(ComputedFieldDef);
+
+pub fn computed_fields(entity_type: &str) -> Vec<&'static ComputedFieldDef> {
+    inventory::iter::<ComputedFieldDef>()
+        .filter(|c| c.entity_type == entity_type)
+        .collect()
+}
 
 pub fn conversions_from(entity_type: &str) -> Vec<&'static ConversionDef> {
     inventory::iter::<ConversionDef>()
@@ -288,6 +311,14 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             { "name": "deletedAt", "kind": "datetime", "description": "Read-only; set by delete, cleared by restore" },
         ],
         "fields": fields,
+        "computedFields": computed_fields(def.entity_type)
+            .iter()
+            .map(|c| serde_json::json!({
+                "name": c.name,
+                "kind": c.kind.to_json(),
+                "description": c.description,
+            }))
+            .collect::<Vec<_>>(),
         "relationshipTypes": def.relationship_types,
         "convertsTo": conversions_from(def.entity_type)
             .iter()

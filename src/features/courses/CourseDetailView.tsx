@@ -1,6 +1,7 @@
 import {
   IconArrowRight,
   IconCalendarStats,
+  IconChartBar,
   IconCards,
   IconClipboardList,
   IconWriting,
@@ -16,7 +17,7 @@ import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InteractiveCard } from "@/components/ui/interactive-card";
 import { EmptyState } from "@/components/empty-state";
 import { listAssignments } from "@/lib/api/assignments";
-import { getCourseNotes } from "@/lib/api/courses";
+import { getCourseGrades, getCourseNotes } from "@/lib/api/courses";
 import { listDecks, listDueCards } from "@/lib/api/decks";
 import { listExams } from "@/lib/api/exams";
 import { listRelationships } from "@/lib/api/relationships";
@@ -35,6 +36,11 @@ const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 function dateLabel(date: string): string {
   const days = differenceInCalendarDays(new Date(date), new Date());
   return days <= 7 ? `${Math.max(days, 0)}d` : formatShortDate(date);
+}
+
+/// Up to two decimals, so a 1.7 stays 1.7 and a 1.5333 becomes 1.53.
+function formatGrade(grade: number): string {
+  return String(Math.round(grade * 100) / 100);
 }
 
 /// Course detail body (§ course sub-dashboard plan) — header, right sidebar
@@ -59,7 +65,7 @@ function CourseBody({ course }: { course: Entity }) {
     queryKey: ["course-notes", course.id],
     queryFn: () => getCourseNotes(course.id),
   });
-  const { data: relationships = [] } = useQuery({
+  const { data: relationships = [], dataUpdatedAt: relationshipsUpdatedAt } = useQuery({
     queryKey: ["relationships", course.id],
     queryFn: () => listRelationships(course.id, "both"),
   });
@@ -67,13 +73,26 @@ function CourseBody({ course }: { course: Entity }) {
     queryKey: ["sessions", spaceId],
     queryFn: () => listSessions(spaceId),
   });
-  const { data: exams = [] } = useQuery({
+  const { data: exams = [], dataUpdatedAt: examsUpdatedAt } = useQuery({
     queryKey: ["exams", spaceId],
     queryFn: () => listExams(spaceId),
   });
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [], dataUpdatedAt: assignmentsUpdatedAt } = useQuery({
     queryKey: ["assignments", spaceId],
     queryFn: () => listAssignments(spaceId),
+  });
+  // Keyed on when the lists it's computed from last loaded, so editing a grade,
+  // weight or course link anywhere refreshes it without its own invalidation.
+  const { data: grades } = useQuery({
+    queryKey: [
+      "course-grades",
+      course.id,
+      examsUpdatedAt,
+      assignmentsUpdatedAt,
+      relationshipsUpdatedAt,
+    ],
+    queryFn: () => getCourseGrades(course.id),
+    placeholderData: (previous) => previous,
   });
   const { data: decks = [] } = useQuery({
     queryKey: ["decks", spaceId],
@@ -144,8 +163,8 @@ function CourseBody({ course }: { course: Entity }) {
       <div
         className={
           courseDecks.length > 0
-            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            : "grid grid-cols-1 gap-3 sm:grid-cols-3"
+            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         }
       >
         <BentoCard
@@ -197,6 +216,19 @@ function CourseBody({ course }: { course: Entity }) {
             <p className="text-xs text-muted-foreground">
               due {dateLabel(nextAssignmentDue.dueDate)}
             </p>
+          )}
+        </BentoCard>
+
+        <BentoCard icon={IconChartBar} label="Course Grade">
+          {grades?.grade != null ? (
+            <>
+              <p className="text-sm font-medium tabular-nums">{formatGrade(grades.grade)}</p>
+              <p className="text-xs text-muted-foreground">
+                {Math.round(grades.gradedWeight * 100)}% of the course graded
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No grades yet</p>
           )}
         </BentoCard>
 

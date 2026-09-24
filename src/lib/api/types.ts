@@ -260,6 +260,16 @@ export interface StudyBlock {
   endTime: string;
 }
 
+/// A Course's grade rolled up from its Exams and Assignments.
+export interface CourseGrades {
+  /// Weighted mean of the graded items, `null` until one is graded.
+  grade: number | null;
+  /// Share of the course's total weight that is graded, from 0 to 1.
+  gradedWeight: number;
+  gradedCount: number;
+  itemCount: number;
+}
+
 export interface Assignment {
   entity: Entity;
   dueDate: string | null;
