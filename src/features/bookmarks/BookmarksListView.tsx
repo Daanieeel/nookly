@@ -418,7 +418,7 @@ function DetailsButton({ onClick, className }: { onClick: () => void; className?
 
 /// A rich link preview. The card opens the page in the browser; the corner
 /// button opens the details sheet.
-function BookmarkCard({
+export function BookmarkCard({
   bookmark,
   labels,
   display,
@@ -478,7 +478,7 @@ function BookmarkCard({
   );
 }
 
-function BookmarkRow({
+export function BookmarkRow({
   bookmark,
   labels,
   showDescription,

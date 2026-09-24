@@ -159,6 +159,9 @@ pub struct EntityPatch {
 pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResult<Entity> {
     let mut entity = get_entity(conn, id)?;
     if let Some(title) = patch.title {
+        if title != entity.title && entity.entity_type == "file" {
+            sync_media_block_names(conn, id, &title)?;
+        }
         entity.title = title;
     }
     if let Some(icon) = patch.icon {
@@ -179,6 +182,39 @@ pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResu
     entity.updated_at = now;
     search::index_entity_title(conn, &entity.id, &entity.space_id, &entity.title)?;
     Ok(entity)
+}
+
+/// Media blocks (`/file`, image, video, audio) hold nothing but one mention of
+/// their File, so its label is the file's name, not the author's words: a rename
+/// rewrites it. Inline @mentions in prose keep whatever text the author left.
+fn sync_media_block_names(conn: &Connection, file_id: &str, title: &str) -> AppResult<()> {
+    let target = format!("(mention:{file_id})");
+    let label: String = title.chars().filter(|c| *c != '[' && *c != ']').collect();
+    let mut stmt = conn.prepare(
+        "SELECT id, content FROM blocks
+         WHERE block_type IN ('file', 'image', 'video', 'audio') AND content LIKE ?1",
+    )?;
+    let rows = stmt
+        .query_map(params![format!("%{target}")], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    for (block_id, content) in rows {
+        // Exactly `[name](mention:<id>)`, the only shape a media block stores.
+        let name = content
+            .trim()
+            .strip_prefix('[')
+            .and_then(|c| c.strip_suffix(&target))
+            .and_then(|c| c.strip_suffix(']'));
+        if name.is_none_or(|n| n.contains(['[', ']'])) {
+            continue;
+        }
+        conn.execute(
+            "UPDATE blocks SET content = ?1 WHERE id = ?2",
+            params![format!("[{label}]{target}"), block_id],
+        )?;
+    }
+    Ok(())
 }
 
 /// Moves `id` to `space_id` along with everything it structurally owns (see
@@ -372,6 +408,27 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Permanently removes every trashed entity in every Space, all or nothing.
+/// Returns how many were removed.
+pub fn empty_trash(conn: &Connection) -> AppResult<usize> {
+    let ids: Vec<String> = conn
+        .prepare("SELECT id FROM entities WHERE deleted_at IS NOT NULL")?
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    conn.execute_batch("SAVEPOINT empty_trash")?;
+    let result = ids.iter().try_for_each(|id| hard_delete_entity(conn, id));
+    match result {
+        Ok(()) => {
+            conn.execute_batch("RELEASE empty_trash")?;
+            Ok(ids.len())
+        }
+        Err(e) => {
+            conn.execute_batch("ROLLBACK TO empty_trash; RELEASE empty_trash")?;
+            Err(e)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,6 +440,39 @@ mod tests {
             .to_latest(&mut conn)
             .unwrap();
         conn
+    }
+
+    #[test]
+    fn renaming_a_file_updates_media_blocks_but_not_prose_mentions() {
+        use crate::db::notes::{create_block, list_blocks};
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        let file =
+            create_entity(&conn, space.id.clone(), "file".into(), "a.pdf".into(), None).unwrap();
+        let note = create_entity(&conn, space.id.clone(), "note".into(), "N".into(), None).unwrap();
+        let mention = format!("[a.pdf](mention:{})", file.id);
+        let prose = format!("See {mention} here");
+        create_block(&conn, &note.id, "file".into(), mention, None, None, None).unwrap();
+        create_block(
+            &conn,
+            &note.id,
+            "paragraph".into(),
+            prose.clone(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let patch = EntityPatch {
+            title: Some("b.pdf".into()),
+            ..Default::default()
+        };
+        update_entity(&conn, &file.id, patch).unwrap();
+
+        let blocks = list_blocks(&conn, &note.id).unwrap();
+        assert_eq!(blocks[0].content, format!("[b.pdf](mention:{})", file.id));
+        assert_eq!(blocks[1].content, prose);
     }
 
     #[test]
@@ -623,5 +713,21 @@ mod tests {
             crate::db::tasks::convert_to_subtask(&conn, &parent.entity.id, &task.entity.id)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn empty_trash_removes_only_trashed_entities() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let kept =
+            create_entity(&conn, space.id.clone(), "note".into(), "Kept".into(), None).unwrap();
+        let gone =
+            create_entity(&conn, space.id.clone(), "note".into(), "Gone".into(), None).unwrap();
+        soft_delete_entity(&conn, &gone.id).unwrap();
+
+        assert_eq!(empty_trash(&conn).unwrap(), 1);
+        assert!(get_entity(&conn, &kept.id).is_ok());
+        assert!(get_entity(&conn, &gone.id).is_err());
+        assert_eq!(empty_trash(&conn).unwrap(), 0);
     }
 }

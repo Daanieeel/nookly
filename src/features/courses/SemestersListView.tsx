@@ -239,7 +239,7 @@ function DateRangeForm({
   );
 }
 
-function SemesterRow({
+export function SemesterRow({
   semester,
   active,
   spaceId,

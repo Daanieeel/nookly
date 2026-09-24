@@ -35,7 +35,13 @@ interface BoardProps<T> {
   /// The card following the pointer while dragging.
   renderOverlay: (item: T) => ReactNode;
   draggable: boolean;
-  onMove?: (item: T, columnId: string, laneId: string | null) => void;
+  /// `from` is the cell the card was picked up in, since an item can sit in several.
+  onMove?: (
+    item: T,
+    columnId: string,
+    laneId: string | null,
+    from: { columnId: string; laneId: string | null },
+  ) => void;
   onCreateIn?: (group: ViewGroup<T>, lane: ViewGroup<T> | null) => (() => void) | undefined;
   createLabel?: (name: string) => string;
   /// A column's context menu target.
@@ -54,9 +60,10 @@ export function GroupedBoard<T>(props: BoardProps<T>) {
   function handleDragEnd(event: DragEndEvent) {
     setActive(null);
     const item: T | undefined = event.active.data.current?.item;
+    const from = event.active.data.current?.from;
     const columnId: string | undefined = event.over?.data.current?.columnId;
     const laneId: string | null = event.over?.data.current?.laneId ?? null;
-    if (item !== undefined && columnId !== undefined) onMove?.(item, columnId, laneId);
+    if (item !== undefined && columnId !== undefined) onMove?.(item, columnId, laneId, from);
   }
 
   // The pointer sits over other elements mid drag, so the hand goes on the page.
@@ -279,6 +286,7 @@ function Cell<T>({
             key={getKey(item)}
             item={item}
             id={`${getKey(item)}/${columnId}/${laneId ?? ""}`}
+            from={{ columnId, laneId }}
             draggable={draggable}
             renderCard={renderCard}
           />
@@ -301,18 +309,20 @@ function Cell<T>({
 function DraggableCard<T>({
   item,
   id,
+  from,
   draggable,
   renderCard,
 }: {
   item: T;
   /// Unique per place, since an item can sit in several groups.
   id: string;
+  from: { columnId: string; laneId: string | null };
   draggable: boolean;
   renderCard: (item: T, drag: CardDrag) => ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id,
-    data: { item },
+    data: { item, from },
     disabled: !draggable,
   });
   return renderCard(item, {

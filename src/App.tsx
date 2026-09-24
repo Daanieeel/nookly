@@ -14,7 +14,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
-import { RecentsView } from "@/features/dashboard/RecentsView";
 import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
 import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
@@ -33,8 +32,6 @@ function MainContent() {
       return <DashboardView />;
     case "pinned":
       return <PinnedView />;
-    case "recents":
-      return <RecentsView />;
     case "trash":
       return <TrashView />;
     case "module":

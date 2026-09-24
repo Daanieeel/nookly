@@ -51,7 +51,7 @@ import { notePreviewText, previewLines } from "./note-preview";
 import { formatClock, formatDateTime, formatShortDate, formatWeekday } from "@/lib/datetime";
 import { preferences } from "@/lib/preferences";
 
-interface JotRow {
+export interface JotRow {
   summary: PageSummary;
   /// What the Title column shows. An untitled Jot shows its first line instead, and
   /// an empty one shows nothing rather than a made up title.
@@ -188,7 +188,7 @@ const BASE_FILTER_FIELDS: FilterField[] = [
   },
 ];
 
-function toRow(summary: PageSummary, labelsById: Map<string, Label>): JotRow {
+export function toRow(summary: PageSummary, labelsById: Map<string, Label>): JotRow {
   const { entity } = summary;
   const labels = summary.labelIds.flatMap((id) => labelsById.get(id) ?? []);
   const refined = summary.linked.some((e) => !e.deletedAt);
@@ -439,7 +439,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   );
 }
 
-function buildColumns({
+export function buildColumns({
   spaceId,
   spaces,
   queryClient,

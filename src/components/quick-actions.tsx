@@ -2,7 +2,6 @@ import {
   IconBolt,
   IconCheck,
   IconDeviceDesktop,
-  IconHistory,
   IconLayoutDashboard,
   IconLayoutSidebarRight,
   IconMoon,
@@ -434,15 +433,14 @@ export function QuickActions({
     ...[
       { id: "dashboard", icon: IconLayoutDashboard, label: "Dashboard", keywords: "home overview" },
       { id: "pinned", icon: IconPin, label: "Pinned", keywords: "favorites" },
-      { id: "recents", icon: IconHistory, label: "Recents", keywords: "history recent" },
       { id: "trash", icon: IconTrash, label: "Trash", keywords: "deleted restore bin" },
     ].map((n): ActionEntry => ({
       id: n.id,
       category: "navigate",
       words: `Go to ${n.label} ${n.keywords}`,
       node: simpleItem(n.id, n.icon, `Go to ${n.label}`, () =>
-        // SAFETY: `n.id` is one of the four literal non Space views above.
-        go({ kind: n.id as "dashboard" | "pinned" | "recents" | "trash" }),
+        // SAFETY: `n.id` is one of the three literal non Space views above.
+        go({ kind: n.id as "dashboard" | "pinned" | "trash" }),
       ),
     })),
     // Only modules at least one Space actually uses.

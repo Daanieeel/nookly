@@ -75,7 +75,7 @@ function TaskColumnLabels({ properties }: { properties: DisplayProperty[] }) {
   );
 }
 
-function TaskRow({
+export function TaskRow({
   task,
   properties,
   highlighted,

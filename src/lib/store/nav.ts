@@ -20,7 +20,6 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
 export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
-  | { kind: "recents" }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
@@ -70,10 +69,6 @@ interface NavState {
   /// back to where it came from (or the Bookmarks page) and opens the sheet.
   showBookmark: (entityId: string, spaceId: string) => void;
   setBookmarkSheetId: (entityId: string | null) => void;
-  /// Drops recents whose entity id isn't in `validIds` (deleted/trashed since
-  /// being opened), so a stale entry doesn't sit in the list — or inflate its
-  /// count — forever.
-  pruneRecents: (validIds: Set<string>) => void;
   setActiveSpace: (spaceId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
@@ -89,11 +84,12 @@ function readStoredCollapsed(): boolean {
   return preferences.get(STORAGE_KEYS.sidebarCollapsed) === "1";
 }
 
-/// Bounds for the resizable right sidebar. The minimum fits its top row: four 36px
-/// icon buttons (collapse, export, pin, more) with their gaps and the `p-3` padding.
-export const RIGHT_SIDEBAR_MIN_WIDTH = 224;
+/// Bounds for the resizable right sidebar. The minimum fits its widest property
+/// row in full: the 6rem label, a number stepper with its unit, the clear button
+/// and the save status slot (`NumberProperty`), plus the `p-3` padding.
+export const RIGHT_SIDEBAR_MIN_WIDTH = 312;
 export const RIGHT_SIDEBAR_MAX_WIDTH = 480;
-export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 288;
+export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 320;
 
 export function clampRightSidebarWidth(width: number): number {
   return Math.min(RIGHT_SIDEBAR_MAX_WIDTH, Math.max(RIGHT_SIDEBAR_MIN_WIDTH, Math.round(width)));
@@ -148,7 +144,13 @@ function pushHistory(
   return { backStack: [...state.backStack, state.view].slice(-MAX_HISTORY), forwardStack: [] };
 }
 
-const NO_OVERLAY = { paletteOpen: false, switcherOpen: false, commandsOpen: false };
+/// The Bookmark sheet is modal too, so a palette opening over it closes it.
+const NO_OVERLAY = {
+  paletteOpen: false,
+  switcherOpen: false,
+  commandsOpen: false,
+  bookmarkSheetId: null,
+};
 
 export const useNavStore = create<NavState>((set, get) => ({
   view: { kind: "dashboard" },
@@ -218,6 +220,12 @@ export const useNavStore = create<NavState>((set, get) => ({
   bookmarkSheetId: null,
   showBookmark: (entityId, spaceId) =>
     set((state) => {
+      // Only the entity view opened for this Bookmark steps back. A second call
+      // (an effect running twice) must not pop the history again, or it lands
+      // on whatever was open before, like the last File page.
+      if (state.view.kind !== "entity" || state.view.entityId !== entityId) {
+        return { bookmarkSheetId: entityId };
+      }
       const previous = state.backStack.at(-1);
       const fallback: View = { kind: "module", spaceId, module: "bookmarks" };
       return {
@@ -227,12 +235,6 @@ export const useNavStore = create<NavState>((set, get) => ({
       };
     }),
   setBookmarkSheetId: (bookmarkSheetId) => set({ bookmarkSheetId }),
-  pruneRecents: (validIds) => {
-    const recents = get().recents.filter((r) => validIds.has(r.entityId));
-    if (recents.length === get().recents.length) return;
-    writeStoredRecents(recents);
-    set({ recents });
-  },
   setActiveSpace: (spaceId) => {
     writeStoredActiveSpace(spaceId);
     set({ activeSpaceId: spaceId });

@@ -1,3 +1,4 @@
+import { useCreateLabel } from "@/components/label-manager";
 import { IconCalendarEvent, IconChevronRight } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -59,6 +60,7 @@ export function QuickCreateTask({
   const [labelIds, setLabelIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [createMore, setCreateMore] = useState(false);
+  const newLabel = useCreateLabel(spaceId);
   const titleRef = useRef<HTMLInputElement>(null);
 
   // Each opening starts from the draft of whatever opened it.
@@ -171,6 +173,12 @@ export function QuickCreateTask({
                   prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id],
                 )
               }
+              onCreate={(name) =>
+                newLabel.mutate(name, {
+                  onSuccess: (label) => setLabelIds((prev) => [...prev, label.id]),
+                })
+              }
+              creating={newLabel.isPending}
             >
               <button
                 type="button"

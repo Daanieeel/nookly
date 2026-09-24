@@ -75,32 +75,32 @@ export function NumberProperty({
     );
   }
   return (
-    <div className="flex items-center gap-1.5 px-1">
+    <div className="flex items-center gap-1 px-1">
       <NumberInput
         value={draft}
         onChange={setDraft}
         step={step}
         min={min}
         max={max}
-        className="h-7 w-28"
+        className="h-7 w-28 shrink-0"
       />
       {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-      <span className="flex size-3.5 shrink-0 items-center">
-        <SaveIcon pending={pending} failed={failed} />
-      </span>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
             aria-label={failed ? "Couldn't save, try again" : clearLabel}
             onClick={() => setDraft(null)}
-            className="ml-auto flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <IconX size={12} />
           </button>
         </TooltipTrigger>
         <TooltipContent>{clearLabel}</TooltipContent>
       </Tooltip>
+      <span className="flex size-3.5 shrink-0 items-center">
+        <SaveIcon pending={pending} failed={failed} />
+      </span>
     </div>
   );
 }

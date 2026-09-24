@@ -5,6 +5,7 @@ import {
   IconFolderPlus,
   IconLayoutGridAdd,
   IconSettings,
+  IconTag,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { appActions } from "@/components/context-menu/app-actions";
@@ -38,6 +39,7 @@ export interface SpaceRowTarget {
   expanded: boolean;
   toggle: () => void;
   openSettings: () => void;
+  openLabels: () => void;
 }
 
 /// Same rules as the row's own "+" picker: modules not added yet, passengers
@@ -94,6 +96,14 @@ registerActions("space", [
     icon: IconLayoutGridAdd,
     useItems: useAddableModules,
     emptyLabel: "Every module is added",
+  },
+  {
+    id: "labels",
+    group: "edit",
+    label: "Labels",
+    icon: IconTag,
+    afterClose: true,
+    run: ({ openLabels }) => openLabels(),
   },
   {
     id: "settings",

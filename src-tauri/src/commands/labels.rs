@@ -21,6 +21,17 @@ pub fn list_labels(state: State<DbState>, space_id: String) -> AppResult<Vec<Lab
 }
 
 #[tauri::command]
+pub fn update_label(
+    state: State<DbState>,
+    id: String,
+    name: Option<String>,
+    color: Option<String>,
+) -> AppResult<Label> {
+    let conn = state.0.lock().unwrap();
+    labels::update_label(&conn, &id, name, color)
+}
+
+#[tauri::command]
 pub fn delete_label(state: State<DbState>, id: String) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     labels::delete_label(&conn, &id)

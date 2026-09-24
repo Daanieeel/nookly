@@ -1,3 +1,4 @@
+import { useCreateLabel } from "@/components/label-manager";
 import {
   IconCaretDownFilled,
   IconCaretRightFilled,
@@ -504,6 +505,7 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
       await refresh();
     },
   });
+  const createLabel = useCreateLabel(spaceId);
   const dateField = setDates.variables?.field;
 
   return (
@@ -537,6 +539,10 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
           onToggle={(id) => !toggleLabel.isPending && toggleLabel.mutate(id)}
           pendingId={toggleLabel.isPending ? toggleLabel.variables : undefined}
           failedId={toggleLabel.isError ? toggleLabel.variables : undefined}
+          onCreate={(name) =>
+            createLabel.mutate(name, { onSuccess: (label) => toggleLabel.mutate(label.id) })
+          }
+          creating={createLabel.isPending}
           align="end"
         >
           <button

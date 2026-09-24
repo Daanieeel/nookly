@@ -3,7 +3,14 @@ import type { GroupDef } from "@/components/grouped-view/grouping";
 import { LabelDot } from "@/components/label-chip";
 import type { Label, Task, TaskStatus } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { DUE_BUCKETS, type Grouping, type StatusKind, dueBucket } from "./task-model";
+import {
+  DUE_BUCKETS,
+  type DueBucket,
+  type Grouping,
+  START_BUCKETS,
+  type StatusKind,
+  dayBucket,
+} from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
 
 /// The groups a grouping splits tasks into, each with its header glyph. `null`
@@ -42,23 +49,35 @@ export function taskGroupDefs(
           match: (t: Task) => t.labelIds.length === 0,
         },
       ];
+    case "start":
+      return dateGroupDefs(START_BUCKETS, (t) => t.startDate, false);
     case "due":
-      return DUE_BUCKETS.map((b) => ({
-        id: b.id,
-        name: b.label,
-        icon: (
-          <IconCalendarEvent
-            size={14}
-            className={cn(
-              "text-muted-foreground",
-              b.id === "overdue" && "text-destructive",
-              b.id === "today" && "text-caution",
-            )}
-          />
-        ),
-        match: (t) => dueBucket(t.dueDate) === b.id,
-      }));
+      return dateGroupDefs(DUE_BUCKETS, (t) => t.dueDate, true);
     case "none":
       return null;
   }
+}
+
+/// One group per date bucket. Only due dates tint overdue and today, since a
+/// start date in the past is no warning.
+function dateGroupDefs(
+  buckets: { id: DueBucket; label: string }[],
+  day: (task: Task) => string | null,
+  urgent: boolean,
+): GroupDef<Task>[] {
+  return buckets.map((b) => ({
+    id: b.id,
+    name: b.label,
+    icon: (
+      <IconCalendarEvent
+        size={14}
+        className={cn(
+          "text-muted-foreground",
+          urgent && b.id === "overdue" && "text-destructive",
+          urgent && b.id === "today" && "text-caution",
+        )}
+      />
+    ),
+    match: (t) => dayBucket(day(t)) === b.id,
+  }));
 }

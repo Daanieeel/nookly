@@ -1,3 +1,4 @@
+import { useCreateLabel } from "@/components/label-manager";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useMemo } from "react";
 import { DueColumns } from "@/components/due-columns";
@@ -190,6 +191,7 @@ export function TaskLabelsControl({
       await refresh();
     },
   });
+  const createLabel = useCreateLabel(spaceId);
   const attached = task.labelIds.flatMap((id) => labelById.get(id) ?? []);
   if (attached.length === 0) return null;
   const shown = attached.slice(0, MAX_CHIPS);
@@ -201,6 +203,10 @@ export function TaskLabelsControl({
       onToggle={(labelId) => !toggle.isPending && toggle.mutate(labelId)}
       pendingId={toggle.isPending ? toggle.variables : undefined}
       failedId={toggle.isError ? toggle.variables : undefined}
+      onCreate={(name) =>
+        createLabel.mutate(name, { onSuccess: (label) => toggle.mutate(label.id) })
+      }
+      creating={createLabel.isPending}
       align={align}
     >
       <button

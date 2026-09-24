@@ -1,6 +1,7 @@
 import { IconWorld } from "@tabler/icons-react";
 import Flag from "react-flagpack";
 import "react-flagpack/dist/style.css";
+import euFlag from "@/assets/flag-eu.svg";
 import { SelectField, type SelectFieldOption } from "@/components/select-field";
 import {
   type FormatMode,
@@ -22,6 +23,12 @@ const SYSTEM_TIMEZONE = systemTimezone();
 
 function FlagIcon({ code }: { code: string }) {
   return <Flag code={code} size="s" hasBorder={false} />;
+}
+
+/// react-flagpack ships no European Union flag, so it's drawn from a bundled
+/// asset at the same size as the pack's small flags (Twemoji artwork, cropped).
+function EuFlagIcon() {
+  return <img src={euFlag} alt="" className="inline-block h-3 w-4 shrink-0 object-cover" />;
 }
 
 function timezoneIcon(tz: string) {
@@ -81,7 +88,7 @@ const TIMEZONE_OPTIONS: SelectFieldOption[] = [
 
 const MODE_ICON = {
   american: <FlagIcon code="US" />,
-  european: <FlagIcon code="EU" />,
+  european: <EuFlagIcon />,
   timezone: <IconWorld size={14} className="text-muted-foreground" />,
 } satisfies Record<FormatMode, React.ReactNode>;
 

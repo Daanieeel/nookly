@@ -394,7 +394,7 @@ fn top_level_help() -> Value {
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
             "space": "nookly cli space <list|create|update|delete> ...",
-            "label": "nookly cli label <list|create|delete|attach|detach> ...  (attach/detach take several label ids)",
+            "label": "nookly cli label <list|create|update|delete|attach|detach> ...  (attach/detach take several label ids)",
             "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
                                    agent that's never used this CLI before — start here, not with \
                                    this --help output, if this is your first call)",
@@ -608,7 +608,7 @@ freeform tags, siloed per Space (the same label name in two Spaces is two separa
 
 ```
 nookly cli space <list|create|update|delete> ...      # space delete is PERMANENT, no Trash
-nookly cli label <list|create|delete|attach|detach> ...
+nookly cli label <list|create|update|delete|attach|detach> ...
 ```
 
 Run `nookly cli space` or `nookly cli label` with no further arguments for the exact flags
@@ -1379,6 +1379,7 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
         return Ok(json!({
             "list": "nookly cli label list --space <id>",
             "create": "nookly cli label create --space <id> --name <name> --color <hex>",
+            "update": "nookly cli label update <id> [--name <name>] [--color <hex>]",
             "delete": "nookly cli label delete <id> --yes",
             "attach": "nookly cli label attach <entity-id> <label-id> [<label-id> ...]",
             "detach": "nookly cli label detach <entity-id> <label-id> [<label-id> ...]",
@@ -1397,6 +1398,16 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             let name = args.require_flag("name")?;
             let color = args.require_flag("color")?;
             let label = crate::db::labels::create_label(conn, space_id, name, color)?;
+            Ok(serde_json::to_value(label).expect("Label always serializes"))
+        }
+        "update" => {
+            let id = args.require_positional(0, "id")?;
+            let label = crate::db::labels::update_label(
+                conn,
+                &id,
+                args.flag("name"),
+                args.flag("color"),
+            )?;
             Ok(serde_json::to_value(label).expect("Label always serializes"))
         }
         "delete" => {
@@ -1430,7 +1441,7 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             Ok(json!({ "detached": label_ids, "from": entity_id, "fromKey": key }))
         }
         other => Err(AppError::InvalidInput(format!(
-            "unknown label command '{other}'. Expected one of: list, create, delete, attach, detach"
+            "unknown label command '{other}'. Expected one of: list, create, update, delete, attach, detach"
         ))),
     }
 }

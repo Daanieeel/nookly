@@ -95,6 +95,8 @@ export interface Label {
   name: string;
   color: string;
   createdAt: string;
+  /// How many live (not trashed) entities carry it.
+  usageCount: number;
 }
 
 export interface TaskStatus {

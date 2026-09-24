@@ -62,8 +62,22 @@ export function daysUntil(day: string, now = new Date()): number {
 }
 
 export function dueBucket(dueDate: string | null, now = new Date()): DueBucket {
-  if (!dueDate) return "none";
-  const days = daysUntil(dueDate, now);
+  return dayBucket(dueDate, now);
+}
+
+/// Start dates split the same way as due dates, with labels that read as a start.
+export const START_BUCKETS: { id: DueBucket; label: string }[] = [
+  { id: "overdue", label: "Started" },
+  { id: "today", label: "Starts today" },
+  { id: "week", label: "Next 7 days" },
+  { id: "later", label: "Later" },
+  { id: "none", label: "No start date" },
+];
+
+/// Which of the shared date buckets `day` falls in, counted from today.
+export function dayBucket(day: string | null, now = new Date()): DueBucket {
+  if (!day) return "none";
+  const days = daysUntil(day, now);
   if (days < 0) return "overdue";
   if (days === 0) return "today";
   if (days <= 7) return "week";
@@ -106,13 +120,14 @@ export function statusInTab(
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping = "status" | "label" | "due" | "none";
+export type Grouping = "status" | "label" | "start" | "due" | "none";
 export type Ordering = "due" | "created" | "updated" | "title" | "status";
 export type DisplayProperty = "key" | "status" | "labels" | "due" | "created";
 
 export const GROUPINGS: { id: Grouping; label: string }[] = [
   { id: "status", label: "Status" },
   { id: "label", label: "Label" },
+  { id: "start", label: "Start date" },
   { id: "due", label: "Due date" },
   { id: "none", label: "No grouping" },
 ];
@@ -250,6 +265,13 @@ export function groupTasks(
       });
       return groups;
     }
+    case "start":
+      return START_BUCKETS.map((b) => ({
+        id: b.id,
+        name: b.label,
+        bucket: b.id,
+        tasks: tasks.filter((t) => dayBucket(t.startDate) === b.id),
+      }));
     case "due":
       return DUE_BUCKETS.map((b) => ({
         id: b.id,

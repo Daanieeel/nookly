@@ -55,6 +55,12 @@ pub fn hard_delete_entity(state: State<DbState>, id: String) -> AppResult<()> {
     entities::hard_delete_entity(&conn, &id)
 }
 
+#[tauri::command]
+pub fn empty_trash(state: State<DbState>) -> AppResult<usize> {
+    let conn = state.0.lock().unwrap();
+    entities::empty_trash(&conn)
+}
+
 /// A copy of the entity in the same Space, through its registered schema.
 #[tauri::command]
 pub fn duplicate_entity(state: State<DbState>, id: String) -> AppResult<Entity> {

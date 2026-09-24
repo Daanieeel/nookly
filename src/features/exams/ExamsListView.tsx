@@ -422,6 +422,45 @@ function FutureNode({ exam, course, onOpen, days }: NodeProps & { days: number |
   );
 }
 
+/// A few exams on the same timeline rows the Exams page draws, past ones faded,
+/// for surfaces that list exams outside the page (Pinned).
+export function ExamTimelineRows({
+  exams,
+  courseOf,
+  onOpen,
+}: {
+  exams: Exam[];
+  courseOf: Map<string, Entity>;
+  onOpen: (exam: Exam) => void;
+}) {
+  const now = new Date();
+  const ordered = [...exams].sort((a, b) =>
+    (a.examDate ?? "9999").localeCompare(b.examDate ?? "9999"),
+  );
+  return (
+    <div className="relative">
+      <span aria-hidden className={cn(LINE, "inset-y-3 bg-border")} />
+      <ol className="flex flex-col">
+        {ordered.map((exam) => {
+          const props = {
+            exam,
+            course: courseOf.get(exam.entity.id),
+            onOpen: () => onOpen(exam),
+          };
+          const days = exam.examDate
+            ? differenceInCalendarDays(parseISO(exam.examDate), now)
+            : null;
+          return days !== null && days < 0 ? (
+            <PastNode key={exam.entity.id} {...props} />
+          ) : (
+            <FutureNode key={exam.entity.id} days={days} {...props} />
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function CreateExamDialog({
   spaceId,
   open,

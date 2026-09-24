@@ -1,3 +1,4 @@
+import { labelColorFor } from "@/components/label-manager";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { GroupDef } from "@/components/grouped-view/grouping";
@@ -134,24 +135,6 @@ export function bookmarkGroupDefs(
   }));
 }
 
-/// Muted, evenly spread hues so a new label reads apart from its neighbours.
-const LABEL_COLORS = [
-  "#e5484d",
-  "#f76b15",
-  "#ffc53d",
-  "#46a758",
-  "#12a594",
-  "#0090ff",
-  "#6e56cf",
-  "#d6409f",
-];
-
-function colorFor(name: string): string {
-  let hash = 0;
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return LABEL_COLORS[hash % LABEL_COLORS.length];
-}
-
 export function useSpaceLabels(spaceId: string): Label[] {
   const { data = [] } = useQuery({
     queryKey: ["labels", spaceId],
@@ -179,7 +162,7 @@ export function useBookmarkLabels(bookmark: Bookmark) {
   });
   const create = useMutation({
     mutationFn: async (name: string) => {
-      const label = await createLabel(entity.spaceId, name, colorFor(name));
+      const label = await createLabel(entity.spaceId, name, labelColorFor(name));
       await attachLabel(entity.id, label.id);
     },
     onSuccess: refresh,

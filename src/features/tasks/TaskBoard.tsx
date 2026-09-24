@@ -27,7 +27,12 @@ export function TaskBoard({
   failedTaskId: string | undefined;
   draggable: boolean;
   onOpen: (task: Task) => void;
-  onMove: (task: Task, columnId: string, laneId: string | null) => void;
+  onMove: (
+    task: Task,
+    columnId: string,
+    laneId: string | null,
+    from: { columnId: string; laneId: string | null },
+  ) => void;
   onCreateIn: (group: ViewGroup<Task>, lane: ViewGroup<Task> | null) => (() => void) | undefined;
   columnProps?: (group: ViewGroup<Task>) => ContextTargetProps | undefined;
 }) {

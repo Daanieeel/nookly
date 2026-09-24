@@ -601,7 +601,7 @@ function OpenLinkButton({
   );
 }
 
-function FileTile({
+export function FileTile({
   file,
   fresh,
   onOpen,
@@ -643,7 +643,7 @@ function FileTile({
   );
 }
 
-function FileRow({
+export function FileRow({
   file,
   fresh,
   onOpen,

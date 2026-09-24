@@ -16,6 +16,7 @@ import { LabelDot } from "@/components/label-chip";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { attachLabel, detachLabel } from "@/lib/api/labels";
 import { listTasks, updateTaskStatus } from "@/lib/api/tasks";
 import type { Task } from "@/lib/api/types";
 import { useNavStore } from "@/lib/store/nav";
@@ -102,9 +103,18 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   }, [highlightId]);
 
   const move = useMutation({
-    mutationFn: (vars: { task: Task; statusId: string }) =>
-      updateTaskStatus(vars.task.entity.id, vars.statusId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] }),
+    mutationFn: async (vars: {
+      task: Task;
+      statusId?: string;
+      detachLabelIds?: string[];
+      attachLabelId?: string;
+    }) => {
+      const id = vars.task.entity.id;
+      if (vars.statusId) await updateTaskStatus(id, vars.statusId);
+      for (const labelId of vars.detachLabelIds ?? []) await detachLabel(id, labelId);
+      if (vars.attachLabelId) await attachLabel(id, vars.attachLabelId);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] }),
   });
   const failedTaskId = move.isError ? move.variables?.task.entity.id : undefined;
 
@@ -165,11 +175,11 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   }, [visible, display, statuses, labels, tab, kindOf]);
 
   /// A new task placed in a group (and sub-group) starts with what they stand for.
-  /// Due date buckets have no single date to give, so they offer no create.
+  /// Date buckets have no single date to give, so they offer no create.
   const onCreateIn = (group: ViewGroup<Task>, subgroup: ViewGroup<Task> | null) => {
     const parts: [Grouping, string][] = [[display.grouping, group.id]];
     if (subgroup) parts.push([display.subGrouping, subgroup.id]);
-    if (parts.some(([kind]) => kind === "due")) return undefined;
+    if (parts.some(([kind]) => kind === "due" || kind === "start")) return undefined;
     const next: TaskDraft = {};
     for (const [kind, id] of parts) {
       if (kind === "status") next.statusId = id;
@@ -178,11 +188,33 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
     return () => startCreate(next);
   };
 
-  /// Dropping a card on another status column or swimlane moves it there.
-  const statusDrop = display.grouping === "status" || display.subGrouping === "status";
-  const onMove = (task: Task, columnId: string, laneId: string | null) => {
-    const statusId = display.grouping === "status" ? columnId : laneId;
-    if (statusId && statusId !== task.statusId) move.mutate({ task, statusId });
+  /// Dropping a card on another status or label column (or swimlane) moves it
+  /// there. Between labels, the label it was picked up under swaps for the new one.
+  const dropKinds = new Set([display.grouping, display.subGrouping]);
+  const boardDraggable = dropKinds.has("status") || dropKinds.has("label");
+  const onMove = (
+    task: Task,
+    columnId: string,
+    laneId: string | null,
+    from: { columnId: string; laneId: string | null },
+  ) => {
+    const target = (kind: Grouping) =>
+      display.grouping === kind ? columnId : display.subGrouping === kind ? laneId : null;
+    const source = (kind: Grouping) =>
+      display.grouping === kind ? from.columnId : display.subGrouping === kind ? from.laneId : null;
+    const vars: Parameters<typeof move.mutate>[0] = { task };
+    const statusId = target("status");
+    if (statusId && statusId !== task.statusId) vars.statusId = statusId;
+    const labelTo = target("label");
+    const labelFrom = source("label");
+    if (labelTo && labelFrom && labelTo !== labelFrom) {
+      if (labelTo === "no-label") vars.detachLabelIds = task.labelIds;
+      else {
+        if (labelFrom !== "no-label") vars.detachLabelIds = [labelFrom];
+        if (!task.labelIds.includes(labelTo)) vars.attachLabelId = labelTo;
+      }
+    }
+    if (vars.statusId || vars.detachLabelIds?.length || vars.attachLabelId) move.mutate(vars);
   };
 
   const columnProps = (group: ViewGroup<Task>) => {
@@ -281,7 +313,7 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
             properties={display.properties}
             highlightId={highlightId}
             failedTaskId={failedTaskId}
-            draggable={statusDrop}
+            draggable={boardDraggable}
             onOpen={openTask}
             onMove={onMove}
             onCreateIn={onCreateIn}

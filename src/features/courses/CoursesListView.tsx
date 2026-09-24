@@ -3,7 +3,8 @@ import {
   IconCalendar,
   IconCalendarStats,
   IconCalendarWeek,
-  IconChevronRight,
+  IconCaretDownFilled,
+  IconCaretRightFilled,
   IconClipboardList,
   IconExternalLink,
   IconPlus,
@@ -28,7 +29,6 @@ import { EntityPickerPopover } from "@/components/entity-picker";
 import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
@@ -47,7 +47,7 @@ import { getEntity } from "@/lib/api/entities";
 import { listExams } from "@/lib/api/exams";
 import { listRelationships } from "@/lib/api/relationships";
 import { listSessions } from "@/lib/api/sessions";
-import type { Assignment, Entity, Exam, SessionOccurrence } from "@/lib/api/types";
+import type { Assignment, Entity, Exam, Semester, SessionOccurrence } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { gradientForName } from "@/lib/gallery-color";
 import { useNavStore } from "@/lib/store/nav";
@@ -170,7 +170,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
           <CourseSection
             title={activeSemester ? displayTitle(activeSemester.entity) : "Active"}
             badge="Active"
-            semesterId={activeSemesterId ?? undefined}
+            semester={activeSemester}
             spaceId={spaceId}
             defaultOpen
             courses={coursesFor(activeSemesterId)}
@@ -180,6 +180,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
                 key={course.id}
                 course={course}
                 onOpen={() => openEntity(course.id, spaceId)}
+                showSemester={false}
                 {...cardsProps}
               />
             )}
@@ -188,7 +189,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
             <CourseSection
               key={s.entity.id}
               title={displayTitle(s.entity)}
-              semesterId={s.entity.id}
+              semester={s}
               spaceId={spaceId}
               courses={coursesFor(s.entity.id)}
             >
@@ -197,6 +198,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
                   key={course.id}
                   course={course}
                   onOpen={() => openEntity(course.id, spaceId)}
+                  showSemester={false}
                   {...cardsProps}
                 />
               )}
@@ -208,6 +210,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
                 key={course.id}
                 course={course}
                 onOpen={() => openEntity(course.id, spaceId)}
+                showSemester={false}
                 {...cardsProps}
               />
             )}
@@ -220,13 +223,14 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   );
 }
 
-/// One collapsible group in the Courses gallery — "Active", a past Semester,
-/// or "Unsorted". Skipped entirely when empty, same convention
-/// `SemestersListView.tsx` uses for its own "Unsorted" bucket.
+/// One collapsible group in the Courses gallery, "Active", a past Semester, or
+/// "Unsorted", headed by a wide bar like a Tasks list group. Skipped entirely
+/// when empty, same convention `SemestersListView.tsx` uses for its own
+/// "Unsorted" bucket.
 function CourseSection({
   title,
   badge,
-  semesterId,
+  semester,
   spaceId,
   courses,
   defaultOpen = false,
@@ -234,9 +238,9 @@ function CourseSection({
 }: {
   title: string;
   badge?: string;
-  /// When set, a hover-revealed external-link button jumps to this
-  /// Semester's own page — omitted for "Unsorted", which has no Semester.
-  semesterId?: string;
+  /// When set, the bar shows its dates and a hover button jumps to its page.
+  /// Omitted for "Unsorted", which has no Semester.
+  semester?: Semester;
   spaceId?: string;
   courses: Entity[];
   defaultOpen?: boolean;
@@ -245,50 +249,66 @@ function CourseSection({
   const openEntity = useNavStore((s) => s.openEntity);
   const [open, setOpen] = useState(defaultOpen);
   if (courses.length === 0) return null;
+  const dates =
+    semester?.startDate && semester.endDate
+      ? `${formatShortDate(semester.startDate)} to ${formatShortDate(semester.endDate)}`
+      : null;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <Card className="group w-full cursor-pointer flex-row items-center gap-1.5 px-3 py-2 text-sm font-medium">
-          <IconChevronRight
-            size={14}
-            className={cn("text-muted-foreground transition-transform", open && "rotate-90")}
-          />
-          <IconCalendarWeek size={14} className="text-muted-foreground" />
-          {title}
-          {semesterId && spaceId && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openEntity(semesterId, spaceId);
-                  }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  className="rounded-sm p-1 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                >
-                  <IconExternalLink size={13} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Open semester page</TooltipContent>
-            </Tooltip>
-          )}
-          <div className="ml-auto flex items-center gap-1.5">
+    <Collapsible open={open} onOpenChange={setOpen} asChild>
+      <section aria-label={title}>
+        <div className="sticky top-0 z-10 bg-card">
+          <div className="group/header flex h-9 items-center gap-2 rounded-md bg-foreground/4 px-2">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-accent/60"
+              >
+                {open ? (
+                  <IconCaretDownFilled size={10} className="text-muted-foreground" />
+                ) : (
+                  <IconCaretRightFilled size={10} className="text-muted-foreground" />
+                )}
+                {semester ? (
+                  <IconCalendarWeek size={14} className="shrink-0 text-muted-foreground" />
+                ) : (
+                  <IconStack2 size={14} className="shrink-0 text-muted-foreground" />
+                )}
+                <span className="truncate font-medium">{title}</span>
+                <span className="text-muted-foreground tabular-nums">{courses.length}</span>
+              </button>
+            </CollapsibleTrigger>
             {badge && (
               <Badge variant="primary" size="md">
                 {badge}
               </Badge>
             )}
-            <Badge variant="outline" size="md" className="gap-0.5 font-normal">
-              <IconStack2 size={10} /> {courses.length}
-            </Badge>
+            {dates && (
+              <span className="truncate text-xs text-muted-foreground tabular-nums max-sm:hidden">
+                {dates}
+              </span>
+            )}
+            {semester && spaceId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Open ${title}`}
+                    onClick={() => openEntity(semester.entity.id, spaceId)}
+                    className="ml-auto flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/header:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+                  >
+                    <IconExternalLink size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Open Semester</TooltipContent>
+              </Tooltip>
+            )}
           </div>
-        </Card>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="grid grid-cols-1 gap-3 py-2 pl-5 sm:grid-cols-2 lg:grid-cols-3">
-        {courses.map(children)}
-      </CollapsibleContent>
+        </div>
+        <CollapsibleContent className="grid grid-cols-1 gap-3 pt-3 pb-2 sm:grid-cols-2 lg:grid-cols-3">
+          {courses.map(children)}
+        </CollapsibleContent>
+      </section>
     </Collapsible>
   );
 }
@@ -302,6 +322,7 @@ export function CourseCard({
   exams,
   assignments,
   onOpen,
+  showSemester = true,
 }: {
   course: Entity;
   spaceId: string;
@@ -309,6 +330,8 @@ export function CourseCard({
   exams: Exam[];
   assignments: Assignment[];
   onOpen: () => void;
+  /// Off where the surrounding page already groups or scopes by Semester.
+  showSemester?: boolean;
 }) {
   const queryClient = useQueryClient();
   const { data: relationships = [] } = useQuery({
@@ -364,9 +387,9 @@ export function CourseCard({
           assignments={courseAssignments}
         />
 
-        {(semesterLinks.length > 0 || sequelLinks.length > 0) && (
+        {((showSemester && semesterLinks.length > 0) || sequelLinks.length > 0) && (
           <div className="flex flex-wrap gap-1">
-            {semesterLinks.map((r) => (
+            {(showSemester ? semesterLinks : []).map((r) => (
               <RelatedChip
                 key={r.id}
                 entityId={r.toEntityId}
@@ -390,7 +413,12 @@ export function CourseCard({
         )}
 
         {semesterLinks.length === 0 && (
+          // The picker renders in a portal, but its clicks still bubble through
+          // React to the card, which would open the Course. Stop them here.
+          // oxlint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- only stops bubbling to the card
           <div
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
             className={cn(
               "transition-opacity group-hover:opacity-100",
               assignSemester.isIdle ? "opacity-0" : "opacity-100",

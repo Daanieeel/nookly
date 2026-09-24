@@ -33,7 +33,7 @@ import { notePreviewText } from "./note-preview";
 import { formatDateTime } from "@/lib/datetime";
 import { preferences } from "@/lib/preferences";
 
-interface NoteRow {
+export interface NoteRow {
   summary: PageSummary;
   title: string;
   preview: string;
@@ -71,7 +71,7 @@ function passesLabelFilters(row: NoteRow, filters: ActiveFilter[]): boolean {
   });
 }
 
-const columns: ColumnDef<DataTableFeatures, NoteRow>[] = [
+export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
   keyColumn<NoteRow>(),
   {
     id: "title",
@@ -201,7 +201,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
 
   const table = useTable({
     features: dataTableFeatures,
-    columns,
+    columns: noteColumns,
     data,
     getRowId: (row) => row.summary.entity.id,
     state: { sorting },

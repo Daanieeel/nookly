@@ -2,6 +2,7 @@ import {
   IconArrowUpRight,
   IconCopyPlus,
   IconFolderShare,
+  IconPlus,
   IconLink,
   IconLinkPlus,
   IconPinned,
@@ -13,6 +14,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { useCloseAfterSuccess } from "@/components/action-feedback";
+import { NewLabelForm } from "@/components/label-manager";
 import { SpaceGlyph } from "@/components/spotlight";
 import { TrashEntityDialog } from "@/components/trash-entity-dialog";
 import { hiddenRelationshipTypes } from "@/features/relationships/RelationshipsPanel";
@@ -215,7 +217,7 @@ function useLabelItems({ entity }: EntityTarget): MenuSubItem[] | undefined {
   });
   if (!labels || !attached) return undefined;
   const attachedIds = new Set(attached.map((l) => l.id));
-  return labels.map((label) => {
+  const items: MenuSubItem[] = labels.map((label) => {
     const isAttached = attachedIds.has(label.id);
     return {
       id: label.id,
@@ -236,4 +238,23 @@ function useLabelItems({ entity }: EntityTarget): MenuSubItem[] | undefined {
       },
     };
   });
+  return [
+    ...items,
+    {
+      id: "new-label",
+      label: "New Label…",
+      icon: <IconPlus className="size-4 text-muted-foreground" />,
+      run: (helpers) =>
+        helpers.openPopover((close) => (
+          <NewLabelForm
+            spaceId={entity.spaceId}
+            onCreated={async (label) => {
+              await attachLabel(entity.id, label.id);
+              await helpers.refresh();
+              close();
+            }}
+          />
+        )),
+    },
+  ];
 }
