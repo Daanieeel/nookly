@@ -13,11 +13,13 @@ use tauri::{AppHandle, Manager, State};
 const VIEWPORT: (f64, f64) = (1280.0, 670.0);
 /// Snapshot width in points; twice that in pixels on a Retina screen, sharp
 /// enough for the details sheet.
+#[cfg(target_os = "macos")]
 const SNAPSHOT_WIDTH: f64 = 640.0;
 /// Most pages finish loading well within this; slower ones fall back to `og:image`.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(20);
 /// Web fonts, images and entrance animations settle after the load event.
 const SETTLE: Duration = Duration::from_millis(1500);
+#[cfg(target_os = "macos")]
 const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// One capture at a time: each one is a whole browser page.
