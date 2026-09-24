@@ -9,6 +9,7 @@ import {
 } from "@/components/action-feedback";
 import { registerActions, registerEntityType } from "@/components/context-menu/registry";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { listSessions, overrideOccurrence } from "@/lib/api/sessions";
 import type { Entity, SessionOccurrence } from "@/lib/api/types";
@@ -60,12 +61,11 @@ function RescheduleForm({
         if (valid && !move.isPending) move.mutate();
       }}
     >
-      <Input
-        type="date"
+      <DateInput
         aria-label="Date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="h-8"
+        clearable={false}
+        value={date || null}
+        onChange={(day) => setDate(day ?? "")}
       />
       <div className="flex items-center gap-1.5">
         <Input

@@ -19,6 +19,9 @@ import { EntityKey } from "@/components/entity-key";
 import { StatusButtonContent, useActionStatus } from "@/components/action-feedback";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UpdateCard } from "@/components/update-card";
+import { DateTimeSettings } from "@/components/datetime-settings";
+// Aliased: this file has its own breadcrumb `Separator`.
+import { Separator as UiSeparator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -179,10 +182,17 @@ function SettingsPopover() {
         </TooltipTrigger>
         <TooltipContent>Settings</TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" className="flex w-fit flex-col gap-2 p-3">
-        <span className="text-xs font-medium text-muted-foreground">Theme</span>
-        <ThemeToggle />
-        <VersionSection />
+      <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
+        <UiSeparator />
+        <DateTimeSettings />
+        <UiSeparator />
+        <div className="flex flex-col gap-2">
+          <VersionSection />
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -203,7 +213,7 @@ function VersionSection() {
 
   return (
     <>
-      <div className="mt-1 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex flex-col">
           <span className="text-xs font-medium text-muted-foreground">Version</span>
           <span className="text-sm tabular-nums">{version ? `v${version}` : ""}</span>

@@ -39,6 +39,7 @@ import {
 import type { Entity, SessionOccurrence } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
 
 const START_HOUR = 8;
 const END_HOUR = 22;
@@ -137,7 +138,7 @@ export function SessionsListView({
             <IconChevronRight size={15} />
           </Button>
           <span className="pl-2 text-xs text-muted-foreground">
-            {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d, yyyy")}
+            {formatShortDate(weekStart)} – {formatShortDate(addDays(weekStart, 6))}
           </span>
         </div>
       </div>
@@ -167,7 +168,7 @@ export function SessionsListView({
                 key={h}
                 className="h-12 shrink-0 border-b border-border px-1 pt-0.5 text-right text-xs text-muted-foreground last:border-b-0"
               >
-                {h}:00
+                {formatClock(`${h}:00`)}
               </div>
             ))}
           </div>
@@ -186,7 +187,7 @@ export function SessionsListView({
                       : "text-muted-foreground"
                   }`}
                 >
-                  <span>{format(day, "EEE")}</span>
+                  <span>{formatWeekday(day, "short")}</span>
                   <span>{format(day, "d")}</span>
                 </div>
                 <div className="relative">
@@ -199,7 +200,7 @@ export function SessionsListView({
                         hour: h,
                         startCreate: () => setDraft({ date: day, hour: h }),
                       })}
-                      aria-label={`New session at ${h}:00 on ${format(day, "EEEE")}`}
+                      aria-label={`New session at ${formatClock(`${h}:00`)} on ${formatWeekday(day)}`}
                       className="block h-12 w-full shrink-0 border-b border-border last:border-b-0 hover:bg-accent/60"
                     />
                   ))}
@@ -361,7 +362,8 @@ function QuickCreateSessionDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
-            New session{draft ? ` — ${format(draft.date, "EEEE")} ${draft.hour}:00` : ""}
+            New session
+            {draft ? ` — ${formatWeekday(draft.date)} ${formatClock(`${draft.hour}:00`)}` : ""}
           </DialogTitle>
         </DialogHeader>
         <form

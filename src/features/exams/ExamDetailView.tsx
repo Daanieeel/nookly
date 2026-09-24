@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FieldError, StatusButtonContent, useActionStatus } from "@/components/action-feedback";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -119,7 +120,11 @@ export function ExamDetailView({ entity }: { entity: Entity }) {
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           <h3 className="text-sm font-medium">Study blocks</h3>
           <div className="flex gap-2">
-            <Input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} />
+            <DateInput
+              aria-label="Study block date"
+              value={blockDate || null}
+              onChange={(day) => setBlockDate(day ?? "")}
+            />
             <Button
               size="sm"
               disabled={!blockDate && studyBlockStatus !== "success"}

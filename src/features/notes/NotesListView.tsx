@@ -30,6 +30,7 @@ import { type DataTableFeatures, dataTableFeatures } from "@/lib/table-features"
 import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
 import { notePreviewText } from "./note-preview";
+import { formatDateTime } from "@/lib/datetime";
 
 interface NoteRow {
   summary: PageSummary;
@@ -117,7 +118,7 @@ const columns: ColumnDef<DataTableFeatures, NoteRow>[] = [
     cell: ({ row }) => (
       <time
         dateTime={row.original.summary.lastEditedAt}
-        title={new Date(row.original.summary.lastEditedAt).toLocaleString()}
+        title={formatDateTime(row.original.summary.lastEditedAt)}
         className="block text-right text-xs text-muted-foreground tabular-nums"
       >
         {formatEditedAt(row.original.summary.lastEditedAt)}

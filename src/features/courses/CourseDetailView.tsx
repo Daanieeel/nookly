@@ -7,7 +7,7 @@ import {
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { entityTarget } from "@/components/context-menu/registry";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import type { Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { BlockEditor } from "@/features/notes/BlockEditor";
 import { useNavStore } from "@/lib/store/nav";
+import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 
@@ -33,18 +34,7 @@ const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 /// -specific date formatters, not shared domain logic.
 function dateLabel(date: string): string {
   const days = differenceInCalendarDays(new Date(date), new Date());
-  return days <= 7 ? `${Math.max(days, 0)}d` : format(new Date(date), "MMM d");
-}
-
-function formatSessionTime(hhmm: string): string {
-  const [hStr, mStr] = hhmm.split(":");
-  const hour = Number(hStr);
-  const minute = Number(mStr ?? "0");
-  const period = hour >= 12 ? "pm" : "am";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return minute === 0
-    ? `${hour12}${period}`
-    : `${hour12}:${String(minute).padStart(2, "0")}${period}`;
+  return days <= 7 ? `${Math.max(days, 0)}d` : formatShortDate(date);
 }
 
 /// Course detail body (§ course sub-dashboard plan) — header, right sidebar
@@ -166,8 +156,7 @@ function CourseBody({ course }: { course: Entity }) {
           {nextSession ? (
             <>
               <p className="text-sm font-medium">
-                {format(new Date(nextSession.date), "EEEE")}{" "}
-                {formatSessionTime(nextSession.startTime)}
+                {formatWeekday(nextSession.date)} {formatClock(nextSession.startTime)}
               </p>
               <p className="text-xs text-muted-foreground">in {dateLabel(nextSession.date)}</p>
             </>
@@ -236,7 +225,7 @@ function CourseBody({ course }: { course: Entity }) {
               key={s.entity.id}
               entity={s.entity}
               title={displayTitle(s.entity)}
-              meta={`${format(new Date(s.date), "EEE MMM d")} · ${formatSessionTime(s.startTime)}`}
+              meta={`${formatWeekday(s.date, "short")} ${formatShortDate(s.date)} · ${formatClock(s.startTime)}`}
               onClick={() => openEntity(s.entity.id, spaceId)}
             />
           ))}

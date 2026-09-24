@@ -18,6 +18,7 @@ import { QuickJotDialog } from "@/features/notes/QuickJot";
 import { TrashView } from "@/features/trash/TrashView";
 import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
 import { useScopedSelectAll } from "@/hooks/use-scoped-select-all";
+import { useDateTimeSettings } from "@/lib/datetime";
 import { useNavStore } from "@/lib/store/nav";
 import "@/context-actions";
 
@@ -54,9 +55,14 @@ function Shell() {
   const view = useNavStore((s) => s.view);
   useExternalDbChanges();
   useScopedSelectAll();
+  // Formatters read the date settings directly; re-rendering from the root applies
+  // a changed format everywhere at once.
+  useDateTimeSettings((s) => `${s.timezone}|${s.dateFormat}|${s.timeFormat}`);
   const isEntityView = view.kind === "entity";
   // Views drawing their own edge to edge chrome, like the Linear style Tasks page.
-  const isBleedView = isEntityView || (view.kind === "module" && view.module === "tasks");
+  const isBleedView =
+    isEntityView ||
+    (view.kind === "module" && ["tasks", "assignments", "exams"].includes(view.module));
 
   return (
     <div

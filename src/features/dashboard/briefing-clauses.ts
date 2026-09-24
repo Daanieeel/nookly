@@ -1,6 +1,7 @@
 import { differenceInCalendarDays, format, isSameDay, startOfDay } from "date-fns";
 import type { Assignment, BriefingSession, Exam } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
+import { formatClock, formatShortDate } from "@/lib/datetime";
 
 export type Run = { kind: "text"; text: string } | { kind: "bold"; text: string };
 
@@ -40,18 +41,6 @@ function pick<T>(seed: number, salt: number, options: readonly T[]): T {
   return options[index];
 }
 
-/// Bare `HH:mm` time string -> "10am" / "2:30pm". Not a date, so no date-fns parse.
-function formatTime(hhmm: string): string {
-  const [hStr, mStr] = hhmm.split(":");
-  const hour = Number(hStr);
-  const minute = Number(mStr ?? "0");
-  const period = hour >= 12 ? "pm" : "am";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return minute === 0
-    ? `${hour12}${period}`
-    : `${hour12}:${String(minute).padStart(2, "0")}${period}`;
-}
-
 function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
@@ -78,7 +67,7 @@ function sessionsClause(sessions: BriefingSession[], seed: number): Clause {
   const earliest = sessions[0];
   const count = bold(plural(sessions.length, "session"));
   const course = bold(earliest.courseTitle || earliest.title || "Untitled Session");
-  const time = bold(formatTime(earliest.startTime));
+  const time = bold(formatClock(earliest.startTime));
   const templates: readonly Run[][] = [
     [count, text(" today, starting with "), course, text(" at "), time],
     [text("you've got "), count, text(" today, first up "), course, text(" at "), time],
@@ -134,9 +123,7 @@ function urgentClause(
   }
   if (items.length === 1) {
     const item = items[0];
-    const dayLabel = isSameDay(new Date(item.date), today)
-      ? "today"
-      : format(new Date(item.date), "MMM d");
+    const dayLabel = isSameDay(new Date(item.date), today) ? "today" : formatShortDate(item.date);
     const title = bold(item.title);
     const day = bold(dayLabel);
     const templates: readonly Run[][] = [

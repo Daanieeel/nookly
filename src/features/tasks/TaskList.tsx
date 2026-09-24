@@ -21,6 +21,7 @@ import {
 } from "./task-controls";
 import { type DisplayProperty, type TaskGroup, formatTimestamp } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
+import { formatDateTime } from "@/lib/datetime";
 
 /// The leading glyph of a group: its status, its label color, or a calendar.
 export function GroupIcon({ group }: { group: TaskGroup }) {
@@ -201,7 +202,7 @@ function TaskRow({
       {show("created") && (
         <time
           dateTime={task.entity.createdAt}
-          title={`Created ${new Date(task.entity.createdAt).toLocaleString()}`}
+          title={`Created ${formatDateTime(task.entity.createdAt)}`}
           className="pointer-events-none relative hidden w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums lg:block"
         >
           {formatTimestamp(task.entity.createdAt)}

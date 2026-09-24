@@ -18,6 +18,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
+import { Calendar } from "@/components/ui/date-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Label, TaskStatus } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -272,7 +273,7 @@ export function DueDatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-60" align={align} onKeyDown={stopKeys}>
+      <PopoverContent className="w-68" align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput placeholder={`Set ${noun}…`} />
           <CommandList className="p-1">
@@ -294,15 +295,7 @@ export function DueDatePicker({
             </CommandGroup>
           </CommandList>
           <CommandSeparator />
-          <label className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-muted-foreground">
-            Pick a date
-            <input
-              type="date"
-              value={value ?? ""}
-              onChange={(e) => e.target.value && choose(e.target.value)}
-              className="h-7 rounded-md border border-input bg-accent px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </label>
+          <Calendar value={value} onSelect={choose} className="w-auto p-2" />
         </Command>
       </PopoverContent>
     </Popover>

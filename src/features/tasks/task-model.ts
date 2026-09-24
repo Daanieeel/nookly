@@ -2,6 +2,7 @@ import type { ActiveFilter } from "@/components/filter-menu";
 import type { Label, Task, TaskStatus } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
+import { formatShortDate } from "@/lib/datetime";
 
 /// Pure view logic for the Tasks page: status kinds, due buckets, grouping, ordering,
 /// filtering and the remembered display options. Nothing here touches the backend.
@@ -70,16 +71,11 @@ export function dueBucket(dueDate: string | null, now = new Date()): DueBucket {
 
 /// Short date in the Linear style, `Sep 24`, with the year only when it isn't this one.
 export function formatDay(day: string, now = new Date()): string {
-  const date = parseDay(day);
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-  });
+  return formatShortDate(day, now);
 }
 
 export function formatTimestamp(iso: string, now = new Date()): string {
-  return formatDay(toDay(new Date(iso)), now);
+  return formatShortDate(iso, now);
 }
 
 /// Due date urgency, only for tasks that are still open.

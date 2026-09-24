@@ -94,3 +94,23 @@ export function EntityPickerList({
     </Command>
   );
 }
+
+/// A picked entity inside a picker trigger, laid out like its row in the list:
+/// icon, key, name and type. Shows `placeholder` in placeholder tone until picked.
+export function EntityPickerValue({
+  entity,
+  placeholder,
+}: {
+  entity: Entity | null;
+  placeholder: string;
+}) {
+  if (!entity) return <span className="text-muted-foreground">{placeholder}</span>;
+  return (
+    <>
+      <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
+      <EntityKey entityKey={entity.key} />
+      <span className="min-w-0 flex-1 truncate text-left">{displayTitle(entity)}</span>
+      <span className="shrink-0 text-xs font-normal text-muted-foreground">{entity.type}</span>
+    </>
+  );
+}

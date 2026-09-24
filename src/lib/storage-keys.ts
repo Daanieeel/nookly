@@ -10,4 +10,8 @@ export const STORAGE_KEYS = {
   notesSort: "nookly:notes-sort",
   jotsSort: "nookly:jots-sort",
   tasksDisplay: "nookly:tasks-display",
+  assignmentsGrouping: "nookly:assignments-grouping",
+  timezone: "nookly:timezone",
+  dateFormat: "nookly:date-format",
+  timeFormat: "nookly:time-format",
 } as const;

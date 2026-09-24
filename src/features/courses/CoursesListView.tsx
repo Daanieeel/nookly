@@ -12,7 +12,7 @@ import {
   IconWriting,
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import {
   StatusAnnouncer,
@@ -53,9 +53,10 @@ import { gradientForName } from "@/lib/gallery-color";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
+import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
 
 /// Assignment statuses that count as "done" for the course card's progress
-/// ring — mirrors `TERMINAL_STATUSES` in `AssignmentsListView.tsx`.
+/// ring, mirroring `isDone` in `assignment-buckets.ts`.
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 
 /// "in Nd" within a week, else "MMM d" — same convention as `SidebarUrgencyChip`
@@ -63,20 +64,7 @@ const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 /// since that component is styled for the sidebar's own color tokens.
 function dateLabel(date: string): string {
   const days = differenceInCalendarDays(new Date(date), new Date());
-  return days <= 7 ? `${Math.max(days, 0)}d` : format(new Date(date), "MMM d");
-}
-
-/// Bare `HH:mm` -> "10am" / "2:30pm", mirroring `formatTime` in
-/// `src/features/dashboard/briefing-clauses.ts`.
-function formatSessionTime(hhmm: string): string {
-  const [hStr, mStr] = hhmm.split(":");
-  const hour = Number(hStr);
-  const minute = Number(mStr ?? "0");
-  const period = hour >= 12 ? "pm" : "am";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return minute === 0
-    ? `${hour12}${period}`
-    : `${hour12}:${String(minute).padStart(2, "0")}${period}`;
+  return days <= 7 ? `${Math.max(days, 0)}d` : formatShortDate(date);
 }
 
 /// Card-grid identity (name, semester chips, sequel/prequel indicators) rather than
@@ -480,8 +468,7 @@ function CourseStats({
         <IconCalendar size={12} />
         {nextSession ? (
           <>
-            Next {format(new Date(nextSession.date), "EEE")}{" "}
-            {formatSessionTime(nextSession.startTime)}
+            Next {formatWeekday(nextSession.date, "short")} {formatClock(nextSession.startTime)}
           </>
         ) : (
           "No sessions"

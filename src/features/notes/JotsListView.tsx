@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
 import { notePreviewText, previewLines } from "./note-preview";
+import { formatClock, formatDateTime, formatShortDate, formatWeekday } from "@/lib/datetime";
 
 interface JotRow {
   summary: PageSummary;
@@ -206,17 +207,8 @@ function toRow(summary: PageSummary, labelsById: Map<string, Label>): JotRow {
 function formatSessionWhen(session: SessionContext, now = new Date()): string {
   const date = new Date(`${session.date}T00:00`);
   const near = Math.abs(now.getTime() - date.getTime()) < 6 * DAY;
-  const day = date.toLocaleDateString(
-    undefined,
-    near
-      ? { weekday: "short" }
-      : {
-          month: "short",
-          day: "numeric",
-          year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-        },
-  );
-  return `${day} ${session.startTime.slice(0, 5)}`;
+  const day = near ? formatWeekday(session.date, "short") : formatShortDate(session.date, now);
+  return `${day} ${formatClock(session.startTime.slice(0, 5))}`;
 }
 
 /// Jots as a data table (docs/skills/data-tables.md, client mode). A Jot is refined by
@@ -570,7 +562,7 @@ function buildColumns({
       cell: ({ row }) => (
         <time
           dateTime={row.original.summary.lastEditedAt}
-          title={new Date(row.original.summary.lastEditedAt).toLocaleString()}
+          title={formatDateTime(row.original.summary.lastEditedAt)}
           className="block text-right text-xs text-muted-foreground tabular-nums"
         >
           {formatEditedAt(row.original.summary.lastEditedAt)}

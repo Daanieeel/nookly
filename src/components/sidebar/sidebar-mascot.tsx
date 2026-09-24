@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { getWeekYear, MascotFigure } from "@/components/mascot-figure";
 import { Card } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { listExamsAllSpaces } from "@/lib/api/exams";
 import { countUnrefinedJotsAllSpaces } from "@/lib/api/notes";
 import { listSessionsToday } from "@/lib/api/sessions";
 import { countOpenTasksDueOrOverdue, countTasksDueToday } from "@/lib/api/tasks";
+import { formatDate, formatWeekday } from "@/lib/datetime";
 
 const CYCLE_MS = 5_000;
 const EXIT_MS = 380;
@@ -37,7 +38,7 @@ export function SidebarMascot() {
   });
 
   const { week } = getWeekYear();
-  const dateLine = `${format(new Date(), "EEE · dd.MM.yyyy")} · Week ${week}`;
+  const dateLine = `${formatWeekday(new Date(), "short")} · ${formatDate(new Date().toISOString())} · Week ${week}`;
 
   const stats: string[] = [];
   if (tasksToday) stats.push(`${tasksToday.done}/${tasksToday.total} tasks done today`);
