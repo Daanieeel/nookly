@@ -19,4 +19,5 @@ export const STORAGE_KEYS = {
   timezone: "nookly:timezone",
   dateFormat: "nookly:date-format",
   timeFormat: "nookly:time-format",
+  sessionsView: "nookly:sessions-view",
 } as const;

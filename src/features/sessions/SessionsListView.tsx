@@ -1,103 +1,59 @@
-import { IconCalendarUser, IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDays, addWeeks, format, isSameDay, isToday, startOfWeek } from "date-fns";
-import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
 import {
-  FieldError,
-  StatusButtonContent,
-  StatusIcon,
-  StatusAnnouncer,
-  statusOf,
-  useCloseAfterSuccess,
-} from "@/components/action-feedback";
-import { contextTarget, entityTarget } from "@/components/context-menu/registry";
-import { EntityPickerPopover } from "@/components/entity-picker";
-import { EntityKey } from "@/components/entity-key";
+  IconChalkboard,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlus,
+  IconX,
+} from "@tabler/icons-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { addDays, isToday } from "date-fns";
+import { useCallback, useEffect, useState } from "react";
+import { SUCCESS_REVERT_MS } from "@/components/action-feedback";
+import { contextTarget } from "@/components/context-menu/registry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEntity } from "@/lib/api/entities";
+import { listExternalEvents } from "@/lib/api/externalCalendars";
 import { listRelationships } from "@/lib/api/relationships";
-import {
-  createOneOffSession,
-  createSessionTemplate,
-  generateOccurrences,
-  listSessions,
-  overrideOccurrence,
-} from "@/lib/api/sessions";
-import type { Entity, SessionOccurrence } from "@/lib/api/types";
+import { listSessions } from "@/lib/api/sessions";
+import { useDateTimeSettings } from "@/lib/datetime";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
-import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
-import { listExternalEvents } from "@/lib/api/externalCalendars";
-import { CalendarConnectionsDialog } from "./external-calendars/CalendarConnectionsDialog";
-import { EXTERNAL_EVENTS_KEY } from "./external-calendars/external-calendar-sync";
-import { ExternalEventBlock, ExternalEventChip } from "./external-calendars/ExternalEventBlock";
+import { cn } from "@/lib/utils";
 import {
-  type EventSegment,
-  type BlockPosition,
-  type Lane,
-  eventsForDay,
-  lanePosition,
-  layoutLanes,
-} from "./external-calendars/overlay-layout";
+  CALENDAR_VIEWS,
+  type CalendarView,
+  type SlotRange,
+  buildColumns,
+  dayKey,
+  rangeLabel,
+  readView,
+  stepAnchor,
+  stepLabel,
+  visibleDays,
+  weekNumber,
+  writeView,
+} from "./calendar/calendar-model";
+import { MonthGrid } from "./calendar/MonthGrid";
+import { QuickCreateSessionDialog } from "./calendar/QuickCreateSessionDialog";
+import { TimeGrid } from "./calendar/TimeGrid";
+import { EXTERNAL_EVENTS_KEY } from "./external-calendars/external-calendar-sync";
 
-const START_HOUR = 8;
-const END_HOUR = 22;
-const HOUR_PX = 48;
-const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
+/// True while typing somewhere, so single key shortcuts stay out of the way.
+function isEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
 }
 
-const MIN_BLOCK_PX = 18;
-/// The shortest span a block renders at, in minutes, for laying out columns.
-const MIN_BLOCK_MINUTES = (MIN_BLOCK_PX / HOUR_PX) * 60;
-/// Height of one all day row under the day headers.
-const ALL_DAY_ROW_PX = 22;
-/// All day rows shown before the strip stops growing; the rest scroll.
-const MAX_ALL_DAY_ROWS = 3;
-
-function topPxFor(minutes: number): number {
-  const px = ((minutes - START_HOUR * 60) / 60) * HOUR_PX;
-  return Math.max(0, Math.min(px, (END_HOUR - START_HOUR) * HOUR_PX));
-}
-
-function heightPxFor(startMin: number, endMin: number): number {
-  const px = ((endMin - startMin) / 60) * HOUR_PX;
-  return Math.max(MIN_BLOCK_PX, px);
-}
-
-function blockPosition(startMin: number, endMin: number, lane: Lane): BlockPosition {
-  return lanePosition(topPxFor(startMin), heightPxFor(startMin, endMin), lane);
-}
-
-type DayItem =
-  | { kind: "session"; occurrence: SessionOccurrence; startMin: number; endMin: number }
-  | ({ kind: "external" } & EventSegment);
-
-interface DraftSlot {
-  date: Date;
-  hour: number;
-}
-
-/// Sessions are inherently time-based, so a weekly calendar grid is the primary
-/// view (§2.3) — the calendar itself is also the creation surface (§3.3): clicking
-/// an empty slot opens a quick-create popover pre-filled with that day and hour.
-/// See `ExamsListView`'s equivalent doc comment for the `filterCourseId` convention.
+/// The Sessions page is a full calendar, modeled on Outlook: Day, Work week,
+/// Week and Month views over the whole page. The calendar is the creation
+/// surface: drag across time (or click a day in Month) to start a Session.
+/// External calendars show as a read only overlay. See `ExamsListView` for the
+/// `filterCourseId` convention.
 export function SessionsListView({
   spaceId,
   filterCourseId,
@@ -105,11 +61,17 @@ export function SessionsListView({
   spaceId: string;
   filterCourseId?: string;
 }) {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [draft, setDraft] = useState<DraftSlot | null>(null);
-  const [connectionsOpen, setConnectionsOpen] = useState(false);
-  const openEntity = useNavStore((s) => s.openEntity);
-  const setView = useNavStore((s) => s.setView);
+  const [view, setViewState] = useState<CalendarView>(readView);
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [draft, setDraft] = useState<SlotRange | null>(null);
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
+  const setNavView = useNavStore((s) => s.setView);
+
+  const setView = useCallback((next: CalendarView) => {
+    setViewState(next);
+    writeView(next);
+  }, []);
 
   const { data: allSessions = [] } = useQuery({
     queryKey: ["sessions", spaceId],
@@ -127,7 +89,6 @@ export function SessionsListView({
     queryFn: () => listRelationships(filterCourseId as string, "to"),
     enabled: Boolean(filterCourseId),
   });
-
   const sessions = filterCourseId
     ? allSessions.filter((s) =>
         courseRelationships.some(
@@ -136,407 +97,191 @@ export function SessionsListView({
       )
     : allSessions;
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
+  const days = visibleDays(view, anchor, weekStartsOn);
   // External calendars are a read only overlay, never Sessions. Hidden while the
-  // view is narrowed to one Course, since they belong to none.
-  const fromKey = format(addDays(weekStart, -1), "yyyy-MM-dd");
-  const toKey = format(addDays(weekStart, 7), "yyyy-MM-dd");
+  // view is narrowed to one Course, since they belong to none. Padded by a day
+  // because the cache compares timed events by their UTC date.
+  const fromKey = dayKey(addDays(days[0], -1));
+  const toKey = dayKey(addDays(days[days.length - 1], 1));
   const { data: externalEvents = [] } = useQuery({
     queryKey: [...EXTERNAL_EVENTS_KEY, fromKey, toKey],
     queryFn: () => listExternalEvents(fromKey, toKey),
     enabled: !filterCourseId,
     placeholderData: keepPreviousData,
   });
-  const dayColumns = days.map((day) => {
-    const { timed, allDay } = filterCourseId
-      ? { timed: [], allDay: [] }
-      : eventsForDay(externalEvents, format(day, "yyyy-MM-dd"));
-    const items: DayItem[] = [
-      ...sessions
-        .filter((s) => isSameDay(new Date(s.date), day))
-        .map((occurrence) => ({
-          kind: "session" as const,
-          occurrence,
-          startMin: timeToMinutes(occurrence.startTime),
-          endMin: timeToMinutes(occurrence.endTime),
-        })),
-      // Clipped to the grid's hours; the block's label keeps the real times.
-      ...timed.flatMap((segment) => {
-        const startMin = Math.max(segment.startMin, START_HOUR * 60);
-        const endMin = Math.min(segment.endMin, END_HOUR * 60);
-        const visible =
-          startMin < END_HOUR * 60 && Math.max(endMin, segment.startMin + 1) > startMin;
-        return visible ? [{ kind: "external" as const, ...segment, startMin, endMin }] : [];
-      }),
-    ];
-    return { day, items, lanes: layoutLanes(items, MIN_BLOCK_MINUTES), allDay };
-  });
-  const allDayRows = Math.min(
-    MAX_ALL_DAY_ROWS,
-    Math.max(0, ...dayColumns.map((c) => c.allDay.length)),
+  const columns = buildColumns(days, sessions, filterCourseId ? [] : externalEvents);
+
+  const step = useCallback(
+    (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction)),
+    [view],
   );
-  const allDayHeightPx = allDayRows * ALL_DAY_ROW_PX + 4;
+  const pickDay = useCallback(
+    (day: Date) => {
+      setAnchor(day);
+      setView("day");
+    },
+    [setView],
+  );
+  /// C and the New session button: the next full hour today when today is on
+  /// screen, otherwise 9:00 on the first day shown.
+  const startCreate = useCallback(() => {
+    const shown = visibleDays(view, anchor, weekStartsOn);
+    const today = shown.find((d) => isToday(d));
+    const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
+    setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
+  }, [view, anchor, weekStartsOn]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
+      const viewForKey = CALENDAR_VIEWS.find((v) => v.key === e.key);
+      if (viewForKey) setView(viewForKey.id);
+      else if (e.key === "t") setAnchor(new Date());
+      else if (e.key === "ArrowLeft") step(-1);
+      else if (e.key === "ArrowRight") step(1);
+      else if (e.key === "c") startCreate();
+      else return;
+      e.preventDefault();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setView, step, startCreate]);
+
+  useEffect(() => {
+    if (highlightIds.size === 0) return;
+    const timer = setTimeout(() => setHighlightIds(new Set()), SUCCESS_REVERT_MS);
+    return () => clearTimeout(timer);
+  }, [highlightIds]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Sessions</h1>
+    <div
+      className="flex h-full min-h-0 flex-col"
+      {...contextTarget("module-view", {
+        spaceId,
+        createLabel: "New Session",
+        create: startCreate,
+      })}
+    >
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border py-2 pr-2 pl-4">
+        <h1 className="flex items-center gap-2 text-sm font-medium">
+          <IconChalkboard size={16} className="text-muted-foreground" />
+          Sessions
+        </h1>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Previous week"
-            onClick={() => setWeekStart((d) => addWeeks(d, -1))}
-          >
-            <IconChevronLeft size={15} />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-          >
-            Today
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Next week"
-            onClick={() => setWeekStart((d) => addWeeks(d, 1))}
-          >
-            <IconChevronRight size={15} />
-          </Button>
-          <span className="pl-2 text-xs text-muted-foreground">
-            {formatShortDate(weekStart)} – {formatShortDate(addDays(weekStart, 6))}
-          </span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Calendar connections"
-                className="ml-1"
-                onClick={() => setConnectionsOpen(true)}
-              >
-                <IconCalendarUser size={15} />
+              <Button variant="secondary" size="sm" onClick={() => setAnchor(new Date())}>
+                Today
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Calendar connections</TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
+              Go to today <Kbd>T</Kbd>
+            </TooltipContent>
           </Tooltip>
+          {([-1, 1] as const).map((direction) => (
+            <Tooltip key={direction}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label={stepLabel(view, direction)}
+                  onClick={() => step(direction)}
+                >
+                  {direction === -1 ? <IconChevronLeft /> : <IconChevronRight />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="flex items-center gap-2">
+                {stepLabel(view, direction)} <Kbd>{direction === -1 ? "←" : "→"}</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+          <span className="pl-1 text-sm font-medium whitespace-nowrap">
+            {rangeLabel(view, days, anchor)}
+          </span>
+          {view !== "month" && (
+            <span className="pl-1.5 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+              Week {weekNumber(days)}
+            </span>
+          )}
         </div>
-      </div>
-
-      {filterCourseId && filterCourse && (
-        <div className="flex items-center gap-1.5">
+        {filterCourseId && filterCourse && (
           <Badge variant="secondary" className="gap-1 pr-1">
             Filtered by {displayTitle(filterCourse)}
             <button
               type="button"
               aria-label="Clear filter"
-              onClick={() => setView({ kind: "module", spaceId, module: "sessions" })}
+              onClick={() => setNavView({ kind: "module", spaceId, module: "sessions" })}
               className="rounded-full p-0.5 hover:bg-accent-foreground/10"
             >
               <IconX size={11} />
             </button>
           </Badge>
-        </div>
-      )}
-
-      <div className="flex overflow-x-auto rounded-lg border border-border">
-        <div className="flex min-w-[720px] flex-1">
-          <div className="flex w-12 shrink-0 flex-col border-r border-border">
-            <div className="h-10 shrink-0 border-b border-border" />
-            {allDayRows > 0 && (
-              <div
-                className="h-(--all-day-height) shrink-0 border-b border-border px-1 pt-1 text-right text-xs text-muted-foreground"
-                // SAFETY: a plain pixel length derived from the row count.
-                style={{ "--all-day-height": `${allDayHeightPx}px` } as CSSProperties}
-              >
-                All day
-              </div>
-            )}
-            {HOURS.map((h) => (
-              <div
-                key={h}
-                className="h-12 shrink-0 border-b border-border px-1 pt-0.5 text-right text-xs text-muted-foreground last:border-b-0"
-              >
-                {formatClock(`${h}:00`)}
-              </div>
-            ))}
-          </div>
-
-          {dayColumns.map(({ day, items, lanes, allDay }) => {
-            return (
-              <div
-                key={day.toISOString()}
-                className="relative flex flex-1 flex-col border-r border-border last:border-r-0"
-              >
-                <div
-                  className={`flex h-10 shrink-0 flex-col items-center justify-center border-b border-border text-xs ${
-                    isToday(day)
-                      ? "bg-primary/10 font-medium text-primary"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  <span>{formatWeekday(day, "short")}</span>
-                  <span>{format(day, "d")}</span>
-                </div>
-                {allDayRows > 0 && (
-                  <div
-                    className="flex h-(--all-day-height) shrink-0 flex-col gap-0.5 overflow-y-auto border-b border-border p-0.5"
-                    // SAFETY: a plain pixel length derived from the row count.
-                    style={{ "--all-day-height": `${allDayHeightPx}px` } as CSSProperties}
+        )}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          <nav aria-label="Calendar views" className="flex items-center gap-1">
+            {CALENDAR_VIEWS.map((v) => (
+              <Tooltip key={v.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-pressed={view === v.id}
+                    onClick={() => setView(v.id)}
+                    className={cn(
+                      "h-7 shrink-0 cursor-pointer rounded-md border border-transparent px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
+                      view === v.id && "border-border bg-accent text-foreground",
+                    )}
                   >
-                    {allDay.map((event) => (
-                      <ExternalEventChip key={event.id} event={event} />
-                    ))}
-                  </div>
-                )}
-                <div className="relative">
-                  {HOURS.map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setDraft({ date: day, hour: h })}
-                      {...contextTarget("sessions.slot", {
-                        hour: h,
-                        startCreate: () => setDraft({ date: day, hour: h }),
-                      })}
-                      aria-label={`New session at ${formatClock(`${h}:00`)} on ${formatWeekday(day)}`}
-                      className="block h-12 w-full shrink-0 border-b border-border last:border-b-0 hover:bg-accent/60"
-                    />
-                  ))}
-                  {items.map((item) => {
-                    const lane = lanes.get(item) ?? { lane: 0, lanes: 1 };
-                    const position = blockPosition(item.startMin, item.endMin, lane);
-                    return item.kind === "session" ? (
-                      <SessionBlock
-                        key={item.occurrence.entity.id}
-                        spaceId={spaceId}
-                        occurrence={item.occurrence}
-                        position={position}
-                        onOpen={() => openEntity(item.occurrence.entity.id, spaceId)}
-                      />
-                    ) : (
-                      <ExternalEventBlock
-                        key={item.event.id}
-                        event={item.event}
-                        position={position}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+                    {v.label}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="flex items-center gap-2">
+                  {v.label} view <Kbd>{v.key}</Kbd>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </nav>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+                <IconPlus />
+                New session
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              Create a session <Kbd>C</Kbd>
+            </TooltipContent>
+          </Tooltip>
         </div>
-      </div>
+      </header>
 
-      <CalendarConnectionsDialog open={connectionsOpen} onOpenChange={setConnectionsOpen} />
+      {view === "month" ? (
+        <MonthGrid
+          anchor={anchor}
+          columns={columns}
+          highlightIds={highlightIds}
+          onSelect={setDraft}
+          spaceId={spaceId}
+          onPickDay={pickDay}
+        />
+      ) : (
+        <TimeGrid
+          key={view}
+          spaceId={spaceId}
+          columns={columns}
+          selection={draft}
+          highlightIds={highlightIds}
+          onSelect={setDraft}
+          onPickDay={pickDay}
+        />
+      )}
 
       <QuickCreateSessionDialog
         spaceId={spaceId}
         draft={draft}
         onOpenChange={(open) => !open && setDraft(null)}
+        onCreated={(ids) => setHighlightIds(new Set(ids))}
       />
     </div>
-  );
-}
-
-function SessionBlock({
-  spaceId,
-  occurrence,
-  position,
-  onOpen,
-}: {
-  spaceId: string;
-  occurrence: SessionOccurrence;
-  position: BlockPosition;
-  onOpen: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const cancel = useMutation({
-    mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] }),
-  });
-  const cancelStatus = statusOf(cancel);
-  const cancelLabel =
-    cancelStatus === "error" ? "Couldn't cancel occurrence, try again" : "Cancel occurrence";
-  return (
-    <div
-      className={`group absolute top-(--occ-top) left-(--occ-left) h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md border ${
-        occurrence.cancelled
-          ? "border-border bg-muted text-muted-foreground"
-          : "border-primary/30 bg-primary/10 text-foreground"
-      }`}
-      // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
-      // lengths computed from this occurrence's own start/end time and column
-      // (`blockPosition`) — a per-row offset can't be a static Tailwind class, so
-      // it's threaded through CSS custom properties instead of inline declarations.
-      style={
-        {
-          "--occ-top": `${position.top}px`,
-          "--occ-height": `${position.height}px`,
-          "--occ-left": position.left,
-          "--occ-width": position.width,
-        } as CSSProperties
-      }
-      {...entityTarget(occurrence.entity, occurrence)}
-    >
-      <button
-        type="button"
-        onClick={onOpen}
-        title={`${occurrence.entity.key} ${displayTitle(occurrence.entity)}`}
-        className={`size-full px-1.5 py-1 text-left text-xs ${
-          occurrence.cancelled ? "line-through opacity-60" : "hover:bg-primary/15"
-        }`}
-      >
-        <span className="block truncate font-medium">{displayTitle(occurrence.entity)}</span>
-        <span className="block truncate text-xs opacity-80">
-          {occurrence.startTime}–{occurrence.endTime}
-          <EntityKey entityKey={occurrence.entity.key} className="ml-1.5 text-current" />
-        </span>
-      </button>
-      {!occurrence.cancelled && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={cancelLabel}
-              onClick={() => !cancel.isPending && cancel.mutate()}
-              className={`absolute top-0.5 right-0.5 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100 ${
-                cancelStatus === "idle" ? "opacity-0" : "opacity-100"
-              }`}
-            >
-              <StatusIcon status={cancelStatus} idle={<IconX size={11} />} size={11} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{cancelLabel}</TooltipContent>
-        </Tooltip>
-      )}
-      <StatusAnnouncer message={cancelStatus === "error" ? "Couldn't cancel occurrence" : null} />
-    </div>
-  );
-}
-
-function QuickCreateSessionDialog({
-  spaceId,
-  draft,
-  onOpenChange,
-}: {
-  spaceId: string;
-  draft: DraftSlot | null;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const queryClient = useQueryClient();
-  const [title, setTitle] = useState("");
-  const [course, setCourse] = useState<Entity | null>(null);
-  const [repeatWeekly, setRepeatWeekly] = useState(false);
-  const titleRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (draft) {
-      setTitle("");
-      setCourse(null);
-      setRepeatWeekly(false);
-      setTimeout(() => titleRef.current?.focus(), 0);
-    }
-  }, [draft]);
-
-  const create = useMutation({
-    mutationFn: async () => {
-      if (!draft || !course) throw new Error("Pick a course first");
-      const date = format(draft.date, "yyyy-MM-dd");
-      const startTime = `${String(draft.hour).padStart(2, "0")}:00`;
-      const endTime = `${String(draft.hour + 1).padStart(2, "0")}:00`;
-      if (repeatWeekly) {
-        const template = await createSessionTemplate(
-          spaceId,
-          title.trim(),
-          course.id,
-          draft.date.getDay() === 0 ? 6 : draft.date.getDay() - 1,
-          startTime,
-          endTime,
-          null,
-          date,
-        );
-        await generateOccurrences(template.id, format(addWeeks(draft.date, 16), "yyyy-MM-dd"));
-      } else {
-        await createOneOffSession(spaceId, title.trim(), course.id, date, startTime, endTime, null);
-      }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] }),
-  });
-  const createStatus = statusOf(create);
-  useCloseAfterSuccess(create, () => {
-    onOpenChange(false);
-    create.reset();
-  });
-
-  return (
-    <Dialog
-      open={draft !== null}
-      onOpenChange={(open) => {
-        onOpenChange(open);
-        if (!open) create.reset();
-      }}
-    >
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>
-            New session
-            {draft ? ` — ${formatWeekday(draft.date)} ${formatClock(`${draft.hour}:00`)}` : ""}
-          </DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (title.trim() && course && !create.isPending) create.mutate();
-          }}
-          className="flex flex-col gap-3"
-        >
-          <Input
-            ref={titleRef}
-            placeholder="Title, e.g. Algorithms I"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <EntityPickerPopover
-            spaceId={spaceId}
-            typeFilter="course"
-            trigger={
-              <Button type="button" variant="outline" size="sm" className="justify-start">
-                {course ? displayTitle(course) : "Pick course…"}
-              </Button>
-            }
-            onSelect={setCourse}
-          />
-          <FieldError message={create.isError && create.error.message} />
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="session-repeat-weekly"
-              checked={repeatWeekly}
-              onCheckedChange={(v) => setRepeatWeekly(v === true)}
-            />
-            <Label htmlFor="session-repeat-weekly" className="font-normal">
-              Repeat weekly (16 weeks)
-            </Label>
-          </div>
-        </form>
-        <DialogFooter>
-          <Button
-            disabled={!title.trim() || !course}
-            onClick={() => !create.isPending && createStatus !== "success" && create.mutate()}
-          >
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Session created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

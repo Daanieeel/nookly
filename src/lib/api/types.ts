@@ -211,6 +211,8 @@ export interface SessionOccurrence {
   cancelled: boolean;
   location: string | null;
   notes: string | null;
+  /// The linked Course's title; only filled by `listSessions`.
+  courseTitle: string | null;
 }
 
 export interface BriefingSession {

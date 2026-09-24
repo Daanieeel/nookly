@@ -63,7 +63,9 @@ function Shell() {
   const isBleedView =
     isEntityView ||
     (view.kind === "module" &&
-      ["tasks", "assignments", "exams", "decks", "files", "bookmarks"].includes(view.module));
+      ["tasks", "sessions", "assignments", "exams", "decks", "files", "bookmarks"].includes(
+        view.module,
+      ));
 
   return (
     <div

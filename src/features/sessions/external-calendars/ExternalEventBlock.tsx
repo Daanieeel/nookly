@@ -39,8 +39,9 @@ export function ExternalEventBlock({
     <ExternalEventPopover event={event}>
       <button
         type="button"
+        data-calendar-item
         aria-label={`${event.title || "Busy"}, from ${PROVIDER_LABELS[event.provider]}`}
-        className="absolute top-(--occ-top) left-(--occ-left) h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1.5 py-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100"
+        className="absolute top-(--occ-top) z-10 left-(--occ-left) flex h-(--occ-height) w-(--occ-width) flex-col items-stretch justify-start overflow-hidden rounded-md border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1.5 py-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100"
         // SAFETY: the `--occ-*` vars are plain pixel or `calc()` lengths computed
         // from the event's own times and column, and `--ext-color` is a hex color
         // checked by `safeColor` (or a token var); per event values can't be
@@ -55,9 +56,7 @@ export function ExternalEventBlock({
           } as CSSProperties
         }
       >
-        <span className="flex items-center gap-1 truncate font-medium">
-          <span className="truncate">{event.title || "Busy"}</span>
-        </span>
+        <span className="block truncate font-medium">{event.title || "Busy"}</span>
         {!event.allDay && (
           <span className="block truncate opacity-80">
             {formatTime(event.start)} to {formatTime(event.end)}
@@ -68,18 +67,29 @@ export function ExternalEventBlock({
   );
 }
 
-/// An all day external event in the strip under the day headers.
-export function ExternalEventChip({ event }: { event: ExternalEvent }) {
+/// An external event as one line: all day events under the day headers, and
+/// every external event in a month cell, where `showTime` prefixes timed ones.
+export function ExternalEventChip({
+  event,
+  showTime = false,
+}: {
+  event: ExternalEvent;
+  showTime?: boolean;
+}) {
   const color = safeColor(event.color);
   return (
     <ExternalEventPopover event={event}>
       <button
         type="button"
-        aria-label={`${event.title || "Busy"}, all day, from ${PROVIDER_LABELS[event.provider]}`}
-        className="flex h-5 w-full min-w-0 items-center gap-1 rounded-sm border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100"
+        data-calendar-item
+        aria-label={`${event.title || "Busy"}, ${event.allDay ? "all day" : formatTime(event.start)}, from ${PROVIDER_LABELS[event.provider]}`}
+        className="flex h-5 w-full shrink-0 min-w-0 items-center gap-1 rounded-sm border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100"
         // SAFETY: `--ext-color` is a hex color checked by `safeColor`, or a token var.
         style={{ "--ext-color": color } as CSSProperties}
       >
+        {showTime && !event.allDay && (
+          <span className="shrink-0 tabular-nums">{formatTime(event.start)}</span>
+        )}
         <span className="truncate">{event.title || "Busy"}</span>
       </button>
     </ExternalEventPopover>

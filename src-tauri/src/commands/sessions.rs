@@ -1,5 +1,7 @@
 use crate::db::entities::Entity;
-use crate::db::sessions::{self, BriefingSession, OccurrenceOverride, SessionOccurrence};
+use crate::db::sessions::{
+    self, BriefingSession, OccurrenceOverride, SeriesPatch, SessionOccurrence, SessionPages,
+};
 use crate::db::DbState;
 use crate::error::AppResult;
 use tauri::State;
@@ -89,4 +91,53 @@ pub fn list_sessions_between(
 ) -> AppResult<Vec<BriefingSession>> {
     let conn = state.0.lock().unwrap();
     sessions::list_sessions_between(&conn, &from, &to)
+}
+
+#[tauri::command]
+pub fn update_session_series(
+    state: State<DbState>,
+    template_id: String,
+    from_date: String,
+    patch: SeriesPatch,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    sessions::update_session_series(&conn, &template_id, &from_date, patch)
+}
+
+#[tauri::command]
+pub fn delete_session_series(
+    state: State<DbState>,
+    template_id: String,
+    from_date: String,
+) -> AppResult<usize> {
+    let conn = state.0.lock().unwrap();
+    sessions::delete_session_series(&conn, &template_id, &from_date)
+}
+
+#[tauri::command]
+pub fn get_session_pages(state: State<DbState>, session_id: String) -> AppResult<SessionPages> {
+    let conn = state.0.lock().unwrap();
+    sessions::get_session_pages(&conn, &session_id)
+}
+
+#[tauri::command]
+pub fn create_session_page(
+    state: State<DbState>,
+    session_id: String,
+    kind: String,
+    title: String,
+) -> AppResult<Entity> {
+    let conn = state.0.lock().unwrap();
+    sessions::create_session_page(&conn, &session_id, &kind, title)
+}
+
+#[tauri::command]
+pub fn link_session_page(
+    state: State<DbState>,
+    session_id: String,
+    kind: String,
+    page_id: String,
+) -> AppResult<bool> {
+    let conn = state.0.lock().unwrap();
+    sessions::link_session_page(&conn, &session_id, &kind, &page_id)
 }

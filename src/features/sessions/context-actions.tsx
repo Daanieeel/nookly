@@ -13,11 +13,13 @@ import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { listSessions, overrideOccurrence } from "@/lib/api/sessions";
 import type { Entity, SessionOccurrence } from "@/lib/api/types";
+import { formatClock } from "@/lib/datetime";
+import { minutesToTime } from "./calendar/calendar-model";
 
 declare module "@/components/context-menu/registry" {
   interface ContextTargets {
-    /// One empty hour of the weekly calendar.
-    "sessions.slot": { hour: number; startCreate: () => void };
+    /// One empty half hour of the calendar's time grid, `startMin` minutes after midnight.
+    "sessions.slot": { startMin: number; startCreate: () => void };
   }
 }
 
@@ -136,7 +138,7 @@ registerActions("sessions.slot", [
   {
     id: "new-session",
     group: "create",
-    label: ({ hour }) => `New Session at ${hour}:00`,
+    label: ({ startMin }) => `New Session at ${formatClock(minutesToTime(startMin))}`,
     icon: IconPlus,
     afterClose: true,
     run: ({ startCreate }) => startCreate(),

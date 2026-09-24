@@ -35,6 +35,9 @@
      --card/--popover/--muted collapse to the same value in dark mode, so
      neither works for e.g. Tabs' active-segment fill inside a muted track. */
   --raised: #ffffff;
+  /* Saturday and Sunday on the Sessions calendar: a step off --card, readable in
+     both themes (--muted equals --card in dark mode). */
+  --weekend: #f5f5f6;
 
   --accent-blue: #0070f3;
   --accent-green: #00873d;
@@ -76,6 +79,7 @@
   --input: #3a3a3a;
   --ring: #0070f3;
   --raised: #333333;
+  --weekend: #121212;
 
   --accent-blue: #47a8ff;
   --accent-green: #00cb50;
@@ -120,6 +124,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-raised: var(--raised);
+  --color-weekend: var(--weekend);
   --color-accent-blue: var(--accent-blue);
   --color-accent-green: var(--accent-green);
   --color-accent-pink: var(--accent-pink);
