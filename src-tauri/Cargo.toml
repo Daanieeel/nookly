@@ -41,6 +41,8 @@ tauri-plugin-store = "2"
 tokio = { version = "1", features = ["sync", "time"] }
 base64 = "0.22"
 sha2 = "0.10"
+# FSRS spaced repetition scheduler for index cards (`db/decks.rs`), the one Anki uses.
+rs-fsrs = "1.2.1"
 
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the
 # "Open in" app list (`commands/files.rs`).

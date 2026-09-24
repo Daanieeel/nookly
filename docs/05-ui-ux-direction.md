@@ -89,6 +89,7 @@ Look at the nature of the data (is it time-based, document-based, visual, driven
 | Courses            | Card grid or compact list showing name, semester chips, and sequel or prequel indicators.                           |
 | Sessions/Timetable | Calendar first, using a weekly timetable grid. A list is secondary.                                                 |
 | Exams              | Timeline or upcoming-first list, sorted by date, with urgency emphasized. Grade and status as badges.               |
+| Decks              | Grid of deck piles, decks with cards to study first. A deck page is a writing desk and a study session.             |
 | Assignments        | List that puts dates and status first. Visually distinct from Tasks despite the similarity.                         |
 | Files              | Grid by default with file-type icons or thumbnails. List as a toggle.                                               |
 | Bookmarks          | Grid of rich preview cards showing favicon, title, and preview image.                                               |

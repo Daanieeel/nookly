@@ -389,6 +389,11 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
         params![id],
     )?;
     conn.execute(
+        "DELETE FROM index_card_reviews WHERE card_id IN
+         (SELECT id FROM index_cards WHERE deck_entity_id = ?1)",
+        params![id],
+    )?;
+    conn.execute(
         "DELETE FROM index_cards WHERE deck_entity_id = ?1",
         params![id],
     )?;

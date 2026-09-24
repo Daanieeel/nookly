@@ -242,15 +242,43 @@ export interface Exam {
   room: string | null;
 }
 
+export type CardState = "new" | "learning" | "review" | "relearning";
+export type CardRating = "again" | "hard" | "good" | "easy";
+
 export interface IndexCard {
   id: string;
   deckEntityId: string;
   front: string;
   back: string;
-  boxLevel: number;
+  state: CardState;
   dueAt: string;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  reps: number;
+  lapses: number;
+  lastReviewAt: string | null;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  /// When the card comes back after each rating, worked out by FSRS.
+  next: Record<CardRating, string>;
+}
+
+export interface DeckSummary {
+  entity: Entity;
+  examId: string | null;
+  stats: DeckStats;
+}
+
+export interface DeckStats {
+  total: number;
+  new: number;
+  learning: number;
+  due: number;
+  nextDueAt: string | null;
+  reviewedToday: number;
 }
 
 export interface StudyBlock {

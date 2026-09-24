@@ -1,8 +1,8 @@
 import { type EntityRecord, registerEntityType } from "@/components/context-menu/registry";
 
-// An Exam belongs to one Course, and its Decks and Study Blocks to one Exam; each
-// moves together with what it belongs to, never on its own.
+// An Exam belongs to one Course, and its Study Blocks to one Exam; each moves
+// together with what it belongs to, never on its own. Decks stand alone.
 registerEntityType<EntityRecord>({
-  types: ["exam", "index_card_deck", "study_block"],
+  types: ["exam", "study_block"],
   omit: ["move"],
 });

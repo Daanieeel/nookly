@@ -56,9 +56,9 @@ Each entry follows a lightweight ADR format: the decision, why it was made, and 
 
 ---
 
-### Six pairs are structural relationships
+### Five pairs are structural relationships
 
-Task and Sub-task, Session and Course, Exam and Course, Deck and Exam, Study Block and Exam, and Assignment and Course.
+Task and Sub-task, Session and Course, Exam and Course, Study Block and Exam, and Assignment and Course. Deck and Exam was one until Decks became their own module (see below).
 
 **Why:** the child is meaningless without its parent. A session without a course makes no sense. Structural relationships are enforced at the data layer, not just by convention, which sets them apart from generic, unenforced ones like a Course `sequel-of`.
 
@@ -213,3 +213,29 @@ A pasted link is downloaded into storage, and a webpage is offered as a Bookmark
 **Why:** the file viewer needs the bytes, and a link to a webpage is a reference, which is what Bookmarks are for. Referencing a typed path keeps a file that is still being edited elsewhere in sync.
 
 **Rejected:** link only Files the viewer can't open, and a one off CLI command for the conversion.
+
+---
+
+### Index cards schedule with FSRS through `rs-fsrs`
+
+**Why:** FSRS is what Anki schedules with. `rs-fsrs` (MIT) is the scheduler alone and depends only on chrono.
+
+**Rejected:** embedding Anki's `rslib` (a second data model next to entities), the `fsrs` crate (pulls in an ML stack for its optimizer), and Leitner boxes.
+
+---
+
+### Records an entity owns reach the CLI as child collections
+
+A `ChildCollectionDef` registered next to a type's schema gives the CLI `<plural>`, `add-`, `get-`, `update-`, `delete-`, `restore-` and one verb per action for that record, like `review-card`. Index cards are the first.
+
+**Why:** cards need full CLI coverage without becoming entities (keys, search, Recents for every card) and without a one off command.
+
+**Rejected:** making every card an entity.
+
+---
+
+### Decks are their own module, and an Exam is optional
+
+**Why:** decks are studied daily, well before and apart from any exam (vocabulary, general knowledge). A deck can still be filed under one Exam and shows on its Decks tab.
+
+**Rejected:** keeping decks inside Exams with a required Exam, which forces an exam to exist before any card can be written.

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { createCourse } from "@/lib/api/courses";
+import { createDeck } from "@/lib/api/decks";
 import { createJot, createNote } from "@/lib/api/notes";
 import { listSpaceModules, listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
@@ -61,6 +62,7 @@ const QUICK_CREATE_TYPES: QuickCreateType[] = [
   { type: "note", label: "Note", create: createNote },
   { type: "jot", label: "Jot", create: createJot },
   { type: "course", label: "Course", create: createCourse },
+  { type: "deck", label: "Deck", create: (s, t) => createDeck(s, t, null) },
 ];
 
 interface QuickCreateMatch extends QuickCreateType {

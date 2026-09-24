@@ -367,6 +367,11 @@ fn top_level_help() -> Value {
             "restore": "nookly cli <entity-type> restore <id>",
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
                      [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
+            "childCollections": "records an entity owns that aren't entities, like a deck's cards (`describe <type>` \
+                                 lists `childCollections` with every command): `nookly cli <type> <plural> <id>`, \
+                                 `add-<singular> <id> --field ...`, `get-<singular>`, `update-<singular>`, \
+                                 `delete-<singular> --yes` (soft), `restore-<singular>`, and per collection actions \
+                                 such as `index_card_deck review-card <card-id> --field rating=good`.",
             "blocks": "block pages only: note, jot, task and sub_task (`describe <type>` reports supportsBlocks) — full block editing: \
                        `nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
                        `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
@@ -762,7 +767,11 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             let title = args.require_flag("title")?;
             let icon = args.flag("icon");
             let fields = resolve_ref_fields(conn, def, &args.fields)?;
-            let input = schema::CreateInput { space_id, title, fields };
+            let input = schema::CreateInput {
+                space_id,
+                title,
+                fields,
+            };
             let data = (def.create)(conn, input)?;
             let id = extract_id(&data)?;
             // `icon` is base-entity data (§ entity model), not a module field —
@@ -772,7 +781,10 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                 crate::db::entities::update_entity(
                     conn,
                     &id,
-                    crate::db::entities::EntityPatch { icon, ..Default::default() },
+                    crate::db::entities::EntityPatch {
+                        icon,
+                        ..Default::default()
+                    },
                 )?;
                 (def.get)(conn, &id)?
             } else {
@@ -793,7 +805,12 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                 crate::db::entities::update_entity(
                     conn,
                     &id,
-                    crate::db::entities::EntityPatch { title, icon, pinned, space_id },
+                    crate::db::entities::EntityPatch {
+                        title,
+                        icon,
+                        pinned,
+                        space_id,
+                    },
                 )?;
             }
             let fields = resolve_ref_fields(conn, def, &args.fields)?;
@@ -810,7 +827,9 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             args.check_revision(&(def.get)(conn, &id)?)?;
             crate::db::entities::soft_delete_entity(conn, &id)?;
             let key = crate::db::entities::entity_key(conn, &id)?;
-            Ok(json!({ "deleted": id, "key": key, "note": "soft delete only — recoverable with `restore`, see Trash" }))
+            Ok(
+                json!({ "deleted": id, "key": key, "note": "soft delete only — recoverable with `restore`, see Trash" }),
+            )
         }
         "duplicate" => {
             let id = args.require_entity(conn, 0, "id")?;
@@ -842,11 +861,137 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             }
             block_command(conn, def, verb, &args)
         }
-        other => Err(AppError::InvalidInput(format!(
-            "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
-             update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, reorder-blocks"
-        ))),
+        other => {
+            if let Some(result) = child_command(conn, def, other, &args) {
+                return result;
+            }
+            let child_verbs: Vec<String> = schema::child_collections(entity_type)
+                .iter()
+                .flat_map(|c| {
+                    let one = c.singular;
+                    [c.plural.to_string()].into_iter().chain(
+                        ["get", "add", "update", "delete", "restore"]
+                            .into_iter()
+                            .chain(c.actions.iter().map(|a| a.name))
+                            .map(move |verb| format!("{verb}-{one}")),
+                    )
+                })
+                .collect();
+            let extra = if child_verbs.is_empty() {
+                String::new()
+            } else {
+                format!(", {}", child_verbs.join(", "))
+            };
+            Err(AppError::InvalidInput(format!(
+                "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
+                 update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, \
+                 reorder-blocks{extra}"
+            )))
+        }
     }
+}
+
+/// Unknown and missing fields against a child collection's or action's own list.
+fn validate_child_fields(
+    what: &str,
+    known: &[schema::FieldDef],
+    fields: &JsonMap,
+    for_create: bool,
+) -> AppResult<()> {
+    for key in fields.keys() {
+        let Some(f) = known.iter().find(|f| f.name == key) else {
+            let names: Vec<&str> = known.iter().map(|f| f.name).collect();
+            return Err(AppError::InvalidInput(format!(
+                "unknown field '{key}' for {what}. Known fields: {}",
+                names.join(", ")
+            )));
+        };
+        if !for_create && !f.writable_on_update {
+            return Err(AppError::InvalidInput(format!(
+                "field '{key}' on {what} can only be set at creation, not updated"
+            )));
+        }
+    }
+    if for_create {
+        if let Some(f) = known
+            .iter()
+            .find(|f| f.required_on_create && !fields.contains_key(f.name))
+        {
+            return Err(AppError::InvalidInput(format!(
+                "--field {}=<value> is required for {what}",
+                f.name
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The verbs of a registered `ChildCollectionDef` (a Deck's cards): `None` when
+/// `verb` names none of them, so the caller reports an unknown verb.
+fn child_command(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    verb: &str,
+    args: &Args,
+) -> Option<AppResult<Value>> {
+    let entity_type = def.entity_type;
+    let collections = schema::child_collections(entity_type);
+    if let Some(c) = collections.iter().find(|c| c.plural == verb) {
+        return Some((|| {
+            let id = args.require_entity(conn, 0, "id")?;
+            (def.get)(conn, &id)?;
+            let items = (c.list)(conn, &id, args.has_bool("include-deleted"))?;
+            let key = crate::db::entities::entity_key(conn, &id)?;
+            Ok(json!({ "parentId": id, "parentKey": key, "count": items.len(), "items": items }))
+        })());
+    }
+    let (action, singular) = verb.rsplit_once('-')?;
+    let c = collections.iter().find(|c| c.singular == singular)?;
+    let what = format!("a {entity_type} {singular}");
+    Some((|| match action {
+        "add" => {
+            let id = args.require_entity(conn, 0, "id")?;
+            (def.get)(conn, &id)?;
+            validate_child_fields(&what, c.fields, &args.fields, true)?;
+            (c.create)(conn, &id, &args.fields)
+        }
+        "get" => (c.get)(
+            conn,
+            &args.require_positional(0, &format!("{singular}-id"))?,
+        ),
+        "update" => {
+            let record_id = args.require_positional(0, &format!("{singular}-id"))?;
+            validate_child_fields(&what, c.fields, &args.fields, false)?;
+            let before = (c.get)(conn, &record_id)?;
+            let after = (c.update)(conn, &record_id, &args.fields)?;
+            let changes = view::diff_values(&before, &after);
+            Ok(json!({ singular: after, "changes": changes }))
+        }
+        "delete" => {
+            let record_id = args.require_positional(0, &format!("{singular}-id"))?;
+            args.require_yes()?;
+            (c.delete)(conn, &record_id)?;
+            Ok(json!({
+                "deleted": record_id,
+                "note": format!("soft delete only — recoverable with `restore-{singular}`"),
+            }))
+        }
+        "restore" => {
+            let record_id = args.require_positional(0, &format!("{singular}-id"))?;
+            (c.restore)(conn, &record_id)?;
+            (c.get)(conn, &record_id)
+        }
+        other => {
+            let a = c.actions.iter().find(|a| a.name == other).ok_or_else(|| {
+                AppError::InvalidInput(format!(
+                    "unknown verb '{verb}' for entity type '{entity_type}'"
+                ))
+            })?;
+            let record_id = args.require_positional(0, &format!("{singular}-id"))?;
+            validate_child_fields(&format!("{other}-{singular}"), a.fields, &args.fields, true)?;
+            (a.run)(conn, &record_id, &args.fields)
+        }
+    })())
 }
 
 /// `list` with the read side options every type gets: `--since` (recently changed,
@@ -1443,5 +1588,119 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
         other => Err(AppError::InvalidInput(format!(
             "unknown label command '{other}'. Expected one of: list, create, update, delete, attach, detach"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(conn: &Connection, line: &str) -> AppResult<Value> {
+        dispatch(conn, line.split_whitespace().map(str::to_string).collect())
+    }
+
+    #[test]
+    fn child_collection_verbs_manage_deck_cards() {
+        let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+        let conn = crate::db::connect(&dir).unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let course =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Algorithms".into())
+                .unwrap();
+        let exam = crate::db::exams::create_exam(
+            &conn,
+            space.id.clone(),
+            "Midterm".into(),
+            course.id,
+            None,
+            None,
+        )
+        .unwrap();
+        let deck = crate::db::decks::create_deck(
+            &conn,
+            space.id.clone(),
+            "Deck".into(),
+            Some(exam.entity.id.clone()),
+        )
+        .unwrap();
+
+        let described = run(&conn, "describe index_card_deck").unwrap();
+        assert_eq!(described["childCollections"][0]["name"], "cards");
+
+        let card = run(
+            &conn,
+            &format!(
+                "index_card_deck add-card {} --field front=Q --field back=A",
+                deck.id
+            ),
+        )
+        .unwrap();
+        let card_id = card["id"].as_str().unwrap().to_string();
+        assert!(run(
+            &conn,
+            &format!("index_card_deck add-card {} --field front=Q", deck.id)
+        )
+        .is_err());
+
+        let updated = run(
+            &conn,
+            &format!("index_card_deck update-card {card_id} --field back=B"),
+        )
+        .unwrap();
+        assert_eq!(updated["card"]["back"], "B");
+
+        let reviewed = run(
+            &conn,
+            &format!("index_card_deck review-card {card_id} --field rating=good"),
+        )
+        .unwrap();
+        assert_eq!(reviewed["reps"], 1);
+        let undone = run(
+            &conn,
+            &format!("index_card_deck undo-review-card {card_id}"),
+        )
+        .unwrap();
+        assert_eq!(undone["reps"], 0);
+
+        assert!(run(&conn, &format!("index_card_deck delete-card {card_id}")).is_err());
+        run(
+            &conn,
+            &format!("index_card_deck delete-card {card_id} --yes"),
+        )
+        .unwrap();
+        let listed = run(&conn, &format!("index_card_deck cards {}", deck.key)).unwrap();
+        assert_eq!(listed["count"], 0);
+        run(&conn, &format!("index_card_deck restore-card {card_id}")).unwrap();
+
+        let copy = run(&conn, &format!("index_card_deck duplicate {}", deck.id)).unwrap();
+        assert_eq!(copy["data"]["stats"]["total"], 1);
+        assert!(run(&conn, &format!("index_card_deck frobnicate-card {card_id}")).is_err());
+
+        // A deck stands alone, and can be filed under an Exam later or unfiled.
+        let loose = run(
+            &conn,
+            &format!("index_card_deck create --space {} --title Vocab", space.id),
+        )
+        .unwrap();
+        assert!(loose["data"]["examId"].is_null());
+        let loose_id = loose["data"]["id"].as_str().unwrap().to_string();
+        let filed = run(
+            &conn,
+            &format!(
+                "index_card_deck update {loose_id} --field examId={}",
+                exam.entity.key
+            ),
+        )
+        .unwrap();
+        assert_eq!(filed["data"]["examId"], exam.entity.id.as_str());
+        let unfiled = run(
+            &conn,
+            &format!("index_card_deck update {loose_id} --field examId="),
+        )
+        .unwrap();
+        assert!(unfiled["data"]["examId"].is_null());
+        drop(conn);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

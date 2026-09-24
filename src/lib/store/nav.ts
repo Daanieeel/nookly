@@ -10,6 +10,7 @@ export const MODULE_KEYS = [
   "semesters",
   "sessions",
   "exams",
+  "decks",
   "assignments",
   "files",
   "bookmarks",

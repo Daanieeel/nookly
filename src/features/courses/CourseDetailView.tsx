@@ -18,7 +18,7 @@ import { InteractiveCard } from "@/components/ui/interactive-card";
 import { EmptyState } from "@/components/empty-state";
 import { listAssignments } from "@/lib/api/assignments";
 import { getCourseGrades, getCourseNotes } from "@/lib/api/courses";
-import { listDecks, listDueCards } from "@/lib/api/decks";
+import { getDeckStats, listDecks } from "@/lib/api/decks";
 import { listExams } from "@/lib/api/exams";
 import { listRelationships } from "@/lib/api/relationships";
 import { listSessions } from "@/lib/api/sessions";
@@ -129,13 +129,16 @@ function CourseBody({ course }: { course: Entity }) {
     (q.data ?? []).filter((r) => r.relationshipType === "deck-exam").map((r) => r.fromEntityId),
   );
   const courseDecks = decks.filter((d) => courseDeckIds.includes(d.id));
-  const dueCardQueries = useQueries({
+  const deckStatsQueries = useQueries({
     queries: courseDecks.map((deck) => ({
-      queryKey: ["due-cards", deck.id],
-      queryFn: () => listDueCards(deck.id),
+      queryKey: ["deck-stats", deck.id],
+      queryFn: () => getDeckStats(deck.id),
     })),
   });
-  const totalDue = dueCardQueries.reduce((sum, q) => sum + (q.data?.length ?? 0), 0);
+  const totalDue = deckStatsQueries.reduce(
+    (sum, q) => sum + (q.data ? q.data.new + q.data.learning + q.data.due : 0),
+    0,
+  );
 
   const today = startOfDay(new Date());
   const nextSession = [...courseSessions]
@@ -234,7 +237,7 @@ function CourseBody({ course }: { course: Entity }) {
 
         {courseDecks.length > 0 && (
           <BentoCard icon={IconCards} label="Study Progress" onClick={() => viewAll("exams")}>
-            <p className="text-sm font-medium">{totalDue} cards due</p>
+            <p className="text-sm font-medium">{totalDue} cards to study</p>
             <p className="text-xs text-muted-foreground">
               across {courseDecks.length} deck{courseDecks.length === 1 ? "" : "s"}
             </p>

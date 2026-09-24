@@ -4,6 +4,7 @@ Do **not** build any of these unless explicitly told to. Each one was considered
 
 - **Cloud sync and multi-device sync.** v1 is offline-first and single-device. Keep the data model friendly to this future direction where reasonable, but do not build it.
 - **Cloud backup.** Related to sync. Once cloud sync exists, large File attachments will be pushed to S3-like storage rather than synced or versioned wholesale.
+- **Anki `.apkg` import and export, and card images.** Planned next for decks. Imported cards become the deck's own cards, never a separate Anki collection.
 - **Git-backed local versioning, rollback, or persistent undo and redo.** Rejected because of attachment bloat. v1 has no durable history; undo and redo live in memory for the current session only (see [entity model](02-entity-model.md#no-version-history) and [the decision](06-decisions-log.md#no-git-backed-local-repo-and-no-version-history)).
 - **Notifications and reminders.** Entirely out of scope, even though Tasks, Exams, Assignments, and Sessions have date fields. Do not build notification scheduling or delivery.
 - **Recurring Tasks.** Sessions have full recurrence (templates generating occurrences). Tasks do not get anything equivalent in v1.

@@ -26,7 +26,7 @@ import {
   StatusPicker,
   TaskStatusIcon,
 } from "@/features/tasks/task-properties";
-import { createDeck, listDecks } from "@/lib/api/decks";
+import { createDeck, getDeckStats, listDecks } from "@/lib/api/decks";
 import {
   listExams,
   setExamCourse,
@@ -337,7 +337,7 @@ function useExamTabs(exam: Entity): ExtraTab[] {
               <EntityIcon entity={deck} className="text-muted-foreground" />
             </span>
           }
-          trailing={null}
+          trailing={<DeckStudyCount deckId={deck.id} />}
         />
       )),
       renderAdd: (done) => (
@@ -347,7 +347,10 @@ function useExamTabs(exam: Entity): ExtraTab[] {
           errorLabel="Couldn't add the deck, press Enter to retry"
           onAdd={async (title) => {
             await createDeck(spaceId, title, exam.id);
-            await refresh("decks");
+            await Promise.all([
+              refresh("decks"),
+              queryClient.invalidateQueries({ queryKey: ["deck-summaries", spaceId] }),
+            ]);
           }}
           onDone={done}
         />
@@ -393,6 +396,25 @@ function useExamTabs(exam: Entity): ExtraTab[] {
       ),
     },
   ];
+}
+
+/// How many of a deck's cards are ready to study, or when the next one comes back.
+function DeckStudyCount({ deckId }: { deckId: string }) {
+  const { data: stats } = useQuery({
+    queryKey: ["deck-stats", deckId],
+    queryFn: () => getDeckStats(deckId),
+  });
+  if (!stats) return null;
+  const toStudy = stats.new + stats.learning + stats.due;
+  return (
+    <span className="pointer-events-none shrink-0 text-xs text-muted-foreground tabular-nums">
+      {stats.total === 0
+        ? "No cards"
+        : toStudy > 0
+          ? `${toStudy} to study of ${stats.total}`
+          : `${stats.total} ${stats.total === 1 ? "card" : "cards"}, all caught up`}
+    </span>
+  );
 }
 
 /// Types a title in place: Enter adds it and stays open for the next, Escape stops.

@@ -149,6 +149,99 @@ pub struct ComputedFieldDef {
 
 inventory::collect!(ComputedFieldDef);
 
+/// Records one entity owns that aren't entities themselves (no key, no Space,
+/// no relationships), like the cards of a Deck. Registered next to the parent
+/// type's schema, and the CLI reads it generically: `<type> <plural> <id>`,
+/// `add-<singular>`, `get-<singular>`, `update-<singular>`, `delete-<singular>`,
+/// `restore-<singular>`, plus one `<action>-<singular>` verb per action. A new
+/// module gets all of them the moment it submits one, with zero CLI code.
+pub struct ChildCollectionDef {
+    pub parent_type: &'static str,
+    pub singular: &'static str,
+    pub plural: &'static str,
+    pub description: &'static str,
+    /// Writable fields; `create` validates `required_on_create`, `update`
+    /// refuses the ones not `writable_on_update`.
+    pub fields: &'static [FieldDef],
+    /// Read only values every record payload carries, documented for `describe`.
+    pub computed: &'static [FieldDef],
+    pub list: fn(&Connection, &str, bool) -> AppResult<Vec<Value>>,
+    pub get: fn(&Connection, &str) -> AppResult<Value>,
+    pub create: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+    pub update: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+    /// Soft delete, like every entity.
+    pub delete: fn(&Connection, &str) -> AppResult<()>,
+    pub restore: fn(&Connection, &str) -> AppResult<()>,
+    pub actions: &'static [ChildActionDef],
+}
+
+/// A verb on one record beyond plain field edits, like reviewing a card.
+pub struct ChildActionDef {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub fields: &'static [FieldDef],
+    pub run: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+}
+
+inventory::collect!(ChildCollectionDef);
+
+pub fn child_collections(parent_type: &str) -> Vec<&'static ChildCollectionDef> {
+    inventory::iter::<ChildCollectionDef>()
+        .filter(|c| c.parent_type == parent_type)
+        .collect()
+}
+
+fn fields_json(fields: &[FieldDef]) -> Vec<Value> {
+    fields
+        .iter()
+        .map(|f| {
+            serde_json::json!({
+                "name": f.name,
+                "kind": f.kind.to_json(),
+                "requiredOnCreate": f.required_on_create,
+                "writableOnUpdate": f.writable_on_update,
+                "description": f.description,
+            })
+        })
+        .collect()
+}
+
+fn child_collections_json(parent_type: &str) -> Vec<Value> {
+    child_collections(parent_type)
+        .iter()
+        .map(|c| {
+            let (one, many) = (c.singular, c.plural);
+            let actions: Vec<Value> = c
+                .actions
+                .iter()
+                .map(|a| {
+                    serde_json::json!({
+                        "name": a.name,
+                        "description": a.description,
+                        "fields": fields_json(a.fields),
+                        "command": format!("nookly cli {parent_type} {}-{one} <{one}-id> [--field name=value ...]", a.name),
+                    })
+                })
+                .collect();
+            serde_json::json!({
+                "name": many,
+                "description": c.description,
+                "fields": fields_json(c.fields),
+                "computedFields": fields_json(c.computed),
+                "actions": actions,
+                "commands": {
+                    "list": format!("nookly cli {parent_type} {many} <id> [--include-deleted]"),
+                    "get": format!("nookly cli {parent_type} get-{one} <{one}-id>"),
+                    "add": format!("nookly cli {parent_type} add-{one} <id> --field name=value ..."),
+                    "update": format!("nookly cli {parent_type} update-{one} <{one}-id> --field name=value ..."),
+                    "delete": format!("nookly cli {parent_type} delete-{one} <{one}-id> --yes  (soft delete, undo with restore-{one})"),
+                    "restore": format!("nookly cli {parent_type} restore-{one} <{one}-id>"),
+                },
+            })
+        })
+        .collect()
+}
+
 pub fn computed_fields(entity_type: &str) -> Vec<&'static ComputedFieldDef> {
     inventory::iter::<ComputedFieldDef>()
         .filter(|c| c.entity_type == entity_type)
@@ -223,19 +316,7 @@ pub fn all() -> Vec<&'static EntitySchemaDef> {
 }
 
 pub fn describe_json(def: &EntitySchemaDef) -> Value {
-    let fields: Vec<Value> = def
-        .fields
-        .iter()
-        .map(|f| {
-            serde_json::json!({
-                "name": f.name,
-                "kind": f.kind.to_json(),
-                "requiredOnCreate": f.required_on_create,
-                "writableOnUpdate": f.writable_on_update,
-                "description": f.description,
-            })
-        })
-        .collect();
+    let fields = fields_json(def.fields);
     let block_commands = def.supports_blocks.then(|| {
         let custom = crate::db::block_types::all();
         let known: Vec<&str> = KNOWN_BLOCK_TYPES
@@ -320,6 +401,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             }))
             .collect::<Vec<_>>(),
         "relationshipTypes": def.relationship_types,
+        "childCollections": child_collections_json(def.entity_type),
         "convertsTo": conversions_from(def.entity_type)
             .iter()
             .map(|c| serde_json::json!({
@@ -344,7 +426,8 @@ pub fn payload_id(data: &Value) -> Option<String> {
 /// that registers a schema can be duplicated with no code of its own. Each field
 /// is read back from the `get` payload by name; an entity reference `get` doesn't
 /// report (a Sub-task's `parentId`) comes from the entity's structural edge to an
-/// entity of that type. Icon, labels and block content come along too. The copy
+/// entity of that type. Icon, labels, block content and child records (a Deck's
+/// cards, fresh to study) come along too. The copy
 /// lands in the same Space, titled "<title> (copy)".
 pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
     use crate::db::relationships::{
@@ -413,6 +496,16 @@ pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
     }
     for label in crate::db::labels::list_labels_for_entity(conn, id)? {
         crate::db::labels::attach_label(conn, &new_id, &label.id)?;
+    }
+    for collection in child_collections(&entity.entity_type) {
+        for record in (collection.list)(conn, id, false)? {
+            let fields: JsonMap = collection
+                .fields
+                .iter()
+                .filter_map(|f| Some((f.name.to_string(), record.get(f.name)?.clone())))
+                .collect();
+            (collection.create)(conn, &new_id, &fields)?;
+        }
     }
     if def.supports_blocks {
         for block in crate::db::notes::list_blocks(conn, id)? {

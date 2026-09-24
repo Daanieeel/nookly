@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { startOfDay } from "date-fns";
 import { isDone } from "@/features/assignments/assignment-model";
 import { listAssignments } from "@/lib/api/assignments";
+import { listDeckSummaries } from "@/lib/api/decks";
 import { listExams } from "@/lib/api/exams";
 import type { ModuleKey } from "@/lib/store/nav";
 import { SidebarUrgencyChip } from "./sidebar-badges";
@@ -34,11 +35,31 @@ function AssignmentsMeta({ spaceId }: { spaceId: string }) {
   return <SidebarUrgencyChip date={nearest.dueDate} />;
 }
 
+/// How many cards are ready to study across the Space's decks.
+function DecksMeta({ spaceId }: { spaceId: string }) {
+  const { data: decks = [] } = useQuery({
+    queryKey: ["deck-summaries", spaceId],
+    queryFn: () => listDeckSummaries(spaceId),
+  });
+  const toStudy = decks.reduce((sum, d) => sum + d.stats.new + d.stats.learning + d.stats.due, 0);
+  if (toStudy === 0) return null;
+  return (
+    <span
+      className="shrink-0 text-xs text-sidebar-foreground/60 tabular-nums"
+      title="Cards to study"
+    >
+      {toStudy}
+    </span>
+  );
+}
+
 export function ModuleRowMeta({ moduleKey, spaceId }: { moduleKey: ModuleKey; spaceId: string }) {
   const content = (() => {
     switch (moduleKey) {
       case "exams":
         return <ExamsMeta spaceId={spaceId} />;
+      case "decks":
+        return <DecksMeta spaceId={spaceId} />;
       case "assignments":
         return <AssignmentsMeta spaceId={spaceId} />;
       default:

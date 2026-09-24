@@ -896,3 +896,51 @@
 .sheet-cell-on-fill {
   --cell-default-color: var(--color-neutral-900);
 }
+
+/* The answer side of an index card: a red header rule and blue writing lines, like
+   the paper ones. `--card-rule` is the line pitch; text on it uses the same line height. */
+.index-card-ruled {
+  --card-rule: 28px;
+  --card-header: calc(var(--card-rule) * 2);
+  background-color: var(--card);
+  background-image:
+    linear-gradient(
+      to bottom,
+      var(--card) 0 calc(var(--card-header) - 1.5px),
+      color-mix(in oklab, var(--accent-pink) 45%, transparent) calc(var(--card-header) - 1.5px)
+        var(--card-header),
+      transparent var(--card-header)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--card-rule) - 1px),
+      color-mix(in oklab, var(--accent-blue) 18%, transparent) calc(var(--card-rule) - 1px)
+        var(--card-rule)
+    );
+}
+
+/* Index card paper: a hairline shadow plus a soft drop, so the card sits on the page. */
+.index-card-paper {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 8px 24px -12px rgb(0 0 0 / 0.25);
+}
+/* A card laid out in the deck grid lifts a little under the pointer. */
+.index-card-mini {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  transition:
+    translate 150ms ease,
+    box-shadow 150ms ease;
+}
+.index-card-mini:hover {
+  translate: 0 -2px;
+  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.3);
+}
+.index-card-code {
+  font-size: 0.9em;
+}
+/* One edge of the deck pile, `--depth` cards down, tilted alternately. */
+.deck-stack-layer {
+  transform: translateY(calc(var(--depth) * -3px)) rotate(var(--tilt));
+  opacity: calc(1 - var(--depth) * 0.18);
+}
