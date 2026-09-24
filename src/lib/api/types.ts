@@ -233,6 +233,7 @@ export interface Exam {
   weight: number | null;
   grade: number | null;
   status: string;
+  room: string | null;
 }
 
 export interface IndexCard {

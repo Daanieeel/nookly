@@ -1,20 +1,27 @@
-import { IconCalendarEvent } from "@tabler/icons-react";
+import { IconCircleDot } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { ReactNode } from "react";
 import { entityTarget } from "@/components/context-menu/registry";
+import { DueColumnLabels, DueColumns } from "@/components/due-columns";
 import { CardKey, EntityKeyCopyInline } from "@/components/entity-key";
 import type { CardDrag } from "@/components/grouped-view/grouped-board";
 import { CourseChip, CourseChipLink } from "@/features/courses/course-lookup";
+import { daysUntil } from "@/features/tasks/task-model";
 import {
+  DueDateButton,
+  DueDatePicker,
+  DueLabel,
   PendingIcon,
   PROPERTY_PILL,
   StatusPicker,
   TaskStatusIcon,
 } from "@/features/tasks/task-properties";
-import { updateAssignmentStatus } from "@/lib/api/assignments";
+import {
+  setAssignmentCourse,
+  updateAssignmentDueDate,
+  updateAssignmentStatus,
+} from "@/lib/api/assignments";
 import type { Assignment, Entity } from "@/lib/api/types";
-import { formatShortDate, formatWeekday } from "@/lib/datetime";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
@@ -55,41 +62,84 @@ export function AssignmentStatusControl({ assignment }: { assignment: Assignment
   );
 }
 
-function relativeDue(dueDate: string, done: boolean) {
-  const days = differenceInCalendarDays(parseISO(dueDate), new Date());
-  if (days < 0) {
-    return done
-      ? { text: `${-days}d ago`, tone: null }
-      : { text: `${-days}d overdue`, tone: "text-destructive" };
-  }
-  if (days === 0) return { text: "Today", tone: done ? null : "text-caution" };
-  if (days === 1) return { text: "Tomorrow", tone: null };
-  return { text: `in ${days} days`, tone: null };
+/// Changes an assignment's due date; `null` clears it.
+export function useSetAssignmentDueDate(assignment: Assignment) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dueDate: string | null) => updateAssignmentDueDate(assignment.entity.id, dueDate),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] }),
+  });
 }
 
-/// A list row's due date as two fixed width columns: the day, then how far away it is.
-function DueColumns({ dueDate, done }: { dueDate: string | null; done: boolean }) {
-  const due = dueDate ? relativeDue(dueDate, done) : null;
+/// Moves an assignment to another Course.
+export function useSetAssignmentCourse(
+  assignment: Assignment,
+  currentCourseId: string | undefined,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (courseId: string) => setAssignmentCourse(assignment.entity.id, courseId),
+    onSuccess: (_, courseId) =>
+      Promise.all(
+        [
+          ["assignments", assignment.entity.spaceId],
+          ["relationships", courseId],
+          ["relationships", currentCourseId],
+        ]
+          .filter(([, id]) => id)
+          .map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+      ),
+  });
+}
+
+/// Due date urgency for the pill: red once overdue, yellow today or tomorrow.
+export function dueTone(assignment: Assignment): "overdue" | "soon" | null {
+  if (!assignment.dueDate || isDone(assignment)) return null;
+  const days = daysUntil(assignment.dueDate);
+  if (days < 0) return "overdue";
+  return days <= 1 ? "soon" : null;
+}
+
+/// A list row's due date columns, as on Tasks: the day opens the date picker.
+function AssignmentDueColumns({ assignment, done }: { assignment: Assignment; done: boolean }) {
+  const change = useSetAssignmentDueDate(assignment);
   return (
-    <>
-      <time
-        dateTime={dueDate ?? undefined}
-        className={cn(
-          "pointer-events-none relative w-24 shrink-0 text-xs tabular-nums",
-          !dueDate && "text-muted-foreground/60",
-        )}
+    <DueColumns
+      dueDate={assignment.dueDate}
+      done={done}
+      date={
+        <DueDateButton
+          value={assignment.dueDate}
+          onSelect={(day) => change.mutate(day)}
+          pending={change.isPending}
+          failed={change.isError}
+        />
+      }
+    />
+  );
+}
+
+/// The due date pill on a card, which opens the date picker.
+export function AssignmentDueControl({ assignment }: { assignment: Assignment }) {
+  const change = useSetAssignmentDueDate(assignment);
+  return (
+    <DueDatePicker value={assignment.dueDate} onSelect={(day) => change.mutate(day)}>
+      <button
+        type="button"
+        aria-label={change.isError ? "Couldn't set due date, try again" : "Change Due Date"}
+        className={cn(PROPERTY_PILL, "relative", change.isError && "border-destructive/60")}
       >
-        {dueDate ? `${formatWeekday(dueDate, "short")}, ${formatShortDate(dueDate)}` : "No date"}
-      </time>
-      <span
-        className={cn(
-          "pointer-events-none relative w-20 shrink-0 text-xs text-muted-foreground",
-          due?.tone,
+        {change.isPending || change.isError ? (
+          <>
+            <PendingIcon pending={change.isPending} failed={change.isError} idle={null} />
+            Due date
+          </>
+        ) : (
+          assignment.dueDate && <DueLabel day={assignment.dueDate} tone={dueTone(assignment)} />
         )}
-      >
-        {due?.text}
-      </span>
-    </>
+      </button>
+    </DueDatePicker>
   );
 }
 
@@ -126,7 +176,7 @@ export function AssignmentRow({
         className="absolute inset-0 cursor-pointer outline-none"
       />
       <AssignmentStatusControl assignment={assignment} />
-      <DueColumns dueDate={assignment.dueDate} done={done} />
+      <AssignmentDueColumns assignment={assignment} done={done} />
       <span className="relative hidden w-20 shrink-0 sm:flex">
         <EntityKeyCopyInline entityKey={assignment.entity.key} className="-ml-1" />
       </span>
@@ -145,6 +195,24 @@ export function AssignmentRow({
           className="relative max-md:hidden"
         />
       )}
+    </div>
+  );
+}
+
+/// Column labels for `AssignmentRow`, with the same widths and breakpoints.
+export function AssignmentColumnLabels() {
+  return (
+    <div
+      aria-hidden
+      className="flex h-8 shrink-0 items-center gap-3 border-t border-border px-4 text-xs whitespace-nowrap text-muted-foreground"
+    >
+      <span title="Status" className="flex w-6 shrink-0 justify-center">
+        <IconCircleDot size={14} />
+      </span>
+      <DueColumnLabels />
+      <span className="hidden w-20 shrink-0 sm:block">ID</span>
+      <span className="min-w-0 flex-1">Title</span>
+      <span className="max-md:hidden">Course</span>
     </div>
   );
 }
@@ -211,8 +279,6 @@ export function AssignmentCardBody({
   footer?: ReactNode;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
-  const done = isDone(assignment);
-  const due = assignment.dueDate ? relativeDue(assignment.dueDate, done) : null;
   return (
     <div
       className={cn(
@@ -234,12 +300,9 @@ export function AssignmentCardBody({
       </div>
       {(assignment.dueDate || course || assignment.grade !== null) && (
         <div className="pointer-events-none relative flex min-w-0 flex-wrap items-center gap-1.5 pt-0.5">
-          {assignment.dueDate && due && (
-            <span className={cn(PROPERTY_PILL, "cursor-default hover:bg-transparent")}>
-              <IconCalendarEvent size={14} className={cn("shrink-0", due.tone)} />
-              <span className={cn("truncate", due.tone)}>
-                {formatShortDate(assignment.dueDate)}
-              </span>
+          {assignment.dueDate && (
+            <span className={cn("relative", interactive && "pointer-events-auto")}>
+              <AssignmentDueControl assignment={assignment} />
             </span>
           )}
           {course &&

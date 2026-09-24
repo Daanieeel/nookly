@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useMemo } from "react";
+import { DueColumns } from "@/components/due-columns";
 import { LabelChip } from "@/components/label-chip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { attachLabel, detachLabel, listLabels } from "@/lib/api/labels";
@@ -8,6 +9,7 @@ import type { Label, Task, TaskStatus } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { type StatusKind, dueTone, sortStatuses, statusKind } from "./task-model";
 import {
+  DueDateButton,
   DueDatePicker,
   DueLabel,
   LabelsPicker,
@@ -139,6 +141,33 @@ export function TaskDueControl({ task }: { task: Task }) {
         )}
       </button>
     </DueDatePicker>
+  );
+}
+
+/// A list row's due date columns, as on Assignments: the day opens the date
+/// picker (also on rows without one), then how far away it is.
+export function TaskDueColumns({ task }: { task: Task }) {
+  const { spaceId, kindOf } = useTasksData();
+  const refresh = useRefreshTasks(spaceId);
+  const change = useMutation({
+    mutationFn: (dueDate: string | null) =>
+      updateTaskDates(task.entity.id, task.startDate, dueDate),
+    onSuccess: refresh,
+  });
+  const kind = kindOf(task.statusId);
+  return (
+    <DueColumns
+      dueDate={task.dueDate}
+      done={kind === "completed" || kind === "canceled"}
+      date={
+        <DueDateButton
+          value={task.dueDate}
+          onSelect={(day) => change.mutate(day)}
+          pending={change.isPending}
+          failed={change.isError}
+        />
+      }
+    />
   );
 }
 

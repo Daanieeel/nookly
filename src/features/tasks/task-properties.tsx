@@ -7,6 +7,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { type CSSProperties, type ReactNode, useState } from "react";
+import { DueDateLabel } from "@/components/due-columns";
 import { LabelDot } from "@/components/label-chip";
 import {
   Command,
@@ -299,6 +300,36 @@ export function DueDatePicker({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/// A list row's due day that opens the date picker, with a spinner while saving
+/// and a warning after a failed save. Shows "No date" when unset, so one can be set.
+export function DueDateButton({
+  value,
+  onSelect,
+  pending,
+  failed,
+}: {
+  value: string | null;
+  onSelect: (day: string | null) => void;
+  pending: boolean;
+  failed: boolean;
+}) {
+  return (
+    <DueDatePicker value={value} onSelect={onSelect}>
+      <button
+        type="button"
+        aria-label={failed ? "Couldn't set due date, try again" : "Change Due Date"}
+        className={cn(
+          "pointer-events-auto -ml-1 flex h-6 max-w-full cursor-pointer items-center gap-1 truncate rounded-sm px-1 hover:bg-accent data-[state=open]:bg-accent",
+          failed && "text-destructive",
+        )}
+      >
+        <PendingIcon pending={pending} failed={failed} idle={null} />
+        <DueDateLabel dueDate={value} />
+      </button>
+    </DueDatePicker>
   );
 }
 

@@ -1,10 +1,14 @@
-import { IconSchool } from "@tabler/icons-react";
+import { IconArrowUpRight, IconSchool } from "@tabler/icons-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { StatusIcon } from "@/components/action-feedback";
+import { EntityPickerPopover } from "@/components/entity-picker";
+import { PROPERTY_VALUE } from "@/components/property-row";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { listCourses } from "@/lib/api/courses";
 import { listRelationships } from "@/lib/api/relationships";
 import type { Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
+import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 
 /// The Course each entity belongs to through `relationshipType` (like
@@ -76,5 +80,66 @@ export function CourseChipLink({
       </TooltipTrigger>
       <TooltipContent>Open Course</TooltipContent>
     </Tooltip>
+  );
+}
+
+/// A detail sidebar's Course property as a picker, like Linear's project field;
+/// the arrow beside it opens the Course. Things with a Course keep exactly one,
+/// so there is no "none".
+export function CoursePickerField({
+  spaceId,
+  course,
+  onChange,
+  pending,
+  failed,
+}: {
+  spaceId: string;
+  course: Entity | undefined;
+  onChange: (courseId: string) => void;
+  pending: boolean;
+  failed: boolean;
+}) {
+  const openEntity = useNavStore((s) => s.openEntity);
+  return (
+    <div className="group/course flex items-center gap-0.5">
+      <EntityPickerPopover
+        spaceId={spaceId}
+        typeFilter="course"
+        exclude={course?.id}
+        onSelect={(next) => onChange(next.id)}
+        trigger={
+          <button
+            type="button"
+            aria-label={failed ? "Couldn't change the course, try again" : "Change Course"}
+            className={PROPERTY_VALUE}
+          >
+            <StatusIcon
+              status={pending ? "pending" : failed ? "error" : "idle"}
+              idle={<IconSchool size={14} className="shrink-0 text-muted-foreground" />}
+            />
+            {course ? (
+              <span className="truncate">{displayTitle(course)}</span>
+            ) : (
+              <span className="text-muted-foreground">Pick a course</span>
+            )}
+          </button>
+        }
+      />
+      {course && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Open Course ${displayTitle(course)}`}
+              onClick={() => openEntity(course.id, course.spaceId)}
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/course:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+            >
+              <IconArrowUpRight size={14} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Open Course</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
   );
 }

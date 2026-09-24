@@ -26,10 +26,14 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCourseLookup } from "@/features/courses/course-lookup";
-import { createRelationship, deleteRelationship, listRelationships } from "@/lib/api/relationships";
 import { TaskStatusIcon } from "@/features/tasks/task-properties";
 import { useCreateShortcut } from "@/hooks/use-create-shortcut";
-import { createAssignment, listAssignments, updateAssignmentStatus } from "@/lib/api/assignments";
+import {
+  createAssignment,
+  listAssignments,
+  setAssignmentCourse,
+  updateAssignmentStatus,
+} from "@/lib/api/assignments";
 import type { Assignment, Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
@@ -43,7 +47,12 @@ import {
   statusKindOf,
   writeDisplay,
 } from "./assignment-model";
-import { AssignmentCard, AssignmentCardBody, AssignmentRow } from "./assignment-views";
+import {
+  AssignmentCard,
+  AssignmentCardBody,
+  AssignmentColumnLabels,
+  AssignmentRow,
+} from "./assignment-views";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
@@ -82,19 +91,13 @@ export function AssignmentsListView({
     writeDisplay(next);
   };
 
-  /// A drop changes whatever the target column or swimlane stands for: a status,
-  /// or the Course (swapping its one `assignment-course` link).
+  /// A drop changes whatever the target column or swimlane stands for: a status
+  /// or the Course.
   const move = useMutation({
     mutationFn: async (vars: { assignment: Assignment; status?: string; courseId?: string }) => {
       const { assignment, status, courseId } = vars;
       if (status) await updateAssignmentStatus(assignment.entity.id, status, assignment.grade);
-      if (courseId) {
-        const links = await listRelationships(assignment.entity.id, "from");
-        for (const link of links.filter((r) => r.relationshipType === "assignment-course")) {
-          await deleteRelationship(link.id);
-        }
-        await createRelationship(assignment.entity.id, courseId, "assignment-course");
-      }
+      if (courseId) await setAssignmentCourse(assignment.entity.id, courseId);
     },
     onSuccess: (_, { assignment, courseId }) => {
       queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
@@ -241,6 +244,7 @@ export function AssignmentsListView({
           groups={groups}
           showHeaders={display.grouping !== "none"}
           getKey={(a) => a.entity.id}
+          footer={<AssignmentColumnLabels />}
           renderRow={(a) => (
             <AssignmentRow
               assignment={a}

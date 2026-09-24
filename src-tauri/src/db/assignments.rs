@@ -90,6 +90,38 @@ pub fn update_assignment_status(
     Ok(())
 }
 
+pub fn update_assignment_due_date(
+    conn: &Connection,
+    entity_id: &str,
+    due_date: Option<String>,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE assignments SET due_date = ?1 WHERE entity_id = ?2",
+        params![due_date, entity_id],
+    )?;
+    Ok(())
+}
+
+/// Moves an assignment to another Course, replacing its one `assignment-course`
+/// link rather than erroring on the cardinality rule.
+pub fn set_assignment_course(conn: &Connection, entity_id: &str, course_id: String) -> AppResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
+        params![entity_id],
+    )?;
+    crate::db::relationships::create_relationship(
+        &tx,
+        entity_id.to_string(),
+        course_id,
+        "assignment-course".into(),
+        None,
+        None,
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
     conn.query_row(
         "SELECT e.*, a.due_date, a.status, a.grade FROM entities e
@@ -108,15 +140,15 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         name: "courseId",
         kind: FieldKind::EntityRef("course"),
         required_on_create: true,
-        writable_on_update: false,
-        description: "The Course this assignment belongs to (structural: exactly one).",
+        writable_on_update: true,
+        description: "The Course this assignment belongs to (structural: exactly one). Updating it moves the assignment.",
     },
     FieldDef {
         name: "dueDate",
         kind: FieldKind::Date,
         required_on_create: false,
-        writable_on_update: false,
-        description: "ISO date. Set at creation only.",
+        writable_on_update: true,
+        description: "ISO date. Pass null to clear it.",
     },
     FieldDef {
         name: "status",
@@ -150,6 +182,13 @@ fn cli_update_assignment(
     let status = crate::db::schema::field_str(fields, "status").unwrap_or(current.status);
     let grade = crate::db::schema::field_f64(fields, "grade").or(current.grade);
     update_assignment_status(conn, id, status, grade)?;
+    if let Some(course_id) = crate::db::schema::field_str(fields, "courseId") {
+        set_assignment_course(conn, id, course_id)?;
+    }
+    if fields.contains_key("dueDate") {
+        let due_date = crate::db::schema::field_str(fields, "dueDate");
+        update_assignment_due_date(conn, id, due_date)?;
+    }
     cli_get_assignment(conn, id)
 }
 
@@ -174,7 +213,7 @@ fn cli_list_assignments(
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "assignment",
-        supports_blocks: false,
+        supports_blocks: true,
         description: "A gradeable assignment belonging to exactly one Course.",
         fields: ASSIGNMENT_FIELDS,
         relationship_types: &["assignment-course", "relates-to"],
@@ -182,5 +221,53 @@ inventory::submit! {
         update: cli_update_assignment,
         get: cli_get_assignment,
         list: cli_list_assignments,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::courses::create_course;
+    use crate::db::spaces::create_space;
+
+    fn setup() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        conn
+    }
+
+    fn course_of(conn: &Connection, id: &str) -> String {
+        conn.query_row(
+            "SELECT to_entity_id FROM relationships
+             WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
+            params![id],
+            |row| row.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn set_assignment_course_moves_it() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let algo = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let math = create_course(&conn, space.id.clone(), "Math".into()).unwrap();
+        let a = create_assignment(&conn, space.id, "Sheet 1".into(), algo.id, None).unwrap();
+
+        set_assignment_course(&conn, &a.entity.id, math.id.clone()).unwrap();
+        assert_eq!(course_of(&conn, &a.entity.id), math.id);
+    }
+
+    #[test]
+    fn set_assignment_course_keeps_the_old_link_on_failure() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let algo = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let a = create_assignment(&conn, space.id, "Sheet 1".into(), algo.id.clone(), None).unwrap();
+
+        assert!(set_assignment_course(&conn, &a.entity.id, "missing".into()).is_err());
+        assert_eq!(course_of(&conn, &a.entity.id), algo.id);
     }
 }

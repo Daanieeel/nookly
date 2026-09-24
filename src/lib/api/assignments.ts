@@ -25,3 +25,12 @@ export function updateAssignmentStatus(
 ): Promise<void> {
   return invoke("update_assignment_status", { entityId, status, grade });
 }
+
+export function updateAssignmentDueDate(entityId: string, dueDate: string | null): Promise<void> {
+  return invoke("update_assignment_due_date", { entityId, dueDate });
+}
+
+/// Moves an assignment to another Course, replacing its Course link.
+export function setAssignmentCourse(entityId: string, courseId: string): Promise<void> {
+  return invoke("set_assignment_course", { entityId, courseId });
+}

@@ -294,5 +294,10 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         -- Settings of custom blocks (`block_types`), a JSON object of strings.
         ALTER TABLE blocks ADD COLUMN attrs TEXT;
         ",
+    ), M::up(
+        "
+        -- Where an exam takes place, free text like \"H 0104\".
+        ALTER TABLE exams ADD COLUMN room TEXT;
+        ",
     )])
 });

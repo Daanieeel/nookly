@@ -13,6 +13,7 @@ export function GroupedList<T>({
   renderRow,
   onCreateIn,
   createLabel,
+  footer,
 }: {
   groups: ViewGroup<T>[];
   showHeaders: boolean;
@@ -22,6 +23,8 @@ export function GroupedList<T>({
   onCreateIn?: (group: ViewGroup<T>, subgroup: ViewGroup<T> | null) => (() => void) | undefined;
   /// Names the create button, like `New Task in Todo`.
   createLabel?: (name: string) => string;
+  /// Pinned below the rows at the bottom of the page, like column labels.
+  footer?: ReactNode;
 }) {
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const toggle = (id: string) => setToggled((prev) => toggleId(prev, id));
@@ -29,48 +32,51 @@ export function GroupedList<T>({
     items.map((item) => <Fragment key={getKey(item)}>{renderRow(item)}</Fragment>);
 
   return (
-    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-    <div className="min-h-0 flex-1 overflow-y-auto pb-6" onKeyDown={moveRowFocus}>
-      {groups.map((group) => {
-        const collapsed = isCollapsed(toggled, group.id, group.defaultCollapsed);
-        return (
-          <section key={group.id} aria-label={group.name}>
-            {showHeaders && (
-              <GroupHeader
-                group={group}
-                count={group.items.length}
-                collapsed={collapsed}
-                onToggle={() => toggle(group.id)}
-                onCreate={onCreateIn?.(group, null)}
-                createLabel={createLabel}
-              />
-            )}
-            {!collapsed &&
-              (group.subgroups
-                ? group.subgroups
-                    .filter((sub) => sub.items.length > 0)
-                    .map((sub) => {
-                      const id = `${group.id}/${sub.id}`;
-                      const subCollapsed = isCollapsed(toggled, id, sub.defaultCollapsed);
-                      return (
-                        <section key={sub.id} aria-label={`${group.name}, ${sub.name}`}>
-                          <GroupHeader
-                            group={sub}
-                            count={sub.items.length}
-                            collapsed={subCollapsed}
-                            onToggle={() => toggle(id)}
-                            onCreate={onCreateIn?.(group, sub)}
-                            createLabel={createLabel}
-                            nested
-                          />
-                          {!subCollapsed && rows(sub.items)}
-                        </section>
-                      );
-                    })
-                : rows(group.items))}
-          </section>
-        );
-      })}
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside */}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-6" onKeyDown={moveRowFocus}>
+        {groups.map((group) => {
+          const collapsed = isCollapsed(toggled, group.id, group.defaultCollapsed);
+          return (
+            <section key={group.id} aria-label={group.name}>
+              {showHeaders && (
+                <GroupHeader
+                  group={group}
+                  count={group.items.length}
+                  collapsed={collapsed}
+                  onToggle={() => toggle(group.id)}
+                  onCreate={onCreateIn?.(group, null)}
+                  createLabel={createLabel}
+                />
+              )}
+              {!collapsed &&
+                (group.subgroups
+                  ? group.subgroups
+                      .filter((sub) => sub.items.length > 0)
+                      .map((sub) => {
+                        const id = `${group.id}/${sub.id}`;
+                        const subCollapsed = isCollapsed(toggled, id, sub.defaultCollapsed);
+                        return (
+                          <section key={sub.id} aria-label={`${group.name}, ${sub.name}`}>
+                            <GroupHeader
+                              group={sub}
+                              count={sub.items.length}
+                              collapsed={subCollapsed}
+                              onToggle={() => toggle(id)}
+                              onCreate={onCreateIn?.(group, sub)}
+                              createLabel={createLabel}
+                              nested
+                            />
+                            {!subCollapsed && rows(sub.items)}
+                          </section>
+                        );
+                      })
+                  : rows(group.items))}
+            </section>
+          );
+        })}
+      </div>
+      {footer}
     </div>
   );
 }

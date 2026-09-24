@@ -11,6 +11,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FieldError } from "@/components/action-feedback";
 import { entityTarget } from "@/components/context-menu/registry";
+import { PROPERTY_VALUE, PropertyRow } from "@/components/property-row";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { EntityKey } from "@/components/entity-key";
 import { LabelChip } from "@/components/label-chip";
@@ -469,18 +470,6 @@ function TrashedStatusIcon({ task }: { task: Task }) {
     <span className="flex size-6 shrink-0 items-center justify-center">
       {status && <TaskStatusIcon status={status} kind={kindOf(status.id)} />}
     </span>
-  );
-}
-
-const PROPERTY_VALUE =
-  "flex h-7 min-w-0 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm transition-colors hover:bg-accent data-[state=open]:bg-accent";
-
-function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[6rem_1fr] items-center gap-1">
-      <span className="truncate px-2 text-xs text-muted-foreground">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
   );
 }
 

@@ -1,4 +1,10 @@
-import { IconCalendarStats, IconCheck, IconPlus, IconSchool } from "@tabler/icons-react";
+import {
+  IconCalendarStats,
+  IconCheck,
+  IconMapPin,
+  IconPlus,
+  IconSchool,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -270,6 +276,12 @@ function Meta({ exam, course }: { exam: Exam; course: Entity | undefined }) {
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-2">
       {course && <CourseChip course={course} />}
+      {exam.room && (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <IconMapPin size={12} />
+          {exam.room}
+        </span>
+      )}
       {weight && <span className="text-xs text-muted-foreground">{weight}</span>}
     </span>
   );

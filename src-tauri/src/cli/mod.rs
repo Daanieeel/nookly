@@ -932,8 +932,8 @@ fn get_entity(
 
 /// Block-level editing (§2.1: Notes/Jots are "block-level
 /// addressable" pages) for any entity type that opts in via
-/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot` and
-/// `task`/`sub_task` (a task's description),
+/// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`,
+/// `task`/`sub_task` (a task's description), `assignment` and `exam`,
 /// but generic: a future page-like module gets these commands for free.
 /// Blocks aren't entities themselves (no base entity fields — same reasoning
 /// as Index Cards, see `db::decks`), so they live outside the `<entity-type>

@@ -146,6 +146,7 @@ export function Calendar({
             <button
               key={day.getTime()}
               type="button"
+              // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a button grid for arrow key navigation, not a data table
               role="gridcell"
               aria-selected={isSelected}
               aria-label={formatDate(day)}
