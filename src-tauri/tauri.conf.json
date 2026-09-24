@@ -27,7 +27,11 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/files/**", "$APPDATA/bookmark-previews/**", "$APPDATA/office-previews/**"]
+        "scope": [
+          "$APPDATA/files/**",
+          "$APPDATA/bookmark-previews/**",
+          "$APPDATA/office-previews/**"
+        ]
       }
     }
   },
