@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "changelog": "git-cliff --output CHANGELOG.md",
+    "icons:mac": "cd src-tauri/icons && xcrun actool \"$(pwd)/Nookly.icon\" --compile \"$(pwd)\" --output-partial-info-plist /dev/null --app-icon Nookly --include-all-app-icons --platform macosx --target-device mac --minimum-deployment-target 10.13 > /dev/null && rm -f Nookly.icns",
     "version:check": "bun tools/check-version.ts",
     "version:bump": "bun tools/bump-version.ts",
     "version:patch": "bun tools/bump-version.ts patch",
