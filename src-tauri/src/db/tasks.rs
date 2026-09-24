@@ -315,6 +315,21 @@ pub fn count_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<i64> {
     Ok(count)
 }
 
+/// The Tasks behind `count_open_tasks_due_or_overdue`, earliest due date first, for
+/// the Dashboard's briefing sentence and its Today widget.
+pub fn list_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<Vec<Task>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, t.status_id, t.start_date, t.due_date
+         FROM entities e JOIN tasks t ON t.entity_id = e.id
+         JOIN task_statuses s ON s.id = t.status_id
+         WHERE e.deleted_at IS NULL AND t.due_date IS NOT NULL
+           AND date(t.due_date) <= date('now') AND s.doneness < 100
+         ORDER BY t.due_date ASC, e.created_at ASC",
+    )?;
+    let rows = stmt.query_map([], row_to_task_joined)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn update_task_dates(
     conn: &Connection,
     entity_id: &str,

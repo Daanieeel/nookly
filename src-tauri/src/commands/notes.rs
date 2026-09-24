@@ -31,6 +31,15 @@ pub fn count_unrefined_jots_all_spaces(state: State<DbState>) -> AppResult<i64> 
 }
 
 #[tauri::command]
+pub fn list_unrefined_jots_all_spaces(
+    state: State<DbState>,
+    limit: i64,
+) -> AppResult<Vec<PageSummary>> {
+    let conn = state.0.lock().unwrap();
+    notes::list_unrefined_jots_all_spaces(&conn, limit)
+}
+
+#[tauri::command]
 pub fn list_recent_notes(
     state: State<DbState>,
     space_id: String,

@@ -1,16 +1,29 @@
-import { differenceInCalendarDays, format, isSameDay, startOfDay } from "date-fns";
-import type { Assignment, BriefingSession, Exam } from "@/lib/api/types";
+import { differenceInCalendarDays, format } from "date-fns";
+import type { BriefingSession, Task } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { formatClock, formatShortDate } from "@/lib/datetime";
+import { parseDay, toDay } from "@/features/tasks/task-model";
+import type { Deadline } from "./dashboard-data";
+import { entityLink, type LinkTarget, listLink } from "./dashboard-links";
 
-export type Run = { kind: "text"; text: string } | { kind: "bold"; text: string };
+/// A run of the sentence. Every data backed run links somewhere: a `token` (a
+/// count, time or day) renders as bold clickable text, a `name` (an entity title)
+/// as a bounded pill.
+export type Run =
+  | { kind: "text"; text: string }
+  | { kind: "token"; text: string; target: LinkTarget }
+  | { kind: "name"; text: string; target: LinkTarget };
 
 function text(value: string): Run {
   return { kind: "text", text: value };
 }
 
-function bold(value: string): Run {
-  return { kind: "bold", text: value };
+function token(value: string, target: LinkTarget): Run {
+  return { kind: "token", text: value, target };
+}
+
+function name(value: string, target: LinkTarget): Run {
+  return { kind: "name", text: value, target };
 }
 
 export interface Clause {
@@ -55,6 +68,10 @@ const SALT = {
 };
 
 function sessionsClause(sessions: BriefingSession[], seed: number): Clause {
+  const list = listLink(
+    "sessions",
+    sessions.map((s) => s.spaceId),
+  );
   if (sessions.length === 0) {
     const tail = pick(seed, SALT.sessions, [
       " today",
@@ -62,12 +79,20 @@ function sessionsClause(sessions: BriefingSession[], seed: number): Clause {
       " scheduled",
       " on the books",
     ] as const);
-    return { key: "sessions", icon: "📅", runs: [bold("0 sessions"), text(tail)] };
+    return { key: "sessions", icon: "📅", runs: [token("0 sessions", list), text(tail)] };
   }
   const earliest = sessions[0];
-  const count = bold(plural(sessions.length, "session"));
-  const course = bold(earliest.courseTitle || earliest.title || "Untitled Session");
-  const time = bold(formatClock(earliest.startTime));
+  const count = token(plural(sessions.length, "session"), list);
+  const course = name(
+    earliest.courseTitle || earliest.title || "Untitled Session",
+    earliest.courseId
+      ? entityLink(earliest.courseId, earliest.spaceId)
+      : entityLink(earliest.entityId, earliest.spaceId),
+  );
+  const time = token(
+    formatClock(earliest.startTime),
+    entityLink(earliest.entityId, earliest.spaceId),
+  );
   const templates: readonly Run[][] = [
     [count, text(" today, starting with "), course, text(" at "), time],
     [text("you've got "), count, text(" today, first up "), course, text(" at "), time],
@@ -77,8 +102,14 @@ function sessionsClause(sessions: BriefingSession[], seed: number): Clause {
   return { key: "sessions", icon: "📅", runs: pick(seed, SALT.sessions, templates) };
 }
 
-function tasksClause(openTaskCount: number, seed: number): Clause {
-  const count = bold(plural(openTaskCount, "task"));
+function tasksClause(tasks: Task[], seed: number): Clause {
+  const count = token(
+    plural(tasks.length, "task"),
+    listLink(
+      "tasks",
+      tasks.map((t) => t.entity.spaceId),
+    ),
+  );
   const templates: readonly Run[][] = [
     [count, text(" due")],
     [count, text(" on your plate")],
@@ -88,44 +119,38 @@ function tasksClause(openTaskCount: number, seed: number): Clause {
   return { key: "tasks", icon: "✅", runs: pick(seed, SALT.tasks, templates) };
 }
 
-interface UrgentItem {
-  title: string;
-  date: string;
-}
-
-function collectUrgent(items: UrgentItem[], today: Date): UrgentItem[] {
-  const start = startOfDay(today);
-  const candidates = items
-    .filter((item) => startOfDay(new Date(item.date)) >= start)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const dueToday = candidates.filter((item) => isSameDay(new Date(item.date), today));
+/// Deadlines due today, or failing that, within the next two days.
+function collectUrgent(deadlines: Deadline[], today: string): Deadline[] {
+  const dueToday = deadlines.filter((d) => d.date === today);
   if (dueToday.length > 0) return dueToday;
-  return candidates.filter((item) => differenceInCalendarDays(new Date(item.date), today) <= 2);
+  return deadlines.filter((d) => differenceInCalendarDays(parseDay(d.date), parseDay(today)) <= 2);
 }
 
 function urgentClause(
   key: string,
   icon: string,
   noun: string,
-  items: UrgentItem[],
-  today: Date,
+  module: "exams" | "assignments",
+  items: Deadline[],
+  today: string,
   seed: number,
   salt: number,
 ): Clause {
   if (items.length === 0) {
+    const zero = token(`0 ${noun}s`, listLink(module));
     const templates: readonly Run[][] = [
-      [bold(`0 ${noun}s`), text(" urgent")],
-      [bold(`0 ${noun}s`), text(" on the horizon")],
-      [bold(`0 ${noun}s`), text(" pressing")],
+      [zero, text(" urgent")],
+      [zero, text(" on the horizon")],
+      [zero, text(" pressing")],
     ];
     return { key, icon, runs: pick(seed, salt, templates) };
   }
   if (items.length === 1) {
     const item = items[0];
-    const dayLabel = isSameDay(new Date(item.date), today) ? "today" : formatShortDate(item.date);
-    const title = bold(item.title);
-    const day = bold(dayLabel);
+    const target = entityLink(item.entity.id, item.entity.spaceId);
+    const dayLabel = item.date === today ? "today" : formatShortDate(item.date);
+    const title = name(displayTitle(item.entity), target);
+    const day = token(dayLabel, target);
     const templates: readonly Run[][] = [
       [title, text(` ${noun} due `), day],
       [text(`your ${noun} `), title, text(" is due "), day],
@@ -133,7 +158,13 @@ function urgentClause(
     ];
     return { key, icon, runs: pick(seed, salt, templates) };
   }
-  const count = bold(`${items.length} ${noun}s`);
+  const count = token(
+    `${items.length} ${noun}s`,
+    listLink(
+      module,
+      items.map((d) => d.entity.spaceId),
+    ),
+  );
   const templates: readonly Run[][] = [
     [count, text(" coming up")],
     [count, text(" on the way")],
@@ -142,34 +173,8 @@ function urgentClause(
   return { key, icon, runs: pick(seed, salt, templates) };
 }
 
-function examsClause(exams: Exam[], today: Date, seed: number): Clause {
-  const items = collectUrgent(
-    exams
-      .filter(
-        (e): e is Exam & { examDate: string } =>
-          e.entity.deletedAt == null && e.grade == null && e.examDate != null,
-      )
-      .map((e) => ({ title: displayTitle(e.entity), date: e.examDate })),
-    today,
-  );
-  return urgentClause("exams", "📚", "exam", items, today, seed, SALT.exams);
-}
-
-function assignmentsClause(assignments: Assignment[], today: Date, seed: number): Clause {
-  const items = collectUrgent(
-    assignments
-      .filter(
-        (a): a is Assignment & { dueDate: string } =>
-          a.entity.deletedAt == null && a.grade == null && a.dueDate != null,
-      )
-      .map((a) => ({ title: displayTitle(a.entity), date: a.dueDate })),
-    today,
-  );
-  return urgentClause("assignments", "📄", "assignment", items, today, seed, SALT.assignments);
-}
-
-function jotsClause(jotCount: number, seed: number): Clause {
-  const count = bold(plural(jotCount, "jot"));
+function jotsClause(jotCount: number, jotSpaceIds: string[], seed: number): Clause {
+  const count = token(plural(jotCount, "jot"), listLink("jots", jotSpaceIds));
   const templates: readonly Run[][] = [
     [count, text(" waiting to be refined")],
     [count, text(" still raw, waiting for a second pass")],
@@ -180,11 +185,15 @@ function jotsClause(jotCount: number, seed: number): Clause {
 }
 
 export interface BriefingInputs {
+  /// Today's Sessions, earliest first.
   sessions: BriefingSession[];
-  openTaskCount: number;
-  exams: Exam[];
-  assignments: Assignment[];
+  /// Open Tasks due today or overdue.
+  tasks: Task[];
+  /// Upcoming Exams and Assignments, soonest first.
+  deadlines: Deadline[];
   jotCount: number;
+  /// Spaces holding the unrefined Jots, to pick which list the count opens.
+  jotSpaceIds: string[];
   now?: Date;
 }
 
@@ -207,19 +216,37 @@ const CONNECTOR_VARIANTS = [
 /// set of variants, so the banner doesn't read identically every day.
 export function buildBriefing({
   sessions,
-  openTaskCount,
-  exams,
-  assignments,
+  tasks,
+  deadlines,
   jotCount,
+  jotSpaceIds,
   now = new Date(),
 }: BriefingInputs): Briefing {
   const seed = daySeed(now);
+  const today = toDay(now);
+  const exams = collectUrgent(
+    deadlines.filter((d) => d.kind === "exam"),
+    today,
+  );
+  const assignments = collectUrgent(
+    deadlines.filter((d) => d.kind === "assignment"),
+    today,
+  );
   const clauses = [
     sessionsClause(sessions, seed),
-    tasksClause(openTaskCount, seed),
-    examsClause(exams, now, seed),
-    assignmentsClause(assignments, now, seed),
-    jotsClause(jotCount, seed),
+    tasksClause(tasks, seed),
+    urgentClause("exams", "📚", "exam", "exams", exams, today, seed, SALT.exams),
+    urgentClause(
+      "assignments",
+      "📄",
+      "assignment",
+      "assignments",
+      assignments,
+      today,
+      seed,
+      SALT.assignments,
+    ),
+    jotsClause(jotCount, jotSpaceIds, seed),
   ];
   const connectors = SALT.connector.map((salt, i) => pick(seed, salt, CONNECTOR_VARIANTS[i]));
 

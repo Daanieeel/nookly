@@ -311,36 +311,61 @@ pub fn list_sessions(conn: &Connection, space_id: &str) -> AppResult<Vec<Session
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Bespoke, narrow shape for the Dashboard briefing's Sessions clause — cross-Space,
-/// today only, with the linked Course's title pre-joined so the caller doesn't need
-/// a follow-up relationship lookup per session.
+/// Bespoke, narrow shape for the Dashboard: cross-Space, with the linked Course
+/// pre-joined so the caller doesn't need a follow-up relationship lookup per session.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BriefingSession {
+    pub entity_id: String,
     pub title: String,
+    pub date: String,
     pub start_time: String,
+    pub course_id: Option<String>,
     pub course_title: Option<String>,
     pub space_id: String,
 }
 
-pub fn list_sessions_today(conn: &Connection) -> AppResult<Vec<BriefingSession>> {
-    let mut stmt = conn.prepare(
-        "SELECT e.title, s.start_time, c.title AS course_title, e.space_id
+const BRIEFING_SESSION_SELECT: &str = "SELECT e.id, e.title, s.date, s.start_time,
+            c.id AS course_id, c.title AS course_title, e.space_id
          FROM entities e
          JOIN sessions s ON s.entity_id = e.id
          LEFT JOIN relationships r ON r.from_entity_id = e.id AND r.relationship_type = 'session-course'
          LEFT JOIN entities c ON c.id = r.to_entity_id
-         WHERE e.deleted_at IS NULL AND s.cancelled = 0 AND date(s.date) = date('now')
-         ORDER BY s.start_time ASC",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok(BriefingSession {
-            title: row.get("title")?,
-            start_time: row.get("start_time")?,
-            course_title: row.get("course_title")?,
-            space_id: row.get("space_id")?,
-        })
-    })?;
+         WHERE e.deleted_at IS NULL AND s.cancelled = 0";
+
+fn row_to_briefing_session(row: &rusqlite::Row) -> rusqlite::Result<BriefingSession> {
+    Ok(BriefingSession {
+        entity_id: row.get("id")?,
+        title: row.get("title")?,
+        date: row.get("date")?,
+        start_time: row.get("start_time")?,
+        course_id: row.get("course_id")?,
+        course_title: row.get("course_title")?,
+        space_id: row.get("space_id")?,
+    })
+}
+
+pub fn list_sessions_today(conn: &Connection) -> AppResult<Vec<BriefingSession>> {
+    let mut stmt = conn.prepare(&format!(
+        "{BRIEFING_SESSION_SELECT} AND date(s.date) = date('now') ORDER BY s.start_time ASC"
+    ))?;
+    let rows = stmt.query_map([], row_to_briefing_session)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Every Session from `from` through `to` (inclusive `YYYY-MM-DD` dates), across all
+/// Spaces, in time order. The caller passes local dates so "today" and "this week"
+/// follow the user's clock rather than SQLite's UTC `now`.
+pub fn list_sessions_between(
+    conn: &Connection,
+    from: &str,
+    to: &str,
+) -> AppResult<Vec<BriefingSession>> {
+    let mut stmt = conn.prepare(&format!(
+        "{BRIEFING_SESSION_SELECT} AND date(s.date) BETWEEN date(?1) AND date(?2)
+         ORDER BY s.date ASC, s.start_time ASC"
+    ))?;
+    let rows = stmt.query_map(params![from, to], row_to_briefing_session)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 

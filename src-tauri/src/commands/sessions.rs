@@ -80,3 +80,13 @@ pub fn list_sessions_today(state: State<DbState>) -> AppResult<Vec<BriefingSessi
     let conn = state.0.lock().unwrap();
     sessions::list_sessions_today(&conn)
 }
+
+#[tauri::command]
+pub fn list_sessions_between(
+    state: State<DbState>,
+    from: String,
+    to: String,
+) -> AppResult<Vec<BriefingSession>> {
+    let conn = state.0.lock().unwrap();
+    sessions::list_sessions_between(&conn, &from, &to)
+}

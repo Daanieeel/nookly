@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { startOfDay } from "date-fns";
+import { isDone } from "@/features/assignments/assignment-model";
 import { listAssignments } from "@/lib/api/assignments";
 import { listExams } from "@/lib/api/exams";
 import type { ModuleKey } from "@/lib/store/nav";
@@ -13,7 +14,7 @@ function ExamsMeta({ spaceId }: { spaceId: string }) {
   const today = startOfDay(new Date());
 
   const nearestExam = exams
-    .filter((e) => e.grade == null && e.examDate && startOfDay(new Date(e.examDate)) >= today)
+    .filter((e) => e.status !== "done" && e.examDate && startOfDay(new Date(e.examDate)) >= today)
     .sort((a, b) => new Date(a.examDate ?? 0).getTime() - new Date(b.examDate ?? 0).getTime())[0];
 
   if (!nearestExam?.examDate) return null;
@@ -27,7 +28,7 @@ function AssignmentsMeta({ spaceId }: { spaceId: string }) {
   });
   const today = startOfDay(new Date());
   const nearest = assignments
-    .filter((a) => a.grade == null && a.dueDate && startOfDay(new Date(a.dueDate)) >= today)
+    .filter((a) => !isDone(a) && a.dueDate && startOfDay(new Date(a.dueDate)) >= today)
     .sort((a, b) => new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime())[0];
   if (!nearest?.dueDate) return null;
   return <SidebarUrgencyChip date={nearest.dueDate} />;

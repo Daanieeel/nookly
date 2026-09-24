@@ -64,3 +64,8 @@ export function listSessions(spaceId: string): Promise<SessionOccurrence[]> {
 export function listSessionsToday(): Promise<BriefingSession[]> {
   return invoke("list_sessions_today");
 }
+
+/// Sessions from `from` through `to` (inclusive local `YYYY-MM-DD` days) across every Space.
+export function listSessionsBetween(from: string, to: string): Promise<BriefingSession[]> {
+  return invoke("list_sessions_between", { from, to });
+}

@@ -72,6 +72,12 @@ pub fn count_tasks_due_today(state: State<DbState>) -> AppResult<tasks::TaskDueT
 }
 
 #[tauri::command]
+pub fn list_open_tasks_due_or_overdue(state: State<DbState>) -> AppResult<Vec<tasks::Task>> {
+    let conn = state.0.lock().unwrap();
+    tasks::list_open_tasks_due_or_overdue(&conn)
+}
+
+#[tauri::command]
 pub fn count_open_tasks_due_or_overdue(state: State<DbState>) -> AppResult<i64> {
     let conn = state.0.lock().unwrap();
     tasks::count_open_tasks_due_or_overdue(&conn)

@@ -110,7 +110,15 @@ The exceptions are Dashboard, Pinned, and Search, plus Recents, which was added 
 
 ### A single global Dashboard (not per Space, not multiple)
 
-**Why:** the user wants one customizable, bento-style page for quick access across Spaces. Per-Space dashboards are wanted eventually, but were deliberately deferred to keep this decision small and shippable now.
+**Why:** the user wants one page for quick access across Spaces. Per-Space dashboards are wanted eventually, but were deliberately deferred to keep this decision small and shippable now.
+
+---
+
+### Dashboard widgets: Today, Unrefined Jots, This Week
+
+Exactly three, in that order. Every count in the briefing sentence opens its module's list, every name opens that entity and renders as a bounded pill. They render as flat sections, not cards.
+
+**Rejected:** Recent, Pinned, Spaces and Overview cards. Pinned and Spaces repeat the sidebar, Recents lives in the palette, and raw counts are not useful. A bento grid of cards was also dropped; the user preferred the content flat.
 
 ---
 

@@ -3,12 +3,15 @@ import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { getWeekYear, MascotFigure } from "@/components/mascot-figure";
 import { Card } from "@/components/ui/card";
+import { isDone } from "@/features/assignments/assignment-model";
 import { listAssignmentsAllSpaces } from "@/lib/api/assignments";
 import { listExamsAllSpaces } from "@/lib/api/exams";
 import { countUnrefinedJotsAllSpaces } from "@/lib/api/notes";
 import { listSessionsToday } from "@/lib/api/sessions";
 import { countOpenTasksDueOrOverdue, countTasksDueToday } from "@/lib/api/tasks";
+import { listLink, useOpenTarget } from "@/features/dashboard/dashboard-links";
 import { formatDate, formatWeekday } from "@/lib/datetime";
+import type { ModuleKey } from "@/lib/store/nav";
 
 const CYCLE_MS = 5_000;
 const EXIT_MS = 380;
@@ -17,7 +20,14 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+/// One cycling line, and the list page it opens when clicked.
+interface Stat {
+  text: string;
+  module: ModuleKey;
+}
+
 export function SidebarMascot() {
+  const open = useOpenTarget();
   const { data: tasksToday } = useQuery({
     queryKey: ["tasks-due-today"],
     queryFn: countTasksDueToday,
@@ -40,33 +50,41 @@ export function SidebarMascot() {
   const { week } = getWeekYear();
   const dateLine = `${formatWeekday(new Date(), "short")} · ${formatDate(new Date().toISOString())} · Week ${week}`;
 
-  const stats: string[] = [];
-  if (tasksToday) stats.push(`${tasksToday.done}/${tasksToday.total} tasks done today`);
+  const stats: Stat[] = [];
+  if (tasksToday)
+    stats.push({
+      text: `${tasksToday.done}/${tasksToday.total} tasks done today`,
+      module: "tasks",
+    });
   if (sessions)
-    stats.push(
-      sessions.length === 0 ? "no sessions today" : `${plural(sessions.length, "session")} today`,
-    );
-  if (openTaskCount !== undefined) stats.push(`${plural(openTaskCount, "task")} due or overdue`);
+    stats.push({
+      text:
+        sessions.length === 0 ? "no sessions today" : `${plural(sessions.length, "session")} today`,
+      module: "sessions",
+    });
+  if (openTaskCount !== undefined)
+    stats.push({ text: `${plural(openTaskCount, "task")} due or overdue`, module: "tasks" });
   if (exams && assignments) {
     const today = startOfDay(new Date());
     const upcoming =
       exams.filter(
         (e) =>
           e.entity.deletedAt == null &&
-          e.grade == null &&
+          e.status !== "done" &&
           e.examDate != null &&
           differenceInCalendarDays(new Date(e.examDate), today) >= 0,
       ).length +
       assignments.filter(
         (a) =>
           a.entity.deletedAt == null &&
-          a.grade == null &&
+          !isDone(a) &&
           a.dueDate != null &&
           differenceInCalendarDays(new Date(a.dueDate), today) >= 0,
       ).length;
-    stats.push(`${plural(upcoming, "deadline")} coming up`);
+    stats.push({ text: `${plural(upcoming, "deadline")} coming up`, module: "exams" });
   }
-  if (jotCount !== undefined) stats.push(`${plural(jotCount, "jot")} waiting to be refined`);
+  if (jotCount !== undefined)
+    stats.push({ text: `${plural(jotCount, "jot")} waiting to be refined`, module: "jots" });
 
   const [index, setIndex] = useState(0);
   // The stat that just cycled out, rendered briefly on top of the new one so
@@ -79,7 +97,7 @@ export function SidebarMascot() {
     // Re-armed each tick (rather than setInterval) so the closure always
     // reads the current `index`/`stats` instead of a stale snapshot.
     const id = setTimeout(() => {
-      setOutgoing({ text: stats[index], key: index });
+      setOutgoing({ text: stats[index].text, key: index });
       clearTimeout(exitTimeout.current);
       exitTimeout.current = setTimeout(() => setOutgoing(null), EXIT_MS);
       setIndex((i) => (i + 1) % stats.length);
@@ -90,7 +108,7 @@ export function SidebarMascot() {
     };
   }, [stats.length, index]);
 
-  const statLine = stats.length > 0 ? stats[index % stats.length] : "…";
+  const stat = stats.length > 0 ? stats[index % stats.length] : undefined;
 
   return (
     <Card className="flex-row items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-1">
@@ -107,9 +125,18 @@ export function SidebarMascot() {
               {outgoing.text}
             </span>
           )}
-          <span key={index} className="sidebar-mascot-stat-in block truncate">
-            {statLine}
-          </span>
+          {stat ? (
+            <button
+              key={index}
+              type="button"
+              onClick={() => open(listLink(stat.module))}
+              className="sidebar-mascot-stat-in block w-full cursor-pointer truncate text-left underline-offset-2 hover:underline"
+            >
+              {stat.text}
+            </button>
+          ) : (
+            <span className="block truncate">…</span>
+          )}
         </span>
       </div>
     </Card>

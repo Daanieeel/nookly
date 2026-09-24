@@ -92,7 +92,7 @@ Look at the nature of the data (is it time-based, document-based, visual, driven
 | Assignments        | List that puts dates and status first. Visually distinct from Tasks despite the similarity.                         |
 | Files              | Grid by default with file-type icons or thumbnails. List as a toggle.                                               |
 | Bookmarks          | Grid of rich preview cards showing favicon, title, and preview image.                                               |
-| Dashboard          | Bento grid with blocks of varying size. Should read clearly as a dashboard, unlike the list pages.                  |
+| Dashboard          | Flat sections on the page background, no cards. Wide windows put Today and Unrefined Jots side by side.             |
 
 ## Content-Aware Creation Flows (top redesign priority)
 

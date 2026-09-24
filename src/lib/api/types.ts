@@ -214,8 +214,12 @@ export interface SessionOccurrence {
 }
 
 export interface BriefingSession {
+  entityId: string;
   title: string;
+  /// `YYYY-MM-DD`.
+  date: string;
   startTime: string;
+  courseId: string | null;
   courseTitle: string | null;
   spaceId: string;
 }

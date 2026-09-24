@@ -43,6 +43,11 @@ export function countTasksDueToday(): Promise<TaskDueTodaySummary> {
   return invoke("count_tasks_due_today");
 }
 
+/// The Tasks `countOpenTasksDueOrOverdue` counts, across every Space, earliest due first.
+export function listOpenTasksDueOrOverdue(): Promise<Task[]> {
+  return invoke("list_open_tasks_due_or_overdue");
+}
+
 export function countOpenTasksDueOrOverdue(): Promise<number> {
   return invoke("count_open_tasks_due_or_overdue");
 }
