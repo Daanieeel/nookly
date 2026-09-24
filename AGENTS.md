@@ -2,6 +2,8 @@
 
 Full project docs live in `/docs/`. Read `/docs/00-index.md` first, every session, before writing code for this project.
 
+**Nookly is released. User data must be preserved at all costs; data loss is never acceptable.** People put their whole life into Nookly and trust it to keep that life organized and safe, so treat their data with the care of a bank or insurance. Every change to persisted state (schema, file layout, settings) needs a safe migration from the previous release, and nothing may silently drop, overwrite or corrupt existing data.
+
 Quick map:
 
 - Building a new module? Read `01-philosophy.md`, `02-entity-model.md`, then the matching file in `03-modules/`.
