@@ -1,6 +1,6 @@
 // Checks that package.json, Cargo.toml and tauri.conf.json agree on one version,
-// and that it is ahead of the latest release tag (`v*`). A commit that is itself
-// tagged with its version is allowed to equal it. Run with `bun tools/check-version.ts`.
+// and that it is not behind the latest release tag (`v*`). Equal is fine: the version
+// stays at the last release until the next one is cut. Run with `bun tools/check-version.ts`.
 import { $, semver } from "bun";
 
 const root = `${import.meta.dir}/../`;
@@ -31,14 +31,11 @@ if (!latest) {
   process.exit(0);
 }
 
-const order = semver.order(pkg, latest);
-const headTags = (await $`git -C ${root} tag --points-at HEAD`.text()).split("\n");
-
-if (order > 0 || (order === 0 && headTags.includes(`v${pkg}`))) {
+if (semver.order(pkg, latest) >= 0) {
   console.log(`Version ${pkg} OK (latest release is ${latest}).`);
 } else {
   console.error(
-    `Version ${pkg} is not ahead of the latest release ${latest}. Bump the version in package.json, src-tauri/Cargo.toml and src-tauri/tauri.conf.json.`,
+    `Version ${pkg} is behind the latest release ${latest}. Bump the version in package.json, src-tauri/Cargo.toml and src-tauri/tauri.conf.json.`,
   );
   process.exit(1);
 }
