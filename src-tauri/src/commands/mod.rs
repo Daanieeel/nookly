@@ -9,6 +9,7 @@ pub mod exams;
 pub mod files;
 pub mod labels;
 pub mod notes;
+pub mod office;
 pub mod relationships;
 pub mod search;
 pub mod sessions;

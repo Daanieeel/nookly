@@ -865,3 +865,34 @@
   font-weight: var(--token-font-weight, inherit);
   text-decoration: var(--token-decoration, none);
 }
+
+/* Word documents in the file viewer (`files/office-viewers.tsx`): docx-preview's
+   own grey backdrop gives way to the viewer's themed one. */
+.docx-viewer .docx-wrapper {
+  background: transparent;
+  padding: 1rem 1rem 0;
+}
+.docx-viewer .docx-wrapper > section.docx {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+  margin-bottom: 1rem;
+}
+/* Dark colors: pages inverted with hue kept, like PDFs; a shadow would invert to a glow. */
+.docx-viewer.docx-inverted .docx-wrapper > section.docx {
+  filter: invert(1) hue-rotate(180deg);
+  box-shadow: none;
+}
+
+/* Spreadsheet cells in the file viewer, styled from the workbook through custom properties. */
+.sheet-col {
+  width: var(--col-width);
+}
+.sheet-cell {
+  background: var(--cell-fill, transparent);
+  color: var(--cell-color, var(--cell-default-color, inherit));
+  font-weight: var(--cell-weight, inherit);
+  font-style: var(--cell-style, normal);
+  text-align: var(--cell-align, left);
+}
+.sheet-cell-on-fill {
+  --cell-default-color: var(--color-neutral-900);
+}

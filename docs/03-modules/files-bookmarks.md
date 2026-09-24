@@ -23,7 +23,7 @@ Bookmarks live inside a Space like any other page. They are not global.
 
 ## Layout Direction
 
-**Files:** a grid by default, with file-type icons or thumbnails, like Finder or the Vercel asset view. A list view is available as a toggle but is never the default.
+**Files:** a grid by default, with file-type icons or thumbnails, like Finder or the Vercel asset view. A list view is available as a toggle but is never the default. The detail page is a viewer: images, PDF, video, audio, text and code are shown directly; Word (.docx) and Excel (.xlsx) are rendered in the app; slides, legacy Office, OpenDocument and iWork files convert to PDF through LibreOffice when it is installed, and otherwise offer "Open in".
 
 **Bookmarks:** a grid of rich preview cards showing favicon, title, and preview image. Not a plain list of links.
 

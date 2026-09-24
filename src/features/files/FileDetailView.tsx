@@ -8,8 +8,6 @@ import {
   IconExternalLink,
   IconFileUpload,
   IconFolderOpen,
-  IconMoon,
-  IconSun,
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -20,7 +18,6 @@ import { StatusButtonContent, statusOf, useActionStatus } from "@/components/act
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { PropertyRow } from "@/components/property-row";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,9 +40,10 @@ import {
 import type { Entity, FileEntity } from "@/lib/api/types";
 import { formatDateTime } from "@/lib/datetime";
 import { displayTitle } from "@/lib/entity-title";
-import { useIsDark } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { HighlightedCode, codeLanguage } from "./code-viewer";
+import { PdfViewer } from "./document-frame";
+import { OfficeViewer } from "./office-viewers";
 import {
   TEXT_EXTENSIONS,
   fileExtension,
@@ -53,6 +51,7 @@ import {
   filePath,
   isLinkOnly,
   isReference,
+  officeFormat,
 } from "./file-kind";
 
 const REVEAL_LABEL = navigator.userAgent.includes("Mac") ? "Reveal in Finder" : "Show in Folder";
@@ -86,6 +85,18 @@ function FileViewer({ file }: { file: FileEntity }) {
   const name = file.originalFilename ?? displayTitle(file.entity);
 
   if (!src) return <LinkOnly file={file} />;
+  const office = officeFormat(file);
+  if (office) {
+    return (
+      <OfficeViewer
+        file={file}
+        src={src}
+        format={office}
+        name={name}
+        fallback={(hint) => <Placeholder file={file} hint={hint} />}
+      />
+    );
+  }
   if (kind.id === "image") {
     return (
       <div className="flex size-full items-center justify-center">
@@ -114,45 +125,6 @@ function FileViewer({ file }: { file: FileEntity }) {
     return <TextViewer file={file} src={src} />;
   }
   return <Placeholder file={file} />;
-}
-
-/// WebKit's PDF viewer only draws light, so in dark mode the page is inverted
-/// (hue rotated back, so colors keep their hue). One click shows the original.
-function PdfViewer({ src, name }: { src: string; name: string }) {
-  const isDark = useIsDark();
-  const [original, setOriginal] = useState(false);
-  const inverted = isDark && !original;
-  const label = inverted ? "Show Original Colors" : "Show in Dark Colors";
-  return (
-    <div className="relative size-full">
-      <iframe
-        src={src}
-        title={name}
-        className={cn(
-          "size-full rounded-md border border-border",
-          inverted && "border-transparent invert hue-rotate-180",
-        )}
-      />
-      {isDark && (
-        <span className="absolute top-2 right-2 flex">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="iconSm"
-                aria-label={label}
-                aria-pressed={original}
-                onClick={() => setOriginal((v) => !v)}
-              >
-                {inverted ? <IconSun /> : <IconMoon />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{label}</TooltipContent>
-          </Tooltip>
-        </span>
-      )}
-    </div>
-  );
 }
 
 function TextViewer({ file, src }: { file: FileEntity; src: string }) {
@@ -282,7 +254,16 @@ function LinkOnly({ file }: { file: FileEntity }) {
 
 /// For files the app can't show itself: the kind, the name, and the way to open
 /// it elsewhere. One that came from a link can also become a Bookmark.
-function Placeholder({ file, children }: { file: FileEntity; children?: React.ReactNode }) {
+function Placeholder({
+  file,
+  hint,
+  children,
+}: {
+  file: FileEntity;
+  /// Replaces the default "open in their own app" line, e.g. how to get a preview.
+  hint?: string;
+  children?: React.ReactNode;
+}) {
   const kind = fileKind(file);
   const name = file.originalFilename ?? displayTitle(file.entity);
   return (
@@ -293,7 +274,7 @@ function Placeholder({ file, children }: { file: FileEntity; children?: React.Re
       <div className="flex max-w-full flex-col gap-1">
         <p className="truncate text-sm font-medium">{name}</p>
         <p className="truncate text-xs text-muted-foreground">
-          {`${kind.label} files open in their own app`}
+          {hint ?? `${kind.label} files open in their own app`}
         </p>
       </div>
       {children}

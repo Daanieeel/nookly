@@ -48,8 +48,8 @@ type KindId = keyof typeof KINDS;
 const EXTENSIONS: [KindId, string[]][] = [
   ["image", ["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "avif"]],
   ["pdf", ["pdf"]],
-  ["document", ["doc", "docx", "pages", "rtf", "odt", "txt", "md"]],
-  ["sheet", ["xls", "xlsx", "numbers", "csv", "ods"]],
+  ["document", ["doc", "docx", "docm", "dotx", "pages", "rtf", "odt", "txt", "md"]],
+  ["sheet", ["xls", "xlsx", "xlsm", "numbers", "csv", "ods"]],
   ["slides", ["ppt", "pptx", "key", "odp"]],
   ["archive", ["zip", "rar", "7z", "tar", "gz"]],
   ["audio", ["mp3", "wav", "m4a", "flac", "aac", "ogg"]],
@@ -103,12 +103,30 @@ export const TEXT_EXTENSIONS = new Set([
   ...(EXTENSIONS.find(([kind]) => kind === "code")?.[1] ?? []),
 ]);
 
+/// How the viewer shows an office file: rendered in the app (Word, Excel), or
+/// converted to PDF through LibreOffice when it's installed.
+export type OfficeFormat = "docx" | "xlsx" | "convert";
+
+const OFFICE_FORMATS: [OfficeFormat, string[]][] = [
+  ["docx", ["docx", "docm", "dotx"]],
+  ["xlsx", ["xlsx", "xlsm"]],
+  ["convert", ["doc", "rtf", "odt", "pages", "xls", "ods", "numbers", "ppt", "pptx", "odp", "key"]],
+];
+
+export function officeFormat(file: FileEntity): OfficeFormat | null {
+  const ext = fileExtension(file);
+  return OFFICE_FORMATS.find(([, exts]) => ext !== null && exts.includes(ext))?.[0] ?? null;
+}
+
 /// Whether the file viewer can show it, rather than only offer to open it.
+/// Office files count: the in app ones always, the rest once LibreOffice is there.
 export function isViewable(file: FileEntity): boolean {
   if (!filePath(file)) return false;
   const kind = fileKind(file).id;
   const ext = fileExtension(file);
   return (
-    ["image", "pdf", "video", "audio"].includes(kind) || (ext !== null && TEXT_EXTENSIONS.has(ext))
+    ["image", "pdf", "video", "audio"].includes(kind) ||
+    officeFormat(file) !== null ||
+    (ext !== null && TEXT_EXTENSIONS.has(ext))
   );
 }
