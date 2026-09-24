@@ -1,13 +1,17 @@
 pub mod assignments;
+pub mod bookmark_screenshot;
 pub mod bookmarks;
 pub mod cli_install;
 pub mod courses;
 pub mod decks;
 pub mod entities;
 pub mod exams;
+pub mod external_calendars;
 pub mod files;
 pub mod labels;
 pub mod notes;
+pub mod office;
+pub mod office_install;
 pub mod relationships;
 pub mod search;
 pub mod sessions;

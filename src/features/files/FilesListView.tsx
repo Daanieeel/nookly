@@ -1,14 +1,23 @@
 import {
+  IconArrowUp,
+  IconCaretDownFilled,
+  IconCaretRightFilled,
+  IconCategory,
+  IconDragDrop,
   IconExternalLink,
   IconFile,
-  IconLayoutGrid,
-  IconList,
-  IconUpload,
+  IconFileUpload,
+  IconLink,
+  IconWorld,
+  IconX,
 } from "@tabler/icons-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { homeDir, join } from "@tauri-apps/api/path";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type ActionStatus,
   StatusAnnouncer,
@@ -19,50 +28,179 @@ import {
 } from "@/components/action-feedback";
 import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
-import { EntityIcon } from "@/components/entity-icon";
-import { EntityKey } from "@/components/entity-key";
+import { EntityKeyCopyInline } from "@/components/entity-key";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  applyFilters,
+} from "@/components/filter-menu";
+import { FLOATING_BAR_INPUT, FloatingBar } from "@/components/floating-bar";
+import {
+  buildGroups,
+  isCollapsed,
+  moveRowFocus,
+  toggleId,
+} from "@/components/grouped-view/grouping";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { createFileLink, importFile, listFiles } from "@/lib/api/files";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { hostOf, useCaptureScreenshot } from "@/features/bookmarks/bookmark-model";
+import { useCreateShortcut } from "@/hooks/use-create-shortcut";
+import { createBookmark, fetchBookmarkMetadata } from "@/lib/api/bookmarks";
+import { convertEntity } from "@/lib/api/entities";
+import { importFile, importFileFromUrl, listFiles, referenceFile } from "@/lib/api/files";
+import type { FileEntity } from "@/lib/api/types";
+import { formatShortDate } from "@/lib/datetime";
 import { displayTitle } from "@/lib/entity-title";
 import { cn } from "@/lib/utils";
+import { FileDisplayMenu } from "./FileDisplayMenu";
+import {
+  FILE_KINDS,
+  fileExtension,
+  fileKind,
+  filePath,
+  isReference,
+  isViewable,
+} from "./file-kind";
+import {
+  type DisplayOptions,
+  fileGroupDefs,
+  orderFiles,
+  readDisplay,
+  writeDisplay,
+} from "./file-model";
+import { useNavStore } from "@/lib/store/nav";
 
-/// Grid of file-type tiles is the default (§2.3 Files row) — a bare filename list
-/// is the fallback, not the norm. Drag-and-drop onto this view is the primary way
-/// to add a file (§3.3 New File); the file picker button is the fallback path.
+/// Marks items that just arrived for a moment, so a new file never appears silently.
+function useFreshIds() {
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const mark = useCallback((ids: string[]) => {
+    setFresh(new Set(ids));
+    setTimeout(() => setFresh(new Set()), 2000);
+  }, []);
+  return [fresh, mark] as const;
+}
+
+/// A local path as typed, pasted or copied from Finder: absolute, `~/`, or a
+/// `file://` URL, with shell escapes and wrapping quotes removed. Null for
+/// anything else.
+async function localPath(text: string): Promise<string | null> {
+  const raw = text.trim().replace(/^(["'])(.*)\1$/, "$2");
+  if (raw.startsWith("file://")) return decodeURIComponent(new URL(raw).pathname);
+  const unescaped = raw.replace(/\\(.)/g, "$1");
+  if (unescaped.startsWith("~/")) return join(await homeDir(), unescaped.slice(2));
+  if (unescaped.startsWith("/")) return unescaped;
+  return null;
+}
+
+/// "example.com/x" gets its scheme; anything that isn't a web address is null.
+function webUrl(text: string): string | null {
+  const raw = text.trim();
+  if (!/^(https?:\/\/)?[\w-]+(\.[\w-]+)+(:\d+)?(\/\S*)?$/i.test(raw)) return null;
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+type Added =
+  | { kind: "files"; files: FileEntity[]; fromLink: boolean }
+  | { kind: "webpage"; url: string };
+
+/// What the bar offers after a link: a webpage to save as a Bookmark, or a
+/// downloaded file the viewer can't show, which may be better as a Bookmark.
+type Offer = { kind: "webpage"; url: string } | { kind: "unviewable"; file: FileEntity };
+
+/// Files like Finder's icon view: a grid of type tinted tiles by default, a dense
+/// list as the alternative. Dropping files anywhere on the window is the main way
+/// in; the floating bar takes a link or a path, or opens the file picker.
 export function FilesListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
-  const [linkUrl, setLinkUrl] = useState("");
-  const [linkTitle, setLinkTitle] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const openEntity = useNavStore((s) => s.openEntity);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [text, setText] = useState("");
+  const [offer, setOffer] = useState<Offer | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [fresh, markFresh] = useFreshIds();
 
-  const { data: files = [] } = useQuery({
+  const { data: files = [], isPending } = useQuery({
     queryKey: ["files", spaceId],
     queryFn: () => listFiles(spaceId),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
+  const setDisplay = (next: DisplayOptions) => {
+    setDisplayState(next);
+    writeDisplay(next);
+  };
 
+  const imported = (created: FileEntity[]) => {
+    markFresh(created.map((f) => f.entity.id));
+    return queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
+  };
   const pickAndImport = useMutation({
     mutationFn: async () => {
-      const selected = await open({ multiple: false, directory: false });
-      if (!selected || Array.isArray(selected)) return null;
-      return importFile(spaceId, selected);
+      const selected = await open({ multiple: true, directory: false });
+      if (!selected) return null;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      return Promise.all(paths.map((path) => importFile(spaceId, path)));
     },
-    onSuccess: invalidate,
+    onSuccess: (created) => created && imported(created),
   });
   const importPaths = useMutation({
     mutationFn: (paths: string[]) => Promise.all(paths.map((path) => importFile(spaceId, path))),
-    onSuccess: invalidate,
+    onSuccess: imported,
   });
-  const addLink = useMutation({
-    mutationFn: () => createFileLink(spaceId, linkTitle || linkUrl, linkUrl),
+  /// A typed path imports that file; a link downloads what's behind it, unless
+  /// it's a webpage, which is offered as a Bookmark instead.
+  const addFromText = useMutation({
+    mutationFn: async (value: string): Promise<Added> => {
+      const path = await localPath(value);
+      // A typed path is referenced where it is; copying it in is one click later.
+      if (path)
+        return { kind: "files", files: [await referenceFile(spaceId, path)], fromLink: false };
+      const url = webUrl(value);
+      if (!url) throw new Error("that's neither a link nor a file path");
+      const result = await importFileFromUrl(spaceId, url);
+      return result.kind === "file"
+        ? { kind: "files", files: [result.file], fromLink: true }
+        : { kind: "webpage", url };
+    },
+    onSuccess: async (added) => {
+      if (added.kind === "webpage") {
+        setOffer({ kind: "webpage", url: added.url });
+        return;
+      }
+      setText("");
+      await imported(added.files);
+      const [file] = added.files;
+      if (added.fromLink && file && !isViewable(file)) setOffer({ kind: "unviewable", file });
+    },
+  });
+  const capture = useCaptureScreenshot(spaceId);
+  /// A webpage becomes a new Bookmark; an unviewable download converts in place,
+  /// keeping its id, labels and relationships.
+  const saveBookmark = useMutation({
+    mutationFn: async (target: Offer) => {
+      const id =
+        target.kind === "webpage"
+          ? (await createBookmark(spaceId, target.url)).entity.id
+          : (await convertEntity(target.file.entity.id, "bookmark")).id;
+      const url = target.kind === "webpage" ? target.url : (target.file.url ?? "");
+      fetchBookmarkMetadata(id, url)
+        .catch(() => {})
+        .finally(() => capture.mutate(id));
+    },
     onSuccess: () => {
-      invalidate();
-      setLinkUrl("");
-      setLinkTitle("");
+      void queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
+      setText("");
+      // The check shows on the bar for a moment before it returns to the field.
+      setTimeout(() => {
+        setOffer(null);
+        saveBookmark.reset();
+      }, 2000);
     },
   });
 
@@ -70,31 +208,44 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   // A cancelled native open dialog resolves `null`: back to rest, not success.
   const pickStatus: ActionStatus =
     pickStatusRaw === "success" && pickAndImport.data === null ? "idle" : pickStatusRaw;
+  const addStatus = useActionStatus(addFromText);
+  const bookmarkStatus = useActionStatus(saveBookmark);
   const dropStatus = useActionStatus(importPaths);
-  const linkStatus = useActionStatus(addLink);
   const droppedCount = importPaths.variables?.length ?? 0;
+  const droppedLabel = droppedCount === 1 ? "1 file" : `${droppedCount} files`;
   const dropMessage =
     dropStatus === "pending"
-      ? `Importing ${droppedCount === 1 ? "1 file" : `${droppedCount} files`}`
+      ? `Importing ${droppedLabel}`
       : dropStatus === "success"
-        ? `${droppedCount === 1 ? "1 file" : `${droppedCount} files`} imported`
+        ? `${droppedLabel} imported`
         : dropStatus === "error"
           ? `Couldn't import dropped files: ${importPaths.error?.message ?? ""}`
           : null;
 
-  // Real OS drag-and-drop (§3.3): a browser-level `ondrop`/`dataTransfer.files` only
-  // gives synthetic File objects with no filesystem path inside a Tauri webview, so
-  // dropped files can't be handed to `importFile` that way. Tauri's own webview-level
-  // drag-drop event carries real paths instead.
+  const startImport = useCallback(() => {
+    if (!pickAndImport.isPending) pickAndImport.mutate();
+  }, [pickAndImport]);
+  useCreateShortcut(startImport);
+
+  const submitText = () => {
+    if (text.trim() && !addFromText.isPending) addFromText.mutate(text);
+  };
+  const dismissOffer = () => {
+    setOffer(null);
+    addFromText.reset();
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  // A browser `ondrop` only hands over File objects without a filesystem path
+  // inside a Tauri webview, so `importFile` can't use them. Tauri's own drag and
+  // drop event carries the real paths.
   useEffect(() => {
     const unlistenPromise = getCurrentWebview().onDragDropEvent((event) => {
       if (event.payload.type === "drop") {
         setIsDragOver(false);
         if (event.payload.paths.length > 0) importPaths.mutate(event.payload.paths);
-      } else if (event.payload.type === "enter" || event.payload.type === "over") {
-        setIsDragOver(true);
       } else {
-        setIsDragOver(false);
+        setIsDragOver(event.payload.type === "enter" || event.payload.type === "over");
       }
     });
     return () => {
@@ -102,183 +253,436 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     };
   }, [spaceId]);
 
+  const filterFields = useMemo<FilterField[]>(() => {
+    const present = new Set(files.map((f) => fileKind(f).id));
+    return [
+      {
+        id: "kind",
+        label: "Kind",
+        icon: IconCategory,
+        options: FILE_KINDS.filter((k) => present.has(k.id)).map((k) => ({
+          value: k.id,
+          label: k.label,
+          icon: <k.icon size={14} className={k.tone} />,
+        })),
+      },
+    ];
+  }, [files]);
+
+  const visible = orderFiles(
+    applyFilters(files, filters, (f) => fileKind(f).id),
+    display.ordering,
+  );
+  const defs = fileGroupDefs(display.grouping);
+  const groups = buildGroups(
+    visible,
+    defs ?? [{ id: "all", name: "All files", match: () => true }],
+    null,
+  ).filter((g) => g.items.length > 0);
+  const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
+
+  const renderItems = (items: FileEntity[]) =>
+    display.layout === "grid" ? (
+      <ul
+        aria-label="Files"
+        className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-4"
+      >
+        {items.map((f) => (
+          <FileTile
+            key={f.entity.id}
+            file={f}
+            fresh={fresh.has(f.entity.id)}
+            onOpen={() => openFile(f)}
+          />
+        ))}
+      </ul>
+    ) : (
+      <div>
+        {items.map((f) => (
+          <FileRow
+            key={f.entity.id}
+            file={f}
+            fresh={fresh.has(f.entity.id)}
+            onOpen={() => openFile(f)}
+          />
+        ))}
+      </div>
+    );
+
+  const addError = addFromText.isError
+    ? `Couldn't add it: ${addFromText.error.message}`
+    : saveBookmark.isError
+      ? `Couldn't save the bookmark: ${saveBookmark.error.message}`
+      : null;
+
   return (
     <div
-      className="flex max-w-4xl flex-col gap-4"
+      className="relative flex h-full min-h-0 flex-col"
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "Import a File…",
-        create: () => !pickAndImport.isPending && pickAndImport.mutate(),
+        create: startImport,
       })}
     >
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Files</h1>
-        <div className="flex items-center gap-0.5 rounded-md border border-input bg-accent p-0.5">
-          <Button
-            variant={view === "grid" ? "secondary" : "ghost"}
-            size="iconSm"
-            aria-label="Grid view"
-            onClick={() => setView("grid")}
+      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
+        <h1 className="flex items-center gap-2 text-sm font-medium">
+          <IconFile size={16} className="text-muted-foreground" />
+          Files
+        </h1>
+        {dropMessage && (
+          <span
+            className={cn(
+              "flex min-w-0 items-center gap-1.5 truncate text-xs",
+              statusTextClass(dropStatus) ?? "text-muted-foreground",
+            )}
           >
-            <IconLayoutGrid size={14} />
-          </Button>
-          <Button
-            variant={view === "list" ? "secondary" : "ghost"}
-            size="iconSm"
-            aria-label="List view"
-            onClick={() => setView("list")}
-          >
-            <IconList size={14} />
+            <StatusIcon status={dropStatus} idle={null} size={12} />
+            {dropMessage}
+          </span>
+        )}
+        <StatusAnnouncer message={dropStatus === "pending" ? null : dropMessage} />
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          <div className="min-w-0 flex-1">
+            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          </div>
+          <FileDisplayMenu display={display} onChange={setDisplay} />
+        </div>
+      </header>
+
+      {!isPending && files.length === 0 ? (
+        <div className="p-6">
+          <EmptyState
+            icon={IconDragDrop}
+            title="No files yet"
+            description="Drop files anywhere in this window, or paste a link to a file below. Nookly keeps its own copy."
+            action={{ label: "Choose files", onClick: startImport }}
+          />
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-muted-foreground">No files match these filters.</p>
+          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+            Clear filters
           </Button>
         </div>
-      </div>
+      ) : (
+        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
+        <div className="min-h-0 flex-1 overflow-y-auto pb-24" onKeyDown={moveRowFocus}>
+          {defs === null
+            ? renderItems(visible)
+            : groups.map((group) => (
+                <GroupSection
+                  key={group.id}
+                  name={group.name}
+                  count={group.items.length}
+                  collapsed={isCollapsed(collapsed, group.id, false)}
+                  onToggle={() => setCollapsed((prev) => toggleId(prev, group.id))}
+                >
+                  {renderItems(group.items)}
+                </GroupSection>
+              ))}
+        </div>
+      )}
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => !pickAndImport.isPending && pickAndImport.mutate()}
-          >
-            <StatusButtonContent
-              status={pickStatus}
-              icon={<IconUpload size={14} />}
-              label="Import a file"
-              successLabel="File imported"
-              errorLabel="Couldn't import, try again"
-            />
-          </Button>
-          {/* Dropped files have no single control, so this hint line reports their import. */}
-          {dropMessage ? (
-            <span
-              className={cn(
-                "flex items-center gap-1.5 text-xs",
-                statusTextClass(dropStatus) ?? "text-muted-foreground",
-              )}
-            >
-              <StatusIcon status={dropStatus} idle={null} size={12} />
-              {dropMessage}
-            </span>
+      {offer ? (
+        <FloatingBar
+          onSubmit={() => bookmarkStatus === "idle" && saveBookmark.mutate(offer)}
+          failed={saveBookmark.isError}
+        >
+          {offer.kind === "webpage" ? (
+            <>
+              <IconWorld size={16} className="shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-sm" title={offer.url}>
+                <span className="font-medium">{hostOf(offer.url)}</span>
+                <span className="text-muted-foreground"> is a webpage, not a file.</span>
+              </span>
+            </>
           ) : (
-            <span className="text-xs text-muted-foreground">
-              Or drag files anywhere in this window. They're copied into Nookly's own storage and
-              the original stays untouched.
-            </span>
+            <>
+              <StatusIcon status="success" idle={null} />
+              <span className="min-w-0 flex-1 truncate text-sm" title={offer.file.url ?? undefined}>
+                <span className="font-medium">{displayTitle(offer.file.entity)}</span>
+                <span className="text-muted-foreground"> added, but it can't be shown here.</span>
+              </span>
+            </>
           )}
-          <StatusAnnouncer message={dropStatus === "pending" ? null : dropMessage} />
-        </div>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Title (optional)"
-            value={linkTitle}
-            onChange={(e) => setLinkTitle(e.target.value)}
-            className="w-40"
-          />
-          <Input
-            placeholder="Google Drive / Dropbox / iCloud / any URL"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            size="sm"
-            disabled={!linkUrl.trim() && linkStatus !== "success"}
-            onClick={() => linkUrl.trim() && !addLink.isPending && addLink.mutate()}
-          >
+          <Button type="submit" variant="secondary" size="sm" className="shrink-0">
             <StatusButtonContent
-              status={linkStatus}
-              label="Link"
-              successLabel="Linked"
-              errorLabel="Couldn't link, try again"
+              status={bookmarkStatus}
+              label={offer.kind === "webpage" ? "Save as Bookmark" : "Convert to Bookmark"}
+              successLabel="Saved to Bookmarks"
+              errorLabel="Couldn't save, try again"
             />
           </Button>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "min-h-32 rounded-lg border border-dashed border-transparent transition-colors",
-          isDragOver && "border-primary bg-primary/5",
-        )}
-      >
-        {view === "grid" ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {files.map((f) => (
-              <div
-                key={f.entity.id}
-                className="group flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center hover:bg-accent"
-                {...entityTarget(f.entity, f)}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="iconSm"
+                aria-label={offer.kind === "webpage" ? "Dismiss" : "Keep as File"}
+                onClick={dismissOffer}
               >
-                <EntityIcon
-                  entity={f.entity}
-                  size={32}
-                  className="shrink-0 text-muted-foreground"
+                <IconX />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{offer.kind === "webpage" ? "Dismiss" : "Keep as File"}</TooltipContent>
+          </Tooltip>
+        </FloatingBar>
+      ) : (
+        <FloatingBar onSubmit={submitText} failed={addError !== null}>
+          <IconLink size={16} className="shrink-0 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            placeholder="Paste a link or file path"
+            aria-label={addError ?? "Link or file path"}
+            aria-invalid={addError !== null || undefined}
+            title={addError ?? undefined}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (addFromText.isError) addFromText.reset();
+            }}
+            onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+            className={FLOATING_BAR_INPUT}
+          />
+          {(text.trim() || addStatus !== "idle") && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label={addError ? "Couldn't add, try again" : "Add File"}
+                >
+                  <StatusIcon status={addStatus} idle={<IconArrowUp />} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{addError ?? "Add File"}</TooltipContent>
+            </Tooltip>
+          )}
+          <span className="shrink-0 text-xs text-muted-foreground">or</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                onClick={startImport}
+              >
+                <StatusButtonContent
+                  status={pickStatus}
+                  icon={<IconFileUpload />}
+                  label="Choose Files"
+                  successLabel="Imported"
+                  errorLabel="Couldn't import, try again"
                 />
-                <span className="line-clamp-2 w-full min-w-0 text-xs font-medium">
-                  {displayTitle(f.entity)}
-                </span>
-                <div className="flex min-h-4 items-center gap-1.5">
-                  <EntityKey entityKey={f.entity.key} />
-                  {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
-                  {f.url && (
-                    <a
-                      href={f.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Open link"
-                      className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-                    >
-                      <IconExternalLink size={12} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-            {files.length === 0 && (
-              <EmptyState
-                icon={IconFile}
-                title="No files yet"
-                description="Import a file or drop it anywhere in this window."
-                className="col-span-full"
-              />
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {files.map((f) => (
-              <div
-                key={f.entity.id}
-                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                {...entityTarget(f.entity, f)}
-              >
-                <EntityIcon entity={f.entity} className="shrink-0 text-muted-foreground" />
-                <EntityKey entityKey={f.entity.key} />
-                <span className="min-w-0 flex-1 truncate">{displayTitle(f.entity)}</span>
-                {f.provider && <Badge variant="outline">{f.provider.replace("_", " ")}</Badge>}
-                {f.url && (
-                  <a
-                    href={f.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open link"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <IconExternalLink size={14} />
-                  </a>
-                )}
-              </div>
-            ))}
-            {files.length === 0 && (
-              <EmptyState
-                icon={IconFile}
-                title="No files yet"
-                description="Import a file or drop it anywhere in this window."
-              />
-            )}
-          </div>
-        )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              Choose files to import <Kbd>C</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </FloatingBar>
+      )}
+
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-x-2 top-14 bottom-2 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5">
+          <span className="flex items-center gap-2 rounded-md bg-background px-3 py-1.5 text-sm font-medium shadow-sm">
+            <IconDragDrop size={16} className="text-primary" />
+            Drop to import into Files
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroupSection({
+  name,
+  count,
+  collapsed,
+  onToggle,
+  children,
+}: {
+  name: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-label={name}>
+      <div className="sticky top-0 z-30 flex h-9 items-center border-b border-border bg-card px-2">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+          className="flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-accent/60"
+        >
+          {collapsed ? (
+            <IconCaretRightFilled size={10} className="text-muted-foreground" />
+          ) : (
+            <IconCaretDownFilled size={10} className="text-muted-foreground" />
+          )}
+          <span className="truncate font-medium">{name}</span>
+          <span className="text-muted-foreground tabular-nums">{count}</span>
+        </button>
       </div>
+      {!collapsed && children}
+    </section>
+  );
+}
+
+/// "PDF · Sep 24", or the provider for a cloud link.
+function fileMeta(file: FileEntity): string {
+  const kind = fileKind(file);
+  const ext = fileExtension(file);
+  const label = kind.id === "other" && ext ? ext.toUpperCase() : kind.label;
+  const where = isReference(file) ? " · On disk" : "";
+  return `${label} · ${formatShortDate(file.entity.createdAt)}${where}`;
+}
+
+function FilePreview({ file }: { file: FileEntity }) {
+  const kind = fileKind(file);
+  const [broken, setBroken] = useState(false);
+  const ext = fileExtension(file);
+  const path = filePath(file);
+  if (kind.id === "image" && path && !broken) {
+    return (
+      <img
+        src={convertFileSrc(path)}
+        alt=""
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className="size-full object-cover"
+      />
+    );
+  }
+  return (
+    <>
+      <kind.icon size={36} stroke={1.5} className={kind.tone} />
+      {ext && (
+        <Badge variant="secondary" className="absolute bottom-1.5 left-1.5 uppercase">
+          {ext}
+        </Badge>
+      )}
+    </>
+  );
+}
+
+function OpenLinkButton({
+  url,
+  variant = "ghost",
+  className,
+}: {
+  url: string;
+  variant?: "ghost" | "secondary";
+  className?: string;
+}) {
+  return (
+    <span className={cn("relative flex", className)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={variant}
+            size="iconSm"
+            aria-label="Open Link"
+            onClick={() => openUrl(url)}
+            className="size-6"
+          >
+            <IconExternalLink />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Open Link</TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
+
+export function FileTile({
+  file,
+  fresh,
+  onOpen,
+}: {
+  file: FileEntity;
+  fresh: boolean;
+  onOpen: () => void;
+}) {
+  const title = displayTitle(file.entity);
+  return (
+    <li
+      className={cn(
+        "group relative flex flex-col gap-2 rounded-lg p-1.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40",
+        fresh && "bg-primary/5 ring-1 ring-primary/40",
+      )}
+      {...entityTarget(file.entity, file)}
+    >
+      <button
+        type="button"
+        aria-label={`Open ${title}`}
+        onClick={onOpen}
+        className="absolute inset-0 cursor-pointer rounded-lg outline-none"
+      />
+      <div className="pointer-events-none relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/40">
+        <FilePreview file={file} />
+      </div>
+      <div className="pointer-events-none relative flex min-w-0 flex-col gap-0.5 px-0.5">
+        <span className="truncate text-sm">{title}</span>
+        <span className="truncate text-xs text-muted-foreground">{fileMeta(file)}</span>
+      </div>
+      {file.url && (
+        <OpenLinkButton
+          url={file.url}
+          variant="secondary"
+          className="absolute top-2.5 right-2.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+        />
+      )}
+    </li>
+  );
+}
+
+export function FileRow({
+  file,
+  fresh,
+  onOpen,
+}: {
+  file: FileEntity;
+  fresh: boolean;
+  onOpen: () => void;
+}) {
+  const title = displayTitle(file.entity);
+  const kind = fileKind(file);
+  return (
+    <div
+      className={cn(
+        "relative flex h-11 items-center gap-3 border-b border-border/60 px-4 transition-colors focus-within:bg-accent/50 hover:bg-accent/40",
+        fresh && "bg-primary/5",
+      )}
+      {...entityTarget(file.entity, file)}
+    >
+      <button
+        type="button"
+        data-task-row
+        aria-label={`Open ${title}`}
+        onClick={onOpen}
+        className="absolute inset-0 cursor-pointer outline-none"
+      />
+      <kind.icon size={16} className={cn("pointer-events-none relative shrink-0", kind.tone)} />
+      <span className="relative hidden w-20 shrink-0 sm:flex">
+        <EntityKeyCopyInline entityKey={file.entity.key} className="-ml-1" />
+      </span>
+      <span className="pointer-events-none relative min-w-0 flex-1 truncate text-sm">{title}</span>
+      <span className="pointer-events-none relative w-28 shrink-0 truncate text-xs text-muted-foreground max-md:hidden">
+        {kind.label}
+      </span>
+      <span className="pointer-events-none relative w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+        {formatShortDate(file.entity.createdAt)}
+      </span>
+      <span className="relative flex w-6 shrink-0 justify-end">
+        {file.url && <OpenLinkButton url={file.url} />}
+      </span>
     </div>
   );
 }

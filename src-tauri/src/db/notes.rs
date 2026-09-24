@@ -91,6 +91,52 @@ pub fn count_unrefined_jots_all_spaces(conn: &Connection) -> AppResult<i64> {
     Ok(count)
 }
 
+/// Unrefined Jots across every Space, most recently edited first, with a content
+/// preview each: the Dashboard's refine queue.
+pub fn list_unrefined_jots_all_spaces(
+    conn: &Connection,
+    limit: i64,
+) -> AppResult<Vec<PageSummary>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT e.*, COALESCE(MAX(b.updated_at, e.updated_at), e.updated_at) AS last_edited_at
+         FROM entities e
+         LEFT JOIN (SELECT entity_id, MAX(updated_at) AS updated_at FROM blocks GROUP BY entity_id) b
+           ON b.entity_id = e.id
+         WHERE e.type = 'jot' AND e.deleted_at IS NULL AND NOT EXISTS ({LINKED_NOTE})
+         ORDER BY last_edited_at DESC
+         LIMIT ?1"
+    ))?;
+    let mut summaries = stmt
+        .query_map(params![limit], |row| {
+            Ok(PageSummary {
+                entity: row_to_entity(row)?,
+                preview: String::new(),
+                last_edited_at: row.get("last_edited_at")?,
+                label_ids: Vec::new(),
+                linked: Vec::new(),
+                session: None,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT content FROM blocks
+         WHERE entity_id = ?1 AND block_type IN ({PREVIEW_BLOCK_TYPES}) AND TRIM(content) != ''
+         ORDER BY position ASC"
+    ))?;
+    for summary in &mut summaries {
+        let mut rows = stmt.query(params![summary.entity.id])?;
+        while let Some(row) = rows.next()? {
+            let content: String = row.get(0)?;
+            if !append_preview(&mut summary.preview, &content) {
+                break;
+            }
+        }
+        truncate_preview(&mut summary.preview);
+    }
+    Ok(summaries)
+}
+
 /// Most recently *edited* Notes (by block content, falling back to the entity's own
 /// `updated_at`) — block edits don't bump `entities.updated_at`, only title/icon/pinned
 /// patches do, so recency has to come from `blocks.updated_at` instead.
@@ -215,6 +261,25 @@ fn summary_index(summaries: &[PageSummary]) -> std::collections::HashMap<String,
         .collect()
 }
 
+/// Appends one block's text to a preview, unless it's already full. Returns whether
+/// there was room, so a caller reading blocks in order can stop early.
+fn append_preview(preview: &mut String, content: &str) -> bool {
+    if preview.chars().count() >= PREVIEW_CHARS {
+        return false;
+    }
+    if !preview.is_empty() {
+        preview.push('\n');
+    }
+    preview.push_str(content.trim());
+    true
+}
+
+fn truncate_preview(preview: &mut String) {
+    if let Some((cut, _)) = preview.char_indices().nth(PREVIEW_CHARS) {
+        preview.truncate(cut);
+    }
+}
+
 /// `types_sql` is a fixed, quoted type list from the callers above, never user input.
 fn list_page_summaries(
     conn: &Connection,
@@ -256,19 +321,10 @@ fn list_page_summaries(
         let Some(&i) = index.get(&entity_id) else {
             continue;
         };
-        let preview = &mut summaries[i].preview;
-        if preview.chars().count() >= PREVIEW_CHARS {
-            continue;
-        }
-        if !preview.is_empty() {
-            preview.push('\n');
-        }
-        preview.push_str(content.trim());
+        append_preview(&mut summaries[i].preview, &content);
     }
     for summary in &mut summaries {
-        if let Some((cut, _)) = summary.preview.char_indices().nth(PREVIEW_CHARS) {
-            summary.preview.truncate(cut);
-        }
+        truncate_preview(&mut summary.preview);
     }
 
     let mut stmt = conn.prepare(&format!(
@@ -945,6 +1001,49 @@ mod tests {
     }
 
     #[test]
+    fn unrefined_jots_across_spaces_carry_previews() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let study =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let home =
+            crate::db::spaces::create_space(&conn, "Home".into(), None, "#fff".into()).unwrap();
+        let raw = create_page(&conn, study.id.clone(), "jot", "".into()).unwrap();
+        let other = create_page(&conn, home.id.clone(), "jot", "".into()).unwrap();
+        let refined = create_page(&conn, study.id.clone(), "jot", "".into()).unwrap();
+        let note = create_page(&conn, study.id.clone(), "note", "Clean".into()).unwrap();
+        crate::db::relationships::create_relationship(
+            &conn,
+            refined.id.clone(),
+            note.id,
+            "relates-to".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &raw.id,
+            "paragraph".into(),
+            "Dijkstra needs non negative weights".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let jots = list_unrefined_jots_all_spaces(&conn, 10).unwrap();
+        let ids: Vec<_> = jots.iter().map(|j| j.entity.id.as_str()).collect();
+        assert_eq!(jots.len(), 2);
+        assert!(ids.contains(&raw.id.as_str()) && ids.contains(&other.id.as_str()));
+        let with_text = jots.iter().find(|j| j.entity.id == raw.id).unwrap();
+        assert_eq!(with_text.preview, "Dijkstra needs non negative weights");
+        assert_eq!(list_unrefined_jots_all_spaces(&conn, 1).unwrap().len(), 1);
+    }
+
+    #[test]
     fn markdown_export_covers_every_block_type() {
         let mut conn = Connection::open_in_memory().unwrap();
         crate::db::migrations::MIGRATIONS
@@ -1196,11 +1295,13 @@ mod tests {
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
         let other = create_page(&conn, space.id.clone(), "note", "Other".into()).unwrap();
-        let file = crate::db::files::create_file_link(
+        let file = crate::db::files::store_file(
             &conn,
+            &std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id())),
             space.id,
-            "Slides".into(),
-            "https://example.com/slides.pdf".into(),
+            "slides.pdf",
+            b"%PDF",
+            Some("https://example.com/slides.pdf"),
         )
         .unwrap();
         create_block(
@@ -1218,7 +1319,8 @@ mod tests {
         .unwrap();
 
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
-        assert!(markdown.contains("[Slides](https://example.com/slides.pdf)"));
+        // The stored copy wins over the link it was downloaded from.
+        assert!(markdown.contains("[Slides](file://"));
         assert!(markdown.contains(&format!("[Other](mention:{})", other.id)));
     }
 

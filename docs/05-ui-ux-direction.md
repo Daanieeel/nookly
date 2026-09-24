@@ -24,7 +24,7 @@ The active Space's accent color shows up beyond its sidebar label, in highlights
 
 ## Remembered Customizations
 
-Layout and view choices the user makes, such as collapsing or resizing a sidebar, the theme, or the last active Space, are remembered across sessions and restarts. The app reopens the way the user left it. These preferences are stored per device and are not synced. See [Local Storage Keys](development/local-storage-key.md) for the keys and the rules for adding new ones.
+Layout and view choices the user makes, such as collapsing or resizing a sidebar, the theme, or the last active Space, are remembered across sessions and restarts. The app reopens the way the user left it. These preferences are stored per device and are not synced. See [Preference Keys](development/preference-keys.md) for the keys and the rules for adding new ones.
 
 ## Command Palette
 
@@ -89,10 +89,11 @@ Look at the nature of the data (is it time-based, document-based, visual, driven
 | Courses            | Card grid or compact list showing name, semester chips, and sequel or prequel indicators.                           |
 | Sessions/Timetable | Calendar first, using a weekly timetable grid. A list is secondary.                                                 |
 | Exams              | Timeline or upcoming-first list, sorted by date, with urgency emphasized. Grade and status as badges.               |
+| Decks              | Grid of deck piles, decks with cards to study first. A deck page is a writing desk and a study session.             |
 | Assignments        | List that puts dates and status first. Visually distinct from Tasks despite the similarity.                         |
 | Files              | Grid by default with file-type icons or thumbnails. List as a toggle.                                               |
 | Bookmarks          | Grid of rich preview cards showing favicon, title, and preview image.                                               |
-| Dashboard          | Bento grid with blocks of varying size. Should read clearly as a dashboard, unlike the list pages.                  |
+| Dashboard          | Flat sections on the page background, no cards. Wide windows put Today and Unrefined Jots side by side.             |
 
 ## Content-Aware Creation Flows (top redesign priority)
 

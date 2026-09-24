@@ -502,6 +502,12 @@ Run through this after installing — every one of these was a real, reported bu
 4. **Wrong corner radius on interactive elements.** Vendored `data-table-sort-list.tsx` and `data-table-range-filter.tsx` hardcode a bare `rounded` (sharp, `0.25rem`) on several buttons/selects/inputs, overriding your theme's `rounded-md`. Grep for `\brounded\b` (not `rounded-*`) across the installed files and delete these overrides so they inherit the component defaults.
 5. **Clickable column headers need `cursor-pointer` explicitly.** Tailwind's preflight resets `button { cursor: default }`; a `<DropdownMenuTrigger>`-based sortable header (not a `<Button>`, which already carries `cursor-pointer` in its base classes) needs it added by hand in `data-table-column-header.tsx`.
 6. **The sort field list does not show column icons by default.** The filter menu does, so the two popovers look inconsistent. See the patch in §9.
+7. **The add filter field list must hide fields that already have a filter.** Picking an already filtered field does nothing useful, since that filter is edited through its own chip. Only list fields without an active filter, and hide the Filter button once every field is filtered. In Nookly this lives in `src/components/filter-menu.tsx`:
+
+   ```tsx
+   const available = fields.filter((f) => !filters.some((a) => a.fieldId === f.id));
+   // render available.map(...) in the field list, and the Popover only when available.length > 0
+   ```
 
 ## 12. Verifying it actually works
 

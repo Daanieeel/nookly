@@ -35,6 +35,9 @@
      --card/--popover/--muted collapse to the same value in dark mode, so
      neither works for e.g. Tabs' active-segment fill inside a muted track. */
   --raised: #ffffff;
+  /* Saturday and Sunday on the Sessions calendar: a step off --card, readable in
+     both themes (--muted equals --card in dark mode). */
+  --weekend: #f5f5f6;
 
   --accent-blue: #0070f3;
   --accent-green: #00873d;
@@ -76,6 +79,7 @@
   --input: #3a3a3a;
   --ring: #0070f3;
   --raised: #333333;
+  --weekend: #121212;
 
   --accent-blue: #47a8ff;
   --accent-green: #00cb50;
@@ -120,6 +124,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-raised: var(--raised);
+  --color-weekend: var(--weekend);
   --color-accent-blue: var(--accent-blue);
   --color-accent-green: var(--accent-green);
   --color-accent-pink: var(--accent-pink);
@@ -855,4 +860,92 @@
   position: absolute;
   inset: 0;
   animation: sidebar-stat-out 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* A highlighted run in the file viewer's code, styled from the highlighter's
+   inline CSS mapped onto custom properties (`files/code-viewer.tsx`). */
+.code-token {
+  color: var(--token-color, inherit);
+  font-style: var(--token-font-style, normal);
+  font-weight: var(--token-font-weight, inherit);
+  text-decoration: var(--token-decoration, none);
+}
+
+/* Word documents in the file viewer (`files/office-viewers.tsx`): docx-preview's
+   own grey backdrop gives way to the viewer's themed one. */
+.docx-viewer .docx-wrapper {
+  background: transparent;
+  padding: 1rem 1rem 0;
+}
+.docx-viewer .docx-wrapper > section.docx {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+  margin-bottom: 1rem;
+}
+/* Dark colors: pages inverted with hue kept, like PDFs; a shadow would invert to a glow. */
+.docx-viewer.docx-inverted .docx-wrapper > section.docx {
+  filter: invert(1) hue-rotate(180deg);
+  box-shadow: none;
+}
+
+/* Spreadsheet cells in the file viewer, styled from the workbook through custom properties. */
+.sheet-col {
+  width: var(--col-width);
+}
+.sheet-cell {
+  background: var(--cell-fill, transparent);
+  color: var(--cell-color, var(--cell-default-color, inherit));
+  font-weight: var(--cell-weight, inherit);
+  font-style: var(--cell-style, normal);
+  text-align: var(--cell-align, left);
+}
+.sheet-cell-on-fill {
+  --cell-default-color: var(--color-neutral-900);
+}
+
+/* The answer side of an index card: a red header rule and blue writing lines, like
+   the paper ones. `--card-rule` is the line pitch; text on it uses the same line height. */
+.index-card-ruled {
+  --card-rule: 28px;
+  --card-header: calc(var(--card-rule) * 2);
+  background-color: var(--card);
+  background-image:
+    linear-gradient(
+      to bottom,
+      var(--card) 0 calc(var(--card-header) - 1.5px),
+      color-mix(in oklab, var(--accent-pink) 45%, transparent) calc(var(--card-header) - 1.5px)
+        var(--card-header),
+      transparent var(--card-header)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--card-rule) - 1px),
+      color-mix(in oklab, var(--accent-blue) 18%, transparent) calc(var(--card-rule) - 1px)
+        var(--card-rule)
+    );
+}
+
+/* Index card paper: a hairline shadow plus a soft drop, so the card sits on the page. */
+.index-card-paper {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 8px 24px -12px rgb(0 0 0 / 0.25);
+}
+/* A card laid out in the deck grid lifts a little under the pointer. */
+.index-card-mini {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  transition:
+    translate 150ms ease,
+    box-shadow 150ms ease;
+}
+.index-card-mini:hover {
+  translate: 0 -2px;
+  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.3);
+}
+.index-card-code {
+  font-size: 0.9em;
+}
+/* One edge of the deck pile, `--depth` cards down, tilted alternately. */
+.deck-stack-layer {
+  transform: translateY(calc(var(--depth) * -3px)) rotate(var(--tilt));
+  opacity: calc(1 - var(--depth) * 0.18);
 }

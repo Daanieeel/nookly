@@ -194,6 +194,7 @@ function SemesterBody({ semester }: { semester: Entity }) {
                 exams={exams}
                 assignments={assignments}
                 onOpen={() => openEntity(course.id, spaceId)}
+                showSemester={false}
               />
             ))}
             <AddCourseCard

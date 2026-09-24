@@ -2,6 +2,7 @@ import { AssignmentsListView } from "@/features/assignments/AssignmentsListView"
 import { BookmarksListView } from "@/features/bookmarks/BookmarksListView";
 import { CoursesListView } from "@/features/courses/CoursesListView";
 import { SemestersListView } from "@/features/courses/SemestersListView";
+import { DecksListView } from "@/features/exams/DecksListView";
 import { ExamsListView } from "@/features/exams/ExamsListView";
 import { FilesListView } from "@/features/files/FilesListView";
 import { JotsListView } from "@/features/notes/JotsListView";
@@ -34,6 +35,8 @@ export function ModuleView({
       return <SessionsListView spaceId={spaceId} filterCourseId={filterCourseId} />;
     case "exams":
       return <ExamsListView spaceId={spaceId} filterCourseId={filterCourseId} />;
+    case "decks":
+      return <DecksListView spaceId={spaceId} />;
     case "assignments":
       return <AssignmentsListView spaceId={spaceId} filterCourseId={filterCourseId} />;
     case "files":

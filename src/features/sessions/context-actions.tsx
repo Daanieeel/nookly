@@ -9,14 +9,17 @@ import {
 } from "@/components/action-feedback";
 import { registerActions, registerEntityType } from "@/components/context-menu/registry";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { listSessions, overrideOccurrence } from "@/lib/api/sessions";
 import type { Entity, SessionOccurrence } from "@/lib/api/types";
+import { formatClock } from "@/lib/datetime";
+import { minutesToTime } from "./calendar/calendar-model";
 
 declare module "@/components/context-menu/registry" {
   interface ContextTargets {
-    /// One empty hour of the weekly calendar.
-    "sessions.slot": { hour: number; startCreate: () => void };
+    /// One empty half hour of the calendar's time grid, `startMin` minutes after midnight.
+    "sessions.slot": { startMin: number; startCreate: () => void };
   }
 }
 
@@ -60,12 +63,11 @@ function RescheduleForm({
         if (valid && !move.isPending) move.mutate();
       }}
     >
-      <Input
-        type="date"
+      <DateInput
         aria-label="Date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="h-8"
+        clearable={false}
+        value={date || null}
+        onChange={(day) => setDate(day ?? "")}
       />
       <div className="flex items-center gap-1.5">
         <Input
@@ -136,7 +138,7 @@ registerActions("sessions.slot", [
   {
     id: "new-session",
     group: "create",
-    label: ({ hour }) => `New Session at ${hour}:00`,
+    label: ({ startMin }) => `New Session at ${formatClock(minutesToTime(startMin))}`,
     icon: IconPlus,
     afterClose: true,
     run: ({ startCreate }) => startCreate(),

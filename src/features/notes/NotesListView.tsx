@@ -30,8 +30,10 @@ import { type DataTableFeatures, dataTableFeatures } from "@/lib/table-features"
 import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
 import { notePreviewText } from "./note-preview";
+import { formatDateTime } from "@/lib/datetime";
+import { preferences } from "@/lib/preferences";
 
-interface NoteRow {
+export interface NoteRow {
   summary: PageSummary;
   title: string;
   preview: string;
@@ -44,27 +46,19 @@ const MAX_ROW_LABELS = 3;
 
 /// Stored as `"<column>:<asc|desc>"`, e.g. `"edited:desc"`.
 function readStoredSorting(): SortingState {
-  try {
-    const [id, dir] = (localStorage.getItem(STORAGE_KEYS.notesSort) ?? "").split(":");
-    if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
-      return [{ id, desc: dir === "desc" }];
-    }
-  } catch {
-    // Storage unavailable; fall through to the default.
+  const [id, dir] = (preferences.get(STORAGE_KEYS.notesSort) ?? "").split(":");
+  if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
+    return [{ id, desc: dir === "desc" }];
   }
   return DEFAULT_SORTING;
 }
 
 function writeStoredSorting(sorting: SortingState) {
-  try {
-    const [first] = sorting;
-    if (first) {
-      localStorage.setItem(STORAGE_KEYS.notesSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.notesSort);
-    }
-  } catch {
-    // Preference only; the table still works without it.
+  const [first] = sorting;
+  if (first) {
+    preferences.set(STORAGE_KEYS.notesSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
+  } else {
+    preferences.remove(STORAGE_KEYS.notesSort);
   }
 }
 
@@ -77,7 +71,7 @@ function passesLabelFilters(row: NoteRow, filters: ActiveFilter[]): boolean {
   });
 }
 
-const columns: ColumnDef<DataTableFeatures, NoteRow>[] = [
+export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
   keyColumn<NoteRow>(),
   {
     id: "title",
@@ -117,7 +111,7 @@ const columns: ColumnDef<DataTableFeatures, NoteRow>[] = [
     cell: ({ row }) => (
       <time
         dateTime={row.original.summary.lastEditedAt}
-        title={new Date(row.original.summary.lastEditedAt).toLocaleString()}
+        title={formatDateTime(row.original.summary.lastEditedAt)}
         className="block text-right text-xs text-muted-foreground tabular-nums"
       >
         {formatEditedAt(row.original.summary.lastEditedAt)}
@@ -207,7 +201,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
 
   const table = useTable({
     features: dataTableFeatures,
-    columns,
+    columns: noteColumns,
     data,
     getRowId: (row) => row.summary.entity.id,
     state: { sorting },

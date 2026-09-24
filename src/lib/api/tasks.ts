@@ -26,6 +26,11 @@ export function subtaskProgress(parentEntityId: string): Promise<number | null> 
   return invoke("subtask_progress", { parentEntityId });
 }
 
+/// One Task (or Sub-task) with its label ids, for its detail page.
+export function getTask(entityId: string): Promise<Task> {
+  return invoke("get_task", { entityId });
+}
+
 export function listTasks(spaceId: string): Promise<Task[]> {
   return invoke("list_tasks", { spaceId });
 }
@@ -36,6 +41,11 @@ export function updateTaskStatus(entityId: string, statusId: string): Promise<vo
 
 export function countTasksDueToday(): Promise<TaskDueTodaySummary> {
   return invoke("count_tasks_due_today");
+}
+
+/// The Tasks `countOpenTasksDueOrOverdue` counts, across every Space, earliest due first.
+export function listOpenTasksDueOrOverdue(): Promise<Task[]> {
+  return invoke("list_open_tasks_due_or_overdue");
 }
 
 export function countOpenTasksDueOrOverdue(): Promise<number> {

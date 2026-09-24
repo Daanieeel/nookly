@@ -10,7 +10,6 @@ import {
   IconWand,
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type ActionStatus,
@@ -27,6 +26,7 @@ import { FeedbackMenuItem } from "@/components/feedback-menu-item";
 import { EntityKey } from "@/components/entity-key";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +68,7 @@ import { cn } from "@/lib/utils";
 import { ACADEMIC_SYSTEMS, TERM_TYPE_META } from "./academic-terms";
 import { orderSemesters, resolveActiveSemesterId } from "./current-semester";
 import { SemesterSetupWizard } from "./SemesterSetupWizard";
+import { formatShortDate } from "@/lib/datetime";
 
 /// The Semesters overview: chronological, not a card-grid — Semesters are
 /// inherently sequential (PLAN §2), unlike independent entities like Courses.
@@ -210,32 +211,22 @@ function DateRangeForm({
       }}
       className="flex flex-col gap-2 p-1"
     >
-      <label
-        htmlFor="semester-start-date"
-        className="flex flex-col gap-1 text-xs text-muted-foreground"
-      >
+      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
         Start (approximate)
-        <Input
-          id="semester-start-date"
-          type="date"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
-          className="h-8 text-sm"
+        <DateInput
+          aria-label="Start (approximate)"
+          value={start || null}
+          onChange={(day) => setStart(day ?? "")}
         />
-      </label>
-      <label
-        htmlFor="semester-end-date"
-        className="flex flex-col gap-1 text-xs text-muted-foreground"
-      >
+      </div>
+      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
         End (approximate)
-        <Input
-          id="semester-end-date"
-          type="date"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          className="h-8 text-sm"
+        <DateInput
+          aria-label="End (approximate)"
+          value={end || null}
+          onChange={(day) => setEnd(day ?? "")}
         />
-      </label>
+      </div>
       <Button type="submit" size="sm" disabled={!start && !end}>
         <StatusButtonContent
           status={status}
@@ -248,7 +239,7 @@ function DateRangeForm({
   );
 }
 
-function SemesterRow({
+export function SemesterRow({
   semester,
   active,
   spaceId,
@@ -314,7 +305,7 @@ function SemesterRow({
 
   const dateRange =
     semester.startDate && semester.endDate
-      ? `${format(new Date(semester.startDate), "MMM d")} – ${format(new Date(semester.endDate), "MMM d")}`
+      ? `${formatShortDate(semester.startDate)} – ${formatShortDate(semester.endDate)}`
       : null;
   const termLabel = semester.termType ? TERM_TYPE_META[semester.termType]?.label : null;
 

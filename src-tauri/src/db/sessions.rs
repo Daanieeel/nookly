@@ -9,6 +9,14 @@ use serde::Serialize;
 inventory::submit! {
     RelationshipTypeDef { name: "session-course", inverse_label: "has session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
+// The Jot typed during one occurrence and the Note that refines it afterwards.
+// Each occurrence has at most one of each; they are real Jots and Notes.
+inventory::submit! {
+    RelationshipTypeDef { name: "session-jot", inverse_label: "jot for session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+}
+inventory::submit! {
+    RelationshipTypeDef { name: "session-note", inverse_label: "note for session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +29,8 @@ pub struct SessionOccurrence {
     pub cancelled: bool,
     pub location: Option<String>,
     pub notes: Option<String>,
+    /// The linked Course's title, for the calendar. Only `list_sessions` joins it.
+    pub course_title: Option<String>,
 }
 
 fn row_to_occurrence(row: &rusqlite::Row) -> rusqlite::Result<SessionOccurrence> {
@@ -33,6 +43,8 @@ fn row_to_occurrence(row: &rusqlite::Row) -> rusqlite::Result<SessionOccurrence>
         cancelled: row.get::<_, i64>("cancelled")? != 0,
         location: row.get("location")?,
         notes: row.get("notes")?,
+        // Absent unless the query joined the Course.
+        course_title: row.get("course_title").unwrap_or(None),
     })
 }
 
@@ -185,6 +197,7 @@ fn create_occurrence(
         cancelled: false,
         location,
         notes: None,
+        course_title: None,
     })
 }
 
@@ -304,44 +317,273 @@ pub fn list_session_templates(
 
 pub fn list_sessions(conn: &Connection, space_id: &str) -> AppResult<Vec<SessionOccurrence>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, s.* FROM entities e JOIN sessions s ON s.entity_id = e.id
+        "SELECT e.*, s.*, c.title AS course_title
+         FROM entities e JOIN sessions s ON s.entity_id = e.id
+         LEFT JOIN relationships r ON r.from_entity_id = e.id AND r.relationship_type = 'session-course'
+         LEFT JOIN entities c ON c.id = r.to_entity_id AND c.deleted_at IS NULL
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY s.date ASC, s.start_time ASC",
     )?;
     let rows = stmt.query_map(params![space_id], row_to_occurrence)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Bespoke, narrow shape for the Dashboard briefing's Sessions clause — cross-Space,
-/// today only, with the linked Course's title pre-joined so the caller doesn't need
-/// a follow-up relationship lookup per session.
+/// Bespoke, narrow shape for the Dashboard: cross-Space, with the linked Course
+/// pre-joined so the caller doesn't need a follow-up relationship lookup per session.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BriefingSession {
+    pub entity_id: String,
     pub title: String,
+    pub date: String,
     pub start_time: String,
+    pub course_id: Option<String>,
     pub course_title: Option<String>,
     pub space_id: String,
 }
 
-pub fn list_sessions_today(conn: &Connection) -> AppResult<Vec<BriefingSession>> {
-    let mut stmt = conn.prepare(
-        "SELECT e.title, s.start_time, c.title AS course_title, e.space_id
+const BRIEFING_SESSION_SELECT: &str = "SELECT e.id, e.title, s.date, s.start_time,
+            c.id AS course_id, c.title AS course_title, e.space_id
          FROM entities e
          JOIN sessions s ON s.entity_id = e.id
          LEFT JOIN relationships r ON r.from_entity_id = e.id AND r.relationship_type = 'session-course'
          LEFT JOIN entities c ON c.id = r.to_entity_id
-         WHERE e.deleted_at IS NULL AND s.cancelled = 0 AND date(s.date) = date('now')
-         ORDER BY s.start_time ASC",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok(BriefingSession {
-            title: row.get("title")?,
-            start_time: row.get("start_time")?,
-            course_title: row.get("course_title")?,
-            space_id: row.get("space_id")?,
-        })
-    })?;
+         WHERE e.deleted_at IS NULL AND s.cancelled = 0";
+
+fn row_to_briefing_session(row: &rusqlite::Row) -> rusqlite::Result<BriefingSession> {
+    Ok(BriefingSession {
+        entity_id: row.get("id")?,
+        title: row.get("title")?,
+        date: row.get("date")?,
+        start_time: row.get("start_time")?,
+        course_id: row.get("course_id")?,
+        course_title: row.get("course_title")?,
+        space_id: row.get("space_id")?,
+    })
+}
+
+pub fn list_sessions_today(conn: &Connection) -> AppResult<Vec<BriefingSession>> {
+    let mut stmt = conn.prepare(&format!(
+        "{BRIEFING_SESSION_SELECT} AND date(s.date) = date('now') ORDER BY s.start_time ASC"
+    ))?;
+    let rows = stmt.query_map([], row_to_briefing_session)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Every Session from `from` through `to` (inclusive `YYYY-MM-DD` dates), across all
+/// Spaces, in time order. The caller passes local dates so "today" and "this week"
+/// follow the user's clock rather than SQLite's UTC `now`.
+pub fn list_sessions_between(
+    conn: &Connection,
+    from: &str,
+    to: &str,
+) -> AppResult<Vec<BriefingSession>> {
+    let mut stmt = conn.prepare(&format!(
+        "{BRIEFING_SESSION_SELECT} AND date(s.date) BETWEEN date(?1) AND date(?2)
+         ORDER BY s.date ASC, s.start_time ASC"
+    ))?;
+    let rows = stmt.query_map(params![from, to], row_to_briefing_session)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// A change to a recurring series. `None` leaves a field as it is.
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesPatch {
+    pub title: Option<String>,
+    pub start_time: Option<String>,
+    pub end_time: Option<String>,
+    pub location: Option<Option<String>>,
+}
+
+/// Edits a template and its occurrences from `from_date` on (§5.6: never
+/// earlier ones). An occurrence only takes a new value where it still carries
+/// the template's old one, so per occurrence overrides survive.
+pub fn update_session_series(
+    conn: &Connection,
+    template_id: &str,
+    from_date: &str,
+    patch: SeriesPatch,
+) -> AppResult<()> {
+    let old = get_session_template(conn, template_id)?;
+    let start_time = patch.start_time.unwrap_or_else(|| old.start_time.clone());
+    let end_time = patch.end_time.unwrap_or_else(|| old.end_time.clone());
+    let location = patch.location.unwrap_or_else(|| old.location.clone());
+    if start_time >= end_time {
+        return Err(AppError::InvalidInput(
+            "a session has to end after it starts".into(),
+        ));
+    }
+    conn.execute(
+        "UPDATE session_templates SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
+        params![start_time, end_time, location, template_id],
+    )?;
+    let title = patch.title.filter(|t| *t != old.entity.title);
+    if let Some(title) = &title {
+        crate::db::entities::update_entity(
+            conn,
+            template_id,
+            crate::db::entities::EntityPatch {
+                title: Some(title.clone()),
+                ..Default::default()
+            },
+        )?;
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT e.*, s.* FROM entities e JOIN sessions s ON s.entity_id = e.id
+         WHERE s.template_id = ?1 AND s.date >= ?2 AND e.deleted_at IS NULL",
+    )?;
+    let occurrences = stmt
+        .query_map(params![template_id, from_date], row_to_occurrence)?
+        .collect::<Result<Vec<_>, _>>()?;
+    for occurrence in occurrences {
+        let keep_or = |current: &String, previous: &String, next: &String| {
+            if current == previous {
+                next.clone()
+            } else {
+                current.clone()
+            }
+        };
+        let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
+        let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
+        let new_location = if occurrence.location == old.location {
+            location.clone()
+        } else {
+            occurrence.location.clone()
+        };
+        // An override that would end before it starts keeps its own times.
+        let (new_start, new_end) = if new_start < new_end {
+            (new_start, new_end)
+        } else {
+            (occurrence.start_time.clone(), occurrence.end_time.clone())
+        };
+        conn.execute(
+            "UPDATE sessions SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
+            params![new_start, new_end, new_location, occurrence.entity.id],
+        )?;
+        if let Some(title) = &title {
+            if occurrence.entity.title == old.entity.title {
+                crate::db::entities::update_entity(
+                    conn,
+                    &occurrence.entity.id,
+                    crate::db::entities::EntityPatch {
+                        title: Some(title.clone()),
+                        ..Default::default()
+                    },
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Moves a series' occurrences from `from_date` on to Trash, and the template
+/// too once no occurrence is left. Returns how many occurrences went.
+pub fn delete_session_series(
+    conn: &Connection,
+    template_id: &str,
+    from_date: &str,
+) -> AppResult<usize> {
+    let ids: Vec<String> = conn
+        .prepare(
+            "SELECT e.id FROM entities e JOIN sessions s ON s.entity_id = e.id
+             WHERE s.template_id = ?1 AND s.date >= ?2 AND e.deleted_at IS NULL",
+        )?
+        .query_map(params![template_id, from_date], |row| row.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    for id in &ids {
+        crate::db::entities::soft_delete_entity(conn, id)?;
+    }
+    let remaining: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities e JOIN sessions s ON s.entity_id = e.id
+         WHERE s.template_id = ?1 AND e.deleted_at IS NULL",
+        params![template_id],
+        |row| row.get(0),
+    )?;
+    if remaining == 0 {
+        crate::db::entities::soft_delete_entity(conn, template_id)?;
+    }
+    Ok(ids.len())
+}
+
+/// The Jot and Note of one occurrence, when they exist and aren't in Trash.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPages {
+    pub jot: Option<Entity>,
+    pub note: Option<Entity>,
+}
+
+fn session_page(conn: &Connection, session_id: &str, kind: &str) -> AppResult<Option<Entity>> {
+    Ok(conn
+        .query_row(
+            "SELECT e.* FROM relationships r JOIN entities e ON e.id = r.to_entity_id
+             WHERE r.from_entity_id = ?1 AND r.relationship_type = ?2 AND e.deleted_at IS NULL",
+            params![session_id, format!("session-{kind}")],
+            crate::db::entities::row_to_entity,
+        )
+        .optional()?)
+}
+
+pub fn get_session_pages(conn: &Connection, session_id: &str) -> AppResult<SessionPages> {
+    Ok(SessionPages {
+        jot: session_page(conn, session_id, "jot")?,
+        note: session_page(conn, session_id, "note")?,
+    })
+}
+
+/// The occurrence's Jot or Note (`kind`), created with `title` if it has none.
+/// A link to one sitting in Trash is dropped, so a fresh page can take its place.
+pub fn create_session_page(
+    conn: &Connection,
+    session_id: &str,
+    kind: &str,
+    title: String,
+) -> AppResult<Entity> {
+    if kind != "jot" && kind != "note" {
+        return Err(AppError::InvalidInput(format!(
+            "unknown session page kind {kind}"
+        )));
+    }
+    if let Some(existing) = session_page(conn, session_id, kind)? {
+        return Ok(existing);
+    }
+    let session = get_session_occurrence(conn, session_id)?;
+    let page = crate::db::notes::create_page(conn, session.entity.space_id, kind, title)?;
+    link_session_page(conn, session_id, kind, &page.id)?;
+    Ok(page)
+}
+
+/// Makes an existing page the occurrence's Jot or Note (`kind`), unless it has
+/// a live one already; returns whether it linked. A link to one in Trash is
+/// dropped first. Refining a session's Jot into a Note goes through here.
+pub fn link_session_page(
+    conn: &Connection,
+    session_id: &str,
+    kind: &str,
+    page_id: &str,
+) -> AppResult<bool> {
+    if kind != "jot" && kind != "note" {
+        return Err(AppError::InvalidInput(format!(
+            "unknown session page kind {kind}"
+        )));
+    }
+    if session_page(conn, session_id, kind)?.is_some() {
+        return Ok(false);
+    }
+    conn.execute(
+        "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = ?2",
+        params![session_id, format!("session-{kind}")],
+    )?;
+    crate::db::relationships::create_relationship(
+        conn,
+        session_id.to_string(),
+        page_id.to_string(),
+        format!("session-{kind}"),
+        None,
+        None,
+    )?;
+    Ok(true)
 }
 
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
@@ -365,21 +607,21 @@ const SESSION_TEMPLATE_FIELDS: &[FieldDef] = &[
         name: "startTime",
         kind: FieldKind::Text,
         required_on_create: true,
-        writable_on_update: false,
+        writable_on_update: true,
         description: "\"HH:MM\", 24-hour.",
     },
     FieldDef {
         name: "endTime",
         kind: FieldKind::Text,
         required_on_create: true,
-        writable_on_update: false,
+        writable_on_update: true,
         description: "\"HH:MM\", 24-hour.",
     },
     FieldDef {
         name: "location",
         kind: FieldKind::Text,
         required_on_create: false,
-        writable_on_update: false,
+        writable_on_update: true,
         description: "Optional free-text location.",
     },
     FieldDef {
@@ -388,6 +630,15 @@ const SESSION_TEMPLATE_FIELDS: &[FieldDef] = &[
         required_on_create: true,
         writable_on_update: false,
         description: "First date this weekly template is valid from.",
+    },
+    FieldDef {
+        name: "applyFromDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "On update only: the first occurrence date a startTime, endTime or location \
+                      change reaches (default today). Earlier occurrences are never rewritten, \
+                      and occurrences overridden on their own keep their override.",
     },
 ];
 
@@ -419,10 +670,22 @@ fn cli_create_session_template(
 fn cli_update_session_template(
     conn: &Connection,
     id: &str,
-    _fields: &JsonMap,
+    fields: &JsonMap,
 ) -> AppResult<serde_json::Value> {
-    // No subtype fields are mutable after creation — recurring templates are
-    // immutable by design (§5.6); delete and recreate to change the schedule.
+    use crate::db::schema::field_str;
+    let patch = SeriesPatch {
+        title: None,
+        start_time: field_str(fields, "startTime"),
+        end_time: field_str(fields, "endTime"),
+        location: fields
+            .contains_key("location")
+            .then(|| field_str(fields, "location").filter(|l| !l.is_empty())),
+    };
+    if patch.start_time.is_some() || patch.end_time.is_some() || patch.location.is_some() {
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let from = field_str(fields, "applyFromDate").unwrap_or(today);
+        update_session_series(conn, id, &from, patch)?;
+    }
     cli_get_session_template(conn, id)
 }
 
@@ -450,7 +713,8 @@ inventory::submit! {
         entity_type: "session_template",
         supports_blocks: false,
         description: "A recurring weekly class/meeting slot. Use `session` to create one-off occurrences \
-                      (generating occurrences from a template is GUI-only for now).",
+                      (generating occurrences from a template is GUI-only for now). Updating startTime, \
+                      endTime or location edits the series from applyFromDate on.",
         fields: SESSION_TEMPLATE_FIELDS,
         relationship_types: &["session-course"],
         create: cli_create_session_template,
@@ -668,5 +932,128 @@ mod tests {
             )
             .unwrap();
         assert_eq!(weekday, 0);
+    }
+
+    fn weekly_series(conn: &Connection) -> (String, Vec<SessionOccurrence>) {
+        let space = create_space(conn, "Study".into(), None, "#000".into()).unwrap();
+        let course = create_course(conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let template = create_session_template(
+            conn,
+            space.id,
+            "Lecture".into(),
+            course.id,
+            0,
+            "10:00".into(),
+            "12:00".into(),
+            None,
+            "2026-01-05".into(),
+        )
+        .unwrap();
+        let occurrences = generate_occurrences(conn, &template.id, "2026-01-26").unwrap();
+        (template.id, occurrences)
+    }
+
+    #[test]
+    fn series_update_skips_earlier_and_overridden_occurrences() {
+        let conn = setup();
+        let (template_id, occ) = weekly_series(&conn);
+        override_occurrence(
+            &conn,
+            &occ[2].entity.id,
+            OccurrenceOverride {
+                start_time: Some("09:00".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_session_series(
+            &conn,
+            &template_id,
+            &occ[1].date,
+            SeriesPatch {
+                title: Some("Lecture II".into()),
+                start_time: Some("10:15".into()),
+                end_time: Some("11:45".into()),
+                location: None,
+            },
+        )
+        .unwrap();
+        let get = |i: usize| get_session_occurrence(&conn, &occ[i].entity.id).unwrap();
+        assert_eq!(
+            (get(0).start_time, get(0).entity.title),
+            ("10:00".into(), "Lecture".into())
+        );
+        assert_eq!(
+            (get(1).start_time, get(1).end_time),
+            ("10:15".into(), "11:45".into())
+        );
+        assert_eq!(get(1).entity.title, "Lecture II");
+        // The overridden start stays, the untouched end follows the series.
+        assert_eq!(
+            (get(2).start_time, get(2).end_time),
+            ("09:00".into(), "11:45".into())
+        );
+        assert_eq!(
+            get_session_template(&conn, &template_id)
+                .unwrap()
+                .start_time,
+            "10:15"
+        );
+    }
+
+    #[test]
+    fn series_delete_trashes_following_then_the_template() {
+        let conn = setup();
+        let (template_id, occ) = weekly_series(&conn);
+        assert_eq!(
+            delete_session_series(&conn, &template_id, &occ[2].date).unwrap(),
+            2
+        );
+        assert!(get_session_template(&conn, &template_id)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_none());
+        assert_eq!(
+            delete_session_series(&conn, &template_id, &occ[0].date).unwrap(),
+            2
+        );
+        assert!(get_session_template(&conn, &template_id)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_some());
+    }
+
+    #[test]
+    fn session_pages_link_once_and_replace_trashed_ones() {
+        let conn = setup();
+        let (_, occ) = weekly_series(&conn);
+        let id = &occ[0].entity.id;
+        assert!(get_session_pages(&conn, id).unwrap().jot.is_none());
+        let jot = create_session_page(&conn, id, "jot", "Jot".into()).unwrap();
+        assert_eq!(jot.entity_type, "jot");
+        let again = create_session_page(&conn, id, "jot", "Other".into()).unwrap();
+        assert_eq!(again.id, jot.id);
+        crate::db::entities::soft_delete_entity(&conn, &jot.id).unwrap();
+        assert!(get_session_pages(&conn, id).unwrap().jot.is_none());
+        let fresh = create_session_page(&conn, id, "jot", "Jot".into()).unwrap();
+        assert_ne!(fresh.id, jot.id);
+        let note = create_session_page(&conn, id, "note", "Note".into()).unwrap();
+        assert_eq!(
+            get_session_pages(&conn, id).unwrap().note.unwrap().id,
+            note.id
+        );
+        // A refined Note doesn't replace the Note the session already has.
+        let space = occ[0].entity.space_id.clone();
+        let refined =
+            crate::db::notes::create_page(&conn, space, "note", "Refined".into()).unwrap();
+        assert!(!link_session_page(&conn, id, "note", &refined.id).unwrap());
+        crate::db::entities::soft_delete_entity(&conn, &note.id).unwrap();
+        assert!(link_session_page(&conn, id, "note", &refined.id).unwrap());
+        assert_eq!(
+            get_session_pages(&conn, id).unwrap().note.unwrap().id,
+            refined.id
+        );
     }
 }

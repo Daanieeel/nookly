@@ -2,7 +2,6 @@ import {
   IconBolt,
   IconCheck,
   IconDeviceDesktop,
-  IconHistory,
   IconLayoutDashboard,
   IconLayoutSidebarRight,
   IconMoon,
@@ -32,6 +31,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { createCourse } from "@/lib/api/courses";
+import { createDeck } from "@/lib/api/decks";
 import { createJot, createNote } from "@/lib/api/notes";
 import { listSpaceModules, listSpaces } from "@/lib/api/spaces";
 import { createTask } from "@/lib/api/tasks";
@@ -62,6 +62,7 @@ const QUICK_CREATE_TYPES: QuickCreateType[] = [
   { type: "note", label: "Note", create: createNote },
   { type: "jot", label: "Jot", create: createJot },
   { type: "course", label: "Course", create: createCourse },
+  { type: "deck", label: "Deck", create: (s, t) => createDeck(s, t, null) },
 ];
 
 interface QuickCreateMatch extends QuickCreateType {
@@ -434,15 +435,14 @@ export function QuickActions({
     ...[
       { id: "dashboard", icon: IconLayoutDashboard, label: "Dashboard", keywords: "home overview" },
       { id: "pinned", icon: IconPin, label: "Pinned", keywords: "favorites" },
-      { id: "recents", icon: IconHistory, label: "Recents", keywords: "history recent" },
       { id: "trash", icon: IconTrash, label: "Trash", keywords: "deleted restore bin" },
     ].map((n): ActionEntry => ({
       id: n.id,
       category: "navigate",
       words: `Go to ${n.label} ${n.keywords}`,
       node: simpleItem(n.id, n.icon, `Go to ${n.label}`, () =>
-        // SAFETY: `n.id` is one of the four literal non Space views above.
-        go({ kind: n.id as "dashboard" | "pinned" | "recents" | "trash" }),
+        // SAFETY: `n.id` is one of the three literal non Space views above.
+        go({ kind: n.id as "dashboard" | "pinned" | "trash" }),
       ),
     })),
     // Only modules at least one Space actually uses.

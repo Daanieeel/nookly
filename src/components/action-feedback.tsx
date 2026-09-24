@@ -100,18 +100,25 @@ export function StatusButtonContent({
   label,
   successLabel,
   errorLabel,
+  pendingClassName,
 }: {
   status: ActionStatus;
   icon?: ReactNode;
   label: ReactNode;
   successLabel?: string;
   errorLabel: string;
+  /// Tints the spinner, e.g. to match a colored button; success and error keep their colors.
+  pendingClassName?: string;
 }) {
   const text =
     status === "success" && successLabel ? successLabel : status === "error" ? errorLabel : label;
   return (
     <>
-      <StatusIcon status={status} idle={icon} />
+      <StatusIcon
+        status={status}
+        idle={icon}
+        className={status === "pending" ? pendingClassName : undefined}
+      />
       {text}
       <StatusAnnouncer
         message={

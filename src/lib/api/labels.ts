@@ -9,6 +9,10 @@ export function listLabels(spaceId: string): Promise<Label[]> {
   return invoke("list_labels", { spaceId });
 }
 
+export function updateLabel(id: string, patch: { name?: string; color?: string }): Promise<Label> {
+  return invoke("update_label", { id, name: patch.name ?? null, color: patch.color ?? null });
+}
+
 export function deleteLabel(id: string): Promise<void> {
   return invoke("delete_label", { id });
 }

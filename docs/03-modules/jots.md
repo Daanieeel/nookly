@@ -4,6 +4,8 @@
 
 A Jot is refined into a regular Note. The two are linked through the standard generic relationship system, in either direction. A Jot with no linked Note is unrefined. There is no dedicated pairing structure and no separate "polished" page type.
 
+"Refine into New Note" (context menu, the page's overflow menu, and the top of the right sidebar) creates a Note titled like the Jot, links them with `relates-to`, and opens the Note.
+
 ## Layout Direction
 
 **Jot:** a fast, minimal capture surface with almost no chrome and a large text area. Built for speed.

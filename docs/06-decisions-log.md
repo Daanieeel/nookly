@@ -56,9 +56,9 @@ Each entry follows a lightweight ADR format: the decision, why it was made, and 
 
 ---
 
-### Six pairs are structural relationships
+### Five pairs are structural relationships
 
-Task and Sub-task, Session and Course, Exam and Course, Deck and Exam, Study Block and Exam, and Assignment and Course.
+Task and Sub-task, Session and Course, Exam and Course, Study Block and Exam, and Assignment and Course. Deck and Exam was one until Decks became their own module (see below).
 
 **Why:** the child is meaningless without its parent. A session without a course makes no sense. Structural relationships are enforced at the data layer, not just by convention, which sets them apart from generic, unenforced ones like a Course `sequel-of`.
 
@@ -110,7 +110,15 @@ The exceptions are Dashboard, Pinned, and Search, plus Recents, which was added 
 
 ### A single global Dashboard (not per Space, not multiple)
 
-**Why:** the user wants one customizable, bento-style page for quick access across Spaces. Per-Space dashboards are wanted eventually, but were deliberately deferred to keep this decision small and shippable now.
+**Why:** the user wants one page for quick access across Spaces. Per-Space dashboards are wanted eventually, but were deliberately deferred to keep this decision small and shippable now.
+
+---
+
+### Dashboard widgets: Today, Unrefined Jots, This Week
+
+Exactly three, in that order. Every count in the briefing sentence opens its module's list, every name opens that entity and renders as a bounded pill. They render as flat sections, not cards.
+
+**Rejected:** Recent, Pinned, Spaces and Overview cards. Pinned and Spaces repeat the sidebar, Recents lives in the palette, and raw counts are not useful. A bento grid of cards was also dropped; the user preferred the content flat.
 
 ---
 
@@ -197,3 +205,47 @@ Image, video, audio and file blocks hold a mention of a File entity, a web bookm
 **Why:** Files and Bookmarks already own that data. The block is a viewer, the mention puts the page under the entity's Mentioned in, and nothing becomes a fourth linking mechanism.
 
 **Rejected:** storing uploads privately inside the page, invisible to the Files module.
+
+### Files are real files; a typed path is referenced until copied
+
+A pasted link is downloaded into storage, and a webpage is offered as a Bookmark instead. A path typed into the Files bar is referenced where it lives; "Copy into Nookly" copies it in. Drops and the file picker still copy right away. A File can convert into a Bookmark in place through the generic `convert` registry.
+
+**Why:** the file viewer needs the bytes, and a link to a webpage is a reference, which is what Bookmarks are for. Referencing a typed path keeps a file that is still being edited elsewhere in sync.
+
+**Rejected:** link only Files the viewer can't open, and a one off CLI command for the conversion.
+
+---
+
+### Index cards schedule with FSRS through `rs-fsrs`
+
+**Why:** FSRS is what Anki schedules with. `rs-fsrs` (MIT) is the scheduler alone and depends only on chrono.
+
+**Rejected:** embedding Anki's `rslib` (a second data model next to entities), the `fsrs` crate (pulls in an ML stack for its optimizer), and Leitner boxes.
+
+---
+
+### Records an entity owns reach the CLI as child collections
+
+A `ChildCollectionDef` registered next to a type's schema gives the CLI `<plural>`, `add-`, `get-`, `update-`, `delete-`, `restore-` and one verb per action for that record, like `review-card`. Index cards are the first.
+
+**Why:** cards need full CLI coverage without becoming entities (keys, search, Recents for every card) and without a one off command.
+
+**Rejected:** making every card an entity.
+
+---
+
+### Decks are their own module, and an Exam is optional
+
+**Why:** decks are studied daily, well before and apart from any exam (vocabulary, general knowledge). A deck can still be filed under one Exam and shows on its Decks tab.
+
+**Rejected:** keeping decks inside Exams with a required Exam, which forces an exam to exist before any card can be written.
+
+---
+
+### External calendars are a read only overlay, not Sessions
+
+Google Calendar and iCloud events show on the Sessions calendar but are never entities: no Space, no relationships, no Course, no CLI exposure. Nookly never writes to either calendar.
+
+**Why:** converting them to Sessions would force a Course onto events like "Dentist" and break the Session and Course structural rule.
+
+**Rejected:** importing external events as Sessions or any other entity type, and two way sync.

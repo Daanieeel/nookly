@@ -14,12 +14,13 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { type ComponentType, useState } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 import { StatusButtonContent, useActionStatus } from "@/components/action-feedback";
 import { EntityPickerPopover } from "@/components/entity-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { getEntity } from "@/lib/api/entities";
 import { getFile, importFile } from "@/lib/api/files";
 import type { Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
@@ -84,6 +85,12 @@ function useSource(content: string): SourceState {
     queryFn: () => getFile(fileId ?? ""),
     enabled: fileId !== undefined,
   });
+  // The name follows renames: a rename refreshes `["entity", id]`, not the file query.
+  const { data: entity } = useQuery({
+    queryKey: ["entity", fileId],
+    queryFn: () => getEntity(fileId ?? ""),
+    enabled: fileId !== undefined,
+  });
   if (!content.trim()) return { source: null, missing: false };
   if (!fileId) {
     const url = content.trim();
@@ -100,9 +107,12 @@ function useSource(content: string): SourceState {
   if (!file) return { source: null, missing: isError };
   return {
     source: {
-      src: file.localPath ? convertFileSrc(file.localPath) : file.url,
-      name: file.originalFilename ?? displayTitle(file.entity),
-      localPath: file.localPath,
+      src:
+        (file.localPath ?? file.sourcePath)
+          ? convertFileSrc(file.localPath ?? file.sourcePath ?? "")
+          : file.url,
+      name: displayTitle(entity ?? file.entity),
+      localPath: file.localPath ?? file.sourcePath,
       url: file.url,
     },
     missing: false,
@@ -120,6 +130,15 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   const caption = asString(node.attrs.caption as JSONAttrValue | undefined) ?? "";
   const { source, missing } = useSource(content);
   const editable = editor.isEditable;
+
+  // The stored mention label is the file's name, so it follows a rename too (the
+  // backend rewrites saved blocks; this catches a page open while it happened).
+  const mention = MENTION.exec(content.trim());
+  const fresh =
+    mention && source ? mentionMarkdown(source.name.replace(/[[\]]/g, ""), mention[2]) : null;
+  useEffect(() => {
+    if (editable && fresh && fresh !== content.trim()) updateAttributes({ rows: fresh });
+  }, [editable, fresh, content, updateAttributes]);
 
   if (!content.trim()) {
     return (

@@ -3,6 +3,7 @@ import {
   IconBookmark,
   IconCalendarStats,
   IconCalendarWeek,
+  IconCards,
   IconChalkboard,
   IconChecklist,
   IconClipboardList,
@@ -11,7 +12,8 @@ import {
   IconNotes,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
-import { type ModuleKey, MODULE_KEYS } from "@/lib/store/nav";
+import type { Entity } from "@/lib/api/types";
+import { type ModuleKey, MODULE_KEYS, type View } from "@/lib/store/nav";
 
 export { MODULE_KEYS };
 export type { ModuleKey };
@@ -24,6 +26,7 @@ export const MODULE_LABELS = {
   semesters: "Semesters",
   sessions: "Sessions",
   exams: "Exams",
+  decks: "Decks",
   assignments: "Assignments",
   files: "Files",
   bookmarks: "Bookmarks",
@@ -36,7 +39,8 @@ export const MODULE_DESCRIPTIONS = {
   courses: "Organize a course into semesters and materials.",
   semesters: "Group courses by term and see what's in each one.",
   sessions: "Plan study or work sessions with reusable templates.",
-  exams: "Build index-card decks and study blocks for exams.",
+  exams: "Count down to exams and plan study blocks for them.",
+  decks: "Write flash cards and study them with spaced repetition.",
   assignments: "Track assignments with due dates and progress.",
   files: "Keep reference files and documents in one place.",
   bookmarks: "Save links you want to come back to.",
@@ -50,6 +54,7 @@ export const MODULE_ICONS = {
   semesters: IconCalendarWeek,
   sessions: IconChalkboard,
   exams: IconCalendarStats,
+  decks: IconCards,
   assignments: IconClipboardList,
   files: IconFile,
   bookmarks: IconBookmark,
@@ -65,7 +70,8 @@ export const MODULE_ENTITY_TYPES = {
   courses: ["course", "course_notes"],
   semesters: ["semester"],
   sessions: ["session", "session_template"],
-  exams: ["exam", "index_card_deck", "study_block"],
+  exams: ["exam", "study_block"],
+  decks: ["index_card_deck"],
   assignments: ["assignment"],
   files: ["file"],
   bookmarks: ["bookmark"],
@@ -84,4 +90,11 @@ export function moduleForEntityType(type: string): ModuleKey | undefined {
     // and a non-match just falls through to `false` like any other string.
     (MODULE_ENTITY_TYPES[key] as string[]).includes(type),
   );
+}
+
+/// Where to land after trashing the entity being viewed: its module's list, e.g.
+/// the Tasks board for a Task, or the Dashboard when it has no module.
+export function viewAfterTrash(entity: Entity): View {
+  const module = moduleForEntityType(entity.type);
+  return module ? { kind: "module", spaceId: entity.spaceId, module } : { kind: "dashboard" };
 }

@@ -8,6 +8,10 @@ Prequels and sequels are typed generic relationships (`sequel-of` and `prequel-o
 
 A Course is linked to its Semester through the generic `course-semester` relationship. It is capped at one Semester per Course (`OneToPerFrom` cardinality), while a Semester can hold any number of Courses. Assigning a Course to a different Semester replaces the old link (`set_course_semester`) instead of adding a second one. The Semester is not stored as a date range field.
 
+### Course Grade
+
+Computed, not stored. Exams with a weight count for that share. Assignments and unweighted Exams split the remaining weight evenly, so a course without weights gets a plain mean. Shown as a tile on the Course page and as the read only `grades` field in the CLI.
+
 ## Semester
 
 A full entity (for example "WS 2026/27"), not a string or tag on the Course. It participates in the relationship system like any other entity.

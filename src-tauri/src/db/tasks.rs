@@ -41,6 +41,9 @@ pub struct Task {
     pub status_id: String,
     pub start_date: Option<String>,
     pub due_date: Option<String>,
+    /// Ids of this Task's Labels, ordered by label name. Only `list_tasks` fills it;
+    /// everywhere else it stays empty.
+    pub label_ids: Vec<String>,
 }
 
 fn task_row_to_task(
@@ -52,6 +55,7 @@ fn task_row_to_task(
         status_id: row.get("status_id")?,
         start_date: row.get("start_date")?,
         due_date: row.get("due_date")?,
+        label_ids: Vec::new(),
     })
 }
 
@@ -72,6 +76,7 @@ pub fn create_task(
         status_id: "backlog".into(),
         start_date,
         due_date,
+        label_ids: Vec::new(),
     })
 }
 
@@ -106,6 +111,7 @@ pub fn create_subtask(
         status_id: "backlog".into(),
         start_date: None,
         due_date: None,
+        label_ids: Vec::new(),
     })
 }
 
@@ -168,15 +174,17 @@ pub fn list_subtasks(conn: &Connection, parent_entity_id: &str) -> AppResult<Vec
          JOIN entities e ON e.id = r.from_entity_id
          JOIN tasks t ON t.entity_id = e.id
          WHERE r.to_entity_id = ?1 AND r.relationship_type = 'sub-task-of'
-         ORDER BY e.created_at ASC",
+         ORDER BY e.deleted_at IS NOT NULL, e.created_at ASC",
     )?;
     let rows = stmt.query_map(params![parent_entity_id], row_to_task_joined)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 /// Average doneness % across sub-tasks, for progress rollup on the parent Task (§3.3).
+/// Trashed sub-tasks still list under their parent but no longer count.
 pub fn subtask_progress(conn: &Connection, parent_entity_id: &str) -> AppResult<Option<f64>> {
-    let subtasks = list_subtasks(conn, parent_entity_id)?;
+    let mut subtasks = list_subtasks(conn, parent_entity_id)?;
+    subtasks.retain(|t| t.entity.deleted_at.is_none());
     if subtasks.is_empty() {
         return Ok(None);
     }
@@ -209,6 +217,20 @@ pub fn get_task(conn: &Connection, entity_id: &str) -> AppResult<Task> {
         .map_err(|_| AppError::NotFound(format!("task {entity_id}")))
 }
 
+/// One Task for its detail page, with its label ids filled in (ordered by name).
+pub fn get_task_with_labels(conn: &Connection, entity_id: &str) -> AppResult<Task> {
+    let mut task = get_task(conn, entity_id)?;
+    let mut stmt = conn.prepare(
+        "SELECT el.label_id FROM entity_labels el
+         JOIN labels l ON l.id = el.label_id
+         WHERE el.entity_id = ?1
+         ORDER BY l.name ASC",
+    )?;
+    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
+    task.label_ids = rows.collect::<Result<Vec<_>, _>>()?;
+    Ok(task)
+}
+
 pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
         "SELECT e.*, t.status_id, t.start_date, t.due_date
@@ -217,7 +239,28 @@ pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
          ORDER BY e.created_at ASC",
     )?;
     let rows = stmt.query_map(params![space_id], row_to_task_joined)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    let mut tasks = rows.collect::<Result<Vec<_>, _>>()?;
+
+    let index: std::collections::HashMap<String, usize> = tasks
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.entity.id.clone(), i))
+        .collect();
+    let mut stmt = conn.prepare(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         JOIN labels l ON l.id = el.label_id
+         WHERE e.space_id = ?1 AND e.type = 'task' AND e.deleted_at IS NULL
+         ORDER BY l.name ASC",
+    )?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        if let Some(&i) = index.get(&entity_id) {
+            tasks[i].label_ids.push(row.get(1)?);
+        }
+    }
+    Ok(tasks)
 }
 
 pub fn update_task_status(conn: &Connection, entity_id: &str, status_id: &str) -> AppResult<()> {
@@ -270,6 +313,21 @@ pub fn count_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<i64> {
         |row| row.get(0),
     )?;
     Ok(count)
+}
+
+/// The Tasks behind `count_open_tasks_due_or_overdue`, earliest due date first, for
+/// the Dashboard's briefing sentence and its Today widget.
+pub fn list_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<Vec<Task>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, t.status_id, t.start_date, t.due_date
+         FROM entities e JOIN tasks t ON t.entity_id = e.id
+         JOIN task_statuses s ON s.id = t.status_id
+         WHERE e.deleted_at IS NULL AND t.due_date IS NOT NULL
+           AND date(t.due_date) <= date('now') AND s.doneness < 100
+         ORDER BY t.due_date ASC, e.created_at ASC",
+    )?;
+    let rows = stmt.query_map([], row_to_task_joined)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 pub fn update_task_dates(
@@ -424,7 +482,7 @@ fn cli_list_sub_tasks(
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "task",
-        supports_blocks: false,
+        supports_blocks: true,
         description: "A to-do item. Progress rolls up from sub-tasks when any exist.",
         fields: TASK_UPDATE_FIELDS,
         relationship_types: &["sub-task-of", "relates-to", "blocks"],
@@ -438,7 +496,7 @@ inventory::submit! {
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "sub_task",
-        supports_blocks: false,
+        supports_blocks: true,
         description: "A one-level-deep child of a Task. Cannot itself have sub-tasks.",
         fields: SUB_TASK_FIELDS,
         relationship_types: &["sub-task-of", "relates-to", "blocks"],
@@ -489,5 +547,52 @@ mod tests {
 
         let progress = subtask_progress(&conn, &task.entity.id).unwrap().unwrap();
         assert_eq!(progress, 50.0);
+    }
+
+    #[test]
+    fn list_tasks_carries_label_ids_sorted_by_name() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let task = create_task(&conn, space.id.clone(), "Laundry".into(), None, None).unwrap();
+        let bare = create_task(&conn, space.id.clone(), "Dishes".into(), None, None).unwrap();
+        let zeta =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Zeta".into(), "#f00".into())
+                .unwrap();
+        let alpha =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Alpha".into(), "#0f0".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &task.entity.id, &zeta.id).unwrap();
+        crate::db::labels::attach_label(&conn, &task.entity.id, &alpha.id).unwrap();
+
+        let tasks = list_tasks(&conn, &space.id).unwrap();
+        let labeled = tasks
+            .iter()
+            .find(|t| t.entity.id == task.entity.id)
+            .unwrap();
+        assert_eq!(labeled.label_ids, vec![alpha.id, zeta.id]);
+        let unlabeled = tasks
+            .iter()
+            .find(|t| t.entity.id == bare.entity.id)
+            .unwrap();
+        assert!(unlabeled.label_ids.is_empty());
+    }
+
+    #[test]
+    fn trashed_subtasks_list_last_and_leave_progress() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let task = create_task(&conn, space.id.clone(), "Parent".into(), None, None).unwrap();
+        let trashed = create_subtask(&conn, task.entity.id.clone(), "Old".into()).unwrap();
+        let live = create_subtask(&conn, task.entity.id.clone(), "New".into()).unwrap();
+        update_task_status(&conn, &trashed.entity.id, "done").unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &trashed.entity.id).unwrap();
+
+        let subtasks = list_subtasks(&conn, &task.entity.id).unwrap();
+        let ids: Vec<_> = subtasks.iter().map(|t| t.entity.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![live.entity.id.as_str(), trashed.entity.id.as_str()]
+        );
+        assert_eq!(subtask_progress(&conn, &task.entity.id).unwrap(), Some(0.0));
     }
 }

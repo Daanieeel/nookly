@@ -106,16 +106,11 @@ export function FilterMenu({
     }
   }
 
+  // Fields that already have a chip are edited through that chip, not re-added.
+  const available = fields.filter((f) => !filters.some((a) => a.fieldId === f.id));
+
   function addValue(target: FilterField, value: string) {
-    const existing = filters.find((f) => f.fieldId === target.id);
-    if (existing) {
-      if (existing.values.includes(value)) return;
-      onFiltersChange(
-        filters.map((f) => (f === existing ? { ...f, values: [...f.values, value] } : f)),
-      );
-    } else {
-      onFiltersChange([...filters, { fieldId: target.id, operator: "is", values: [value] }]);
-    }
+    onFiltersChange([...filters, { fieldId: target.id, operator: "is", values: [value] }]);
     onOpenChange(false);
   }
 
@@ -142,76 +137,78 @@ export function FilterMenu({
       })}
       {/* Modal so its own scroll lock wins over the enclosing dialog's, which
           otherwise swallows wheel events on this portaled list. */}
-      <Popover modal open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="ml-auto gap-1.5">
-            <IconFilter />
-            Filter
-            {filters.length === 0 && (
-              <KbdGroup>
-                <Kbd>⌘</Kbd>
-                <Kbd>⇧</Kbd>
-                <Kbd>F</Kbd>
-              </KbdGroup>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-56"
-          align="end"
-          onKeyDown={stopKeys}
-          onCloseAutoFocus={(e) => {
-            e.preventDefault();
-            onDone?.();
-          }}
-        >
-          <Command loop>
-            <CommandInput
-              value={search}
-              onValueChange={setSearch}
-              placeholder={field ? `Filter by ${field.label.toLowerCase()}…` : "Filter by…"}
-              onKeyDown={(e) => {
-                // Backspace on an empty input steps back to the field list.
-                if (e.key === "Backspace" && search === "" && field) {
-                  e.preventDefault();
-                  setFieldId(null);
-                }
-              }}
-            />
-            <CommandList className="p-1">
-              <CommandEmpty>No matches.</CommandEmpty>
-              {field ? (
-                <CommandGroup heading={field.label} className="p-0">
-                  {field.options.map((option) => (
-                    <CommandItem
-                      key={option.value}
-                      value={option.label}
-                      onSelect={() => addValue(field, option.value)}
-                    >
-                      {option.icon}
-                      <span className="truncate">{option.label}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ) : (
-                fields.map((f) => (
-                  <CommandItem
-                    key={f.id}
-                    value={f.label}
-                    onSelect={() => {
-                      setFieldId(f.id);
-                      setSearch("");
-                    }}
-                  >
-                    <f.icon />
-                    <span className="truncate">{f.label}</span>
-                  </CommandItem>
-                ))
+      {available.length > 0 && (
+        <Popover modal open={open} onOpenChange={onOpenChange}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="ml-auto gap-1.5">
+              <IconFilter />
+              Filter
+              {filters.length === 0 && (
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>⇧</Kbd>
+                  <Kbd>F</Kbd>
+                </KbdGroup>
               )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-56"
+            align="end"
+            onKeyDown={stopKeys}
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              onDone?.();
+            }}
+          >
+            <Command loop>
+              <CommandInput
+                value={search}
+                onValueChange={setSearch}
+                placeholder={field ? `Filter by ${field.label.toLowerCase()}…` : "Filter by…"}
+                onKeyDown={(e) => {
+                  // Backspace on an empty input steps back to the field list.
+                  if (e.key === "Backspace" && search === "" && field) {
+                    e.preventDefault();
+                    setFieldId(null);
+                  }
+                }}
+              />
+              <CommandList className="p-1">
+                <CommandEmpty>No matches.</CommandEmpty>
+                {field ? (
+                  <CommandGroup heading={field.label} className="p-0">
+                    {field.options.map((option) => (
+                      <CommandItem
+                        key={option.value}
+                        value={option.label}
+                        onSelect={() => addValue(field, option.value)}
+                      >
+                        {option.icon}
+                        <span className="truncate">{option.label}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ) : (
+                  available.map((f) => (
+                    <CommandItem
+                      key={f.id}
+                      value={f.label}
+                      onSelect={() => {
+                        setFieldId(f.id);
+                        setSearch("");
+                      }}
+                    >
+                      <f.icon />
+                      <span className="truncate">{f.label}</span>
+                    </CommandItem>
+                  ))
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }

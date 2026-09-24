@@ -1,7 +1,10 @@
+use tauri::Manager;
+
 mod cli;
 mod commands;
 mod db;
 mod error;
+mod external_calendars;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -43,8 +46,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             db::setup(app)?;
+            app.manage(external_calendars::ExternalCalendarState::load(
+                &app.path().app_data_dir()?,
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -61,6 +68,7 @@ pub fn run() {
             commands::entities::soft_delete_entity,
             commands::entities::restore_entity,
             commands::entities::hard_delete_entity,
+            commands::entities::empty_trash,
             commands::entities::duplicate_entity,
             commands::relationships::create_relationship,
             commands::relationships::list_relationships,
@@ -70,6 +78,7 @@ pub fn run() {
             commands::search::list_embedded_page_ids,
             commands::labels::create_label,
             commands::labels::list_labels,
+            commands::labels::update_label,
             commands::labels::delete_label,
             commands::labels::attach_label,
             commands::labels::detach_label,
@@ -80,15 +89,18 @@ pub fn run() {
             commands::tasks::list_subtasks,
             commands::tasks::subtask_progress,
             commands::tasks::list_tasks,
+            commands::tasks::get_task,
             commands::tasks::update_task_status,
             commands::tasks::update_task_dates,
             commands::tasks::convert_to_subtask,
             commands::tasks::count_tasks_due_today,
             commands::tasks::count_open_tasks_due_or_overdue,
+            commands::tasks::list_open_tasks_due_or_overdue,
             commands::notes::create_note,
             commands::notes::create_jot,
             commands::notes::count_unrefined_jots,
             commands::notes::count_unrefined_jots_all_spaces,
+            commands::notes::list_unrefined_jots_all_spaces,
             commands::notes::list_recent_notes,
             commands::notes::list_note_summaries,
             commands::notes::list_jot_summaries,
@@ -111,30 +123,64 @@ pub fn run() {
             commands::courses::set_course_semester,
             commands::courses::get_course_notes,
             commands::courses::get_semester_notes,
+            commands::courses::get_course_grades,
             commands::sessions::create_session_template,
             commands::sessions::generate_occurrences,
             commands::sessions::create_one_off_session,
             commands::sessions::override_occurrence,
             commands::sessions::list_sessions,
             commands::sessions::list_sessions_today,
+            commands::sessions::list_sessions_between,
+            commands::sessions::update_session_series,
+            commands::sessions::delete_session_series,
+            commands::sessions::get_session_pages,
+            commands::sessions::create_session_page,
+            commands::sessions::link_session_page,
             commands::exams::create_exam,
             commands::exams::list_exams,
             commands::exams::list_exams_all_spaces,
             commands::exams::update_exam,
+            commands::exams::update_exam_date,
+            commands::exams::update_exam_weight,
+            commands::exams::update_exam_grade,
+            commands::exams::update_exam_room,
+            commands::exams::set_exam_course,
             commands::decks::create_deck,
             commands::decks::list_decks,
+            commands::decks::list_deck_summaries,
+            commands::decks::set_deck_exam,
+            commands::decks::deck_stats,
             commands::decks::create_card,
+            commands::decks::update_card,
+            commands::decks::delete_card,
+            commands::decks::restore_card,
             commands::decks::list_cards,
-            commands::decks::list_due_cards,
+            commands::decks::study_queue,
             commands::decks::review_card,
+            commands::decks::undo_review,
             commands::study_blocks::create_study_block,
             commands::study_blocks::list_study_blocks,
             commands::assignments::create_assignment,
             commands::assignments::list_assignments,
             commands::assignments::list_assignments_all_spaces,
             commands::assignments::update_assignment_status,
+            commands::assignments::update_assignment_due_date,
+            commands::assignments::set_assignment_course,
             commands::files::import_file,
-            commands::files::create_file_link,
+            commands::files::import_file_from_url,
+            commands::files::download_linked_file,
+            commands::files::replace_file,
+            commands::files::reference_file,
+            commands::files::copy_file_into_storage,
+            commands::files::open_file,
+            commands::files::reveal_file,
+            commands::files::list_open_with_apps,
+            commands::files::open_file_with,
+            commands::office::office_converter_available,
+            commands::office::convert_office_to_pdf,
+            commands::office_install::libreoffice_install_options,
+            commands::office_install::install_libreoffice,
+            commands::entities::convert_entity,
             commands::files::list_files,
             commands::files::get_file,
             commands::files::export_file,
@@ -142,8 +188,18 @@ pub fn run() {
             commands::bookmarks::list_bookmarks,
             commands::bookmarks::get_bookmark,
             commands::bookmarks::fetch_bookmark_metadata,
+            commands::bookmarks::update_bookmark_url,
+            commands::bookmark_screenshot::capture_bookmark_screenshot,
             commands::cli_install::cli_install_status,
             commands::cli_install::install_cli,
+            commands::external_calendars::external_calendar_status,
+            commands::external_calendars::connect_google_calendar,
+            commands::external_calendars::cancel_google_calendar_connect,
+            commands::external_calendars::connect_icloud_calendar,
+            commands::external_calendars::set_external_calendar_selected,
+            commands::external_calendars::disconnect_external_calendar,
+            commands::external_calendars::sync_external_calendars,
+            commands::external_calendars::list_external_events,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

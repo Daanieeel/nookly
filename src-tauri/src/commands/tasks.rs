@@ -44,6 +44,12 @@ pub fn subtask_progress(state: State<DbState>, parent_entity_id: String) -> AppR
 }
 
 #[tauri::command]
+pub fn get_task(state: State<DbState>, entity_id: String) -> AppResult<Task> {
+    let conn = state.0.lock().unwrap();
+    tasks::get_task_with_labels(&conn, &entity_id)
+}
+
+#[tauri::command]
 pub fn list_tasks(state: State<DbState>, space_id: String) -> AppResult<Vec<Task>> {
     let conn = state.0.lock().unwrap();
     tasks::list_tasks(&conn, &space_id)
@@ -63,6 +69,12 @@ pub fn update_task_status(
 pub fn count_tasks_due_today(state: State<DbState>) -> AppResult<tasks::TaskDueTodaySummary> {
     let conn = state.0.lock().unwrap();
     tasks::count_tasks_due_today(&conn)
+}
+
+#[tauri::command]
+pub fn list_open_tasks_due_or_overdue(state: State<DbState>) -> AppResult<Vec<tasks::Task>> {
+    let conn = state.0.lock().unwrap();
+    tasks::list_open_tasks_due_or_overdue(&conn)
 }
 
 #[tauri::command]

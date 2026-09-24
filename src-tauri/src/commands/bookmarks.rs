@@ -26,6 +26,16 @@ pub fn list_bookmarks(state: State<DbState>, space_id: String) -> AppResult<Vec<
     bookmarks::list_bookmarks(&conn, &space_id)
 }
 
+#[tauri::command]
+pub fn update_bookmark_url(
+    state: State<DbState>,
+    entity_id: String,
+    url: String,
+) -> AppResult<Bookmark> {
+    let conn = state.0.lock().unwrap();
+    bookmarks::update_bookmark_url(&conn, &entity_id, url)
+}
+
 /// Best-effort metadata fetch (§5.10). While offline this simply fails and the
 /// frontend keeps showing the "added on [date]" placeholder it already has;
 /// the caller is expected to retry once connectivity returns.
@@ -61,24 +71,7 @@ pub async fn fetch_bookmark_metadata(
             preview_image_url,
             description,
         )?;
-        let bookmark = conn
-            .query_row(
-                "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at
-                 FROM entities e JOIN bookmarks b ON b.entity_id = e.id WHERE e.id = ?1",
-                rusqlite::params![entity_id],
-                |row| {
-                    Ok(Bookmark {
-                        entity: crate::db::entities::row_to_entity(row)?,
-                        url: row.get("url")?,
-                        fetched_title: row.get("fetched_title")?,
-                        favicon_url: row.get("favicon_url")?,
-                        preview_image_url: row.get("preview_image_url")?,
-                        description: row.get("description")?,
-                        metadata_fetched_at: row.get("metadata_fetched_at")?,
-                    })
-                },
-            )
-            .map_err(AppError::from)?;
+        let bookmark = bookmarks::get_bookmark(&conn, &entity_id)?;
         Ok(bookmark)
     }
 }

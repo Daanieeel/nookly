@@ -95,6 +95,8 @@ export interface Label {
   name: string;
   color: string;
   createdAt: string;
+  /// How many live (not trashed) entities carry it.
+  usageCount: number;
 }
 
 export interface TaskStatus {
@@ -110,6 +112,8 @@ export interface Task {
   statusId: string;
   startDate: string | null;
   dueDate: string | null;
+  /// Ordered by label name. Only filled by `listTasks`.
+  labelIds: string[];
 }
 
 export interface TaskDueTodaySummary {
@@ -207,11 +211,17 @@ export interface SessionOccurrence {
   cancelled: boolean;
   location: string | null;
   notes: string | null;
+  /// The linked Course's title; only filled by `listSessions`.
+  courseTitle: string | null;
 }
 
 export interface BriefingSession {
+  entityId: string;
   title: string;
+  /// `YYYY-MM-DD`.
+  date: string;
   startTime: string;
+  courseId: string | null;
   courseTitle: string | null;
   spaceId: string;
 }
@@ -231,17 +241,46 @@ export interface Exam {
   weight: number | null;
   grade: number | null;
   status: string;
+  room: string | null;
 }
+
+export type CardState = "new" | "learning" | "review" | "relearning";
+export type CardRating = "again" | "hard" | "good" | "easy";
 
 export interface IndexCard {
   id: string;
   deckEntityId: string;
   front: string;
   back: string;
-  boxLevel: number;
+  state: CardState;
   dueAt: string;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  reps: number;
+  lapses: number;
+  lastReviewAt: string | null;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  /// When the card comes back after each rating, worked out by FSRS.
+  next: Record<CardRating, string>;
+}
+
+export interface DeckSummary {
+  entity: Entity;
+  examId: string | null;
+  stats: DeckStats;
+}
+
+export interface DeckStats {
+  total: number;
+  new: number;
+  learning: number;
+  due: number;
+  nextDueAt: string | null;
+  reviewedToday: number;
 }
 
 export interface StudyBlock {
@@ -249,6 +288,16 @@ export interface StudyBlock {
   date: string;
   startTime: string;
   endTime: string;
+}
+
+/// A Course's grade rolled up from its Exams and Assignments.
+export interface CourseGrades {
+  /// Weighted mean of the graded items, `null` until one is graded.
+  grade: number | null;
+  /// Share of the course's total weight that is graded, from 0 to 1.
+  gradedWeight: number;
+  gradedCount: number;
+  itemCount: number;
 }
 
 export interface Assignment {
@@ -264,6 +313,9 @@ export interface FileEntity {
   provider: "google_drive" | "dropbox" | "icloud" | null;
   url: string | null;
   originalFilename: string | null;
+  /// Where a referenced file lives on disk; set without `localPath` until it's
+  /// copied into storage.
+  sourcePath: string | null;
 }
 
 export interface Bookmark {
@@ -274,4 +326,9 @@ export interface Bookmark {
   previewImageUrl: string | null;
   description: string | null;
   metadataFetchedAt: string | null;
+  /// Local snapshot of the page, the main preview; `previewImageUrl` stands in
+  /// while none exists.
+  screenshotPath: string | null;
+  /// Attached Label ids, ordered by label name.
+  labelIds: string[];
 }

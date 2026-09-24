@@ -26,3 +26,26 @@ export function updateExam(
 ): Promise<void> {
   return invoke("update_exam", { entityId, grade, status });
 }
+
+export function updateExamDate(entityId: string, examDate: string | null): Promise<void> {
+  return invoke("update_exam_date", { entityId, examDate });
+}
+
+/// `weight` as a fraction, like `0.2` for 20%.
+export function updateExamWeight(entityId: string, weight: number | null): Promise<void> {
+  return invoke("update_exam_weight", { entityId, weight });
+}
+
+/// Unlike `updateExam`, `null` clears the grade.
+export function updateExamGrade(entityId: string, grade: number | null): Promise<void> {
+  return invoke("update_exam_grade", { entityId, grade });
+}
+
+export function updateExamRoom(entityId: string, room: string | null): Promise<void> {
+  return invoke("update_exam_room", { entityId, room });
+}
+
+/// Moves an exam to another Course, replacing its Course link.
+export function setExamCourse(entityId: string, courseId: string): Promise<void> {
+  return invoke("set_exam_course", { entityId, courseId });
+}

@@ -10,7 +10,14 @@ pub struct Label {
     pub name: String,
     pub color: String,
     pub created_at: String,
+    /// How many live (not trashed) entities carry this label.
+    pub usage_count: i64,
 }
+
+/// Every label column plus `usage_count`, for `SELECT {LABEL_COLUMNS} FROM labels l`.
+const LABEL_COLUMNS: &str = "l.*, (SELECT COUNT(*) FROM entity_labels u
+     JOIN entities e ON e.id = u.entity_id
+     WHERE u.label_id = l.id AND e.deleted_at IS NULL) AS usage_count";
 
 fn row_to_label(row: &rusqlite::Row) -> rusqlite::Result<Label> {
     Ok(Label {
@@ -19,6 +26,7 @@ fn row_to_label(row: &rusqlite::Row) -> rusqlite::Result<Label> {
         name: row.get("name")?,
         color: row.get("color")?,
         created_at: row.get("created_at")?,
+        usage_count: row.get("usage_count")?,
     })
 }
 
@@ -40,14 +48,38 @@ pub fn create_label(
         name,
         color,
         created_at: now,
+        usage_count: 0,
     })
 }
 
 /// Space-siloed (§4.3) — labels from other Spaces are never returned.
 pub fn list_labels(conn: &Connection, space_id: &str) -> AppResult<Vec<Label>> {
-    let mut stmt = conn.prepare("SELECT * FROM labels WHERE space_id = ?1 ORDER BY name ASC")?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {LABEL_COLUMNS} FROM labels l WHERE l.space_id = ?1 ORDER BY l.name ASC"
+    ))?;
     let rows = stmt.query_map(params![space_id], row_to_label)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Renames and/or recolors a label; `None` keeps that field.
+pub fn update_label(
+    conn: &Connection,
+    id: &str,
+    name: Option<String>,
+    color: Option<String>,
+) -> AppResult<Label> {
+    let affected = conn.execute(
+        "UPDATE labels SET name = COALESCE(?1, name), color = COALESCE(?2, color) WHERE id = ?3",
+        params![name, color, id],
+    )?;
+    if affected == 0 {
+        return Err(crate::error::AppError::NotFound(format!("label {id}")));
+    }
+    Ok(conn.query_row(
+        &format!("SELECT {LABEL_COLUMNS} FROM labels l WHERE l.id = ?1"),
+        params![id],
+        row_to_label,
+    )?)
 }
 
 pub fn delete_label(conn: &Connection, id: &str) -> AppResult<()> {
@@ -73,11 +105,11 @@ pub fn detach_label(conn: &Connection, entity_id: &str, label_id: &str) -> AppRe
 }
 
 pub fn list_labels_for_entity(conn: &Connection, entity_id: &str) -> AppResult<Vec<Label>> {
-    let mut stmt = conn.prepare(
-        "SELECT l.* FROM labels l
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {LABEL_COLUMNS} FROM labels l
          JOIN entity_labels el ON el.label_id = l.id
-         WHERE el.entity_id = ?1 ORDER BY l.name ASC",
-    )?;
+         WHERE el.entity_id = ?1 ORDER BY l.name ASC"
+    ))?;
     let rows = stmt.query_map(params![entity_id], row_to_label)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }

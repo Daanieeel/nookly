@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
+import { preferences } from "@/lib/preferences";
 
 export const MODULE_KEYS = [
   "tasks",
@@ -9,6 +10,7 @@ export const MODULE_KEYS = [
   "semesters",
   "sessions",
   "exams",
+  "decks",
   "assignments",
   "files",
   "bookmarks",
@@ -19,7 +21,6 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
 export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
-  | { kind: "recents" }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
@@ -31,6 +32,8 @@ export interface RecentEntry {
 }
 
 const MAX_RECENTS = 5;
+/// How many steps Back can go, like a browser's history.
+const MAX_HISTORY = 50;
 
 /// A block to scroll into view once its page's editor has hydrated, e.g. after
 /// picking a block level search result. Consumed (cleared) by `BlockEditor`.
@@ -51,14 +54,22 @@ interface NavState {
   rightSidebarCollapsed: boolean;
   rightSidebarWidth: number;
   recents: RecentEntry[];
+  /// Views to return to with Back, oldest first, and to redo with Forward, most
+  /// recent last. Session only; a restart starts with empty history.
+  backStack: View[];
+  forwardStack: View[];
   setView: (view: View) => void;
+  goBack: () => void;
+  goForward: () => void;
   /// `focus` scrolls to a block once its page renders; its `entityId` is the
   /// page holding the block, which may be embedded in the opened entity.
   openEntity: (entityId: string, spaceId: string, focus?: FocusBlock) => void;
-  /// Drops recents whose entity id isn't in `validIds` (deleted/trashed since
-  /// being opened), so a stale entry doesn't sit in the list — or inflate its
-  /// count — forever.
-  pruneRecents: (validIds: Set<string>) => void;
+  /// The Bookmark shown in the details sheet, over whatever view is open.
+  bookmarkSheetId: string | null;
+  /// Bookmarks have no page of their own: an entity view opened for one steps
+  /// back to where it came from (or the Bookmarks page) and opens the sheet.
+  showBookmark: (entityId: string, spaceId: string) => void;
+  setBookmarkSheetId: (entityId: string | null) => void;
   setActiveSpace: (spaceId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
@@ -71,60 +82,41 @@ interface NavState {
 }
 
 function readStoredCollapsed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.sidebarCollapsed) === "1";
-  } catch {
-    return false;
-  }
+  return preferences.get(STORAGE_KEYS.sidebarCollapsed) === "1";
 }
 
-/// Bounds for the resizable right sidebar. The minimum fits its top row: four 36px
-/// icon buttons (collapse, export, pin, more) with their gaps and the `p-3` padding.
-export const RIGHT_SIDEBAR_MIN_WIDTH = 224;
+/// Bounds for the resizable right sidebar. The minimum fits its widest property
+/// row in full: the 6rem label, a number stepper with its unit, the clear button
+/// and the save status slot (`NumberProperty`), plus the `p-3` padding.
+export const RIGHT_SIDEBAR_MIN_WIDTH = 312;
 export const RIGHT_SIDEBAR_MAX_WIDTH = 480;
-export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 288;
+export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 320;
 
 export function clampRightSidebarWidth(width: number): number {
   return Math.min(RIGHT_SIDEBAR_MAX_WIDTH, Math.max(RIGHT_SIDEBAR_MIN_WIDTH, Math.round(width)));
 }
 
 function readStoredRightSidebarWidth(): number {
-  try {
-    const stored = Number(localStorage.getItem(STORAGE_KEYS.rightSidebarWidth));
-    return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
-  } catch {
-    return RIGHT_SIDEBAR_DEFAULT_WIDTH;
-  }
+  const stored = Number(preferences.get(STORAGE_KEYS.rightSidebarWidth));
+  return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
 }
 
 function readStoredRightSidebarCollapsed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.rightSidebarCollapsed) === "1";
-  } catch {
-    return false;
-  }
+  return preferences.get(STORAGE_KEYS.rightSidebarCollapsed) === "1";
 }
 
 function readStoredActiveSpace(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.activeSpace);
-  } catch {
-    return null;
-  }
+  return preferences.get(STORAGE_KEYS.activeSpace);
 }
 
 function writeStoredActiveSpace(spaceId: string | null) {
-  try {
-    if (spaceId) localStorage.setItem(STORAGE_KEYS.activeSpace, spaceId);
-    else localStorage.removeItem(STORAGE_KEYS.activeSpace);
-  } catch {
-    // best-effort only
-  }
+  if (spaceId) preferences.set(STORAGE_KEYS.activeSpace, spaceId);
+  else preferences.remove(STORAGE_KEYS.activeSpace);
 }
 
 function readStoredRecents(): RecentEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.recents);
+    const raw = preferences.get(STORAGE_KEYS.recents);
     // SAFETY: this key is only ever written by `writeStoredRecents` below, with the
     // exact `RecentEntry[]` shape — never user-editable or written by anything else.
     return raw ? (JSON.parse(raw) as RecentEntry[]) : [];
@@ -134,14 +126,32 @@ function readStoredRecents(): RecentEntry[] {
 }
 
 function writeStoredRecents(recents: RecentEntry[]) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.recents, JSON.stringify(recents));
-  } catch {
-    // best-effort only
-  }
+  preferences.set(STORAGE_KEYS.recents, JSON.stringify(recents));
 }
 
-const NO_OVERLAY = { paletteOpen: false, switcherOpen: false, commandsOpen: false };
+function sameView(a: View, b: View): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/// The history change for moving from `state.view` to `next`: the current view
+/// joins Back and Forward is cleared, unless nothing actually changes.
+function pushHistory(
+  state: Pick<NavState, "view" | "backStack" | "forwardStack">,
+  next: View,
+): Pick<NavState, "backStack" | "forwardStack"> {
+  if (sameView(state.view, next)) {
+    return { backStack: state.backStack, forwardStack: state.forwardStack };
+  }
+  return { backStack: [...state.backStack, state.view].slice(-MAX_HISTORY), forwardStack: [] };
+}
+
+/// The Bookmark sheet is modal too, so a palette opening over it closes it.
+const NO_OVERLAY = {
+  paletteOpen: false,
+  switcherOpen: false,
+  commandsOpen: false,
+  bookmarkSheetId: null,
+};
 
 export const useNavStore = create<NavState>((set, get) => ({
   view: { kind: "dashboard" },
@@ -155,11 +165,41 @@ export const useNavStore = create<NavState>((set, get) => ({
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
   rightSidebarWidth: readStoredRightSidebarWidth(),
   recents: readStoredRecents(),
+  backStack: [],
+  forwardStack: [],
   setView: (view) =>
     set((state) => {
       const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-      return { view, activeSpaceId };
+      return { view, activeSpaceId, ...pushHistory(state, view) };
+    }),
+  goBack: () =>
+    set((state) => {
+      const view = state.backStack.at(-1);
+      if (!view) return {};
+      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
+      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      return {
+        view,
+        activeSpaceId,
+        focusBlock: null,
+        backStack: state.backStack.slice(0, -1),
+        forwardStack: [...state.forwardStack, state.view],
+      };
+    }),
+  goForward: () =>
+    set((state) => {
+      const view = state.forwardStack.at(-1);
+      if (!view) return {};
+      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
+      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      return {
+        view,
+        activeSpaceId,
+        focusBlock: null,
+        backStack: [...state.backStack, state.view],
+        forwardStack: state.forwardStack.slice(0, -1),
+      };
     }),
   openEntity: (entityId, spaceId, focus) => {
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
@@ -169,19 +209,33 @@ export const useNavStore = create<NavState>((set, get) => ({
     );
     writeStoredRecents(recents);
     if (spaceId !== get().activeSpaceId) writeStoredActiveSpace(spaceId);
+    const view: View = { kind: "entity", entityId, spaceId };
     set({
-      view: { kind: "entity", entityId, spaceId },
+      view,
       activeSpaceId: spaceId,
       recents,
       focusBlock: focus ?? null,
+      ...pushHistory(get(), view),
     });
   },
-  pruneRecents: (validIds) => {
-    const recents = get().recents.filter((r) => validIds.has(r.entityId));
-    if (recents.length === get().recents.length) return;
-    writeStoredRecents(recents);
-    set({ recents });
-  },
+  bookmarkSheetId: null,
+  showBookmark: (entityId, spaceId) =>
+    set((state) => {
+      // Only the entity view opened for this Bookmark steps back. A second call
+      // (an effect running twice) must not pop the history again, or it lands
+      // on whatever was open before, like the last File page.
+      if (state.view.kind !== "entity" || state.view.entityId !== entityId) {
+        return { bookmarkSheetId: entityId };
+      }
+      const previous = state.backStack.at(-1);
+      const fallback: View = { kind: "module", spaceId, module: "bookmarks" };
+      return {
+        view: previous ?? fallback,
+        backStack: previous ? state.backStack.slice(0, -1) : state.backStack,
+        bookmarkSheetId: entityId,
+      };
+    }),
+  setBookmarkSheetId: (bookmarkSheetId) => set({ bookmarkSheetId }),
   setActiveSpace: (spaceId) => {
     writeStoredActiveSpace(spaceId);
     set({ activeSpaceId: spaceId });
@@ -198,28 +252,16 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
-    } catch {
-      // best-effort only
-    }
+    preferences.set(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
     set({ sidebarCollapsed });
   },
   setRightSidebarCollapsed: (rightSidebarCollapsed) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.rightSidebarCollapsed, rightSidebarCollapsed ? "1" : "0");
-    } catch {
-      // best-effort only
-    }
+    preferences.set(STORAGE_KEYS.rightSidebarCollapsed, rightSidebarCollapsed ? "1" : "0");
     set({ rightSidebarCollapsed });
   },
   setRightSidebarWidth: (width) => {
     const rightSidebarWidth = clampRightSidebarWidth(width);
-    try {
-      localStorage.setItem(STORAGE_KEYS.rightSidebarWidth, String(rightSidebarWidth));
-    } catch {
-      // best-effort only
-    }
+    preferences.set(STORAGE_KEYS.rightSidebarWidth, String(rightSidebarWidth));
     set({ rightSidebarWidth });
   },
 }));

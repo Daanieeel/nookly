@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Entity, Semester } from "./types";
+import type { CourseGrades, Entity, Semester } from "./types";
 
 export function createCourse(spaceId: string, title: string): Promise<Entity> {
   return invoke("create_course", { spaceId, title });
@@ -80,4 +80,8 @@ export function getCourseNotes(courseId: string): Promise<Entity> {
 /// creating it on first request if one doesn't exist yet.
 export function getSemesterNotes(semesterId: string): Promise<Entity> {
   return invoke("get_semester_notes", { semesterId });
+}
+
+export function getCourseGrades(courseId: string): Promise<CourseGrades> {
+  return invoke("get_course_grades", { courseId });
 }

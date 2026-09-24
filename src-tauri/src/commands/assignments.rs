@@ -37,3 +37,23 @@ pub fn update_assignment_status(
     let conn = state.0.lock().unwrap();
     assignments::update_assignment_status(&conn, &entity_id, status, grade)
 }
+
+#[tauri::command]
+pub fn update_assignment_due_date(
+    state: State<DbState>,
+    entity_id: String,
+    due_date: Option<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    assignments::update_assignment_due_date(&conn, &entity_id, due_date)
+}
+
+#[tauri::command]
+pub fn set_assignment_course(
+    state: State<DbState>,
+    entity_id: String,
+    course_id: String,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    assignments::set_assignment_course(&conn, &entity_id, course_id)
+}

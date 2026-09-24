@@ -141,7 +141,15 @@ pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
             params![id],
         )?;
     }
-    // Cards key off the deck's entity id, and must go before the decks themselves.
+    // Cards key off the deck's entity id, and must go before the decks themselves;
+    // their reviews before the cards.
+    conn.execute(
+        &format!(
+            "DELETE FROM index_card_reviews WHERE card_id IN
+             (SELECT id FROM index_cards WHERE deck_entity_id IN ({IN_SPACE}))"
+        ),
+        params![id],
+    )?;
     conn.execute(
         &format!("DELETE FROM index_cards WHERE deck_entity_id IN ({IN_SPACE})"),
         params![id],

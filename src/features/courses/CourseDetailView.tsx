@@ -1,13 +1,14 @@
 import {
   IconArrowRight,
   IconCalendarStats,
+  IconChartBar,
   IconCards,
   IconClipboardList,
   IconWriting,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
 import { entityTarget } from "@/components/context-menu/registry";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +17,8 @@ import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InteractiveCard } from "@/components/ui/interactive-card";
 import { EmptyState } from "@/components/empty-state";
 import { listAssignments } from "@/lib/api/assignments";
-import { getCourseNotes } from "@/lib/api/courses";
-import { listDecks, listDueCards } from "@/lib/api/decks";
+import { getCourseGrades, getCourseNotes } from "@/lib/api/courses";
+import { getDeckStats, listDecks } from "@/lib/api/decks";
 import { listExams } from "@/lib/api/exams";
 import { listRelationships } from "@/lib/api/relationships";
 import { listSessions } from "@/lib/api/sessions";
@@ -25,6 +26,7 @@ import type { Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { BlockEditor } from "@/features/notes/BlockEditor";
 import { useNavStore } from "@/lib/store/nav";
+import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 
@@ -33,18 +35,12 @@ const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 /// -specific date formatters, not shared domain logic.
 function dateLabel(date: string): string {
   const days = differenceInCalendarDays(new Date(date), new Date());
-  return days <= 7 ? `${Math.max(days, 0)}d` : format(new Date(date), "MMM d");
+  return days <= 7 ? `${Math.max(days, 0)}d` : formatShortDate(date);
 }
 
-function formatSessionTime(hhmm: string): string {
-  const [hStr, mStr] = hhmm.split(":");
-  const hour = Number(hStr);
-  const minute = Number(mStr ?? "0");
-  const period = hour >= 12 ? "pm" : "am";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return minute === 0
-    ? `${hour12}${period}`
-    : `${hour12}:${String(minute).padStart(2, "0")}${period}`;
+/// Up to two decimals, so a 1.7 stays 1.7 and a 1.5333 becomes 1.53.
+function formatGrade(grade: number): string {
+  return String(Math.round(grade * 100) / 100);
 }
 
 /// Course detail body (§ course sub-dashboard plan) — header, right sidebar
@@ -69,7 +65,7 @@ function CourseBody({ course }: { course: Entity }) {
     queryKey: ["course-notes", course.id],
     queryFn: () => getCourseNotes(course.id),
   });
-  const { data: relationships = [] } = useQuery({
+  const { data: relationships = [], dataUpdatedAt: relationshipsUpdatedAt } = useQuery({
     queryKey: ["relationships", course.id],
     queryFn: () => listRelationships(course.id, "both"),
   });
@@ -77,13 +73,26 @@ function CourseBody({ course }: { course: Entity }) {
     queryKey: ["sessions", spaceId],
     queryFn: () => listSessions(spaceId),
   });
-  const { data: exams = [] } = useQuery({
+  const { data: exams = [], dataUpdatedAt: examsUpdatedAt } = useQuery({
     queryKey: ["exams", spaceId],
     queryFn: () => listExams(spaceId),
   });
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [], dataUpdatedAt: assignmentsUpdatedAt } = useQuery({
     queryKey: ["assignments", spaceId],
     queryFn: () => listAssignments(spaceId),
+  });
+  // Keyed on when the lists it's computed from last loaded, so editing a grade,
+  // weight or course link anywhere refreshes it without its own invalidation.
+  const { data: grades } = useQuery({
+    queryKey: [
+      "course-grades",
+      course.id,
+      examsUpdatedAt,
+      assignmentsUpdatedAt,
+      relationshipsUpdatedAt,
+    ],
+    queryFn: () => getCourseGrades(course.id),
+    placeholderData: (previous) => previous,
   });
   const { data: decks = [] } = useQuery({
     queryKey: ["decks", spaceId],
@@ -120,13 +129,16 @@ function CourseBody({ course }: { course: Entity }) {
     (q.data ?? []).filter((r) => r.relationshipType === "deck-exam").map((r) => r.fromEntityId),
   );
   const courseDecks = decks.filter((d) => courseDeckIds.includes(d.id));
-  const dueCardQueries = useQueries({
+  const deckStatsQueries = useQueries({
     queries: courseDecks.map((deck) => ({
-      queryKey: ["due-cards", deck.id],
-      queryFn: () => listDueCards(deck.id),
+      queryKey: ["deck-stats", deck.id],
+      queryFn: () => getDeckStats(deck.id),
     })),
   });
-  const totalDue = dueCardQueries.reduce((sum, q) => sum + (q.data?.length ?? 0), 0);
+  const totalDue = deckStatsQueries.reduce(
+    (sum, q) => sum + (q.data ? q.data.new + q.data.learning + q.data.due : 0),
+    0,
+  );
 
   const today = startOfDay(new Date());
   const nextSession = [...courseSessions]
@@ -154,8 +166,8 @@ function CourseBody({ course }: { course: Entity }) {
       <div
         className={
           courseDecks.length > 0
-            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            : "grid grid-cols-1 gap-3 sm:grid-cols-3"
+            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         }
       >
         <BentoCard
@@ -166,8 +178,7 @@ function CourseBody({ course }: { course: Entity }) {
           {nextSession ? (
             <>
               <p className="text-sm font-medium">
-                {format(new Date(nextSession.date), "EEEE")}{" "}
-                {formatSessionTime(nextSession.startTime)}
+                {formatWeekday(nextSession.date)} {formatClock(nextSession.startTime)}
               </p>
               <p className="text-xs text-muted-foreground">in {dateLabel(nextSession.date)}</p>
             </>
@@ -211,9 +222,22 @@ function CourseBody({ course }: { course: Entity }) {
           )}
         </BentoCard>
 
+        <BentoCard icon={IconChartBar} label="Course Grade">
+          {grades?.grade != null ? (
+            <>
+              <p className="text-sm font-medium tabular-nums">{formatGrade(grades.grade)}</p>
+              <p className="text-xs text-muted-foreground">
+                {Math.round(grades.gradedWeight * 100)}% of the course graded
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No grades yet</p>
+          )}
+        </BentoCard>
+
         {courseDecks.length > 0 && (
           <BentoCard icon={IconCards} label="Study Progress" onClick={() => viewAll("exams")}>
-            <p className="text-sm font-medium">{totalDue} cards due</p>
+            <p className="text-sm font-medium">{totalDue} cards to study</p>
             <p className="text-xs text-muted-foreground">
               across {courseDecks.length} deck{courseDecks.length === 1 ? "" : "s"}
             </p>
@@ -236,7 +260,7 @@ function CourseBody({ course }: { course: Entity }) {
               key={s.entity.id}
               entity={s.entity}
               title={displayTitle(s.entity)}
-              meta={`${format(new Date(s.date), "EEE MMM d")} · ${formatSessionTime(s.startTime)}`}
+              meta={`${formatWeekday(s.date, "short")} ${formatShortDate(s.date)} · ${formatClock(s.startTime)}`}
               onClick={() => openEntity(s.entity.id, spaceId)}
             />
           ))}

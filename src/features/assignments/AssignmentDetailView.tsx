@@ -1,79 +1,221 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FieldError } from "@/components/action-feedback";
 import { EntityDetailLayout } from "@/components/entity-detail-layout";
-import { Input } from "@/components/ui/input";
+import { NumberProperty } from "@/components/property-fields";
+import { PROPERTY_VALUE, PropertyRow } from "@/components/property-row";
+import { CoursePickerField, useCourseLookup } from "@/features/courses/course-lookup";
+import { BlockEditor } from "@/features/notes/BlockEditor";
+import { RelatedItemsSection } from "@/features/relationships/RelatedItemsSection";
+import { TasksDataContext, useTasksDataValue } from "@/features/tasks/task-controls";
+import { formatTimestamp } from "@/features/tasks/task-model";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DueDatePicker,
+  DueLabel,
+  PendingIcon,
+  StatusPicker,
+  TaskStatusIcon,
+} from "@/features/tasks/task-properties";
 import { listAssignments, updateAssignmentStatus } from "@/lib/api/assignments";
-import type { Entity } from "@/lib/api/types";
-
-const STATUSES = ["not_started", "in_progress", "submitted", "graded"];
+import type { Assignment, Entity } from "@/lib/api/types";
+import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
+import { ASSIGNMENT_STATUSES, assignmentStatus, statusKindOf } from "./assignment-model";
+import {
+  AssignmentDueControl,
+  AssignmentStatusControl,
+  dueTone,
+  useSetAssignmentCourse,
+  useSetAssignmentDueDate,
+} from "./assignment-views";
 
 /// Assignment ↔ Course is structural (§5.8) but delegates Todos/Notes entirely to
-/// Relationships — this detail view owns only the Assignment's own native fields
-/// (status, grade), the same split ExamDetailView uses for its own status/grade.
+/// Relationships. Its own fields (status, due date, grade) sit in a Linear style
+/// properties panel in the right sidebar, as on Tasks, and above the content while
+/// the sidebar is collapsed.
 export function AssignmentDetailView({ entity }: { entity: Entity }) {
-  const queryClient = useQueryClient();
+  // The related Tasks tab draws Task status and due date controls.
+  const tasksData = useTasksDataValue(entity.spaceId);
+  return (
+    <TasksDataContext.Provider value={tasksData}>
+      <AssignmentPage entity={entity} />
+    </TasksDataContext.Provider>
+  );
+}
 
+function AssignmentPage({ entity }: { entity: Entity }) {
+  const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const { data: assignments = [] } = useQuery({
     queryKey: ["assignments", entity.spaceId],
     queryFn: () => listAssignments(entity.spaceId),
   });
   const assignment = assignments.find((a) => a.entity.id === entity.id);
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["assignments", entity.spaceId] });
-
-  const setStatus = useMutation({
-    mutationFn: (status: string) =>
-      updateAssignmentStatus(entity.id, status, assignment?.grade ?? null),
-    onSuccess: invalidate,
-  });
-  const setGrade = useMutation({
-    mutationFn: (grade: number) =>
-      updateAssignmentStatus(entity.id, assignment?.status ?? "not_started", grade),
-    onSuccess: invalidate,
-  });
-
   return (
-    <EntityDetailLayout entity={entity}>
-      <div className="flex max-w-xl flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <Select value={assignment?.status} onValueChange={(v) => setStatus.mutate(v)}>
-            <SelectTrigger size="sm" className="w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="number"
-            placeholder="Grade"
-            defaultValue={assignment?.grade ?? ""}
-            onBlur={(e) => e.target.value && setGrade.mutate(Number(e.target.value))}
-            aria-invalid={setGrade.isError || undefined}
-            className="h-8 w-24"
-          />
-        </div>
-        <FieldError message={setStatus.isError && "Couldn't change status, pick it again"} />
-        <FieldError message={setGrade.isError && "Couldn't save the grade, try again"} />
-        {assignment?.dueDate && (
-          <p className="text-xs text-muted-foreground">Due {assignment.dueDate}</p>
+    <EntityDetailLayout
+      entity={entity}
+      sidebar={assignment && <PropertiesPanel assignment={assignment} />}
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-col pb-24">
+        {/* Properties live in the sidebar; without it they sit above the description,
+            indented by the editor's handle gutter to line up with its text. */}
+        {assignment && (
+          <div
+            className={cn(
+              "mb-2 flex flex-wrap items-center gap-1.5 pl-13",
+              !sidebarCollapsed && "lg:hidden",
+            )}
+          >
+            <AssignmentStatusControl assignment={assignment} />
+            {assignment.dueDate ? (
+              <AssignmentDueControl assignment={assignment} />
+            ) : (
+              <SetDueDate assignment={assignment} />
+            )}
+          </div>
         )}
-        <p className="text-xs text-muted-foreground">
-          Related Todos and Notes live in the panel on the right →
-        </p>
+        <BlockEditor entityId={entity.id} spaceId={entity.spaceId} />
+        <RelatedItemsSection entity={entity} />
       </div>
     </EntityDetailLayout>
+  );
+}
+
+function SetDueDate({ assignment }: { assignment: Assignment }) {
+  const change = useSetAssignmentDueDate(assignment);
+  return (
+    <DueDatePicker value={null} onSelect={(day) => change.mutate(day)}>
+      <button
+        type="button"
+        aria-label={change.isError ? "Couldn't set due date, try again" : "Set Due Date"}
+        className="flex h-6 cursor-pointer items-center gap-1.5 rounded-md border border-foreground/10 px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
+      >
+        <PendingIcon pending={change.isPending} failed={change.isError} idle={null} />
+        Set due date
+      </button>
+    </DueDatePicker>
+  );
+}
+
+/// Linear's properties panel: each value is its own picker, and shows its own
+/// spinner or warning while a change saves or after it failed.
+function PropertiesPanel({ assignment }: { assignment: Assignment }) {
+  const queryClient = useQueryClient();
+  const { courseOf } = useCourseLookup(assignment.entity.spaceId, "assignment-course");
+  const course = courseOf.get(assignment.entity.id);
+  const status = assignmentStatus(assignment.status);
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] });
+
+  const setStatus = useMutation({
+    mutationFn: (next: string) =>
+      updateAssignmentStatus(assignment.entity.id, next, assignment.grade),
+    onSuccess: invalidate,
+  });
+  const setDue = useSetAssignmentDueDate(assignment);
+  return (
+    <section aria-label="Properties" className="flex flex-col gap-0.5">
+      <PropertyRow label="Status">
+        <StatusPicker
+          statuses={ASSIGNMENT_STATUSES}
+          kindOf={statusKindOf}
+          value={assignment.status}
+          onSelect={(next) => setStatus.mutate(next)}
+        >
+          <button
+            type="button"
+            aria-label={setStatus.isError ? "Couldn't change status, try again" : "Change Status"}
+            className={PROPERTY_VALUE}
+          >
+            <PendingIcon
+              pending={setStatus.isPending}
+              failed={setStatus.isError}
+              idle={<TaskStatusIcon status={status} kind={statusKindOf(status.id)} />}
+            />
+            <span className="truncate">{status.name}</span>
+          </button>
+        </StatusPicker>
+      </PropertyRow>
+
+      <PropertyRow label="Due date">
+        <DueDatePicker
+          value={assignment.dueDate}
+          align="end"
+          onSelect={(day) => setDue.mutate(day)}
+        >
+          <button
+            type="button"
+            aria-label={setDue.isError ? "Couldn't set due date, try again" : "Change due date"}
+            className={PROPERTY_VALUE}
+          >
+            {(setDue.isPending || setDue.isError) && (
+              <PendingIcon pending={setDue.isPending} failed={setDue.isError} idle={null} />
+            )}
+            {assignment.dueDate ? (
+              <DueLabel day={assignment.dueDate} tone={dueTone(assignment)} />
+            ) : (
+              <span className="text-muted-foreground">Set due date</span>
+            )}
+          </button>
+        </DueDatePicker>
+      </PropertyRow>
+
+      <PropertyRow label="Grade">
+        <GradeField assignment={assignment} />
+      </PropertyRow>
+
+      <PropertyRow label="Course">
+        <CourseField assignment={assignment} course={course} />
+      </PropertyRow>
+
+      <PropertyRow label="Created">
+        <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
+          {formatTimestamp(assignment.entity.createdAt)}
+        </span>
+      </PropertyRow>
+      <PropertyRow label="Updated">
+        <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
+          {formatTimestamp(assignment.entity.updatedAt)}
+        </span>
+      </PropertyRow>
+    </section>
+  );
+}
+
+function GradeField({ assignment }: { assignment: Assignment }) {
+  const queryClient = useQueryClient();
+  const save = useMutation({
+    mutationFn: (grade: number | null) =>
+      updateAssignmentStatus(assignment.entity.id, assignment.status, grade),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] }),
+  });
+  return (
+    <NumberProperty
+      value={assignment.grade}
+      onSave={(grade) => save.mutate(grade)}
+      addLabel="Add grade"
+      clearLabel="Remove Grade"
+      min={0}
+      pending={save.isPending}
+      failed={save.isError}
+    />
+  );
+}
+
+function CourseField({
+  assignment,
+  course,
+}: {
+  assignment: Assignment;
+  course: Entity | undefined;
+}) {
+  const change = useSetAssignmentCourse(assignment, course?.id);
+  return (
+    <CoursePickerField
+      spaceId={assignment.entity.spaceId}
+      course={course}
+      onChange={(courseId) => change.mutate(courseId)}
+      pending={change.isPending}
+      failed={change.isError}
+    />
   );
 }

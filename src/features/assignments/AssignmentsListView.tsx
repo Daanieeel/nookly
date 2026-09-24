@@ -1,17 +1,21 @@
-import {
-  StatusButtonContent,
-  StatusIcon,
-  statusOf,
-  useCloseAfterSuccess,
-} from "@/components/action-feedback";
-import { IconClipboardCheck, IconClipboardPlus, IconX } from "@tabler/icons-react";
+import { IconCircleDot, IconClipboardCheck, IconPlus, IconSchool } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { contextTarget, entityTarget } from "@/components/context-menu/registry";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "@/components/action-feedback";
+import { contextTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
-import { EntityPickerPopover } from "@/components/entity-picker";
-import { EntityKey } from "@/components/entity-key";
+import { EntityPickerPopover, EntityPickerValue } from "@/components/entity-picker";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  applyFilters,
+} from "@/components/filter-menu";
+import { GroupedBoard } from "@/components/grouped-view/grouped-board";
+import { GroupedList } from "@/components/grouped-view/grouped-list";
+import { buildGroups } from "@/components/grouped-view/grouping";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -19,58 +23,45 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useCourseLookup } from "@/features/courses/course-lookup";
+import { TaskStatusIcon } from "@/features/tasks/task-properties";
+import { useCreateShortcut } from "@/hooks/use-create-shortcut";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { createAssignment, listAssignments, updateAssignmentStatus } from "@/lib/api/assignments";
-import { getEntity } from "@/lib/api/entities";
-import { listRelationships } from "@/lib/api/relationships";
+  createAssignment,
+  listAssignments,
+  setAssignmentCourse,
+  updateAssignmentStatus,
+} from "@/lib/api/assignments";
 import type { Assignment, Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
+import { assignmentGroupDefs } from "./assignment-groups";
+import {
+  ASSIGNMENT_STATUSES,
+  type DisplayOptions,
+  orderAssignments,
+  readDisplay,
+  statusKindOf,
+  writeDisplay,
+} from "./assignment-model";
+import {
+  AssignmentCard,
+  AssignmentCardBody,
+  AssignmentColumnLabels,
+  AssignmentRow,
+} from "./assignment-views";
 
-const STATUSES = ["not_started", "in_progress", "submitted", "graded"];
-const TERMINAL_STATUSES = new Set(["submitted", "graded"]);
-
-/// Date-forward, urgency-first (§2.3) — same sorting/urgency treatment as Exams,
-/// but visually distinct: no proximity dot on a Badge, a checklist-flavored icon,
-/// and status shown inline as an editable Select (matching prior behavior) rather
-/// than a read-only Badge, since Assignment status is the thing most often changed.
-function sortByUrgency(assignments: Assignment[]): Assignment[] {
-  return [...assignments].sort((a, b) => {
-    if (!a.dueDate && !b.dueDate) return 0;
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return a.dueDate.localeCompare(b.dueDate);
-  });
+function courseFilter(courseId: string | undefined): ActiveFilter[] {
+  return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
 
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
-}
-
-function UrgencyDot({ dueDate, status }: { dueDate: string | null; status: string }) {
-  const days = daysUntil(dueDate);
-  let className = "bg-muted-foreground/30";
-  if (!TERMINAL_STATUSES.has(status) && days !== null) {
-    if (days < 0) className = "bg-destructive";
-    else if (days <= 7) className = "bg-warning";
-  }
-  return <span className={`size-1.5 shrink-0 rounded-full ${className}`} aria-hidden />;
-}
-
-/// See `ExamsListView`'s equivalent doc comment for the `filterCourseId` convention.
+/// An inbox to work through: a list bucketed by due date by default, or a board,
+/// either one groupable and sub-groupable by deadline, creation, status or Course.
+/// A Course page's "view all" lands here with `filterCourseId`, applied as a
+/// regular Course filter.
 export function AssignmentsListView({
   spaceId,
   filterCourseId,
@@ -80,128 +71,189 @@ export function AssignmentsListView({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const setView = useNavStore((s) => s.setView);
   const [createOpen, setCreateOpen] = useState(false);
+  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
+  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
 
-  const { data: assignments = [] } = useQuery({
+  useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
+
+  const { data: assignments = [], isPending } = useQuery({
     queryKey: ["assignments", spaceId],
     queryFn: () => listAssignments(spaceId),
   });
-  const { data: filterCourse } = useQuery({
-    queryKey: ["entity", filterCourseId],
-    // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
-    queryFn: () => getEntity(filterCourseId as string),
-    enabled: Boolean(filterCourseId),
-  });
-  const { data: courseRelationships = [] } = useQuery({
-    queryKey: ["relationships", filterCourseId],
-    // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
-    queryFn: () => listRelationships(filterCourseId as string, "to"),
-    enabled: Boolean(filterCourseId),
+  const { courses, courseOf } = useCourseLookup(spaceId, "assignment-course");
+
+  const startCreate = useCallback(() => setCreateOpen(true), []);
+  useCreateShortcut(startCreate);
+
+  const setDisplay = (next: DisplayOptions) => {
+    setDisplayState(next);
+    writeDisplay(next);
+  };
+
+  /// A drop changes whatever the target column or swimlane stands for: a status
+  /// or the Course.
+  const move = useMutation({
+    mutationFn: async (vars: { assignment: Assignment; status?: string; courseId?: string }) => {
+      const { assignment, status, courseId } = vars;
+      if (status) await updateAssignmentStatus(assignment.entity.id, status, assignment.grade);
+      if (courseId) await setAssignmentCourse(assignment.entity.id, courseId);
+    },
+    onSuccess: (_, { assignment, courseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
+      if (courseId) {
+        const previous = courseOf.get(assignment.entity.id);
+        for (const id of [courseId, previous?.id]) {
+          if (id) queryClient.invalidateQueries({ queryKey: ["relationships", id] });
+        }
+      }
+    },
   });
 
-  const setStatus = useMutation({
-    mutationFn: (vars: { entityId: string; status: string }) =>
-      updateAssignmentStatus(vars.entityId, vars.status, null),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] }),
-  });
-  const failedId = setStatus.isError ? setStatus.variables?.entityId : undefined;
+  const filterFields = useMemo<FilterField[]>(
+    () => [
+      {
+        id: "course",
+        label: "Course",
+        icon: IconSchool,
+        options: courses.map((c) => ({ value: c.id, label: displayTitle(c) })),
+      },
+      {
+        id: "status",
+        label: "Status",
+        icon: IconCircleDot,
+        options: ASSIGNMENT_STATUSES.map((s) => ({
+          value: s.id,
+          label: s.name,
+          icon: <TaskStatusIcon status={s} kind={statusKindOf(s.id)} />,
+        })),
+      },
+    ],
+    [courses],
+  );
 
-  const scoped = filterCourseId
-    ? assignments.filter((a) =>
-        courseRelationships.some(
-          (r) => r.relationshipType === "assignment-course" && r.fromEntityId === a.entity.id,
-        ),
-      )
-    : assignments;
-  const sorted = sortByUrgency(scoped);
+  const visible = applyFilters(assignments, filters, (a, fieldId) =>
+    fieldId === "course" ? (courseOf.get(a.entity.id)?.id ?? "") : a.status,
+  );
+  const defs = assignmentGroupDefs(display.grouping, courses, courseOf);
+  const subDefs = assignmentGroupDefs(display.subGrouping, courses, courseOf);
+  const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
+  const groups = buildGroups(
+    orderAssignments(visible, display.grouping),
+    defs ?? [{ id: "all", name: "All assignments", match: () => true }],
+    subDefs,
+  ).filter((g) => showEmpty || g.items.length > 0);
+
+  const dropKinds = new Set([display.grouping, display.subGrouping]);
+  const boardDraggable = dropKinds.has("status") || dropKinds.has("course");
+  const onMove = (assignment: Assignment, columnId: string, laneId: string | null) => {
+    const target = (kind: "status" | "course") =>
+      display.grouping === kind ? columnId : display.subGrouping === kind ? laneId : null;
+    const status = target("status");
+    const courseId = target("course");
+    const next = {
+      status: status && status !== assignment.status ? status : undefined,
+      // Every assignment needs a Course, so "No course" takes no drops.
+      courseId:
+        courseId && courseId !== "no-course" && courseId !== courseOf.get(assignment.entity.id)?.id
+          ? courseId
+          : undefined,
+    };
+    if (next.status || next.courseId) move.mutate({ assignment, ...next });
+  };
+  const failedId = move.isError ? move.variables?.assignment.entity.id : undefined;
+  const open = (a: Assignment) => openEntity(a.entity.id, spaceId);
 
   return (
     <div
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex h-full min-h-0 flex-col"
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Assignment",
-        create: () => setCreateOpen(true),
+        create: startCreate,
       })}
     >
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Assignments</h1>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-          <IconClipboardPlus size={14} /> New assignment
-        </Button>
-      </div>
-
-      {filterCourseId && filterCourse && (
-        <div className="flex items-center gap-1.5">
-          <Badge variant="secondary" className="gap-1 pr-1">
-            Filtered by {displayTitle(filterCourse)}
-            <button
-              type="button"
-              aria-label="Clear filter"
-              onClick={() => setView({ kind: "module", spaceId, module: "assignments" })}
-              className="rounded-full p-0.5 hover:bg-accent-foreground/10"
-            >
-              <IconX size={11} />
-            </button>
-          </Badge>
-        </div>
-      )}
-
-      <div className="flex flex-col">
-        {sorted.map((a) => (
-          <div
-            key={a.entity.id}
-            className="flex items-center gap-2.5 rounded-sm p-2 hover:bg-accent"
-            {...entityTarget(a.entity, a)}
-          >
-            <UrgencyDot dueDate={a.dueDate} status={a.status} />
-            <EntityKey entityKey={a.entity.key} />
-            <button
-              type="button"
-              onClick={() => openEntity(a.entity.id, spaceId)}
-              className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-            >
-              {displayTitle(a.entity)}
-            </button>
-            {a.dueDate && (
-              <span className="shrink-0 text-xs text-muted-foreground">{a.dueDate}</span>
-            )}
-            {failedId === a.entity.id && (
-              <span
-                role="alert"
-                className="flex shrink-0 items-center gap-1 text-xs text-destructive"
-              >
-                <StatusIcon status="error" idle={null} size={13} />
-                Couldn't change status
-              </span>
-            )}
-            <Select
-              value={a.status}
-              onValueChange={(status) => setStatus.mutate({ entityId: a.entity.id, status })}
-            >
-              <SelectTrigger size="sm" className="w-36 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <header className="flex shrink-0 flex-col gap-1 border-b border-border py-2 pr-2 pl-4">
+        <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
+          <IconClipboardCheck size={16} className="text-muted-foreground" />
+          Assignments
+        </h1>
+        <div className="flex min-w-0 items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
-        ))}
-        {sorted.length === 0 && (
+          <AssignmentDisplayMenu display={display} onChange={setDisplay} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+                <IconPlus />
+                New assignment
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              Create an assignment <Kbd>C</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </header>
+
+      {!isPending && assignments.length === 0 ? (
+        <div className="p-6">
           <EmptyState
             icon={IconClipboardCheck}
             title="No assignments yet"
-            description="Track due dates, grades, and progress as you go."
-            action={{ label: "New assignment", onClick: () => setCreateOpen(true) }}
+            description="Press C to add one. Pick its Course and due date, the rest comes later."
+            action={{ label: "New assignment", onClick: startCreate }}
           />
-        )}
-      </div>
+        </div>
+      ) : groups.every((g) => g.items.length === 0) ? (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-muted-foreground">No assignments match these filters.</p>
+          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+            Clear filters
+          </Button>
+        </div>
+      ) : display.layout === "board" ? (
+        <GroupedBoard
+          // Remount on regrouping so collapsed lanes start from their defaults.
+          key={`${display.grouping}:${display.subGrouping}`}
+          groups={groups}
+          getKey={(a) => a.entity.id}
+          draggable={boardDraggable}
+          onMove={onMove}
+          renderOverlay={(a) => (
+            <AssignmentCardBody
+              assignment={a}
+              course={courseOf.get(a.entity.id)}
+              className="rotate-2 shadow-lg"
+            />
+          )}
+          renderCard={(a, drag) => (
+            <AssignmentCard
+              assignment={a}
+              course={courseOf.get(a.entity.id)}
+              drag={drag}
+              failed={failedId === a.entity.id}
+              onOpen={() => open(a)}
+            />
+          )}
+        />
+      ) : (
+        <GroupedList
+          key={`${display.grouping}:${display.subGrouping}`}
+          groups={groups}
+          showHeaders={display.grouping !== "none"}
+          getKey={(a) => a.entity.id}
+          footer={<AssignmentColumnLabels />}
+          renderRow={(a) => (
+            <AssignmentRow
+              assignment={a}
+              course={courseOf.get(a.entity.id)}
+              onOpen={() => open(a)}
+            />
+          )}
+        />
+      )}
 
       <CreateAssignmentDialog spaceId={spaceId} open={createOpen} onOpenChange={setCreateOpen} />
     </div>
@@ -232,7 +284,10 @@ function CreateAssignmentDialog({
         dueDate || null,
       );
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
+      if (course) queryClient.invalidateQueries({ queryKey: ["relationships", course.id] });
+    },
   });
   const createStatus = statusOf(create);
 
@@ -263,16 +318,16 @@ function CreateAssignmentDialog({
             typeFilter="course"
             trigger={
               <Button variant="secondary" size="sm" className="w-full justify-start">
-                {course ? displayTitle(course) : "Pick a course…"}
+                <EntityPickerValue entity={course} placeholder="Pick a course…" />
               </Button>
             }
             onSelect={setCourse}
           />
-          <Input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="h-8"
+          <DateInput
+            aria-label="Due date"
+            placeholder="Due date…"
+            value={dueDate || null}
+            onChange={(day) => setDueDate(day ?? "")}
           />
           <p className="text-xs text-muted-foreground">
             Status and grade can be filled in afterward.

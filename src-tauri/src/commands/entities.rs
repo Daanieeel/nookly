@@ -55,6 +55,12 @@ pub fn hard_delete_entity(state: State<DbState>, id: String) -> AppResult<()> {
     entities::hard_delete_entity(&conn, &id)
 }
 
+#[tauri::command]
+pub fn empty_trash(state: State<DbState>) -> AppResult<usize> {
+    let conn = state.0.lock().unwrap();
+    entities::empty_trash(&conn)
+}
+
 /// A copy of the entity in the same Space, through its registered schema.
 #[tauri::command]
 pub fn duplicate_entity(state: State<DbState>, id: String) -> AppResult<Entity> {
@@ -64,4 +70,17 @@ pub fn duplicate_entity(state: State<DbState>, id: String) -> AppResult<Entity> 
         crate::error::AppError::Db("internal: could not locate id in duplicate result".into())
     })?;
     entities::get_entity(&conn, &new_id)
+}
+
+/// Turns an entity into another type in place, through the conversions
+/// registered in `schema` (the same ones the CLI's `convert` verb offers).
+#[tauri::command]
+pub fn convert_entity(
+    state: State<DbState>,
+    id: String,
+    to: String,
+) -> AppResult<crate::db::entities::Entity> {
+    let conn = state.0.lock().unwrap();
+    crate::db::schema::convert(&conn, &id, &to)?;
+    crate::db::entities::get_entity(&conn, &id)
 }

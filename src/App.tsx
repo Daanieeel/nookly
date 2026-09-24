@@ -1,3 +1,4 @@
+import { BookmarkSheet } from "@/features/bookmarks/BookmarkSheet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "@/components/command-palette";
@@ -13,11 +14,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { PinnedView } from "@/features/dashboard/PinnedView";
-import { RecentsView } from "@/features/dashboard/RecentsView";
 import { QuickJotDialog } from "@/features/notes/QuickJot";
+import { useExternalCalendarSync } from "@/features/sessions/external-calendars/external-calendar-sync";
 import { TrashView } from "@/features/trash/TrashView";
 import { useExternalDbChanges } from "@/hooks/use-external-db-changes";
 import { useScopedSelectAll } from "@/hooks/use-scoped-select-all";
+import { useDateTimeSettings } from "@/lib/datetime";
 import { useNavStore } from "@/lib/store/nav";
 import "@/context-actions";
 
@@ -31,8 +33,6 @@ function MainContent() {
       return <DashboardView />;
     case "pinned":
       return <PinnedView />;
-    case "recents":
-      return <RecentsView />;
     case "trash":
       return <TrashView />;
     case "module":
@@ -53,8 +53,19 @@ function MainContent() {
 function Shell() {
   const view = useNavStore((s) => s.view);
   useExternalDbChanges();
+  useExternalCalendarSync();
   useScopedSelectAll();
+  // Formatters read the date settings directly; re-rendering from the root applies
+  // a changed format everywhere at once.
+  useDateTimeSettings((s) => `${s.timezone}|${s.dateFormat}|${s.timeFormat}`);
   const isEntityView = view.kind === "entity";
+  // Views drawing their own edge to edge chrome, like the Linear style Tasks page.
+  const isBleedView =
+    isEntityView ||
+    (view.kind === "module" &&
+      ["tasks", "sessions", "assignments", "exams", "decks", "files", "bookmarks"].includes(
+        view.module,
+      ));
 
   return (
     <div
@@ -72,7 +83,7 @@ function Shell() {
           <SidebarInset className="min-h-0 min-w-0">
             <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
               <div
-                className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isEntityView ? "" : "p-6"}`}
+                className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
               >
                 <MainContent />
               </div>
@@ -84,6 +95,7 @@ function Shell() {
       <QuickSwitcher />
       <CommandsPalette />
       <QuickJotDialog />
+      <BookmarkSheet />
       <ContextMenuHost />
       <Toaster />
     </div>

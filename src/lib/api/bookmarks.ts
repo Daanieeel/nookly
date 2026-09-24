@@ -16,3 +16,14 @@ export function listBookmarks(spaceId: string): Promise<Bookmark[]> {
 export function fetchBookmarkMetadata(entityId: string, url: string): Promise<Bookmark> {
   return invoke("fetch_bookmark_metadata", { entityId, url });
 }
+
+/// Clears the old page's metadata; fetch again for the new one.
+export function updateBookmarkUrl(entityId: string, url: string): Promise<Bookmark> {
+  return invoke("update_bookmark_url", { entityId, url });
+}
+
+/// Renders the page off screen and stores a snapshot as its preview. macOS only
+/// so far; elsewhere it fails and the card keeps its `og:image`.
+export function captureBookmarkScreenshot(entityId: string): Promise<Bookmark> {
+  return invoke("capture_bookmark_screenshot", { entityId });
+}

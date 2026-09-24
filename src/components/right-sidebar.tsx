@@ -3,6 +3,7 @@ import { type CSSProperties, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CourseSemesterPanel } from "@/features/courses/CourseSemesterPanel";
+import { RefineJotButton } from "@/features/notes/RefineJotButton";
 import { AttachmentsPanel } from "@/features/relationships/AttachmentsPanel";
 import { MentionedInPanel } from "@/features/relationships/MentionedInPanel";
 import { MentionedPanel } from "@/features/relationships/MentionedPanel";
@@ -19,6 +20,7 @@ import {
 const KEYBOARD_STEP_PX = 16;
 
 /// Fixed section order (§1.5): Relationships, Attachments, Mentioned, Mentioned in.
+/// A Jot gets a Refine into New Note button above everything else.
 /// A Course additionally gets a bespoke Semester-assignment section ahead of
 /// Relationships (still the same underlying `course-semester` relationship,
 /// just a purpose-built picker instead of a generic row — bespoke-UI pillar,
@@ -28,10 +30,13 @@ const KEYBOARD_STEP_PX = 16;
 export function RightSidebar({
   entity,
   actions,
+  children,
 }: {
   entity: Entity;
   /// Entity actions (export/pin/more), laid out for this sidebar via `className`.
   actions: (className?: string) => React.ReactNode;
+  /// Type specific sections ahead of the shared ones, e.g. a Task's properties.
+  children?: React.ReactNode;
 }) {
   const collapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const setCollapsed = useNavStore((s) => s.setRightSidebarCollapsed);
@@ -127,6 +132,8 @@ export function RightSidebar({
           </Tooltip>
           {actions()}
         </div>
+        {entity.type === "jot" && <RefineJotButton jot={entity} />}
+        {children}
         {entity.type === "course" && <CourseSemesterPanel course={entity} />}
         <RelationshipsPanel entity={entity} />
         <AttachmentsPanel entity={entity} />

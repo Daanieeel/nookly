@@ -1,632 +1,342 @@
 import {
-  type DraggableAttributes,
-  type DraggableSyntheticListeners,
-  DndContext,
-  type DragEndEvent,
-  DragOverlay,
-  useDraggable,
-  useDroppable,
-} from "@dnd-kit/core";
-import { IconChecklist, IconLayoutKanban, IconPlus } from "@tabler/icons-react";
+  IconCalendarEvent,
+  IconChecklist,
+  IconCircleDot,
+  IconPlus,
+  IconTag,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
-import {
-  FieldError,
-  StatusButtonContent,
-  StatusIcon,
-  useActionStatus,
-} from "@/components/action-feedback";
-import { contextTarget, entityTarget } from "@/components/context-menu/registry";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SUCCESS_REVERT_MS } from "@/components/action-feedback";
+import { contextTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
-import { EntityIcon } from "@/components/entity-icon";
-import { EntityKey } from "@/components/entity-key";
-import { Badge } from "@/components/ui/badge";
+import { type GroupDef, type ViewGroup, buildGroups } from "@/components/grouped-view/grouping";
+import { type ActiveFilter, type FilterField, FilterMenu } from "@/components/filter-menu";
+import { LabelDot } from "@/components/label-chip";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createTask, listTaskStatuses, listTasks, updateTaskStatus } from "@/lib/api/tasks";
-import type { Task, TaskStatus } from "@/lib/api/types";
-import { displayTitle } from "@/lib/entity-title";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { attachLabel, detachLabel } from "@/lib/api/labels";
+import { listTasks, updateTaskStatus } from "@/lib/api/tasks";
+import type { Task } from "@/lib/api/types";
 import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
+import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
+import { TaskBoard } from "./TaskBoard";
+import { taskGroupDefs } from "./task-groups";
+import { TasksDataContext, useTasksDataValue } from "./task-controls";
+import { TaskDisplayMenu } from "./TaskDisplayMenu";
+import { TaskList } from "./TaskList";
+import {
+  DUE_BUCKETS,
+  type DisplayOptions,
+  type Grouping,
+  type TaskTab,
+  orderTasks,
+  passesFilters,
+  readDisplay,
+  statusInTab,
+  writeDisplay,
+} from "./task-model";
+import { TaskStatusIcon } from "./task-properties";
 
-type ViewMode = "board" | "list";
+const TABS: { id: TaskTab; label: string }[] = [
+  { id: "all", label: "All tasks" },
+  { id: "active", label: "Active" },
+  { id: "backlog", label: "Backlog" },
+];
 
-interface NewTaskVars {
-  title: string;
-  statusId: string | null;
-  dueDate: string | null;
+/// True while typing somewhere, so single key shortcuts stay out of the way.
+function isEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
 }
 
-/// Board (Linear-style columns by status) is the default view (§2.3) — the flat
-/// list is a secondary, dense view reachable via the toggle.
+/// The Tasks page, modeled on Linear: a header with view tabs, a filter and display
+/// bar, then a board (default) or a grouped list. C opens the create modal.
 export function TasksListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [mode, setMode] = useState<ViewMode>("board");
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [draft, setDraft] = useState<TaskDraft>({});
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  const { data: statuses = [] } = useQuery({
-    queryKey: ["task-statuses"],
-    queryFn: listTaskStatuses,
-  });
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [], isPending } = useQuery({
     queryKey: ["tasks", spaceId],
     queryFn: () => listTasks(spaceId),
   });
+  const data = useTasksDataValue(spaceId);
+  const { statuses, labels, kindOf } = data;
+  const hasBacklog = statuses.some((s) => kindOf(s.id) === "backlog");
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] });
-
-  // Each create surface owns its own mutation so its errors show on that surface.
-  const createWithStatus = async (vars: NewTaskVars): Promise<Task> => {
-    const task = await createTask(spaceId, vars.title, null, vars.dueDate);
-    if (vars.statusId && vars.statusId !== task.statusId) {
-      await updateTaskStatus(task.entity.id, vars.statusId);
-    }
-    await invalidate();
-    return task;
+  const setDisplay = (next: DisplayOptions) => {
+    setDisplayState(next);
+    writeDisplay(next);
   };
-  const setStatus = useMutation({
-    mutationFn: (vars: { entityId: string; statusId: string }) =>
-      updateTaskStatus(vars.entityId, vars.statusId),
-    onSuccess: invalidate,
+  const tab = display.tab === "backlog" && !hasBacklog ? "all" : display.tab;
+
+  const startCreate = useCallback((next: TaskDraft = {}) => {
+    setDraft(next);
+    setCreateOpen(true);
+  }, []);
+
+  // C creates a task, as in Linear, whenever nothing else has the keyboard.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
+      e.preventDefault();
+      startCreate();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [startCreate]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = setTimeout(() => setHighlightId(null), SUCCESS_REVERT_MS);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
+
+  const move = useMutation({
+    mutationFn: async (vars: {
+      task: Task;
+      statusId?: string;
+      detachLabelIds?: string[];
+      attachLabelId?: string;
+    }) => {
+      const id = vars.task.entity.id;
+      if (vars.statusId) await updateTaskStatus(id, vars.statusId);
+      for (const labelId of vars.detachLabelIds ?? []) await detachLabel(id, labelId);
+      if (vars.attachLabelId) await attachLabel(id, vars.attachLabelId);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] }),
   });
-  const failedTaskId = setStatus.isError ? setStatus.variables?.entityId : undefined;
+  const failedTaskId = move.isError ? move.variables?.task.entity.id : undefined;
 
-  const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
+  const filterFields = useMemo<FilterField[]>(() => {
+    const fields: FilterField[] = [
+      {
+        id: "status",
+        label: "Status",
+        icon: IconCircleDot,
+        options: statuses.map((s) => ({
+          value: s.id,
+          label: s.name,
+          icon: <TaskStatusIcon status={s} kind={kindOf(s.id)} />,
+        })),
+      },
+      {
+        id: "due",
+        label: "Due date",
+        icon: IconCalendarEvent,
+        options: DUE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+    ];
+    const used = labels.filter((l) => tasks.some((t) => t.labelIds.includes(l.id)));
+    if (used.length > 0) {
+      fields.push({
+        id: "labels",
+        label: "Labels",
+        icon: IconTag,
+        options: used.map((l) => ({ value: l.id, label: l.name, icon: <LabelDot label={l} /> })),
+      });
+    }
+    return fields;
+  }, [statuses, labels, tasks, kindOf]);
 
-  return (
-    <div
-      className="flex h-full flex-col gap-4"
-      {...contextTarget("module-view", {
-        spaceId,
-        createLabel: "New Task",
-        create: () => setQuickCreateOpen(true),
-      })}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">Tasks</h1>
-        <div className="flex items-center gap-2">
-          <Tabs
-            value={mode}
-            onValueChange={(v) => {
-              // SAFETY: TabsTrigger values below are hardcoded to "board"/"list", the
-              // only two members of ViewMode.
-              setMode(v as ViewMode);
-            }}
-          >
-            <TabsList>
-              <TabsTrigger value="board">Board</TabsTrigger>
-              <TabsTrigger value="list">List</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <QuickCreateTask
-            open={quickCreateOpen}
-            onOpenChange={setQuickCreateOpen}
-            statuses={sortedStatuses}
-            create={createWithStatus}
-            trigger={
-              <Button size="sm" className="gap-1.5">
-                <IconPlus size={14} /> New
-              </Button>
-            }
-          />
-        </div>
-      </div>
-
-      {mode === "board" ? (
-        <TaskBoard
-          statuses={sortedStatuses}
-          tasks={tasks}
-          onOpen={(id) => openEntity(id, spaceId)}
-          failedTaskId={failedTaskId}
-          onDrop={(entityId, statusId) => setStatus.mutate({ entityId, statusId })}
-          create={createWithStatus}
-        />
-      ) : (
-        <TaskListGrouped
-          statuses={sortedStatuses}
-          tasks={tasks}
-          onOpen={(id) => openEntity(id, spaceId)}
-          failedTaskId={failedTaskId}
-          onStatusChange={(entityId, statusId) => setStatus.mutate({ entityId, statusId })}
-        />
-      )}
-    </div>
+  const visible = useMemo(
+    () =>
+      orderTasks(
+        tasks.filter((t) => statusInTab(t.statusId, tab, kindOf) && passesFilters(t, filters)),
+        display.ordering,
+        statuses,
+      ),
+    [tasks, tab, kindOf, filters, display.ordering, statuses],
   );
-}
 
-function TaskBoard({
-  statuses,
-  tasks,
-  onOpen,
-  failedTaskId,
-  onDrop,
-  create,
-}: {
-  statuses: TaskStatus[];
-  tasks: Task[];
-  onOpen: (entityId: string) => void;
-  failedTaskId: string | undefined;
-  onDrop: (entityId: string, statusId: string) => void;
-  create: (vars: NewTaskVars) => Promise<Task>;
-}) {
-  const [activeId, setActiveId] = useState<string | null>(null);
-
-  if (statuses.length === 0) {
-    return (
-      <EmptyState
-        icon={IconLayoutKanban}
-        title="No statuses configured"
-        description="Ask an admin to set up task statuses for this Space."
-      />
+  const groups = useMemo(() => {
+    const defs = taskGroupDefs(display.grouping, statuses, labels, kindOf);
+    const subDefs = taskGroupDefs(display.subGrouping, statuses, labels, kindOf);
+    // In a filtered tab, only the statuses that tab covers make sense as groups.
+    const inTab = (defs: GroupDef<Task>[] | null, kind: Grouping) =>
+      defs && kind === "status" ? defs.filter((d) => statusInTab(d.id, tab, kindOf)) : defs;
+    const all = buildGroups(
+      visible,
+      inTab(defs, display.grouping) ?? [{ id: "all", name: "All tasks", match: () => true }],
+      inTab(subDefs, display.subGrouping),
     );
-  }
+    const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
+    return all.filter((g) => showEmpty || g.items.length > 0);
+  }, [visible, display, statuses, labels, tab, kindOf]);
 
-  const activeTask = tasks.find((t) => t.entity.id === activeId) ?? null;
-
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveId(null);
-    const { active, over } = event;
-    // SAFETY: every droppable rendered in this board is a `TaskColumn`, whose
-    // `useDroppable` id is always the column's own `status.id` string.
-    const targetStatusId = over?.id as string | undefined;
-    if (targetStatusId && active.data.current?.statusId !== targetStatusId) {
-      // SAFETY: every draggable rendered in this board is a `DraggableTaskCard`,
-      // whose `useDraggable` id is always the task's `entity.id` string.
-      onDrop(active.id as string, targetStatusId);
+  /// A new task placed in a group (and sub-group) starts with what they stand for.
+  /// Date buckets have no single date to give, so they offer no create.
+  const onCreateIn = (group: ViewGroup<Task>, subgroup: ViewGroup<Task> | null) => {
+    const parts: [Grouping, string][] = [[display.grouping, group.id]];
+    if (subgroup) parts.push([display.subGrouping, subgroup.id]);
+    if (parts.some(([kind]) => kind === "due" || kind === "start")) return undefined;
+    const next: TaskDraft = {};
+    for (const [kind, id] of parts) {
+      if (kind === "status") next.statusId = id;
+      if (kind === "label" && id !== "no-label") next.labelIds = [id];
     }
-  }
+    return () => startCreate(next);
+  };
 
-  return (
-    <DndContext
-      onDragStart={(event) => {
-        // SAFETY: every draggable rendered in this board is a `DraggableTaskCard`,
-        // whose `useDraggable` id is always the task's `entity.id` string.
-        setActiveId(event.active.id as string);
-      }}
-      onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveId(null)}
-    >
-      <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto pb-2">
-        {statuses.map((status) => (
-          <TaskColumn
-            key={status.id}
-            status={status}
-            tasks={tasks.filter((t) => t.statusId === status.id)}
-            onOpen={onOpen}
-            failedTaskId={failedTaskId}
-            onCreate={(title) => create({ title, statusId: status.id, dueDate: null })}
-          />
-        ))}
-      </div>
-      <DragOverlay>{activeTask && <TaskCard task={activeTask} onOpen={() => {}} />}</DragOverlay>
-    </DndContext>
-  );
-}
-
-function TaskColumn({
-  status,
-  tasks,
-  onOpen,
-  failedTaskId,
-  onCreate,
-}: {
-  status: TaskStatus;
-  tasks: Task[];
-  onOpen: (entityId: string) => void;
-  failedTaskId: string | undefined;
-  onCreate: (title: string) => Promise<Task>;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: status.id });
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (creating) inputRef.current?.focus();
-  }, [creating]);
-
-  // The input stays mounted until the save lands, so a failure can show under it.
-  const create = useMutation({
-    mutationFn: onCreate,
-    onSuccess: () => {
-      setTitle("");
-      setCreating(false);
-    },
-  });
-
-  function cancel() {
-    setTitle("");
-    setCreating(false);
-    create.reset();
-  }
-
-  function submit() {
-    if (create.isPending) return;
-    if (title.trim()) create.mutate(title.trim());
-    else cancel();
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "group/col flex w-64 shrink-0 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors",
-        isOver && "bg-muted/70",
-      )}
-      {...contextTarget("tasks.column", { status, startCreate: () => setCreating(true) })}
-    >
-      <div className="flex items-center justify-between px-1 pb-1">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <span
-            className="size-2 shrink-0 rounded-full bg-(--status-color)"
-            // SAFETY: `--status-color` only ever receives `status.color`, a plain hex
-            // string from the task-statuses API — `CSSProperties` just doesn't model
-            // custom properties.
-            style={{ "--status-color": status.color } as CSSProperties}
-          />
-          <span className="text-foreground">{status.name}</span>
-          <Badge variant="secondary" className="h-4 px-1.5 tabular-nums">
-            {tasks.length}
-          </Badge>
-        </div>
-        <button
-          type="button"
-          aria-label={`Add task to ${status.name}`}
-          onClick={() => setCreating(true)}
-          className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover/col:opacity-100"
-        >
-          <IconPlus size={13} />
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {tasks.map((task) => (
-          <DraggableTaskCard
-            key={task.entity.id}
-            task={task}
-            failed={failedTaskId === task.entity.id}
-            onOpen={() => onOpen(task.entity.id)}
-          />
-        ))}
-      </div>
-
-      {creating ? (
-        <div className="flex flex-col gap-1">
-          <Input
-            ref={inputRef}
-            placeholder="Task title…"
-            value={title}
-            readOnly={create.isPending}
-            aria-invalid={create.isError || undefined}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => !create.isError && submit()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                submit();
-              }
-              if (e.key === "Escape") cancel();
-            }}
-            className="h-8 text-sm"
-          />
-          <FieldError message={create.isError && "Couldn't add the task, press Enter to retry"} />
-        </div>
-      ) : (
-        tasks.length === 0 && (
-          <p className="px-1 py-2 text-center text-xs text-muted-foreground">No tasks</p>
-        )
-      )}
-    </div>
-  );
-}
-
-function DraggableTaskCard({
-  task,
-  failed,
-  onOpen,
-}: {
-  task: Task;
-  failed: boolean;
-  onOpen: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task.entity.id,
-    data: { statusId: task.statusId },
-  });
-
-  return (
-    <TaskCard
-      task={task}
-      failed={failed}
-      onOpen={onOpen}
-      dragRef={setNodeRef}
-      dragTransform={transform ?? undefined}
-      dragging={isDragging}
-      dragListeners={listeners}
-      dragAttributes={attributes}
-    />
-  );
-}
-
-function TaskCard({
-  task,
-  failed = false,
-  onOpen,
-  dragRef,
-  dragTransform,
-  dragging,
-  dragListeners,
-  dragAttributes,
-}: {
-  task: Task;
-  failed?: boolean;
-  onOpen: () => void;
-  dragRef?: (node: HTMLElement | null) => void;
-  dragTransform?: { x: number; y: number };
-  dragging?: boolean;
-  dragListeners?: DraggableSyntheticListeners;
-  dragAttributes?: DraggableAttributes;
-}) {
-  return (
-    <button
-      ref={dragRef}
-      type="button"
-      // SAFETY: `--dnd-x`/`--dnd-y` only ever receive the numeric pixel offsets
-      // dnd-kit reports for the active drag — `CSSProperties` just doesn't model
-      // custom properties.
-      style={
-        dragTransform
-          ? ({
-              "--dnd-x": `${dragTransform.x}px`,
-              "--dnd-y": `${dragTransform.y}px`,
-            } as CSSProperties)
-          : undefined
+  /// Dropping a card on another status or label column (or swimlane) moves it
+  /// there. Between labels, the label it was picked up under swaps for the new one.
+  const dropKinds = new Set([display.grouping, display.subGrouping]);
+  const boardDraggable = dropKinds.has("status") || dropKinds.has("label");
+  const onMove = (
+    task: Task,
+    columnId: string,
+    laneId: string | null,
+    from: { columnId: string; laneId: string | null },
+  ) => {
+    const target = (kind: Grouping) =>
+      display.grouping === kind ? columnId : display.subGrouping === kind ? laneId : null;
+    const source = (kind: Grouping) =>
+      display.grouping === kind ? from.columnId : display.subGrouping === kind ? from.laneId : null;
+    const vars: Parameters<typeof move.mutate>[0] = { task };
+    const statusId = target("status");
+    if (statusId && statusId !== task.statusId) vars.statusId = statusId;
+    const labelTo = target("label");
+    const labelFrom = source("label");
+    if (labelTo && labelFrom && labelTo !== labelFrom) {
+      if (labelTo === "no-label") vars.detachLabelIds = task.labelIds;
+      else {
+        if (labelFrom !== "no-label") vars.detachLabelIds = [labelFrom];
+        if (!task.labelIds.includes(labelTo)) vars.attachLabelId = labelTo;
       }
-      onClick={onOpen}
-      {...entityTarget(task.entity)}
-      className={cn(
-        "flex flex-col gap-1.5 rounded-md border border-border bg-card p-2.5 text-left shadow-xs hover:border-ring/50 hover:shadow-sm",
-        dragTransform && "translate-x-(--dnd-x) translate-y-(--dnd-y)",
-        dragging && "opacity-40",
-        failed && "border-destructive/60",
-      )}
-      {...dragListeners}
-      {...dragAttributes}
-    >
-      <span className="flex items-start gap-1.5 text-sm">
-        <EntityIcon entity={task.entity} className="mt-0.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">
-          <EntityKey entityKey={task.entity.key} className="mr-1.5" />
-          {displayTitle(task.entity)}
-        </span>
-      </span>
-      {task.dueDate && (
-        <Badge variant="outline" className="w-fit">
-          {task.dueDate}
-        </Badge>
-      )}
-      {failed && (
-        <span role="alert" className="flex items-center gap-1 text-xs text-destructive">
-          <StatusIcon status="error" idle={null} size={12} />
-          Couldn't move, drag again
-        </span>
-      )}
-    </button>
-  );
-}
-
-function TaskListGrouped({
-  statuses,
-  tasks,
-  onOpen,
-  failedTaskId,
-  onStatusChange,
-}: {
-  statuses: TaskStatus[];
-  tasks: Task[];
-  onOpen: (entityId: string) => void;
-  failedTaskId: string | undefined;
-  onStatusChange: (entityId: string, statusId: string) => void;
-}) {
-  const groups = statuses
-    .map((status) => ({ status, tasks: tasks.filter((t) => t.statusId === status.id) }))
-    .filter((g) => g.tasks.length > 0);
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-      {groups.map(({ status, tasks: group }) => (
-        <div key={status.id} className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
-            <span
-              className="size-2 shrink-0 rounded-full bg-(--status-color)"
-              // SAFETY: `--status-color` only ever receives `status.color`, a plain hex
-              // string from the task-statuses API — `CSSProperties` just doesn't model
-              // custom properties.
-              style={{ "--status-color": status.color } as CSSProperties}
-            />
-            {status.name}
-            <span>{group.length}</span>
-          </div>
-          {group.map((task) => (
-            <div
-              key={task.entity.id}
-              className="group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent"
-              {...entityTarget(task.entity)}
-            >
-              <button
-                type="button"
-                onClick={() => onOpen(task.entity.id)}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
-              >
-                <EntityIcon entity={task.entity} className="shrink-0 text-muted-foreground" />
-                <EntityKey entityKey={task.entity.key} />
-                <span className="truncate group-hover:underline">{displayTitle(task.entity)}</span>
-              </button>
-              {task.dueDate && (
-                <Badge variant="outline" className="shrink-0">
-                  {task.dueDate}
-                </Badge>
-              )}
-              {failedTaskId === task.entity.id && (
-                <span
-                  role="alert"
-                  className="flex shrink-0 items-center gap-1 text-xs text-destructive"
-                >
-                  <StatusIcon status="error" idle={null} size={13} />
-                  Couldn't change status
-                </span>
-              )}
-              <Select
-                value={task.statusId}
-                onValueChange={(statusId) => onStatusChange(task.entity.id, statusId)}
-              >
-                <SelectTrigger size="sm" className="w-32 shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
-        </div>
-      ))}
-      {tasks.length === 0 && (
-        <EmptyState
-          icon={IconChecklist}
-          title="No tasks yet"
-          description='Use "New" above to add your first one.'
-        />
-      )}
-    </div>
-  );
-}
-
-/// Lightweight, keyboard-first quick-create (§3.3) — title plus small contextual
-/// pickers, not a full form. Enter creates and keeps the popover open, focused and
-/// cleared, for rapid batch entry; Escape closes.
-function QuickCreateTask({
-  open,
-  onOpenChange: setOpen,
-  statuses,
-  defaultStatusId,
-  create,
-  trigger,
-}: {
-  /// Controlled, so the view's context menu can open it too.
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  statuses: TaskStatus[];
-  defaultStatusId?: string;
-  create: (vars: NewTaskVars) => Promise<Task>;
-  trigger: React.ReactNode;
-}) {
-  const [title, setTitle] = useState("");
-  const [statusId, setStatusId] = useState<string | undefined>(defaultStatusId);
-  const [dueDate, setDueDate] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const submitTask = useMutation({
-    mutationFn: create,
-    onSuccess: () => {
-      setTitle("");
-      setDueDate("");
-      requestAnimationFrame(() => inputRef.current?.focus());
-    },
-  });
-  const submitStatus = useActionStatus(submitTask);
-
-  useEffect(() => {
-    if (open) {
-      setStatusId(defaultStatusId ?? statuses[0]?.id);
-      const frame = requestAnimationFrame(() => inputRef.current?.focus());
-      return () => cancelAnimationFrame(frame);
     }
-  }, [open, defaultStatusId, statuses]);
+    if (vars.statusId || vars.detachLabelIds?.length || vars.attachLabelId) move.mutate(vars);
+  };
 
-  function submit() {
-    if (!title.trim() || submitTask.isPending) return;
-    submitTask.mutate({
-      title: title.trim(),
-      statusId: statusId ?? null,
-      dueDate: dueDate || null,
-    });
-  }
+  const columnProps = (group: ViewGroup<Task>) => {
+    const status = display.grouping === "status" ? data.statusById.get(group.id) : undefined;
+    return status
+      ? contextTarget("tasks.column", {
+          status,
+          startCreate: () => startCreate({ statusId: status.id }),
+        })
+      : undefined;
+  };
+
+  const openTask = (task: Task) => openEntity(task.entity.id, spaceId);
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) submitTask.reset();
-      }}
-    >
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="end">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-          className="flex flex-col gap-2"
-        >
-          <Input
-            ref={inputRef}
-            placeholder="Task title…"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setOpen(false);
-            }}
-            className="h-8"
-          />
-          <div className="flex gap-1.5">
-            <Select value={statusId} onValueChange={setStatusId}>
-              <SelectTrigger size="sm" className="flex-1">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="h-8 w-32"
+    <TasksDataContext.Provider value={data}>
+      <div
+        className="flex h-full min-h-0 flex-col"
+        {...contextTarget("module-view", {
+          spaceId,
+          createLabel: "New Task",
+          create: () => startCreate(),
+        })}
+      >
+        <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
+          <h1 className="flex items-center gap-2 text-sm font-medium">
+            <IconChecklist size={16} className="text-muted-foreground" />
+            Tasks
+          </h1>
+          <nav aria-label="Task views" className="flex min-w-0 items-center gap-1 overflow-hidden">
+            {TABS.filter((t) => t.id !== "backlog" || hasBacklog).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={tab === t.id}
+                onClick={() => setDisplay({ ...display, tab: t.id })}
+                className={cn(
+                  "h-7 shrink-0 cursor-pointer rounded-md border border-transparent px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
+                  tab === t.id && "border-border bg-accent text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+            <div className="min-w-0 flex-1">
+              <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+            </div>
+            <TaskDisplayMenu display={display} onChange={setDisplay} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="ml-1 gap-1.5"
+                  onClick={() => startCreate()}
+                >
+                  <IconPlus />
+                  New task
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="flex items-center gap-2">
+                Create a task <Kbd>C</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </header>
+
+        {!isPending && tasks.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              icon={IconChecklist}
+              title="No tasks in this Space yet"
+              description="Press C anywhere on this page to capture the first one."
+              action={{ label: "New task", onClick: () => startCreate() }}
             />
           </div>
-          <FieldError message={submitTask.isError && "Couldn't create the task"} />
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">Enter to add another</span>
-            <Button type="submit" size="sm" disabled={!title.trim() && submitStatus === "idle"}>
-              <StatusButtonContent
-                status={submitStatus}
-                label="Create"
-                successLabel="Created"
-                errorLabel="Try again"
-              />
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <p className="text-sm text-muted-foreground">No tasks match this view.</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFilters([]);
+                setDisplay({ ...display, tab: "all" });
+              }}
+            >
+              Clear filters
             </Button>
           </div>
-        </form>
-      </PopoverContent>
-    </Popover>
+        ) : display.layout === "board" ? (
+          <TaskBoard
+            groups={groups}
+            properties={display.properties}
+            highlightId={highlightId}
+            failedTaskId={failedTaskId}
+            draggable={boardDraggable}
+            onOpen={openTask}
+            onMove={onMove}
+            onCreateIn={onCreateIn}
+            columnProps={columnProps}
+          />
+        ) : (
+          <TaskList
+            groups={groups}
+            showHeaders={display.grouping !== "none"}
+            properties={display.properties}
+            highlightId={highlightId}
+            onOpen={openTask}
+            onCreateIn={onCreateIn}
+          />
+        )}
+      </div>
+
+      <QuickCreateTask
+        open={createOpen}
+        draft={draft}
+        onOpenChange={setCreateOpen}
+        onCreated={(task) => setHighlightId(task.entity.id)}
+      />
+    </TasksDataContext.Provider>
   );
 }

@@ -294,5 +294,47 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         -- Settings of custom blocks (`block_types`), a JSON object of strings.
         ALTER TABLE blocks ADD COLUMN attrs TEXT;
         ",
+    ), M::up(
+        "
+        -- Where an exam takes place, free text like \"H 0104\".
+        ALTER TABLE exams ADD COLUMN room TEXT;
+        ",
+    ), M::up(
+        "
+        -- A local snapshot of the bookmarked page, the card's main preview.
+        ALTER TABLE bookmarks ADD COLUMN screenshot_path TEXT;
+        ",
+    ), M::up(
+        "
+        -- A file referenced where it lives on disk instead of copied into storage.
+        ALTER TABLE files ADD COLUMN source_path TEXT;
+        ",
+    ), M::up(
+        "
+        -- Index cards schedule with FSRS instead of Leitner boxes, and soft delete.
+        ALTER TABLE index_cards DROP COLUMN box_level;
+        ALTER TABLE index_cards ADD COLUMN state TEXT NOT NULL DEFAULT 'new';
+        ALTER TABLE index_cards ADD COLUMN stability REAL NOT NULL DEFAULT 0;
+        ALTER TABLE index_cards ADD COLUMN difficulty REAL NOT NULL DEFAULT 0;
+        ALTER TABLE index_cards ADD COLUMN elapsed_days INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE index_cards ADD COLUMN scheduled_days INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE index_cards ADD COLUMN reps INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE index_cards ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE index_cards ADD COLUMN last_review_at TEXT;
+        ALTER TABLE index_cards ADD COLUMN deleted_at TEXT;
+        -- One row per review. `previous` is the card's scheduling state before it,
+        -- so the latest review can be undone.
+        CREATE TABLE index_card_reviews (
+            id TEXT PRIMARY KEY,
+            card_id TEXT NOT NULL REFERENCES index_cards(id),
+            rating TEXT NOT NULL,
+            state TEXT NOT NULL,
+            elapsed_days INTEGER NOT NULL,
+            scheduled_days INTEGER NOT NULL,
+            previous TEXT NOT NULL,
+            reviewed_at TEXT NOT NULL
+        );
+        CREATE INDEX idx_index_card_reviews_card ON index_card_reviews(card_id, reviewed_at);
+        ",
     )])
 });

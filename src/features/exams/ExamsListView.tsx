@@ -1,6 +1,13 @@
-import { IconCalendarPlus, IconCalendarStats, IconX } from "@tabler/icons-react";
+import {
+  IconCalendarStats,
+  IconCheck,
+  IconMapPin,
+  IconPlus,
+  IconSchool,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { differenceInCalendarDays, parseISO } from "date-fns";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   FieldError,
   StatusButtonContent,
@@ -9,10 +16,16 @@ import {
 } from "@/components/action-feedback";
 import { contextTarget, entityTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
-import { EntityPickerPopover } from "@/components/entity-picker";
-import { EntityKey } from "@/components/entity-key";
+import { EntityPickerPopover, EntityPickerValue } from "@/components/entity-picker";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  applyFilters,
+} from "@/components/filter-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -20,57 +33,45 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CourseChip, useCourseLookup } from "@/features/courses/course-lookup";
+import { moveRowFocus } from "@/components/grouped-view/grouping";
+import { useCreateShortcut } from "@/hooks/use-create-shortcut";
 import { createExam, listExams } from "@/lib/api/exams";
-import { getEntity } from "@/lib/api/entities";
-import { listRelationships } from "@/lib/api/relationships";
 import type { Entity, Exam } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
+import { cn } from "@/lib/utils";
+import { formatShortDate, formatWeekday } from "@/lib/datetime";
 
-/// Date-forward, urgency-first (§2.3) — undated exams sink to the bottom, dated
-/// ones sort soonest-first so the page reads as "what's coming up", not an
-/// alphabetical/insertion-order list.
-function sortByUrgency(exams: Exam[]): Exam[] {
-  return [...exams].sort((a, b) => {
-    if (!a.examDate && !b.examDate) return 0;
-    if (!a.examDate) return 1;
-    if (!b.examDate) return -1;
-    return a.examDate.localeCompare(b.examDate);
-  });
+/// Grid shared by every timeline row: date, rail, content. The rail's center is
+/// where the connecting line runs.
+const ROW_GRID =
+  "grid grid-cols-[4.5rem_2rem_minmax(0,1fr)] sm:grid-cols-[5.5rem_2.5rem_minmax(0,1fr)]";
+const LINE = "absolute left-[calc(4.5rem+1rem)] w-px sm:left-[calc(5.5rem+1.25rem)]";
+
+function courseFilter(courseId: string | undefined): ActiveFilter[] {
+  return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
 
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+/// "20% of grade". Weight is stored as a fraction (`0.2`); whole numbers are
+/// read as percentages already.
+function weightLabel(weight: number | null): string | null {
+  if (weight === null) return null;
+  return `${Math.round(weight <= 1 ? weight * 100 : weight)}% of grade`;
 }
 
-/// A small proximity dot, not a recolored Badge — status color stays on the
-/// Badge's own variant, urgency is a separate signal layered on the row.
-function UrgencyDot({ examDate, status }: { examDate: string | null; status: string }) {
-  const days = daysUntil(examDate);
-  let className = "bg-muted-foreground/30";
-  if (status !== "done" && days !== null) {
-    if (days < 0) className = "bg-destructive";
-    else if (days <= 7) className = "bg-warning";
-  }
-  return <span className={`size-1.5 shrink-0 rounded-full ${className}`} aria-hidden />;
+function countdown(days: number): string {
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `in ${days} days`;
 }
 
-function statusBadgeVariant(status: string): "positive" | "secondary" | "outline" {
-  if (status === "done") return "positive";
-  if (status === "studying") return "secondary";
-  return "outline";
-}
-
-/// "view all →" from a Course page (§ course sub-dashboard) lands here scoped
-/// to that Course — `filterCourseId` narrows the list client-side via the same
-/// `exam-course` relationship the Course page itself reads, same convention
-/// `CoursesListView`'s `CourseCard` already uses for its own stats.
+/// Exams as one strict timeline: past exams fade out above, the next one stands
+/// out, later ones follow in order. There is exactly one ordering on purpose, so
+/// there is no grouping or sort control. A Course page's "view all" lands here
+/// with `filterCourseId`, applied as a regular Course filter.
 export function ExamsListView({
   spaceId,
   filterCourseId,
@@ -79,98 +80,383 @@ export function ExamsListView({
   filterCourseId?: string;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
-  const setView = useNavStore((s) => s.setView);
   const [createOpen, setCreateOpen] = useState(false);
+  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
 
-  const { data: exams = [] } = useQuery({
+  useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
+
+  const { data: exams = [], isPending } = useQuery({
     queryKey: ["exams", spaceId],
     queryFn: () => listExams(spaceId),
   });
-  const { data: filterCourse } = useQuery({
-    queryKey: ["entity", filterCourseId],
-    // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
-    queryFn: () => getEntity(filterCourseId as string),
-    enabled: Boolean(filterCourseId),
-  });
-  const { data: courseRelationships = [] } = useQuery({
-    queryKey: ["relationships", filterCourseId],
-    // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
-    queryFn: () => listRelationships(filterCourseId as string, "to"),
-    enabled: Boolean(filterCourseId),
-  });
+  const { courses, courseOf } = useCourseLookup(spaceId, "exam-course");
 
-  const scoped = filterCourseId
-    ? exams.filter((exam) =>
-        courseRelationships.some(
-          (r) => r.relationshipType === "exam-course" && r.fromEntityId === exam.entity.id,
-        ),
-      )
-    : exams;
-  const sorted = sortByUrgency(scoped);
+  const startCreate = useCallback(() => setCreateOpen(true), []);
+  useCreateShortcut(startCreate);
+
+  const filterFields = useMemo<FilterField[]>(
+    () => [
+      {
+        id: "course",
+        label: "Course",
+        icon: IconSchool,
+        options: courses.map((c) => ({ value: c.id, label: displayTitle(c) })),
+      },
+    ],
+    [courses],
+  );
+
+  const visible = applyFilters(exams, filters, (exam) => courseOf.get(exam.entity.id)?.id ?? "");
+  const now = new Date();
+  const dated = visible
+    .filter((e): e is Exam & { examDate: string } => e.examDate !== null)
+    .map((exam) => ({
+      exam,
+      days: differenceInCalendarDays(parseISO(exam.examDate), now),
+    }))
+    .sort((a, b) => a.exam.examDate.localeCompare(b.exam.examDate));
+  const past = dated.filter((d) => d.days < 0);
+  const [next, ...later] = dated.filter((d) => d.days >= 0);
+  const undated = visible.filter((e) => e.examDate === null);
+
+  const open = (exam: Exam) => openEntity(exam.entity.id, spaceId);
+  const nodeProps = (exam: Exam) => ({
+    exam,
+    course: courseOf.get(exam.entity.id),
+    onOpen: () => open(exam),
+  });
 
   return (
     <div
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex h-full min-h-0 flex-col"
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Exam",
-        create: () => setCreateOpen(true),
+        create: startCreate,
       })}
     >
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Exams</h1>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-          <IconCalendarPlus size={14} /> New exam
-        </Button>
-      </div>
-
-      {filterCourseId && filterCourse && (
-        <div className="flex items-center gap-1.5">
-          <Badge variant="secondary" className="gap-1 pr-1">
-            Filtered by {displayTitle(filterCourse)}
-            <button
-              type="button"
-              aria-label="Clear filter"
-              onClick={() => setView({ kind: "module", spaceId, module: "exams" })}
-              className="rounded-full p-0.5 hover:bg-accent-foreground/10"
-            >
-              <IconX size={11} />
-            </button>
-          </Badge>
+      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
+        <h1 className="flex items-center gap-2 text-sm font-medium">
+          <IconCalendarStats size={16} className="text-muted-foreground" />
+          Exams
+        </h1>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          <div className="min-w-0 flex-1">
+            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+                <IconPlus />
+                New exam
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              Create an exam <Kbd>C</Kbd>
+            </TooltipContent>
+          </Tooltip>
         </div>
-      )}
+      </header>
 
-      <div className="flex flex-col">
-        {sorted.map((exam) => (
-          <button
-            key={exam.entity.id}
-            type="button"
-            onClick={() => openEntity(exam.entity.id, spaceId)}
-            {...entityTarget(exam.entity, exam)}
-            className="flex items-center gap-2.5 rounded-sm p-2 text-left text-sm hover:bg-accent"
-          >
-            <UrgencyDot examDate={exam.examDate} status={exam.status} />
-            <EntityKey entityKey={exam.entity.key} />
-            <span className="min-w-0 flex-1 truncate">{displayTitle(exam.entity)}</span>
-            {exam.examDate && (
-              <span className="shrink-0 text-xs text-muted-foreground">{exam.examDate}</span>
-            )}
-            <Badge variant={statusBadgeVariant(exam.status)} className="shrink-0">
-              {exam.status}
-            </Badge>
-          </button>
-        ))}
-        {sorted.length === 0 && (
+      {!isPending && exams.length === 0 ? (
+        <div className="p-6">
           <EmptyState
             icon={IconCalendarStats}
             title="No exams yet"
-            description="Add an exam to start building study decks for it."
-            action={{ label: "New exam", onClick: () => setCreateOpen(true) }}
+            description="Press C to add one. Pick its Course and date, the rest comes later."
+            action={{ label: "New exam", onClick: startCreate }}
           />
-        )}
-      </div>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-muted-foreground">No exams match these filters.</p>
+          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+            Clear filters
+          </Button>
+        </div>
+      ) : (
+        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
+        <div className="min-h-0 flex-1 overflow-y-auto" onKeyDown={moveRowFocus}>
+          <div className="flex w-full flex-col gap-6 py-8 pr-4 pl-8">
+            {dated.length > 0 && (
+              <div className="relative">
+                <span aria-hidden className={cn(LINE, "inset-y-3 bg-border")} />
+                <ol aria-label="Exam timeline" className="flex flex-col">
+                  {past.map(({ exam }) => (
+                    <PastNode key={exam.entity.id} {...nodeProps(exam)} />
+                  ))}
+                  <TodayMarker />
+                  {next && <NextNode days={next.days} {...nodeProps(next.exam)} />}
+                  {later.map(({ exam, days }) => (
+                    <FutureNode key={exam.entity.id} days={days} {...nodeProps(exam)} />
+                  ))}
+                </ol>
+              </div>
+            )}
+            {undated.length > 0 && (
+              <section aria-label="Not scheduled yet" className="flex flex-col">
+                <p className={cn(ROW_GRID, "pb-1 text-xs font-medium text-muted-foreground")}>
+                  <span className="col-start-3 pl-1">Not scheduled yet</span>
+                </p>
+                <div className="relative">
+                  <span
+                    aria-hidden
+                    className={cn(LINE, "inset-y-3 border-l border-dashed border-border")}
+                  />
+                  <ol className="flex flex-col">
+                    {undated.map((exam) => (
+                      <FutureNode key={exam.entity.id} days={null} {...nodeProps(exam)} />
+                    ))}
+                  </ol>
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      )}
 
       <CreateExamDialog spaceId={spaceId} open={createOpen} onOpenChange={setCreateOpen} />
+    </div>
+  );
+}
+
+interface NodeProps {
+  exam: Exam;
+  course: Entity | undefined;
+  onOpen: () => void;
+}
+
+/// A timeline row. The whole row opens the exam; the button sits under the content.
+function NodeRow({
+  exam,
+  onOpen,
+  className,
+  date,
+  node,
+  children,
+}: {
+  exam: Exam;
+  onOpen: () => void;
+  className?: string;
+  date: ReactNode;
+  node: ReactNode;
+  children: ReactNode;
+}) {
+  const title = displayTitle(exam.entity);
+  return (
+    <li
+      className={cn(ROW_GRID, "group relative items-center", className)}
+      {...entityTarget(exam.entity, exam)}
+    >
+      <button
+        type="button"
+        data-task-row
+        aria-label={`Open ${title}`}
+        onClick={onOpen}
+        className="peer absolute inset-0 cursor-pointer rounded-md outline-none"
+      />
+      <div className="pointer-events-none relative pr-3">{date}</div>
+      <div className="pointer-events-none relative flex justify-center">{node}</div>
+      <div className="pointer-events-none relative min-w-0 rounded-md px-3 transition-colors group-hover:bg-accent/40 peer-focus-visible:bg-accent/50">
+        {children}
+      </div>
+    </li>
+  );
+}
+
+function DateLabel({ day, className }: { day: string; className?: string }) {
+  const date = parseISO(day);
+  return (
+    <time dateTime={day} className={cn("flex flex-col leading-tight tabular-nums", className)}>
+      <span className="text-xs font-medium">{formatShortDate(date)}</span>
+      <span className="text-xs text-muted-foreground">{formatWeekday(date)}</span>
+    </time>
+  );
+}
+
+function Meta({ exam, course }: { exam: Exam; course: Entity | undefined }) {
+  const weight = weightLabel(exam.weight);
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-2">
+      {course && <CourseChip course={course} />}
+      {exam.room && (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <IconMapPin size={12} />
+          {exam.room}
+        </span>
+      )}
+      {weight && <span className="text-xs text-muted-foreground">{weight}</span>}
+    </span>
+  );
+}
+
+function GradeBadge({ grade }: { grade: number }) {
+  return (
+    <Badge variant="positive" size="md" className="shrink-0 tabular-nums">
+      Grade {grade}
+    </Badge>
+  );
+}
+
+function PastNode({ exam, course, onOpen }: NodeProps) {
+  return (
+    <NodeRow
+      exam={exam}
+      onOpen={onOpen}
+      className="py-1 opacity-60 transition-opacity hover:opacity-100 focus-within:opacity-100"
+      // SAFETY: only `PastNode`s, which always carry a date, reach this.
+      date={<DateLabel day={exam.examDate as string} />}
+      node={<span className="size-2 rounded-full bg-muted-foreground/50 ring-4 ring-card" />}
+    >
+      <div className="flex h-9 items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm">{displayTitle(exam.entity)}</span>
+        {course && <CourseChip course={course} className="max-sm:hidden" />}
+        {exam.grade !== null ? (
+          <GradeBadge grade={exam.grade} />
+        ) : (
+          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+            <IconCheck size={12} />
+            Completed
+          </span>
+        )}
+      </div>
+    </NodeRow>
+  );
+}
+
+/// Where today sits on the line, between what is behind and what is ahead.
+function TodayMarker() {
+  return (
+    <li aria-hidden className={cn(ROW_GRID, "items-center py-2")}>
+      <span className="pr-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Today
+      </span>
+      <span className="flex justify-center">
+        <span className="h-px w-4 bg-foreground/40" />
+      </span>
+      <span className="ml-3 h-px bg-linear-to-r from-foreground/20 to-transparent" />
+    </li>
+  );
+}
+
+function NextNode({ exam, course, onOpen, days }: NodeProps & { days: number }) {
+  return (
+    <NodeRow
+      exam={exam}
+      onOpen={onOpen}
+      className="py-3"
+      // SAFETY: the next exam is picked from dated exams only.
+      date={<DateLabel day={exam.examDate as string} className="text-primary" />}
+      node={
+        <span className="relative flex size-4 items-center justify-center">
+          <span className="absolute -inset-1.5 animate-pulse rounded-full bg-primary/25 motion-reduce:hidden" />
+          <span className="relative size-4 rounded-full bg-primary ring-4 ring-primary/20" />
+        </span>
+      }
+    >
+      <div className="-mx-3 flex items-center gap-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <span className="text-xs font-medium tracking-wide text-primary uppercase">Next up</span>
+          <span className="truncate text-base font-semibold">{displayTitle(exam.entity)}</span>
+          <Meta exam={exam} course={course} />
+        </div>
+        <div className="flex shrink-0 flex-col items-end leading-none">
+          {days <= 1 ? (
+            <span className="text-2xl font-semibold text-primary">{countdown(days)}</span>
+          ) : (
+            <>
+              <span className="text-3xl font-semibold text-primary tabular-nums">{days}</span>
+              <span className="mt-1 text-xs text-muted-foreground">days to go</span>
+            </>
+          )}
+          {exam.status === "studying" && (
+            <Badge variant="secondary" size="md" className="mt-2">
+              Studying
+            </Badge>
+          )}
+        </div>
+      </div>
+    </NodeRow>
+  );
+}
+
+function FutureNode({ exam, course, onOpen, days }: NodeProps & { days: number | null }) {
+  return (
+    <NodeRow
+      exam={exam}
+      onOpen={onOpen}
+      className="py-1.5"
+      date={
+        exam.examDate ? (
+          <DateLabel day={exam.examDate} />
+        ) : (
+          <span className="text-xs text-muted-foreground/60">No date</span>
+        )
+      }
+      node={
+        <span
+          className={cn(
+            "size-2.5 rounded-full border-2 border-muted-foreground/60 bg-card ring-4 ring-card",
+            days === null && "border-dashed",
+          )}
+        />
+      }
+    >
+      <div className="flex items-center gap-3 py-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="truncate text-sm font-medium">{displayTitle(exam.entity)}</span>
+          <Meta exam={exam} course={course} />
+        </div>
+        {exam.status === "studying" && (
+          <Badge variant="secondary" size="md" className="shrink-0">
+            Studying
+          </Badge>
+        )}
+        {days !== null && (
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            {countdown(days)}
+          </span>
+        )}
+      </div>
+    </NodeRow>
+  );
+}
+
+/// A few exams on the same timeline rows the Exams page draws, past ones faded,
+/// for surfaces that list exams outside the page (Pinned).
+export function ExamTimelineRows({
+  exams,
+  courseOf,
+  onOpen,
+}: {
+  exams: Exam[];
+  courseOf: Map<string, Entity>;
+  onOpen: (exam: Exam) => void;
+}) {
+  const now = new Date();
+  const ordered = [...exams].sort((a, b) =>
+    (a.examDate ?? "9999").localeCompare(b.examDate ?? "9999"),
+  );
+  return (
+    <div className="relative">
+      <span aria-hidden className={cn(LINE, "inset-y-3 bg-border")} />
+      <ol className="flex flex-col">
+        {ordered.map((exam) => {
+          const props = {
+            exam,
+            course: courseOf.get(exam.entity.id),
+            onOpen: () => onOpen(exam),
+          };
+          const days = exam.examDate
+            ? differenceInCalendarDays(parseISO(exam.examDate), now)
+            : null;
+          return days !== null && days < 0 ? (
+            <PastNode key={exam.entity.id} {...props} />
+          ) : (
+            <FutureNode key={exam.entity.id} days={days} {...props} />
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -194,7 +480,13 @@ function CreateExamDialog({
       if (!course) throw new Error("Pick a course first");
       return createExam(spaceId, `${displayTitle(course)} Exam`, course.id, examDate || null, null);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exams", spaceId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exams", spaceId] });
+      if (course)
+        queryClient.invalidateQueries({
+          queryKey: ["relationships", course.id],
+        });
+    },
   });
   const createStatus = statusOf(create);
   useCloseAfterSuccess(create, () => {
@@ -224,16 +516,16 @@ function CreateExamDialog({
             typeFilter="course"
             trigger={
               <Button variant="secondary" size="sm" className="w-full justify-start">
-                {course ? displayTitle(course) : "Pick a course…"}
+                <EntityPickerValue entity={course} placeholder="Pick a course…" />
               </Button>
             }
             onSelect={setCourse}
           />
-          <Input
-            type="date"
-            value={examDate}
-            onChange={(e) => setExamDate(e.target.value)}
-            className="h-8"
+          <DateInput
+            aria-label="Exam date"
+            placeholder="Exam date…"
+            value={examDate || null}
+            onChange={(day) => setExamDate(day ?? "")}
           />
           <FieldError message={create.isError && create.error.message} />
           <p className="text-xs text-muted-foreground">

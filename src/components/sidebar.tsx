@@ -3,11 +3,11 @@ import {
   IconChevronRight,
   IconDotsVertical,
   IconFolder,
-  IconHistory,
   IconLayoutDashboard,
   IconPin,
   IconPlus,
   IconSettings,
+  IconTag,
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import { contextTarget } from "@/components/context-menu/registry";
 import { renderIconValue } from "@/components/entity-icon";
 import { EntityMention } from "@/components/entity-mention";
 import { IconPicker } from "@/components/icon-picker";
+import { LabelsDialog } from "@/components/label-manager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,16 +133,6 @@ export function AppSidebar() {
               <span>Pinned</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Recents"
-              isActive={view.kind === "recents"}
-              onClick={() => setView({ kind: "recents" })}
-            >
-              <IconHistory />
-              <span>Recents</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <QuickJotTrigger />
         </SidebarMenu>
       </SidebarHeader>
@@ -203,6 +194,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
   const { view, setView, setActiveSpace } = useNavStore();
   const queryClient = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [addModuleOpen, setAddModuleOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -267,6 +259,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
           expanded,
           toggle: () => setActiveSpace(expanded ? null : space.id),
           openSettings: () => setSettingsOpen(true),
+          openLabels: () => setLabelsOpen(true),
         })}
       >
         <CollapsibleTrigger asChild>
@@ -321,6 +314,10 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
+              <DropdownMenuItem onSelect={() => setLabelsOpen(true)}>
+                <IconTag className="size-4" />
+                Labels
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
                 <IconSettings className="size-4" />
                 Space settings
@@ -358,6 +355,12 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
       </SidebarMenuItem>
 
       <SpaceSettingsDialog space={space} open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <LabelsDialog
+        spaceId={space.id}
+        spaceName={space.name}
+        open={labelsOpen}
+        onOpenChange={setLabelsOpen}
+      />
 
       <AlertDialog
         open={deleteConfirmOpen}

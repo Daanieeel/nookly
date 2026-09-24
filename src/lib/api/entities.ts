@@ -30,6 +30,11 @@ export function restoreEntity(id: string): Promise<void> {
   return invoke("restore_entity", { id });
 }
 
+/// Permanently removes everything in the Trash; resolves to how many items went.
+export function emptyTrash(): Promise<number> {
+  return invoke("empty_trash");
+}
+
 export function hardDeleteEntity(id: string): Promise<void> {
   return invoke("hard_delete_entity", { id });
 }
@@ -38,4 +43,10 @@ export function hardDeleteEntity(id: string): Promise<void> {
 /// labels and block content.
 export function duplicateEntity(id: string): Promise<Entity> {
   return invoke("duplicate_entity", { id });
+}
+
+/// Turns an entity into another type in place (same id, relationships and
+/// labels), through the conversions the backend registers.
+export function convertEntity(id: string, to: string): Promise<Entity> {
+  return invoke("convert_entity", { id, to });
 }
