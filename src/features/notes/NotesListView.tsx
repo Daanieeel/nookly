@@ -31,6 +31,7 @@ import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
 import { notePreviewText } from "./note-preview";
 import { formatDateTime } from "@/lib/datetime";
+import { preferences } from "@/lib/preferences";
 
 interface NoteRow {
   summary: PageSummary;
@@ -45,27 +46,19 @@ const MAX_ROW_LABELS = 3;
 
 /// Stored as `"<column>:<asc|desc>"`, e.g. `"edited:desc"`.
 function readStoredSorting(): SortingState {
-  try {
-    const [id, dir] = (localStorage.getItem(STORAGE_KEYS.notesSort) ?? "").split(":");
-    if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
-      return [{ id, desc: dir === "desc" }];
-    }
-  } catch {
-    // Storage unavailable; fall through to the default.
+  const [id, dir] = (preferences.get(STORAGE_KEYS.notesSort) ?? "").split(":");
+  if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
+    return [{ id, desc: dir === "desc" }];
   }
   return DEFAULT_SORTING;
 }
 
 function writeStoredSorting(sorting: SortingState) {
-  try {
-    const [first] = sorting;
-    if (first) {
-      localStorage.setItem(STORAGE_KEYS.notesSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.notesSort);
-    }
-  } catch {
-    // Preference only; the table still works without it.
+  const [first] = sorting;
+  if (first) {
+    preferences.set(STORAGE_KEYS.notesSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
+  } else {
+    preferences.remove(STORAGE_KEYS.notesSort);
   }
 }
 

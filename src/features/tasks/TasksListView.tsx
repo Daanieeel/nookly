@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SUCCESS_REVERT_MS } from "@/components/action-feedback";
 import { contextTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
+import { type GroupDef, type ViewGroup, buildGroups } from "@/components/grouped-view/grouping";
 import { type ActiveFilter, type FilterField, FilterMenu } from "@/components/filter-menu";
 import { LabelDot } from "@/components/label-chip";
 import { Button } from "@/components/ui/button";
@@ -21,15 +22,15 @@ import { useNavStore } from "@/lib/store/nav";
 import { cn } from "@/lib/utils";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import { TaskBoard } from "./TaskBoard";
+import { taskGroupDefs } from "./task-groups";
 import { TasksDataContext, useTasksDataValue } from "./task-controls";
 import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { TaskList } from "./TaskList";
 import {
   DUE_BUCKETS,
   type DisplayOptions,
-  type TaskGroup,
+  type Grouping,
   type TaskTab,
-  groupTasks,
   orderTasks,
   passesFilters,
   readDisplay,
@@ -149,18 +150,49 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   );
 
   const groups = useMemo(() => {
-    const all = groupTasks(visible, display.grouping, statuses, labels);
-    // In a filtered tab, only the statuses that tab covers make sense as columns.
-    const inScope = all.filter((g) => !g.status || statusInTab(g.status.id, tab, kindOf));
+    const defs = taskGroupDefs(display.grouping, statuses, labels, kindOf);
+    const subDefs = taskGroupDefs(display.subGrouping, statuses, labels, kindOf);
+    // In a filtered tab, only the statuses that tab covers make sense as groups.
+    const inTab = (defs: GroupDef<Task>[] | null, kind: Grouping) =>
+      defs && kind === "status" ? defs.filter((d) => statusInTab(d.id, tab, kindOf)) : defs;
+    const all = buildGroups(
+      visible,
+      inTab(defs, display.grouping) ?? [{ id: "all", name: "All tasks", match: () => true }],
+      inTab(subDefs, display.subGrouping),
+    );
     const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
-    return inScope.filter((g) => showEmpty || g.tasks.length > 0);
+    return all.filter((g) => showEmpty || g.items.length > 0);
   }, [visible, display, statuses, labels, tab, kindOf]);
 
-  const onCreateIn = ({ id, status, label }: TaskGroup) => {
-    if (status) return () => startCreate({ statusId: status.id });
-    if (label) return () => startCreate({ labelIds: [label.id] });
-    if (id === "no-label" || id === "all") return () => startCreate();
-    return undefined;
+  /// A new task placed in a group (and sub-group) starts with what they stand for.
+  /// Due date buckets have no single date to give, so they offer no create.
+  const onCreateIn = (group: ViewGroup<Task>, subgroup: ViewGroup<Task> | null) => {
+    const parts: [Grouping, string][] = [[display.grouping, group.id]];
+    if (subgroup) parts.push([display.subGrouping, subgroup.id]);
+    if (parts.some(([kind]) => kind === "due")) return undefined;
+    const next: TaskDraft = {};
+    for (const [kind, id] of parts) {
+      if (kind === "status") next.statusId = id;
+      if (kind === "label" && id !== "no-label") next.labelIds = [id];
+    }
+    return () => startCreate(next);
+  };
+
+  /// Dropping a card on another status column or swimlane moves it there.
+  const statusDrop = display.grouping === "status" || display.subGrouping === "status";
+  const onMove = (task: Task, columnId: string, laneId: string | null) => {
+    const statusId = display.grouping === "status" ? columnId : laneId;
+    if (statusId && statusId !== task.statusId) move.mutate({ task, statusId });
+  };
+
+  const columnProps = (group: ViewGroup<Task>) => {
+    const status = display.grouping === "status" ? data.statusById.get(group.id) : undefined;
+    return status
+      ? contextTarget("tasks.column", {
+          status,
+          startCreate: () => startCreate({ statusId: status.id }),
+        })
+      : undefined;
   };
 
   const openTask = (task: Task) => openEntity(task.entity.id, spaceId);
@@ -249,10 +281,11 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
             properties={display.properties}
             highlightId={highlightId}
             failedTaskId={failedTaskId}
-            draggable={display.grouping === "status"}
+            draggable={statusDrop}
             onOpen={openTask}
-            onMove={(task, statusId) => move.mutate({ task, statusId })}
+            onMove={onMove}
             onCreateIn={onCreateIn}
+            columnProps={columnProps}
           />
         ) : (
           <TaskList

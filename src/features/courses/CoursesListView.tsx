@@ -56,7 +56,7 @@ import { resolveActiveSemesterId } from "./current-semester";
 import { formatClock, formatShortDate, formatWeekday } from "@/lib/datetime";
 
 /// Assignment statuses that count as "done" for the course card's progress
-/// ring, mirroring `isDone` in `assignment-buckets.ts`.
+/// ring, mirroring `isDone` in `assignment-model.ts`.
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 
 /// "in Nd" within a week, else "MMM d" — same convention as `SidebarUrgencyChip`

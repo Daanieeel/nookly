@@ -1,27 +1,15 @@
-import {
-  DndContext,
-  type DragEndEvent,
-  DragOverlay,
-  PointerSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { IconPlus } from "@tabler/icons-react";
-import { useState } from "react";
-import { contextTarget, entityTarget } from "@/components/context-menu/registry";
-import { EntityKey } from "@/components/entity-key";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { type CardDrag, GroupedBoard } from "@/components/grouped-view/grouped-board";
+import type { ViewGroup } from "@/components/grouped-view/grouping";
+import { type ContextTargetProps, entityTarget } from "@/components/context-menu/registry";
+import { CardKey } from "@/components/entity-key";
 import type { Task } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { cn } from "@/lib/utils";
 import { TaskDueControl, TaskLabelsControl, TaskStatusControl } from "./task-controls";
-import type { DisplayProperty, TaskGroup } from "./task-model";
-import { GroupIcon, moveRowFocus } from "./TaskList";
+import type { DisplayProperty } from "./task-model";
 
-/// Linear style board: one lane per group, cards carrying ID, status, title and
-/// property pills. Cards drag between lanes only when the lanes are statuses.
+/// Linear style board: one column per group (and one swimlane per sub-group),
+/// cards carrying ID, status, title and property pills.
 export function TaskBoard({
   groups,
   properties,
@@ -31,170 +19,66 @@ export function TaskBoard({
   onOpen,
   onMove,
   onCreateIn,
+  columnProps,
 }: {
-  groups: TaskGroup[];
+  groups: ViewGroup<Task>[];
   properties: DisplayProperty[];
   highlightId: string | null;
   failedTaskId: string | undefined;
   draggable: boolean;
   onOpen: (task: Task) => void;
-  onMove: (task: Task, groupId: string) => void;
-  onCreateIn: (group: TaskGroup) => (() => void) | undefined;
+  onMove: (task: Task, columnId: string, laneId: string | null) => void;
+  onCreateIn: (group: ViewGroup<Task>, lane: ViewGroup<Task> | null) => (() => void) | undefined;
+  columnProps?: (group: ViewGroup<Task>) => ContextTargetProps | undefined;
 }) {
-  const [active, setActive] = useState<Task | null>(null);
-  // A few pixels of travel before a drag starts, so a plain click still opens the card.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  function handleDragEnd(event: DragEndEvent) {
-    setActive(null);
-    const task: Task | undefined = event.active.data.current?.task;
-    // SAFETY: every droppable on this board is a `BoardLane`, whose `useDroppable` id
-    // is always its group's `id` string.
-    const groupId = event.over?.id as string | undefined;
-    if (task && groupId && task.statusId !== groupId) onMove(task, groupId);
-  }
-
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={(event) => setActive(event.active.data.current?.task ?? null)}
-      onDragEnd={handleDragEnd}
-      onDragCancel={() => setActive(null)}
-    >
-      {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the card buttons inside */}
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3" onKeyDown={moveRowFocus}>
-        {groups.map((group) => (
-          <BoardLane
-            key={group.id}
-            group={group}
-            properties={properties}
-            highlightId={highlightId}
-            failedTaskId={failedTaskId}
-            draggable={draggable}
-            onOpen={onOpen}
-            onCreate={onCreateIn(group)}
-          />
-        ))}
-      </div>
-      <DragOverlay dropAnimation={null}>
-        {active && (
-          <TaskCardBody task={active} properties={properties} className="rotate-2 shadow-lg" />
-        )}
-      </DragOverlay>
-    </DndContext>
-  );
-}
-
-function BoardLane({
-  group,
-  properties,
-  highlightId,
-  failedTaskId,
-  draggable,
-  onOpen,
-  onCreate,
-}: {
-  group: TaskGroup;
-  properties: DisplayProperty[];
-  highlightId: string | null;
-  failedTaskId: string | undefined;
-  draggable: boolean;
-  onOpen: (task: Task) => void;
-  onCreate: (() => void) | undefined;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: group.id, disabled: !draggable });
-  const status = group.status;
-  const menu =
-    status && onCreate
-      ? contextTarget("tasks.column", { status, startCreate: onCreate })
-      : undefined;
-
-  return (
-    <section
-      ref={setNodeRef}
-      aria-label={group.name}
-      className={cn(
-        "group/lane flex w-80 shrink-0 flex-col rounded-lg bg-foreground/3 transition-colors",
-        isOver && "bg-foreground/6",
+    <GroupedBoard
+      groups={groups}
+      getKey={(task) => task.entity.id}
+      draggable={draggable}
+      onMove={onMove}
+      onCreateIn={onCreateIn}
+      createLabel={(name) => `New Task in ${name}`}
+      columnProps={columnProps}
+      renderOverlay={(task) => (
+        <TaskCardBody task={task} properties={properties} className="rotate-2 shadow-lg" />
       )}
-      {...menu}
-    >
-      <header className="flex h-10 shrink-0 items-center gap-2 pr-1.5 pl-3">
-        <GroupIcon group={group} />
-        <span className="truncate text-sm font-medium">{group.name}</span>
-        <span className="text-sm text-muted-foreground tabular-nums">{group.tasks.length}</span>
-        {onCreate && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={`New Task in ${group.name}`}
-                onClick={onCreate}
-                className="ml-auto flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/lane:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
-              >
-                <IconPlus size={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>New Task in {group.name}</TooltipContent>
-          </Tooltip>
-        )}
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
-        {group.tasks.map((task) => (
-          <DraggableCard
-            key={task.entity.id}
-            task={task}
-            properties={properties}
-            highlighted={highlightId === task.entity.id}
-            failed={failedTaskId === task.entity.id}
-            draggable={draggable}
-            onOpen={() => onOpen(task)}
-          />
-        ))}
-        {onCreate && (
-          <button
-            type="button"
-            onClick={onCreate}
-            className="flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/lane:opacity-100 hover:bg-foreground/5 hover:text-foreground focus-visible:opacity-100"
-            aria-label={`New Task in ${group.name}`}
-          >
-            <IconPlus size={14} />
-          </button>
-        )}
-      </div>
-    </section>
+      renderCard={(task, drag) => (
+        <TaskCard
+          task={task}
+          drag={drag}
+          properties={properties}
+          highlighted={highlightId === task.entity.id}
+          failed={failedTaskId === task.entity.id}
+          onOpen={() => onOpen(task)}
+        />
+      )}
+    />
   );
 }
 
-function DraggableCard({
+function TaskCard({
   task,
+  drag,
   properties,
   highlighted,
   failed,
-  draggable,
   onOpen,
 }: {
   task: Task;
+  drag: CardDrag;
   properties: DisplayProperty[];
   highlighted: boolean;
   failed: boolean;
-  draggable: boolean;
   onOpen: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task.entity.id,
-    data: { task },
-    disabled: !draggable,
-  });
-  const title = displayTitle(task.entity);
-
   return (
     <TaskCardBody
       task={task}
       properties={properties}
       interactive
       className={cn(
-        isDragging && "opacity-40",
+        drag.isDragging && "opacity-40",
         highlighted && "border-positive/60 bg-positive/10",
         failed && "border-destructive/60",
       )}
@@ -207,14 +91,17 @@ function DraggableCard({
       }
     >
       <button
-        ref={setNodeRef}
+        ref={drag.ref}
         type="button"
         data-task-row
-        aria-label={`Open ${title}`}
+        aria-label={`Open ${displayTitle(task.entity)}`}
         onClick={onOpen}
-        className="absolute inset-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        {...listeners}
-        {...attributes}
+        className={cn(
+          "absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          drag.cursorClass,
+        )}
+        {...drag.listeners}
+        {...drag.attributes}
       />
     </TaskCardBody>
   );
@@ -249,9 +136,7 @@ function TaskCardBody({
       {...entityTarget(task.entity)}
     >
       {children}
-      {show("key") && (
-        <EntityKey entityKey={task.entity.key} className="pointer-events-none relative" />
-      )}
+      {show("key") && <CardKey entityKey={task.entity.key} interactive={interactive} />}
       <div className="flex items-start gap-1.5">
         {show("status") && (
           <span className="-mt-0.5 -ml-1">

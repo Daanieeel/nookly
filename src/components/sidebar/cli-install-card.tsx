@@ -7,21 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCliInstallStatus, installCli } from "@/lib/api/cli";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
+import { preferences } from "@/lib/preferences";
 
 function isDismissed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.cliInstallCardDismissed) === "1";
-  } catch {
-    return false;
-  }
+  return preferences.get(STORAGE_KEYS.cliInstallCardDismissed) === "1";
 }
 
 function dismiss() {
-  try {
-    localStorage.setItem(STORAGE_KEYS.cliInstallCardDismissed, "1");
-  } catch {
-    // Worst case the card reappears next launch — not worth failing over.
-  }
+  preferences.set(STORAGE_KEYS.cliInstallCardDismissed, "1");
 }
 
 // Quiet sidebar-footer recommendation to install the `nookly cli` symlink

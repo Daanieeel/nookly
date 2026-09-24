@@ -49,6 +49,7 @@ import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
 import { notePreviewText, previewLines } from "./note-preview";
 import { formatClock, formatDateTime, formatShortDate, formatWeekday } from "@/lib/datetime";
+import { preferences } from "@/lib/preferences";
 
 interface JotRow {
   summary: PageSummary;
@@ -69,27 +70,19 @@ const MAX_ROW_LABELS = 3;
 
 /// Stored as `"<column>:<asc|desc>"`, e.g. `"edited:desc"`.
 function readStoredSorting(): SortingState {
-  try {
-    const [id, dir] = (localStorage.getItem(STORAGE_KEYS.jotsSort) ?? "").split(":");
-    if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
-      return [{ id, desc: dir === "desc" }];
-    }
-  } catch {
-    // Storage unavailable; fall through to the default.
+  const [id, dir] = (preferences.get(STORAGE_KEYS.jotsSort) ?? "").split(":");
+  if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
+    return [{ id, desc: dir === "desc" }];
   }
   return DEFAULT_SORTING;
 }
 
 function writeStoredSorting(sorting: SortingState) {
-  try {
-    const [first] = sorting;
-    if (first) {
-      localStorage.setItem(STORAGE_KEYS.jotsSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.jotsSort);
-    }
-  } catch {
-    // Preference only; the table still works without it.
+  const [first] = sorting;
+  if (first) {
+    preferences.set(STORAGE_KEYS.jotsSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
+  } else {
+    preferences.remove(STORAGE_KEYS.jotsSort);
   }
 }
 
@@ -166,6 +159,12 @@ function filterKey(filters: ActiveFilter[]): string {
 
 const PRESET_BY_KEY = new Map(PRESETS.map((p) => [filterKey(p.filters), p.id]));
 
+/// The last picked preset's filters, so the page reopens on the same view.
+function readStoredPresetFilters(): ActiveFilter[] {
+  const id = preferences.get(STORAGE_KEYS.jotsPreset);
+  return (PRESETS.find((p) => p.id === id) ?? PRESETS[0])?.filters ?? [];
+}
+
 /// Fields every row can be filtered by; Labels and Course join them when in use.
 const BASE_FILTER_FIELDS: FilterField[] = [
   {
@@ -219,7 +218,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const setQuickJotOpen = useNavStore((s) => s.setQuickJotOpen);
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<ActiveFilter[]>(PRESETS[0]?.filters ?? []);
+  const [filters, setFilters] = useState<ActiveFilter[]>(readStoredPresetFilters);
   const [sorting, setSorting] = useState<SortingState>(readStoredSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
@@ -374,7 +373,10 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
             size="sm"
             aria-pressed={activePreset === preset.id}
             className="gap-1.5"
-            onClick={() => setFilters(preset.filters)}
+            onClick={() => {
+              setFilters(preset.filters);
+              preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
+            }}
           >
             <preset.icon size={14} />
             {preset.label}

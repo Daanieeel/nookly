@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
+import { preferences } from "@/lib/preferences";
 
 export type Theme = "light" | "dark" | "system";
 
 export function getStoredTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEYS.theme);
+  const stored = preferences.get(STORAGE_KEYS.theme);
   return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
 }
 
@@ -18,7 +19,7 @@ export function applyTheme(theme: Theme): void {
 }
 
 export function setTheme(theme: Theme): void {
-  localStorage.setItem(STORAGE_KEYS.theme, theme);
+  preferences.set(STORAGE_KEYS.theme, theme);
   applyTheme(theme);
 }
 

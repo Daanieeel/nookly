@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
+import { preferences } from "@/lib/preferences";
 
 export const MODULE_KEYS = [
   "tasks",
@@ -79,11 +80,7 @@ interface NavState {
 }
 
 function readStoredCollapsed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.sidebarCollapsed) === "1";
-  } catch {
-    return false;
-  }
+  return preferences.get(STORAGE_KEYS.sidebarCollapsed) === "1";
 }
 
 /// Bounds for the resizable right sidebar. The minimum fits its top row: four 36px
@@ -97,42 +94,26 @@ export function clampRightSidebarWidth(width: number): number {
 }
 
 function readStoredRightSidebarWidth(): number {
-  try {
-    const stored = Number(localStorage.getItem(STORAGE_KEYS.rightSidebarWidth));
-    return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
-  } catch {
-    return RIGHT_SIDEBAR_DEFAULT_WIDTH;
-  }
+  const stored = Number(preferences.get(STORAGE_KEYS.rightSidebarWidth));
+  return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
 }
 
 function readStoredRightSidebarCollapsed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.rightSidebarCollapsed) === "1";
-  } catch {
-    return false;
-  }
+  return preferences.get(STORAGE_KEYS.rightSidebarCollapsed) === "1";
 }
 
 function readStoredActiveSpace(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.activeSpace);
-  } catch {
-    return null;
-  }
+  return preferences.get(STORAGE_KEYS.activeSpace);
 }
 
 function writeStoredActiveSpace(spaceId: string | null) {
-  try {
-    if (spaceId) localStorage.setItem(STORAGE_KEYS.activeSpace, spaceId);
-    else localStorage.removeItem(STORAGE_KEYS.activeSpace);
-  } catch {
-    // best-effort only
-  }
+  if (spaceId) preferences.set(STORAGE_KEYS.activeSpace, spaceId);
+  else preferences.remove(STORAGE_KEYS.activeSpace);
 }
 
 function readStoredRecents(): RecentEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.recents);
+    const raw = preferences.get(STORAGE_KEYS.recents);
     // SAFETY: this key is only ever written by `writeStoredRecents` below, with the
     // exact `RecentEntry[]` shape — never user-editable or written by anything else.
     return raw ? (JSON.parse(raw) as RecentEntry[]) : [];
@@ -142,11 +123,7 @@ function readStoredRecents(): RecentEntry[] {
 }
 
 function writeStoredRecents(recents: RecentEntry[]) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.recents, JSON.stringify(recents));
-  } catch {
-    // best-effort only
-  }
+  preferences.set(STORAGE_KEYS.recents, JSON.stringify(recents));
 }
 
 function sameView(a: View, b: View): boolean {
@@ -254,28 +231,16 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
-    } catch {
-      // best-effort only
-    }
+    preferences.set(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
     set({ sidebarCollapsed });
   },
   setRightSidebarCollapsed: (rightSidebarCollapsed) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.rightSidebarCollapsed, rightSidebarCollapsed ? "1" : "0");
-    } catch {
-      // best-effort only
-    }
+    preferences.set(STORAGE_KEYS.rightSidebarCollapsed, rightSidebarCollapsed ? "1" : "0");
     set({ rightSidebarCollapsed });
   },
   setRightSidebarWidth: (width) => {
     const rightSidebarWidth = clampRightSidebarWidth(width);
-    try {
-      localStorage.setItem(STORAGE_KEYS.rightSidebarWidth, String(rightSidebarWidth));
-    } catch {
-      // best-effort only
-    }
+    preferences.set(STORAGE_KEYS.rightSidebarWidth, String(rightSidebarWidth));
     set({ rightSidebarWidth });
   },
 }));

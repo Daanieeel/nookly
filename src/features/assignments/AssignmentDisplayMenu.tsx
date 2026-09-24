@@ -1,4 +1,5 @@
 import { IconAdjustmentsHorizontal, IconLayoutKanban, IconList } from "@tabler/icons-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -8,26 +9,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
-  DISPLAY_PROPERTIES,
   type DisplayOptions,
   GROUPINGS,
+  type Grouping,
   type Layout,
-  ORDERINGS,
   validSubGrouping,
-} from "./task-model";
+} from "./assignment-model";
 
 const LAYOUT_TILES: { id: Layout; label: string; icon: typeof IconList }[] = [
   { id: "list", label: "List", icon: IconList },
   { id: "board", label: "Board", icon: IconLayoutKanban },
 ];
 
-/// Linear's "Display" popover: layout tiles, grouping and ordering, empty groups,
-/// and which properties rows and cards show.
-export function TaskDisplayMenu({
+/// The "Display" popover, as on the Tasks page: layout, grouping, sub-grouping
+/// and empty groups.
+export function AssignmentDisplayMenu({
   display,
   onChange,
 }: {
@@ -37,8 +36,8 @@ export function TaskDisplayMenu({
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...display, ...patch });
   const groupings = GROUPINGS.filter((g) => display.layout === "list" || g.id !== "none");
   const subGroupings = GROUPINGS.filter((g) => g.id !== display.grouping);
-  // Ordering by status inside status groups would change nothing.
-  const orderings = ORDERINGS.filter((o) => display.grouping !== "status" || o.id !== "status");
+  const setGrouping = (grouping: Grouping, layout = display.layout) =>
+    set({ layout, grouping, subGrouping: validSubGrouping(grouping, display.subGrouping) });
 
   return (
     <Popover>
@@ -55,15 +54,16 @@ export function TaskDisplayMenu({
               key={tile.id}
               type="button"
               aria-pressed={display.layout === tile.id}
-              onClick={() => {
-                const grouping =
-                  tile.id === "board" && display.grouping === "none" ? "status" : display.grouping;
-                set({
-                  layout: tile.id,
-                  grouping,
-                  subGrouping: validSubGrouping(grouping, display.subGrouping),
-                });
-              }}
+              onClick={() =>
+                setGrouping(
+                  // A board opens on status columns, which cards can be dragged
+                  // between, unless it already groups by something draggable.
+                  tile.id === "board" && display.layout !== "board" && display.grouping !== "course"
+                    ? "status"
+                    : display.grouping,
+                  tile.id,
+                )
+              }
               className={cn(
                 "flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
                 display.layout === tile.id && "border-foreground/20 bg-accent text-foreground",
@@ -78,15 +78,7 @@ export function TaskDisplayMenu({
         <OptionRow label="Grouping">
           <Select
             value={display.grouping}
-            onValueChange={(v) => {
-              const grouping = groupings.find((g) => g.id === v)?.id ?? "status";
-              set({
-                grouping,
-                subGrouping: validSubGrouping(grouping, display.subGrouping),
-                ordering:
-                  grouping === "status" && display.ordering === "status" ? "due" : display.ordering,
-              });
-            }}
+            onValueChange={(v) => setGrouping(groupings.find((g) => g.id === v)?.id ?? "deadline")}
           >
             <SelectTrigger size="sm" className="w-36">
               <SelectValue />
@@ -123,24 +115,6 @@ export function TaskDisplayMenu({
           </OptionRow>
         )}
 
-        <OptionRow label="Ordering">
-          <Select
-            value={display.ordering}
-            onValueChange={(v) => set({ ordering: orderings.find((o) => o.id === v)?.id ?? "due" })}
-          >
-            <SelectTrigger size="sm" className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {orderings.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </OptionRow>
-
         {display.grouping !== "none" && (
           <OptionRow label="Show empty groups">
             <Switch
@@ -151,45 +125,12 @@ export function TaskDisplayMenu({
             />
           </OptionRow>
         )}
-
-        <Separator />
-
-        <div className="flex flex-col gap-2">
-          <span className="text-xs text-muted-foreground">Display properties</span>
-          <div className="flex flex-wrap gap-1.5">
-            {DISPLAY_PROPERTIES.map((p) => {
-              const on = display.properties.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() =>
-                    set({
-                      properties: on
-                        ? display.properties.filter((id) => id !== p.id)
-                        : DISPLAY_PROPERTIES.filter(
-                            (d) => d.id === p.id || display.properties.includes(d.id),
-                          ).map((d) => d.id),
-                    })
-                  }
-                  className={cn(
-                    "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
-                    on && "border-foreground/20 bg-accent text-foreground",
-                  )}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </PopoverContent>
     </Popover>
   );
 }
 
-function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
+function OptionRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-muted-foreground">{label}</span>

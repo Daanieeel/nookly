@@ -24,7 +24,7 @@ The active Space's accent color shows up beyond its sidebar label, in highlights
 
 ## Remembered Customizations
 
-Layout and view choices the user makes, such as collapsing or resizing a sidebar, the theme, or the last active Space, are remembered across sessions and restarts. The app reopens the way the user left it. These preferences are stored per device and are not synced. See [Local Storage Keys](development/local-storage-key.md) for the keys and the rules for adding new ones.
+Layout and view choices the user makes, such as collapsing or resizing a sidebar, the theme, or the last active Space, are remembered across sessions and restarts. The app reopens the way the user left it. These preferences are stored per device and are not synced. See [Preference Keys](development/preference-keys.md) for the keys and the rules for adding new ones.
 
 ## Command Palette
 

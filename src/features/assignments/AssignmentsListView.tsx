@@ -1,27 +1,9 @@
-import {
-  IconAdjustmentsHorizontal,
-  IconCalendarDue,
-  IconCaretDownFilled,
-  IconCaretRightFilled,
-  IconCircleDot,
-  IconClipboardCheck,
-  IconClockPlus,
-  IconPlus,
-  IconSchool,
-  type Icon as TablerIcon,
-} from "@tabler/icons-react";
+import { IconCircleDot, IconClipboardCheck, IconPlus, IconSchool } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { differenceInCalendarDays, parseISO } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  StatusButtonContent,
-  StatusIcon,
-  statusOf,
-  useCloseAfterSuccess,
-} from "@/components/action-feedback";
-import { contextTarget, entityTarget } from "@/components/context-menu/registry";
+import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "@/components/action-feedback";
+import { contextTarget } from "@/components/context-menu/registry";
 import { EmptyState } from "@/components/empty-state";
-import { EntityKey } from "@/components/entity-key";
 import { EntityPickerPopover, EntityPickerValue } from "@/components/entity-picker";
 import {
   type ActiveFilter,
@@ -29,7 +11,9 @@ import {
   FilterMenu,
   applyFilters,
 } from "@/components/filter-menu";
-import { badgeVariants } from "@/components/ui/badge";
+import { GroupedBoard } from "@/components/grouped-view/grouped-board";
+import { GroupedList } from "@/components/grouped-view/grouped-list";
+import { buildGroups } from "@/components/grouped-view/grouping";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
 import {
@@ -39,56 +23,36 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CourseChip, useCourseLookup } from "@/features/courses/course-lookup";
-import { moveRowFocus } from "@/features/tasks/TaskList";
+import { useCourseLookup } from "@/features/courses/course-lookup";
+import { createRelationship, deleteRelationship, listRelationships } from "@/lib/api/relationships";
+import { TaskStatusIcon } from "@/features/tasks/task-properties";
 import { useCreateShortcut } from "@/hooks/use-create-shortcut";
 import { createAssignment, listAssignments, updateAssignmentStatus } from "@/lib/api/assignments";
 import type { Assignment, Entity } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { useNavStore } from "@/lib/store/nav";
-import { cn } from "@/lib/utils";
+import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
+import { assignmentGroupDefs } from "./assignment-groups";
 import {
   ASSIGNMENT_STATUSES,
-  type Bucket,
-  type Grouping,
-  type Tone,
-  bucketAssignments,
-  isDone,
-  readGrouping,
-  statusLabel,
-  writeGrouping,
-} from "./assignment-buckets";
-import { formatShortDate, formatWeekday } from "@/lib/datetime";
-
-const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
-  { id: "deadline", label: "Deadline", icon: IconCalendarDue },
-  { id: "created", label: "Created", icon: IconClockPlus },
-];
-
-const TONE_TEXT = {
-  destructive: "text-destructive",
-  caution: "text-caution",
-  positive: "text-positive",
-  muted: "text-muted-foreground",
-} satisfies Record<Tone, string>;
+  type DisplayOptions,
+  orderAssignments,
+  readDisplay,
+  statusKindOf,
+  writeDisplay,
+} from "./assignment-model";
+import { AssignmentCard, AssignmentCardBody, AssignmentRow } from "./assignment-views";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
 
-/// An inbox to work through: assignments sorted into time buckets (Overdue, Today,
-/// This Week...) by due date, or by when they were added. A Course page's "view all"
-/// lands here with `filterCourseId`, applied as a regular Course filter.
+/// An inbox to work through: a list bucketed by due date by default, or a board,
+/// either one groupable and sub-groupable by deadline, creation, status or Course.
+/// A Course page's "view all" lands here with `filterCourseId`, applied as a
+/// regular Course filter.
 export function AssignmentsListView({
   spaceId,
   filterCourseId,
@@ -96,9 +60,10 @@ export function AssignmentsListView({
   spaceId: string;
   filterCourseId?: string;
 }) {
+  const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
-  const [grouping, setGroupingState] = useState<Grouping>(readGrouping);
+  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
   const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
 
   useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
@@ -112,10 +77,35 @@ export function AssignmentsListView({
   const startCreate = useCallback(() => setCreateOpen(true), []);
   useCreateShortcut(startCreate);
 
-  const setGrouping = (next: Grouping) => {
-    setGroupingState(next);
-    writeGrouping(next);
+  const setDisplay = (next: DisplayOptions) => {
+    setDisplayState(next);
+    writeDisplay(next);
   };
+
+  /// A drop changes whatever the target column or swimlane stands for: a status,
+  /// or the Course (swapping its one `assignment-course` link).
+  const move = useMutation({
+    mutationFn: async (vars: { assignment: Assignment; status?: string; courseId?: string }) => {
+      const { assignment, status, courseId } = vars;
+      if (status) await updateAssignmentStatus(assignment.entity.id, status, assignment.grade);
+      if (courseId) {
+        const links = await listRelationships(assignment.entity.id, "from");
+        for (const link of links.filter((r) => r.relationshipType === "assignment-course")) {
+          await deleteRelationship(link.id);
+        }
+        await createRelationship(assignment.entity.id, courseId, "assignment-course");
+      }
+    },
+    onSuccess: (_, { assignment, courseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
+      if (courseId) {
+        const previous = courseOf.get(assignment.entity.id);
+        for (const id of [courseId, previous?.id]) {
+          if (id) queryClient.invalidateQueries({ queryKey: ["relationships", id] });
+        }
+      }
+    },
+  });
 
   const filterFields = useMemo<FilterField[]>(
     () => [
@@ -129,7 +119,11 @@ export function AssignmentsListView({
         id: "status",
         label: "Status",
         icon: IconCircleDot,
-        options: ASSIGNMENT_STATUSES.map((s) => ({ value: s.id, label: s.label })),
+        options: ASSIGNMENT_STATUSES.map((s) => ({
+          value: s.id,
+          label: s.name,
+          icon: <TaskStatusIcon status={s} kind={statusKindOf(s.id)} />,
+        })),
       },
     ],
     [courses],
@@ -138,7 +132,34 @@ export function AssignmentsListView({
   const visible = applyFilters(assignments, filters, (a, fieldId) =>
     fieldId === "course" ? (courseOf.get(a.entity.id)?.id ?? "") : a.status,
   );
-  const buckets = bucketAssignments(visible, grouping);
+  const defs = assignmentGroupDefs(display.grouping, courses, courseOf);
+  const subDefs = assignmentGroupDefs(display.subGrouping, courses, courseOf);
+  const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
+  const groups = buildGroups(
+    orderAssignments(visible, display.grouping),
+    defs ?? [{ id: "all", name: "All assignments", match: () => true }],
+    subDefs,
+  ).filter((g) => showEmpty || g.items.length > 0);
+
+  const dropKinds = new Set([display.grouping, display.subGrouping]);
+  const boardDraggable = dropKinds.has("status") || dropKinds.has("course");
+  const onMove = (assignment: Assignment, columnId: string, laneId: string | null) => {
+    const target = (kind: "status" | "course") =>
+      display.grouping === kind ? columnId : display.subGrouping === kind ? laneId : null;
+    const status = target("status");
+    const courseId = target("course");
+    const next = {
+      status: status && status !== assignment.status ? status : undefined,
+      // Every assignment needs a Course, so "No course" takes no drops.
+      courseId:
+        courseId && courseId !== "no-course" && courseId !== courseOf.get(assignment.entity.id)?.id
+          ? courseId
+          : undefined,
+    };
+    if (next.status || next.courseId) move.mutate({ assignment, ...next });
+  };
+  const failedId = move.isError ? move.variables?.assignment.entity.id : undefined;
+  const open = (a: Assignment) => openEntity(a.entity.id, spaceId);
 
   return (
     <div
@@ -149,16 +170,16 @@ export function AssignmentsListView({
         create: startCreate,
       })}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
+      <header className="flex shrink-0 flex-col gap-1 border-b border-border py-2 pr-2 pl-4">
+        <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
           <IconClipboardCheck size={16} className="text-muted-foreground" />
           Assignments
         </h1>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+        <div className="flex min-w-0 items-center gap-1">
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
-          <AssignmentDisplayMenu grouping={grouping} onChange={setGrouping} />
+          <AssignmentDisplayMenu display={display} onChange={setDisplay} />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
@@ -182,250 +203,56 @@ export function AssignmentsListView({
             action={{ label: "New assignment", onClick: startCreate }}
           />
         </div>
-      ) : buckets.length === 0 ? (
+      ) : groups.every((g) => g.items.length === 0) ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <p className="text-sm text-muted-foreground">No assignments match these filters.</p>
           <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
             Clear filters
           </Button>
         </div>
-      ) : (
-        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-        <div className="min-h-0 flex-1 overflow-y-auto pb-6" onKeyDown={moveRowFocus}>
-          {buckets.map((bucket) => (
-            <BucketSection
-              // Remount on regrouping so each bucket starts from its own default.
-              key={`${grouping}:${bucket.id}`}
-              bucket={bucket}
-              courseOf={courseOf}
-              onOpen={(a) => openEntity(a.entity.id, spaceId)}
+      ) : display.layout === "board" ? (
+        <GroupedBoard
+          // Remount on regrouping so collapsed lanes start from their defaults.
+          key={`${display.grouping}:${display.subGrouping}`}
+          groups={groups}
+          getKey={(a) => a.entity.id}
+          draggable={boardDraggable}
+          onMove={onMove}
+          renderOverlay={(a) => (
+            <AssignmentCardBody
+              assignment={a}
+              course={courseOf.get(a.entity.id)}
+              className="rotate-2 shadow-lg"
             />
-          ))}
-        </div>
+          )}
+          renderCard={(a, drag) => (
+            <AssignmentCard
+              assignment={a}
+              course={courseOf.get(a.entity.id)}
+              drag={drag}
+              failed={failedId === a.entity.id}
+              onOpen={() => open(a)}
+            />
+          )}
+        />
+      ) : (
+        <GroupedList
+          key={`${display.grouping}:${display.subGrouping}`}
+          groups={groups}
+          showHeaders={display.grouping !== "none"}
+          getKey={(a) => a.entity.id}
+          renderRow={(a) => (
+            <AssignmentRow
+              assignment={a}
+              course={courseOf.get(a.entity.id)}
+              onOpen={() => open(a)}
+            />
+          )}
+        />
       )}
 
       <CreateAssignmentDialog spaceId={spaceId} open={createOpen} onOpenChange={setCreateOpen} />
     </div>
-  );
-}
-
-/// The "Display" popover, as on the Tasks page: which date sorts rows into buckets.
-function AssignmentDisplayMenu({
-  grouping,
-  onChange,
-}: {
-  grouping: Grouping;
-  onChange: (grouping: Grouping) => void;
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1.5">
-          <IconAdjustmentsHorizontal />
-          Display
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-64 flex-col gap-2 p-3">
-        <span className="text-xs text-muted-foreground">Group by</span>
-        <div className="grid grid-cols-2 gap-2">
-          {GROUPINGS.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              aria-pressed={grouping === g.id}
-              onClick={() => onChange(g.id)}
-              className={cn(
-                "flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
-                grouping === g.id && "border-foreground/20 bg-accent text-foreground",
-              )}
-            >
-              <g.icon size={16} />
-              {g.label}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function BucketSection({
-  bucket,
-  courseOf,
-  onOpen,
-}: {
-  bucket: Bucket;
-  courseOf: Map<string, Entity>;
-  onOpen: (assignment: Assignment) => void;
-}) {
-  const [collapsed, setCollapsed] = useState(bucket.collapsed ?? false);
-  return (
-    <section aria-label={bucket.label}>
-      <div className="sticky top-0 z-10 bg-card">
-        <div className="flex h-9 items-center border-b border-border bg-foreground/4 px-2">
-          <button
-            type="button"
-            aria-expanded={!collapsed}
-            onClick={() => setCollapsed((c) => !c)}
-            className="flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-accent/60"
-          >
-            {collapsed ? (
-              <IconCaretRightFilled size={10} className="text-muted-foreground" />
-            ) : (
-              <IconCaretDownFilled size={10} className="text-muted-foreground" />
-            )}
-            <bucket.icon size={14} className={TONE_TEXT[bucket.tone]} />
-            <span className="truncate font-medium">{bucket.label}</span>
-            <span className="text-muted-foreground tabular-nums">{bucket.items.length}</span>
-          </button>
-        </div>
-      </div>
-      {!collapsed &&
-        bucket.items.map((a) => (
-          <AssignmentRow
-            key={a.entity.id}
-            assignment={a}
-            course={courseOf.get(a.entity.id)}
-            onOpen={() => onOpen(a)}
-          />
-        ))}
-    </section>
-  );
-}
-
-function AssignmentRow({
-  assignment,
-  course,
-  onOpen,
-}: {
-  assignment: Assignment;
-  course: Entity | undefined;
-  onOpen: () => void;
-}) {
-  const title = displayTitle(assignment.entity);
-  const done = isDone(assignment);
-  return (
-    <div
-      className="relative flex h-12 items-center gap-3 border-b border-border/60 px-4 transition-colors focus-within:bg-accent/50 hover:bg-accent/40"
-      {...entityTarget(assignment.entity, assignment)}
-    >
-      <button
-        type="button"
-        data-task-row
-        aria-label={`Open ${title}`}
-        onClick={onOpen}
-        className="absolute inset-0 cursor-pointer outline-none"
-      />
-      <DueCell dueDate={assignment.dueDate} done={done} />
-      <EntityKey
-        entityKey={assignment.entity.key}
-        className="pointer-events-none relative hidden w-16 sm:block"
-      />
-      <span
-        className={cn(
-          "pointer-events-none relative min-w-0 flex-1 truncate text-sm",
-          done && "text-muted-foreground",
-        )}
-      >
-        {title}
-      </span>
-      {course && (
-        <CourseChip course={course} className="pointer-events-none relative max-md:hidden" />
-      )}
-      {assignment.grade !== null && (
-        <span className="pointer-events-none relative shrink-0 text-xs text-muted-foreground tabular-nums">
-          Grade <span className="font-medium text-foreground">{assignment.grade}</span>
-        </span>
-      )}
-      <AssignmentStatusMenu assignment={assignment} />
-    </div>
-  );
-}
-
-/// The due date leads the row: the day itself, and below it how far away it is.
-function DueCell({ dueDate, done }: { dueDate: string | null; done: boolean }) {
-  if (!dueDate) {
-    return (
-      <span className="pointer-events-none relative w-20 shrink-0 text-xs text-muted-foreground/60">
-        No date
-      </span>
-    );
-  }
-  const day = parseISO(dueDate);
-  const days = differenceInCalendarDays(day, new Date());
-  let relative = `in ${days} days`;
-  let tone = "text-muted-foreground";
-  if (days < 0) {
-    relative = done ? `${-days}d ago` : `${-days}d overdue`;
-    if (!done) tone = "text-destructive";
-  } else if (days === 0) {
-    relative = "Today";
-    if (!done) tone = "text-caution";
-  } else if (days === 1) {
-    relative = "Tomorrow";
-  }
-  return (
-    <span className="pointer-events-none relative flex w-20 shrink-0 flex-col leading-tight">
-      <time dateTime={dueDate} className="text-xs font-medium tabular-nums">
-        {`${formatWeekday(day, "short")}, ${formatShortDate(day)}`}
-      </time>
-      <span className={cn("text-xs", tone)}>{relative}</span>
-    </span>
-  );
-}
-
-function statusVariant(status: string) {
-  if (status === "in_progress") return "primary";
-  if (status === "submitted" || status === "graded") return "positive";
-  return "secondary";
-}
-
-/// The status as a badge that opens a picker, so moving through the inbox never
-/// needs the detail view.
-function AssignmentStatusMenu({ assignment }: { assignment: Assignment }) {
-  const queryClient = useQueryClient();
-  const change = useMutation({
-    mutationFn: (status: string) =>
-      updateAssignmentStatus(assignment.entity.id, status, assignment.grade),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] }),
-  });
-  const status = statusOf(change);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={
-            status === "error"
-              ? "Couldn't change status, try again"
-              : `Status: ${statusLabel(assignment.status)}`
-          }
-          className={cn(
-            badgeVariants({
-              variant: status === "error" ? "destructive" : statusVariant(assignment.status),
-              size: "md",
-            }),
-            "relative w-24 shrink-0 cursor-pointer justify-center gap-1 transition-opacity hover:opacity-80",
-          )}
-        >
-          <StatusIcon status={status === "success" ? "idle" : status} idle={null} size={12} />
-          {statusLabel(assignment.status)}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={assignment.status}
-          onValueChange={(next) => next !== assignment.status && change.mutate(next)}
-        >
-          {ASSIGNMENT_STATUSES.map((s) => (
-            <DropdownMenuRadioItem key={s.id} value={s.id}>
-              {s.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

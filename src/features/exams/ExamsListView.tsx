@@ -30,7 +30,7 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CourseChip, useCourseLookup } from "@/features/courses/course-lookup";
-import { moveRowFocus } from "@/features/tasks/TaskList";
+import { moveRowFocus } from "@/components/grouped-view/grouping";
 import { useCreateShortcut } from "@/hooks/use-create-shortcut";
 import { createExam, listExams } from "@/lib/api/exams";
 import type { Entity, Exam } from "@/lib/api/types";

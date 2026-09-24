@@ -3,6 +3,7 @@ import type { Label, Task, TaskStatus } from "@/lib/api/types";
 import { displayTitle } from "@/lib/entity-title";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
 import { formatShortDate } from "@/lib/datetime";
+import { preferences } from "@/lib/preferences";
 
 /// Pure view logic for the Tasks page: status kinds, due buckets, grouping, ordering,
 /// filtering and the remembered display options. Nothing here touches the backend.
@@ -136,6 +137,9 @@ export interface DisplayOptions {
   tab: TaskTab;
   layout: Layout;
   grouping: Grouping;
+  /// Splits each group again: nested headers in a list, swimlanes on a board.
+  /// Always `"none"` without a grouping, and never the grouping itself.
+  subGrouping: Grouping;
   ordering: Ordering;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
   showEmpty: Record<Layout, boolean>;
@@ -146,6 +150,7 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   tab: "all",
   layout: "board",
   grouping: "status",
+  subGrouping: "none",
   ordering: "due",
   showEmpty: { board: true, list: false },
   properties: ["key", "status", "labels", "due", "created"],
@@ -162,19 +167,24 @@ const TABS: { id: TaskTab }[] = [{ id: "all" }, { id: "active" }, { id: "backlog
 /// its default instead of breaking the page.
 export function readDisplay(): DisplayOptions {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.tasksDisplay);
+    const raw = preferences.get(STORAGE_KEYS.tasksDisplay);
     if (!raw) return DEFAULT_DISPLAY;
     // SAFETY: this key is only ever written by `writeDisplay` below, and every field
     // is validated before use, so a stale shape only loses that field.
     const stored = JSON.parse(raw) as Partial<DisplayOptions>;
     const layout = pick(stored.layout, LAYOUTS, DEFAULT_DISPLAY.layout);
-    const grouping = pick(stored.grouping, GROUPINGS, DEFAULT_DISPLAY.grouping);
+    const rawGrouping = pick(stored.grouping, GROUPINGS, DEFAULT_DISPLAY.grouping);
+    // A board always needs columns to group by.
+    const grouping = layout === "board" && rawGrouping === "none" ? "status" : rawGrouping;
     const properties = Array.isArray(stored.properties) ? stored.properties : null;
     return {
       tab: pick(stored.tab, TABS, DEFAULT_DISPLAY.tab),
       layout,
-      // A board always needs columns to group by.
-      grouping: layout === "board" && grouping === "none" ? "status" : grouping,
+      grouping,
+      subGrouping: validSubGrouping(
+        grouping,
+        pick(stored.subGrouping, GROUPINGS, DEFAULT_DISPLAY.subGrouping),
+      ),
       ordering: pick(stored.ordering, ORDERINGS, DEFAULT_DISPLAY.ordering),
       showEmpty: {
         board: stored.showEmpty?.board !== false,
@@ -189,12 +199,13 @@ export function readDisplay(): DisplayOptions {
   }
 }
 
+/// Drops a sub-grouping that no longer makes sense for `grouping`.
+export function validSubGrouping(grouping: Grouping, subGrouping: Grouping): Grouping {
+  return grouping === "none" || subGrouping === grouping ? "none" : subGrouping;
+}
+
 export function writeDisplay(display: DisplayOptions) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.tasksDisplay, JSON.stringify(display));
-  } catch {
-    // Preference only; the page still works without it.
-  }
+  preferences.set(STORAGE_KEYS.tasksDisplay, JSON.stringify(display));
 }
 
 // Grouping and ordering

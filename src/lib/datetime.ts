@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
 import { localeForTimezone } from "@/lib/timezone-countries";
+import { preferences } from "@/lib/preferences";
 
 /// How dates or times are written. `american` and `european` are fixed conventions
 /// (12 hour, month first / 24 hour, day first); `timezone` follows the chosen time
@@ -50,22 +51,14 @@ export function systemTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-function readStored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 function readMode(key: string): FormatMode {
-  const stored = readStored(key);
+  const stored = preferences.get(key);
   return FORMAT_MODES.find((m) => m === stored) ?? "timezone";
 }
 
 function readSettings(): DateTimeSettings {
   return {
-    timezone: readStored(STORAGE_KEYS.timezone) ?? "system",
+    timezone: preferences.get(STORAGE_KEYS.timezone) ?? "system",
     dateFormat: readMode(STORAGE_KEYS.dateFormat),
     timeFormat: readMode(STORAGE_KEYS.timeFormat),
   };
@@ -78,19 +71,9 @@ export const useDateTimeSettings = create<
 >((set) => ({
   ...readSettings(),
   update: (patch) => {
-    const writes: [string, string | undefined][] = [
-      [STORAGE_KEYS.timezone, patch.timezone],
-      [STORAGE_KEYS.dateFormat, patch.dateFormat],
-      [STORAGE_KEYS.timeFormat, patch.timeFormat],
-    ];
-    for (const [key, value] of writes) {
-      if (value === undefined) continue;
-      try {
-        localStorage.setItem(key, value);
-      } catch {
-        // Storage unavailable; the choice lasts until restart.
-      }
-    }
+    if (patch.timezone) preferences.set(STORAGE_KEYS.timezone, patch.timezone);
+    if (patch.dateFormat) preferences.set(STORAGE_KEYS.dateFormat, patch.dateFormat);
+    if (patch.timeFormat) preferences.set(STORAGE_KEYS.timeFormat, patch.timeFormat);
     set(patch);
   },
 }));
