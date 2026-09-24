@@ -114,7 +114,7 @@ function TaskPage({ entity }: { entity: Entity }) {
       <div className="mx-auto flex w-full max-w-3xl flex-col pb-24">
         {/* Properties live in the sidebar; without it they sit above the description.
             Indented by the editor's handle gutter (`.tiptap-content`) to line up with
-            its text, like everything below the editor. */}
+            its text. */}
         {task && (
           <div
             className={cn(
@@ -128,11 +128,7 @@ function TaskPage({ entity }: { entity: Entity }) {
           </div>
         )}
         <BlockEditor entityId={entity.id} spaceId={entity.spaceId} />
-        {!isSubtask && (
-          <div className="pl-13">
-            <SubtaskSection parent={entity} progress={progress ?? null} />
-          </div>
-        )}
+        {!isSubtask && <SubtaskSection parent={entity} progress={progress ?? null} />}
       </div>
     </EntityDetailLayout>
   );
