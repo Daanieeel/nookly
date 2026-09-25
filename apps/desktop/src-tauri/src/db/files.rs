@@ -429,6 +429,22 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
     .map_err(|_| AppError::NotFound(format!("file {entity_id}")))
 }
 
+/// Corrects when a File was added. This replaces `entity.created_at` itself
+/// (rather than layering a second, divergent date on top), so every date the
+/// user sees for the file — the detail view, the list and grid, sort and group
+/// order — agrees that it was really added on `day` (`YYYY-MM-DD`).
+pub fn set_added_at(conn: &Connection, entity_id: &str, day: &str) -> AppResult<FileEntity> {
+    let created_at = format!("{day}T00:00:00+00:00");
+    let affected = conn.execute(
+        "UPDATE entities SET created_at = ?1, updated_at = ?2 WHERE id = ?3 AND type = 'file'",
+        params![created_at, super::now(), entity_id],
+    )?;
+    if affected == 0 {
+        return Err(AppError::NotFound(format!("file {entity_id}")));
+    }
+    get_file(conn, entity_id)
+}
+
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
 
 const FILE_FIELDS: &[FieldDef] = &[
@@ -466,6 +482,16 @@ const FILE_FIELDS: &[FieldDef] = &[
             "URL of a file to download and store, e.g. a PDF or a Google Drive, Dropbox or iCloud share \
                       link (the provider is detected). A URL that is a webpage is refused: make it a bookmark instead. \
                       Exactly one of localPath/url is required.",
+    },
+    FieldDef {
+        name: "added",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "When the file was added. Defaults to the day it was imported or \
+                      downloaded; editable to correct it, e.g. for files brought in from another tool. \
+                      Replaces the file's created date outright, so the detail view, lists and sort/group \
+                      order all agree on it.",
     },
 ];
 
@@ -536,6 +562,9 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
             .map_err(|e| AppError::Db(e.to_string()))?
             .join("files");
         copy_into_storage(conn, &files_dir, id)?;
+    }
+    if let Some(added) = crate::db::schema::field_str(fields, "added") {
+        set_added_at(conn, id, &added)?;
     }
     cli_get_file(conn, id)
 }

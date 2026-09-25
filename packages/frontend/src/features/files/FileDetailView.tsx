@@ -13,10 +13,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { StatusButtonContent, statusOf, useActionStatus } from "#/components/action-feedback.tsx";
+import { Calendar } from "#/components/date-input.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
-import { PropertyRow } from "#/components/property-row.tsx";
+import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
   DropdownMenu,
@@ -25,6 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
+import { PendingIcon } from "#/features/tasks/task-properties.tsx";
 import { convertEntity } from "#/lib/api/entities.ts";
 import {
   copyFileIntoStorage,
@@ -36,9 +39,10 @@ import {
   openFile,
   replaceFile,
   revealFile,
+  setFileAddedAt,
 } from "#/lib/api/files.ts";
 import type { Entity, FileEntity } from "#/lib/api/types.ts";
-import { formatDateTime } from "#/lib/datetime.ts";
+import { formatDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { HighlightedCode, codeLanguage } from "./code-viewer";
@@ -321,6 +325,16 @@ function OpenButton({
 
 function FileProperties({ file }: { file: FileEntity }) {
   const kind = fileKind(file);
+  const queryClient = useQueryClient();
+  const { entity } = file;
+  const setAdded = useMutation({
+    mutationFn: (day: string) => setFileAddedAt(entity.id, day),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["file", entity.id] }),
+        queryClient.invalidateQueries({ queryKey: ["files", entity.spaceId] }),
+      ]),
+  });
   const saveCopy = useMutation({
     mutationFn: async () => {
       const path = await save({
@@ -365,9 +379,19 @@ function FileProperties({ file }: { file: FileEntity }) {
         </PropertyRow>
       )}
       <PropertyRow label="Added">
-        <Value>
-          <span className="truncate">{formatDateTime(file.entity.createdAt)}</span>
-        </Value>
+        <AddedDatePicker
+          value={file.entity.createdAt.slice(0, 10)}
+          onSelect={(day) => setAdded.mutate(day)}
+        >
+          <button
+            type="button"
+            aria-label={setAdded.isError ? "Couldn't set added date, try again" : "Change Added Date"}
+            className={cn(PROPERTY_VALUE, setAdded.isError && "text-destructive")}
+          >
+            <PendingIcon pending={setAdded.isPending} failed={setAdded.isError} idle={null} />
+            <span className="truncate">{formatDate(file.entity.createdAt)}</span>
+          </button>
+        </AddedDatePicker>
       </PropertyRow>
 
       <div className="mt-2 flex flex-col gap-0.5">
@@ -415,6 +439,32 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
+}
+
+/// A single day picker for the "Added" property: unlike a due date, it's never
+/// unset, so there's no remove option or presets, just the calendar.
+function AddedDatePicker({
+  value,
+  onSelect,
+  children,
+}: {
+  value: string;
+  onSelect: (day: string) => void;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  function choose(day: string) {
+    setOpen(false);
+    if (day !== value) onSelect(day);
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent className="w-auto p-2" align="start">
+        <Calendar value={value} onSelect={choose} />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function Value({ title, children }: { title?: string; children: React.ReactNode }) {

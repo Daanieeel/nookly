@@ -201,6 +201,18 @@ pub fn export_file(state: State<DbState>, entity_id: String, destination: String
         .map_err(|err| AppError::Io(err.to_string()))
 }
 
+/// Corrects a File's Added date; it otherwise defaults to the day it was
+/// imported or downloaded.
+#[tauri::command]
+pub fn set_file_added_at(
+    state: State<DbState>,
+    entity_id: String,
+    added_at: String,
+) -> AppResult<FileEntity> {
+    let conn = state.0.lock().unwrap();
+    files::set_added_at(&conn, &entity_id, &added_at)
+}
+
 /// Replaces a File's stored copy with a newer version from disk.
 #[tauri::command]
 pub fn replace_file(

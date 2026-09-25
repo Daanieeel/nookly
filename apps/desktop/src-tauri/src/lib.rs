@@ -178,6 +178,7 @@ pub fn run() {
             commands::files::import_file_from_url,
             commands::files::download_linked_file,
             commands::files::replace_file,
+            commands::files::set_file_added_at,
             commands::files::reference_file,
             commands::files::copy_file_into_storage,
             commands::files::open_file,

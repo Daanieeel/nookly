@@ -36,6 +36,12 @@ export function replaceFile(entityId: string, sourcePath: string): Promise<FileE
   return invoke("replace_file", { entityId, sourcePath });
 }
 
+/// Corrects a File's Added date; it otherwise defaults to the day it was
+/// imported or downloaded.
+export function setFileAddedAt(entityId: string, addedAt: string): Promise<FileEntity> {
+  return invoke("set_file_added_at", { entityId, addedAt });
+}
+
 /// Adds a file from disk by reference, leaving it where it is.
 export function referenceFile(spaceId: string, path: string): Promise<FileEntity> {
   return invoke("reference_file", { spaceId, path });
