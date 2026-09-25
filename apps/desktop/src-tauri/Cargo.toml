@@ -62,7 +62,7 @@ hyper-rustls = { version = "0.27", default-features = false, features = [
   "ring",
   "webpki-tokio",
 ] }
-tower-http = { version = "0.6", features = ["auth"] }
+tower-http = { version = "0.7", features = ["auth"] }
 keyring = { version = "3", features = [
   "apple-native",
   "windows-native",
