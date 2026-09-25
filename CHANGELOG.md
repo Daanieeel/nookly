@@ -2,6 +2,21 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.1.3 (2026-09-25)
+
+### Added
+
+- Add smoke test step for macos to release pipeline
+
+### Changed
+
+- Format lib.rs
+
+### Fixed
+
+- Fix app crashes
+- Fix release workflow
+
 ## 0.1.2 (2026-09-25)
 
 ### Changed
