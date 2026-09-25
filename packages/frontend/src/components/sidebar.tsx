@@ -292,22 +292,11 @@ export function AppSidebar() {
   );
 }
 
-function SpaceMenuItem({
-  space,
-  expanded,
-}: {
-  space: Space;
-  expanded: boolean;
-}) {
+function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean }) {
   const { view, setView, toggleExpandedSpace } = useNavStore();
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: space.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: space.id,
+  });
   const dragStyle = { transform: CSS.Transform.toString(transform), transition };
   const queryClient = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -596,14 +585,9 @@ function ModuleSubRow({
   const Icon = MODULE_ICONS[moduleKey];
   const [childrenOpen, setChildrenOpen] = useState(false);
   const expandable = EXPANDABLE_MODULE_KEYS.has(moduleKey);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: moduleKey });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: moduleKey,
+  });
   const dragStyle = { transform: CSS.Transform.toString(transform), transition };
 
   return (
