@@ -129,12 +129,19 @@ fn backup_before_migration(
     }
     if let Some(dir) = db_path.parent() {
         for entry in std::fs::read_dir(dir)?.flatten() {
-            if entry.file_name().to_string_lossy().starts_with("nookly.db.bak-v") {
+            if entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("nookly.db.bak-v")
+            {
                 std::fs::remove_file(entry.path())?;
             }
         }
     }
-    std::fs::copy(db_path, db_path.with_file_name(format!("nookly.db.bak-v{current}")))?;
+    std::fs::copy(
+        db_path,
+        db_path.with_file_name(format!("nookly.db.bak-v{current}")),
+    )?;
     Ok(())
 }
 
