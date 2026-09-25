@@ -113,6 +113,47 @@ jobs:
           prerelease: ${{ contains(env.TAG, '-') }}
           args: --target ${{ matrix.target }}
 
+      # v0.1.2 shipped a crash that only happened on the *second* launch of the
+      # packaged .app (macOS aborts in AppKit's window-state restore without
+      # NSApplicationSupportsSecureRestorableState in Info.plist) — invisible in
+      # `bun run dev` and on a first launch, only caught by relaunching the real
+      # bundle. This launches it twice and fails the job if it dies or writes
+      # crash.log. Runs after tauri-action has already uploaded the asset, so a
+      # failure here doesn't stop the bad build going up — it flags this job red
+      # so it gets caught before anyone points users at the release.
+      - name: Smoke test (macOS relaunch crash check)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          app="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Nookly.app"
+          bin="$app/Contents/MacOS/Nookly"
+          [ -x "$bin" ] || { echo "::error::built app not found at $bin"; exit 1; }
+          xattr -cr "$app"
+
+          crash_log="$HOME/Library/Application Support/com.nookly.app/crash.log"
+          rm -f "$crash_log"
+
+          for i in 1 2; do
+            echo "Launch $i"
+            "$bin" &
+            pid=$!
+            sleep 5
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "::error::app exited on launch $i"
+              [ -f "$crash_log" ] && cat "$crash_log"
+              exit 1
+            fi
+            kill "$pid"
+            wait "$pid" 2>/dev/null || true
+          done
+
+          if [ -f "$crash_log" ]; then
+            echo "::error::crash.log written during smoke test"
+            cat "$crash_log"
+            exit 1
+          fi
+          echo "Smoke test passed: two launches, no crash."
+
   notes:
     name: Checksums and release notes
     needs: build
