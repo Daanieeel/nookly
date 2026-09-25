@@ -1,6 +1,7 @@
 use crate::error::AppResult;
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -112,6 +113,28 @@ pub fn list_labels_for_entity(conn: &Connection, entity_id: &str) -> AppResult<V
     ))?;
     let rows = stmt.query_map(params![entity_id], row_to_label)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Every live entity's label ids in a Space, in one round trip — for filtering a
+/// list of hits (e.g. Cmd+K results) by label without one query per hit.
+pub fn list_entity_label_ids(
+    conn: &Connection,
+    space_id: &str,
+) -> AppResult<HashMap<String, Vec<String>>> {
+    let mut stmt = conn.prepare(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         WHERE e.space_id = ?1 AND e.deleted_at IS NULL",
+    )?;
+    let rows = stmt.query_map(params![space_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    let mut map: HashMap<String, Vec<String>> = HashMap::new();
+    for row in rows {
+        let (entity_id, label_id) = row?;
+        map.entry(entity_id).or_default().push(label_id);
+    }
+    Ok(map)
 }
 
 #[cfg(test)]

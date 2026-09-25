@@ -11,6 +11,7 @@ pub struct Space {
     pub color: String,
     pub created_at: String,
     pub updated_at: String,
+    pub position: i64,
 }
 
 fn row_to_space(row: &rusqlite::Row) -> rusqlite::Result<Space> {
@@ -21,6 +22,7 @@ fn row_to_space(row: &rusqlite::Row) -> rusqlite::Result<Space> {
         color: row.get("color")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
+        position: row.get("position")?,
     })
 }
 
@@ -32,9 +34,15 @@ pub fn create_space(
 ) -> AppResult<Space> {
     let id = super::new_id();
     let now = super::now();
+    // New Spaces join at the end of the sidebar's manually ordered list.
+    let position: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position), -1) + 1 FROM spaces",
+        [],
+        |row| row.get(0),
+    )?;
     conn.execute(
-        "INSERT INTO spaces (id, name, icon, color, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-        params![id, name, icon, color, now],
+        "INSERT INTO spaces (id, name, icon, color, created_at, updated_at, position) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)",
+        params![id, name, icon, color, now, position],
     )?;
     Ok(Space {
         id,
@@ -43,13 +51,26 @@ pub fn create_space(
         color,
         created_at: now.clone(),
         updated_at: now,
+        position,
     })
 }
 
 pub fn list_spaces(conn: &Connection) -> AppResult<Vec<Space>> {
-    let mut stmt = conn.prepare("SELECT * FROM spaces ORDER BY created_at ASC")?;
+    let mut stmt = conn.prepare("SELECT * FROM spaces ORDER BY position ASC")?;
     let rows = stmt.query_map([], row_to_space)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Applies a full drag-to-reorder drop: `ordered_ids` is every Space id in its
+/// new order. Unknown ids are silently ignored (`WHERE id = ?2` matches nothing).
+pub fn reorder_spaces(conn: &Connection, ordered_ids: Vec<String>) -> AppResult<()> {
+    for (position, id) in ordered_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE spaces SET position = ?1 WHERE id = ?2",
+            params![position as i64, id],
+        )?;
+    }
+    Ok(())
 }
 
 fn get_space(conn: &Connection, id: &str) -> AppResult<Space> {

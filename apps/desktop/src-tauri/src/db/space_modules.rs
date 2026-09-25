@@ -26,11 +26,17 @@ pub fn module_keys_for_entity_type(entity_type: &str) -> &'static [&'static str]
 
 /// Idempotently marks `module_key` as added to `space_id`. Sticky: once added,
 /// it stays even if every entity of that module is later deleted — see the
-/// `space_modules` migration comment.
+/// `space_modules` migration comment. Joins at the end of that Space's manually
+/// ordered module list.
 pub fn add_space_module(conn: &Connection, space_id: &str, module_key: &str) -> AppResult<()> {
+    let position: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position), -1) + 1 FROM space_modules WHERE space_id = ?1",
+        params![space_id],
+        |row| row.get(0),
+    )?;
     conn.execute(
-        "INSERT OR IGNORE INTO space_modules (space_id, module_key, added_at) VALUES (?1, ?2, ?3)",
-        params![space_id, module_key, super::now()],
+        "INSERT OR IGNORE INTO space_modules (space_id, module_key, added_at, position) VALUES (?1, ?2, ?3, ?4)",
+        params![space_id, module_key, super::now(), position],
     )?;
     Ok(())
 }
@@ -54,9 +60,29 @@ pub fn list_space_modules(conn: &Connection, space_id: &str) -> AppResult<Vec<St
         }
     }
 
-    let mut stmt = conn.prepare("SELECT module_key FROM space_modules WHERE space_id = ?1")?;
+    let mut stmt = conn.prepare(
+        "SELECT module_key FROM space_modules WHERE space_id = ?1 ORDER BY position ASC",
+    )?;
     let rows = stmt.query_map(params![space_id], |row| row.get(0))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Applies a full drag-to-reorder drop within one Space: `ordered_keys` is
+/// every module key it currently has, in the new order. A key that isn't
+/// already added is silently ignored (`WHERE ... AND module_key = ?3` matches
+/// nothing) rather than adding it — reordering never adds or removes modules.
+pub fn reorder_space_modules(
+    conn: &Connection,
+    space_id: &str,
+    ordered_keys: Vec<String>,
+) -> AppResult<()> {
+    for (position, module_key) in ordered_keys.iter().enumerate() {
+        conn.execute(
+            "UPDATE space_modules SET position = ?1 WHERE space_id = ?2 AND module_key = ?3",
+            params![position as i64, space_id, module_key],
+        )?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

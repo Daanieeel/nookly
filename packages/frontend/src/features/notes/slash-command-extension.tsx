@@ -44,6 +44,9 @@ interface SlashItem {
   group: "Text" | "Lists" | "Data" | "Math and diagrams" | "Links and media";
   description: string;
   icon: React.ReactNode;
+  /// Extra search terms that also match this item, for names a user might type
+  /// instead of the block's own title (e.g. "todo" for Checklist).
+  keywords?: string[];
   run: (editor: Editor, range: Range) => void;
 }
 
@@ -163,6 +166,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "Lists",
     description: "Items to tick off",
     icon: <IconSquareCheck size={15} />,
+    keywords: ["todo", "task", "checkbox"],
     run: (editor, range) => editor.chain().focus().deleteRange(range).toggleTaskList().run(),
   },
   {
@@ -341,8 +345,14 @@ export const SlashCommand = Extension.create({
         char: "/",
         allowedPrefixes: null,
         allow: allowOutsideCode,
-        items: ({ query }) =>
-          SLASH_ITEMS.filter((item) => item.title.toLowerCase().includes(query.toLowerCase())),
+        items: ({ query }) => {
+          const q = query.toLowerCase();
+          return SLASH_ITEMS.filter(
+            (item) =>
+              item.title.toLowerCase().includes(q) ||
+              item.keywords?.some((keyword) => keyword.includes(q)),
+          );
+        },
         command: ({ editor, range, props }) => props.run(editor, range),
         render: createSuggestionRender(toListItem),
       }),

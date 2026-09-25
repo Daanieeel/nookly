@@ -33,19 +33,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/p
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { createLabel, deleteLabel, listLabels, updateLabel } from "#/lib/api/labels.ts";
 import type { Label } from "#/lib/api/types.ts";
+import { ACCENT_COLORS } from "#/lib/colors.ts";
 import { cn } from "@nookly/ui/lib/utils";
 
-/// Muted, evenly spread hues so a new label reads apart from its neighbours.
-export const LABEL_COLORS = [
-  "#e5484d",
-  "#f76b15",
-  "#ffc53d",
-  "#46a758",
-  "#12a594",
-  "#0090ff",
-  "#6e56cf",
-  "#d6409f",
-];
+/// Same palette as Spaces (§ "add more colors"), so a new label reads apart
+/// from its neighbours just as well as a new Space does.
+export const LABEL_COLORS = ACCENT_COLORS;
 
 /// A stable color per name, so the same word always gets the same hue.
 export function labelColorFor(name: string): string {
@@ -282,7 +275,7 @@ function LabelRow({ label, labels }: { label: Label; labels: Label[] }) {
           </TooltipTrigger>
           <TooltipContent>Change Color</TooltipContent>
         </Tooltip>
-        <PopoverContent align="start" className="flex w-auto gap-1.5 p-2">
+        <PopoverContent align="start" className="flex w-56 flex-wrap gap-1.5 p-2">
           {LABEL_COLORS.map((color) => (
             <button
               key={color}

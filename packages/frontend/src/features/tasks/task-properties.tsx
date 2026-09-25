@@ -220,6 +220,22 @@ export function LabelsPicker({
                 {labels.length === 0 ? "No labels in this Space yet." : "No label found."}
               </CommandEmpty>
             )}
+            {onCreate && name && !exists && (
+              <CommandItem
+                value={`create ${name}`}
+                forceMount
+                onSelect={() => {
+                  if (creating) return;
+                  onCreate(name);
+                  setSearch("");
+                }}
+              >
+                <span className="flex size-4 items-center justify-center">
+                  <PendingIcon pending={creating} failed={false} idle={<IconPlus size={14} />} />
+                </span>
+                <span className="truncate">Create “{name}”</span>
+              </CommandItem>
+            )}
             {labels.map((label) => {
               const checked = selected.includes(label.id);
               return (
@@ -241,22 +257,6 @@ export function LabelsPicker({
                 </CommandItem>
               );
             })}
-            {onCreate && name && !exists && (
-              <CommandItem
-                value={`create ${name}`}
-                forceMount
-                onSelect={() => {
-                  if (creating) return;
-                  onCreate(name);
-                  setSearch("");
-                }}
-              >
-                <span className="flex size-4 items-center justify-center">
-                  <PendingIcon pending={creating} failed={false} idle={<IconPlus size={14} />} />
-                </span>
-                <span className="truncate">Create “{name}”</span>
-              </CommandItem>
-            )}
           </CommandList>
         </Command>
       </PopoverContent>

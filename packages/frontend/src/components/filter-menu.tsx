@@ -48,14 +48,21 @@ export interface ActiveFilter {
   values: string[];
 }
 
-/// Keeps items passing every filter. `valueOf` reads the item's value for a field.
+/// Keeps items passing every filter. `valueOf` reads the item's value(s) for a
+/// field — an array for a field an item can carry several of at once (e.g. Labels).
 export function applyFilters<T>(
   items: T[],
   filters: ActiveFilter[],
-  valueOf: (item: T, fieldId: string) => string,
+  valueOf: (item: T, fieldId: string) => string | string[],
 ): T[] {
   return items.filter((item) =>
-    filters.every((f) => f.values.includes(valueOf(item, f.fieldId)) === (f.operator === "is")),
+    filters.every((f) => {
+      const value = valueOf(item, f.fieldId);
+      const matches = Array.isArray(value)
+        ? value.some((v) => f.values.includes(v))
+        : f.values.includes(value);
+      return matches === (f.operator === "is");
+    }),
   );
 }
 

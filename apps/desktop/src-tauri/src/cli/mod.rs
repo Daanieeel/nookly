@@ -398,7 +398,7 @@ fn top_level_help() -> Value {
             "unrelate": "nookly cli unrelate <relationship-id> --yes",
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
-            "space": "nookly cli space <list|create|update|delete> ...",
+            "space": "nookly cli space <list|create|update|delete|reorder> ...",
             "label": "nookly cli label <list|create|update|delete|attach|detach> ...  (attach/detach take several label ids)",
             "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
                                    agent that's never used this CLI before — start here, not with \
@@ -1482,6 +1482,7 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "create": "nookly cli space create --name <name> [--icon <icon>] --color <hex>",
             "update": "nookly cli space update <id> [--name <n>] [--icon <i>] [--color <hex>]",
             "delete": "nookly cli space delete <id> --yes  (PERMANENT — Spaces have no Trash; deletes every entity inside)",
+            "reorder": "nookly cli space reorder <id> <id> ...  (every Space id, in its new sidebar order)",
         }));
     };
     let args = parse_args(&argv[1..]);
@@ -1513,8 +1514,18 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             crate::db::spaces::delete_space(conn, &id)?;
             Ok(json!({ "deleted": id, "note": "permanent — Spaces have no Trash" }))
         }
+        "reorder" => {
+            if args.positional.is_empty() {
+                return Err(AppError::InvalidInput(
+                    "reorder requires at least one Space id".into(),
+                ));
+            }
+            crate::db::spaces::reorder_spaces(conn, args.positional.clone())?;
+            let spaces = crate::db::spaces::list_spaces(conn)?;
+            Ok(json!({ "count": spaces.len(), "items": spaces }))
+        }
         other => Err(AppError::InvalidInput(format!(
-            "unknown space command '{other}'. Expected one of: list, create, update, delete"
+            "unknown space command '{other}'. Expected one of: list, create, update, delete, reorder"
         ))),
     }
 }

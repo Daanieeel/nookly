@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { touchEntityOpened } from "#/lib/api/entities.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
 
@@ -45,6 +46,9 @@ export interface FocusBlock {
 interface NavState {
   view: View;
   activeSpaceId: string | null;
+  /// Spaces expanded in the sidebar. Several can be open at once, unlike
+  /// `activeSpaceId`, which tracks the single Space the current view belongs to.
+  expandedSpaceIds: string[];
   paletteOpen: boolean;
   switcherOpen: boolean;
   commandsOpen: boolean;
@@ -71,6 +75,7 @@ interface NavState {
   showBookmark: (entityId: string, spaceId: string) => void;
   setBookmarkSheetId: (entityId: string | null) => void;
   setActiveSpace: (spaceId: string | null) => void;
+  toggleExpandedSpace: (spaceId: string) => void;
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
@@ -112,6 +117,33 @@ function readStoredActiveSpace(): string | null {
 function writeStoredActiveSpace(spaceId: string | null) {
   if (spaceId) preferences.set(STORAGE_KEYS.activeSpace, spaceId);
   else preferences.remove(STORAGE_KEYS.activeSpace);
+}
+
+/// Falls back to the last single active Space (pre multi-expand behavior) so
+/// upgrading doesn't collapse whatever a returning user already had open.
+function readStoredExpandedSpaces(): string[] {
+  try {
+    const raw = preferences.get(STORAGE_KEYS.expandedSpaces);
+    if (raw) {
+      // SAFETY: this key is only ever written by `writeStoredExpandedSpaces` below,
+      // with the exact `string[]` shape — never user-editable or written elsewhere.
+      return JSON.parse(raw) as string[];
+    }
+  } catch {
+    // fall through to the pre multi-expand default below
+  }
+  const previousSingle = readStoredActiveSpace();
+  return previousSingle ? [previousSingle] : [];
+}
+
+function writeStoredExpandedSpaces(ids: string[]) {
+  preferences.set(STORAGE_KEYS.expandedSpaces, JSON.stringify(ids));
+}
+
+/// Adds `spaceId` to `ids` if it isn't already expanded, so navigating into a
+/// Space's entity or module always reveals it in the sidebar.
+function withSpaceExpanded(ids: string[], spaceId: string): string[] {
+  return ids.includes(spaceId) ? ids : [...ids, spaceId];
 }
 
 function readStoredRecents(): RecentEntry[] {
@@ -156,6 +188,7 @@ const NO_OVERLAY = {
 export const useNavStore = create<NavState>((set, get) => ({
   view: { kind: "dashboard" },
   activeSpaceId: readStoredActiveSpace(),
+  expandedSpaceIds: readStoredExpandedSpaces(),
   paletteOpen: false,
   switcherOpen: false,
   commandsOpen: false,
@@ -171,7 +204,12 @@ export const useNavStore = create<NavState>((set, get) => ({
     set((state) => {
       const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-      return { view, activeSpaceId, ...pushHistory(state, view) };
+      const expandedSpaceIds =
+        "spaceId" in view
+          ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
+          : state.expandedSpaceIds;
+      if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+      return { view, activeSpaceId, expandedSpaceIds, ...pushHistory(state, view) };
     }),
   goBack: () =>
     set((state) => {
@@ -179,9 +217,15 @@ export const useNavStore = create<NavState>((set, get) => ({
       if (!view) return {};
       const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      const expandedSpaceIds =
+        "spaceId" in view
+          ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
+          : state.expandedSpaceIds;
+      if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
       return {
         view,
         activeSpaceId,
+        expandedSpaceIds,
         focusBlock: null,
         backStack: state.backStack.slice(0, -1),
         forwardStack: [...state.forwardStack, state.view],
@@ -193,15 +237,24 @@ export const useNavStore = create<NavState>((set, get) => ({
       if (!view) return {};
       const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+      const expandedSpaceIds =
+        "spaceId" in view
+          ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
+          : state.expandedSpaceIds;
+      if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
       return {
         view,
         activeSpaceId,
+        expandedSpaceIds,
         focusBlock: null,
         backStack: [...state.backStack, state.view],
         forwardStack: state.forwardStack.slice(0, -1),
       };
     }),
   openEntity: (entityId, spaceId, focus) => {
+    // Fire-and-forget (§ prep for a future 'reclaim space' feature): never
+    // awaited, and a failure here must never block navigation.
+    touchEntityOpened(entityId).catch(() => {});
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
     const recents = [entry, ...get().recents.filter((r) => r.entityId !== entityId)].slice(
       0,
@@ -209,10 +262,13 @@ export const useNavStore = create<NavState>((set, get) => ({
     );
     writeStoredRecents(recents);
     if (spaceId !== get().activeSpaceId) writeStoredActiveSpace(spaceId);
+    const expandedSpaceIds = withSpaceExpanded(get().expandedSpaceIds, spaceId);
+    if (expandedSpaceIds !== get().expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
     const view: View = { kind: "entity", entityId, spaceId };
     set({
       view,
       activeSpaceId: spaceId,
+      expandedSpaceIds,
       recents,
       focusBlock: focus ?? null,
       ...pushHistory(get(), view),
@@ -240,6 +296,14 @@ export const useNavStore = create<NavState>((set, get) => ({
     writeStoredActiveSpace(spaceId);
     set({ activeSpaceId: spaceId });
   },
+  toggleExpandedSpace: (spaceId) =>
+    set((state) => {
+      const expandedSpaceIds = state.expandedSpaceIds.includes(spaceId)
+        ? state.expandedSpaceIds.filter((id) => id !== spaceId)
+        : [...state.expandedSpaceIds, spaceId];
+      writeStoredExpandedSpaces(expandedSpaceIds);
+      return { expandedSpaceIds };
+    }),
   // The overlays never stack: opening one closes the others.
   setPaletteOpen: (paletteOpen) =>
     set(paletteOpen ? { ...NO_OVERLAY, paletteOpen } : { paletteOpen }),

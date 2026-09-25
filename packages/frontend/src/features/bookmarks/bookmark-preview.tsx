@@ -39,7 +39,12 @@ export function Preview({ bookmark, eager = false }: { bookmark: Bookmark; eager
   const [containSrc, setContainSrc] = useState<string | null>(null);
   const capturing = useCapturing(bookmark.entity.id);
   const screenshot = bookmark.screenshotPath ? convertFileSrc(bookmark.screenshotPath) : null;
-  const src = [screenshot, bookmark.previewImageUrl].find((s) => s && s !== brokenSrc) ?? null;
+  // Screenshot wins by default; "Compare Previews" can flip that per bookmark.
+  const ordered =
+    bookmark.preferredImage === "preview"
+      ? [bookmark.previewImageUrl, screenshot]
+      : [screenshot, bookmark.previewImageUrl];
+  const src = ordered.find((s) => s && s !== brokenSrc) ?? null;
   const loading = eager ? "eager" : "lazy";
 
   let body: ReactNode;

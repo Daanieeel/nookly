@@ -14,7 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
-import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityIcon, renderIconValue } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { ThemeToggle } from "#/components/theme-toggle.tsx";
@@ -97,7 +97,7 @@ function SpaceIndicator({ spaceId }: { spaceId: string }) {
   return (
     <span className="flex min-w-0 shrink-0 select-none items-center gap-1.5 text-sm text-muted-foreground">
       {space.icon ? (
-        <span className="text-sm leading-none">{space.icon}</span>
+        renderIconValue(space.icon, 14)
       ) : (
         <IconFolder
           size={14}

@@ -252,6 +252,14 @@ Google Calendar and iCloud events show on the Sessions calendar but are never en
 
 ---
 
+### Relationships moved to the bottom of the right sidebar
+
+**Why:** Relationships is usually the largest section, so putting it first pushed Attachments, Mentioned and Mentioned in far down the page on entities with many links.
+
+**Resolution:** the right sidebar's fixed order is now Attachments, Mentioned, Mentioned in, Relationships.
+
+---
+
 ### Turborepo monorepo with separate ui and frontend packages
 
 The design system lives in `@nookly/ui`, every other component and all app logic in `@nookly/frontend`, shared tooling config in `@nookly/config`, and the Tauri shell in `apps/desktop`.

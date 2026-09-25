@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { CourseSemesterPanel } from "#/features/courses/CourseSemesterPanel.tsx";
 import { RefineJotButton } from "#/features/notes/RefineJotButton.tsx";
 import { AttachmentsPanel } from "#/features/relationships/AttachmentsPanel.tsx";
+import { LabelsPanel } from "#/features/relationships/LabelsPanel.tsx";
 import { MentionedInPanel } from "#/features/relationships/MentionedInPanel.tsx";
 import { MentionedPanel } from "#/features/relationships/MentionedPanel.tsx";
 import { RelationshipsPanel } from "#/features/relationships/RelationshipsPanel.tsx";
@@ -19,7 +20,9 @@ import {
 
 const KEYBOARD_STEP_PX = 16;
 
-/// Fixed section order (§1.5): Relationships, Attachments, Mentioned, Mentioned in.
+/// Fixed section order: Attachments, Mentioned, Mentioned in, Relationships.
+/// Relationships renders last because it's usually the largest section, and
+/// putting it first pushed every other section far down the sidebar.
 /// A Jot gets a Refine into New Note button above everything else.
 /// A Course additionally gets a bespoke Semester-assignment section ahead of
 /// Relationships (still the same underlying `course-semester` relationship,
@@ -135,10 +138,13 @@ export function RightSidebar({
         {entity.type === "jot" && <RefineJotButton jot={entity} />}
         {children}
         {entity.type === "course" && <CourseSemesterPanel course={entity} />}
-        <RelationshipsPanel entity={entity} />
+        {/* Task and Sub-task already show Labels inline in their own properties
+            panel (`children` above) — everything else gets it here instead. */}
+        {entity.type !== "task" && entity.type !== "sub_task" && <LabelsPanel entity={entity} />}
         <AttachmentsPanel entity={entity} />
         <MentionedPanel entity={entity} />
         <MentionedInPanel entity={entity} />
+        <RelationshipsPanel entity={entity} />
       </div>
     </div>
   );

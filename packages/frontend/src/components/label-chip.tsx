@@ -20,7 +20,7 @@ export function LabelChip({ label, className }: { label: Label; className?: stri
   return (
     <span
       className={cn(
-        "inline-flex h-5 max-w-32 items-center gap-1 rounded-sm border border-border px-1.5 text-xs text-muted-foreground",
+        "inline-flex h-5 min-w-0 max-w-32 items-center gap-1 rounded-sm border border-border px-1.5 text-xs text-muted-foreground",
         className,
       )}
     >

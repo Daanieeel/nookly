@@ -27,3 +27,12 @@ export function updateBookmarkUrl(entityId: string, url: string): Promise<Bookma
 export function captureBookmarkScreenshot(entityId: string): Promise<Bookmark> {
   return invoke("capture_bookmark_screenshot", { entityId });
 }
+
+/// Overrides which fetched image wins for the card's cover ("Compare Previews").
+/// `null` clears back to the default.
+export function setBookmarkPreferredImage(
+  entityId: string,
+  preferredImage: "screenshot" | "preview" | null,
+): Promise<Bookmark> {
+  return invoke("set_bookmark_preferred_image", { entityId, preferredImage });
+}

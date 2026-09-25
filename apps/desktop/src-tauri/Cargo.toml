@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.0.0"
+version = "0.1.0"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
@@ -70,6 +70,10 @@ keyring = { version = "3", features = [
   "crypto-rust",
   "vendored",
 ] }
+
+# PDF text extraction for Cmd+K search (`db/files.rs::index_pdf_content`), default
+# features only — no OCR/vision runtime.
+pdf-inspector = "1"
 
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the
 # "Open in" app list (`commands/files.rs`).

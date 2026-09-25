@@ -64,7 +64,26 @@ pub fn store_file(
         "INSERT INTO files (entity_id, local_path, provider, url, original_filename) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![entity.id, local_path, provider, source_url, filename],
     )?;
+    index_pdf_content(conn, &entity.id, &local_path);
     get_file(conn, &entity.id)
+}
+
+/// Best-effort PDF text extraction into the search index (Cmd+K, §6): a PDF's
+/// own content becomes keyword-searchable, not just its file name. Silently
+/// skipped for anything else, or if extraction fails (a scanned/image-only PDF
+/// has no text layer, for instance) — the File entity itself is unaffected.
+fn index_pdf_content(conn: &Connection, entity_id: &str, path: &str) {
+    let is_pdf = Path::new(path)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"));
+    if !is_pdf {
+        return;
+    }
+    if let Ok(result) = pdf_inspector::process_pdf(path) {
+        if let Some(markdown) = result.markdown {
+            let _ = crate::db::search::index_entity_content(conn, entity_id, &markdown);
+        }
+    }
 }
 
 fn write_stored(files_dir: &Path, filename: &str, bytes: &[u8]) -> AppResult<String> {
@@ -87,6 +106,7 @@ pub fn attach_download(
         "UPDATE files SET local_path = ?1, original_filename = ?2 WHERE entity_id = ?3",
         params![local_path, filename, entity_id],
     )?;
+    index_pdf_content(conn, entity_id, &local_path);
     get_file(conn, entity_id)
 }
 
@@ -111,6 +131,7 @@ pub fn reference_file(conn: &Connection, space_id: String, path: &Path) -> AppRe
          VALUES (?1, NULL, NULL, NULL, ?2, ?3)",
         params![entity.id, filename, path.to_string_lossy()],
     )?;
+    index_pdf_content(conn, &entity.id, &path.to_string_lossy());
     get_file(conn, &entity.id)
 }
 
@@ -155,6 +176,7 @@ pub fn replace_file(
         "UPDATE files SET local_path = ?1, original_filename = ?2 WHERE entity_id = ?3",
         params![local_path, filename, entity_id],
     )?;
+    index_pdf_content(conn, entity_id, &local_path);
     let title_was_name =
         current.original_filename.as_deref() == Some(current.entity.title.as_str());
     crate::db::entities::update_entity(

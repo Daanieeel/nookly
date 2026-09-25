@@ -28,3 +28,9 @@ export function detachLabel(entityId: string, labelId: string): Promise<void> {
 export function listLabelsForEntity(entityId: string): Promise<Label[]> {
   return invoke("list_labels_for_entity", { entityId });
 }
+
+/// Every live entity's label ids in a Space, keyed by entity id — one round trip
+/// for filtering a whole list of items by label instead of one call per item.
+export function listEntityLabelIds(spaceId: string): Promise<Record<string, string[]>> {
+  return invoke("list_entity_label_ids", { spaceId });
+}

@@ -20,6 +20,10 @@ pub struct Entity {
     /// Short human readable id, Jira style: the type's `key_prefix` plus a number
     /// counted per prefix, e.g. `TSK-14`. Assigned once at creation, never reused.
     pub key: String,
+    /// When the entity was last opened in the app, set by `touch_entity_opened`.
+    /// Null if it was created but never opened. In preparation for a future
+    /// smart 'reclaim space' feature — nothing reads this yet.
+    pub last_opened_at: Option<String>,
 }
 
 /// Three letter prefix of an entity's `key`. Types that read as one kind of thing
@@ -62,7 +66,18 @@ pub fn row_to_entity(row: &rusqlite::Row) -> rusqlite::Result<Entity> {
             row.get::<_, String>("key_prefix")?,
             row.get::<_, i64>("key_number")?
         ),
+        last_opened_at: row.get("last_opened_at")?,
     })
+}
+
+/// Records that `id` was just opened in the app. Best-effort bookkeeping for a
+/// future smart 'reclaim space' feature — never fails a navigation over this.
+pub fn touch_entity_opened(conn: &Connection, id: &str) -> AppResult<()> {
+    conn.execute(
+        "UPDATE entities SET last_opened_at = ?1 WHERE id = ?2",
+        params![super::now(), id],
+    )?;
+    Ok(())
 }
 
 pub fn create_entity(
@@ -101,6 +116,7 @@ pub fn create_entity(
         updated_at: now,
         deleted_at: None,
         key: format!("{prefix}-{number}"),
+        last_opened_at: None,
     })
 }
 

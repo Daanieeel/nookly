@@ -390,6 +390,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             { "name": "createdAt", "kind": "datetime", "description": "Read-only" },
             { "name": "updatedAt", "kind": "datetime", "description": "Read-only" },
             { "name": "deletedAt", "kind": "datetime", "description": "Read-only; set by delete, cleared by restore" },
+            { "name": "lastOpenedAt", "kind": "datetime", "description": "Read-only; set whenever the entity is opened in the app, null if never" },
         ],
         "fields": fields,
         "computedFields": computed_fields(def.entity_type)

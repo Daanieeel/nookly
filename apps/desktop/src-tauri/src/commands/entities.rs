@@ -38,6 +38,12 @@ pub fn get_entity(state: State<DbState>, id: String) -> AppResult<Entity> {
 }
 
 #[tauri::command]
+pub fn touch_entity_opened(state: State<DbState>, id: String) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    entities::touch_entity_opened(&conn, &id)
+}
+
+#[tauri::command]
 pub fn soft_delete_entity(state: State<DbState>, id: String) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     entities::soft_delete_entity(&conn, &id)

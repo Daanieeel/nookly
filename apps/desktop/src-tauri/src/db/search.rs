@@ -109,6 +109,7 @@ pub fn search(conn: &Connection, query: &str, space_id: Option<&str>) -> AppResu
             .filter(|h| !key_ids.contains(&h.entity_id)),
     );
     hits.extend(search_blocks(conn, query, space_id)?);
+    hits.extend(search_indexed_content(conn, query, space_id)?);
     Ok(hits)
 }
 
@@ -225,6 +226,36 @@ fn search_blocks(
          ORDER BY f.rank
          LIMIT ?3"
     ))?;
+    let rows = stmt.query_map(params![match_query, space_id, HIT_LIMIT], row_to_hit)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// A Bookmark's target website (`commands::bookmarks::fetch_bookmark_metadata`)
+/// or a PDF File's extracted text (`db::files::index_pdf_content`), indexed into
+/// `search_index.content` — scoped to `type IN ('bookmark', 'file')` only, so
+/// this never changes what a Note or Jot matches on (their body text is already
+/// searched through `blocks_fts`, block by block, above).
+fn search_indexed_content(
+    conn: &Connection,
+    query: &str,
+    space_id: Option<&str>,
+) -> AppResult<Vec<SearchHit>> {
+    let Some(match_query) = match_expression(query, Some("content")) else {
+        return Ok(Vec::new());
+    };
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, f.snip, NULL,
+                e.key_prefix || '-' || e.key_number
+         FROM (
+           SELECT entity_id, rank, snippet(search_index, 3, char(1), char(2), '…', 16) AS snip
+           FROM search_index WHERE search_index MATCH ?1
+         ) f
+         JOIN entities e ON e.id = f.entity_id
+         WHERE e.deleted_at IS NULL AND e.type IN ('bookmark', 'file')
+           AND (?2 IS NULL OR e.space_id = ?2)
+         ORDER BY f.rank
+         LIMIT ?3",
+    )?;
     let rows = stmt.query_map(params![match_query, space_id, HIT_LIMIT], row_to_hit)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
@@ -483,5 +514,39 @@ mod tests {
 
         assert!(search(&conn, "algorithms", None).unwrap().is_empty());
         assert!(search(&conn, "syllabus", None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn bookmark_and_file_content_are_searchable_but_stay_scoped() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let bookmark = crate::db::bookmarks::create_bookmark(
+            &conn,
+            space.id.clone(),
+            "https://example.com".into(),
+        )
+        .unwrap();
+        index_entity_content(&conn, &bookmark.entity.id, "a page about rust ownership").unwrap();
+
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        let file =
+            crate::db::files::store_file(&conn, &dir, space.id.clone(), "notes.txt", b"x", None)
+                .unwrap();
+        index_entity_content(&conn, &file.entity.id, "a PDF about rust ownership too").unwrap();
+
+        // A Note's own body text is never mixed into a Bookmark or File's content
+        // match — scoped strictly to `type IN ('bookmark', 'file')`.
+        let note =
+            create_entity(&conn, space.id.clone(), "note".into(), "Notes".into(), None).unwrap();
+        index_entity_content(&conn, &note.id, "ownership rules in rust").unwrap();
+
+        let hits = search(&conn, "ownership", None).unwrap();
+        assert!(hits.iter().any(|h| h.entity_id == bookmark.entity.id));
+        assert!(hits.iter().any(|h| h.entity_id == file.entity.id));
+        assert!(hits.iter().all(|h| h.entity_id != note.id));
     }
 }

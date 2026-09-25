@@ -5,6 +5,7 @@ export interface Space {
   color: string;
   createdAt: string;
   updatedAt: string;
+  position: number;
 }
 
 export interface Entity {
@@ -329,6 +330,10 @@ export interface Bookmark {
   /// Local snapshot of the page, the main preview; `previewImageUrl` stands in
   /// while none exists.
   screenshotPath: string | null;
+  /// User override of which image wins for the card's cover, from "Compare
+  /// Previews". `null` keeps the default (screenshot when present, else
+  /// `previewImageUrl`).
+  preferredImage: "screenshot" | "preview" | null;
   /// Attached Label ids, ordered by label name.
   labelIds: string[];
 }

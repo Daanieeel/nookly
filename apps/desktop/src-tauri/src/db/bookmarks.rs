@@ -15,8 +15,12 @@ pub struct Bookmark {
     pub description: Option<String>,
     pub metadata_fetched_at: Option<String>,
     /// A local JPEG snapshot of the page, captured by the GUI; preferred over
-    /// `preview_image_url` when present.
+    /// `preview_image_url` when present, unless `preferred_image` overrides it.
     pub screenshot_path: Option<String>,
+    /// User override of which fetched image wins for the card's cover: `"screenshot"`
+    /// or `"preview"`. `None` keeps the default (screenshot when present, else
+    /// `preview_image_url`) — see `set_preferred_image`.
+    pub preferred_image: Option<String>,
     /// Attached Label ids, ordered by label name.
     pub label_ids: Vec<String>,
 }
@@ -31,6 +35,7 @@ fn row_to_bookmark(row: &rusqlite::Row) -> rusqlite::Result<Bookmark> {
         description: row.get("description")?,
         metadata_fetched_at: row.get("metadata_fetched_at")?,
         screenshot_path: row.get("screenshot_path")?,
+        preferred_image: row.get("preferred_image")?,
         label_ids: Vec::new(),
     })
 }
@@ -65,6 +70,7 @@ pub fn create_bookmark(conn: &Connection, space_id: String, url: String) -> AppR
         description: None,
         metadata_fetched_at: None,
         screenshot_path: None,
+        preferred_image: None,
         label_ids: Vec::new(),
     })
 }
@@ -80,7 +86,7 @@ pub fn update_bookmark_url(conn: &Connection, entity_id: &str, url: String) -> A
     remove_screenshot_file(current.screenshot_path.as_deref());
     conn.execute(
         "UPDATE bookmarks SET url = ?1, fetched_title = NULL, favicon_url = NULL, preview_image_url = NULL,
-         description = NULL, metadata_fetched_at = NULL, screenshot_path = NULL WHERE entity_id = ?2",
+         description = NULL, metadata_fetched_at = NULL, screenshot_path = NULL, preferred_image = NULL WHERE entity_id = ?2",
         params![url, entity_id],
     )?;
     let title = if current.entity.title == current.url || current.entity.title.trim().is_empty() {
@@ -148,6 +154,21 @@ pub fn set_screenshot(conn: &Connection, entity_id: &str, path: &str) -> AppResu
     get_bookmark(conn, entity_id)
 }
 
+/// Overrides which fetched image wins for the card's cover (§ compare previews).
+/// `None` clears back to the default: the screenshot when present, else the
+/// site's `og:image`.
+pub fn set_preferred_image(
+    conn: &Connection,
+    entity_id: &str,
+    preference: Option<String>,
+) -> AppResult<Bookmark> {
+    conn.execute(
+        "UPDATE bookmarks SET preferred_image = ?1 WHERE entity_id = ?2",
+        params![preference, entity_id],
+    )?;
+    get_bookmark(conn, entity_id)
+}
+
 /// Snapshots are a cache the app regenerates, so a failed delete is harmless.
 fn remove_screenshot_file(path: Option<&str>) {
     if let Some(path) = path {
@@ -157,7 +178,7 @@ fn remove_screenshot_file(path: Option<&str>) {
 
 pub fn list_bookmarks(conn: &Connection, space_id: &str) -> AppResult<Vec<Bookmark>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at, b.screenshot_path
+        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at, b.screenshot_path, b.preferred_image
          FROM entities e JOIN bookmarks b ON b.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at DESC",
     )?;
@@ -188,7 +209,7 @@ pub fn list_bookmarks(conn: &Connection, space_id: &str) -> AppResult<Vec<Bookma
 
 pub fn get_bookmark(conn: &Connection, entity_id: &str) -> AppResult<Bookmark> {
     let mut bookmark = conn.query_row(
-        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at, b.screenshot_path
+        "SELECT e.*, b.url, b.fetched_title, b.favicon_url, b.preview_image_url, b.description, b.metadata_fetched_at, b.screenshot_path, b.preferred_image
          FROM entities e JOIN bookmarks b ON b.entity_id = e.id WHERE e.id = ?1",
         params![entity_id],
         row_to_bookmark,
@@ -200,13 +221,22 @@ pub fn get_bookmark(conn: &Connection, entity_id: &str) -> AppResult<Bookmark> {
 
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
 
-const BOOKMARK_FIELDS: &[FieldDef] = &[FieldDef {
-    name: "url",
-    kind: FieldKind::Text,
-    required_on_create: true,
-    writable_on_update: true,
-    description: "The bookmarked URL. Metadata (favicon, preview, description) is fetched asynchronously by the GUI; changing the URL clears it until the next fetch.",
-}];
+const BOOKMARK_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "url",
+        kind: FieldKind::Text,
+        required_on_create: true,
+        writable_on_update: true,
+        description: "The bookmarked URL. Metadata (favicon, preview, description) is fetched asynchronously by the GUI; changing the URL clears it until the next fetch.",
+    },
+    FieldDef {
+        name: "preferredImage",
+        kind: FieldKind::Enum(&["screenshot", "preview"]),
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Which fetched image wins for the card's cover, overriding the default (the captured screenshot when present, else the site's og:image). Update only; pass \"\" to clear back to the default.",
+    },
+];
 
 fn cli_create_bookmark(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let url = crate::db::schema::require_str(&input.fields, "url")?;
@@ -221,6 +251,18 @@ fn cli_update_bookmark(
 ) -> AppResult<serde_json::Value> {
     if let Some(url) = crate::db::schema::field_str(fields, "url") {
         update_bookmark_url(conn, id, url)?;
+    }
+    if let Some(pref) = crate::db::schema::field_str(fields, "preferredImage") {
+        let value = match pref.as_str() {
+            "" => None,
+            "screenshot" | "preview" => Some(pref),
+            _ => {
+                return Err(AppError::InvalidInput(
+                    "preferredImage must be \"screenshot\", \"preview\", or \"\" to clear".into(),
+                ))
+            }
+        };
+        set_preferred_image(conn, id, value)?;
     }
     cli_get_bookmark(conn, id)
 }

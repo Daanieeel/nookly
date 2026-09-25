@@ -1,4 +1,5 @@
-import { IconExternalLink, IconRefresh, IconTag } from "@tabler/icons-react";
+import { IconCheck, IconExternalLink, IconPhoto, IconRefresh, IconTag } from "@tabler/icons-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -11,13 +12,25 @@ import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@nookly/ui/components/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@nookly/ui/components/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { StatusIcon } from "#/components/action-feedback.tsx";
 import { LabelsPicker, PendingIcon } from "#/features/tasks/task-properties.tsx";
 import { MentionedInPanel } from "#/features/relationships/MentionedInPanel.tsx";
 import { RelationshipsPanel } from "#/features/relationships/RelationshipsPanel.tsx";
-import { fetchBookmarkMetadata, getBookmark, updateBookmarkUrl } from "#/lib/api/bookmarks.ts";
+import {
+  fetchBookmarkMetadata,
+  getBookmark,
+  setBookmarkPreferredImage,
+  updateBookmarkUrl,
+} from "#/lib/api/bookmarks.ts";
 import { updateEntity } from "#/lib/api/entities.ts";
 import type { Bookmark } from "#/lib/api/types.ts";
 import { formatDateTime } from "#/lib/datetime.ts";
@@ -62,6 +75,7 @@ export function BookmarkSheet() {
 function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [trashOpen, setTrashOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const { entity } = bookmark;
 
   const refreshAll = () =>
@@ -94,6 +108,12 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
     mutationFn: () => updateEntity(entity.id, { pinned: !entity.pinned }),
     onSuccess: refreshAll,
   });
+  const setPreferred = useMutation({
+    mutationFn: (preferredImage: "screenshot" | "preview") =>
+      setBookmarkPreferredImage(entity.id, preferredImage),
+    onSuccess: refreshAll,
+  });
+  const bothPreviewsAvailable = !!bookmark.screenshotPath && !!bookmark.previewImageUrl;
   const refreshStatus = useActionStatus(refresh);
   const pinStatus = useActionStatus(togglePin);
 
@@ -148,6 +168,17 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
               errorLabel="Couldn't refresh, try again"
             />
           </Button>
+          {bothPreviewsAvailable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setCompareOpen(true)}
+            >
+              <IconPhoto />
+              Compare Previews
+            </Button>
+          )}
           <EntityActions
             entity={entity}
             exportable={false}
@@ -224,7 +255,88 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
           void queryClient.invalidateQueries({ queryKey: ["bookmarks", entity.spaceId] });
         }}
       />
+      <ComparePreviewsDialog
+        bookmark={bookmark}
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        onChoose={(preferredImage) => {
+          setPreferred.mutate(preferredImage);
+          setCompareOpen(false);
+        }}
+      />
     </>
+  );
+}
+
+/// Side by side comparison of both fetched images, so a page whose scraped
+/// `og:image` beats its own screenshot (or the other way around) isn't stuck
+/// with whichever one the default heuristic (screenshot, then og:image) picked.
+function ComparePreviewsDialog({
+  bookmark,
+  open,
+  onOpenChange,
+  onChoose,
+}: {
+  bookmark: Bookmark;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChoose: (preferredImage: "screenshot" | "preview") => void;
+}) {
+  const effective = bookmark.preferredImage === "preview" ? "preview" : "screenshot";
+  const options: { key: "screenshot" | "preview"; label: string; src: string | null }[] = [
+    {
+      key: "screenshot",
+      label: "Captured screenshot",
+      src: bookmark.screenshotPath ? convertFileSrc(bookmark.screenshotPath) : null,
+    },
+    {
+      key: "preview",
+      label: "Site's preview image",
+      src: bookmark.previewImageUrl,
+    },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Compare Previews</DialogTitle>
+          <DialogDescription>Pick which image shows on this bookmark's card.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          {options.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              disabled={!option.src}
+              onClick={() => option.src && onChoose(option.key)}
+              className={cn(
+                "flex cursor-pointer flex-col gap-2 rounded-lg border p-2 text-left disabled:cursor-not-allowed disabled:opacity-40",
+                effective === option.key
+                  ? "border-primary ring-1 ring-primary"
+                  : "border-border hover:border-foreground/30",
+              )}
+            >
+              <div className="relative aspect-[1.91/1] w-full overflow-hidden rounded-md bg-muted/40">
+                {option.src ? (
+                  <img src={option.src} alt="" className="size-full object-cover" />
+                ) : (
+                  <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                    Not available
+                  </div>
+                )}
+                {effective === option.key && (
+                  <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <IconCheck size={12} />
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-medium">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

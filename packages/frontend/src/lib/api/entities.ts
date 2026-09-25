@@ -22,6 +22,12 @@ export function listEntities(spaceId: string | null, includeDeleted: boolean): P
   return invoke("list_entities", { spaceId, includeDeleted });
 }
 
+/// Records that `id` was just opened, for a future smart 'reclaim space' feature.
+/// Fire-and-forget: callers don't await it, and a failure never blocks navigation.
+export function touchEntityOpened(id: string): Promise<void> {
+  return invoke("touch_entity_opened", { id });
+}
+
 export function softDeleteEntity(id: string): Promise<void> {
   return invoke("soft_delete_entity", { id });
 }

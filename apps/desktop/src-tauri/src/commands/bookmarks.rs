@@ -1,5 +1,5 @@
 use crate::db::bookmarks::{self, Bookmark};
-use crate::db::DbState;
+use crate::db::{search, DbState};
 use crate::error::{AppError, AppResult};
 use regex::Regex;
 use tauri::State;
@@ -34,6 +34,18 @@ pub fn update_bookmark_url(
 ) -> AppResult<Bookmark> {
     let conn = state.0.lock().unwrap();
     bookmarks::update_bookmark_url(&conn, &entity_id, url)
+}
+
+/// `preferred_image` is `"screenshot"`, `"preview"`, or `None` to clear back to
+/// the default (§ compare previews).
+#[tauri::command]
+pub fn set_bookmark_preferred_image(
+    state: State<DbState>,
+    entity_id: String,
+    preferred_image: Option<String>,
+) -> AppResult<Bookmark> {
+    let conn = state.0.lock().unwrap();
+    bookmarks::set_preferred_image(&conn, &entity_id, preferred_image)
 }
 
 /// Best-effort metadata fetch (§5.10). While offline this simply fails and the
@@ -71,9 +83,38 @@ pub async fn fetch_bookmark_metadata(
             preview_image_url,
             description,
         )?;
+        // Keyword-searchable (Cmd+K, §6): the bookmarked website's own text, not
+        // just its title — see `search::search_bookmark_content`.
+        search::index_entity_content(&conn, &entity_id, &extract_page_text(&html))?;
         let bookmark = bookmarks::get_bookmark(&conn, &entity_id)?;
         Ok(bookmark)
     }
+}
+
+/// Plain, keyword-searchable text from a fetched page: strips `<script>`/`<style>`
+/// blocks and every remaining tag, then collapses whitespace. Capped so an
+/// unusually large page doesn't bloat the search index.
+fn extract_page_text(html: &str) -> String {
+    // The `regex` crate has no backreferences, so script and style each get their
+    // own pattern instead of one `<(script|style)>...</\1>`.
+    static SCRIPT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?is)<script\b[^>]*>.*?</script>").unwrap());
+    static STYLE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?is)<style\b[^>]*>.*?</style>").unwrap());
+    static TAG: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?s)<[^>]+>").unwrap());
+    static WHITESPACE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\s+").unwrap());
+
+    const MAX_CHARS: usize = 20_000;
+    let without_scripts = SCRIPT.replace_all(html, " ");
+    let without_style = STYLE.replace_all(&without_scripts, " ");
+    let without_tags = TAG.replace_all(&without_style, " ");
+    let collapsed = WHITESPACE.replace_all(&without_tags, " ");
+    html_unescape(collapsed.trim())
+        .chars()
+        .take(MAX_CHARS)
+        .collect()
 }
 
 /// What a bookmark card shows, read from the page's `<head>`.
@@ -110,10 +151,32 @@ fn page_metadata(html: &str, base_url: &str) -> PageMetadata {
     PageMetadata {
         title,
         description: meta(&["description", "og:description", "twitter:description"]),
-        preview_image_url: meta(&["og:image", "og:image:url", "twitter:image"])
-            .map(|image| resolve_url(base_url, &image)),
+        preview_image_url: github_repo_preview_image(base_url).or_else(|| {
+            meta(&["og:image", "og:image:url", "twitter:image"])
+                .map(|image| resolve_url(base_url, &image))
+        }),
         favicon_url: favicon(html, base_url),
     }
+}
+
+/// GitHub serves its own repo social-preview image at a well known, always
+/// present URL (regenerated whenever the repo's actual card image changes),
+/// so a repo page's own scraped `og:image` is skipped in favor of it — GitHub
+/// sometimes serves a stripped page with no usable meta tags to a non-browser
+/// `User-Agent` like this app's, and this convention never depends on parsing
+/// the page at all.
+fn github_repo_preview_image(base_url: &str) -> Option<String> {
+    let parsed = url::Url::parse(base_url).ok()?;
+    let host = parsed.host_str()?;
+    if !host.eq_ignore_ascii_case("github.com") {
+        return None;
+    }
+    let mut segments = parsed.path_segments()?.filter(|s| !s.is_empty());
+    let owner = segments.next()?;
+    let repo = segments.next()?;
+    Some(format!(
+        "https://opengraph.githubassets.com/1/{owner}/{repo}"
+    ))
 }
 
 type Attrs = std::collections::HashMap<String, String>;
@@ -269,5 +332,31 @@ mod tests {
             meta.favicon_url.as_deref(),
             Some("https://x.dev/favicon.ico")
         );
+    }
+
+    #[test]
+    fn extracts_plain_text_and_drops_script_and_style() {
+        let html = r#"<html><head><style>body { color: red; }</style>
+            <script>console.log("hidden");</script></head>
+            <body><h1>Rust  ownership</h1><p>Borrowing   rules matter.</p></body></html>"#;
+        assert_eq!(
+            extract_page_text(html),
+            "Rust ownership Borrowing rules matter."
+        );
+    }
+
+    #[test]
+    fn github_repos_get_the_stable_social_preview_image() {
+        assert_eq!(
+            github_repo_preview_image("https://github.com/firecrawl/pdf-inspector"),
+            Some("https://opengraph.githubassets.com/1/firecrawl/pdf-inspector".to_string())
+        );
+        assert_eq!(
+            github_repo_preview_image(
+                "https://github.com/firecrawl/pdf-inspector/blob/main/README.md"
+            ),
+            Some("https://opengraph.githubassets.com/1/firecrawl/pdf-inspector".to_string())
+        );
+        assert_eq!(github_repo_preview_image("https://example.com/a/b"), None);
     }
 }

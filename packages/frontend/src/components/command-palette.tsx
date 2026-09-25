@@ -1,4 +1,4 @@
-import { IconArrowRight, IconCategory, IconFolder } from "@tabler/icons-react";
+import { IconArrowRight, IconCategory, IconFolder, IconTag } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import {
   type FilterField,
   FilterMenu,
 } from "#/components/filter-menu.tsx";
+import { LabelDot } from "#/components/label-chip.tsx";
 import { QuickActions } from "#/components/quick-actions.tsx";
 import {
   Highlighted,
@@ -23,6 +24,7 @@ import {
 } from "#/components/spotlight.tsx";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { listEntities } from "#/lib/api/entities.ts";
+import { listEntityLabelIds, listLabels } from "#/lib/api/labels.ts";
 import type { SearchHit } from "#/lib/api/types.ts";
 import { search } from "#/lib/api/search.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
@@ -54,6 +56,26 @@ export function CommandPalette() {
     queryKey: ["entities", "all"],
     queryFn: () => listEntities(null, false),
     enabled: paletteOpen,
+  });
+  const spaceIds = spaces.map((s) => s.id);
+  // Labels are siloed per Space (§4.5), so the filter's option list and the
+  // entity → label lookup both merge every Space's labels into one flat set.
+  const { data: allLabels = [] } = useQuery({
+    queryKey: ["labels", "all", spaceIds],
+    queryFn: () => Promise.all(spaceIds.map((id) => listLabels(id))).then((lists) => lists.flat()),
+    enabled: paletteOpen && spaceIds.length > 0,
+  });
+  const { data: entityLabelIds } = useQuery({
+    queryKey: ["entity-label-ids", "all", spaceIds],
+    queryFn: () =>
+      Promise.all(spaceIds.map((id) => listEntityLabelIds(id))).then((maps) => {
+        // SAFETY: the accumulator starts empty and every `map` is already a
+        // `Record<string, string[]>`, so the merged object always matches too.
+        const merged = {} as Record<string, string[]>;
+        for (const map of maps) Object.assign(merged, map);
+        return merged;
+      }),
+    enabled: paletteOpen && spaceIds.length > 0,
   });
   const { data: hits = [], isFetching } = useQuery({
     queryKey: ["search", trimmed],
@@ -100,12 +122,30 @@ export function CommandPalette() {
         return { value: g.key, label: g.label, icon: <Icon size={14} /> };
       }),
     },
+    {
+      id: "label",
+      label: "Label",
+      icon: IconTag,
+      options: allLabels.map((l) => ({
+        value: l.id,
+        label: l.name,
+        icon: <LabelDot label={l} />,
+      })),
+    },
   ];
-  const passesFilters = <T extends { spaceId: string; type: string }>(items: T[]) =>
-    applyFilters(items, filters, (item, fieldId) =>
-      fieldId === "space" ? item.spaceId : typeGroupFor(item.type).key,
-    );
-  const groups = groupHits(passesFilters(hits), spaces);
+  const passesFilters = <T extends { spaceId: string; type: string }>(
+    items: T[],
+    idOf: (item: T) => string,
+  ) =>
+    applyFilters(items, filters, (item, fieldId) => {
+      if (fieldId === "space") return item.spaceId;
+      if (fieldId === "label") return entityLabelIds?.[idOf(item)] ?? [];
+      return typeGroupFor(item.type).key;
+    });
+  const groups = groupHits(
+    passesFilters(hits, (h) => h.entityId),
+    spaces,
+  );
   // With a type filter set, groups are already narrowed, so show them in full.
   const perGroupLimit = filters.some((f) => f.fieldId === "type") ? Infinity : GROUP_PREVIEW_LIMIT;
 
@@ -119,6 +159,7 @@ export function CommandPalette() {
       const entity = entityById.get(r.entityId);
       return entity ? [entity] : [];
     }),
+    (e) => e.id,
   );
 
   function close() {

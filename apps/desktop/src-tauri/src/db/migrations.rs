@@ -336,5 +336,42 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         );
         CREATE INDEX idx_index_card_reviews_card ON index_card_reviews(card_id, reviewed_at);
         ",
+    ), M::up(
+        "
+        -- Manual drag-to-reorder for the sidebar's Space list and each Space's
+        -- module rows. Backfilled from the existing implicit order (creation
+        -- order for Spaces, add order for modules) so nothing visibly reshuffles
+        -- on upgrade.
+        ALTER TABLE spaces ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        UPDATE spaces SET position = (
+            SELECT n FROM (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS n FROM spaces
+            ) numbered WHERE numbered.id = spaces.id
+        );
+        ALTER TABLE space_modules ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        UPDATE space_modules SET position = (
+            SELECT n FROM (
+                SELECT space_id, module_key,
+                    ROW_NUMBER() OVER (PARTITION BY space_id ORDER BY added_at, module_key) AS n
+                FROM space_modules
+            ) numbered
+            WHERE numbered.space_id = space_modules.space_id
+              AND numbered.module_key = space_modules.module_key
+        );
+        ",
+    ), M::up(
+        "
+        -- When an entity was last opened, in preparation for a future smart
+        -- 'reclaim space' feature. Null for every existing row and for anything
+        -- never opened since — there is no historical open data to backfill.
+        ALTER TABLE entities ADD COLUMN last_opened_at TEXT;
+        ",
+    ), M::up(
+        "
+        -- User override of which fetched image wins for a Bookmark's cover
+        -- (§ compare previews): 'screenshot' or 'preview', null keeps the
+        -- default (screenshot when present, else the site's og:image).
+        ALTER TABLE bookmarks ADD COLUMN preferred_image TEXT;
+        ",
     )])
 });

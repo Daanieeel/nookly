@@ -33,6 +33,12 @@ pub fn delete_space(state: State<DbState>, id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub fn reorder_spaces(state: State<DbState>, ordered_ids: Vec<String>) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    spaces::reorder_spaces(&conn, ordered_ids)
+}
+
+#[tauri::command]
 pub fn list_space_modules(state: State<DbState>, space_id: String) -> AppResult<Vec<String>> {
     let conn = state.0.lock().unwrap();
     space_modules::list_space_modules(&conn, &space_id)
@@ -46,4 +52,14 @@ pub fn add_space_module(
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
     space_modules::add_space_module(&conn, &space_id, &module_key)
+}
+
+#[tauri::command]
+pub fn reorder_space_modules(
+    state: State<DbState>,
+    space_id: String,
+    ordered_keys: Vec<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    space_modules::reorder_space_modules(&conn, &space_id, ordered_keys)
 }

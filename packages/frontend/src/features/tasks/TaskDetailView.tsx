@@ -16,9 +16,12 @@ import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
+import { Button } from "@nookly/ui/components/button";
+import { Checkbox } from "@nookly/ui/components/checkbox";
 import { ProgressCircle } from "@nookly/ui/components/progress-circle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
+import { softDeleteEntity } from "#/lib/api/entities.ts";
 import { attachLabel, detachLabel } from "#/lib/api/labels.ts";
 import {
   createSubtask,
@@ -246,10 +249,11 @@ function TaskStepper({
 function SubtaskSection({ parent, progress }: { parent: Entity; progress: number | null }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const refresh = useRefreshTasks(parent.spaceId);
-  const { kindOf } = useTasksData();
+  const { kindOf, labelById } = useTasksData();
   const [open, setOpen] = useState(true);
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: subtasks = [] } = useQuery({
@@ -263,6 +267,13 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
     },
     onSuccess: () => setTitle(""),
   });
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => softDeleteEntity(id)));
+      await refresh();
+    },
+    onSuccess: () => setSelected(new Set()),
+  });
 
   useEffect(() => {
     if (adding) inputRef.current?.focus();
@@ -273,12 +284,22 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
     setAdding(true);
   }
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   // Trashed sub-tasks stay listed, faded, but no longer count toward progress.
   const live = subtasks.filter((s) => !s.entity.deletedAt);
   const done = live.filter((s) => {
     const kind = kindOf(s.statusId);
     return kind === "completed" || kind === "canceled";
   }).length;
+  const selectedLive = live.filter((s) => selected.has(s.entity.id));
 
   return (
     <section aria-label="Sub-tasks" className="mt-10 flex flex-col">
@@ -318,8 +339,27 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
 
       {open && (
         <>
+          {selectedLive.length > 0 && (
+            <div className="flex h-9 items-center gap-3 border-b border-border bg-accent/40 px-1">
+              <span className="pl-1 text-sm font-medium">{selectedLive.length} selected</span>
+              <span className="flex-1" />
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={bulkDelete.isPending}
+                onClick={() => bulkDelete.mutate(selectedLive.map((s) => s.entity.id))}
+              >
+                <IconTrash size={14} />
+                Delete {selectedLive.length}
+              </Button>
+            </div>
+          )}
           {subtasks.map((subtask) => {
             const trashed = !!subtask.entity.deletedAt;
+            const labels = subtask.labelIds.flatMap((id) => labelById.get(id) ?? []);
             return (
               <div
                 key={subtask.entity.id}
@@ -339,6 +379,14 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
                     trashed && "opacity-35",
                   )}
                 >
+                  {!trashed && (
+                    <Checkbox
+                      className="pointer-events-auto"
+                      aria-label={`Select ${displayTitle(subtask.entity)}`}
+                      checked={selected.has(subtask.entity.id)}
+                      onCheckedChange={() => toggleSelected(subtask.entity.id)}
+                    />
+                  )}
                   {trashed ? (
                     <TrashedStatusIcon task={subtask} />
                   ) : (
@@ -356,6 +404,13 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
                   >
                     {displayTitle(subtask.entity)}
                   </span>
+                  {labels.length > 0 && (
+                    <span className="hidden shrink-0 items-center gap-1 md:flex">
+                      {labels.map((label) => (
+                        <LabelChip key={label.id} label={label} />
+                      ))}
+                    </span>
+                  )}
                 </div>
                 {trashed ? (
                   <span className="pointer-events-none relative flex shrink-0 items-center gap-1 text-xs text-muted-foreground/70">

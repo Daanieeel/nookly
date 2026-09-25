@@ -133,11 +133,15 @@ jobs:
 
           gh api "repos/$REPO/releases/generate-notes" -f tag_name="$TAG" --jq .body > changelog.md
 
-          assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+          # A draft release's assets live under a permanent `untagged-<id>` download
+          # path, not `download/$TAG/<name>` — that URL only starts existing once
+          # (if ever) GitHub relinks it on publish, so hand-building it from the tag
+          # produced dead links here before. `gh`'s own `url` field on each asset is
+          # always the real, currently valid download URL, draft or published.
+          assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets')
 
           find_url() {
-            name=$(echo "$assets" | grep -Ei "$1" | head -n1 || true)
-            [ -n "$name" ] && echo "https://github.com/$REPO/releases/download/$TAG/$name" || true
+            echo "$assets" | jq -r --arg pat "$1" '[.[] | select(.name | test($pat; "i"))][0].url // empty'
           }
 
           mac_arm=$(find_url '_aarch64\.dmg$')

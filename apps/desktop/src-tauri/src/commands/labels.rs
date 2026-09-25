@@ -1,6 +1,7 @@
 use crate::db::labels::{self, Label};
 use crate::db::DbState;
 use crate::error::AppResult;
+use std::collections::HashMap;
 use tauri::State;
 
 #[tauri::command]
@@ -53,4 +54,13 @@ pub fn detach_label(state: State<DbState>, entity_id: String, label_id: String) 
 pub fn list_labels_for_entity(state: State<DbState>, entity_id: String) -> AppResult<Vec<Label>> {
     let conn = state.0.lock().unwrap();
     labels::list_labels_for_entity(&conn, &entity_id)
+}
+
+#[tauri::command]
+pub fn list_entity_label_ids(
+    state: State<DbState>,
+    space_id: String,
+) -> AppResult<HashMap<String, Vec<String>>> {
+    let conn = state.0.lock().unwrap();
+    labels::list_entity_label_ids(&conn, &space_id)
 }
