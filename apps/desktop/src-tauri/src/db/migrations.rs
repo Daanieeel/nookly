@@ -373,6 +373,27 @@ fn all() -> Vec<M<'static>> {
         -- default (screenshot when present, else the site's og:image).
         ALTER TABLE bookmarks ADD COLUMN preferred_image TEXT;
         ",
+    ), M::up(
+        "
+        -- An earlier attempt at an editable File 'Added' date, as a column
+        -- separate from created_at. Some installs already ran this migration
+        -- before the design changed (below) to edit created_at directly
+        -- instead — this slot is kept so their database version still lines
+        -- up with this list; a fresh install adds the column here and drops
+        -- it again next migration.
+        ALTER TABLE files ADD COLUMN added_at TEXT;
+        UPDATE files SET added_at = (
+            SELECT substr(created_at, 1, 10) FROM entities WHERE entities.id = files.entity_id
+        );
+        ",
+    ), M::up(
+        "
+        -- Superseding the above: a File's 'Added' date now edits
+        -- entity.created_at directly (§ files::set_added_at), so every date
+        -- shown for a file — detail view, lists, sort and group order — stays
+        -- in agreement. No separate column needed.
+        ALTER TABLE files DROP COLUMN added_at;
+        ",
     )]
 }
 
@@ -382,3 +403,80 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| Migratio
 /// whether it's about to change the schema (`current_version < MIGRATION_COUNT`).
 /// Used to snapshot the database right before an upgrade touches it.
 pub static MIGRATION_COUNT: LazyLock<usize> = LazyLock::new(|| all().len());
+
+#[cfg(test)]
+mod history {
+    use super::all;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    /// SQLite's `user_version` only counts how many migrations ran; it can't tell
+    /// a migration was rewritten out from under it. Editing or deleting an entry
+    /// here — even one that never shipped in a tagged release — breaks any
+    /// database (a teammate's dev build, a half-tested local run) that already
+    /// applied it: the app then refuses to start with `DatabaseTooFarAhead`
+    /// (`db::mod::setup`), or worse, silently runs the wrong SQL for that slot.
+    /// This pins every migration that currently exists, in order; a change here
+    /// only ever appends. To add one for real, run `regenerate_expected_hashes`
+    /// below (`cargo test -- --ignored --nocapture`) and paste its output in.
+    const EXPECTED_HASHES: &[u64] = &[
+        0x513cf18a8816911c,
+        0x7722d363802a0b4f,
+        0xbf01c76a1797863f,
+        0xc7bc1233034e630a,
+        0xe7516251515c281f,
+        0x7a032143ba455776,
+        0xa222628e5e9b8e51,
+        0xcd3d9b00c9553ca,
+        0x66771ad9230782d8,
+        0x590b483e31ddf7ba,
+        0x7f310f139c306753,
+        0xbbed0efa50525c67,
+        0x536cc1e3a329cdbf,
+        0x288986d5f4c178d5,
+        0x2851e4fb9be36e6f,
+        0x8977f07bfd50ff25,
+        0xa231a4c98e30c0b4,
+        0x310de7fa98b47141,
+        0x33accb3a50c78805,
+        0x21582437e68c7d02,
+    ];
+
+    fn fingerprint(m: &super::M) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        // `M` derives `Debug`, which — since none of our migrations use hooks —
+        // prints exactly the `up`/`down` SQL and comment: a full, stable fingerprint
+        // without needing a public accessor the crate doesn't expose.
+        format!("{m:?}").hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn migrations_are_append_only() {
+        let current: Vec<u64> = all().iter().map(fingerprint).collect();
+        assert!(
+            current.len() >= EXPECTED_HASHES.len(),
+            "a migration was removed: {} exist now, {} are pinned. Migrations may only be \
+             appended to, never deleted — see this module's docs.",
+            current.len(),
+            EXPECTED_HASHES.len(),
+        );
+        assert_eq!(
+            &current[..EXPECTED_HASHES.len()],
+            EXPECTED_HASHES,
+            "an existing migration changed shape. Once a migration exists — even only in a \
+             local dev build, not yet released — it must never be edited, only superseded by \
+             a new migration appended after it. See this module's docs.",
+        );
+    }
+
+    /// Not a real test: prints the current hashes so `EXPECTED_HASHES` can be
+    /// regenerated after a deliberate, purely-additive migration change.
+    #[test]
+    #[ignore]
+    fn regenerate_expected_hashes() {
+        for h in all().iter().map(fingerprint) {
+            println!("0x{h:x},");
+        }
+    }
+}
