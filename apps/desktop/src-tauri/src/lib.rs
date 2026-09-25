@@ -50,7 +50,7 @@ pub fn run() {
         .setup(|app| {
             db::setup(app)?;
             app.manage(external_calendars::ExternalCalendarState::load(
-                &app.path().app_data_dir()?,
+                &db::resolve_app_data_dir(app.path().app_data_dir()?),
             ));
             Ok(())
         })

@@ -65,11 +65,12 @@ pub async fn convert_office_to_pdf(
             "LibreOffice isn't installed, so this file can't be previewed".into(),
         )
     })?;
-    let cache_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Io(e.to_string()))?
-        .join("office-previews");
+    let cache_dir = crate::db::resolve_app_data_dir(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| AppError::Io(e.to_string()))?,
+    )
+    .join("office-previews");
     let cached = cache_dir.join(format!(
         "{entity_id}-{}.pdf",
         version_tag(Path::new(&source))?

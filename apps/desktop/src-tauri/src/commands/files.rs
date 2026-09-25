@@ -11,11 +11,12 @@ pub fn import_file(
     space_id: String,
     source_path: String,
 ) -> AppResult<FileEntity> {
-    let files_dir: PathBuf = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Db(e.to_string()))?
-        .join("files");
+    let files_dir: PathBuf = crate::db::resolve_app_data_dir(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| AppError::Db(e.to_string()))?,
+    )
+    .join("files");
     let conn = state.0.lock().unwrap();
     files::import_file(
         &conn,
@@ -37,11 +38,12 @@ pub enum LinkImport {
 }
 
 fn files_dir(app: &AppHandle) -> AppResult<PathBuf> {
-    Ok(app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Db(e.to_string()))?
-        .join("files"))
+    Ok(crate::db::resolve_app_data_dir(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| AppError::Db(e.to_string()))?,
+    )
+    .join("files"))
 }
 
 async fn download(url: String) -> AppResult<files::Download> {

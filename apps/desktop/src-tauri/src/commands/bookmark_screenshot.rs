@@ -35,11 +35,12 @@ pub async fn capture_bookmark_screenshot(
         let conn = state.0.lock().unwrap();
         bookmarks::get_bookmark(&conn, &entity_id)?.url
     };
-    let dir: PathBuf = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Io(e.to_string()))?
-        .join("bookmark-previews");
+    let dir: PathBuf = crate::db::resolve_app_data_dir(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| AppError::Io(e.to_string()))?,
+    )
+    .join("bookmark-previews");
     std::fs::create_dir_all(&dir).map_err(|e| AppError::Io(e.to_string()))?;
 
     let jpeg = {
