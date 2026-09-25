@@ -4,5 +4,15 @@
 <dict>
 	<key>CFBundleIconName</key>
 	<string>Nookly</string>
+	<!-- Required on macOS 12+: tells AppKit our app has opted in to secure
+	     window state coding. Without this, NSApplication calls abort() on
+	     second launch when it tries to restore the previous session. -->
+	<key>NSApplicationSupportsSecureRestorableState</key>
+	<true/>
+	<!-- Do not restore windows from the previous session. Nookly always
+	     opens fresh, so there is no state to restore and no use having
+	     the OS try. -->
+	<key>NSQuitAlwaysKeepsWindows</key>
+	<false/>
 </dict>
 </plist>

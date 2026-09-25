@@ -8,6 +8,10 @@ mod external_calendars;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Capture panics to a crash log before `panic = "abort"` kills the process,
+    // so any future startup crash is diagnosable without a debug build.
+    install_panic_hook();
+
     // `nookly cli ...` (PLAN.md §2: a subcommand of the main binary, not a
     // separate one) — handled before Tauri ever boots a window, since this is
     // meant to run headlessly from a shell or an agent.
@@ -208,4 +212,33 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Installs a panic hook that appends a human-readable record to
+/// `crash.log` in the app data directory before `panic = "abort"` kills
+/// the process. The hook fires before the abort, so the message survives
+/// the crash for later diagnosis. A no-op in debug builds, since panics
+/// already print to stderr with a full backtrace there.
+fn install_panic_hook() {
+    #[cfg(not(debug_assertions))]
+    std::panic::set_hook(Box::new(|info| {
+        let log_path = db::standalone_app_data_dir()
+            .map(|dir| dir.join("crash.log"))
+            .ok();
+        let message = format!(
+            "[{}] panic: {}\n",
+            chrono::Utc::now().to_rfc3339(),
+            info,
+        );
+        if let Some(path) = log_path {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+            {
+                let _ = f.write_all(message.as_bytes());
+            }
+        }
+    }));
 }
