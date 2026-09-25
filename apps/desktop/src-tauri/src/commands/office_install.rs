@@ -254,7 +254,12 @@ fn download(
             }
         }
     }
-    let actual = format!("{:x}", hasher.finalize());
+    // sha2 0.11's digest output no longer implements `LowerHex` directly.
+    let actual = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
     if actual != expected_sha256 {
         return Err(AppError::Io(
             "the download doesn't match LibreOffice's published checksum, so it wasn't installed"
