@@ -385,7 +385,9 @@ function FileProperties({ file }: { file: FileEntity }) {
         >
           <button
             type="button"
-            aria-label={setAdded.isError ? "Couldn't set added date, try again" : "Change Added Date"}
+            aria-label={
+              setAdded.isError ? "Couldn't set added date, try again" : "Change Added Date"
+            }
             className={cn(PROPERTY_VALUE, setAdded.isError && "text-destructive")}
           >
             <PendingIcon pending={setAdded.isPending} failed={setAdded.isError} idle={null} />
