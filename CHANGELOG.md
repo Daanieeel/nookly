@@ -2,6 +2,14 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.2.0 (2026-09-25)
+
+### Changed
+
+- Make file added field editable
+- Filter list by label, expose labels via --fields, reject unknown flags
+- Format FileDetailView.tsx
+
 ## 0.1.5 (2026-09-25)
 
 ### Changed
