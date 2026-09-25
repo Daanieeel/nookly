@@ -137,6 +137,31 @@ pub fn list_entity_label_ids(
     Ok(map)
 }
 
+/// Every entity carrying this label — the reverse of `list_labels_for_entity`,
+/// for "show me everything tagged X" without listing every entity type and
+/// filtering client side. A label is only ever attached within its own Space
+/// in practice, but nothing enforces that at the `attach_label` layer, so this
+/// doesn't assume one Space either.
+pub fn list_entities_for_label(
+    conn: &Connection,
+    label_id: &str,
+    include_deleted: bool,
+) -> AppResult<Vec<crate::db::entities::Entity>> {
+    let sql = format!(
+        "SELECT e.* FROM entities e
+         JOIN entity_labels el ON el.entity_id = e.id
+         WHERE el.label_id = ?1{} ORDER BY e.created_at ASC",
+        if include_deleted {
+            ""
+        } else {
+            " AND e.deleted_at IS NULL"
+        }
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![label_id], crate::db::entities::row_to_entity)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,5 +196,50 @@ mod tests {
         assert!(list_labels_for_entity(&conn, &entity.id)
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn list_entities_for_label_is_the_reverse_lookup() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let tagged = create_entity(
+            &conn,
+            space.id.clone(),
+            "task".into(),
+            "Tagged".into(),
+            None,
+        )
+        .unwrap();
+        let untagged = create_entity(
+            &conn,
+            space.id.clone(),
+            "task".into(),
+            "Untagged".into(),
+            None,
+        )
+        .unwrap();
+        let label =
+            create_label(&conn, space.id.clone(), "Urgent".into(), "#ff0000".into()).unwrap();
+        attach_label(&conn, &tagged.id, &label.id).unwrap();
+
+        let found = list_entities_for_label(&conn, &label.id, false).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, tagged.id);
+        let _ = untagged;
+
+        crate::db::entities::soft_delete_entity(&conn, &tagged.id).unwrap();
+        assert!(list_entities_for_label(&conn, &label.id, false)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            list_entities_for_label(&conn, &label.id, true)
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }

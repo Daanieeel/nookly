@@ -83,6 +83,12 @@ struct Args {
     fields: JsonMap,
     /// Raw `--attr name=value` arguments, in order; parsed by `Args::attrs`.
     attrs: Vec<String>,
+    /// Names read off `flags`/`bool_flags` so far, via `flag`/`has_bool` (every
+    /// other accessor goes through one of those two). `check_no_unknown_flags`
+    /// diffs this against what was actually passed, so a typo'd flag — like
+    /// `--labels` instead of `--label` — errors instead of being silently
+    /// parsed and then never consulted by anything.
+    consumed: std::cell::RefCell<std::collections::HashSet<String>>,
 }
 
 fn parse_args(argv: &[String]) -> Args {
@@ -141,7 +147,26 @@ fn parse_args(argv: &[String]) -> Args {
         bool_flags,
         fields,
         attrs,
+        // `--dry-run` is read straight off argv by `dispatch`, before any
+        // command-specific `Args` even exists, so no `flag`/`has_bool` call
+        // ever consumes it here — pre-consuming it keeps it from tripping
+        // `check_no_unknown_flags` on every single command.
+        consumed: std::cell::RefCell::new(std::collections::HashSet::from(["dry-run".to_string()])),
     }
+}
+
+/// Parses `argv_tail`, runs `f` against it, and — only once `f` has succeeded —
+/// checks that every `--flag` it passed actually got read by something. A
+/// stray flag surfaces as an error rather than the command it named silently
+/// doing nothing, even though the command itself already ran fine.
+fn run_command(
+    argv_tail: &[String],
+    f: impl FnOnce(&Args) -> AppResult<Value>,
+) -> AppResult<Value> {
+    let args = parse_args(argv_tail);
+    let result = f(&args)?;
+    args.check_no_unknown_flags()?;
+    Ok(result)
 }
 
 /// `--field weight=0.3` / `cancelled=true` / `title="Quoted"` all parse as the
@@ -165,6 +190,7 @@ impl Args {
     }
 
     fn flag(&self, name: &str) -> Option<String> {
+        self.consumed.borrow_mut().insert(name.to_string());
         self.flags.get(name).cloned()
     }
 
@@ -188,7 +214,37 @@ impl Args {
     }
 
     fn has_bool(&self, name: &str) -> bool {
+        self.consumed.borrow_mut().insert(name.to_string());
         self.bool_flags.contains(name) || self.flags.get(name).map(|v| v == "true").unwrap_or(false)
+    }
+
+    /// Every `--flag`/`--bool-flag` the caller passed that nothing ever read via
+    /// `flag`/`has_bool` — almost always a typo (`--labels` for `--label`,
+    /// `--space-id` for `--space`) that would otherwise parse fine and then
+    /// silently do nothing.
+    fn check_no_unknown_flags(&self) -> AppResult<()> {
+        let consumed = self.consumed.borrow();
+        let mut stray: Vec<&str> = self
+            .flags
+            .keys()
+            .chain(self.bool_flags.iter())
+            .map(String::as_str)
+            .filter(|name| !consumed.contains(*name))
+            .collect();
+        if stray.is_empty() {
+            return Ok(());
+        }
+        stray.sort_unstable();
+        stray.dedup();
+        Err(AppError::InvalidInput(format!(
+            "unknown flag{} for this command: {}",
+            if stray.len() == 1 { "" } else { "s" },
+            stray
+                .iter()
+                .map(|f| format!("--{f}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+        )))
     }
 
     /// Comma separated `--fields a,b,c`, trimmed, empties dropped.
@@ -283,13 +339,11 @@ fn dispatch_command(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
         "help" | "--help" | "-h" => Ok(top_level_help()),
         "agent-instructions" => Ok(agent_instructions()),
         "schema" => Ok(schema_all()),
-        "describe" => {
-            let args = parse_args(&argv[1..]);
+        "describe" => run_command(&argv[1..], |args| {
             let entity_type = args.require_positional(0, "entity-type")?;
             describe_one(&entity_type)
-        }
-        "search" => {
-            let args = parse_args(&argv[1..]);
+        }),
+        "search" => run_command(&argv[1..], |args| {
             let query = args.require_positional(0, "query")?;
             let space_id = args.flag("space");
             let types: Option<Vec<String>> = args.flag("type").map(|raw| {
@@ -322,9 +376,9 @@ fn dispatch_command(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
             let limit = args.usize_flag("limit")?.unwrap_or(total);
             let items: Vec<_> = hits.into_iter().take(limit).collect();
             Ok(json!({ "query": query, "count": total, "returned": items.len(), "items": items }))
-        }
-        "relate" => relate(conn, &parse_args(&argv[1..])),
-        "unrelate" => unrelate(conn, &parse_args(&argv[1..])),
+        }),
+        "relate" => run_command(&argv[1..], |args| relate(conn, args)),
+        "unrelate" => run_command(&argv[1..], |args| unrelate(conn, args)),
         "space" => space_command(conn, &argv[1..]),
         "label" => label_command(conn, &argv[1..]),
         entity_type => entity_command(conn, entity_type, &argv[1..]),
@@ -348,8 +402,11 @@ fn top_level_help() -> Value {
             "describe": "nookly cli describe <entity-type>  (or `nookly cli <entity-type>` with no verb): \
                          that type's fields, block commands and relationship types",
             "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since <30m|24h|7d|date|timestamp>] \
-                     [--fields a,b,...] [--limit <n>]  (--since keeps rows changed since then, newest first; \
-                     block pages also report lastEditedAt, blockCount and bodySize so you can gauge a get first)",
+                     [--label <name>[,<name>...]] [--fields a,b,...] [--limit <n>]  (--since keeps rows changed since \
+                     then, newest first; --label keeps rows carrying every named label (AND match, case insensitive) \
+                     and requires --space since labels are siloed per Space; --fields labels works here too, same \
+                     shape as on get; block pages also report lastEditedAt, blockCount and bodySize so you can gauge \
+                     a get first)",
             "get": "nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b,...]  (includes relationships, \
                     labels, mentionedIn backlinks, a `size` hint and a `revision`. --summary cuts long strings to \
                     excerpts and adds a heading outline for block pages; --fields returns just those fields, e.g. \
@@ -399,7 +456,8 @@ fn top_level_help() -> Value {
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
             "space": "nookly cli space <list|create|update|delete|reorder> ...",
-            "label": "nookly cli label <list|create|update|delete|attach|detach> ...  (attach/detach take several label ids)",
+            "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several \
+                      label ids; get <id> is the reverse lookup — every entity carrying that label)",
             "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
                                    agent that's never used this CLI before — start here, not with \
                                    this --help output, if this is your first call)",
@@ -446,7 +504,7 @@ relationship type, run one of these instead.
 Almost everything is one of:
 
 ```
-nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since 24h] [--fields a,b] [--limit <n>]
+nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since 24h] [--label a,b] [--fields a,b] [--limit <n>]
 nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b]   # includes relationships, labels + mentionedIn
 nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
 nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] [--field name=value ...]
@@ -476,6 +534,10 @@ Pages can be large. Before pulling one whole:
   changed recently, newest first.
 - `search <query> --type note --in content` narrows search to one entity type and to block
   text (`--in title` for titles and keys).
+- `list --space <id> --label a,b` keeps only rows carrying every named label (AND match), so
+  "everything tagged X and Y" doesn't mean a `get` per row and filtering client side. `--fields
+  labels` on `list` (not just `get`) returns each row's labels; `label get <id>` is the reverse —
+  every entity carrying one label, across types.
 
 ## Writing safely
 
@@ -740,14 +802,12 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
     let Some(verb) = rest.first() else {
         return Ok(schema::describe_json(def));
     };
-    let args = parse_args(&rest[1..]);
-
-    match verb.as_str() {
-        "list" => list_entities(conn, def, &args),
+    run_command(&rest[1..], |args| match verb.as_str() {
+        "list" => list_entities(conn, def, args),
         "get" => {
             if args.positional.len() <= 1 {
                 let id = args.require_entity(conn, 0, "id")?;
-                return get_entity(conn, def, &id, &args);
+                return get_entity(conn, def, &id, args);
             }
             // Bulk: one bad ref doesn't sink the rest, it becomes an `error` row.
             let items: Vec<Value> = args
@@ -755,7 +815,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                 .iter()
                 .map(|raw| {
                     crate::db::entities::resolve_entity_ref(conn, raw)
-                        .and_then(|id| get_entity(conn, def, &id, &args))
+                        .and_then(|id| get_entity(conn, def, &id, args))
                         .unwrap_or_else(|e| json!({ "ref": raw, "error": e }))
                 })
                 .collect();
@@ -859,10 +919,10 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                      `describe {entity_type}` reports supportsBlocks: true"
                 )));
             }
-            block_command(conn, def, verb, &args)
+            block_command(conn, def, verb, args)
         }
         other => {
-            if let Some(result) = child_command(conn, def, other, &args) {
+            if let Some(result) = child_command(conn, def, other, args) {
                 return result;
             }
             let child_verbs: Vec<String> = schema::child_collections(entity_type)
@@ -888,7 +948,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                  reorder-blocks{extra}"
             )))
         }
-    }
+    })
 }
 
 /// Unknown and missing fields against a child collection's or action's own list.
@@ -994,9 +1054,55 @@ fn child_command(
     })())
 }
 
+/// Attaches each item's labels in place, the same full `Label` shape `get`'s
+/// `enrich` already returns for one entity — one round trip per distinct Space
+/// (`labels::list_entity_label_ids` + `list_labels`), not one per row, so it
+/// stays cheap across a large list. Backs both `--fields labels` and `--label`
+/// on `list`, so neither needs its own per-row label query.
+fn attach_labels(conn: &Connection, items: &mut [Value]) -> AppResult<()> {
+    let mut ids_by_space: HashMap<String, HashMap<String, Vec<String>>> = HashMap::new();
+    let mut labels_by_space: HashMap<String, HashMap<String, Value>> = HashMap::new();
+    for item in items.iter_mut() {
+        let Some(space_id) = view::lookup(item, "spaceId")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        let id = extract_id(item)?;
+        if !ids_by_space.contains_key(&space_id) {
+            let fetched = crate::db::labels::list_entity_label_ids(conn, &space_id)?;
+            ids_by_space.insert(space_id.clone(), fetched);
+        }
+        if !labels_by_space.contains_key(&space_id) {
+            let fetched: HashMap<String, Value> = crate::db::labels::list_labels(conn, &space_id)?
+                .into_iter()
+                .map(|l| {
+                    (
+                        l.id.clone(),
+                        serde_json::to_value(&l).expect("Label always serializes"),
+                    )
+                })
+                .collect();
+            labels_by_space.insert(space_id.clone(), fetched);
+        }
+        let label_ids = ids_by_space[&space_id]
+            .get(&id)
+            .cloned()
+            .unwrap_or_default();
+        let labels: Vec<Value> = label_ids
+            .iter()
+            .filter_map(|label_id| labels_by_space[&space_id].get(label_id).cloned())
+            .collect();
+        item["labels"] = json!(labels);
+    }
+    Ok(())
+}
+
 /// `list` with the read side options every type gets: `--since` (recently changed,
-/// newest first), `--fields` projection, and for block pages a size hint per row so
-/// an agent can tell what a `get` would cost before making it.
+/// newest first), `--label` (AND match by name, needs `--space`), `--fields`
+/// projection, and for block pages a size hint per row so an agent can tell what
+/// a `get` would cost before making it.
 fn list_entities(
     conn: &Connection,
     def: &schema::EntitySchemaDef,
@@ -1026,6 +1132,61 @@ fn list_entities(
             item["bodySize"] = view::size_hint(body.len());
         }
     }
+    let label_filter = args.flag("label");
+    let fields = args.field_list();
+    let wants_labels = label_filter.is_some()
+        || fields
+            .as_deref()
+            .is_some_and(|f| f.iter().any(|n| n == "labels"));
+    if wants_labels {
+        attach_labels(conn, &mut items)?;
+    }
+    if let Some(raw) = label_filter {
+        let space_id = args.flag("space").ok_or_else(|| {
+            AppError::InvalidInput(
+                "--label requires --space — labels are siloed per Space (§ entity model), so a \
+                 name can't be resolved without knowing which Space's labels to search"
+                    .into(),
+            )
+        })?;
+        let wanted: Vec<String> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .map(str::to_string)
+            .collect();
+        if wanted.is_empty() {
+            return Err(AppError::InvalidInput(
+                "--label expects at least one name, comma separated".into(),
+            ));
+        }
+        let available = crate::db::labels::list_labels(conn, &space_id)?;
+        let mut wanted_ids = Vec::with_capacity(wanted.len());
+        for name in &wanted {
+            let label = available
+                .iter()
+                .find(|l| l.name.eq_ignore_ascii_case(name))
+                .ok_or_else(|| {
+                    AppError::InvalidInput(format!(
+                        "no label named '{name}' in space {space_id} — see `nookly cli label list \
+                         --space {space_id}`"
+                    ))
+                })?;
+            wanted_ids.push(label.id.clone());
+        }
+        items.retain(|item| {
+            let have: Vec<&str> = view::lookup(item, "labels")
+                .and_then(Value::as_array)
+                .map(|labels| {
+                    labels
+                        .iter()
+                        .filter_map(|l| l.get("id").and_then(Value::as_str))
+                        .collect()
+                })
+                .unwrap_or_default();
+            wanted_ids.iter().all(|w| have.contains(&w.as_str()))
+        });
+    }
     if let Some(since) = args.flag("since") {
         let since = view::parse_since(&since)?;
         let changed_at = |item: &Value| {
@@ -1039,7 +1200,6 @@ fn list_entities(
     }
     let total = items.len();
     let limit = args.usize_flag("limit")?.unwrap_or(total);
-    let fields = args.field_list();
     let items: Vec<Value> = items
         .into_iter()
         .take(limit)
@@ -1485,8 +1645,8 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "reorder": "nookly cli space reorder <id> <id> ...  (every Space id, in its new sidebar order)",
         }));
     };
-    let args = parse_args(&argv[1..]);
-    match verb.as_str() {
+    run_command(&argv[1..], |args| {
+        match verb.as_str() {
         "list" => {
             let spaces = crate::db::spaces::list_spaces(conn)?;
             Ok(json!({ "count": spaces.len(), "items": spaces }))
@@ -1528,6 +1688,7 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "unknown space command '{other}'. Expected one of: list, create, update, delete, reorder"
         ))),
     }
+    })
 }
 
 fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
@@ -1539,15 +1700,33 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "delete": "nookly cli label delete <id> --yes",
             "attach": "nookly cli label attach <entity-id> <label-id> [<label-id> ...]",
             "detach": "nookly cli label detach <entity-id> <label-id> [<label-id> ...]",
+            "get": "nookly cli label get <id> [--include-deleted]  (every entity carrying this label, the \
+                    reverse of `get`'s own `labels`; across every entity type and Space, though a label is only \
+                    ever attached within its own Space in practice)",
             "note": "Labels are space-siloed (§ entity model) — the same name in two Spaces is two separate labels.",
         }));
     };
-    let args = parse_args(&argv[1..]);
-    match verb.as_str() {
+    run_command(&argv[1..], |args| {
+        match verb.as_str() {
         "list" => {
             let space_id = args.require_flag("space")?;
             let labels = crate::db::labels::list_labels(conn, &space_id)?;
             Ok(json!({ "count": labels.len(), "items": labels }))
+        }
+        "get" => {
+            let id = args.require_positional(0, "id")?;
+            let entities =
+                crate::db::labels::list_entities_for_label(conn, &id, args.has_bool("include-deleted"))?;
+            let items: Vec<Value> = entities
+                .iter()
+                .map(|e| {
+                    json!({
+                        "id": e.id, "key": e.key, "type": e.entity_type,
+                        "spaceId": e.space_id, "title": e.title,
+                    })
+                })
+                .collect();
+            Ok(json!({ "labelId": id, "count": items.len(), "items": items }))
         }
         "create" => {
             let space_id = args.require_flag("space")?;
@@ -1597,9 +1776,10 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             Ok(json!({ "detached": label_ids, "from": entity_id, "fromKey": key }))
         }
         other => Err(AppError::InvalidInput(format!(
-            "unknown label command '{other}'. Expected one of: list, create, update, delete, attach, detach"
+            "unknown label command '{other}'. Expected one of: list, get, create, update, delete, attach, detach"
         ))),
     }
+    })
 }
 
 #[cfg(test)]
@@ -1711,6 +1891,118 @@ mod tests {
         )
         .unwrap();
         assert!(unfiled["data"]["examId"].is_null());
+        drop(conn);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn list_filters_by_label_and_rejects_unknown_flags() {
+        let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+        let conn = crate::db::connect(&dir).unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let huk =
+            crate::db::labels::create_label(&conn, space.id.clone(), "HUK".into(), "#f00".into())
+                .unwrap();
+        let insurance = crate::db::labels::create_label(
+            &conn,
+            space.id.clone(),
+            "Insurance".into(),
+            "#0f0".into(),
+        )
+        .unwrap();
+
+        let both = run(
+            &conn,
+            &format!("task create --space {} --title Both", space.id),
+        )
+        .unwrap();
+        let both_id = both["data"]["entity"]["id"].as_str().unwrap().to_string();
+        let only_huk = run(
+            &conn,
+            &format!("task create --space {} --title OnlyHuk", space.id),
+        )
+        .unwrap();
+        let only_huk_id = only_huk["data"]["entity"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let _neither = run(
+            &conn,
+            &format!("task create --space {} --title Neither", space.id),
+        )
+        .unwrap();
+
+        run(
+            &conn,
+            &format!("label attach {both_id} {} {}", huk.id, insurance.id),
+        )
+        .unwrap();
+        run(&conn, &format!("label attach {only_huk_id} {}", huk.id)).unwrap();
+
+        // A typo'd flag (`--labels` for `--label`) used to parse fine and silently do
+        // nothing; it must now be rejected instead.
+        let err = run(
+            &conn,
+            &format!("task list --space {} --labels HUK", space.id),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("unknown flag"), "{err}");
+
+        // AND match: only the task carrying both labels comes back.
+        let filtered = run(
+            &conn,
+            &format!("task list --space {} --label HUK,Insurance", space.id),
+        )
+        .unwrap();
+        assert_eq!(filtered["count"], 1);
+        assert_eq!(filtered["items"][0]["entity"]["id"], both_id.as_str());
+
+        // Case-insensitive, single name.
+        let single = run(
+            &conn,
+            &format!("task list --space {} --label huk", space.id),
+        )
+        .unwrap();
+        assert_eq!(single["count"], 2);
+
+        // No label at all, or an unknown name, doesn't just come back empty.
+        assert!(run(&conn, "task list --label HUK").is_err());
+        assert!(run(
+            &conn,
+            &format!("task list --space {} --label Nope", space.id)
+        )
+        .is_err());
+
+        // `--fields labels` on `list` now resolves, matching what `get` already returns.
+        let projected = run(
+            &conn,
+            &format!("task list --space {} --fields labels", space.id),
+        )
+        .unwrap();
+        let both_item = projected["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["id"] == both_id.as_str())
+            .unwrap();
+        assert!(both_item.get("unknownFields").is_none());
+        let names: Vec<&str> = both_item["labels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| l["name"].as_str().unwrap())
+            .collect();
+        assert!(
+            names.contains(&"HUK") && names.contains(&"Insurance"),
+            "{names:?}"
+        );
+
+        // The reverse lookup: every entity carrying a label.
+        let reverse = run(&conn, &format!("label get {}", huk.id)).unwrap();
+        assert_eq!(reverse["count"], 2);
+
         drop(conn);
         let _ = std::fs::remove_dir_all(dir);
     }
