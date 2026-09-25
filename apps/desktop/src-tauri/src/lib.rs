@@ -225,11 +225,7 @@ fn install_panic_hook() {
         let log_path = db::standalone_app_data_dir()
             .map(|dir| dir.join("crash.log"))
             .ok();
-        let message = format!(
-            "[{}] panic: {}\n",
-            chrono::Utc::now().to_rfc3339(),
-            info,
-        );
+        let message = format!("[{}] panic: {}\n", chrono::Utc::now().to_rfc3339(), info,);
         if let Some(path) = log_path {
             use std::io::Write;
             if let Ok(mut f) = std::fs::OpenOptions::new()
