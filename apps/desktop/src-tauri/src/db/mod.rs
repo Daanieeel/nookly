@@ -49,11 +49,13 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Redirects the real, platform specific app data directory (`default_dir`) so
-/// a developer's own testing can never touch the real app's data:
-/// `NOOKLY_DATA_DIR` always wins (CI, scripted testing, a scratch profile);
-/// otherwise a debug build (`bun run dev`'s Tauri window, `cargo run`, a debug
-/// CLI build) defaults to a gitignored folder inside the repo instead. A
-/// release build always uses `default_dir` unmodified.
+/// a developer's own testing can never touch the real app's data. Only a
+/// debug build (`bun run dev`'s Tauri window, `cargo run`, a debug CLI build)
+/// is ever redirected: `NOOKLY_DATA_DIR`, if set, wins (CI, scripted testing,
+/// a scratch profile); otherwise it defaults to a gitignored folder inside
+/// the repo. A release build always uses `default_dir` unmodified, even if
+/// `NOOKLY_DATA_DIR` happens to be set in the environment, so a stray env var
+/// can never redirect a real user's installed app away from their own data.
 ///
 /// Every entry point that needs the app data directory goes through this —
 /// `setup` and `standalone_app_data_dir` above, and every command that stores
@@ -61,16 +63,16 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// previews) — so the database and every file path in it always agree on
 /// where they live, dev or production.
 pub fn resolve_app_data_dir(default_dir: std::path::PathBuf) -> std::path::PathBuf {
+    if !cfg!(debug_assertions) {
+        return default_dir;
+    }
     if let Ok(dir) = std::env::var("NOOKLY_DATA_DIR") {
         return std::path::PathBuf::from(dir);
     }
-    if cfg!(debug_assertions) {
-        // `CARGO_MANIFEST_DIR` is this crate's own directory (`apps/desktop/src-tauri`),
-        // baked in at compile time — meaningful only in a checkout, which is exactly
-        // where every debug build runs from.
-        return std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".dev-data");
-    }
-    default_dir
+    // `CARGO_MANIFEST_DIR` is this crate's own directory (`apps/desktop/src-tauri`),
+    // baked in at compile time — meaningful only in a checkout, which is exactly
+    // where every debug build runs from.
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".dev-data")
 }
 
 /// SQLite bumps `PRAGMA data_version` on a connection only when a *different*
