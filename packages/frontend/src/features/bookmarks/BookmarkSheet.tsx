@@ -3,7 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { StatusAnnouncer, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityActions } from "#/components/entity-actions.tsx";
 import { EntityKeyCopy } from "#/components/entity-key.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
@@ -154,30 +154,44 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
             <IconExternalLink />
             Open in Browser
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => refreshStatus !== "pending" && refresh.mutate()}
-          >
-            <StatusButtonContent
-              status={refreshStatus}
-              icon={<IconRefresh />}
-              label="Refresh Preview"
-              successLabel="Refreshed"
-              errorLabel="Couldn't refresh, try again"
-            />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="iconSm"
+                aria-label={
+                  refreshStatus === "error" ? "Couldn't refresh, try again" : "Refresh Preview"
+                }
+                onClick={() => refreshStatus !== "pending" && refresh.mutate()}
+              >
+                <StatusIcon status={refreshStatus} idle={<IconRefresh />} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {refreshStatus === "error"
+                ? "Couldn't refresh, try again"
+                : refreshStatus === "success"
+                  ? "Refreshed"
+                  : "Refresh Preview"}
+            </TooltipContent>
+          </Tooltip>
+          <StatusAnnouncer
+            message={refreshStatus === "error" ? "Couldn't refresh, try again" : null}
+          />
           {bothPreviewsAvailable && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setCompareOpen(true)}
-            >
-              <IconPhoto />
-              Compare Previews
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Compare Previews"
+                  onClick={() => setCompareOpen(true)}
+                >
+                  <IconPhoto />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Compare Previews</TooltipContent>
+            </Tooltip>
           )}
           <EntityActions
             entity={entity}
