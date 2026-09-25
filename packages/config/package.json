@@ -1,0 +1,17 @@
+{
+  "name": "@nookly/config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./oxfmt": "./oxfmt.json",
+    "./oxlint": "./oxlint/base.json",
+    "./typescript/*": "./typescript/*"
+  },
+  "dependencies": {
+    "@oxlint/plugins": "1.83.0",
+    "@shadcn/lint": "^0.1.0",
+    "eslint-plugin-better-tailwindcss": "^4.7.0"
+  }
+}

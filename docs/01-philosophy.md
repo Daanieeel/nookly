@@ -2,7 +2,7 @@
 
 ## Primitives Are Frozen
 
-The component library and Tailwind design system already exist. Never edit an existing primitive. Adding new ones is always fine.
+The component library and Tailwind design system already exist in `@nookly/ui` (`packages/ui`). Never edit an existing primitive. Adding new ones is always fine.
 
 ## Data Providers and Viewers
 
@@ -37,7 +37,7 @@ There are exactly three sanctioned ways to link things. Do not add a fourth.
 2. **Attachments:** a File or URL held by an entity. Modeled as a relationship type, not a separate engine.
 3. **Mentions:** an inline @mention in markdown. Contextual and unstructured, kept outside the formal graph.
 
-The right sidebar always shows these sections in this order: Relationships, Attachments, Mentioned, Mentioned in. Mentioned in lists the pages whose content mentions this entity, read from a backlink index that is rebuilt whenever a page's content changes.
+The right sidebar always shows these sections in this order: Attachments, Mentioned, Mentioned in, Relationships. Relationships renders last since it is usually the largest section and pushed everything else down when it came first. Mentioned in lists the pages whose content mentions this entity, read from a backlink index that is rebuilt whenever a page's content changes.
 
 ## Cross-Space Relationships
 

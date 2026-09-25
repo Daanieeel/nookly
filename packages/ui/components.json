@@ -1,0 +1,24 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@nookly/ui/components",
+    "utils": "@nookly/ui/lib/utils",
+    "ui": "@nookly/ui/components",
+    "lib": "@nookly/ui/lib",
+    "hooks": "@nookly/ui/hooks"
+  },
+  "iconLibrary": "lucide",
+  "registries": {
+    "@diceui": "https://diceui.com/r/{name}.json"
+  }
+}

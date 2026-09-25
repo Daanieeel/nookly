@@ -4,8 +4,13 @@ Full project docs live in `/docs/`. Read `/docs/00-index.md` first, every sessio
 
 **Nookly is released. User data must be preserved at all costs; data loss is never acceptable.** People put their whole life into Nookly and trust it to keep that life organized and safe, so treat their data with the care of a bank or insurance. Every change to persisted state (schema, file layout, settings) needs a safe migration from the previous release, and nothing may silently drop, overwrite or corrupt existing data.
 
+When working on TODO items, bump the versions of our packages and apps yourself using SemVer standards.
+Not every version will be released. However, it is important to bump versions on every patch or minor feature.
+Do not touch the major version. Report back to the user if a major version bump would be necessary.
+
 Quick map:
 
+- Where does code go, how do imports work? Read `development/monorepo.md`.
 - Building a new module? Read `01-philosophy.md`, `02-entity-model.md`, then the matching file in `03-modules/`.
 - Touching sidebar/navigation? Read `04-navigation-spaces.md`.
 - Building or fixing any UI? Read `05-ui-ux-direction.md`. Non-negotiable.
@@ -13,7 +18,7 @@ Quick map:
 - Tempted to add a feature (notifications, git, cloud sync, plugin loading)? Check `07-deferred-scope.md` first. Probably deferred on purpose.
 - Ambiguous UX/product judgment call? Read `08-vision-and-motivation.md`.
 
-Never modify existing primitive components or design tokens. Add new ones only.
+Never modify existing primitive components or design tokens (`packages/ui`). Add new ones only.
 
 Button or Badge `variant="outline"` is for rare, special-case emphasis only. Default to `secondary` or `ghost`.
 Icon buttons containing no label always need a short tooltip explaining the action (e.g. "Open Page", "Delete Note" etc.).

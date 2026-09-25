@@ -78,7 +78,7 @@ Output is JSON on stdout. Errors are JSON on stderr with a non zero exit code. C
 
 ## Contributing
 
-Contributions are welcome. Nookly has a small core with modules compiled into the app, and the project docs explain how the pieces fit together. Please start with [`docs/00-index.md`](docs/00-index.md) before opening a pull request.
+Contributions are welcome. Nookly has a small core with modules compiled into the app, and the project docs explain how the pieces fit together. Please start with [`docs/00-index.md`](docs/00-index.md) before opening a pull request. The repo is a Turborepo monorepo; [`docs/development/monorepo.md`](docs/development/monorepo.md) explains where code goes.
 
 Before submitting, run:
 

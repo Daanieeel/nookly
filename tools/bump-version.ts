@@ -1,11 +1,11 @@
-// Sets one version across package.json, Cargo.toml, Cargo.lock and tauri.conf.json.
+// Sets one version across apps/desktop/package.json, Cargo.toml, Cargo.lock and tauri.conf.json.
 // Usage: `bun tools/bump-version.ts <major|minor|patch|x.y.z>`.
 const root = `${import.meta.dir}/../`;
 const files = {
-  pkg: `${root}package.json`,
-  tauri: `${root}src-tauri/tauri.conf.json`,
-  cargo: `${root}src-tauri/Cargo.toml`,
-  lock: `${root}src-tauri/Cargo.lock`,
+  pkg: `${root}apps/desktop/package.json`,
+  tauri: `${root}apps/desktop/src-tauri/tauri.conf.json`,
+  cargo: `${root}apps/desktop/src-tauri/Cargo.toml`,
+  lock: `${root}apps/desktop/src-tauri/Cargo.lock`,
 };
 
 const { version: current }: { version: string } = await Bun.file(files.pkg).json();

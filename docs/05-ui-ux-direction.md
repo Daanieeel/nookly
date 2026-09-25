@@ -1,6 +1,6 @@
 # UI/UX Direction
 
-Everything is built on the existing primitive component library and Tailwind design system, both of which are frozen. Never modify a primitive. Compose primitives or add new components alongside them.
+Everything is built on the existing primitive component library and Tailwind design system in `@nookly/ui` (`packages/ui`), both of which are frozen. Never modify a primitive. Compose primitives or add new components alongside them.
 
 ## Visual Reference
 
@@ -54,7 +54,7 @@ Show the result of an action on the element the user interacted with. Their atte
 
 ### Reference Implementation
 
-[`src/components/ui/copy-button.tsx`](../src/components/ui/copy-button.tsx) is the model to follow. Clicking copies the value and swaps the copy icon for a green checkmark for two seconds, then reverts. No toast, no layout shift, no extra UI. Components that wrap it can react to the same state, like `CopyPageMarkdownItem` in `PageExportMenu.tsx`, which turns its whole menu label green and keeps the menu open so the confirmation is visible.
+[`packages/ui/src/components/copy-button.tsx`](../packages/ui/src/components/copy-button.tsx) is the model to follow. Clicking copies the value and swaps the copy icon for a green checkmark for two seconds, then reverts. No toast, no layout shift, no extra UI. Components that wrap it can react to the same state, like `CopyPageMarkdownItem` in `PageExportMenu.tsx`, which turns its whole menu label green and keeps the menu open so the confirmation is visible.
 
 ### When a Toast Is Acceptable
 

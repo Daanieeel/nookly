@@ -1,0 +1,29 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "typecheck"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "check:rust": {
+      "inputs": ["src-tauri/**", "!src-tauri/target/**"]
+    },
+    "lint:rust": {
+      "inputs": ["src-tauri/**", "!src-tauri/target/**"]
+    },
+    "format:rust": {
+      "cache": false
+    },
+    "format:check:rust": {
+      "inputs": ["src-tauri/**", "!src-tauri/target/**"]
+    }
+  }
+}

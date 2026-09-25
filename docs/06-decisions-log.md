@@ -249,3 +249,21 @@ Google Calendar and iCloud events show on the Sessions calendar but are never en
 **Why:** converting them to Sessions would force a Course onto events like "Dentist" and break the Session and Course structural rule.
 
 **Rejected:** importing external events as Sessions or any other entity type, and two way sync.
+
+---
+
+### Relationships moved to the bottom of the right sidebar
+
+**Why:** Relationships is usually the largest section, so putting it first pushed Attachments, Mentioned and Mentioned in far down the page on entities with many links.
+
+**Resolution:** the right sidebar's fixed order is now Attachments, Mentioned, Mentioned in, Relationships.
+
+---
+
+### Turborepo monorepo with separate ui and frontend packages
+
+The design system lives in `@nookly/ui`, every other component and all app logic in `@nookly/frontend`, shared tooling config in `@nookly/config`, and the Tauri shell in `apps/desktop`.
+
+**Why:** a future web app can reuse the whole frontend without copying it, and the primitives stay isolated from app code, which keeps the frozen design system easy to guard.
+
+**Rejected:** one package with path aliases, which ties every component to the Tauri app; and a single shared package for ui and frontend, which lets primitives depend on app state.

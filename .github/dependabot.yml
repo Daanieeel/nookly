@@ -17,7 +17,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: cargo
-    directory: /src-tauri
+    directory: /apps/desktop/src-tauri
     schedule:
       interval: weekly
     groups:

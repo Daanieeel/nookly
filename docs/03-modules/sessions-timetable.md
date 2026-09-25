@@ -39,6 +39,6 @@ Google Calendar and iCloud events are drawn on the calendar as a read only overl
 | Google Calendar | OAuth in the browser, read only calendar list and events scopes    |
 | iCloud          | CalDAV with an app specific password from the user's Apple Account |
 
-- Code lives in `src-tauri/src/external_calendars/`. Events and connections are cached in `external-calendars.json` in the app data folder, credentials in the OS keychain.
+- Code lives in `apps/desktop/src-tauri/src/external_calendars/`. Events and connections are cached in `external-calendars.json` in the app data folder, credentials in the OS keychain.
 - The overlay polls every 15 minutes while the window is visible and always renders from cache. A failed sync keeps the cached events and shows its error in the connections dialog.
 - Google needs `NOOKLY_GOOGLE_CLIENT_ID` and `NOOKLY_GOOGLE_CLIENT_SECRET` (a Desktop app OAuth client) set at build time. Without them the Google option is disabled.

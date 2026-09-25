@@ -1,0 +1,4 @@
+{
+  "extends": "@nookly/config/typescript/node.json",
+  "include": ["vite.config.ts"]
+}

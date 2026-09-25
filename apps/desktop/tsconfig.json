@@ -1,0 +1,7 @@
+{
+  "extends": "@nookly/config/typescript/react.json",
+  "compilerOptions": {
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

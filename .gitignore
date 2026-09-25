@@ -25,3 +25,9 @@ dist-ssr
 *.sw?
 
 *.tsbuildinfo
+# Turborepo
+.turbo
+
+# Dev-mode app data (db, files, screenshots) — isolated from the real app's
+# data so `bun run dev` / a debug build never touches production data.
+apps/desktop/src-tauri/.dev-data/

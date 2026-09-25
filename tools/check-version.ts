@@ -1,15 +1,17 @@
-// Checks that package.json, Cargo.toml and tauri.conf.json agree on one version,
+// Checks that apps/desktop/package.json, Cargo.toml and tauri.conf.json agree on one version,
 // and that it is not behind the latest release tag (`v*`). Equal is fine: the version
 // stays at the last release until the next one is cut. Run with `bun tools/check-version.ts`.
 import { $, semver } from "bun";
 
 const root = `${import.meta.dir}/../`;
 
-const { version: pkg }: { version: string } = await Bun.file(`${root}package.json`).json();
-const { version: tauri }: { version: string } = await Bun.file(
-  `${root}src-tauri/tauri.conf.json`,
+const { version: pkg }: { version: string } = await Bun.file(
+  `${root}apps/desktop/package.json`,
 ).json();
-const cargo = (await Bun.file(`${root}src-tauri/Cargo.toml`).text()).match(
+const { version: tauri }: { version: string } = await Bun.file(
+  `${root}apps/desktop/src-tauri/tauri.conf.json`,
+).json();
+const cargo = (await Bun.file(`${root}apps/desktop/src-tauri/Cargo.toml`).text()).match(
   /^version = "(.+)"/m,
 )?.[1];
 
@@ -35,7 +37,7 @@ if (semver.order(pkg, latest) >= 0) {
   console.log(`Version ${pkg} OK (latest release is ${latest}).`);
 } else {
   console.error(
-    `Version ${pkg} is behind the latest release ${latest}. Bump the version in package.json, src-tauri/Cargo.toml and src-tauri/tauri.conf.json.`,
+    `Version ${pkg} is behind the latest release ${latest}. Bump the version in apps/desktop/package.json, apps/desktop/src-tauri/Cargo.toml and apps/desktop/src-tauri/tauri.conf.json.`,
   );
   process.exit(1);
 }

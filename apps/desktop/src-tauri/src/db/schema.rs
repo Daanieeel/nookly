@@ -1,0 +1,551 @@
+//! Entity schema registry (PLAN.md §1: "Generate, Don't Hand-Write").
+//!
+//! Every module that owns an entity type (a Provider, per `01-philosophy.md`)
+//! registers one `EntitySchemaDef` here via `inventory::submit!`, the same
+//! pattern `relationships.rs` already uses for `RelationshipTypeDef`. The CLI
+//! (see `crate::cli`) is a single generic implementation that reads this
+//! registry at runtime — it never hand-writes a command per module. A new
+//! module gets full CLI coverage (list/get/create/update/delete/describe) the
+//! moment it submits a schema here, with zero CLI-side code.
+//!
+//! Base entity fields (`id`, `spaceId`, `title`, `icon`, `pinned`, timestamps)
+//! are handled generically by the CLI dispatcher for every type and are never
+//! part of a module's own `fields` list — `fields` only ever describes the
+//! module-specific (subtype) data.
+
+use crate::error::{AppError, AppResult};
+use rusqlite::Connection;
+use serde_json::{Map, Value};
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+pub type JsonMap = Map<String, Value>;
+
+#[derive(Debug, Clone, Copy)]
+pub enum FieldKind {
+    Text,
+    LongText,
+    Integer,
+    Float,
+    Boolean,
+    Date,
+    /// Not used by any core module's fields yet (all timestamp-ish subtype
+    /// columns today are plain dates) — kept for community modules that need
+    /// a combined date+time field.
+    #[allow(dead_code)]
+    DateTime,
+    /// Documents the expected shape; not enforced by the CLI parser itself
+    /// (the underlying core function is the actual authority).
+    Enum(&'static [&'static str]),
+    /// References another entity by id. `entity_type` names the referenced
+    /// type, so an agent calling `describe` knows what to pass.
+    EntityRef(&'static str),
+    /// A JSON object. Only read only computed fields use it; the description
+    /// names its keys.
+    Object,
+}
+
+impl FieldKind {
+    fn to_json(self) -> Value {
+        match self {
+            FieldKind::Text => Value::String("text".into()),
+            FieldKind::LongText => Value::String("long_text".into()),
+            FieldKind::Integer => Value::String("integer".into()),
+            FieldKind::Float => Value::String("float".into()),
+            FieldKind::Boolean => Value::String("boolean".into()),
+            FieldKind::Date => Value::String("date".into()),
+            FieldKind::DateTime => Value::String("datetime".into()),
+            FieldKind::Enum(values) => serde_json::json!({ "type": "enum", "values": values }),
+            FieldKind::Object => Value::String("object".into()),
+            FieldKind::EntityRef(entity_type) => {
+                serde_json::json!({ "type": "entity_ref", "entityType": entity_type })
+            }
+        }
+    }
+}
+
+pub struct FieldDef {
+    pub name: &'static str,
+    pub kind: FieldKind,
+    pub required_on_create: bool,
+    pub writable_on_update: bool,
+    pub description: &'static str,
+}
+
+/// Input to a module's `create` adapter. `space_id`/`title` are base entity
+/// fields every type shares; `fields` carries only the module-specific values
+/// the caller passed via `--field name=value`. `icon` (also a base field) is
+/// deliberately not threaded through here — the CLI dispatcher applies it
+/// generically after creation via `entities::update_entity`, the same way it
+/// handles `icon`/`pinned` on `update`, so no module adapter needs to know
+/// about it.
+pub struct CreateInput {
+    pub space_id: String,
+    pub title: String,
+    pub fields: JsonMap,
+}
+
+pub struct EntitySchemaDef {
+    pub entity_type: &'static str,
+    pub description: &'static str,
+    pub fields: &'static [FieldDef],
+    /// Relationship types this entity type is known to participate in.
+    /// Documentation only, for `describe` — the relationship engine itself
+    /// doesn't restrict edges by entity type beyond structural cardinality.
+    pub relationship_types: &'static [&'static str],
+    /// Whether this type's content lives in block storage (Notes/Jots —
+    /// §2.1's "block-level addressable" pages) rather than
+    /// (or in addition to) `fields`. When true, the CLI generically offers
+    /// `blocks`/`add-block`/`update-block`/`delete-block`/`reorder-blocks`
+    /// for this type — see `cli::block_command`. A future module opts into
+    /// full block editing by setting this, with zero new CLI code.
+    pub supports_blocks: bool,
+    pub create: fn(&Connection, CreateInput) -> AppResult<Value>,
+    pub update: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+    pub get: fn(&Connection, &str) -> AppResult<Value>,
+    pub list: fn(&Connection, Option<&str>, bool) -> AppResult<Vec<Value>>,
+}
+
+/// The block types `block_to_markdown` (`db::notes`) knows how to render.
+/// Any string is technically accepted by `create_block`/`update_block`, but
+/// these are the ones with defined rendering/editor behavior.
+pub const KNOWN_BLOCK_TYPES: &[&str] = &[
+    "paragraph",
+    "heading1",
+    "heading2",
+    "heading3",
+    "quote",
+    "code",
+    "bulleted_list",
+    "numbered_list",
+    "table",
+];
+
+inventory::collect!(EntitySchemaDef);
+
+/// Turns an entity of one type into another in place: same id, relationships,
+/// labels and pin, a new key. Registered next to the types it joins, like a
+/// File that is really a webpage becoming a Bookmark. The CLI's generic
+/// `convert` verb and the GUI's `convert_entity` both read this registry.
+pub struct ConversionDef {
+    pub from: &'static str,
+    pub to: &'static str,
+    pub description: &'static str,
+    pub run: fn(&Connection, &str) -> AppResult<()>,
+}
+
+inventory::collect!(ConversionDef);
+
+/// A read only value an entity type's `get` and `list` payloads carry, worked
+/// out from other entities rather than stored, like a Course's grade from its
+/// Exams and Assignments. Registered next to the type's schema so `describe`
+/// lists it; setting one with `--field` is refused as an unknown field.
+pub struct ComputedFieldDef {
+    pub entity_type: &'static str,
+    pub name: &'static str,
+    pub kind: FieldKind,
+    pub description: &'static str,
+}
+
+inventory::collect!(ComputedFieldDef);
+
+/// Records one entity owns that aren't entities themselves (no key, no Space,
+/// no relationships), like the cards of a Deck. Registered next to the parent
+/// type's schema, and the CLI reads it generically: `<type> <plural> <id>`,
+/// `add-<singular>`, `get-<singular>`, `update-<singular>`, `delete-<singular>`,
+/// `restore-<singular>`, plus one `<action>-<singular>` verb per action. A new
+/// module gets all of them the moment it submits one, with zero CLI code.
+pub struct ChildCollectionDef {
+    pub parent_type: &'static str,
+    pub singular: &'static str,
+    pub plural: &'static str,
+    pub description: &'static str,
+    /// Writable fields; `create` validates `required_on_create`, `update`
+    /// refuses the ones not `writable_on_update`.
+    pub fields: &'static [FieldDef],
+    /// Read only values every record payload carries, documented for `describe`.
+    pub computed: &'static [FieldDef],
+    pub list: fn(&Connection, &str, bool) -> AppResult<Vec<Value>>,
+    pub get: fn(&Connection, &str) -> AppResult<Value>,
+    pub create: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+    pub update: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+    /// Soft delete, like every entity.
+    pub delete: fn(&Connection, &str) -> AppResult<()>,
+    pub restore: fn(&Connection, &str) -> AppResult<()>,
+    pub actions: &'static [ChildActionDef],
+}
+
+/// A verb on one record beyond plain field edits, like reviewing a card.
+pub struct ChildActionDef {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub fields: &'static [FieldDef],
+    pub run: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+}
+
+inventory::collect!(ChildCollectionDef);
+
+pub fn child_collections(parent_type: &str) -> Vec<&'static ChildCollectionDef> {
+    inventory::iter::<ChildCollectionDef>()
+        .filter(|c| c.parent_type == parent_type)
+        .collect()
+}
+
+fn fields_json(fields: &[FieldDef]) -> Vec<Value> {
+    fields
+        .iter()
+        .map(|f| {
+            serde_json::json!({
+                "name": f.name,
+                "kind": f.kind.to_json(),
+                "requiredOnCreate": f.required_on_create,
+                "writableOnUpdate": f.writable_on_update,
+                "description": f.description,
+            })
+        })
+        .collect()
+}
+
+fn child_collections_json(parent_type: &str) -> Vec<Value> {
+    child_collections(parent_type)
+        .iter()
+        .map(|c| {
+            let (one, many) = (c.singular, c.plural);
+            let actions: Vec<Value> = c
+                .actions
+                .iter()
+                .map(|a| {
+                    serde_json::json!({
+                        "name": a.name,
+                        "description": a.description,
+                        "fields": fields_json(a.fields),
+                        "command": format!("nookly cli {parent_type} {}-{one} <{one}-id> [--field name=value ...]", a.name),
+                    })
+                })
+                .collect();
+            serde_json::json!({
+                "name": many,
+                "description": c.description,
+                "fields": fields_json(c.fields),
+                "computedFields": fields_json(c.computed),
+                "actions": actions,
+                "commands": {
+                    "list": format!("nookly cli {parent_type} {many} <id> [--include-deleted]"),
+                    "get": format!("nookly cli {parent_type} get-{one} <{one}-id>"),
+                    "add": format!("nookly cli {parent_type} add-{one} <id> --field name=value ..."),
+                    "update": format!("nookly cli {parent_type} update-{one} <{one}-id> --field name=value ..."),
+                    "delete": format!("nookly cli {parent_type} delete-{one} <{one}-id> --yes  (soft delete, undo with restore-{one})"),
+                    "restore": format!("nookly cli {parent_type} restore-{one} <{one}-id>"),
+                },
+            })
+        })
+        .collect()
+}
+
+pub fn computed_fields(entity_type: &str) -> Vec<&'static ComputedFieldDef> {
+    inventory::iter::<ComputedFieldDef>()
+        .filter(|c| c.entity_type == entity_type)
+        .collect()
+}
+
+pub fn conversions_from(entity_type: &str) -> Vec<&'static ConversionDef> {
+    inventory::iter::<ConversionDef>()
+        .filter(|c| c.from == entity_type)
+        .collect()
+}
+
+/// Converts `id` to `to`, refusing pairs nobody registered.
+pub fn convert(conn: &Connection, id: &str, to: &str) -> AppResult<()> {
+    let from = crate::db::entities::get_entity(conn, id)?.entity_type;
+    let def = conversions_from(&from)
+        .into_iter()
+        .find(|c| c.to == to)
+        .ok_or_else(|| {
+            let targets: Vec<&str> = conversions_from(&from).iter().map(|c| c.to).collect();
+            AppError::InvalidInput(format!(
+                "a {from} can't become a {to}; it converts to: {}",
+                if targets.is_empty() {
+                    "nothing".to_string()
+                } else {
+                    targets.join(", ")
+                }
+            ))
+        })?;
+    (def.run)(conn, id)
+}
+
+/// Re-types an entity row: new `type`, the new type's key prefix with the next
+/// number, and the new type's module enabled in its Space. The caller moves the
+/// type specific row itself.
+pub fn retype_entity(conn: &Connection, id: &str, to: &str) -> AppResult<()> {
+    let prefix = crate::db::entities::key_prefix(to);
+    let number: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(key_number), 0) + 1 FROM entities WHERE key_prefix = ?1",
+        rusqlite::params![prefix],
+        |row| row.get(0),
+    )?;
+    conn.execute(
+        "UPDATE entities SET type = ?1, key_prefix = ?2, key_number = ?3, updated_at = ?4 WHERE id = ?5",
+        rusqlite::params![to, prefix, number, crate::db::now(), id],
+    )?;
+    let space_id = crate::db::entities::get_entity(conn, id)?.space_id;
+    for module_key in crate::db::space_modules::module_keys_for_entity_type(to) {
+        crate::db::space_modules::add_space_module(conn, &space_id, module_key)?;
+    }
+    Ok(())
+}
+
+fn registry() -> &'static HashMap<&'static str, &'static EntitySchemaDef> {
+    static REGISTRY: OnceLock<HashMap<&'static str, &'static EntitySchemaDef>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        inventory::iter::<EntitySchemaDef>()
+            .map(|def| (def.entity_type, def))
+            .collect()
+    })
+}
+
+pub fn lookup(entity_type: &str) -> Option<&'static EntitySchemaDef> {
+    registry().get(entity_type).copied()
+}
+
+/// Every registered entity type, sorted by name for stable `schema --all` output.
+pub fn all() -> Vec<&'static EntitySchemaDef> {
+    let mut defs: Vec<_> = registry().values().copied().collect();
+    defs.sort_by_key(|def| def.entity_type);
+    defs
+}
+
+pub fn describe_json(def: &EntitySchemaDef) -> Value {
+    let fields = fields_json(def.fields);
+    let block_commands = def.supports_blocks.then(|| {
+        let custom = crate::db::block_types::all();
+        let known: Vec<&str> = KNOWN_BLOCK_TYPES
+            .iter()
+            .copied()
+            .chain(custom.iter().map(|d| d.block_type))
+            .collect();
+        let mut formats = serde_json::json!({
+                "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+                "heading1/heading2/heading3": "The heading text, no leading '#'.",
+                "quote": "The quote text, no leading '>'.",
+                "code": "The raw code. Set --language/--filename for the header row.",
+                "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+                "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        });
+        let mut attrs = serde_json::Map::new();
+        attrs.insert(
+            "heading1/heading2/heading3".into(),
+            crate::db::block_types::describe_attr_defs(crate::db::block_types::declared_attrs("heading1")),
+        );
+        for block_def in &custom {
+            formats[block_def.block_type] = serde_json::json!(block_def.content_format);
+            attrs.insert(
+                block_def.block_type.to_string(),
+                crate::db::block_types::describe_attrs(block_def),
+            );
+        }
+        serde_json::json!({
+            "knownBlockTypes": known,
+            "contentFormats": formats,
+            "blockAttrs": {
+                "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+                "byType": attrs,
+                "example": format!(
+                    "nookly cli {} add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning",
+                    def.entity_type
+                ),
+            },
+            "list": format!("nookly cli {} blocks <id>", def.entity_type),
+            "add": format!("nookly cli {} add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]", def.entity_type),
+            "update": format!("nookly cli {} update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]", def.entity_type),
+            "delete": format!("nookly cli {} delete-block <block-id> --yes", def.entity_type),
+            "reorder": format!("nookly cli {} reorder-blocks <id> <block-id> <block-id> ...", def.entity_type),
+            // Called out separately from `add`/`update` above (not just the bracketed
+            // `[--language <lang>] [--filename <name>]` in those usage strings) because these
+            // two flags are easy to miss buried at the end of a long line, and only mean
+            // anything on a `code` block — everywhere else they're a silent no-op.
+            "codeBlockHeader": {
+                "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+                "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text.",
+                "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+                "example": format!(
+                    "nookly cli {} add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+                    def.entity_type
+                ),
+            },
+        })
+    });
+    serde_json::json!({
+        "entityType": def.entity_type,
+        "description": def.description,
+        "supportsBlocks": def.supports_blocks,
+        "blockCommands": block_commands,
+        "baseFields": [
+            { "name": "id", "kind": "text", "description": "Stable unique id (UUID), generated" },
+            { "name": "key", "kind": "text", "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is" },
+            { "name": "spaceId", "kind": "entity_ref(space)", "description": "Space this entity belongs to" },
+            { "name": "title", "kind": "text", "description": "User-editable title, set via --title" },
+            { "name": "icon", "kind": "text", "description": "Optional emoji/icon, set via --icon" },
+            { "name": "pinned", "kind": "boolean", "description": "Set via --pinned true|false" },
+            { "name": "createdAt", "kind": "datetime", "description": "Read-only" },
+            { "name": "updatedAt", "kind": "datetime", "description": "Read-only" },
+            { "name": "deletedAt", "kind": "datetime", "description": "Read-only; set by delete, cleared by restore" },
+            { "name": "lastOpenedAt", "kind": "datetime", "description": "Read-only; set whenever the entity is opened in the app, null if never" },
+        ],
+        "fields": fields,
+        "computedFields": computed_fields(def.entity_type)
+            .iter()
+            .map(|c| serde_json::json!({
+                "name": c.name,
+                "kind": c.kind.to_json(),
+                "description": c.description,
+            }))
+            .collect::<Vec<_>>(),
+        "relationshipTypes": def.relationship_types,
+        "childCollections": child_collections_json(def.entity_type),
+        "convertsTo": conversions_from(def.entity_type)
+            .iter()
+            .map(|c| serde_json::json!({
+                "type": c.to,
+                "description": c.description,
+                "command": format!("nookly cli {} convert <id> --to {}", def.entity_type, c.to),
+            }))
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// The base entity id inside a registered `get`/`create` payload: at the top
+/// (`id`) or nested under `entity` for subtype structs.
+pub fn payload_id(data: &Value) -> Option<String> {
+    data.get("id")
+        .or_else(|| data.pointer("/entity/id"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+/// Copies an entity through its own registered `get` and `create`, so every type
+/// that registers a schema can be duplicated with no code of its own. Each field
+/// is read back from the `get` payload by name; an entity reference `get` doesn't
+/// report (a Sub-task's `parentId`) comes from the entity's structural edge to an
+/// entity of that type. Icon, labels, block content and child records (a Deck's
+/// cards, fresh to study) come along too. The copy
+/// lands in the same Space, titled "<title> (copy)".
+pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
+    use crate::db::relationships::{
+        list_relationships, lookup_relationship_type, Cardinality, Direction,
+    };
+
+    let entity = crate::db::entities::get_entity(conn, id)?;
+    let def = lookup(&entity.entity_type).ok_or_else(|| {
+        crate::error::AppError::InvalidInput(format!(
+            "'{}' can't be duplicated",
+            entity.entity_type
+        ))
+    })?;
+    let data = (def.get)(conn, id)?;
+    let relationships = list_relationships(conn, id, Direction::From)?;
+
+    let mut fields = JsonMap::new();
+    for field in def.fields {
+        let reported = data.get(field.name).filter(|v| !v.is_null()).cloned();
+        let value = reported.or_else(|| {
+            let FieldKind::EntityRef(target_type) = field.kind else {
+                return None;
+            };
+            relationships
+                .iter()
+                .filter(|r| {
+                    lookup_relationship_type(&r.relationship_type)
+                        .is_some_and(|t| t.cardinality == Cardinality::OneToPerFrom)
+                })
+                .find_map(|r| {
+                    let target = crate::db::entities::get_entity(conn, &r.to_entity_id).ok()?;
+                    (target.entity_type == target_type).then_some(Value::String(target.id))
+                })
+        });
+        if let Some(value) = value {
+            fields.insert(field.name.to_string(), value);
+        }
+    }
+
+    let title = if entity.title.trim().is_empty() {
+        String::new()
+    } else {
+        format!("{} (copy)", entity.title)
+    };
+    let created = (def.create)(
+        conn,
+        CreateInput {
+            space_id: entity.space_id.clone(),
+            title,
+            fields,
+        },
+    )?;
+    let new_id = payload_id(&created).ok_or_else(|| {
+        crate::error::AppError::Db("internal: could not locate id in create result".into())
+    })?;
+
+    if entity.icon.is_some() {
+        crate::db::entities::update_entity(
+            conn,
+            &new_id,
+            crate::db::entities::EntityPatch {
+                icon: entity.icon,
+                ..Default::default()
+            },
+        )?;
+    }
+    for label in crate::db::labels::list_labels_for_entity(conn, id)? {
+        crate::db::labels::attach_label(conn, &new_id, &label.id)?;
+    }
+    for collection in child_collections(&entity.entity_type) {
+        for record in (collection.list)(conn, id, false)? {
+            let fields: JsonMap = collection
+                .fields
+                .iter()
+                .filter_map(|f| Some((f.name.to_string(), record.get(f.name)?.clone())))
+                .collect();
+            (collection.create)(conn, &new_id, &fields)?;
+        }
+    }
+    if def.supports_blocks {
+        for block in crate::db::notes::list_blocks(conn, id)? {
+            crate::db::notes::create_block_with_attrs(
+                conn,
+                &new_id,
+                block.block_type,
+                block.content,
+                None,
+                block.language,
+                block.filename,
+                block.attrs,
+            )?;
+        }
+    }
+    (def.get)(conn, &new_id)
+}
+
+pub fn field_str(fields: &JsonMap, name: &str) -> Option<String> {
+    fields
+        .get(name)
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
+pub fn field_f64(fields: &JsonMap, name: &str) -> Option<f64> {
+    fields.get(name).and_then(|v| v.as_f64())
+}
+
+pub fn field_i64(fields: &JsonMap, name: &str) -> Option<i64> {
+    fields.get(name).and_then(|v| v.as_i64())
+}
+
+pub fn field_bool(fields: &JsonMap, name: &str) -> Option<bool> {
+    fields.get(name).and_then(|v| v.as_bool())
+}
+
+pub fn require_str(fields: &JsonMap, name: &str) -> AppResult<String> {
+    field_str(fields, name).ok_or_else(|| {
+        crate::error::AppError::InvalidInput(format!("--field {name}=<value> is required"))
+    })
+}

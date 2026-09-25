@@ -33,6 +33,7 @@ jobs:
         with:
           ref: ${{ env.TAG }}
       - name: Compare tag with package.json, Cargo.toml and tauri.conf.json
+        working-directory: apps/desktop
         run: |
           expected="${TAG#v}"
           pkg=$(node -p "require('./package.json').version")
@@ -82,7 +83,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: apps/desktop/src-tauri
           key: ${{ matrix.target }}
 
       - uses: oven-sh/setup-bun@v2
@@ -99,6 +100,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: apps/desktop
           tagName: ${{ env.TAG }}
           releaseName: Nookly ${{ env.TAG }}
           releaseBody: "See the assets below to download and install for your platform."
@@ -131,11 +133,15 @@ jobs:
 
           gh api "repos/$REPO/releases/generate-notes" -f tag_name="$TAG" --jq .body > changelog.md
 
-          assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+          # A draft release's assets live under a permanent `untagged-<id>` download
+          # path, not `download/$TAG/<name>` — that URL only starts existing once
+          # (if ever) GitHub relinks it on publish, so hand-building it from the tag
+          # produced dead links here before. `gh`'s own `url` field on each asset is
+          # always the real, currently valid download URL, draft or published.
+          assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets')
 
           find_url() {
-            name=$(echo "$assets" | grep -Ei "$1" | head -n1 || true)
-            [ -n "$name" ] && echo "https://github.com/$REPO/releases/download/$TAG/$name" || true
+            echo "$assets" | jq -r --arg pat "$1" '[.[] | select(.name | test($pat; "i"))][0].url // empty'
           }
 
           mac_arm=$(find_url '_aarch64\.dmg$')
