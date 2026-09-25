@@ -106,9 +106,36 @@ fn watch_external_changes(app: tauri::AppHandle) {
 pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std::error::Error>> {
     std::fs::create_dir_all(app_data_dir)?;
     let db_path = app_data_dir.join("nookly.db");
-    let mut conn = Connection::open(db_path)?;
+    let mut conn = Connection::open(&db_path)?;
+    backup_before_migration(&conn, &db_path)?;
     migrations::MIGRATIONS.to_latest(&mut conn)?;
     Ok(conn)
+}
+
+/// Snapshots `nookly.db` to `nookly.db.bak-v{N}` right before a pending
+/// migration would change it, so a bad migration — or the app later being
+/// rolled back to a version that predates the new schema — always has one
+/// known-good file to restore from. A no-op on every other launch: already at
+/// the latest schema (the common case), or a brand new empty database with
+/// nothing yet worth protecting. Only the newest backup is ever kept, so this
+/// never costs more than ~1x the database's size.
+fn backup_before_migration(
+    conn: &Connection,
+    db_path: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let current: usize = migrations::MIGRATIONS.current_version(conn)?.into();
+    if current == 0 || current >= *migrations::MIGRATION_COUNT {
+        return Ok(());
+    }
+    if let Some(dir) = db_path.parent() {
+        for entry in std::fs::read_dir(dir)?.flatten() {
+            if entry.file_name().to_string_lossy().starts_with("nookly.db.bak-v") {
+                std::fs::remove_file(entry.path())?;
+            }
+        }
+    }
+    std::fs::copy(db_path, db_path.with_file_name(format!("nookly.db.bak-v{current}")))?;
+    Ok(())
 }
 
 /// Resolves the app data directory without a running Tauri `App` instance —
@@ -145,6 +172,50 @@ mod tests {
 
         spaces::create_space(&cli, "External".into(), None, "#000".into()).unwrap();
         assert_ne!(data_version(&app), start);
+
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    fn backups(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("nookly.db.bak-v")
+            })
+            .collect()
+    }
+
+    #[test]
+    fn backs_up_only_when_a_migration_is_about_to_run() {
+        let dir = std::env::temp_dir().join(format!("nookly-backup-{}", new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db_path = dir.join("nookly.db");
+        let conn = Connection::open(&db_path).unwrap();
+
+        // Brand new, unmigrated database: nothing to protect yet.
+        backup_before_migration(&conn, &db_path).unwrap();
+        assert!(backups(&dir).is_empty());
+
+        // One migration still pending: back up the pre-migration state.
+        let pending = *migrations::MIGRATION_COUNT - 1;
+        conn.execute_batch(&format!("PRAGMA user_version = {pending}"))
+            .unwrap();
+        backup_before_migration(&conn, &db_path).unwrap();
+        assert_eq!(backups(&dir).len(), 1);
+
+        // Already at the latest schema: no new backup, the old one stays put.
+        conn.execute_batch(&format!(
+            "PRAGMA user_version = {}",
+            *migrations::MIGRATION_COUNT
+        ))
+        .unwrap();
+        backup_before_migration(&conn, &db_path).unwrap();
+        assert_eq!(backups(&dir).len(), 1);
 
         std::fs::remove_dir_all(dir).ok();
     }

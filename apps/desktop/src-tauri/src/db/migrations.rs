@@ -1,8 +1,8 @@
 use rusqlite_migration::{Migrations, M};
 use std::sync::LazyLock;
 
-pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
-    Migrations::new(vec![M::up(
+fn all() -> Vec<M<'static>> {
+    vec![M::up(
         "
         CREATE TABLE spaces (
             id TEXT PRIMARY KEY,
@@ -373,5 +373,12 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         -- default (screenshot when present, else the site's og:image).
         ALTER TABLE bookmarks ADD COLUMN preferred_image TEXT;
         ",
-    )])
-});
+    )]
+}
+
+pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| Migrations::new(all()));
+
+/// Total number of migrations, so a caller can tell — before `to_latest` runs —
+/// whether it's about to change the schema (`current_version < MIGRATION_COUNT`).
+/// Used to snapshot the database right before an upgrade touches it.
+pub static MIGRATION_COUNT: LazyLock<usize> = LazyLock::new(|| all().len());
