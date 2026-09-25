@@ -1,6 +1,6 @@
 # How To: Data Tables
 
-> **Origin:** this guide was written while building the data tables for a separate admin panel project, not Nookly. File paths such as `src/routes/_layout/users/index.tsx`, the `/admin` base path, and the Users, Pages, Groups, Locales, and Translations tables all refer to that project. Nookly does not ship this table stack yet. Treat the steps and gotchas as reusable, and adapt the paths, routing, and backend contract to Nookly when you apply them.
+> **Origin:** this guide was written while building the data tables for a separate admin panel project, not Nookly. File paths such as `src/routes/_layout/users/index.tsx`, the `/admin` base path, and the Users, Pages, Groups, Locales, and Translations tables all refer to that project. Nookly does not ship this table stack yet. In Nookly, `components/ui/*` means `packages/ui/src/components/*` and everything else goes in `packages/frontend/src` (see [the monorepo guide](../development/monorepo.md)). Treat the steps and gotchas as reusable, and adapt the paths, routing, and backend contract to Nookly when you apply them.
 
 This document collects everything learned building those data tables, including the non-obvious bugs, so another coding assistant can reproduce the same setup in a different React + Vite + Tailwind v4 + shadcn/ui project.
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../packages/config/oxlint/base.json"],
+  "plugins": ["jsx-a11y", "react-perf"],
+  "settings": {
+    "shadcn": {
+      "ui": "@nookly/ui/components"
+    },
+    "better-tailwindcss": {
+      "entryPoint": "packages/frontend/src/styles.css"
+    }
+  }
+}

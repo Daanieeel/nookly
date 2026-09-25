@@ -1,0 +1,697 @@
+/* App styles on top of the @nookly/ui design system (tokens, theme, base layer, scrollbars). */
+@import "@nookly/ui/styles.css";
+
+@source "./";
+
+/* The rich note editor's document typography (§ notes rewrite) — Tiptap emits
+   bare h1/blockquote/pre/ul/ol with no styling of its own, so this is the one
+   place those get real rules. `code:not(pre code)` in the @nookly/ui base layer covers inline
+   code; `pre`/`pre code` here only reset the block form. */
+@layer components {
+  .tiptap-content {
+    outline: none;
+    /* Reserved for the per-block add/drag handles in `BlockHandles.tsx` — its
+       `GUTTER_WIDTH` constant must stay in sync with this value. */
+    padding-left: 3.25rem;
+    /* Code block bodies and table body cells: halfway between the editor's own surface
+       (`--card`, see `App.tsx`) and the `--accent` table header, so the header still reads. */
+    --block-surface: color-mix(in oklab, var(--card), var(--accent) 50%);
+  }
+  .tiptap-content h1,
+  .tiptap-content h2,
+  .tiptap-content h3 {
+    font-weight: 600;
+  }
+  .tiptap-content h1:not(:first-child),
+  .tiptap-content h2:not(:first-child),
+  .tiptap-content h3:not(:first-child) {
+    margin-top: 1rem;
+  }
+  .tiptap-content h1 {
+    font-size: 1.5rem;
+  }
+  .tiptap-content h2 {
+    font-size: 1.25rem;
+  }
+  .tiptap-content h3 {
+    font-size: 1.125rem;
+  }
+  .tiptap-content p {
+    margin: 0.25rem 0;
+  }
+  .tiptap-content blockquote {
+    margin: 0.5rem 0;
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--border);
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+  /* Code block header (filename + language) + body — both tokens distinct from the
+     editor's own page background (`--background`), so the block reads as a raised
+     surface rather than blending into the canvas. */
+  .tiptap-content .code-block-wrapper {
+    /* Margin is the `my-1` Tailwind class on the NodeView itself (`CodeBlockComponent.tsx`),
+       not here — one source of truth for the "more breathing room in the doc flow" spacing. */
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+  }
+  .tiptap-content .code-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--accent);
+    border-bottom: 1px solid var(--border);
+  }
+  .tiptap-content .code-block-filename {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+  .tiptap-content .code-block-filename:focus {
+    color: var(--foreground);
+  }
+  .tiptap-content .code-block-filename::placeholder {
+    color: var(--muted-foreground);
+  }
+  .tiptap-content pre.code-block-body {
+    position: relative;
+    margin: 0;
+    padding: 0.75rem;
+    background: var(--block-surface);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    overflow-x: auto;
+  }
+  .tiptap-content pre.code-block-body code {
+    background: transparent;
+    padding: 0;
+  }
+  /* Checklist (`TaskList`): the checkbox sits where a bullet would, and a done
+     item recedes rather than disappears. */
+  .tiptap-content ul[data-type="taskList"] {
+    margin: 0.25rem 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tiptap-content ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .tiptap-content ul[data-type="taskList"] li > label {
+    display: flex;
+    align-items: center;
+    height: 1.625em;
+    flex-shrink: 0;
+    user-select: none;
+  }
+  .tiptap-content ul[data-type="taskList"] li > div {
+    flex: 1;
+    min-width: 0;
+  }
+  .tiptap-content ul[data-type="taskList"] li p {
+    margin: 0;
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"] {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    width: 0.9375rem;
+    height: 0.9375rem;
+    margin: 0;
+    border: 1px solid var(--input);
+    border-radius: 0.25rem;
+    background: var(--card);
+    cursor: pointer;
+    transition:
+      background-color 150ms,
+      border-color 150ms;
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]::after {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    background: var(--primary-foreground);
+    transform: scale(0);
+    transition: transform 120ms;
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]:checked {
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+    transform: scale(1);
+  }
+  .tiptap-content ul[data-type="taskList"] input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  .tiptap-content ul[data-type="taskList"] li[data-checked="true"] > div {
+    color: var(--muted-foreground);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  }
+  /* Toggles (`toggle-extension.ts`): folded content stays in the document, hidden. */
+  .tiptap-content .toggle-block {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0.25rem 0;
+  }
+  .tiptap-content .toggle-block .toggle-content p {
+    margin: 0;
+  }
+  .tiptap-content .toggle-block .toggle-content p + p {
+    margin-top: 0.25rem;
+  }
+  .tiptap-content .toggle-block[data-toggle="closed"] .toggle-content p:not(:first-child) {
+    display: none;
+  }
+  .tiptap-content .toggle-folded {
+    display: none;
+  }
+  .tiptap-content .toggle-heading-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.25rem;
+    vertical-align: middle;
+    border-radius: 0.375rem;
+    color: var(--muted-foreground);
+    cursor: pointer;
+  }
+  .tiptap-content .toggle-heading-chevron:hover {
+    background: color-mix(in oklab, var(--accent) 60%, transparent);
+    color: var(--foreground);
+  }
+  .tiptap-content .toggle-heading-chevron svg {
+    transition: transform 150ms;
+  }
+  .tiptap-content .toggle-heading-chevron[data-open="true"] svg {
+    transform: rotate(90deg);
+  }
+  /* Equation, math block and diagram (`SourceBlock.tsx`): a code block that can
+     also show what its code renders to. */
+  .tiptap-content .source-block {
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+  }
+  .tiptap-content .source-block pre.code-block-body[hidden] {
+    display: none;
+  }
+  .tiptap-content .source-block-preview {
+    display: flex;
+    padding: 0.75rem 1rem;
+    background: var(--block-surface);
+    cursor: default;
+  }
+  .tiptap-content .source-block-preview .katex-display {
+    margin: 0;
+  }
+  .tiptap-content .inline-math {
+    padding: 0 0.125rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+  }
+  .tiptap-content .inline-math:hover,
+  .tiptap-content .inline-math-selected {
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+  .tiptap-content .entity-card {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+    transition: border-color 150ms;
+  }
+  .tiptap-content .entity-card:hover {
+    border-color: color-mix(in oklab, var(--border), var(--foreground) 15%);
+  }
+  .tiptap-content .entity-card-picker {
+    max-width: 22rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--popover);
+    overflow: hidden;
+  }
+  /* Image, video, audio and file blocks (`MediaBlock.tsx`). */
+  .tiptap-content .media-image,
+  .tiptap-content .media-video {
+    display: block;
+    max-width: 100%;
+    max-height: 36rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border);
+  }
+  .tiptap-content .media-video {
+    width: 100%;
+    background: #000;
+  }
+  .tiptap-content .media-caption {
+    width: 100%;
+    margin-top: 0.25rem;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+  .tiptap-content .media-caption::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0;
+  }
+  .tiptap-content [data-node-view-wrapper]:hover > .media-caption::placeholder,
+  .tiptap-content .media-caption:focus::placeholder {
+    opacity: 0.6;
+  }
+  .tiptap-content .media-card {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content .media-toolbar {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 150ms;
+  }
+  .tiptap-content .group\/media:hover .media-toolbar,
+  .tiptap-content .media-toolbar:focus-within {
+    opacity: 1;
+  }
+  .tiptap-content .embed-frame {
+    display: block;
+    width: 100%;
+    aspect-ratio: var(--embed-aspect);
+    height: var(--embed-height);
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content .bookmark-card {
+    height: 6.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+    transition: border-color 150ms;
+  }
+  .tiptap-content .bookmark-card:hover {
+    border-color: color-mix(in oklab, var(--border), var(--foreground) 15%);
+  }
+  .tiptap-content .media-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px dashed var(--input);
+    border-radius: 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content hr {
+    margin: 0.75rem 0;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+  .tiptap-content hr.ProseMirror-selectednode {
+    border-top-color: var(--ring);
+  }
+  /* Custom blocks (`custom-block-extensions.ts`). The row based ones share the code
+     block's header and surface, so every structured block reads as one family. */
+  .tiptap-content .custom-block {
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+  }
+  .tiptap-content .custom-block-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2rem;
+    padding: 0 0.625rem;
+    background: var(--accent);
+    border-bottom: 1px solid var(--border);
+  }
+  .tiptap-content .custom-block-title {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+  .tiptap-content .custom-block-title::placeholder {
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+  .tiptap-content .custom-block-body {
+    padding: 0.5rem 0.625rem 0.375rem;
+    background: var(--block-surface);
+  }
+  .tiptap-content .custom-block-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    padding: 0;
+  }
+  .tiptap-content .custom-block-input::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+  .tiptap-content .ProseMirror-selectednode.custom-block,
+  .tiptap-content .ProseMirror-selectednode > .custom-block {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  .tiptap-content .callout {
+    --callout-tone: var(--accent-blue);
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem 0.375rem 0.375rem;
+    border-radius: 0.375rem;
+    border: 1px solid color-mix(in oklab, var(--callout-tone) 25%, var(--border));
+    background: color-mix(in oklab, var(--callout-tone) 7%, var(--card));
+  }
+  .tiptap-content .callout[data-variant="tip"] {
+    --callout-tone: var(--accent-green);
+  }
+  .tiptap-content .callout[data-variant="warning"] {
+    --callout-tone: var(--accent-yellow);
+  }
+  .tiptap-content .callout[data-variant="danger"] {
+    --callout-tone: var(--destructive);
+  }
+  .tiptap-content .callout-icon {
+    color: var(--callout-tone);
+  }
+  .tiptap-content .callout p {
+    margin: 0;
+  }
+  /* Syntax highlighting token colors come from decorations as inline `style` attributes
+     (see `highlighter.ts`, `twinkleplop-highlighter.ts` / `shiki-theme.ts`) — every color there
+     is already one of this app's own accent tokens, so there's no separate stylesheet-side
+     theme to keep in sync. */
+  .tiptap-content .tableWrapper {
+    margin: 0.5rem 0;
+    overflow-x: auto;
+  }
+  /* `separate` rather than `collapse`: collapsed borders ignore `border-radius`. Each cell
+     draws only its right/bottom edge, the first row/column add the outer top/left edge, so
+     no line is ever doubled. */
+  .tiptap-content table {
+    --table-border: color-mix(in oklab, var(--border), var(--foreground) 15%);
+    --table-radius: 0.375rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    width: 100%;
+  }
+  .tiptap-content td,
+  .tiptap-content th {
+    position: relative;
+    min-width: 3rem;
+    border-right: 1px solid var(--table-border);
+    border-bottom: 1px solid var(--table-border);
+    padding: 0.375rem 0.5rem;
+    vertical-align: top;
+  }
+  .tiptap-content td {
+    background: var(--block-surface);
+  }
+  .tiptap-content tr:first-child > * {
+    border-top: 1px solid var(--table-border);
+  }
+  .tiptap-content tr > :first-child {
+    border-left: 1px solid var(--table-border);
+  }
+  .tiptap-content tr:first-child > :first-child {
+    border-top-left-radius: var(--table-radius);
+  }
+  .tiptap-content tr:first-child > :last-child {
+    border-top-right-radius: var(--table-radius);
+  }
+  .tiptap-content tr:last-child > :first-child {
+    border-bottom-left-radius: var(--table-radius);
+  }
+  .tiptap-content tr:last-child > :last-child {
+    border-bottom-right-radius: var(--table-radius);
+  }
+  .tiptap-content th {
+    /* `--muted` equals `--background` in light mode (both #f2f2f2) — the header row would be
+       invisible there. `--accent` reliably differs from `--background` in both themes (same
+       token the code block header uses for the same reason). */
+    background: var(--accent);
+    font-weight: 700;
+    text-align: left;
+  }
+  .tiptap-content td p,
+  .tiptap-content th p {
+    margin: 0;
+  }
+  .tiptap-content .selectedCell::after {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-radius: inherit;
+    content: "";
+    pointer-events: none;
+  }
+  /* Whole blocks picked by their grip or by a multi-block selection
+     (`block-selection.ts`). An overlay rather than a background, so it also
+     tints blocks that paint their own surface (code blocks, table cells). */
+  .tiptap-content .block-selected {
+    position: relative;
+  }
+  .tiptap-content .block-selected::after {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-radius: var(--radius-sm);
+    content: "";
+    pointer-events: none;
+  }
+  .tiptap-content.has-block-selection::selection,
+  .tiptap-content.has-block-selection ::selection {
+    background: transparent;
+  }
+  .tiptap-content .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: -2px;
+    z-index: 20;
+    width: 4px;
+    background-color: var(--primary);
+    pointer-events: none;
+  }
+  /* Past the table's outer edge the handle would overflow `.tableWrapper`
+     (`overflow-x: auto`), toggling its scrollbar on every show/hide, which moves the
+     cursor off the handle and makes it flicker. */
+  .tiptap-content tr > :last-child .column-resize-handle {
+    right: 0;
+  }
+  .tiptap-content tr:last-child > * .column-resize-handle {
+    bottom: 0;
+  }
+  .tiptap-content.resize-cursor {
+    cursor: col-resize;
+  }
+  .tiptap-content ul,
+  .tiptap-content ol {
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+  .tiptap-content ul {
+    list-style: disc;
+  }
+  .tiptap-content ol {
+    list-style: decimal;
+  }
+  .tiptap-content li {
+    margin: 0.125rem 0;
+  }
+  .tiptap-content a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .tiptap-content p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--muted-foreground);
+  }
+}
+
+/* Concave fillet corners for the dashboard mascot corner cutout, rounding off
+ * the transitions where the cutout meets the card's top and right borders. */
+.mascot-corner-badge {
+  border-radius: 0 12px 0 85% / 0 12px 0 70%;
+}
+
+.mascot-corner-badge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -20px;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  background: radial-gradient(circle 20px at 0% 100%, transparent 19.5px, var(--background) 20px);
+}
+
+.mascot-corner-badge::after {
+  content: "";
+  position: absolute;
+  bottom: -20px;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  background: radial-gradient(circle 20px at 0% 100%, transparent 19.5px, var(--background) 20px);
+}
+
+/* Sidebar mascot's cycling quick-stat line — a small vertical ticker: the
+ * outgoing stat slides up and out while the incoming one slides up and in,
+ * overlapping briefly instead of a flat cut. */
+@keyframes sidebar-stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(65%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sidebar-stat-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-65%);
+  }
+}
+
+.sidebar-mascot-stat-in {
+  animation: sidebar-stat-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-mascot-stat-out {
+  position: absolute;
+  inset: 0;
+  animation: sidebar-stat-out 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* A highlighted run in the file viewer's code, styled from the highlighter's
+   inline CSS mapped onto custom properties (`files/code-viewer.tsx`). */
+.code-token {
+  color: var(--token-color, inherit);
+  font-style: var(--token-font-style, normal);
+  font-weight: var(--token-font-weight, inherit);
+  text-decoration: var(--token-decoration, none);
+}
+
+/* Word documents in the file viewer (`files/office-viewers.tsx`): docx-preview's
+   own grey backdrop gives way to the viewer's themed one. */
+.docx-viewer .docx-wrapper {
+  background: transparent;
+  padding: 1rem 1rem 0;
+}
+.docx-viewer .docx-wrapper > section.docx {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+  margin-bottom: 1rem;
+}
+/* Dark colors: pages inverted with hue kept, like PDFs; a shadow would invert to a glow. */
+.docx-viewer.docx-inverted .docx-wrapper > section.docx {
+  filter: invert(1) hue-rotate(180deg);
+  box-shadow: none;
+}
+
+/* Spreadsheet cells in the file viewer, styled from the workbook through custom properties. */
+.sheet-col {
+  width: var(--col-width);
+}
+.sheet-cell {
+  background: var(--cell-fill, transparent);
+  color: var(--cell-color, var(--cell-default-color, inherit));
+  font-weight: var(--cell-weight, inherit);
+  font-style: var(--cell-style, normal);
+  text-align: var(--cell-align, left);
+}
+.sheet-cell-on-fill {
+  --cell-default-color: var(--color-neutral-900);
+}
+
+/* The answer side of an index card: a red header rule and blue writing lines, like
+   the paper ones. `--card-rule` is the line pitch; text on it uses the same line height. */
+.index-card-ruled {
+  --card-rule: 28px;
+  --card-header: calc(var(--card-rule) * 2);
+  background-color: var(--card);
+  background-image:
+    linear-gradient(
+      to bottom,
+      var(--card) 0 calc(var(--card-header) - 1.5px),
+      color-mix(in oklab, var(--accent-pink) 45%, transparent) calc(var(--card-header) - 1.5px)
+        var(--card-header),
+      transparent var(--card-header)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--card-rule) - 1px),
+      color-mix(in oklab, var(--accent-blue) 18%, transparent) calc(var(--card-rule) - 1px)
+        var(--card-rule)
+    );
+}
+
+/* Index card paper: a hairline shadow plus a soft drop, so the card sits on the page. */
+.index-card-paper {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 8px 24px -12px rgb(0 0 0 / 0.25);
+}
+/* A card laid out in the deck grid lifts a little under the pointer. */
+.index-card-mini {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  transition:
+    translate 150ms ease,
+    box-shadow 150ms ease;
+}
+.index-card-mini:hover {
+  translate: 0 -2px;
+  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.3);
+}
+.index-card-code {
+  font-size: 0.9em;
+}
+/* One edge of the deck pile, `--depth` cards down, tilted alternately. */
+.deck-stack-layer {
+  transform: translateY(calc(var(--depth) * -3px)) rotate(var(--tilt));
+  opacity: calc(1 - var(--depth) * 0.18);
+}

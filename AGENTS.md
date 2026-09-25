@@ -6,6 +6,7 @@ Full project docs live in `/docs/`. Read `/docs/00-index.md` first, every sessio
 
 Quick map:
 
+- Where does code go, how do imports work? Read `development/monorepo.md`.
 - Building a new module? Read `01-philosophy.md`, `02-entity-model.md`, then the matching file in `03-modules/`.
 - Touching sidebar/navigation? Read `04-navigation-spaces.md`.
 - Building or fixing any UI? Read `05-ui-ux-direction.md`. Non-negotiable.
@@ -13,7 +14,7 @@ Quick map:
 - Tempted to add a feature (notifications, git, cloud sync, plugin loading)? Check `07-deferred-scope.md` first. Probably deferred on purpose.
 - Ambiguous UX/product judgment call? Read `08-vision-and-motivation.md`.
 
-Never modify existing primitive components or design tokens. Add new ones only.
+Never modify existing primitive components or design tokens (`packages/ui`). Add new ones only.
 
 Button or Badge `variant="outline"` is for rare, special-case emphasis only. Default to `secondary` or `ghost`.
 Icon buttons containing no label always need a short tooltip explaining the action (e.g. "Open Page", "Delete Note" etc.).

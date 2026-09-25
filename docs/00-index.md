@@ -14,11 +14,12 @@ Read the files in this folder before building any feature. Do not skip this step
 - [`06-decisions-log.md`](06-decisions-log.md): why decisions were made. Check it before reversing any decision.
 - [`07-deferred-scope.md`](07-deferred-scope.md): what is explicitly out of scope. Do not build any of it unless told to.
 - [`08-vision-and-motivation.md`](08-vision-and-motivation.md): the reasoning behind the app. Use it for judgment calls the other docs do not cover.
+- [`development/`](development/): repo layout ([`monorepo.md`](development/monorepo.md)) and reference tables.
 - [`skills/`](skills/): focused guides for specific tasks.
 
 ## Hard Rules (never violate)
 
-1. Never modify existing primitive components or design tokens. Only add new ones.
+1. Never modify existing primitive components or design tokens (`packages/ui`). Only add new ones.
 2. All module config is global. It is never set per Space.
 3. The relationship system is the only way to link entities. Never invent another one.
 4. Every entity is soft deleted. Never hard delete.

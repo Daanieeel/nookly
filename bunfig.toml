@@ -1,0 +1,3 @@
+[install]
+# Every workspace resolves dependencies from the root node_modules, as before the monorepo.
+linker = "hoisted"

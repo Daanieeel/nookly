@@ -1,0 +1,55 @@
+import { useEffect, useState } from "react";
+import { create } from "zustand";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { preferences } from "#/lib/preferences.ts";
+
+export type Theme = "light" | "dark" | "system";
+
+export function getStoredTheme(): Theme {
+  const stored = preferences.get(STORAGE_KEYS.theme);
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+}
+
+function systemPrefersDark(): boolean {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+export function applyTheme(theme: Theme): void {
+  const isDark = theme === "dark" || (theme === "system" && systemPrefersDark());
+  document.documentElement.classList.toggle("dark", isDark);
+}
+
+export function setTheme(theme: Theme): void {
+  preferences.set(STORAGE_KEYS.theme, theme);
+  applyTheme(theme);
+}
+
+/// Called once before React renders, so the correct theme class is already on
+/// <html> before first paint — no light-mode flash on dark-system machines.
+export function initTheme(): void {
+  applyTheme(getStoredTheme());
+}
+
+/// The chosen theme, shared so every control (the sidebar toggle, the command
+/// palette's theme actions) reflects a change made from any of them.
+export const useThemeStore = create<{ theme: Theme; setTheme: (theme: Theme) => void }>((set) => ({
+  theme: getStoredTheme(),
+  setTheme: (theme) => {
+    setTheme(theme);
+    set({ theme });
+  },
+}));
+
+/// Whether the app currently draws dark, following the system when the theme
+/// is "system".
+export function useIsDark(): boolean {
+  const theme = useThemeStore((s) => s.theme);
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setSystemDark(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return theme === "dark" || (theme === "system" && systemDark);
+}

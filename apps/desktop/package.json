@@ -1,0 +1,36 @@
+{
+  "name": "@nookly/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner",
+    "build": "vite build --configLoader runner",
+    "preview": "vite preview --configLoader runner",
+    "tauri": "tauri",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "lint:rust": "cargo clippy --quiet --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "check:rust": "cargo check --quiet --manifest-path src-tauri/Cargo.toml",
+    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "format:check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+    "icons:mac": "cd src-tauri/icons && xcrun actool \"$(pwd)/Nookly.icon\" --compile \"$(pwd)\" --output-partial-info-plist /dev/null --app-icon Nookly --include-all-app-icons --platform macosx --target-device mac --minimum-deployment-target 10.13 > /dev/null && rm -f Nookly.icns"
+  },
+  "dependencies": {
+    "@nookly/frontend": "workspace:*",
+    "@nookly/ui": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@nookly/config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^22",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.0.16"
+  }
+}

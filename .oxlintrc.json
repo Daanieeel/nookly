@@ -1,5 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./packages/config/oxlint/base.json"],
+  "plugins": ["jsx-a11y", "react-perf"],
   "ignorePatterns": [
     "**/dist/**",
     "**/target/**",
@@ -14,91 +16,6 @@
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
-    "tools/oxlint/anti-slop/**"
-  ],
-  "jsPlugins": [
-    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" },
-    "@shadcn/lint",
-    "eslint-plugin-better-tailwindcss"
-  ],
-  "settings": {
-    "better-tailwindcss": { "entryPoint": "src/styles.css" }
-  },
-  "plugins": ["jsx-a11y", "react-perf"],
-  "rules": {
-    "anti-slop/no-chained-type-assertions": "error",
-    "anti-slop/no-conditional-empty-object-spread": "error",
-    "anti-slop/no-known-value-widening": "error",
-    "anti-slop/no-module-mocking": "error",
-    "anti-slop/no-object-parameters": "error",
-    "anti-slop/no-reflect-apply": "error",
-    "anti-slop/no-reflect-get": "error",
-    "anti-slop/no-runtime-typeof": ["error", { "allowInTypeGuards": true }],
-    "anti-slop/no-shape-in-symbol-names": "error",
-    "anti-slop/no-unknown-parameters": "error",
-    "anti-slop/no-unknown-returns": "error",
-    "anti-slop/no-unknown-type-aliases": "error",
-    "anti-slop/no-unsafe-dictionary-type": "error",
-    "anti-slop/no-widen-then-assert": "error",
-    "anti-slop/require-safety-comment-for-type-assertion": "error",
-    "shadcn/no-restyle": [
-      "error",
-      {
-        "allow": ["layout", "typography", "spacing"],
-        "contracts": [
-          {
-            "pattern": "^Skeleton$",
-            "allow": ["layout", "typography", "spacing", "shape"],
-            "message": "Skeleton has no variants - it stands in for arbitrary content shapes, so its shape always needs to match whatever it's replacing."
-          },
-          {
-            "pattern": "^TableRow$",
-            "allow": ["layout", "typography", "spacing", "color", "shape", "effects"],
-            "message": "TableRow is a structural primitive with no variants - selection/drag/drop-target feedback has no other way to express itself."
-          },
-          {
-            "pattern": "^TableCell$",
-            "allow": ["layout", "typography", "spacing", "color"],
-            "message": "TableCell is a structural primitive with no variants - per-column text color (e.g. muted secondary data) has no other way to express itself."
-          },
-          {
-            "pattern": "^CopyButton$",
-            "allow": ["layout", "typography", "spacing", "color", "shape", "effects"],
-            "message": "CopyButton is a bare icon button with no variants - every caller (a code block's hover affordance, an inline value's copy icon, ...) needs its own chrome to fit its surroundings."
-          }
-        ]
-      }
-    ],
-    "shadcn/no-raw-colors": "error",
-    "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"] }],
-    "shadcn/no-inline-styles": ["error", { "allow": ["transform", "transition"] }],
-    "shadcn/no-unknown-classes": "error",
-    "shadcn/require-static-classes": "error",
-    "better-tailwindcss/enforce-canonical-classes": "error"
-  },
-  "overrides": [
-    {
-      "files": ["src/components/ui/**"],
-      "rules": {
-        "shadcn/no-restyle": "off",
-        "shadcn/no-arbitrary-values": "off",
-        "shadcn/require-static-classes": "off"
-      }
-    },
-    {
-      "files": ["src/components/ui/scroll-progress.tsx"],
-      "rules": {
-        "anti-slop/no-runtime-typeof": "off",
-        "anti-slop/require-safety-comment-for-type-assertion": "off",
-        "shadcn/no-inline-styles": "off"
-      }
-    },
-    {
-      "files": ["src/features/notes/language-marks.tsx"],
-      "rules": {
-        "shadcn/no-raw-colors": "off",
-        "shadcn/no-inline-styles": "off"
-      }
-    }
+    "**/anti-slop/**"
   ]
 }

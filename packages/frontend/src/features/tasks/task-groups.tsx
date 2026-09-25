@@ -1,0 +1,83 @@
+import { IconCalendarEvent, IconTagOff } from "@tabler/icons-react";
+import type { GroupDef } from "#/components/grouped-view/grouping.ts";
+import { LabelDot } from "#/components/label-chip.tsx";
+import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
+import { cn } from "@nookly/ui/lib/utils";
+import {
+  DUE_BUCKETS,
+  type DueBucket,
+  type Grouping,
+  START_BUCKETS,
+  type StatusKind,
+  dayBucket,
+} from "./task-model";
+import { TaskStatusIcon } from "./task-properties";
+
+/// The groups a grouping splits tasks into, each with its header glyph. `null`
+/// for no grouping.
+export function taskGroupDefs(
+  grouping: Grouping,
+  statuses: TaskStatus[],
+  labels: Label[],
+  kindOf: (statusId: string) => StatusKind,
+): GroupDef<Task>[] | null {
+  switch (grouping) {
+    case "status":
+      return statuses.map((status) => ({
+        id: status.id,
+        name: status.name,
+        icon: <TaskStatusIcon status={status} kind={kindOf(status.id)} />,
+        match: (t) => t.statusId === status.id,
+      }));
+    case "label":
+      // A task with two labels shows up under both, as in Linear.
+      return [
+        ...labels.map((label) => ({
+          id: label.id,
+          name: label.name,
+          icon: (
+            <span className="flex size-3.5 items-center justify-center">
+              <LabelDot label={label} />
+            </span>
+          ),
+          match: (t: Task) => t.labelIds.includes(label.id),
+        })),
+        {
+          id: "no-label",
+          name: "No label",
+          icon: <IconTagOff size={14} className="text-muted-foreground" />,
+          match: (t: Task) => t.labelIds.length === 0,
+        },
+      ];
+    case "start":
+      return dateGroupDefs(START_BUCKETS, (t) => t.startDate, false);
+    case "due":
+      return dateGroupDefs(DUE_BUCKETS, (t) => t.dueDate, true);
+    case "none":
+      return null;
+  }
+}
+
+/// One group per date bucket. Only due dates tint overdue and today, since a
+/// start date in the past is no warning.
+function dateGroupDefs(
+  buckets: { id: DueBucket; label: string }[],
+  day: (task: Task) => string | null,
+  urgent: boolean,
+): GroupDef<Task>[] {
+  return buckets.map((b) => ({
+    id: b.id,
+    name: b.label,
+    icon: (
+      <IconCalendarEvent
+        size={14}
+        className={cn(
+          "text-muted-foreground",
+          urgent && b.id === "overdue" && "text-destructive",
+          urgent && b.id === "today" && "text-caution",
+        )}
+      />
+    ),
+    match: (t) => dayBucket(day(t)) === b.id,
+  }));
+}

@@ -33,6 +33,7 @@ jobs:
         with:
           ref: ${{ env.TAG }}
       - name: Compare tag with package.json, Cargo.toml and tauri.conf.json
+        working-directory: apps/desktop
         run: |
           expected="${TAG#v}"
           pkg=$(node -p "require('./package.json').version")
@@ -82,7 +83,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: apps/desktop/src-tauri
           key: ${{ matrix.target }}
 
       - uses: oven-sh/setup-bun@v2
@@ -99,6 +100,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: apps/desktop
           tagName: ${{ env.TAG }}
           releaseName: Nookly ${{ env.TAG }}
           releaseBody: "See the assets below to download and install for your platform."

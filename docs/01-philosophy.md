@@ -2,7 +2,7 @@
 
 ## Primitives Are Frozen
 
-The component library and Tailwind design system already exist. Never edit an existing primitive. Adding new ones is always fine.
+The component library and Tailwind design system already exist in `@nookly/ui` (`packages/ui`). Never edit an existing primitive. Adding new ones is always fine.
 
 ## Data Providers and Viewers
 
