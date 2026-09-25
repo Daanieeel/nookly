@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.1.5 (2026-09-25)
+
+### Changed
+
+- Format sidebar.tsx
+- Dependency updates (#16)
+
+### Fixed
+
+- Fix module & space dragging
+
 ## 0.1.3 (2026-09-25)
 
 ### Added
