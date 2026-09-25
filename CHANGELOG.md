@@ -2,6 +2,27 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.1.2 (2026-09-25)
+
+### Changed
+
+- Move to monorepo
+- V0.1.0
+- Separate dev data
+- Never honor NOOKLY_DATA_DIR in a release build
+- Update BookmarkSheet.tsx
+- Back up the database right before a pending migration runs
+- Update mod.rs
+- Monorepo (#11)
+
+### Fixed
+
+- Fix table column misalignment in preference-keys.md
+
+### Documentation
+
+- Update AGENTS.md
+
 ## 0.0.0 (2026-09-24)
 
 ### Added
