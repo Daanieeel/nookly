@@ -1,10 +1,15 @@
 name: Release
 
 # Push a tag like `v0.2.0` to build installers for every platform and attach
-# them to a draft GitHub release. Once every build succeeds, SHA256SUMS is
+# them to a GitHub release. Once every build succeeds, SHA256SUMS is
 # uploaded, the notes are rewritten (GitHub's generated "What's Changed" plus
 # download links), and CHANGELOG.md on `main` is regenerated and committed.
-# Review the draft, then publish it by hand.
+# Pushing the tag is the publish step; the release goes live as soon as the
+# builds finish. GitHub draft releases get a temporary `untagged-<hash>`
+# asset path that's reassigned on every edit, so any link written into a
+# draft's notes is dead by the time the edit that added it returns. Only a
+# published release has the permanent `download/$TAG/<file>` path this
+# workflow's notes rely on.
 on:
   push:
     tags: ["v*"]
@@ -104,7 +109,7 @@ jobs:
           tagName: ${{ env.TAG }}
           releaseName: Nookly ${{ env.TAG }}
           releaseBody: "See the assets below to download and install for your platform."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: ${{ contains(env.TAG, '-') }}
           args: --target ${{ matrix.target }}
 
@@ -133,15 +138,19 @@ jobs:
 
           gh api "repos/$REPO/releases/generate-notes" -f tag_name="$TAG" --jq .body > changelog.md
 
-          # A draft release's assets live under a permanent `untagged-<id>` download
-          # path, not `download/$TAG/<name>` — that URL only starts existing once
-          # (if ever) GitHub relinks it on publish, so hand-building it from the tag
-          # produced dead links here before. `gh`'s own `url` field on each asset is
-          # always the real, currently valid download URL, draft or published.
+          # A draft release's assets live under a temporary `untagged-<id>` download
+          # path that gets reassigned on every edit to the release (including the
+          # `gh release edit` below), so any link built from it is dead by the time
+          # this job returns. `download/$TAG/<name>` is the permanent path, but it
+          # only resolves once the release is published — the release is created
+          # non-draft above, so it's live already and this path is stable.
           assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets')
+          base="https://github.com/$REPO/releases/download/$TAG"
 
           find_url() {
-            echo "$assets" | jq -r --arg pat "$1" '[.[] | select(.name | test($pat; "i"))][0].url // empty'
+            local name
+            name=$(echo "$assets" | jq -r --arg pat "$1" '[.[] | select(.name | test($pat; "i"))][0].name // empty')
+            [ -n "$name" ] && echo "$base/$name"
           }
 
           mac_arm=$(find_url '_aarch64\.dmg$')
