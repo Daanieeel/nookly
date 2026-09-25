@@ -1,4 +1,19 @@
 import {
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   IconAlertTriangle,
   IconChevronRight,
   IconDotsVertical,
@@ -109,36 +124,66 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+/// The floating preview a Space row shows while it follows the pointer during a drag.
+function SpaceDragPreview({ space }: { space: Space }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-sidebar px-2 py-1.5 text-sm shadow-md">
+      <span
+        className="flex size-4 shrink-0 items-center justify-center text-(--space-color)"
+        // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+        // string — `CSSProperties` just doesn't model custom properties.
+        style={{ "--space-color": space.color } as CSSProperties}
+      >
+        {space.icon ? renderIconValue(space.icon, 16) : <IconFolder className="size-4" />}
+      </span>
+      <span className="truncate">{space.name}</span>
+    </div>
+  );
+}
+
+/// The floating preview a module row shows while it follows the pointer during a drag.
+function ModuleDragPreview({ moduleKey }: { moduleKey: ModuleKey }) {
+  const Icon = MODULE_ICONS[moduleKey];
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-sidebar px-2 py-1.5 text-sm shadow-md">
+      <Icon className="size-4" />
+      <span className="truncate">{MODULE_LABELS[moduleKey]}</span>
+    </div>
+  );
+}
+
 export function AppSidebar() {
   const { view, setView, expandedSpaceIds } = useNavStore();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
-  const [draggedSpaceId, setDraggedSpaceId] = useState<string | null>(null);
-  const [dragOverSpaceId, setDragOverSpaceId] = useState<string | null>(null);
+  const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
+  const spaceSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  );
   const reorder = useMutation({
     mutationFn: reorderSpaces,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["spaces"] }),
   });
 
-  function dropSpace(targetId: string) {
-    const draggedId = draggedSpaceId;
-    setDraggedSpaceId(null);
-    setDragOverSpaceId(null);
-    if (!draggedId || draggedId === targetId) return;
+  function handleSpaceDragEnd(event: DragEndEvent) {
+    setActiveSpaceId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
     const ids = spaces.map((s) => s.id);
-    const from = ids.indexOf(draggedId);
-    const to = ids.indexOf(targetId);
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
     if (from === -1 || to === -1) return;
-    ids.splice(from, 1);
-    ids.splice(to, 0, draggedId);
+    const nextIds = arrayMove(ids, from, to);
     const byId = new Map(spaces.map((s) => [s.id, s]));
     queryClient.setQueryData<Space[]>(
       ["spaces"],
-      ids.flatMap((id) => byId.get(id) ?? []),
+      nextIds.flatMap((id) => byId.get(id) ?? []),
     );
-    reorder.mutate(ids);
+    reorder.mutate(nextIds);
   }
+
+  const activeSpace = spaces.find((s) => s.id === activeSpaceId);
 
   return (
     <Sidebar
@@ -188,23 +233,30 @@ export function AppSidebar() {
             <TooltipContent side="top">New Space</TooltipContent>
           </Tooltip>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {spaces.map((space) => (
-                <SpaceMenuItem
-                  key={space.id}
-                  space={space}
-                  expanded={expandedSpaceIds.includes(space.id)}
-                  dragOver={dragOverSpaceId === space.id && draggedSpaceId !== space.id}
-                  onDragHandleStart={() => setDraggedSpaceId(space.id)}
-                  onDragHandleEnd={() => {
-                    setDraggedSpaceId(null);
-                    setDragOverSpaceId(null);
-                  }}
-                  onDragOverRow={() => draggedSpaceId && setDragOverSpaceId(space.id)}
-                  onDropRow={() => dropSpace(space.id)}
-                />
-              ))}
-            </SidebarMenu>
+            <DndContext
+              sensors={spaceSensors}
+              onDragStart={(e) => setActiveSpaceId(String(e.active.id))}
+              onDragEnd={handleSpaceDragEnd}
+              onDragCancel={() => setActiveSpaceId(null)}
+            >
+              <SortableContext
+                items={spaces.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <SidebarMenu>
+                  {spaces.map((space) => (
+                    <SpaceMenuItem
+                      key={space.id}
+                      space={space}
+                      expanded={expandedSpaceIds.includes(space.id)}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SortableContext>
+              <DragOverlay dropAnimation={null}>
+                {activeSpace && <SpaceDragPreview space={activeSpace} />}
+              </DragOverlay>
+            </DndContext>
             {spaces.length === 0 && (
               <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
                 Use "+" to create your first Space
@@ -243,22 +295,20 @@ export function AppSidebar() {
 function SpaceMenuItem({
   space,
   expanded,
-  dragOver,
-  onDragHandleStart,
-  onDragHandleEnd,
-  onDragOverRow,
-  onDropRow,
 }: {
   space: Space;
   expanded: boolean;
-  /// True while another Space is being dragged over this row, to show a drop indicator.
-  dragOver: boolean;
-  onDragHandleStart: () => void;
-  onDragHandleEnd: () => void;
-  onDragOverRow: () => void;
-  onDropRow: () => void;
 }) {
   const { view, setView, toggleExpandedSpace } = useNavStore();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: space.id });
+  const dragStyle = { transform: CSS.Transform.toString(transform), transition };
   const queryClient = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
@@ -289,26 +339,29 @@ function SpaceMenuItem({
     MODULE_KEYS.some((known) => known === k),
   );
   const unusedKeys = MODULE_KEYS.filter((k) => !used.has(k) && !passengerKeys.has(k));
-  const [draggedModuleKey, setDraggedModuleKey] = useState<ModuleKey | null>(null);
-  const [dragOverModuleKey, setDragOverModuleKey] = useState<ModuleKey | null>(null);
+  const [activeModuleKey, setActiveModuleKey] = useState<ModuleKey | null>(null);
+  const moduleSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  );
   const reorderModules = useMutation({
     mutationFn: (keys: string[]) => reorderSpaceModules(space.id, keys),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["space-modules", space.id] }),
   });
 
-  function dropModule(targetKey: ModuleKey) {
-    const draggedKey = draggedModuleKey;
-    setDraggedModuleKey(null);
-    setDragOverModuleKey(null);
-    if (!draggedKey || draggedKey === targetKey) return;
+  function handleModuleDragEnd(event: DragEndEvent) {
+    setActiveModuleKey(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
     const keys = [...usedKeys];
-    const from = keys.indexOf(draggedKey);
-    const to = keys.indexOf(targetKey);
+    // SAFETY: `active.id` comes from this row's own SortableContext, whose `items`
+    // is `usedKeys` — every id here is one of this space's module keys.
+    const from = keys.indexOf(String(active.id) as ModuleKey);
+    // SAFETY: same as above — `over.id` is also one of this SortableContext's ids.
+    const to = keys.indexOf(String(over.id) as ModuleKey);
     if (from === -1 || to === -1) return;
-    keys.splice(from, 1);
-    keys.splice(to, 0, draggedKey);
-    queryClient.setQueryData(["space-modules", space.id], keys);
-    reorderModules.mutate(keys);
+    const nextKeys = arrayMove(keys, from, to);
+    queryClient.setQueryData(["space-modules", space.id], nextKeys);
+    reorderModules.mutate(nextKeys);
   }
 
   const addModule = useMutation({
@@ -345,14 +398,9 @@ function SpaceMenuItem({
       className="group/space"
     >
       <SidebarMenuItem
-        onDragOver={(e) => {
-          e.preventDefault();
-          onDragOverRow();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          onDropRow();
-        }}
+        ref={setNodeRef}
+        style={dragStyle}
+        className={cn(isDragging && "z-10")}
         {...contextTarget("space", {
           space,
           expanded,
@@ -361,9 +409,6 @@ function SpaceMenuItem({
           openLabels: () => setLabelsOpen(true),
         })}
       >
-        {dragOver && (
-          <div className="pointer-events-none absolute inset-x-1 -top-px z-10 h-0.5 rounded-full bg-primary" />
-        )}
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={space.name} className="pr-16">
             <span className="relative flex size-4 shrink-0 items-center justify-center">
@@ -389,14 +434,10 @@ function SpaceMenuItem({
         >
           <button
             type="button"
+            {...attributes}
+            {...listeners}
             tabIndex={-1}
             aria-label={`Drag to reorder ${space.name}`}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = "move";
-              onDragHandleStart();
-            }}
-            onDragEnd={onDragHandleEnd}
             className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:cursor-grabbing [&>svg]:size-3.5"
           >
             <IconGripVertical />
@@ -447,34 +488,42 @@ function SpaceMenuItem({
         </div>
 
         <CollapsibleContent>
-          <SidebarMenuSub>
-            {usedKeys.map((moduleKey) => {
-              const active =
-                view.kind === "module" && view.spaceId === space.id && view.module === moduleKey;
-              return (
-                <ModuleSubRow
-                  key={moduleKey}
-                  space={space}
-                  moduleKey={moduleKey}
-                  active={active}
-                  onNavigate={() =>
-                    setView({ kind: "module", spaceId: space.id, module: moduleKey })
-                  }
-                  dragOver={dragOverModuleKey === moduleKey && draggedModuleKey !== moduleKey}
-                  onDragHandleStart={() => setDraggedModuleKey(moduleKey)}
-                  onDragHandleEnd={() => {
-                    setDraggedModuleKey(null);
-                    setDragOverModuleKey(null);
-                  }}
-                  onDragOverRow={() => draggedModuleKey && setDragOverModuleKey(moduleKey)}
-                  onDropRow={() => dropModule(moduleKey)}
-                />
-              );
-            })}
-            {usedKeys.length === 0 && (
-              <p className="px-2 py-1.5 text-xs text-sidebar-foreground/50">No modules yet</p>
-            )}
-          </SidebarMenuSub>
+          <DndContext
+            sensors={moduleSensors}
+            // SAFETY: this context's SortableContext `items` is `usedKeys`, so
+            // `active.id` is always one of this space's module keys.
+            onDragStart={(e) => setActiveModuleKey(String(e.active.id) as ModuleKey)}
+            onDragEnd={handleModuleDragEnd}
+            onDragCancel={() => setActiveModuleKey(null)}
+          >
+            <SortableContext items={usedKeys} strategy={verticalListSortingStrategy}>
+              <SidebarMenuSub>
+                {usedKeys.map((moduleKey) => {
+                  const active =
+                    view.kind === "module" &&
+                    view.spaceId === space.id &&
+                    view.module === moduleKey;
+                  return (
+                    <ModuleSubRow
+                      key={moduleKey}
+                      space={space}
+                      moduleKey={moduleKey}
+                      active={active}
+                      onNavigate={() =>
+                        setView({ kind: "module", spaceId: space.id, module: moduleKey })
+                      }
+                    />
+                  );
+                })}
+                {usedKeys.length === 0 && (
+                  <p className="px-2 py-1.5 text-xs text-sidebar-foreground/50">No modules yet</p>
+                )}
+              </SidebarMenuSub>
+            </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeModuleKey && <ModuleDragPreview moduleKey={activeModuleKey} />}
+            </DragOverlay>
+          </DndContext>
         </CollapsibleContent>
       </SidebarMenuItem>
 
@@ -538,54 +587,39 @@ function ModuleSubRow({
   moduleKey,
   active,
   onNavigate,
-  dragOver,
-  onDragHandleStart,
-  onDragHandleEnd,
-  onDragOverRow,
-  onDropRow,
 }: {
   space: Space;
   moduleKey: ModuleKey;
   active: boolean;
   onNavigate: () => void;
-  /// True while another module row is being dragged over this one.
-  dragOver: boolean;
-  onDragHandleStart: () => void;
-  onDragHandleEnd: () => void;
-  onDragOverRow: () => void;
-  onDropRow: () => void;
 }) {
   const Icon = MODULE_ICONS[moduleKey];
   const [childrenOpen, setChildrenOpen] = useState(false);
   const expandable = EXPANDABLE_MODULE_KEYS.has(moduleKey);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: moduleKey });
+  const dragStyle = { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <>
       <SidebarMenuSubItem
-        className="group/module relative"
-        onDragOver={(e) => {
-          e.preventDefault();
-          onDragOverRow();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          onDropRow();
-        }}
+        ref={setNodeRef}
+        style={dragStyle}
+        className={cn("group/module relative", isDragging && "z-10")}
         {...contextTarget("space-module", { spaceId: space.id, module: moduleKey })}
       >
-        {dragOver && (
-          <div className="pointer-events-none absolute inset-x-1 -top-px z-10 h-0.5 rounded-full bg-primary" />
-        )}
         <button
           type="button"
+          {...attributes}
+          {...listeners}
           tabIndex={-1}
           aria-label={`Drag to reorder ${MODULE_LABELS[moduleKey]}`}
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.effectAllowed = "move";
-            onDragHandleStart();
-          }}
-          onDragEnd={onDragHandleEnd}
           className="absolute top-1/2 left-0.5 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-sidebar-foreground/0 group-hover/module:text-sidebar-foreground/40 active:cursor-grabbing"
         >
           <IconGripVertical size={12} />
