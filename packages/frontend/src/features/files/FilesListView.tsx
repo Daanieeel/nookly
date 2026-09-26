@@ -9,6 +9,7 @@ import {
   IconFileUpload,
   IconLink,
   IconRefresh,
+  IconTag,
   IconWorld,
   IconX,
 } from "@tabler/icons-react";
@@ -47,8 +48,13 @@ import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { hostOf, useCaptureScreenshot } from "#/features/bookmarks/bookmark-model.ts";
+import {
+  hostOf,
+  useCaptureScreenshot,
+  useSpaceLabels,
+} from "#/features/bookmarks/bookmark-model.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
+import { LabelDot } from "#/components/label-chip.tsx";
 import { createBookmark, fetchBookmarkMetadata } from "#/lib/api/bookmarks.ts";
 import { convertEntity } from "#/lib/api/entities.ts";
 import {
@@ -136,6 +142,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     queryKey: ["files", spaceId],
     queryFn: () => listFiles(spaceId),
   });
+  const labels = useSpaceLabels(spaceId);
 
   const setDisplay = (next: DisplayOptions) => {
     setDisplayState(next);
@@ -270,6 +277,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
 
   const filterFields = useMemo<FilterField[]>(() => {
     const present = new Set(files.map((f) => fileKind(f).id));
+    const usedLabels = labels.filter((l) => files.some((f) => f.labelIds.includes(l.id)));
     return [
       {
         id: "kind",
@@ -281,11 +289,19 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           icon: <k.icon size={14} className={k.tone} />,
         })),
       },
+      {
+        id: "labels",
+        label: "Labels",
+        icon: IconTag,
+        options: usedLabels.map((l) => ({ value: l.id, label: l.name, icon: <LabelDot label={l} /> })),
+      },
     ];
-  }, [files]);
+  }, [files, labels]);
 
   const visible = orderFiles(
-    applyFilters(files, filters, (f) => fileKind(f).id),
+    applyFilters(files, filters, (f, fieldId) =>
+      fieldId === "labels" ? f.labelIds : fileKind(f).id,
+    ),
     display.ordering,
   );
   const defs = fileGroupDefs(display.grouping);

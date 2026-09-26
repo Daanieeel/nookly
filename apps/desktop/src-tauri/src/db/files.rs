@@ -23,6 +23,8 @@ pub struct FileEntity {
     /// `reindex` bulk action/CLI verb, both a backfill for the gap rather than
     /// something that fires on every write.
     pub needs_reindex: bool,
+    /// Attached Label ids, ordered by label name.
+    pub label_ids: Vec<String>,
 }
 
 fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
@@ -42,7 +44,19 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         original_filename: row.get("original_filename")?,
         source_path,
         needs_reindex,
+        label_ids: Vec::new(),
     })
+}
+
+fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT el.label_id FROM entity_labels el
+         JOIN labels l ON l.id = el.label_id
+         WHERE el.entity_id = ?1
+         ORDER BY l.name ASC",
+    )?;
+    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 /// Copies the source file into `<files_dir>/<uuid>-<original-filename>`, fully decoupled
@@ -470,16 +484,40 @@ pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity
         "{FILE_SELECT} WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at ASC"
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    let mut files = rows.collect::<Result<Vec<_>, _>>()?;
+
+    let index: std::collections::HashMap<String, usize> = files
+        .iter()
+        .enumerate()
+        .map(|(i, f): (usize, &FileEntity)| (f.entity.id.clone(), i))
+        .collect();
+    let mut stmt = conn.prepare(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         JOIN labels l ON l.id = el.label_id
+         WHERE e.space_id = ?1 AND e.type = 'file' AND e.deleted_at IS NULL
+         ORDER BY l.name ASC",
+    )?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        if let Some(&i) = index.get(&entity_id) {
+            files[i].label_ids.push(row.get(1)?);
+        }
+    }
+    Ok(files)
 }
 
 pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
-    conn.query_row(
-        &format!("{FILE_SELECT} WHERE e.id = ?1"),
-        params![entity_id],
-        row_to_file,
-    )
-    .map_err(|_| AppError::NotFound(format!("file {entity_id}")))
+    let mut file = conn
+        .query_row(
+            &format!("{FILE_SELECT} WHERE e.id = ?1"),
+            params![entity_id],
+            row_to_file,
+        )
+        .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
+    file.label_ids = label_ids_for(conn, entity_id)?;
+    Ok(file)
 }
 
 /// Every File missing search content whose type `index_file_content` knows
@@ -1031,5 +1069,44 @@ mod tests {
             Some("dropbox")
         );
         assert_eq!(detect_provider("https://example.com/doc"), None);
+    }
+
+    #[test]
+    fn list_and_get_carry_label_ids_sorted_by_name() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        let file = store_file(&conn, &dir, space.id.clone(), "a.pdf", b"%PDF", None).unwrap();
+        let unlabeled = store_file(&conn, &dir, space.id.clone(), "b.pdf", b"%PDF", None).unwrap();
+
+        let zeta =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Zeta".into(), "#f00".into())
+                .unwrap();
+        let alpha =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Alpha".into(), "#0f0".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &file.entity.id, &zeta.id).unwrap();
+        crate::db::labels::attach_label(&conn, &file.entity.id, &alpha.id).unwrap();
+
+        let listed = list_files(&conn, &space.id).unwrap();
+        let labeled = listed
+            .iter()
+            .find(|f| f.entity.id == file.entity.id)
+            .unwrap();
+        assert_eq!(labeled.label_ids, vec![alpha.id.clone(), zeta.id.clone()]);
+        let still_unlabeled = listed
+            .iter()
+            .find(|f| f.entity.id == unlabeled.entity.id)
+            .unwrap();
+        assert!(still_unlabeled.label_ids.is_empty());
+
+        assert_eq!(
+            get_file(&conn, &file.entity.id).unwrap().label_ids,
+            vec![alpha.id, zeta.id]
+        );
     }
 }

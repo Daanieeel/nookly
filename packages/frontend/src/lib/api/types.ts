@@ -321,6 +321,8 @@ export interface FileEntity {
   /// with no search content yet — never indexed, or the last attempt found
   /// nothing.
   needsReindex: boolean;
+  /// Attached Label ids, ordered by label name.
+  labelIds: string[];
 }
 
 export interface Bookmark {
