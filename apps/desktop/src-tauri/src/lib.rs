@@ -56,6 +56,8 @@ pub fn run() {
             app.manage(external_calendars::ExternalCalendarState::load(
                 &db::resolve_app_data_dir(app.path().app_data_dir()?),
             ));
+            #[cfg(target_os = "macos")]
+            disable_trackpad_magnification(app);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -239,4 +241,25 @@ fn install_panic_hook() {
             }
         }
     }));
+}
+
+/// WKWebView's own pinch-to-zoom (magnifying the whole page) fights with the
+/// PDF viewer's own trackpad zoom: both react to the same gesture at once,
+/// producing a flashing, stuck-after-a-few-percent zoom (`pdf-viewer.tsx`).
+/// The gesture itself still reaches JS as `wheel` events with `ctrlKey` set
+/// either way — that's a lower level translation WebKit does regardless of
+/// this setting — so disabling it here only removes the competing native
+/// zoom, not trackpad pinch support itself.
+#[cfg(target_os = "macos")]
+fn disable_trackpad_magnification(app: &tauri::App) {
+    use objc2_web_kit::WKWebView;
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let _ = window.with_webview(|webview| {
+        // SAFETY: on macOS `inner()` is the window's `WKWebView`, alive for
+        // the life of the window.
+        let view: &WKWebView = unsafe { &*webview.inner().cast::<WKWebView>() };
+        unsafe { view.setAllowsMagnification(false) };
+    });
 }

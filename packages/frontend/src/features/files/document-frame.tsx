@@ -44,21 +44,3 @@ export function InvertibleDocument({
     </div>
   );
 }
-
-/// WebKit's own PDF viewer, which only draws light.
-export function PdfViewer({ src, name }: { src: string; name: string }) {
-  return (
-    <InvertibleDocument>
-      {(pageClass) => (
-        <iframe
-          src={src}
-          title={name}
-          className={cn(
-            "size-full rounded-md border border-border",
-            pageClass && cn("border-transparent", pageClass),
-          )}
-        />
-      )}
-    </InvertibleDocument>
-  );
-}

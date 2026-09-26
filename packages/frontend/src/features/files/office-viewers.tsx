@@ -18,7 +18,8 @@ import {
 } from "#/lib/api/office.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
-import { InvertibleDocument, PdfViewer } from "./document-frame";
+import { InvertibleDocument } from "./document-frame";
+import { PdfViewer } from "./pdf-viewer";
 import { type OfficeFormat, filePath } from "./file-kind";
 
 /// Past these a sheet shows its top left corner; the whole thing is one "Open in" away.

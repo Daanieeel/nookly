@@ -47,7 +47,7 @@ import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-the
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { HighlightedCode, codeLanguage } from "./code-viewer";
-import { PdfViewer } from "./document-frame";
+import { PdfViewer } from "./pdf-viewer";
 import { OfficeViewer } from "./office-viewers";
 import {
   TEXT_EXTENSIONS,
