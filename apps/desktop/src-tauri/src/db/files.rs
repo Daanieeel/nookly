@@ -17,8 +17,9 @@ pub struct FileEntity {
     /// no `local_path` until the file is copied in.
     pub source_path: Option<String>,
     /// Read only. True for a File of an indexable type (pdf, png/jpg, docx,
-    /// pptx, xlsx — see `extractor_for`) that has no search content yet: never
-    /// indexed (imported before this File type became indexable), or the last
+    /// pptx, xlsx, code/plain text files — see `extractor_for`) that has no
+    /// search content yet: never indexed (imported before this File type
+    /// became indexable), or the last
     /// attempt found nothing. Powers the Files page's "Reindex" action and the
     /// `reindex` bulk action/CLI verb, both a backfill for the gap rather than
     /// something that fires on every write.
@@ -120,28 +121,64 @@ pub fn store_file(
     get_file(conn, &entity.id)
 }
 
-/// The extractor a path's extension routes to — the single source of truth
+/// The extractor a path routes to — the single source of truth
 /// `index_file_content` dispatches on and `is_indexable`/`needs_reindex`
 /// check membership against, so the two can never drift apart.
 enum Extractor {
     Pdf,
     Image,
     Office,
+    /// Read as-is: code files, `.txt`/`.md`/`.csv`/`.log`, and anything else
+    /// (recognized extension or not, even none at all) whose content itself
+    /// looks like text rather than a binary format we'd otherwise ignore.
+    PlainText,
 }
+
+/// Extensions read verbatim as text — no OCR needed, they already are text.
+/// Mirrors `packages/frontend/src/features/files/file-kind.ts`'s
+/// `TEXT_EXTENSIONS`, which the file viewer uses for the same distinction.
+const TEXT_EXTENSIONS: &[&str] = &[
+    "txt", "md", "csv", "log", "js", "mjs", "cjs", "jsx", "ts", "tsx", "py", "rs", "go", "java",
+    "c", "h", "cpp", "hpp", "cs", "php", "rb", "json", "html", "htm", "css", "sql", "toml", "yaml",
+    "yml", "ini", "sh", "bash", "zsh",
+];
 
 fn extractor_for(path: &str) -> Option<Extractor> {
-    let ext = Path::new(path).extension()?.to_str()?.to_ascii_lowercase();
-    Some(match ext.as_str() {
-        "pdf" => Extractor::Pdf,
-        "png" | "jpg" | "jpeg" => Extractor::Image,
-        "docx" | "pptx" | "xlsx" => Extractor::Office,
-        _ => return None,
-    })
+    let ext = Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    match ext.as_deref() {
+        Some("pdf") => Some(Extractor::Pdf),
+        Some("png" | "jpg" | "jpeg") => Some(Extractor::Image),
+        Some("docx" | "pptx" | "xlsx") => Some(Extractor::Office),
+        Some(e) if TEXT_EXTENSIONS.contains(&e) => Some(Extractor::PlainText),
+        // No extension (common for `README`, `Dockerfile`, dotfiles like
+        // `.gitignore`) or one we don't otherwise recognize: peek at the
+        // content itself rather than giving up, so a plain text file doesn't
+        // need the "right" extension to become searchable.
+        _ => looks_like_text(path).then_some(Extractor::PlainText),
+    }
 }
 
-/// Whether `path`'s extension is one `index_file_content` knows how to
-/// extract from — a reference-only File whose path has moved, or a type like
-/// video/audio/plain-text with nothing to extract, is never "missing an index".
+/// A file with no NUL byte in its first few KB reads as text — the same
+/// heuristic `git` and the `file` command use to tell text from binary.
+/// Bounded to a small prefix so this stays cheap even for a huge file.
+fn looks_like_text(path: &str) -> bool {
+    use std::io::Read;
+    let Ok(file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut sample = Vec::new();
+    if file.take(8192).read_to_end(&mut sample).is_err() {
+        return false;
+    }
+    !sample.is_empty() && !sample.contains(&0)
+}
+
+/// Whether `path` is one `index_file_content` knows how to extract from — a
+/// reference-only File whose path has moved, or a type like video/audio with
+/// nothing to extract, is never "missing an index".
 fn is_indexable(path: &str) -> bool {
     extractor_for(path).is_some()
 }
@@ -151,7 +188,8 @@ fn is_indexable(path: &str) -> bool {
 /// searchable, not just its file name. Silently skipped for anything not
 /// handled below, or if extraction fails — the File entity itself is
 /// unaffected either way. PDFs and images route through OCR when needed
-/// (`db::ocr`); Office documents through native XML text (`db::office_text`).
+/// (`db::ocr`); Office documents through native XML text (`db::office_text`);
+/// code and other plain text files are read as-is, no extraction needed.
 /// Returns whether text was actually found and indexed.
 fn index_file_content(conn: &Connection, entity_id: &str, path: &str) -> bool {
     let path_ref = Path::new(path);
@@ -159,6 +197,7 @@ fn index_file_content(conn: &Connection, entity_id: &str, path: &str) -> bool {
         Some(Extractor::Pdf) => super::ocr::extract_pdf_text(path_ref),
         Some(Extractor::Image) => super::ocr::extract_image_text(path_ref),
         Some(Extractor::Office) => super::office_text::extract_office_text(path_ref),
+        Some(Extractor::PlainText) => std::fs::read_to_string(path_ref).ok(),
         None => None,
     };
     match text {
@@ -796,9 +835,9 @@ inventory::submit! {
         entity_type: "file",
         name: "needsReindex",
         kind: FieldKind::Boolean,
-        description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx) with no \
-                      search content yet — never indexed, or the last attempt found nothing. \
-                      See the `reindex` bulk action.",
+        description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain \
+                      text files) with no search content yet — never indexed, or the last attempt found \
+                      nothing. See the `reindex` bulk action.",
     }
 }
 
@@ -880,11 +919,68 @@ mod tests {
         let blank = import_file(&conn, &dir, space.id.clone(), &blank_source).unwrap();
         assert!(blank.needs_reindex);
 
-        // A type with no extractor at all (e.g. plain text) is never a candidate.
-        let txt_source = dir.join("readme.txt");
-        std::fs::write(&txt_source, b"whatever").unwrap();
-        let txt = import_file(&conn, &dir, space.id, &txt_source).unwrap();
-        assert!(!txt.needs_reindex);
+        // A type with no extractor at all is never a candidate.
+        let video_source = dir.join("clip.mp4");
+        std::fs::write(&video_source, b"whatever").unwrap();
+        let video = import_file(&conn, &dir, space.id, &video_source).unwrap();
+        assert!(!video.needs_reindex);
+    }
+
+    #[test]
+    fn plain_text_files_are_indexed_by_extension_or_by_sniffing_content() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // A recognized text/code extension is indexed directly, no sniffing needed.
+        let rs_source = dir.join("main.rs");
+        std::fs::write(&rs_source, b"fn main() { println!(\"hi\"); }").unwrap();
+        let rs_file = import_file(&conn, &dir, space.id.clone(), &rs_source).unwrap();
+        assert!(!rs_file.needs_reindex);
+        assert_eq!(
+            get_file(&conn, &rs_file.entity.id)
+                .unwrap()
+                .indexed_content
+                .as_deref(),
+            Some("fn main() { println!(\"hi\"); }")
+        );
+
+        // No extension at all (README, Dockerfile, a dotfile) still gets
+        // indexed once its content is sniffed as text.
+        let readme_source = dir.join("README");
+        std::fs::write(&readme_source, b"Project notes").unwrap();
+        let readme = import_file(&conn, &dir, space.id.clone(), &readme_source).unwrap();
+        assert!(!readme.needs_reindex);
+        assert_eq!(
+            get_file(&conn, &readme.entity.id)
+                .unwrap()
+                .indexed_content
+                .as_deref(),
+            Some("Project notes")
+        );
+
+        // An unrecognized extension is still sniffed and indexed if its
+        // content looks like text.
+        let custom_source = dir.join("data.myformat");
+        std::fs::write(&custom_source, b"key: value").unwrap();
+        let custom = import_file(&conn, &dir, space.id.clone(), &custom_source).unwrap();
+        assert!(!custom.needs_reindex);
+
+        // A NUL byte in the sample reads as binary, so it's never a
+        // reindex candidate even with no extension at all.
+        let binary_source = dir.join("blob");
+        std::fs::write(&binary_source, [0u8, 1, 2, 3]).unwrap();
+        let binary = import_file(&conn, &dir, space.id, &binary_source).unwrap();
+        assert!(!binary.needs_reindex);
+        assert_eq!(
+            get_file(&conn, &binary.entity.id).unwrap().indexed_content,
+            Some(String::new())
+        );
     }
 
     #[test]

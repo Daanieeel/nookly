@@ -317,9 +317,9 @@ export interface FileEntity {
   /// Where a referenced file lives on disk; set without `localPath` until it's
   /// copied into storage.
   sourcePath: string | null;
-  /// Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx)
-  /// with no search content yet — never indexed, or the last attempt found
-  /// nothing.
+  /// Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx,
+  /// code/plain text files) with no search content yet — never indexed, or
+  /// the last attempt found nothing.
   needsReindex: boolean;
   /// Attached Label ids, ordered by label name.
   labelIds: string[];
