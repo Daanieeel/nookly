@@ -519,6 +519,18 @@ letter type prefix and a number. Anywhere a command takes an entity id (includin
 `label attach`, block commands and entity reference `--field` values) you can pass the key
 instead. `search` matches keys too. Space, label, block and relationship ids have no key.
 
+### Bulk actions
+
+Some entity types also expose a bulk action: a verb that runs once across every entity of
+that type instead of targeting one id, listed under `bulkActions` in `describe`:
+
+```
+nookly cli <entity-type> <bulk-action-name> [--space <id>]   # omit --space to run over every Space
+```
+
+`nookly cli file reindex [--space <id>]` is the one that exists today — see "Files: OCR and
+search indexing" below.
+
 ## Reading cheaply
 
 Pages can be large. Before pulling one whole:
@@ -538,6 +550,38 @@ Pages can be large. Before pulling one whole:
   "everything tagged X and Y" doesn't mean a `get` per row and filtering client side. `--fields
   labels` on `list` (not just `get`) returns each row's labels; `label get <id>` is the reverse —
   every entity carrying one label, across types.
+
+## Files: OCR and search indexing
+
+A File's own content — not just its file name — is what `search` and the `--in content`
+filter actually match against. Extraction happens automatically on import/attach/replace, best
+effort:
+
+- Scanned/image-only PDF pages and standalone images (`png`/`jpg`/`jpeg`) go through local OCR.
+  An ordinary text PDF costs nothing extra — only a page the OCR engine's own detector flags as
+  scanned gets OCR'd.
+- `docx`/`pptx`/`xlsx` get their text read directly out of the file's own XML, no OCR needed.
+- Code and plain text files (anything a source-file extension or `.txt`/`.md`/`.csv`/`.log`
+  covers) are read as-is. A file with an unrecognized extension, or no extension at all
+  (`README`, `Dockerfile`, a dotfile), still gets indexed if its content looks like text —
+  extraction isn't gated on knowing the "right" extension.
+- Anything else (video, audio, archives, ...) isn't indexed at all.
+
+`file get <id>` carries two fields for this:
+
+- `needsReindex`: true for an indexable File with no search content yet — never indexed
+  (imported before this existed, or before its extension/content was recognized), or the last
+  attempt found nothing. `list` computes this too, cheaply.
+- `indexedContent`: the exact extracted/OCR'd text last indexed. Only `get` (one File by id)
+  populates it — `list` always returns `null` here, so listing many Files never drags their
+  full extracted text along regardless of size.
+
+To fix a gap: `file update <id> --field reindexContent=true` re-runs extraction for one File
+even if it already has content; `file reindex [--space <id>]` (a bulk action, see above) does
+every File in scope missing content at once and reports `{"checked": <n>, "reindexed": <n>}`.
+Both are safe to run repeatedly — an already-indexed File is left untouched by `reindex`, and
+a File whose extraction genuinely finds nothing (a blank image, an empty spreadsheet) just
+looks like "never tried" and is retried next time rather than treated as a permanent failure.
 
 ## Writing safely
 
@@ -651,6 +695,32 @@ advisory `warning` back when that happens. Prefer real tabs from the start:
 
 ```
 nookly cli note add-block <id> --type table --content "$(printf 'Name\tAge\nAlice\t30\nBob\t25')"
+```
+
+## Child collections: records without their own entity
+
+Some parent entity types own child records that aren't full entities themselves — no key,
+no Space, no relationships. Index Cards under a Deck are the one that exists today.
+`describe <parent-type>` lists these under `childCollections`, each with its own `fields`,
+`computedFields` and `actions`:
+
+```
+nookly cli <parent-type> <plural> <id> [--include-deleted]                  # list a parent's children
+nookly cli <parent-type> add-<singular> <id> --field name=value ...
+nookly cli <parent-type> get-<singular> <child-id>
+nookly cli <parent-type> update-<singular> <child-id> --field name=value ...
+nookly cli <parent-type> delete-<singular> <child-id> --yes                 # soft delete
+nookly cli <parent-type> restore-<singular> <child-id>
+```
+
+Plus whatever named actions that collection declares beyond the generic ones — a Deck's
+cards add `review-card`/`undo-review-card` for spaced repetition review:
+
+```
+nookly cli index_card_deck cards <deck-id>
+nookly cli index_card_deck add-card <deck-id> --field front="Q" --field back="A"
+nookly cli index_card_deck review-card <card-id> --field rating=good
+nookly cli index_card_deck undo-review-card <card-id>
 ```
 
 ## Relationships and search
