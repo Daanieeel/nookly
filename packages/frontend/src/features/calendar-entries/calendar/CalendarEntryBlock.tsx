@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
+import { EntityIcon } from "#/components/entity-icon.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideCalendarEntryOccurrence } from "#/lib/api/calendarEntries.ts";
 import type { CalendarEntry } from "#/lib/api/types.ts";
@@ -12,9 +13,12 @@ import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../../sessions/external-calendars/overlay-layout";
 import { CalendarEntryPopover } from "./CalendarEntryPopover";
 
-/// A calendar entry occurrence on the time grid: solid, tinted with
-/// `--accent-purple` rather than Sessions' `--primary`, so the two modules
-/// never read as the same thing at a glance even when they share a calendar.
+/// A calendar entry occurrence on the time grid: solid and the bolder of the
+/// two (personal entries carry more visual weight than class occurrences),
+/// tinted with `--accent-purple` rather than Sessions' `--primary`, and
+/// carrying its own colored type icon — three signals (shape, hue, icon) so
+/// it never reads as a Session at a glance, even on the unified page where
+/// both get retinted to the same Space color.
 export function CalendarEntryBlock({
   spaceId,
   entry,
@@ -44,10 +48,10 @@ export function CalendarEntryBlock({
     <div
       data-calendar-item
       className={cn(
-        "group absolute top-(--occ-top) left-(--occ-left) z-10 h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md border transition-shadow",
+        "group absolute top-(--occ-top) left-(--occ-left) z-10 h-(--occ-height) w-(--occ-width) overflow-hidden rounded-lg border transition-shadow",
         entry.cancelled
           ? "border-border bg-muted text-muted-foreground"
-          : "border-(--entry-color)/60 bg-(--entry-color)/20 text-foreground shadow-xs",
+          : "border-(--entry-color)/60 bg-(--entry-color)/30 text-foreground shadow-xs",
         highlighted && "ring-2 ring-(--entry-color)",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
@@ -71,14 +75,17 @@ export function CalendarEntryBlock({
           type="button"
           title={entryTooltip(entry)}
           className={cn(
-            "flex size-full flex-col items-stretch justify-start overflow-hidden border-l-3 px-1.5 py-0.5 text-left text-xs",
+            "flex size-full flex-col items-stretch justify-start overflow-hidden border-l-4 px-1.5 py-0.5 text-left text-xs",
             entry.cancelled
               ? "border-l-transparent line-through opacity-60"
-              : "border-l-(--entry-color) hover:bg-(--entry-color)/10",
+              : "border-l-(--entry-color) hover:bg-(--entry-color)/20",
             short && "flex-row items-baseline gap-1.5",
           )}
         >
-          <span className="truncate font-semibold">{displayTitle(entry.entity)}</span>
+          <span className="flex min-w-0 items-center gap-1 font-semibold">
+            <EntityIcon entity={entry.entity} size={14} className="shrink-0 text-(--entry-color)" />
+            <span className="truncate">{displayTitle(entry.entity)}</span>
+          </span>
           <span className="shrink-0 truncate opacity-70">
             {entry.allDay
               ? "All day"
@@ -135,10 +142,10 @@ export function CalendarEntryChip({
         data-calendar-item
         title={entryTooltip(entry)}
         className={cn(
-          "flex h-5 w-full min-w-0 shrink-0 items-center gap-1.5 rounded-sm border-l-3 px-1 text-left text-xs",
+          "flex h-5 w-full min-w-0 shrink-0 items-center gap-1.5 rounded-sm border-l-4 px-1 text-left text-xs",
           entry.cancelled
             ? "border-l-muted-foreground text-muted-foreground line-through hover:bg-accent"
-            : "border-l-(--entry-color) bg-(--entry-color)/15 font-medium hover:bg-(--entry-color)/25",
+            : "border-l-(--entry-color) bg-(--entry-color)/25 font-medium hover:bg-(--entry-color)/35",
           highlighted && "ring-2 ring-(--entry-color)",
         )}
         // SAFETY: see `CalendarEntryBlock` above — a hex color or the `--accent-purple` token.
@@ -150,6 +157,7 @@ export function CalendarEntryChip({
             {formatClock(entry.startTime ?? "00:00")}
           </span>
         )}
+        <EntityIcon entity={entry.entity} size={13} className="shrink-0 text-(--entry-color)" />
         <span className="truncate">{displayTitle(entry.entity)}</span>
       </button>
     </CalendarEntryPopover>

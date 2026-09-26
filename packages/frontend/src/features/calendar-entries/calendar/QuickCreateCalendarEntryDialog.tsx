@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMonths, addWeeks, format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -7,11 +7,13 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
+import { SpaceGlyph } from "#/components/spotlight.tsx";
 import {
   createCalendarEntryTemplate,
   createOneOffCalendarEntry,
   generateCalendarEntryOccurrences,
 } from "#/lib/api/calendarEntries.ts";
+import { listSpaces } from "#/lib/api/spaces.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Checkbox } from "@nookly/ui/components/checkbox";
 import {
@@ -53,21 +55,29 @@ function horizonFor(recurrence: Recurrence, anchor: Date): Date {
 /// Opens on the range picked on the calendar, the same creation surface as
 /// `QuickCreateSessionDialog` — no Course picker (calendar entries have no
 /// required parent), and a recurrence cadence instead of a single "repeat
-/// weekly" checkbox.
+/// weekly" checkbox. `spaceId` is fixed on a per-Space calendar; omitted (the
+/// unified cross-Space Calendar page has no single "current" Space), the
+/// dialog adds its own required Space picker instead.
 export function QuickCreateCalendarEntryDialog({
   spaceId,
   draft,
   onOpenChange,
   onCreated,
 }: {
-  spaceId: string;
+  spaceId?: string;
   draft: SlotRange | null;
   onOpenChange: (open: boolean) => void;
   /// The new occurrences' entity ids, to highlight them on the calendar.
   onCreated: (entityIds: string[]) => void;
 }) {
   const queryClient = useQueryClient();
+  const { data: spaces = [] } = useQuery({
+    queryKey: ["spaces"],
+    queryFn: listSpaces,
+    enabled: spaceId === undefined,
+  });
   const [title, setTitle] = useState("");
+  const [targetSpaceId, setTargetSpaceId] = useState(spaceId ?? "");
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
@@ -78,25 +88,27 @@ export function QuickCreateCalendarEntryDialog({
   useEffect(() => {
     if (!draft) return;
     setTitle("");
+    setTargetSpaceId(spaceId ?? "");
     setAllDay(false);
     setStartTime(minutesToTime(draft.startMin));
     setEndTime(minutesToTime(draft.endMin));
     setLocation("");
     setRecurrence("none");
     setTimeout(() => titleRef.current?.focus(), 0);
-  }, [draft]);
+  }, [draft, spaceId]);
 
   const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
-  const ready = title.trim() !== "" && timesValid;
+  const ready = title.trim() !== "" && targetSpaceId !== "" && timesValid;
 
   const create = useMutation({
     mutationFn: async () => {
       if (!draft) throw new Error("Pick a time first");
+      if (!targetSpaceId) throw new Error("Pick a Space first");
       const date = format(draft.date, "yyyy-MM-dd");
       const nextLocation = location.trim() || null;
       if (recurrence !== "none") {
         const template = await createCalendarEntryTemplate(
-          spaceId,
+          targetSpaceId,
           title.trim(),
           recurrence,
           allDay ? null : startTime,
@@ -113,7 +125,7 @@ export function QuickCreateCalendarEntryDialog({
         return occurrences.map((o) => o.entity.id);
       }
       const occurrence = await createOneOffCalendarEntry(
-        spaceId,
+        targetSpaceId,
         title.trim(),
         date,
         allDay ? null : startTime,
@@ -161,6 +173,23 @@ export function QuickCreateCalendarEntryDialog({
           }}
           className="flex flex-col gap-3"
         >
+          {spaceId === undefined && (
+            <Select value={targetSpaceId} onValueChange={setTargetSpaceId}>
+              <SelectTrigger className="w-full" aria-label="Space">
+                <SelectValue placeholder="Pick a Space…" />
+              </SelectTrigger>
+              <SelectContent>
+                {spaces.map((space) => (
+                  <SelectItem key={space.id} value={space.id}>
+                    <span className="flex items-center gap-2">
+                      <SpaceGlyph space={space} size={14} />
+                      {space.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input
             ref={titleRef}
             placeholder="Title, e.g. Dentist"

@@ -1,10 +1,11 @@
-import { IconCalendarWeek, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { IconCalendarWeek, IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { addDays } from "date-fns";
-import { useCallback, useMemo, useState } from "react";
+import { addDays, isToday } from "date-fns";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { Button } from "@nookly/ui/components/button";
+import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
 import { listCalendarEntriesAll } from "#/lib/api/calendarEntries.ts";
 import { listExternalEvents } from "#/lib/api/externalCalendars.ts";
 import { listSessionsAll } from "#/lib/api/sessions.ts";
@@ -15,6 +16,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import {
   CALENDAR_VIEWS,
   type CalendarView,
+  type SlotRange,
   buildColumns,
   dayKey,
   rangeLabel,
@@ -28,18 +30,23 @@ import {
 import { EXTERNAL_EVENTS_KEY } from "../sessions/external-calendars/external-calendar-sync";
 import { MonthGrid } from "../sessions/calendar/MonthGrid";
 import { TimeGrid } from "../sessions/calendar/TimeGrid";
+import { QuickCreateCalendarEntryDialog } from "../calendar-entries/calendar/QuickCreateCalendarEntryDialog";
 
 /// The fifth cross-Space exception (`docs/04-navigation-spaces.md`): one
 /// unified, space-neutral calendar layering the external overlay (bottom, read
 /// only), every Space's Sessions, and every Space's Calendar entries (both
 /// editable in place, via the same popovers their own per-Space calendars
 /// use), each tinted by its origin Space's own accent color rather than any
-/// single "active" Space's. It has no creation surface of its own — creating
-/// a Session or Calendar entry still happens on its own Space's calendar;
-/// this page is an additional vantage point, not a replacement.
+/// single "active" Space's. Creating a Session still only happens on its own
+/// Space's calendar (a Session needs a Course, and there's no single "current"
+/// Space here to scope one to) — but a calendar entry can be created directly
+/// from here too, the same drag/right-click surface as its own Space's
+/// calendar, just with an added Space picker in the dialog.
 export function UnifiedCalendarView() {
   const [view, setViewState] = useState<CalendarView>(() => readView(STORAGE_KEYS.calendarView));
   const [anchor, setAnchor] = useState(() => new Date());
+  const [draft, setDraft] = useState<SlotRange | null>(null);
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
   const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
 
   const setView = useCallback((next: CalendarView) => {
@@ -84,6 +91,18 @@ export function UnifiedCalendarView() {
     },
     [setView],
   );
+  const startCreate = useCallback(() => {
+    const shown = visibleDays(view, anchor, weekStartsOn);
+    const today = shown.find((d) => isToday(d));
+    const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
+    setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
+  }, [view, anchor, weekStartsOn]);
+
+  useEffect(() => {
+    if (highlightIds.size === 0) return;
+    const timer = setTimeout(() => setHighlightIds(new Set()), SUCCESS_REVERT_MS);
+    return () => clearTimeout(timer);
+  }, [highlightIds]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -152,6 +171,15 @@ export function UnifiedCalendarView() {
               </Tooltip>
             ))}
           </nav>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+                <IconPlus />
+                New entry
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Create a calendar entry</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
@@ -159,8 +187,8 @@ export function UnifiedCalendarView() {
         <MonthGrid
           anchor={anchor}
           columns={columns}
-          highlightIds={new Set()}
-          onSelect={() => {}}
+          highlightIds={highlightIds}
+          onSelect={setDraft}
           onPickDay={pickDay}
           spaceColor={spaceColor}
         />
@@ -168,13 +196,20 @@ export function UnifiedCalendarView() {
         <TimeGrid
           key={view}
           columns={columns}
-          selection={null}
-          highlightIds={new Set()}
-          onSelect={() => {}}
+          selection={draft}
+          highlightIds={highlightIds}
+          onSelect={setDraft}
           onPickDay={pickDay}
+          slotCreateNoun="Calendar Entry"
           spaceColor={spaceColor}
         />
       )}
+
+      <QuickCreateCalendarEntryDialog
+        draft={draft}
+        onOpenChange={(open) => !open && setDraft(null)}
+        onCreated={(ids) => setHighlightIds(new Set(ids))}
+      />
     </div>
   );
 }

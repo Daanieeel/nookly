@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
+import { EntityIcon } from "#/components/entity-icon.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { SessionOccurrence } from "#/lib/api/types.ts";
@@ -12,11 +13,14 @@ import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../external-calendars/overlay-layout";
 import { SessionPopover } from "./SessionPopover";
 
-/// A Session occurrence on the time grid: solid, tinted with the primary color
-/// by default, so it always stands apart from the dashed external events. The
-/// unified cross-Space Calendar page overrides the tint to the occurrence's
-/// own Space accent color instead, via `accentColor`, since there's no single
-/// "active" Space color to fall back on there.
+/// A Session occurrence on the time grid: outlined and quieter than a
+/// calendar entry (personal entries carry more visual weight than class
+/// occurrences), tinted with the primary color by default, and carrying its
+/// own type icon so it reads apart from a calendar entry even when both
+/// share the unified page's per-Space tint. The unified page overrides the
+/// tint to the occurrence's own Space accent color instead, via
+/// `accentColor`, since there's no single "active" Space color to fall back
+/// on there.
 export function SessionBlock({
   spaceId,
   occurrence,
@@ -47,10 +51,10 @@ export function SessionBlock({
     <div
       data-calendar-item
       className={cn(
-        "group absolute top-(--occ-top) left-(--occ-left) z-10 h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md border transition-shadow",
+        "group absolute top-(--occ-top) left-(--occ-left) z-10 h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md transition-shadow",
         occurrence.cancelled
-          ? "border-border bg-muted text-muted-foreground"
-          : "border-(--session-color)/60 bg-(--session-color)/25 text-foreground shadow-xs",
+          ? "border border-border bg-muted text-muted-foreground"
+          : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground",
         highlighted && "ring-2 ring-(--session-color)",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
@@ -74,24 +78,27 @@ export function SessionBlock({
           type="button"
           title={sessionTooltip(occurrence)}
           className={cn(
-            "flex size-full flex-col items-stretch justify-start overflow-hidden border-l-3 px-1.5 py-0.5 text-left text-xs",
-            occurrence.cancelled
-              ? "border-l-transparent line-through opacity-60"
-              : "border-l-(--session-color) hover:bg-(--session-color)/15",
+            "flex size-full flex-col items-stretch justify-start overflow-hidden px-1.5 py-0.5 text-left text-xs",
+            occurrence.cancelled ? "line-through opacity-60" : "hover:bg-(--session-color)/14",
             short && "flex-row items-baseline gap-1.5",
           )}
         >
-          <span className="truncate font-semibold">{displayTitle(occurrence.entity)}</span>
+          <span className="flex min-w-0 items-center gap-1 font-medium">
+            <EntityIcon
+              entity={occurrence.entity}
+              size={11}
+              className="shrink-0 text-(--session-color)"
+            />
+            <span className="truncate">{displayTitle(occurrence.entity)}</span>
+          </span>
           {occurrence.courseTitle && (
-            <span className="min-w-0 truncate opacity-80">{occurrence.courseTitle}</span>
+            <span className="min-w-0 truncate">{occurrence.courseTitle}</span>
           )}
-          <span className="shrink-0 truncate opacity-70">
+          <span className="shrink-0 truncate">
             {formatClock(occurrence.startTime)}
             {short ? "" : ` to ${formatClock(occurrence.endTime)}`}
           </span>
-          {!short && occurrence.location && (
-            <span className="truncate opacity-70">{occurrence.location}</span>
-          )}
+          {!short && occurrence.location && <span className="truncate">{occurrence.location}</span>}
         </button>
       </SessionPopover>
       {!occurrence.cancelled && (
@@ -136,19 +143,18 @@ export function SessionChip({
         data-calendar-item
         title={sessionTooltip(occurrence)}
         className={cn(
-          "flex h-5 w-full min-w-0 shrink-0 items-center gap-1.5 rounded-sm border-l-3 px-1 text-left text-xs",
+          "flex h-5 w-full min-w-0 shrink-0 items-center gap-1.5 rounded-sm px-1 text-left text-xs",
           occurrence.cancelled
-            ? "border-l-muted-foreground text-muted-foreground line-through hover:bg-accent"
-            : "border-l-(--session-color) bg-(--session-color)/20 font-medium hover:bg-(--session-color)/30",
+            ? "border border-transparent text-muted-foreground line-through hover:bg-accent"
+            : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground hover:bg-(--session-color)/14",
           highlighted && "ring-2 ring-(--session-color)",
         )}
         // SAFETY: see `SessionBlock` above — a hex color or the `--primary` token.
         style={{ "--session-color": accentColor ?? "var(--primary)" } as CSSProperties}
         {...entityTarget(occurrence.entity, occurrence)}
       >
-        <span className="shrink-0 text-muted-foreground tabular-nums">
-          {formatClock(occurrence.startTime)}
-        </span>
+        <span className="shrink-0 tabular-nums">{formatClock(occurrence.startTime)}</span>
+        <EntityIcon entity={occurrence.entity} size={11} className="shrink-0 text-(--session-color)" />
         <span className="truncate">{displayTitle(occurrence.entity)}</span>
         {occurrence.courseTitle && (
           <span className="min-w-0 truncate text-muted-foreground">{occurrence.courseTitle}</span>
