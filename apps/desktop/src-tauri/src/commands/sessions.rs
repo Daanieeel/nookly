@@ -74,7 +74,14 @@ pub fn override_occurrence(
 #[tauri::command]
 pub fn list_sessions(state: State<DbState>, space_id: String) -> AppResult<Vec<SessionOccurrence>> {
     let conn = state.0.lock().unwrap();
-    sessions::list_sessions(&conn, &space_id)
+    sessions::list_sessions(&conn, Some(&space_id))
+}
+
+/// Every Session across every Space, for the unified cross-Space Calendar page.
+#[tauri::command]
+pub fn list_sessions_all(state: State<DbState>) -> AppResult<Vec<SessionOccurrence>> {
+    let conn = state.0.lock().unwrap();
+    sessions::list_sessions(&conn, None)
 }
 
 #[tauri::command]

@@ -61,6 +61,11 @@ export function listSessions(spaceId: string): Promise<SessionOccurrence[]> {
   return invoke("list_sessions", { spaceId });
 }
 
+/// Every Session across every Space, for the unified cross-Space Calendar page.
+export function listSessionsAll(): Promise<SessionOccurrence[]> {
+  return invoke("list_sessions_all");
+}
+
 export function listSessionsToday(): Promise<BriefingSession[]> {
   return invoke("list_sessions_today");
 }

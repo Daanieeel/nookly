@@ -236,6 +236,39 @@ export interface OccurrenceOverride {
   notes?: string | null;
 }
 
+export interface CalendarEntry {
+  entity: Entity;
+  templateId: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  cancelled: boolean;
+  location: string | null;
+  description: string | null;
+}
+
+export interface CalendarEntryTemplate {
+  entity: Entity;
+  recurrence: "daily" | "weekly" | "monthly";
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  location: string | null;
+  description: string | null;
+  anchorDate: string;
+}
+
+export interface CalendarEntryOverride {
+  date?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  allDay?: boolean;
+  cancelled?: boolean;
+  location?: string | null;
+  description?: string | null;
+}
+
 export interface Exam {
   entity: Entity;
   examDate: string | null;

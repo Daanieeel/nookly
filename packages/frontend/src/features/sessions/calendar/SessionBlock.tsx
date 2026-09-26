@@ -12,24 +12,32 @@ import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../external-calendars/overlay-layout";
 import { SessionPopover } from "./SessionPopover";
 
-/// A Session occurrence on the time grid: solid, tinted with the primary color,
-/// so it always stands apart from the dashed external events.
+/// A Session occurrence on the time grid: solid, tinted with the primary color
+/// by default, so it always stands apart from the dashed external events. The
+/// unified cross-Space Calendar page overrides the tint to the occurrence's
+/// own Space accent color instead, via `accentColor`, since there's no single
+/// "active" Space color to fall back on there.
 export function SessionBlock({
   spaceId,
   occurrence,
   position,
   highlighted,
+  accentColor,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
   position: BlockPosition;
   /// Briefly true right after the occurrence was created.
   highlighted: boolean;
+  accentColor?: string;
 }) {
   const queryClient = useQueryClient();
   const cancel = useMutation({
     mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] }),
+    // A predicate (not a fixed queryKey) so this also invalidates the
+    // cross-Space ["sessions", "all"] cache the unified Calendar page reads.
+    onSuccess: () =>
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "sessions" }),
   });
   const cancelStatus = statusOf(cancel);
   const cancelLabel =
@@ -42,18 +50,21 @@ export function SessionBlock({
         "group absolute top-(--occ-top) left-(--occ-left) z-10 h-(--occ-height) w-(--occ-width) overflow-hidden rounded-md border transition-shadow",
         occurrence.cancelled
           ? "border-border bg-muted text-muted-foreground"
-          : "border-primary/60 bg-primary/25 text-foreground shadow-xs",
-        highlighted && "ring-2 ring-primary",
+          : "border-(--session-color)/60 bg-(--session-color)/25 text-foreground shadow-xs",
+        highlighted && "ring-2 ring-(--session-color)",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
       // lengths computed from this occurrence's own start/end time and column,
-      // since a per row offset can't be a static Tailwind class.
+      // and `--session-color` only ever receives `accentColor` (a Space's own
+      // validated hex accent) or falls back to the `--primary` token — a per
+      // row/Space value can't be a static Tailwind class.
       style={
         {
           "--occ-top": `${position.top}px`,
           "--occ-height": `${position.height}px`,
           "--occ-left": position.left,
           "--occ-width": position.width,
+          "--session-color": accentColor ?? "var(--primary)",
         } as CSSProperties
       }
       {...entityTarget(occurrence.entity, occurrence)}
@@ -66,7 +77,7 @@ export function SessionBlock({
             "flex size-full flex-col items-stretch justify-start overflow-hidden border-l-3 px-1.5 py-0.5 text-left text-xs",
             occurrence.cancelled
               ? "border-l-transparent line-through opacity-60"
-              : "border-l-primary hover:bg-primary/15",
+              : "border-l-(--session-color) hover:bg-(--session-color)/15",
             short && "flex-row items-baseline gap-1.5",
           )}
         >
@@ -111,10 +122,12 @@ export function SessionChip({
   spaceId,
   occurrence,
   highlighted,
+  accentColor,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
   highlighted: boolean;
+  accentColor?: string;
 }) {
   return (
     <SessionPopover spaceId={spaceId} occurrence={occurrence}>
@@ -126,9 +139,11 @@ export function SessionChip({
           "flex h-5 w-full min-w-0 shrink-0 items-center gap-1.5 rounded-sm border-l-3 px-1 text-left text-xs",
           occurrence.cancelled
             ? "border-l-muted-foreground text-muted-foreground line-through hover:bg-accent"
-            : "border-l-primary bg-primary/20 font-medium hover:bg-primary/30",
-          highlighted && "ring-2 ring-primary",
+            : "border-l-(--session-color) bg-(--session-color)/20 font-medium hover:bg-(--session-color)/30",
+          highlighted && "ring-2 ring-(--session-color)",
         )}
+        // SAFETY: see `SessionBlock` above — a hex color or the `--primary` token.
+        style={{ "--session-color": accentColor ?? "var(--primary)" } as CSSProperties}
         {...entityTarget(occurrence.entity, occurrence)}
       >
         <span className="shrink-0 text-muted-foreground tabular-nums">

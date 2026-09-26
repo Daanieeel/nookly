@@ -394,6 +394,54 @@ fn all() -> Vec<M<'static>> {
         -- in agreement. No separate column needed.
         ALTER TABLE files DROP COLUMN added_at;
         ",
+    ), M::up(
+        "
+        -- Appointments (calendar-module plan): first-class, per-Space personal
+        -- calendar entries, structurally separate from Sessions (no required
+        -- Course, no external sync). Same template/occurrence shape as
+        -- Sessions, but recurrence carries its own cadence rather than being
+        -- fixed weekly, and start/end time are nullable for an all-day entry.
+        CREATE TABLE appointment_templates (
+            entity_id TEXT PRIMARY KEY REFERENCES entities(id),
+            recurrence TEXT NOT NULL,
+            start_time TEXT,
+            end_time TEXT,
+            all_day INTEGER NOT NULL DEFAULT 0,
+            location TEXT,
+            description TEXT,
+            anchor_date TEXT NOT NULL
+        );
+        CREATE TABLE appointments (
+            entity_id TEXT PRIMARY KEY REFERENCES entities(id),
+            template_id TEXT REFERENCES entities(id),
+            date TEXT NOT NULL,
+            start_time TEXT,
+            end_time TEXT,
+            all_day INTEGER NOT NULL DEFAULT 0,
+            cancelled INTEGER NOT NULL DEFAULT 0,
+            location TEXT,
+            description TEXT
+        );
+        CREATE INDEX idx_appointments_template ON appointments(template_id);
+        ",
+    ), M::up(
+        "
+        -- Renamed the 'Appointments' module to 'Calendar' before its first
+        -- release (module name only; a Session stays a Session). The previous
+        -- migration already shipped in dev builds, so this fixes forward
+        -- instead of editing it: rename the tables, then re-point every
+        -- existing row's entity type and key prefix. No real installs have
+        -- any of these rows yet, but the backfill is written as if they did.
+        ALTER TABLE appointment_templates RENAME TO calendar_entry_templates;
+        ALTER TABLE appointments RENAME TO calendar_entries;
+        DROP INDEX IF EXISTS idx_appointments_template;
+        CREATE INDEX idx_calendar_entries_template ON calendar_entries(template_id);
+
+        UPDATE entities SET type = 'calendar_entry_template', key_prefix = 'CAL'
+            WHERE type = 'appointment_template';
+        UPDATE entities SET type = 'calendar_entry', key_prefix = 'CAL'
+            WHERE type = 'appointment';
+        ",
     )]
 }
 
@@ -440,6 +488,8 @@ mod history {
         0x310de7fa98b47141,
         0x33accb3a50c78805,
         0x21582437e68c7d02,
+        0xd13dbd1f7a779ef2,
+        0xc8a0501233f85db1,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

@@ -15,6 +15,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   IconAlertTriangle,
+  IconCalendarWeek,
   IconChevronRight,
   IconDotsVertical,
   IconFolder,
@@ -204,6 +205,16 @@ export function AppSidebar() {
             >
               <IconLayoutDashboard />
               <span>Dashboard</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Calendar"
+              isActive={view.kind === "calendar"}
+              onClick={() => setView({ kind: "calendar" })}
+            >
+              <IconCalendarWeek />
+              <span>Calendar</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

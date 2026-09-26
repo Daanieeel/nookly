@@ -2,6 +2,7 @@ pub mod ascii_frame;
 pub mod assignments;
 pub mod block_types;
 pub mod bookmarks;
+pub mod calendar;
 pub mod courses;
 pub mod decks;
 pub mod entities;

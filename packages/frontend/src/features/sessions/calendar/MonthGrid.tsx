@@ -1,6 +1,7 @@
 import { format, isSameMonth, isToday, isWeekend } from "date-fns";
 import { formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { CalendarEntryChip } from "../../calendar-entries/calendar/CalendarEntryBlock";
 import { ExternalEventChip } from "../external-calendars/ExternalEventBlock";
 import { type DayColumn, type SlotRange, isEmptySpot, weekNumber } from "./calendar-model";
 import { SessionChip } from "./SessionBlock";
@@ -17,15 +18,16 @@ export function MonthGrid({
   columns,
   highlightIds,
   onSelect,
-  spaceId,
   onPickDay,
+  spaceColor,
 }: {
   anchor: Date;
   columns: DayColumn[];
   highlightIds: Set<string>;
   onSelect: (range: SlotRange) => void;
-  spaceId: string;
   onPickDay: (day: Date) => void;
+  /// See `TimeGrid`'s `spaceColor` — only the unified cross-Space Calendar page passes this.
+  spaceColor?: (spaceId: string) => string | undefined;
 }) {
   const weeks = Array.from({ length: Math.ceil(columns.length / 7) }, (_, i) =>
     columns.slice(i * 7, i * 7 + 7),
@@ -49,29 +51,56 @@ export function MonthGrid({
       {weeks.map((week) => (
         <div key={week[0].key} className="flex shrink-0 grow basis-32">
           <div className="grid min-w-0 flex-1 grid-cols-7">
-            {week.map(({ day, key, items, allDay }, index) => {
+            {week.map(({ day, key, items, allDay, allDayCalendarEntries }, index) => {
               const entries = [
                 ...allDay.map((event) => ({
                   id: event.id,
                   node: <ExternalEventChip event={event} />,
                 })),
-                ...items.map((item) =>
-                  item.kind === "session"
-                    ? {
-                        id: item.occurrence.entity.id,
-                        node: (
-                          <SessionChip
-                            occurrence={item.occurrence}
-                            highlighted={highlightIds.has(item.occurrence.entity.id)}
-                            spaceId={spaceId}
-                          />
-                        ),
-                      }
-                    : {
-                        id: item.event.id,
-                        node: <ExternalEventChip event={item.event} showTime />,
-                      },
-                ),
+                ...allDayCalendarEntries.map((calEntry) => ({
+                  id: calEntry.entity.id,
+                  node: (
+                    <CalendarEntryChip
+                      spaceId={calEntry.entity.spaceId}
+                      entry={calEntry}
+                      highlighted={highlightIds.has(calEntry.entity.id)}
+                      accentColor={spaceColor?.(calEntry.entity.spaceId)}
+                    />
+                  ),
+                })),
+                ...items.map((item) => {
+                  if (item.kind === "session") {
+                    return {
+                      id: item.occurrence.entity.id,
+                      node: (
+                        <SessionChip
+                          occurrence={item.occurrence}
+                          highlighted={highlightIds.has(item.occurrence.entity.id)}
+                          spaceId={item.occurrence.entity.spaceId}
+                          accentColor={spaceColor?.(item.occurrence.entity.spaceId)}
+                        />
+                      ),
+                    };
+                  }
+                  if (item.kind === "calendarEntry") {
+                    return {
+                      id: item.entry.entity.id,
+                      node: (
+                        <CalendarEntryChip
+                          spaceId={item.entry.entity.spaceId}
+                          entry={item.entry}
+                          highlighted={highlightIds.has(item.entry.entity.id)}
+                          showTime
+                          accentColor={spaceColor?.(item.entry.entity.spaceId)}
+                        />
+                      ),
+                    };
+                  }
+                  return {
+                    id: item.event.id,
+                    node: <ExternalEventChip event={item.event} showTime />,
+                  };
+                }),
               ];
               return (
                 <div

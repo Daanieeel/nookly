@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { AssignmentDetailView } from "#/features/assignments/AssignmentDetailView.tsx";
+import { CalendarEntryDetailView } from "#/features/calendar-entries/CalendarEntryDetailView.tsx";
 import { CourseDetailView } from "#/features/courses/CourseDetailView.tsx";
 import { SemesterDetailView } from "#/features/courses/SemesterDetailView.tsx";
 import { DeckDetailView } from "#/features/exams/DeckDetailView.tsx";
@@ -32,6 +33,8 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <PageDetailView entity={entity} />;
     case "exam":
       return <ExamDetailView entity={entity} />;
+    case "calendar_entry":
+      return <CalendarEntryDetailView entity={entity} />;
     case "index_card_deck":
       return <DeckDetailView entity={entity} />;
     case "assignment":
