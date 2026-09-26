@@ -256,7 +256,11 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
         id: "labels",
         label: "Labels",
         icon: IconTag,
-        options: usedLabels.map((l) => ({ value: l.id, label: l.name, icon: <LabelDot label={l} /> })),
+        options: usedLabels.map((l) => ({
+          value: l.id,
+          label: l.name,
+          icon: <LabelDot label={l} />,
+        })),
       },
     ];
   }, [files, labels]);
@@ -339,9 +343,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                   icon={<IconRefresh />}
                   label="Reindex"
                   successLabel={
-                    reindexMissing.data
-                      ? `${reindexMissing.data.reindexed} reindexed`
-                      : "Reindexed"
+                    reindexMissing.data ? `${reindexMissing.data.reindexed} reindexed` : "Reindexed"
                   }
                   errorLabel="Couldn't reindex, try again"
                 />

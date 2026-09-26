@@ -111,7 +111,11 @@ function addedBuckets(now: Date): AddedBucket[] {
   // Each prior year on its own, most recent first.
   for (let back = 1; back <= YEAR_BUCKETS_BACK; back++) {
     const year = thisYear - back;
-    buckets.push({ id: `year-${year}`, name: String(year), match: (d) => d.getFullYear() === year });
+    buckets.push({
+      id: `year-${year}`,
+      name: String(year),
+      match: (d) => d.getFullYear() === year,
+    });
   }
 
   buckets.push({ id: "earlier", name: "Earlier", match: () => true });

@@ -54,10 +54,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
   const [showThumbnails, setShowThumbnails] = useState(false);
-  const pageNumbers = useMemo(
-    () => Array.from({ length: numPages }, (_, i) => i + 1),
-    [numPages],
-  );
+  const pageNumbers = useMemo(() => Array.from({ length: numPages }, (_, i) => i + 1), [numPages]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeMatch, setActiveMatch] = useState(0);
@@ -189,7 +186,8 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   }, [activeMatch, matchCount]);
 
   const nextMatch = () => matchCount > 0 && setActiveMatch((i) => (i + 1) % matchCount);
-  const prevMatch = () => matchCount > 0 && setActiveMatch((i) => (i - 1 + matchCount) % matchCount);
+  const prevMatch = () =>
+    matchCount > 0 && setActiveMatch((i) => (i - 1 + matchCount) % matchCount);
 
   const openSearch = () => {
     setSearchOpen(true);
@@ -416,7 +414,12 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="iconSm" aria-label="Close Search" onClick={closeSearch}>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Close Search"
+                  onClick={closeSearch}
+                >
                   <IconX />
                 </Button>
               </TooltipTrigger>
@@ -426,7 +429,12 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="iconSm" aria-label="Find in Document" onClick={openSearch}>
+              <Button
+                variant="ghost"
+                size="iconSm"
+                aria-label="Find in Document"
+                onClick={openSearch}
+              >
                 <IconSearch />
               </Button>
             </TooltipTrigger>

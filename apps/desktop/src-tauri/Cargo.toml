@@ -92,10 +92,7 @@ zip = "4"
 # Standalone image (PNG/JPG/screenshot) decoding for OCR input (`db/ocr.rs`).
 # pdf-inspector's own `ocr-oar` feature already depends on `image`; pinning the
 # same major version here keeps one copy in the dependency tree.
-image = { version = "0.25", default-features = false, features = [
-  "png",
-  "jpeg",
-] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the
 # "Open in" app list (`commands/files.rs`).
