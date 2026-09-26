@@ -3,13 +3,15 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconChevronUp,
+  IconLayoutSidebar,
   IconSearch,
   IconX,
   IconZoomIn,
   IconZoomOut,
 } from "@tabler/icons-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import type { PDFDocumentProxy } from "pdfjs-dist";
+import { Document, Page, Thumbnail, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import "./pdf-viewer.css";
@@ -47,9 +49,15 @@ function escapeRegExp(value: string): string {
 /// WebKit's built-in PDF chrome. Also used for docx/pptx, which convert
 /// through LibreOffice into a PDF first (`office-viewers.tsx`).
 export function PdfViewer({ src, name }: { src: string; name: string }) {
+  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
+  const [showThumbnails, setShowThumbnails] = useState(false);
+  const pageNumbers = useMemo(
+    () => Array.from({ length: numPages }, (_, i) => i + 1),
+    [numPages],
+  );
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeMatch, setActiveMatch] = useState(0);
@@ -57,6 +65,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
+  const thumbnailRefs = useRef(new Map<number, HTMLDivElement>());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const clampScale = (next: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
@@ -107,6 +116,11 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   const goToPage = useCallback(
     (page: number) => {
       const clamped = Math.min(Math.max(1, page), Math.max(1, numPages));
+      // Set directly rather than waiting on the scroll-driven intersection
+      // observer below: a short document that already fits the viewport
+      // never actually scrolls, so nothing would otherwise mark the clicked
+      // page as current.
+      setCurrentPage(clamped);
       pageRefs.current.get(clamped)?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
     [numPages],
@@ -145,6 +159,13 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
     for (const el of pageRefs.current.values()) observer.observe(el);
     return () => observer.disconnect();
   }, [numPages]);
+
+  // Keeps the thumbnail rail following the main document as the user
+  // scrolls it by hand, not just when a thumbnail click drives `currentPage`.
+  useEffect(() => {
+    if (!showThumbnails) return;
+    thumbnailRefs.current.get(currentPage)?.scrollIntoView({ block: "nearest" });
+  }, [currentPage, showThumbnails]);
 
   // Search match count comes straight from the DOM marks `renderMatch` draws
   // (see below), so the counter and the highlights can never disagree. A
@@ -209,6 +230,24 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   return (
     <div className="flex size-full flex-col overflow-hidden rounded-md border border-border">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-popover px-1.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label="Toggle Page Thumbnails"
+              aria-pressed={showThumbnails}
+              disabled={numPages === 0}
+              onClick={() => setShowThumbnails((v) => !v)}
+            >
+              <IconLayoutSidebar />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Toggle Page Thumbnails</TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="mx-1 h-5" />
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -396,8 +435,36 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
         )}
       </div>
 
-      <div className="min-h-0 flex-1">
-        <InvertibleDocument className="block">
+      <div className="flex min-h-0 flex-1">
+        {showThumbnails && (
+          <div className="w-32 shrink-0 space-y-3 overflow-y-auto border-r border-border p-2">
+            {pageNumbers.map((page) => (
+              <div
+                key={page}
+                ref={(el) => {
+                  if (el) thumbnailRefs.current.set(page, el);
+                  else thumbnailRefs.current.delete(page);
+                }}
+                className="flex flex-col items-center gap-1"
+              >
+                <Thumbnail
+                  pdf={pdf ?? undefined}
+                  pageNumber={page}
+                  width={96}
+                  onItemClick={() => goToPage(page)}
+                  className={cn(
+                    "block overflow-hidden rounded-md border-4",
+                    page === currentPage
+                      ? "border-primary"
+                      : "border-transparent hover:border-foreground/30",
+                  )}
+                />
+                <span className="text-xs text-muted-foreground">{page}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <InvertibleDocument className="block min-w-0 flex-1">
           {(pageClass) => (
             <div ref={scrollRef} className="size-full overflow-auto p-4">
               <div
@@ -408,7 +475,10 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
               >
                 <Document
                   file={src}
-                  onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
+                  onLoadSuccess={(doc) => {
+                    setPdf(doc);
+                    setNumPages(doc.numPages);
+                  }}
                   // No <Suspense> boundary anywhere in this app; use the plain
                   // loading/error props instead of thrown promises.
                   suspense={false}
@@ -422,7 +492,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                   // both sides.
                   className="mx-auto w-fit space-y-4"
                 >
-                  {Array.from({ length: numPages }, (_, i) => i + 1).map((page) => (
+                  {pageNumbers.map((page) => (
                     <div
                       key={page}
                       data-page={page}
