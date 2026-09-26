@@ -44,6 +44,13 @@ pub fn new_id() -> String {
 
 pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_data_dir = resolve_app_data_dir(app.path().app_data_dir()?);
+    // `tauri.conf.json`'s `assetProtocol.scope` only ever covers the real,
+    // platform default `$APPDATA` — meaningless once `resolve_app_data_dir`
+    // redirects a debug build elsewhere. Granting the resolved directory here
+    // too keeps the file viewer (asset:// URLs, `convertFileSrc`) working
+    // wherever files actually ended up, dev or production.
+    app.asset_protocol_scope()
+        .allow_directory(&app_data_dir, true)?;
     let conn = connect(&app_data_dir)?;
     app.manage(DbState(Mutex::new(conn)));
     watch_external_changes(app.handle().clone());
