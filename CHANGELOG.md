@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.7.1 (2026-09-26)
+
+### Changed
+
+- Ocr for files (#18)
+
 ## 0.2.0 (2026-09-25)
 
 ### Changed
