@@ -191,6 +191,7 @@ pub fn run() {
             commands::office_install::install_libreoffice,
             commands::entities::convert_entity,
             commands::files::list_files,
+            commands::files::reindex_missing_files,
             commands::files::get_file,
             commands::files::export_file,
             commands::bookmarks::create_bookmark,

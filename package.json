@@ -27,7 +27,11 @@
     "version:bump": "bun tools/bump-version.ts",
     "version:patch": "bun tools/bump-version.ts patch",
     "version:minor": "bun tools/bump-version.ts minor",
-    "version:major": "bun tools/bump-version.ts major"
+    "version:major": "bun tools/bump-version.ts major",
+    "seed:reset": "bash scripts/seed/reset.sh",
+    "seed:mia": "bash scripts/seed/reset.sh mia",
+    "seed:luca": "bash scripts/seed/reset.sh luca",
+    "seed:sara": "bash scripts/seed/reset.sh sara"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",

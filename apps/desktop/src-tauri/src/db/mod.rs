@@ -10,6 +10,8 @@ pub mod files;
 pub mod labels;
 mod migrations;
 pub mod notes;
+mod ocr;
+mod office_text;
 pub mod relationships;
 pub mod schema;
 pub mod search;

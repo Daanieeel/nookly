@@ -26,6 +26,16 @@ export function listFiles(spaceId: string): Promise<FileEntity[]> {
   return invoke("list_files", { spaceId });
 }
 
+export interface ReindexSummary {
+  checked: number;
+  reindexed: number;
+}
+
+/// Backfills search content for every File in this Space missing an index.
+export function reindexMissingFiles(spaceId: string): Promise<ReindexSummary> {
+  return invoke("reindex_missing_files", { spaceId });
+}
+
 /// Copies an imported file out of Nookly's storage to `destination`.
 export function exportFile(entityId: string, destination: string): Promise<void> {
   return invoke("export_file", { entityId, destination });

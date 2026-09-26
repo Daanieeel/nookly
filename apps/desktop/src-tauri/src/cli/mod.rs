@@ -922,6 +922,13 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             block_command(conn, def, verb, args)
         }
         other => {
+            if let Some(bulk) = schema::bulk_actions(entity_type)
+                .into_iter()
+                .find(|a| a.name == other)
+            {
+                let space_id = args.flag("space");
+                return (bulk.run)(conn, space_id.as_deref());
+            }
             if let Some(result) = child_command(conn, def, other, args) {
                 return result;
             }
@@ -937,11 +944,15 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                     )
                 })
                 .collect();
-            let extra = if child_verbs.is_empty() {
-                String::new()
-            } else {
-                format!(", {}", child_verbs.join(", "))
-            };
+            let bulk_verbs: Vec<&str> = schema::bulk_actions(entity_type)
+                .iter()
+                .map(|a| a.name)
+                .collect();
+            let extra = [child_verbs.join(", "), bulk_verbs.join(", ")]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .map(|s| format!(", {s}"))
+                .collect::<String>();
             Err(AppError::InvalidInput(format!(
                 "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
                  update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, \
@@ -2002,6 +2013,55 @@ mod tests {
         // The reverse lookup: every entity carrying a label.
         let reverse = run(&conn, &format!("label get {}", huk.id)).unwrap();
         assert_eq!(reverse["count"], 2);
+
+        drop(conn);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn file_reindex_bulk_action_is_listed_and_dispatches() {
+        let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+        let conn = crate::db::connect(&dir).unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+
+        let described = run(&conn, "describe file").unwrap();
+        let bulk_actions = described["bulkActions"].as_array().unwrap();
+        assert!(bulk_actions.iter().any(|a| a["name"] == "reindex"));
+
+        // A blank .docx has nothing to extract, so it starts out needing a reindex.
+        let source_dir = dir.join("sources");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        let source = source_dir.join("blank.docx");
+        {
+            let file = std::fs::File::create(&source).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("word/document.xml", options).unwrap();
+            std::io::Write::write_all(
+                &mut zip,
+                br#"<w:document xmlns:w="ns"><w:body></w:body></w:document>"#,
+            )
+            .unwrap();
+            zip.finish().unwrap();
+        }
+        let created = run(
+            &conn,
+            &format!(
+                "file create --space {} --title Blank --field localPath={}",
+                space.id,
+                source.display()
+            ),
+        )
+        .unwrap();
+        assert_eq!(created["data"]["needsReindex"], true);
+
+        let summary = run(&conn, &format!("file reindex --space {}", space.id)).unwrap();
+        assert_eq!(summary["checked"], 1);
+        assert_eq!(summary["reindexed"], 0);
+
+        assert!(run(&conn, "file frobnicate").is_err());
 
         drop(conn);
         let _ = std::fs::remove_dir_all(dir);

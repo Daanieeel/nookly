@@ -8,6 +8,7 @@ import {
   IconFile,
   IconFileUpload,
   IconLink,
+  IconRefresh,
   IconWorld,
   IconX,
 } from "@tabler/icons-react";
@@ -50,7 +51,13 @@ import { hostOf, useCaptureScreenshot } from "#/features/bookmarks/bookmark-mode
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { createBookmark, fetchBookmarkMetadata } from "#/lib/api/bookmarks.ts";
 import { convertEntity } from "#/lib/api/entities.ts";
-import { importFile, importFileFromUrl, listFiles, referenceFile } from "#/lib/api/files.ts";
+import {
+  importFile,
+  importFileFromUrl,
+  listFiles,
+  referenceFile,
+  reindexMissingFiles,
+} from "#/lib/api/files.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -204,6 +211,14 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     },
   });
 
+  /// Backfills search content for every File missing an index — the header's
+  /// "Reindex" button, shown only while at least one File still needs it.
+  const reindexMissing = useMutation({
+    mutationFn: () => reindexMissingFiles(spaceId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["files", spaceId] }),
+  });
+  const reindexStatus = useActionStatus(reindexMissing);
+
   const pickStatusRaw = useActionStatus(pickAndImport);
   // A cancelled native open dialog resolves `null`: back to rest, not success.
   const pickStatus: ActionStatus =
@@ -341,6 +356,33 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           </span>
         )}
         <StatusAnnouncer message={dropStatus === "pending" ? null : dropMessage} />
+        {files.some((f) => f.needsReindex) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                disabled={reindexMissing.isPending}
+                onClick={() => reindexStatus === "idle" && reindexMissing.mutate()}
+              >
+                <StatusButtonContent
+                  status={reindexStatus}
+                  icon={<IconRefresh />}
+                  label="Reindex"
+                  successLabel={
+                    reindexMissing.data
+                      ? `${reindexMissing.data.reindexed} reindexed`
+                      : "Reindexed"
+                  }
+                  errorLabel="Couldn't reindex, try again"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Index older files for search</TooltipContent>
+          </Tooltip>
+        )}
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />

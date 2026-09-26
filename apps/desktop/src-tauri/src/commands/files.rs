@@ -121,6 +121,17 @@ pub fn list_files(
     Ok(files)
 }
 
+/// Backfills search content for every File in `space_id` missing an index —
+/// the Files page's "Reindex" button (§ Reindex feature).
+#[tauri::command]
+pub fn reindex_missing_files(
+    state: State<DbState>,
+    space_id: String,
+) -> AppResult<files::ReindexSummary> {
+    let conn = state.0.lock().unwrap();
+    files::reindex_missing(&conn, Some(&space_id))
+}
+
 #[tauri::command]
 pub fn get_file(app: AppHandle, state: State<DbState>, entity_id: String) -> AppResult<FileEntity> {
     let conn = state.0.lock().unwrap();

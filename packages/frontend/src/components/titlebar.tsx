@@ -96,17 +96,14 @@ function SpaceIndicator({ spaceId }: { spaceId: string }) {
 
   return (
     <span className="flex min-w-0 shrink-0 select-none items-center gap-1.5 text-sm text-muted-foreground">
-      {space.icon ? (
-        renderIconValue(space.icon, 14)
-      ) : (
-        <IconFolder
-          size={14}
-          className="shrink-0 text-(--space-color)"
-          // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-          // string — `CSSProperties` just doesn't model custom properties.
-          style={{ "--space-color": space.color } as CSSProperties}
-        />
-      )}
+      <span
+        className="flex shrink-0 items-center text-(--space-color)"
+        // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+        // string — `CSSProperties` just doesn't model custom properties.
+        style={{ "--space-color": space.color } as CSSProperties}
+      >
+        {space.icon ? renderIconValue(space.icon, 14) : <IconFolder size={14} />}
+      </span>
       <span className="max-w-40 truncate">{space.name}</span>
     </span>
   );
@@ -268,7 +265,7 @@ function VersionSection() {
           />
         </Button>
       </div>
-      <UpdateCard className="max-w-64" />
+      <UpdateCard />
     </>
   );
 }
