@@ -323,6 +323,10 @@ export interface FileEntity {
   needsReindex: boolean;
   /// Attached Label ids, ordered by label name.
   labelIds: string[];
+  /// Read only. The full extracted/OCR'd text last indexed for this File.
+  /// Only populated by `getFile` (a single File); `listFiles` always returns
+  /// `null` here to keep listing many Files cheap.
+  indexedContent: string | null;
 }
 
 export interface Bookmark {

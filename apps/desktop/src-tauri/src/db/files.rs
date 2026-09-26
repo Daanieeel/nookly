@@ -1,7 +1,7 @@
 use crate::db::entities::Entity;
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::path::Path;
 
@@ -25,6 +25,13 @@ pub struct FileEntity {
     pub needs_reindex: bool,
     /// Attached Label ids, ordered by label name.
     pub label_ids: Vec<String>,
+    /// The full extracted/OCR'd text last indexed for this File (the exact
+    /// content `search_index` and Cmd+K search against) — `None` for a File
+    /// of an indexable type with nothing indexed yet, and also `None` from
+    /// `list_files`/`files_needing_reindex`, which never fetch it: only
+    /// `get_file` does, so listing many Files never pulls their full text
+    /// along for the ride. Use `nookly cli file get <id>` to read it.
+    pub indexed_content: Option<String>,
 }
 
 fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
@@ -45,6 +52,7 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         source_path,
         needs_reindex,
         label_ids: Vec::new(),
+        indexed_content: None,
     })
 }
 
@@ -57,6 +65,20 @@ fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
     )?;
     let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// The exact text `search_index` holds for this File — empty until something's
+/// been indexed. Every entity gets a `search_index` row at creation (see
+/// `index_entity_title`), so a missing row is defensive, not expected.
+fn indexed_content_for(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(conn
+        .query_row(
+            "SELECT content FROM search_index WHERE entity_id = ?1",
+            params![entity_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .unwrap_or_default())
 }
 
 /// Copies the source file into `<files_dir>/<uuid>-<original-filename>`, fully decoupled
@@ -517,6 +539,7 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
         )
         .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
     file.label_ids = label_ids_for(conn, entity_id)?;
+    file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
     Ok(file)
 }
 
@@ -776,6 +799,18 @@ inventory::submit! {
         description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx) with no \
                       search content yet — never indexed, or the last attempt found nothing. \
                       See the `reindex` bulk action.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "indexedContent",
+        kind: FieldKind::LongText,
+        description: "Read only. The full text last extracted/OCR'd for this File — the exact \
+                      content `search` matches against. Only populated by `get` (a single File by \
+                      id); `list` always returns `null` here to keep listing many Files cheap \
+                      regardless of their extracted text size.",
     }
 }
 
@@ -1108,5 +1143,35 @@ mod tests {
             get_file(&conn, &file.entity.id).unwrap().label_ids,
             vec![alpha.id, zeta.id]
         );
+    }
+
+    #[test]
+    fn get_file_reads_indexed_content_but_list_files_does_not() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("notes.docx");
+        write_docx(&source, "Hello world");
+        let file = import_file(&conn, &dir, space.id.clone(), &source).unwrap();
+
+        assert_eq!(
+            get_file(&conn, &file.entity.id)
+                .unwrap()
+                .indexed_content
+                .as_deref(),
+            Some("Hello world")
+        );
+
+        let listed = list_files(&conn, &space.id).unwrap();
+        let listed_file = listed
+            .iter()
+            .find(|f| f.entity.id == file.entity.id)
+            .unwrap();
+        assert_eq!(listed_file.indexed_content, None);
     }
 }
