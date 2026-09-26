@@ -112,6 +112,19 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
     [numPages],
   );
 
+  // The toolbar's page field: shows the page currently in view, but only
+  // while the user isn't actively typing a page to jump to.
+  const [pageInput, setPageInput] = useState("1");
+  const [editingPage, setEditingPage] = useState(false);
+  useEffect(() => {
+    if (!editingPage) setPageInput(String(currentPage));
+  }, [currentPage, editingPage]);
+  const commitPageInput = () => {
+    const parsed = Number.parseInt(pageInput, 10);
+    if (Number.isFinite(parsed)) goToPage(parsed);
+    setEditingPage(false);
+  };
+
   // Tracks which page is most visible while scrolling, for the page indicator.
   useEffect(() => {
     const root = scrollRef.current;
@@ -224,9 +237,37 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
           </TooltipTrigger>
           <TooltipContent>Next Page</TooltipContent>
         </Tooltip>
-        <span className="px-1 text-xs tabular-nums text-muted-foreground">
-          {numPages > 0 ? `${currentPage} / ${numPages}` : "…"}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="flex items-center gap-0.5 px-1">
+              <Input
+                value={pageInput}
+                aria-label="Page Number"
+                inputMode="numeric"
+                disabled={numPages === 0}
+                onFocus={(e) => {
+                  setEditingPage(true);
+                  e.target.select();
+                }}
+                onChange={(e) => setPageInput(e.target.value.replace(/\D/g, ""))}
+                onBlur={commitPageInput}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  else if (e.key === "Escape") {
+                    setEditingPage(false);
+                    setPageInput(String(currentPage));
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="h-7 w-10 px-1 text-center text-xs tabular-nums"
+              />
+              <span className="text-xs text-muted-foreground">
+                {numPages > 0 ? `/ ${numPages}` : "…"}
+              </span>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Page Number</TooltipContent>
+        </Tooltip>
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
@@ -373,7 +414,13 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                   suspense={false}
                   loading={<p className="p-4 text-sm text-muted-foreground">Loading {name}…</p>}
                   error={<p className="p-4 text-sm text-destructive">Couldn't load {name}.</p>}
-                  className="flex flex-col items-center gap-4"
+                  // A flex `items-center` (or `justify-center`) column only
+                  // lets an overflowing child scroll toward the end, never
+                  // the start — a well known flexbox-centering quirk. Plain
+                  // block centering (`mx-auto` on a shrink-wrapped box) has
+                  // no such limit, so a zoomed-in page stays scrollable on
+                  // both sides.
+                  className="mx-auto w-fit space-y-4"
                 >
                   {Array.from({ length: numPages }, (_, i) => i + 1).map((page) => (
                     <div
