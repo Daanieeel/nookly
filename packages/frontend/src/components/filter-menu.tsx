@@ -241,6 +241,14 @@ function FilterChip({
     onDone?.();
   };
 
+  // Selected options float to the top for fast deselecting, frozen at the
+  // order they were in when the popover opened — recomputing this on every
+  // toggle would reorder options out from under a user mid-click.
+  const [order, setOrder] = useState<string[] | null>(null);
+  const orderedOptions = order
+    ? [...field.options].sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value))
+    : field.options;
+
   function toggle(value: string) {
     const values = filter.values.includes(value)
       ? filter.values.filter((v) => v !== value)
@@ -274,7 +282,20 @@ function FilterChip({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Popover modal>
+      <Popover
+        modal
+        onOpenChange={(next) => {
+          if (next) {
+            const selectedValues = field.options
+              .filter((o) => filter.values.includes(o.value))
+              .map((o) => o.value);
+            const unselectedValues = field.options
+              .filter((o) => !filter.values.includes(o.value))
+              .map((o) => o.value);
+            setOrder([...selectedValues, ...unselectedValues]);
+          }
+        }}
+      >
         <PopoverTrigger asChild>
           <button type="button" className={cn(CHIP_SEGMENT, "font-medium")}>
             {single ? (
@@ -292,7 +313,7 @@ function FilterChip({
             <CommandInput placeholder={`Search ${field.label.toLowerCase()}…`} />
             <CommandList className="p-1">
               <CommandEmpty>No matches.</CommandEmpty>
-              {field.options.map((option) => {
+              {orderedOptions.map((option) => {
                 const checked = filter.values.includes(option.value);
                 return (
                   <CommandItem
