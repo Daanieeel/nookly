@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.8.0 (2026-09-26)
+
+### Changed
+
+- Calendar module (#19)
+
 ## 0.7.1 (2026-09-26)
 
 ### Changed
