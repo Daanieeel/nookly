@@ -1,7 +1,7 @@
 use crate::db::entities::Entity;
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::path::Path;
 
@@ -16,17 +16,70 @@ pub struct FileEntity {
     /// Where a referenced file lives on disk, outside Nookly's storage. Set with
     /// no `local_path` until the file is copied in.
     pub source_path: Option<String>,
+    /// Read only. True for a File of an indexable type (pdf, png/jpg, docx,
+    /// pptx, xlsx, code/plain text files — see `extractor_for`) that has no
+    /// search content yet: never indexed (imported before this File type
+    /// became indexable), or the last
+    /// attempt found nothing. Powers the Files page's "Reindex" action and the
+    /// `reindex` bulk action/CLI verb, both a backfill for the gap rather than
+    /// something that fires on every write.
+    pub needs_reindex: bool,
+    /// Attached Label ids, ordered by label name.
+    pub label_ids: Vec<String>,
+    /// The full extracted/OCR'd text last indexed for this File (the exact
+    /// content `search_index` and Cmd+K search against) — `None` for a File
+    /// of an indexable type with nothing indexed yet, and also `None` from
+    /// `list_files`/`files_needing_reindex`, which never fetch it: only
+    /// `get_file` does, so listing many Files never pulls their full text
+    /// along for the ride. Use `nookly cli file get <id>` to read it.
+    pub indexed_content: Option<String>,
 }
 
 fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
+    let local_path: Option<String> = row.get("local_path")?;
+    let source_path: Option<String> = row.get("source_path")?;
+    let has_indexed_content: bool = row.get("has_indexed_content")?;
+    let needs_reindex = !has_indexed_content
+        && local_path
+            .as_deref()
+            .or(source_path.as_deref())
+            .is_some_and(is_indexable);
     Ok(FileEntity {
         entity: crate::db::entities::row_to_entity(row)?,
-        local_path: row.get("local_path")?,
+        local_path,
         provider: row.get("provider")?,
         url: row.get("url")?,
         original_filename: row.get("original_filename")?,
-        source_path: row.get("source_path")?,
+        source_path,
+        needs_reindex,
+        label_ids: Vec::new(),
+        indexed_content: None,
     })
+}
+
+fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT el.label_id FROM entity_labels el
+         JOIN labels l ON l.id = el.label_id
+         WHERE el.entity_id = ?1
+         ORDER BY l.name ASC",
+    )?;
+    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// The exact text `search_index` holds for this File — empty until something's
+/// been indexed. Every entity gets a `search_index` row at creation (see
+/// `index_entity_title`), so a missing row is defensive, not expected.
+fn indexed_content_for(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(conn
+        .query_row(
+            "SELECT content FROM search_index WHERE entity_id = ?1",
+            params![entity_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .unwrap_or_default())
 }
 
 /// Copies the source file into `<files_dir>/<uuid>-<original-filename>`, fully decoupled
@@ -64,25 +117,92 @@ pub fn store_file(
         "INSERT INTO files (entity_id, local_path, provider, url, original_filename) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![entity.id, local_path, provider, source_url, filename],
     )?;
-    index_pdf_content(conn, &entity.id, &local_path);
+    index_file_content(conn, &entity.id, &local_path);
     get_file(conn, &entity.id)
 }
 
-/// Best-effort PDF text extraction into the search index (Cmd+K, §6): a PDF's
-/// own content becomes keyword-searchable, not just its file name. Silently
-/// skipped for anything else, or if extraction fails (a scanned/image-only PDF
-/// has no text layer, for instance) — the File entity itself is unaffected.
-fn index_pdf_content(conn: &Connection, entity_id: &str, path: &str) {
-    let is_pdf = Path::new(path)
+/// The extractor a path routes to — the single source of truth
+/// `index_file_content` dispatches on and `is_indexable`/`needs_reindex`
+/// check membership against, so the two can never drift apart.
+enum Extractor {
+    Pdf,
+    Image,
+    Office,
+    /// Read as-is: code files, `.txt`/`.md`/`.csv`/`.log`, and anything else
+    /// (recognized extension or not, even none at all) whose content itself
+    /// looks like text rather than a binary format we'd otherwise ignore.
+    PlainText,
+}
+
+/// Extensions read verbatim as text — no OCR needed, they already are text.
+/// Mirrors `packages/frontend/src/features/files/file-kind.ts`'s
+/// `TEXT_EXTENSIONS`, which the file viewer uses for the same distinction.
+const TEXT_EXTENSIONS: &[&str] = &[
+    "txt", "md", "csv", "log", "js", "mjs", "cjs", "jsx", "ts", "tsx", "py", "rs", "go", "java",
+    "c", "h", "cpp", "hpp", "cs", "php", "rb", "json", "html", "htm", "css", "sql", "toml", "yaml",
+    "yml", "ini", "sh", "bash", "zsh",
+];
+
+fn extractor_for(path: &str) -> Option<Extractor> {
+    let ext = Path::new(path)
         .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"));
-    if !is_pdf {
-        return;
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    match ext.as_deref() {
+        Some("pdf") => Some(Extractor::Pdf),
+        Some("png" | "jpg" | "jpeg") => Some(Extractor::Image),
+        Some("docx" | "pptx" | "xlsx") => Some(Extractor::Office),
+        Some(e) if TEXT_EXTENSIONS.contains(&e) => Some(Extractor::PlainText),
+        // No extension (common for `README`, `Dockerfile`, dotfiles like
+        // `.gitignore`) or one we don't otherwise recognize: peek at the
+        // content itself rather than giving up, so a plain text file doesn't
+        // need the "right" extension to become searchable.
+        _ => looks_like_text(path).then_some(Extractor::PlainText),
     }
-    if let Ok(result) = pdf_inspector::process_pdf(path) {
-        if let Some(markdown) = result.markdown {
-            let _ = crate::db::search::index_entity_content(conn, entity_id, &markdown);
-        }
+}
+
+/// A file with no NUL byte in its first few KB reads as text — the same
+/// heuristic `git` and the `file` command use to tell text from binary.
+/// Bounded to a small prefix so this stays cheap even for a huge file.
+fn looks_like_text(path: &str) -> bool {
+    use std::io::Read;
+    let Ok(file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut sample = Vec::new();
+    if file.take(8192).read_to_end(&mut sample).is_err() {
+        return false;
+    }
+    !sample.is_empty() && !sample.contains(&0)
+}
+
+/// Whether `path` is one `index_file_content` knows how to extract from — a
+/// reference-only File whose path has moved, or a type like video/audio with
+/// nothing to extract, is never "missing an index".
+fn is_indexable(path: &str) -> bool {
+    extractor_for(path).is_some()
+}
+
+/// Best-effort content extraction into the search index (Cmd+K, §"File
+/// Indexing & OCR for Search"): a File's own content becomes keyword
+/// searchable, not just its file name. Silently skipped for anything not
+/// handled below, or if extraction fails — the File entity itself is
+/// unaffected either way. PDFs and images route through OCR when needed
+/// (`db::ocr`); Office documents through native XML text (`db::office_text`);
+/// code and other plain text files are read as-is, no extraction needed.
+/// Returns whether text was actually found and indexed.
+fn index_file_content(conn: &Connection, entity_id: &str, path: &str) -> bool {
+    let path_ref = Path::new(path);
+    let text = match extractor_for(path) {
+        Some(Extractor::Pdf) => super::ocr::extract_pdf_text(path_ref),
+        Some(Extractor::Image) => super::ocr::extract_image_text(path_ref),
+        Some(Extractor::Office) => super::office_text::extract_office_text(path_ref),
+        Some(Extractor::PlainText) => std::fs::read_to_string(path_ref).ok(),
+        None => None,
+    };
+    match text {
+        Some(text) => crate::db::search::index_entity_content(conn, entity_id, &text).is_ok(),
+        None => false,
     }
 }
 
@@ -106,7 +226,7 @@ pub fn attach_download(
         "UPDATE files SET local_path = ?1, original_filename = ?2 WHERE entity_id = ?3",
         params![local_path, filename, entity_id],
     )?;
-    index_pdf_content(conn, entity_id, &local_path);
+    index_file_content(conn, entity_id, &local_path);
     get_file(conn, entity_id)
 }
 
@@ -131,7 +251,7 @@ pub fn reference_file(conn: &Connection, space_id: String, path: &Path) -> AppRe
          VALUES (?1, NULL, NULL, NULL, ?2, ?3)",
         params![entity.id, filename, path.to_string_lossy()],
     )?;
-    index_pdf_content(conn, &entity.id, &path.to_string_lossy());
+    index_file_content(conn, &entity.id, &path.to_string_lossy());
     get_file(conn, &entity.id)
 }
 
@@ -176,7 +296,7 @@ pub fn replace_file(
         "UPDATE files SET local_path = ?1, original_filename = ?2 WHERE entity_id = ?3",
         params![local_path, filename, entity_id],
     )?;
-    index_pdf_content(conn, entity_id, &local_path);
+    index_file_content(conn, entity_id, &local_path);
     let title_was_name =
         current.original_filename.as_deref() == Some(current.entity.title.as_str());
     crate::db::entities::update_entity(
@@ -409,24 +529,136 @@ pub fn detect_provider(url: &str) -> Option<&'static str> {
     }
 }
 
+/// `f.*` columns plus whether the entity already has non-empty search content
+/// (a Note/Bookmark-style `LEFT JOIN`, since a File with none yet has no
+/// guarantee of a matching row's content being set — `search_index` itself is
+/// always populated at creation via `index_entity_title`, just with `content = ''`).
+const FILE_SELECT: &str =
+    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, \
+     COALESCE(si.content, '') != '' AS has_indexed_content \
+     FROM entities e \
+     JOIN files f ON f.entity_id = e.id \
+     LEFT JOIN search_index si ON si.entity_id = e.id";
+
 pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity>> {
-    let mut stmt = conn.prepare(
-        "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path FROM entities e
-         JOIN files f ON f.entity_id = e.id
-         WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at ASC",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "{FILE_SELECT} WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at ASC"
+    ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    let mut files = rows.collect::<Result<Vec<_>, _>>()?;
+
+    let index: std::collections::HashMap<String, usize> = files
+        .iter()
+        .enumerate()
+        .map(|(i, f): (usize, &FileEntity)| (f.entity.id.clone(), i))
+        .collect();
+    let mut stmt = conn.prepare(
+        "SELECT el.entity_id, el.label_id FROM entity_labels el
+         JOIN entities e ON e.id = el.entity_id
+         JOIN labels l ON l.id = el.label_id
+         WHERE e.space_id = ?1 AND e.type = 'file' AND e.deleted_at IS NULL
+         ORDER BY l.name ASC",
+    )?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        if let Some(&i) = index.get(&entity_id) {
+            files[i].label_ids.push(row.get(1)?);
+        }
+    }
+    Ok(files)
 }
 
 pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
-    conn.query_row(
-        "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path FROM entities e
-         JOIN files f ON f.entity_id = e.id WHERE e.id = ?1",
-        params![entity_id],
-        row_to_file,
-    )
-    .map_err(|_| AppError::NotFound(format!("file {entity_id}")))
+    let mut file = conn
+        .query_row(
+            &format!("{FILE_SELECT} WHERE e.id = ?1"),
+            params![entity_id],
+            row_to_file,
+        )
+        .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
+    file.label_ids = label_ids_for(conn, entity_id)?;
+    file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
+    Ok(file)
+}
+
+/// Every File missing search content whose type `index_file_content` knows
+/// how to extract from, scoped to one Space or (`None`) every Space — the
+/// candidates for `reindex_missing` and for the Files page's "Reindex" button.
+pub fn files_needing_reindex(
+    conn: &Connection,
+    space_id: Option<&str>,
+) -> AppResult<Vec<FileEntity>> {
+    let mut stmt = conn.prepare(&format!(
+        "{FILE_SELECT} WHERE e.deleted_at IS NULL AND (?1 IS NULL OR e.space_id = ?1) \
+         ORDER BY e.created_at ASC"
+    ))?;
+    let rows = stmt.query_map(params![space_id], row_to_file)?;
+    let files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    Ok(files.into_iter().filter(|f| f.needs_reindex).collect())
+}
+
+/// Re-runs content extraction for one File regardless of whether it already
+/// has indexed content — e.g. to retry after fixing an extractor bug, not
+/// just to backfill a gap. A no-op for a File with no local bytes to read yet
+/// (link-only, or a reference whose source has moved).
+pub fn reindex_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
+    let file = get_file(conn, entity_id)?;
+    if let Some(path) = file.local_path.as_deref().or(file.source_path.as_deref()) {
+        index_file_content(conn, entity_id, path);
+    }
+    get_file(conn, entity_id)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReindexSummary {
+    /// Files found missing an index and attempted.
+    pub checked: u32,
+    /// Of those, how many now have search content — the rest found nothing
+    /// to extract (e.g. a blank image) and are tried again on the next pass.
+    pub reindexed: u32,
+}
+
+/// The backfill for Files that predate this File type becoming indexable, or
+/// predate OCR/office-text extraction existing at all (§"File Indexing & OCR
+/// for Search"): every File missing search content gets one extraction pass.
+/// Scoped to one Space when given, every Space otherwise.
+pub fn reindex_missing(conn: &Connection, space_id: Option<&str>) -> AppResult<ReindexSummary> {
+    let candidates = files_needing_reindex(conn, space_id)?;
+    let mut reindexed = 0u32;
+    for file in &candidates {
+        let Some(path) = file.local_path.as_deref().or(file.source_path.as_deref()) else {
+            continue;
+        };
+        if index_file_content(conn, &file.entity.id, path) {
+            reindexed += 1;
+        }
+    }
+    Ok(ReindexSummary {
+        checked: candidates.len() as u32,
+        reindexed,
+    })
+}
+
+fn reindex_missing_bulk_action(
+    conn: &Connection,
+    space_id: Option<&str>,
+) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(reindex_missing(conn, space_id)?)
+        .expect("ReindexSummary always serializes"))
+}
+
+inventory::submit! {
+    crate::db::schema::BulkActionDef {
+        entity_type: "file",
+        name: "reindex",
+        description: "Runs content extraction for every File missing search content \
+                      (never indexed, or an earlier attempt found nothing) — the backfill for \
+                      Files imported before this File type became indexable. Safe to run \
+                      repeatedly; an already-indexed File is left untouched.",
+        run: reindex_missing_bulk_action,
+    }
 }
 
 /// Corrects when a File was added. This replaces `entity.created_at` itself
@@ -492,6 +724,15 @@ const FILE_FIELDS: &[FieldDef] = &[
                       downloaded; editable to correct it, e.g. for files brought in from another tool. \
                       Replaces the file's created date outright, so the detail view, lists and sort/group \
                       order all agree on it.",
+    },
+    FieldDef {
+        name: "reindexContent",
+        kind: FieldKind::Boolean,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Update only: true re-runs content extraction for this File, even if it \
+                      already has search content. For every File missing an index at once, use the \
+                      `reindex` bulk action instead: nookly cli file reindex [--space <space-id>].",
     },
 ];
 
@@ -566,6 +807,9 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
     if let Some(added) = crate::db::schema::field_str(fields, "added") {
         set_added_at(conn, id, &added)?;
     }
+    if crate::db::schema::field_bool(fields, "reindexContent") == Some(true) {
+        reindex_file(conn, id)?;
+    }
     cli_get_file(conn, id)
 }
 
@@ -587,6 +831,29 @@ fn cli_list_files(
 }
 
 inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "needsReindex",
+        kind: FieldKind::Boolean,
+        description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain \
+                      text files) with no search content yet — never indexed, or the last attempt found \
+                      nothing. See the `reindex` bulk action.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "indexedContent",
+        kind: FieldKind::LongText,
+        description: "Read only. The full text last extracted/OCR'd for this File — the exact \
+                      content `search` matches against. Only populated by `get` (a single File by \
+                      id); `list` always returns `null` here to keep listing many Files cheap \
+                      regardless of their extracted text size.",
+    }
+}
+
+inventory::submit! {
     EntitySchemaDef {
         entity_type: "file",
         supports_blocks: false,
@@ -603,6 +870,190 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    /// A minimal, valid .docx: `office_text::extract_office_text` needs a real
+    /// zip with `word/document.xml`, so this stands in for OCR-dependent
+    /// fixtures (pdf/image) that need real tooling not available in tests.
+    fn write_docx(path: &Path, body_text: &str) {
+        let file = std::fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        zip.start_file("word/document.xml", options).unwrap();
+        let paragraph = if body_text.is_empty() {
+            String::new()
+        } else {
+            format!("<w:p><w:r><w:t>{body_text}</w:t></w:r></w:p>")
+        };
+        zip.write_all(
+            format!(r#"<w:document xmlns:w="ns"><w:body>{paragraph}</w:body></w:document>"#)
+                .as_bytes(),
+        )
+        .unwrap();
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn needs_reindex_reflects_whether_content_was_found() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // A docx with extractable text is indexed on import: no reindex needed.
+        let source = dir.join("notes.docx");
+        write_docx(&source, "Hello world");
+        let file = import_file(&conn, &dir, space.id.clone(), &source).unwrap();
+        assert!(!file.needs_reindex);
+
+        // A docx with nothing to extract looks like "never tried" and stays
+        // a reindex candidate, same as a file imported before this File type
+        // became indexable — intentional (see `is_indexable` doc comment).
+        let blank_source = dir.join("blank.docx");
+        write_docx(&blank_source, "");
+        let blank = import_file(&conn, &dir, space.id.clone(), &blank_source).unwrap();
+        assert!(blank.needs_reindex);
+
+        // A type with no extractor at all is never a candidate.
+        let video_source = dir.join("clip.mp4");
+        std::fs::write(&video_source, b"whatever").unwrap();
+        let video = import_file(&conn, &dir, space.id, &video_source).unwrap();
+        assert!(!video.needs_reindex);
+    }
+
+    #[test]
+    fn plain_text_files_are_indexed_by_extension_or_by_sniffing_content() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // A recognized text/code extension is indexed directly, no sniffing needed.
+        let rs_source = dir.join("main.rs");
+        std::fs::write(&rs_source, b"fn main() { println!(\"hi\"); }").unwrap();
+        let rs_file = import_file(&conn, &dir, space.id.clone(), &rs_source).unwrap();
+        assert!(!rs_file.needs_reindex);
+        assert_eq!(
+            get_file(&conn, &rs_file.entity.id)
+                .unwrap()
+                .indexed_content
+                .as_deref(),
+            Some("fn main() { println!(\"hi\"); }")
+        );
+
+        // No extension at all (README, Dockerfile, a dotfile) still gets
+        // indexed once its content is sniffed as text.
+        let readme_source = dir.join("README");
+        std::fs::write(&readme_source, b"Project notes").unwrap();
+        let readme = import_file(&conn, &dir, space.id.clone(), &readme_source).unwrap();
+        assert!(!readme.needs_reindex);
+        assert_eq!(
+            get_file(&conn, &readme.entity.id)
+                .unwrap()
+                .indexed_content
+                .as_deref(),
+            Some("Project notes")
+        );
+
+        // An unrecognized extension is still sniffed and indexed if its
+        // content looks like text.
+        let custom_source = dir.join("data.myformat");
+        std::fs::write(&custom_source, b"key: value").unwrap();
+        let custom = import_file(&conn, &dir, space.id.clone(), &custom_source).unwrap();
+        assert!(!custom.needs_reindex);
+
+        // A NUL byte in the sample reads as binary, so it's never a
+        // reindex candidate even with no extension at all.
+        let binary_source = dir.join("blob");
+        std::fs::write(&binary_source, [0u8, 1, 2, 3]).unwrap();
+        let binary = import_file(&conn, &dir, space.id, &binary_source).unwrap();
+        assert!(!binary.needs_reindex);
+        assert_eq!(
+            get_file(&conn, &binary.entity.id).unwrap().indexed_content,
+            Some(String::new())
+        );
+    }
+
+    #[test]
+    fn reindex_missing_only_touches_files_without_content_and_reports_counts() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let indexed_source = dir.join("indexed.docx");
+        write_docx(&indexed_source, "Already searchable");
+        let indexed = import_file(&conn, &dir, space.id.clone(), &indexed_source).unwrap();
+
+        let blank_source = dir.join("blank.docx");
+        write_docx(&blank_source, "");
+        let blank = import_file(&conn, &dir, space.id.clone(), &blank_source).unwrap();
+        assert!(blank.needs_reindex);
+
+        // Simulates a file imported before this File type became indexable:
+        // the extractor now finds text, but nothing has re-run it yet.
+        let stale_source = dir.join("stale.docx");
+        write_docx(&stale_source, "Found on reindex");
+        let stale = import_file(&conn, &dir, space.id.clone(), &stale_source).unwrap();
+        crate::db::search::index_entity_content(&conn, &stale.entity.id, "").unwrap();
+        assert!(files_needing_reindex(&conn, Some(&space.id))
+            .unwrap()
+            .iter()
+            .any(|f| f.entity.id == stale.entity.id));
+
+        let summary = reindex_missing(&conn, Some(&space.id)).unwrap();
+        assert_eq!(summary.checked, 2);
+        assert_eq!(summary.reindexed, 1);
+
+        assert!(!get_file(&conn, &indexed.entity.id).unwrap().needs_reindex);
+        assert!(!get_file(&conn, &stale.entity.id).unwrap().needs_reindex);
+        assert!(get_file(&conn, &blank.entity.id).unwrap().needs_reindex);
+    }
+
+    #[test]
+    fn reindex_content_field_reindexes_via_cli_update() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("stale.docx");
+        write_docx(&source, "Content here");
+        let file = import_file(&conn, &dir, space.id, &source).unwrap();
+        crate::db::search::index_entity_content(&conn, &file.entity.id, "").unwrap();
+        assert!(get_file(&conn, &file.entity.id).unwrap().needs_reindex);
+
+        let mut fields = JsonMap::new();
+        fields.insert("reindexContent".into(), serde_json::json!(true));
+        let updated = cli_update_file(&conn, &file.entity.id, &fields).unwrap();
+        assert_eq!(updated["needsReindex"], false);
+    }
+
+    #[test]
+    fn reindex_bulk_action_and_computed_field_are_registered_for_file() {
+        assert!(crate::db::schema::bulk_actions("file")
+            .iter()
+            .any(|a| a.name == "reindex"));
+        assert!(crate::db::schema::computed_fields("file")
+            .iter()
+            .any(|f| f.name == "needsReindex"));
+    }
 
     #[test]
     fn share_links_become_direct_downloads() {
@@ -749,5 +1200,74 @@ mod tests {
             Some("dropbox")
         );
         assert_eq!(detect_provider("https://example.com/doc"), None);
+    }
+
+    #[test]
+    fn list_and_get_carry_label_ids_sorted_by_name() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        let file = store_file(&conn, &dir, space.id.clone(), "a.pdf", b"%PDF", None).unwrap();
+        let unlabeled = store_file(&conn, &dir, space.id.clone(), "b.pdf", b"%PDF", None).unwrap();
+
+        let zeta =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Zeta".into(), "#f00".into())
+                .unwrap();
+        let alpha =
+            crate::db::labels::create_label(&conn, space.id.clone(), "Alpha".into(), "#0f0".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &file.entity.id, &zeta.id).unwrap();
+        crate::db::labels::attach_label(&conn, &file.entity.id, &alpha.id).unwrap();
+
+        let listed = list_files(&conn, &space.id).unwrap();
+        let labeled = listed
+            .iter()
+            .find(|f| f.entity.id == file.entity.id)
+            .unwrap();
+        assert_eq!(labeled.label_ids, vec![alpha.id.clone(), zeta.id.clone()]);
+        let still_unlabeled = listed
+            .iter()
+            .find(|f| f.entity.id == unlabeled.entity.id)
+            .unwrap();
+        assert!(still_unlabeled.label_ids.is_empty());
+
+        assert_eq!(
+            get_file(&conn, &file.entity.id).unwrap().label_ids,
+            vec![alpha.id, zeta.id]
+        );
+    }
+
+    #[test]
+    fn get_file_reads_indexed_content_but_list_files_does_not() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("notes.docx");
+        write_docx(&source, "Hello world");
+        let file = import_file(&conn, &dir, space.id.clone(), &source).unwrap();
+
+        assert_eq!(
+            get_file(&conn, &file.entity.id)
+                .unwrap()
+                .indexed_content
+                .as_deref(),
+            Some("Hello world")
+        );
+
+        let listed = list_files(&conn, &space.id).unwrap();
+        let listed_file = listed
+            .iter()
+            .find(|f| f.entity.id == file.entity.id)
+            .unwrap();
+        assert_eq!(listed_file.indexed_content, None);
     }
 }

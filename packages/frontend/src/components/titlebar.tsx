@@ -17,6 +17,7 @@ import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon, renderIconValue } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { FileViewerThemeToggle } from "#/components/file-viewer-theme-toggle.tsx";
 import { ThemeToggle } from "#/components/theme-toggle.tsx";
 import { UpdateCard } from "#/components/update-card.tsx";
 import { DateTimeSettings } from "#/components/datetime-settings.tsx";
@@ -96,17 +97,14 @@ function SpaceIndicator({ spaceId }: { spaceId: string }) {
 
   return (
     <span className="flex min-w-0 shrink-0 select-none items-center gap-1.5 text-sm text-muted-foreground">
-      {space.icon ? (
-        renderIconValue(space.icon, 14)
-      ) : (
-        <IconFolder
-          size={14}
-          className="shrink-0 text-(--space-color)"
-          // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-          // string — `CSSProperties` just doesn't model custom properties.
-          style={{ "--space-color": space.color } as CSSProperties}
-        />
-      )}
+      <span
+        className="flex shrink-0 items-center text-(--space-color)"
+        // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
+        // string — `CSSProperties` just doesn't model custom properties.
+        style={{ "--space-color": space.color } as CSSProperties}
+      >
+        {space.icon ? renderIconValue(space.icon, 14) : <IconFolder size={14} />}
+      </span>
       <span className="max-w-40 truncate">{space.name}</span>
     </span>
   );
@@ -194,6 +192,10 @@ function SettingsPopover() {
             <span className="text-xs font-medium text-muted-foreground">Theme</span>
             <ThemeToggle />
           </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-muted-foreground">File Viewer Theme</span>
+            <FileViewerThemeToggle />
+          </div>
           <UiSeparator />
           <DateTimeSettings />
           <UiSeparator />
@@ -268,7 +270,7 @@ function VersionSection() {
           />
         </Button>
       </div>
-      <UpdateCard className="max-w-64" />
+      <UpdateCard />
     </>
   );
 }

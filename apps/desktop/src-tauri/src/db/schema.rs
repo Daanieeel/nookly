@@ -191,6 +191,28 @@ pub fn child_collections(parent_type: &str) -> Vec<&'static ChildCollectionDef> 
         .collect()
 }
 
+/// A verb that runs once across every entity of a type instead of targeting
+/// one id, like reindexing every File's search content. Registered next to
+/// the type's schema; the CLI's generic dispatcher exposes it as `<type>
+/// <name> [--space <id>]`, and the GUI calls the same underlying function
+/// through its own command. A new module gets this with zero CLI code beyond
+/// the `run` function itself.
+pub struct BulkActionDef {
+    pub entity_type: &'static str,
+    pub name: &'static str,
+    pub description: &'static str,
+    /// `None` runs across every Space.
+    pub run: fn(&Connection, Option<&str>) -> AppResult<Value>,
+}
+
+inventory::collect!(BulkActionDef);
+
+pub fn bulk_actions(entity_type: &str) -> Vec<&'static BulkActionDef> {
+    inventory::iter::<BulkActionDef>()
+        .filter(|a| a.entity_type == entity_type)
+        .collect()
+}
+
 fn fields_json(fields: &[FieldDef]) -> Vec<Value> {
     fields
         .iter()
@@ -403,6 +425,14 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             .collect::<Vec<_>>(),
         "relationshipTypes": def.relationship_types,
         "childCollections": child_collections_json(def.entity_type),
+        "bulkActions": bulk_actions(def.entity_type)
+            .iter()
+            .map(|a| serde_json::json!({
+                "name": a.name,
+                "description": a.description,
+                "command": format!("nookly cli {} {} [--space <space-id>]", def.entity_type, a.name),
+            }))
+            .collect::<Vec<_>>(),
         "convertsTo": conversions_from(def.entity_type)
             .iter()
             .map(|c| serde_json::json!({

@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.2.0"
+version = "0.7.1"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
@@ -71,9 +71,28 @@ keyring = { version = "3", features = [
   "vendored",
 ] }
 
-# PDF text extraction for Cmd+K search (`db/files.rs::index_pdf_content`), default
-# features only — no OCR/vision runtime.
-pdf-inspector = "1"
+# PDF text extraction and scanned-page OCR for Cmd+K search (`db/files.rs`,
+# `db/ocr.rs`). `Off`-mode OCR routing (the default; `db/ocr.rs` opts individual
+# calls into `Auto`) has no renderer, model-cache, network or inference side
+# effects, so a normal text PDF pays nothing extra. `Auto` mode, used only for
+# a PDF page (or image) actually flagged as scanned, downloads a small local
+# OCR model on first use (cached under the OS cache dir) and needs a system
+# ONNX Runtime shared library (`brew install onnxruntime` on macOS, or set
+# `ORT_DYLIB_PATH`) — best effort, exactly like the LibreOffice dependency in
+# `commands/office.rs`: silently skipped, never blocks the File itself, when
+# missing.
+pdf-inspector = { version = "1", features = ["ocr"] }
+
+# Office document text extraction for search indexing (`db/office_text.rs`):
+# xlsx via calamine, docx/pptx by walking their OOXML zip/XML parts directly.
+calamine = "0.36"
+quick-xml = "0.42"
+zip = "4"
+
+# Standalone image (PNG/JPG/screenshot) decoding for OCR input (`db/ocr.rs`).
+# pdf-inspector's own `ocr-oar` feature already depends on `image`; pinning the
+# same major version here keeps one copy in the dependency tree.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the
 # "Open in" app list (`commands/files.rs`).

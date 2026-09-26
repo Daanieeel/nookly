@@ -1,0 +1,11 @@
+/* Our own PDF viewer's search highlights (`pdf-viewer.tsx`). Feature-local,
+   not a design token: react-pdf injects these as raw HTML into the text
+   layer, where Tailwind classes aren't reliably available. */
+.pdf-search-mark {
+  background-color: rgba(250, 204, 21, 0.5);
+  color: transparent;
+}
+
+.pdf-search-mark-active {
+  background-color: rgba(249, 115, 22, 0.7);
+}

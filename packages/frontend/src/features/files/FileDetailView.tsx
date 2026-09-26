@@ -43,10 +43,11 @@ import {
 } from "#/lib/api/files.ts";
 import type { Entity, FileEntity } from "#/lib/api/types.ts";
 import { formatDate } from "#/lib/datetime.ts";
+import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { HighlightedCode, codeLanguage } from "./code-viewer";
-import { PdfViewer } from "./document-frame";
+import { PdfViewer } from "./pdf-viewer";
 import { OfficeViewer } from "./office-viewers";
 import {
   TEXT_EXTENSIONS,
@@ -141,11 +142,16 @@ function TextViewer({ file, src }: { file: FileEntity; src: string }) {
       return blob.text();
     },
   });
+  const isDark = useFileViewerIsDark();
   if (isError) return <Placeholder file={file} />;
   return (
     <pre
       className={cn(
         "min-h-full rounded-md border border-border bg-muted/30 p-4 font-mono text-xs/relaxed",
+        // The background, border and token colors above all draw from
+        // Tailwind's tokens, so this scopes them to the file viewer's own
+        // theme instead of the app's — `file-viewer-theme.ts`.
+        fileViewerThemeClass(isDark),
         // Code keeps its lines: long ones scroll sideways instead of wrapping.
         wrapsLines(file) ? "wrap-break-word whitespace-pre-wrap" : "overflow-x-auto whitespace-pre",
         text === undefined && "animate-pulse",

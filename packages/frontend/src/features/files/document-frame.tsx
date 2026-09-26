@@ -2,12 +2,13 @@ import { IconMoon, IconSun } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { useIsDark } from "#/lib/theme.ts";
+import { useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// Inverts light document pages in dark mode (hue rotated back, so colors keep
 /// their hue); one click shows the original. `children` gets the class to apply
-/// to the pages, so the themed space around them stays untouched.
+/// to the pages, so the themed space around them stays untouched. Follows the
+/// file viewer's own theme (`file-viewer-theme.ts`), independent of the app's.
 export function InvertibleDocument({
   children,
   className,
@@ -15,7 +16,7 @@ export function InvertibleDocument({
   children: (pageClass: string) => ReactNode;
   className?: string;
 }) {
-  const isDark = useIsDark();
+  const isDark = useFileViewerIsDark();
   const [original, setOriginal] = useState(false);
   const inverted = isDark && !original;
   const label = inverted ? "Show Original Colors" : "Show in Dark Colors";
@@ -41,23 +42,5 @@ export function InvertibleDocument({
         </span>
       )}
     </div>
-  );
-}
-
-/// WebKit's own PDF viewer, which only draws light.
-export function PdfViewer({ src, name }: { src: string; name: string }) {
-  return (
-    <InvertibleDocument>
-      {(pageClass) => (
-        <iframe
-          src={src}
-          title={name}
-          className={cn(
-            "size-full rounded-md border border-border",
-            pageClass && cn("border-transparent", pageClass),
-          )}
-        />
-      )}
-    </InvertibleDocument>
   );
 }

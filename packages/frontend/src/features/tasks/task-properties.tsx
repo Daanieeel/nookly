@@ -204,8 +204,27 @@ export function LabelsPicker({
   const [search, setSearch] = useState("");
   const name = search.trim();
   const exists = labels.some((l) => l.name.toLowerCase() === name.toLowerCase());
+
+  // Selected labels float to the top for fast deselecting, frozen at the
+  // order they were in when the popover opened — recomputing this on every
+  // toggle would reorder options out from under a user mid-click.
+  const [order, setOrder] = useState<string[] | null>(null);
+  const orderedLabels = order
+    ? [...labels].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
+    : labels;
+
   return (
-    <Popover onOpenChange={(open) => !open && setSearch("")}>
+    <Popover
+      onOpenChange={(open) => {
+        if (!open) {
+          setSearch("");
+          return;
+        }
+        const selectedIds = labels.filter((l) => selected.includes(l.id)).map((l) => l.id);
+        const unselectedIds = labels.filter((l) => !selected.includes(l.id)).map((l) => l.id);
+        setOrder([...selectedIds, ...unselectedIds]);
+      }}
+    >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-56" align={align} onKeyDown={stopKeys}>
         <Command loop>
@@ -236,7 +255,7 @@ export function LabelsPicker({
                 <span className="truncate">Create “{name}”</span>
               </CommandItem>
             )}
-            {labels.map((label) => {
+            {orderedLabels.map((label) => {
               const checked = selected.includes(label.id);
               return (
                 <CommandItem key={label.id} value={label.name} onSelect={() => onToggle(label.id)}>

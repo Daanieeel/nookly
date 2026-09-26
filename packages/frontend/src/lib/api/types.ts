@@ -317,6 +317,16 @@ export interface FileEntity {
   /// Where a referenced file lives on disk; set without `localPath` until it's
   /// copied into storage.
   sourcePath: string | null;
+  /// Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx,
+  /// code/plain text files) with no search content yet — never indexed, or
+  /// the last attempt found nothing.
+  needsReindex: boolean;
+  /// Attached Label ids, ordered by label name.
+  labelIds: string[];
+  /// Read only. The full extracted/OCR'd text last indexed for this File.
+  /// Only populated by `getFile` (a single File); `listFiles` always returns
+  /// `null` here to keep listing many Files cheap.
+  indexedContent: string | null;
 }
 
 export interface Bookmark {
