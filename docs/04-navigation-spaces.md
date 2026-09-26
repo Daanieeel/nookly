@@ -33,11 +33,12 @@ When no icon is chosen, the item falls back to its entity type's default icon, r
 
 ## Cross-Space Exceptions
 
-There are exactly four. Adding another requires a deliberate decision.
+There are exactly five. Adding another requires a deliberate decision.
 
 1. **Dashboard:** a single, global page of flat sections. Its content is editable, but the page itself cannot be duplicated. Per-Space and user-created dashboards may come later, but are out of scope for now.
-2. **Pinned:** a section at the top of the sidebar holding individually pinned items of any type from any Space.
-3. **Search:** smart, full-text search across the whole app. It counts as a utility rather than a view, so it ignores the Space wall.
-4. **Recents:** quick access to the last few entities actually opened, of any type and from any Space. Unlike Pinned, it is automatic rather than curated by hand. It lives in the `Cmd+K` palette only; there is no Recents page.
+2. **Calendar:** a unified calendar layering the external calendar overlay, every Space's Sessions, and every Space's Calendar entries into one view, positioned directly below Dashboard. Sessions and Calendar entries render in their origin Space's accent color and are editable in place; the external overlay stays read only. It does not replace either module's own per-Space calendar.
+3. **Pinned:** a section at the top of the sidebar holding individually pinned items of any type from any Space.
+4. **Search:** smart, full-text search across the whole app. It counts as a utility rather than a view, so it ignores the Space wall.
+5. **Recents:** quick access to the last few entities actually opened, of any type and from any Space. Unlike Pinned, it is automatic rather than curated by hand. It lives in the `Cmd+K` palette only; there is no Recents page.
 
 Any future cross-Space feature must be added individually and deliberately. It is not a general capability modules can opt into.

@@ -18,8 +18,14 @@ import { minutesToTime } from "./calendar/calendar-model";
 
 declare module "#/components/context-menu/registry.ts" {
   interface ContextTargets {
-    /// One empty half hour of the calendar's time grid, `startMin` minutes after midnight.
-    "sessions.slot": { startMin: number; startCreate: () => void };
+    /// One empty half hour of a calendar's time grid (Sessions, the Calendar
+    /// module, or the unified cross-Space Calendar page), `startMin` minutes
+    /// after midnight. `noun` names what a right-click here creates.
+    "calendar.slot": {
+      startMin: number;
+      noun: "Session" | "Calendar Entry";
+      startCreate: () => void;
+    };
   }
 }
 
@@ -134,11 +140,13 @@ registerEntityType<SessionOccurrence>({
   ],
 });
 
-registerActions("sessions.slot", [
+// Shared by Sessions', the Calendar module's and the unified Calendar page's time
+// grids — see the `"calendar.slot"` augmentation above.
+registerActions("calendar.slot", [
   {
-    id: "new-session",
+    id: "new-calendar-entry",
     group: "create",
-    label: ({ startMin }) => `New Session at ${formatClock(minutesToTime(startMin))}`,
+    label: ({ startMin, noun }) => `New ${noun} at ${formatClock(minutesToTime(startMin))}`,
     icon: IconPlus,
     afterClose: true,
     run: ({ startCreate }) => startCreate(),

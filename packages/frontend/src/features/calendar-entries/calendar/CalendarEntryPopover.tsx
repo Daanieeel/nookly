@@ -1,5 +1,4 @@
 import {
-  IconArrowUpRight,
   IconCalendarX,
   IconClock,
   IconMapPin,
@@ -36,6 +35,7 @@ import {
 } from "@nookly/ui/components/alert-dialog";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
+import { Checkbox } from "@nookly/ui/components/checkbox";
 import { DateInput } from "#/components/date-input.tsx";
 import {
   DropdownMenu,
@@ -44,55 +44,51 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Input } from "@nookly/ui/components/input";
+import { Label } from "@nookly/ui/components/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tabs, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { restoreEntity, softDeleteEntity, updateEntity } from "#/lib/api/entities.ts";
 import {
-  type SeriesPatch,
-  createSessionPage,
-  deleteSessionSeries,
-  getSessionPages,
-  listSessions,
-  overrideOccurrence,
-  updateSessionSeries,
-} from "#/lib/api/sessions.ts";
-import type { SessionOccurrence } from "#/lib/api/types.ts";
+  type CalendarEntrySeriesPatch,
+  deleteCalendarEntrySeries,
+  listCalendarEntries,
+  overrideCalendarEntryOccurrence,
+  updateCalendarEntrySeries,
+} from "#/lib/api/calendarEntries.ts";
+import { restoreEntity, softDeleteEntity, updateEntity } from "#/lib/api/entities.ts";
+import type { CalendarEntry } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { MODULE_ICONS } from "#/lib/modules.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
 
-/// Which occurrences an edit reaches, as in any calendar. A series edit never
-/// rewrites past occurrences or fields an occurrence changed on its own.
+/// Which occurrences an edit reaches, mirroring `SessionPopover`'s `EditScope`.
 type EditScope = "this" | "following" | "upcoming";
 
 const SCOPES = [
-  { id: "this", label: "This session" },
+  { id: "this", label: "This one" },
   { id: "following", label: "This and following" },
   { id: "upcoming", label: "All upcoming" },
 ] satisfies { id: EditScope; label: string }[];
 
-function refreshSessions(queryClient: QueryClient, entityId: string) {
+function refreshEntries(queryClient: QueryClient, entityId: string) {
   return Promise.all([
     // A predicate (not a fixed queryKey) so this also invalidates the
-    // cross-Space ["sessions", "all"] cache the unified Calendar page reads.
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "sessions" }),
+    // cross-Space ["calendar-entries", "all"] cache the unified Calendar page reads.
+    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "calendar-entries" }),
     queryClient.invalidateQueries({ queryKey: ["entity", entityId] }),
   ]);
 }
 
-/// Clicking a Session on the calendar opens this instead of leaving the page:
-/// its details, edits for this occurrence or its series, and the Jot and Note
-/// written for this one occurrence.
-export function SessionPopover({
+/// Clicking a calendar entry on any calendar (its own Space's, or the unified
+/// cross-Space Calendar page) opens this instead of leaving the page: its
+/// details, edits for this occurrence or its series. Mirrors `SessionPopover`,
+/// minus the Jot/Note linking, which is a Session-specific pattern.
+export function CalendarEntryPopover({
   spaceId,
-  occurrence,
+  entry,
   children,
 }: {
   spaceId: string;
-  occurrence: SessionOccurrence;
-  /// The calendar block or month line that opens it.
+  entry: CalendarEntry;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -111,10 +107,10 @@ export function SessionPopover({
         <PopoverTrigger asChild>{children}</PopoverTrigger>
         <PopoverContent align="start" className="flex w-80 flex-col text-sm">
           {editing ? (
-            <SessionEditForm occurrence={occurrence} onDone={() => setEditing(false)} />
+            <CalendarEntryEditForm entry={entry} onDone={() => setEditing(false)} />
           ) : (
-            <SessionSummary
-              occurrence={occurrence}
+            <CalendarEntrySummary
+              entry={entry}
               onEdit={() => setEditing(true)}
               onDeleteSeries={() => {
                 setOpen(false);
@@ -123,14 +119,13 @@ export function SessionPopover({
               close={() => setOpen(false)}
             />
           )}
-          <SessionPages spaceId={spaceId} occurrence={occurrence} close={() => setOpen(false)} />
         </PopoverContent>
       </Popover>
-      {occurrence.templateId && (
+      {entry.templateId && (
         <DeleteSeriesDialog
           spaceId={spaceId}
-          occurrence={occurrence}
-          templateId={occurrence.templateId}
+          entry={entry}
+          templateId={entry.templateId}
           open={seriesDeleteOpen}
           onOpenChange={setSeriesDeleteOpen}
         />
@@ -139,43 +134,42 @@ export function SessionPopover({
   );
 }
 
-function SessionSummary({
-  occurrence,
+function CalendarEntrySummary({
+  entry,
   onEdit,
   onDeleteSeries,
   close,
 }: {
-  occurrence: SessionOccurrence;
+  entry: CalendarEntry;
   onEdit: () => void;
   onDeleteSeries: () => void;
   close: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { entity } = occurrence;
+  const { entity } = entry;
   const toggleCancelled = useMutation({
     mutationFn: async () => {
-      await overrideOccurrence(entity.id, { cancelled: !occurrence.cancelled });
-      await refreshSessions(queryClient, entity.id);
+      await overrideCalendarEntryOccurrence(entity.id, { cancelled: !entry.cancelled });
+      await refreshEntries(queryClient, entity.id);
     },
   });
   const toggleStatus = useActionStatus(toggleCancelled);
   const toggleLabel =
     toggleStatus === "error"
       ? "Couldn't save, try again"
-      : occurrence.cancelled
-        ? "Restore Session"
-        : "Cancel Session";
+      : entry.cancelled
+        ? "Restore entry"
+        : "Cancel entry";
   const trash = useMutation({
     mutationFn: () => softDeleteEntity(entity.id),
     onSuccess: async () => {
       close();
-      await refreshSessions(queryClient, entity.id);
-      // The block is gone from the calendar, so nothing is left on screen to confirm it.
-      toast.success("Session moved to Trash", {
+      await refreshEntries(queryClient, entity.id);
+      toast.success("Entry moved to Trash", {
         action: {
           label: "Undo",
           onClick: () =>
-            void restoreEntity(entity.id).then(() => refreshSessions(queryClient, entity.id)),
+            void restoreEntity(entity.id).then(() => refreshEntries(queryClient, entity.id)),
         },
       });
     },
@@ -186,11 +180,8 @@ function SessionSummary({
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="font-semibold wrap-break-word">{displayTitle(entity)}</span>
-          {occurrence.courseTitle && (
-            <span className="text-muted-foreground wrap-break-word">{occurrence.courseTitle}</span>
-          )}
         </div>
-        {occurrence.cancelled && <Badge variant="secondary">Cancelled</Badge>}
+        {entry.cancelled && <Badge variant="secondary">Cancelled</Badge>}
         <div className="-mt-1 -mr-1 flex shrink-0 items-center">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -202,7 +193,7 @@ function SessionSummary({
               >
                 <StatusIcon
                   status={toggleStatus}
-                  idle={occurrence.cancelled ? <IconRestore /> : <IconCalendarX />}
+                  idle={entry.cancelled ? <IconRestore /> : <IconCalendarX />}
                 />
               </Button>
             </TooltipTrigger>
@@ -210,27 +201,27 @@ function SessionSummary({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="iconSm" aria-label="Edit Session" onClick={onEdit}>
+              <Button variant="ghost" size="iconSm" aria-label="Edit entry" onClick={onEdit}>
                 <IconPencil />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Edit Session</TooltipContent>
+            <TooltipContent>Edit entry</TooltipContent>
           </Tooltip>
-          {occurrence.templateId ? (
+          {entry.templateId ? (
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="iconSm" aria-label="Delete Session">
+                    <Button variant="ghost" size="iconSm" aria-label="Delete entry">
                       <StatusIcon status={statusOf(trash)} idle={<IconTrash />} />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>Delete Session</TooltipContent>
+                <TooltipContent>Delete entry</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => trash.mutate()}>
-                  Delete this session
+                  Delete this entry
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={onDeleteSeries}>
                   Delete this and following…
@@ -243,14 +234,13 @@ function SessionSummary({
                 <Button
                   variant="ghost"
                   size="iconSm"
-
-                  aria-label="Delete Session"
+                  aria-label="Delete entry"
                   onClick={() => !trash.isPending && trash.mutate()}
                 >
                   <StatusIcon status={statusOf(trash)} idle={<IconTrash />} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Delete Session</TooltipContent>
+              <TooltipContent>Delete entry</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -259,44 +249,42 @@ function SessionSummary({
       <div className="flex flex-col gap-1.5 text-muted-foreground">
         <span className="flex items-start gap-2">
           <IconClock size={14} className="mt-0.5 shrink-0" />
-          {formatWeekday(occurrence.date)}, {formatShortDate(occurrence.date)},{" "}
-          {formatClock(occurrence.startTime)} to {formatClock(occurrence.endTime)}
+          {formatWeekday(entry.date)}, {formatShortDate(entry.date)}
+          {!entry.allDay &&
+            `, ${formatClock(entry.startTime ?? "00:00")} to ${formatClock(entry.endTime ?? "00:00")}`}
+          {entry.allDay && ", all day"}
         </span>
-        {occurrence.location && (
+        {entry.location && (
           <span className="flex items-start gap-2">
             <IconMapPin size={14} className="mt-0.5 shrink-0" />
-            <span className="wrap-break-word">{occurrence.location}</span>
+            <span className="wrap-break-word">{entry.location}</span>
           </span>
         )}
-        {occurrence.templateId && (
+        {entry.templateId && (
           <span className="flex items-center gap-2">
             <IconRepeat size={14} className="shrink-0" />
-            Repeats weekly
+            Repeats
           </span>
         )}
+        {entry.description && <span className="wrap-break-word">{entry.description}</span>}
       </div>
 
-      <StatusAnnouncer message={trash.isError ? "Couldn't move the session to Trash" : null} />
+      <StatusAnnouncer message={trash.isError ? "Couldn't move the entry to Trash" : null} />
     </div>
   );
 }
 
-function SessionEditForm({
-  occurrence,
-  onDone,
-}: {
-  occurrence: SessionOccurrence;
-  onDone: () => void;
-}) {
+function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone: () => void }) {
   const queryClient = useQueryClient();
-  const { entity, templateId } = occurrence;
+  const { entity, templateId } = entry;
   const [scope, setScope] = useState<EditScope>("this");
   const [title, setTitle] = useState(entity.title);
-  const [date, setDate] = useState(occurrence.date);
-  const [startTime, setStartTime] = useState(occurrence.startTime);
-  const [endTime, setEndTime] = useState(occurrence.endTime);
-  const [location, setLocation] = useState(occurrence.location ?? "");
-  const timesValid = Boolean(startTime && endTime) && startTime < endTime;
+  const [date, setDate] = useState(entry.date);
+  const [allDay, setAllDay] = useState(entry.allDay);
+  const [startTime, setStartTime] = useState(entry.startTime ?? "09:00");
+  const [endTime, setEndTime] = useState(entry.endTime ?? "10:00");
+  const [location, setLocation] = useState(entry.location ?? "");
+  const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
   const valid = title.trim() !== "" && Boolean(date) && timesValid;
 
   const save = useMutation({
@@ -304,23 +292,24 @@ function SessionEditForm({
       const nextLocation = location.trim() || null;
       if (scope === "this" || !templateId) {
         if (title.trim() !== entity.title) await updateEntity(entity.id, { title: title.trim() });
-        await overrideOccurrence(entity.id, {
+        await overrideCalendarEntryOccurrence(entity.id, {
           date,
-          startTime,
-          endTime,
+          startTime: allDay ? null : startTime,
+          endTime: allDay ? null : endTime,
+          allDay,
           location: nextLocation,
         });
       } else {
-        // Only what changed, so an unchanged field never flattens other overrides.
-        const patch: SeriesPatch = {};
+        const patch: CalendarEntrySeriesPatch = {};
         if (title.trim() !== entity.title) patch.title = title.trim();
-        if (startTime !== occurrence.startTime) patch.startTime = startTime;
-        if (endTime !== occurrence.endTime) patch.endTime = endTime;
-        if (nextLocation !== occurrence.location) patch.location = nextLocation;
-        const from = scope === "following" ? occurrence.date : format(new Date(), "yyyy-MM-dd");
-        await updateSessionSeries(templateId, from, patch);
+        if (allDay !== entry.allDay) patch.allDay = allDay;
+        if (startTime !== entry.startTime) patch.startTime = allDay ? null : startTime;
+        if (endTime !== entry.endTime) patch.endTime = allDay ? null : endTime;
+        if (nextLocation !== entry.location) patch.location = nextLocation;
+        const from = scope === "following" ? entry.date : format(new Date(), "yyyy-MM-dd");
+        await updateCalendarEntrySeries(templateId, from, patch);
       }
-      await refreshSessions(queryClient, entity.id);
+      await refreshEntries(queryClient, entity.id);
     },
   });
   useCloseAfterSuccess(save, onDone);
@@ -359,23 +348,35 @@ function SessionEditForm({
           onChange={(day) => setDate(day ?? "")}
         />
       )}
-      <div className="flex items-center gap-1.5">
-        <Input
-          type="time"
-          aria-label="Start time"
-          value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
-          className="flex-1"
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="calendar-entry-all-day"
+          checked={allDay}
+          onCheckedChange={(v) => setAllDay(v === true)}
         />
-        <span className="text-xs text-muted-foreground">to</span>
-        <Input
-          type="time"
-          aria-label="End time"
-          value={endTime}
-          onChange={(e) => setEndTime(e.target.value)}
-          className="flex-1"
-        />
+        <Label htmlFor="calendar-entry-all-day" className="font-normal">
+          All day
+        </Label>
       </div>
+      {!allDay && (
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="time"
+            aria-label="Start time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="flex-1"
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <Input
+            type="time"
+            aria-label="End time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className="flex-1"
+          />
+        </div>
+      )}
       <Input
         aria-label="Location"
         placeholder="Location"
@@ -385,9 +386,9 @@ function SessionEditForm({
       {scope !== "this" && (
         <p className="text-xs text-muted-foreground">
           {scope === "following"
-            ? "Changes this session and every later one in the series."
-            : "Changes every session from today on."}{" "}
-          Past sessions and changes made to single sessions stay as they are.
+            ? "Changes this entry and every later one in the series."
+            : "Changes every entry from today on."}{" "}
+          Past entries and changes made to single ones stay as they are.
         </p>
       )}
       <FieldError
@@ -412,156 +413,36 @@ function SessionEditForm({
   );
 }
 
-/// The Jot typed during this occurrence and the Note that refines it later.
-/// Each button creates its page once, then opens it.
-function SessionPages({
-  spaceId,
-  occurrence,
-  close,
-}: {
-  spaceId: string;
-  occurrence: SessionOccurrence;
-  close: () => void;
-}) {
-  const { data: pages } = useQuery({
-    queryKey: ["session-pages", occurrence.entity.id],
-    queryFn: () => getSessionPages(occurrence.entity.id),
-  });
-  // The next step stands out: first the Jot, then the Note refining it.
-  const next = !pages
-    ? null
-    : !pages.jot && !pages.note
-      ? "jot"
-      : pages.jot && !pages.note
-        ? "note"
-        : null;
-  return (
-    <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
-      <SessionPageButton
-        kind="jot"
-        spaceId={spaceId}
-        occurrence={occurrence}
-        pageId={pages?.jot?.id}
-        primary={next === "jot"}
-        loading={!pages}
-        close={close}
-      />
-      <SessionPageButton
-        kind="note"
-        spaceId={spaceId}
-        occurrence={occurrence}
-        pageId={pages?.note?.id}
-        primary={next === "note"}
-        loading={!pages}
-        close={close}
-      />
-    </div>
-  );
-}
-
-function SessionPageButton({
-  kind,
-  spaceId,
-  occurrence,
-  pageId,
-  primary,
-  loading,
-  close,
-}: {
-  kind: "jot" | "note";
-  spaceId: string;
-  occurrence: SessionOccurrence;
-  pageId: string | undefined;
-  /// The page to write next gets the primary style, the rest stay secondary.
-  primary: boolean;
-  loading: boolean;
-  close: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const openEntity = useNavStore((s) => s.openEntity);
-  const Icon = MODULE_ICONS[kind === "jot" ? "jots" : "notes"];
-  const noun = kind === "jot" ? "jot" : "note";
-  const create = useMutation({
-    mutationFn: () =>
-      createSessionPage(
-        occurrence.entity.id,
-        kind,
-        `${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`,
-      ),
-    // Straight into the new page: landing there confirms it was created.
-    onSuccess: async (page) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["session-pages", occurrence.entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["entities", spaceId] }),
-      ]);
-      close();
-      openEntity(page.id, spaceId);
-    },
-  });
-  const status = statusOf(create);
-
-  if (pageId && !create.isPending) {
-    return (
-      <Button
-        variant="secondary"
-        onClick={() => {
-          close();
-          openEntity(pageId, spaceId);
-        }}
-      >
-        <IconArrowUpRight />
-        Open {noun}
-      </Button>
-    );
-  }
-  return (
-    <Button
-      variant={primary ? "default" : "secondary"}
-      disabled={loading}
-      onClick={() => !create.isPending && create.mutate()}
-    >
-      <StatusButtonContent
-        status={status}
-        icon={<Icon />}
-        label={`New ${noun}`}
-        errorLabel="Try again"
-      />
-    </Button>
-  );
-}
-
 function DeleteSeriesDialog({
   spaceId,
-  occurrence,
+  entry,
   templateId,
   open,
   onOpenChange,
 }: {
   spaceId: string;
-  occurrence: SessionOccurrence;
+  entry: CalendarEntry;
   templateId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
-    queryFn: () => listSessions(spaceId),
+  const { data: entries = [] } = useQuery({
+    queryKey: ["calendar-entries", spaceId],
+    queryFn: () => listCalendarEntries(spaceId),
     enabled: open,
   });
-  const count = sessions.filter(
-    (s) => s.templateId === templateId && s.date >= occurrence.date,
-  ).length;
+  const count = entries.filter((a) => a.templateId === templateId && a.date >= entry.date).length;
   const remove = useMutation({
-    mutationFn: () => deleteSessionSeries(templateId, occurrence.date),
-    onSuccess: () => refreshSessions(queryClient, occurrence.entity.id),
+    mutationFn: () => deleteCalendarEntrySeries(templateId, entry.date),
+    onSuccess: () => refreshEntries(queryClient, entry.entity.id),
   });
   useCloseAfterSuccess(remove, () => {
     onOpenChange(false);
     remove.reset();
   });
   const status = statusOf(remove);
-  const noun = count === 1 ? "session" : "sessions";
+  const noun = count === 1 ? "entry" : "entries";
 
   return (
     <AlertDialog
@@ -576,14 +457,14 @@ function DeleteSeriesDialog({
           <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
             Move {count} {noun} of
             <EntityMention
-              icon={<EntityIcon entity={occurrence.entity} size={13} />}
-              label={displayTitle(occurrence.entity)}
+              icon={<EntityIcon entity={entry.entity} size={13} />}
+              label={displayTitle(entry.entity)}
             />
             to Trash?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            The session on {formatShortDate(occurrence.date)} and every later one in the series go
-            to Trash. Earlier sessions stay. Restore them from Trash any time.
+            The entry on {formatShortDate(entry.date)} and every later one in the series go to
+            Trash. Earlier ones stay. Restore them from Trash any time.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

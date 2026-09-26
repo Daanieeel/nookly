@@ -1,5 +1,6 @@
 import { AssignmentsListView } from "#/features/assignments/AssignmentsListView.tsx";
 import { BookmarksListView } from "#/features/bookmarks/BookmarksListView.tsx";
+import { CalendarEntriesListView } from "#/features/calendar-entries/CalendarEntriesListView.tsx";
 import { CoursesListView } from "#/features/courses/CoursesListView.tsx";
 import { SemestersListView } from "#/features/courses/SemestersListView.tsx";
 import { DecksListView } from "#/features/exams/DecksListView.tsx";
@@ -33,6 +34,8 @@ export function ModuleView({
       return <SemestersListView spaceId={spaceId} />;
     case "sessions":
       return <SessionsListView spaceId={spaceId} filterCourseId={filterCourseId} />;
+    case "calendar":
+      return <CalendarEntriesListView spaceId={spaceId} />;
     case "exams":
       return <ExamsListView spaceId={spaceId} filterCourseId={filterCourseId} />;
     case "decks":

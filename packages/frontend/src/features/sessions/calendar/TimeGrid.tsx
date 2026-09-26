@@ -4,6 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { formatClock, formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import {
+  CalendarEntryBlock,
+  CalendarEntryChip,
+} from "../../calendar-entries/calendar/CalendarEntryBlock";
 import { ExternalEventBlock, ExternalEventChip } from "../external-calendars/ExternalEventBlock";
 import { lanePosition } from "../external-calendars/overlay-layout";
 import {
@@ -61,14 +65,14 @@ function dragRange(drag: Drag): MinuteRange {
 /// whole day with hour and half hour lines. Dragging across empty time picks
 /// a range for a new Session; a plain click picks the hour from that half hour.
 export function TimeGrid({
-  spaceId,
   columns,
   selection,
   highlightIds,
   onSelect,
   onPickDay,
+  slotCreateNoun,
+  spaceColor,
 }: {
-  spaceId: string;
   columns: DayColumn[];
   /// The range a create dialog is open for, kept highlighted meanwhile.
   selection: SlotRange | null;
@@ -76,6 +80,15 @@ export function TimeGrid({
   onSelect: (range: SlotRange) => void;
   /// Opens one day on its own, from its header.
   onPickDay: (day: Date) => void;
+  /// What a right-click on an empty slot offers to create ("Session" or
+  /// "Calendar Entry"). Omitted (the unified cross-Space Calendar page) drops
+  /// the right-click create action entirely, since that page has no creation
+  /// surface of its own.
+  slotCreateNoun?: "Session" | "Calendar Entry";
+  /// Looks up a Space's accent color by id, to tint each block by its own
+  /// origin Space instead of the default Session/Calendar Entry color — only
+  /// the unified cross-Space Calendar page passes this.
+  spaceColor?: (spaceId: string) => string | undefined;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -145,7 +158,7 @@ export function TimeGrid({
             <div className="w-14 shrink-0 px-1.5 pt-1 text-right text-xs text-muted-foreground">
               All day
             </div>
-            {columns.map(({ day, key, allDay }) => (
+            {columns.map(({ day, key, allDay, allDayCalendarEntries }) => (
               <div
                 key={key}
                 className={cn(
@@ -155,6 +168,15 @@ export function TimeGrid({
               >
                 {allDay.map((event) => (
                   <ExternalEventChip key={event.id} event={event} />
+                ))}
+                {allDayCalendarEntries.map((entry) => (
+                  <CalendarEntryChip
+                    key={entry.entity.id}
+                    spaceId={entry.entity.spaceId}
+                    entry={entry}
+                    highlighted={highlightIds.has(entry.entity.id)}
+                    accentColor={spaceColor?.(entry.entity.spaceId)}
+                  />
                 ))}
               </div>
             ))}
@@ -220,15 +242,18 @@ export function TimeGrid({
                     "h-6 border-b",
                     i % 2 === 0 ? "border-dashed border-border/50" : "border-border",
                   )}
-                  {...contextTarget("sessions.slot", {
-                    startMin: i * 30,
-                    startCreate: () =>
-                      onSelect({
-                        date: day,
+                  {...(slotCreateNoun
+                    ? contextTarget("calendar.slot", {
                         startMin: i * 30,
-                        endMin: Math.min(i * 30 + 60, DAY_MINUTES),
-                      }),
-                  })}
+                        noun: slotCreateNoun,
+                        startCreate: () =>
+                          onSelect({
+                            date: day,
+                            startMin: i * 30,
+                            endMin: Math.min(i * 30 + 60, DAY_MINUTES),
+                          }),
+                      })
+                    : {})}
                 />
               ))}
 
@@ -254,15 +279,31 @@ export function TimeGrid({
                   heightPxFor(item.startMin, item.endMin),
                   lanes.get(item) ?? { lane: 0, lanes: 1 },
                 );
-                return item.kind === "session" ? (
-                  <SessionBlock
-                    key={item.occurrence.entity.id}
-                    spaceId={spaceId}
-                    occurrence={item.occurrence}
-                    position={position}
-                    highlighted={highlightIds.has(item.occurrence.entity.id)}
-                  />
-                ) : (
+                if (item.kind === "session") {
+                  return (
+                    <SessionBlock
+                      key={item.occurrence.entity.id}
+                      spaceId={item.occurrence.entity.spaceId}
+                      occurrence={item.occurrence}
+                      position={position}
+                      highlighted={highlightIds.has(item.occurrence.entity.id)}
+                      accentColor={spaceColor?.(item.occurrence.entity.spaceId)}
+                    />
+                  );
+                }
+                if (item.kind === "calendarEntry") {
+                  return (
+                    <CalendarEntryBlock
+                      key={item.entry.entity.id}
+                      spaceId={item.entry.entity.spaceId}
+                      entry={item.entry}
+                      position={position}
+                      highlighted={highlightIds.has(item.entry.entity.id)}
+                      accentColor={spaceColor?.(item.entry.entity.spaceId)}
+                    />
+                  );
+                }
+                return (
                   <ExternalEventBlock key={item.event.id} event={item.event} position={position} />
                 );
               })}

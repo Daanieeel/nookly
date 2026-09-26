@@ -315,15 +315,30 @@ pub fn list_session_templates(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn list_sessions(conn: &Connection, space_id: &str) -> AppResult<Vec<SessionOccurrence>> {
-    let mut stmt = conn.prepare(
+/// Every Session in `space_id`, or across every Space when `space_id` is
+/// `None` — the same optional-filter shape `schema::EntitySchemaDef::list`
+/// uses generically, so the unified cross-Space Calendar page and the
+/// per-Space Sessions view share one function.
+pub fn list_sessions(
+    conn: &Connection,
+    space_id: Option<&str>,
+) -> AppResult<Vec<SessionOccurrence>> {
+    let mut sql = String::from(
         "SELECT e.*, s.*, c.title AS course_title
          FROM entities e JOIN sessions s ON s.entity_id = e.id
          LEFT JOIN relationships r ON r.from_entity_id = e.id AND r.relationship_type = 'session-course'
          LEFT JOIN entities c ON c.id = r.to_entity_id AND c.deleted_at IS NULL
-         WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY s.date ASC, s.start_time ASC",
-    )?;
-    let rows = stmt.query_map(params![space_id], row_to_occurrence)?;
+         WHERE e.deleted_at IS NULL",
+    );
+    if space_id.is_some() {
+        sql.push_str(" AND e.space_id = ?1");
+    }
+    sql.push_str(" ORDER BY s.date ASC, s.start_time ASC");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = match space_id {
+        Some(sid) => stmt.query_map(params![sid], row_to_occurrence)?,
+        None => stmt.query_map([], row_to_occurrence)?,
+    };
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
@@ -828,7 +843,7 @@ fn cli_list_sessions(
 ) -> AppResult<Vec<serde_json::Value>> {
     let space_id = space_id
         .ok_or_else(|| AppError::InvalidInput("session list requires --space <space-id>".into()))?;
-    Ok(list_sessions(conn, space_id)?
+    Ok(list_sessions(conn, Some(space_id))?
         .into_iter()
         .map(|o| serde_json::to_value(o).expect("SessionOccurrence always serializes"))
         .collect())

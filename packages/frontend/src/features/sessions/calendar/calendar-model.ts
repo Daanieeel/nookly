@@ -10,7 +10,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import type { ExternalEvent } from "#/lib/api/externalCalendars.ts";
-import type { SessionOccurrence } from "#/lib/api/types.ts";
+import type { CalendarEntry, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatMonth, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
@@ -32,13 +32,15 @@ export const CALENDAR_VIEWS = [
   { id: "month", label: "Month", key: "4" },
 ] satisfies { id: CalendarView; label: string; key: string }[];
 
-export function readView(): CalendarView {
-  const stored = preferences.get(STORAGE_KEYS.sessionsView);
+/// `storageKey` lets Sessions, the Calendar module and the unified Calendar
+/// page each remember their own last picked view (see `STORAGE_KEYS`).
+export function readView(storageKey: string = STORAGE_KEYS.sessionsView): CalendarView {
+  const stored = preferences.get(storageKey);
   return CALENDAR_VIEWS.find((v) => v.id === stored)?.id ?? "week";
 }
 
-export function writeView(view: CalendarView) {
-  preferences.set(STORAGE_KEYS.sessionsView, view);
+export function writeView(view: CalendarView, storageKey: string = STORAGE_KEYS.sessionsView) {
+  preferences.set(storageKey, view);
 }
 
 /// Pixels per hour on the time grid; each half hour row is exactly `h-6`.
@@ -141,6 +143,7 @@ export interface SlotRange extends MinuteRange {
 
 export type DayItem =
   | { kind: "session"; occurrence: SessionOccurrence; startMin: number; endMin: number }
+  | { kind: "calendarEntry"; entry: CalendarEntry; startMin: number; endMin: number }
   | ({ kind: "external" } & EventSegment);
 
 export interface DayColumn {
@@ -149,18 +152,28 @@ export interface DayColumn {
   items: DayItem[];
   lanes: Map<DayItem, Lane>;
   allDay: ExternalEvent[];
+  /// All-day calendar entries (no start/end time) on this day, shown in the
+  /// same all-day strip as external all-day events.
+  allDayCalendarEntries: CalendarEntry[];
 }
 
-/// Sessions and external events per visible day, with overlapping ones laid
-/// out side by side. External events stay a read only overlay.
+/// Sessions, calendar entries and external events per visible day, with
+/// overlapping timed ones laid out side by side. External events stay a read
+/// only overlay. `calendarEntries` defaults to empty so the Sessions-only
+/// calendar (and vice versa for the Calendar module) never has to pass an
+/// empty array explicitly.
 export function buildColumns(
   days: Date[],
   sessions: SessionOccurrence[],
   externalEvents: ExternalEvent[],
+  calendarEntries: CalendarEntry[] = [],
 ): DayColumn[] {
   return days.map((day) => {
     const key = dayKey(day);
     const { timed, allDay } = eventsForDay(externalEvents, key);
+    const dayEntries = calendarEntries.filter((a) => a.date === key);
+    const timedEntries = dayEntries.filter((a) => !a.allDay);
+    const allDayCalendarEntries = dayEntries.filter((a) => a.allDay);
     const items: DayItem[] = [
       ...sessions
         .filter((s) => s.date === key)
@@ -170,9 +183,22 @@ export function buildColumns(
           startMin: timeToMinutes(occurrence.startTime),
           endMin: timeToMinutes(occurrence.endTime),
         })),
+      ...timedEntries.map((entry) => ({
+        kind: "calendarEntry" as const,
+        entry,
+        startMin: timeToMinutes(entry.startTime ?? "00:00"),
+        endMin: timeToMinutes(entry.endTime ?? "23:59"),
+      })),
       ...timed.map((segment) => ({ kind: "external" as const, ...segment })),
     ];
     items.sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
-    return { day, key, items, lanes: layoutLanes(items, MIN_BLOCK_MINUTES), allDay };
+    return {
+      day,
+      key,
+      items,
+      lanes: layoutLanes(items, MIN_BLOCK_MINUTES),
+      allDay,
+      allDayCalendarEntries,
+    };
   });
 }

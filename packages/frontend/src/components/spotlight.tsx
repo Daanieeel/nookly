@@ -117,6 +117,10 @@ export function SpotlightItem({ className, ...props }: ComponentProps<typeof Com
 }
 
 /// A Space's own icon in its accent color (the one sanctioned colored icon).
+/// The color class lives on the icon itself, not just this wrapping span:
+/// `Select`'s primitive forces any `svg` with no `text-*` class of its own to
+/// `text-muted-foreground` (its default styling for chevrons etc.), which
+/// would otherwise override an inherited color when this renders inside one.
 export function SpaceGlyph({ space, size }: { space: Space; size: number }) {
   return (
     <span
@@ -125,7 +129,11 @@ export function SpaceGlyph({ space, size }: { space: Space; size: number }) {
       // string — `CSSProperties` just doesn't model custom properties.
       style={{ "--space-color": space.color } as CSSProperties}
     >
-      {space.icon ? renderIconValue(space.icon, size) : <IconFolder size={size} />}
+      {space.icon ? (
+        renderIconValue(space.icon, size, "text-(--space-color)")
+      ) : (
+        <IconFolder size={size} className="text-(--space-color)" />
+      )}
     </span>
   );
 }

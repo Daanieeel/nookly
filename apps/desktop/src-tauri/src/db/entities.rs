@@ -38,6 +38,7 @@ pub fn key_prefix(entity_type: &str) -> &'static str {
         "course_notes" => "CNT",
         "semester" => "SEM",
         "session" | "session_template" => "SES",
+        "calendar_entry" | "calendar_entry_template" => "CAL",
         "exam" => "EXM",
         "index_card_deck" => "DCK",
         "study_block" => "STB",
@@ -399,6 +400,14 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
         params![id],
     )?;
     conn.execute("DELETE FROM sessions WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM calendar_entry_templates WHERE entity_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM calendar_entries WHERE entity_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM exams WHERE entity_id = ?1", params![id])?;
     conn.execute(
         "DELETE FROM index_card_decks WHERE entity_id = ?1",

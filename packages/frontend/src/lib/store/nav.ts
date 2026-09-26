@@ -10,6 +10,7 @@ export const MODULE_KEYS = [
   "courses",
   "semesters",
   "sessions",
+  "calendar",
   "exams",
   "decks",
   "assignments",
@@ -22,6 +23,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
 export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
+  | { kind: "calendar" }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };

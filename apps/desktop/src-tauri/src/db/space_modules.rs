@@ -15,6 +15,7 @@ pub fn module_keys_for_entity_type(entity_type: &str) -> &'static [&'static str]
         "course_notes" => &["courses"],
         "semester" => &["semesters"],
         "session" | "session_template" => &["sessions"],
+        "calendar_entry" | "calendar_entry_template" => &["calendar"],
         "exam" | "study_block" => &["exams"],
         "index_card_deck" => &["decks"],
         "assignment" => &["assignments"],

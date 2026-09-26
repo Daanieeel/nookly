@@ -22,4 +22,6 @@ export const STORAGE_KEYS = {
   dateFormat: "nookly:date-format",
   timeFormat: "nookly:time-format",
   sessionsView: "nookly:sessions-view",
+  calendarModuleView: "nookly:calendar-module-view",
+  calendarView: "nookly:calendar-view",
 } as const;
