@@ -3,7 +3,6 @@ import {
   IconCaretDownFilled,
   IconCaretRightFilled,
   IconCategory,
-  IconDragDrop,
   IconExternalLink,
   IconFile,
   IconFileUpload,
@@ -15,17 +14,14 @@ import {
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { homeDir, join } from "@tauri-apps/api/path";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import {
   type ActionStatus,
-  StatusAnnouncer,
   StatusButtonContent,
   StatusIcon,
-  statusTextClass,
   useActionStatus,
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
@@ -135,7 +131,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [text, setText] = useState("");
   const [offer, setOffer] = useState<Offer | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [fresh, markFresh] = useFreshIds();
 
   const { data: files = [], isPending } = useQuery({
@@ -161,10 +156,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
       return Promise.all(paths.map((path) => importFile(spaceId, path)));
     },
     onSuccess: (created) => created && imported(created),
-  });
-  const importPaths = useMutation({
-    mutationFn: (paths: string[]) => Promise.all(paths.map((path) => importFile(spaceId, path))),
-    onSuccess: imported,
   });
   /// A typed path imports that file; a link downloads what's behind it, unless
   /// it's a webpage, which is offered as a Bookmark instead.
@@ -232,17 +223,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     pickStatusRaw === "success" && pickAndImport.data === null ? "idle" : pickStatusRaw;
   const addStatus = useActionStatus(addFromText);
   const bookmarkStatus = useActionStatus(saveBookmark);
-  const dropStatus = useActionStatus(importPaths);
-  const droppedCount = importPaths.variables?.length ?? 0;
-  const droppedLabel = droppedCount === 1 ? "1 file" : `${droppedCount} files`;
-  const dropMessage =
-    dropStatus === "pending"
-      ? `Importing ${droppedLabel}`
-      : dropStatus === "success"
-        ? `${droppedLabel} imported`
-        : dropStatus === "error"
-          ? `Couldn't import dropped files: ${importPaths.error?.message ?? ""}`
-          : null;
 
   const startImport = useCallback(() => {
     if (!pickAndImport.isPending) pickAndImport.mutate();
@@ -257,23 +237,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     addFromText.reset();
     requestAnimationFrame(() => inputRef.current?.focus());
   };
-
-  // A browser `ondrop` only hands over File objects without a filesystem path
-  // inside a Tauri webview, so `importFile` can't use them. Tauri's own drag and
-  // drop event carries the real paths.
-  useEffect(() => {
-    const unlistenPromise = getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === "drop") {
-        setIsDragOver(false);
-        if (event.payload.paths.length > 0) importPaths.mutate(event.payload.paths);
-      } else {
-        setIsDragOver(event.payload.type === "enter" || event.payload.type === "over");
-      }
-    });
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten());
-    };
-  }, [spaceId]);
 
   const filterFields = useMemo<FilterField[]>(() => {
     const present = new Set(files.map((f) => fileKind(f).id));
@@ -360,18 +323,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           <IconFile size={16} className="text-muted-foreground" />
           Files
         </h1>
-        {dropMessage && (
-          <span
-            className={cn(
-              "flex min-w-0 items-center gap-1.5 truncate text-xs",
-              statusTextClass(dropStatus) ?? "text-muted-foreground",
-            )}
-          >
-            <StatusIcon status={dropStatus} idle={null} size={12} />
-            {dropMessage}
-          </span>
-        )}
-        <StatusAnnouncer message={dropStatus === "pending" ? null : dropMessage} />
         {files.some((f) => f.needsReindex) && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -410,9 +361,9 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
       {!isPending && files.length === 0 ? (
         <div className="p-6">
           <EmptyState
-            icon={IconDragDrop}
+            icon={IconFileUpload}
             title="No files yet"
-            description="Drop files anywhere in this window, or paste a link to a file below. Nookly keeps its own copy."
+            description="Choose files to import, or paste a link to a file below. Nookly keeps its own copy."
             action={{ label: "Choose files", onClick: startImport }}
           />
         </div>
@@ -543,15 +494,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
             </TooltipContent>
           </Tooltip>
         </FloatingBar>
-      )}
-
-      {isDragOver && (
-        <div className="pointer-events-none absolute inset-x-2 top-14 bottom-2 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5">
-          <span className="flex items-center gap-2 rounded-md bg-background px-3 py-1.5 text-sm font-medium shadow-sm">
-            <IconDragDrop size={16} className="text-primary" />
-            Drop to import into Files
-          </span>
-        </div>
       )}
     </div>
   );
