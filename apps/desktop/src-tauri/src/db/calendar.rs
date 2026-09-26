@@ -635,10 +635,8 @@ fn cli_update_calendar_entry_template(
 }
 
 fn cli_get_calendar_entry_template(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(
-        serde_json::to_value(get_calendar_entry_template(conn, id)?)
-            .expect("CalendarEntryTemplate always serializes"),
-    )
+    Ok(serde_json::to_value(get_calendar_entry_template(conn, id)?)
+        .expect("CalendarEntryTemplate always serializes"))
 }
 
 fn cli_list_calendar_entry_templates(
@@ -724,7 +722,10 @@ const CALENDAR_ENTRY_FIELDS: &[FieldDef] = &[
     },
 ];
 
-fn cli_create_calendar_entry(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+fn cli_create_calendar_entry(
+    conn: &Connection,
+    input: CreateInput,
+) -> AppResult<serde_json::Value> {
     let date = crate::db::schema::require_str(&input.fields, "date")?;
     let start_time = crate::db::schema::field_str(&input.fields, "startTime");
     let end_time = crate::db::schema::field_str(&input.fields, "endTime");
@@ -772,10 +773,8 @@ fn cli_update_calendar_entry(
 }
 
 fn cli_get_calendar_entry(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(
-        serde_json::to_value(get_calendar_entry(conn, id)?)
-            .expect("CalendarEntry always serializes"),
-    )
+    Ok(serde_json::to_value(get_calendar_entry(conn, id)?)
+        .expect("CalendarEntry always serializes"))
 }
 
 fn cli_list_calendar_entries(

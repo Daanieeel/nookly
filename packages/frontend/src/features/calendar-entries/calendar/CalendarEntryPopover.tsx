@@ -168,7 +168,8 @@ function CalendarEntrySummary({
       toast.success("Entry moved to Trash", {
         action: {
           label: "Undo",
-          onClick: () => void restoreEntity(entity.id).then(() => refreshEntries(queryClient, entity.id)),
+          onClick: () =>
+            void restoreEntity(entity.id).then(() => refreshEntries(queryClient, entity.id)),
         },
       });
     },
@@ -219,7 +220,9 @@ function CalendarEntrySummary({
                 <TooltipContent>Delete entry</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => trash.mutate()}>Delete this entry</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => trash.mutate()}>
+                  Delete this entry
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={onDeleteSeries}>
                   Delete this and following…
                 </DropdownMenuItem>
@@ -271,13 +274,7 @@ function CalendarEntrySummary({
   );
 }
 
-function CalendarEntryEditForm({
-  entry,
-  onDone,
-}: {
-  entry: CalendarEntry;
-  onDone: () => void;
-}) {
+function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone: () => void }) {
   const queryClient = useQueryClient();
   const { entity, templateId } = entry;
   const [scope, setScope] = useState<EditScope>("this");

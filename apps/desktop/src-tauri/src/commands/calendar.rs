@@ -60,7 +60,15 @@ pub fn create_one_off_calendar_entry(
 ) -> AppResult<CalendarEntry> {
     let conn = state.0.lock().unwrap();
     calendar::create_one_off_calendar_entry(
-        &conn, space_id, title, date, start_time, end_time, all_day, location, description,
+        &conn,
+        space_id,
+        title,
+        date,
+        start_time,
+        end_time,
+        all_day,
+        location,
+        description,
     )
 }
 
@@ -75,7 +83,10 @@ pub fn override_calendar_entry_occurrence(
 }
 
 #[tauri::command]
-pub fn list_calendar_entries(state: State<DbState>, space_id: String) -> AppResult<Vec<CalendarEntry>> {
+pub fn list_calendar_entries(
+    state: State<DbState>,
+    space_id: String,
+) -> AppResult<Vec<CalendarEntry>> {
     let conn = state.0.lock().unwrap();
     calendar::list_calendar_entries(&conn, Some(&space_id))
 }

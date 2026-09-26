@@ -4,7 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { formatClock, formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { CalendarEntryBlock, CalendarEntryChip } from "../../calendar-entries/calendar/CalendarEntryBlock";
+import {
+  CalendarEntryBlock,
+  CalendarEntryChip,
+} from "../../calendar-entries/calendar/CalendarEntryBlock";
 import { ExternalEventBlock, ExternalEventChip } from "../external-calendars/ExternalEventBlock";
 import { lanePosition } from "../external-calendars/overlay-layout";
 import {

@@ -154,7 +154,11 @@ export function SessionChip({
         {...entityTarget(occurrence.entity, occurrence)}
       >
         <span className="shrink-0 tabular-nums">{formatClock(occurrence.startTime)}</span>
-        <EntityIcon entity={occurrence.entity} size={11} className="shrink-0 text-(--session-color)" />
+        <EntityIcon
+          entity={occurrence.entity}
+          size={11}
+          className="shrink-0 text-(--session-color)"
+        />
         <span className="truncate">{displayTitle(occurrence.entity)}</span>
         {occurrence.courseTitle && (
           <span className="min-w-0 truncate text-muted-foreground">{occurrence.courseTitle}</span>

@@ -175,9 +175,7 @@ function SessionSummary({
         action: {
           label: "Undo",
           onClick: () =>
-            void restoreEntity(entity.id).then(() =>
-              refreshSessions(queryClient, entity.id),
-            ),
+            void restoreEntity(entity.id).then(() => refreshSessions(queryClient, entity.id)),
         },
       });
     },

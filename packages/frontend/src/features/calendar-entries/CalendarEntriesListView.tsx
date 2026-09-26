@@ -1,4 +1,9 @@
-import { IconCalendarEvent, IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
+import {
+  IconCalendarEvent,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlus,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isToday } from "date-fns";
 import { useCallback, useEffect, useState } from "react";
