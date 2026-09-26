@@ -100,6 +100,34 @@
   --sidebar-ring: var(--ring);
 }
 
+/* Forces a subtree to the light or dark palette regardless of the app's own
+   `.dark` class — the file viewer's own theme setting, which can disagree
+   with the app's theme on purpose. Not the app theme itself: nothing outside
+   the file viewer should ever toggle these. Values mirror `:root`/`.dark` above. */
+.viewer-light {
+  --background: #f2f2f2;
+  --foreground: #0a0a0a;
+  --muted: #f2f2f2;
+  --muted-foreground: #666666;
+  --border: #e2e2e2;
+  --accent-blue: #0070f3;
+  --accent-green: #00873d;
+  --accent-pink: #d6336c;
+  --accent-purple: #9147d6;
+}
+
+.viewer-dark {
+  --background: #000000;
+  --foreground: #eeeeee;
+  --muted: #1a1a1a;
+  --muted-foreground: #a0a0a0;
+  --border: #2a2a2a;
+  --accent-blue: #47a8ff;
+  --accent-green: #00cb50;
+  --accent-pink: #ff4d8d;
+  --accent-purple: #c473fc;
+}
+
 @theme inline {
   /* Inter for all regular text, Inter Tight for headlines (`font-heading`). */
   --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

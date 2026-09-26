@@ -17,6 +17,7 @@ import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon, renderIconValue } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { FileViewerThemeToggle } from "#/components/file-viewer-theme-toggle.tsx";
 import { ThemeToggle } from "#/components/theme-toggle.tsx";
 import { UpdateCard } from "#/components/update-card.tsx";
 import { DateTimeSettings } from "#/components/datetime-settings.tsx";
@@ -190,6 +191,10 @@ function SettingsPopover() {
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-muted-foreground">Theme</span>
             <ThemeToggle />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-muted-foreground">File Viewer Theme</span>
+            <FileViewerThemeToggle />
           </div>
           <UiSeparator />
           <DateTimeSettings />

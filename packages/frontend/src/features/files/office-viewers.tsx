@@ -17,7 +17,7 @@ import {
   officeConverterAvailable,
 } from "#/lib/api/office.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
-import { useIsDark } from "#/lib/theme.ts";
+import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { InvertibleDocument, PdfViewer } from "./document-frame";
 import { type OfficeFormat, filePath } from "./file-kind";
 
@@ -39,11 +39,21 @@ export function OfficeViewer({
   name: string;
   fallback: (hint?: string) => ReactNode;
 }) {
-  if (format === "docx")
-    return <DocxViewer file={file} src={src} name={name} fallback={fallback} />;
-  if (format === "xlsx")
-    return <SheetViewer file={file} src={src} name={name} fallback={fallback} />;
-  return <ConvertedViewer file={file} name={name} fallback={fallback} />;
+  const isDark = useFileViewerIsDark();
+  return (
+    // The office-rendered content below (docx pages, the xlsx grid) draws with
+    // Tailwind's own tokens, so this scopes them to the file viewer's own
+    // theme instead of the app's — `file-viewer-theme.ts`.
+    <div className={cn("contents", fileViewerThemeClass(isDark))}>
+      {format === "docx" ? (
+        <DocxViewer file={file} src={src} name={name} fallback={fallback} />
+      ) : format === "xlsx" ? (
+        <SheetViewer file={file} src={src} name={name} fallback={fallback} />
+      ) : (
+        <ConvertedViewer file={file} name={name} fallback={fallback} />
+      )}
+    </div>
+  );
 }
 
 function Loading({ label }: { label: string }) {
@@ -251,7 +261,7 @@ function SheetGrid({
   /// `ExcelJS.ValueType.Number`, from the lazily loaded module.
   numberType: ExcelJS.ValueType;
 }) {
-  const isDark = useIsDark();
+  const isDark = useFileViewerIsDark();
   const rowCount = Math.min(sheet.actualRowCount > 0 ? sheet.rowCount : 0, MAX_ROWS);
   const colCount = Math.min(sheet.actualColumnCount > 0 ? sheet.columnCount : 0, MAX_COLUMNS);
   const clipped = sheet.rowCount > MAX_ROWS || sheet.columnCount > MAX_COLUMNS;
