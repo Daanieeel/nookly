@@ -102,6 +102,9 @@ export function TimeGrid({
   const [drag, setDrag] = useState<Drag | null>(null);
   const nowMinutes = useNowMinutes();
   const single = columns.length === 1;
+  // Passed to each item block so dragging it to a new place can resolve which
+  // day it landed on.
+  const days = columns.map((c) => c.day);
   const allDayRows = Math.min(
     MAX_ALL_DAY_ROWS,
     Math.max(0, ...columns.map((c) => c.allDay.length)),
@@ -206,7 +209,7 @@ export function TimeGrid({
           ))}
         </div>
 
-        {columns.map(({ day, key, items, lanes }) => {
+        {columns.map(({ day, key, items, lanes }, dayIndex) => {
           const range =
             drag?.key === key
               ? dragRange(drag)
@@ -216,6 +219,7 @@ export function TimeGrid({
           return (
             <div
               key={key}
+              data-day-column
               className={cn(
                 "relative min-w-0 flex-1 touch-none border-l border-border select-none",
                 isWeekend(day) && "bg-weekend",
@@ -298,6 +302,8 @@ export function TimeGrid({
                       highlighted={highlightIds.has(item.occurrence.entity.id)}
                       accentColor={spaceColor?.(item.occurrence.entity.spaceId)}
                       secondary={secondaryKind === "session"}
+                      days={days}
+                      dayIndex={dayIndex}
                     />
                   );
                 }
@@ -311,6 +317,8 @@ export function TimeGrid({
                       highlighted={highlightIds.has(item.entry.entity.id)}
                       accentColor={spaceColor?.(item.entry.entity.spaceId)}
                       secondary={secondaryKind === "calendarEntry"}
+                      days={days}
+                      dayIndex={dayIndex}
                     />
                   );
                 }
