@@ -3,7 +3,13 @@ import { formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { CalendarEntryChip } from "../../calendar-entries/calendar/CalendarEntryBlock";
 import { ExternalEventChip } from "../external-calendars/ExternalEventBlock";
-import { type DayColumn, type SlotRange, isEmptySpot, weekNumber } from "./calendar-model";
+import {
+  type DayColumn,
+  type DayItem,
+  type SlotRange,
+  isEmptySpot,
+  weekNumber,
+} from "./calendar-model";
 import { SessionChip } from "./SessionBlock";
 
 /// Where a Session created from a month cell starts, until the dialog changes it.
@@ -20,6 +26,7 @@ export function MonthGrid({
   onSelect,
   onPickDay,
   spaceColor,
+  secondaryKind,
 }: {
   anchor: Date;
   columns: DayColumn[];
@@ -28,6 +35,8 @@ export function MonthGrid({
   onPickDay: (day: Date) => void;
   /// See `TimeGrid`'s `spaceColor` — only the unified cross-Space Calendar page passes this.
   spaceColor?: (spaceId: string) => string | undefined;
+  /// See `TimeGrid`'s `secondaryKind`.
+  secondaryKind?: DayItem["kind"];
 }) {
   const weeks = Array.from({ length: Math.ceil(columns.length / 7) }, (_, i) =>
     columns.slice(i * 7, i * 7 + 7),
@@ -65,6 +74,7 @@ export function MonthGrid({
                       entry={calEntry}
                       highlighted={highlightIds.has(calEntry.entity.id)}
                       accentColor={spaceColor?.(calEntry.entity.spaceId)}
+                      secondary={secondaryKind === "calendarEntry"}
                     />
                   ),
                 })),
@@ -78,6 +88,7 @@ export function MonthGrid({
                           highlighted={highlightIds.has(item.occurrence.entity.id)}
                           spaceId={item.occurrence.entity.spaceId}
                           accentColor={spaceColor?.(item.occurrence.entity.spaceId)}
+                          secondary={secondaryKind === "session"}
                         />
                       ),
                     };
@@ -92,6 +103,7 @@ export function MonthGrid({
                           highlighted={highlightIds.has(item.entry.entity.id)}
                           showTime
                           accentColor={spaceColor?.(item.entry.entity.spaceId)}
+                          secondary={secondaryKind === "calendarEntry"}
                         />
                       ),
                     };

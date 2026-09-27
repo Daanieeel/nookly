@@ -202,6 +202,7 @@ export function UnifiedCalendarView() {
           onPickDay={pickDay}
           slotCreateNoun="Calendar Entry"
           spaceColor={spaceColor}
+          allowMultiDay
         />
       )}
 

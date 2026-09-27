@@ -14,10 +14,12 @@ import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { listCalendarEntries } from "#/lib/api/calendarEntries.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { listExternalEvents } from "#/lib/api/externalCalendars.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
+import { listSpaces } from "#/lib/api/spaces.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -96,6 +98,12 @@ export function SessionsListView({
         ),
       )
     : allSessions;
+  // This Space's own accent color, so Sessions and Calendar entries tint to
+  // it instead of the fixed `--primary`/`--accent-purple` defaults (see
+  // `SessionBlock` and `CalendarEntryBlock`'s `accentColor`).
+  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
+  const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
   const days = visibleDays(view, anchor, weekStartsOn);
   // External calendars are a read only overlay, never Sessions. Hidden while the
@@ -109,7 +117,21 @@ export function SessionsListView({
     enabled: !filterCourseId,
     placeholderData: keepPreviousData,
   });
-  const columns = buildColumns(days, sessions, filterCourseId ? [] : externalEvents);
+  // This Space's Calendar entries, shown here too but as secondary context
+  // next to Sessions (see `CalendarEntriesListView`'s reciprocal fetch of
+  // Sessions). Hidden while narrowed to one Course, since a calendar entry
+  // never has one.
+  const { data: calendarEntries = [] } = useQuery({
+    queryKey: ["calendar-entries", spaceId],
+    queryFn: () => listCalendarEntries(spaceId),
+    enabled: !filterCourseId,
+  });
+  const columns = buildColumns(
+    days,
+    sessions,
+    filterCourseId ? [] : externalEvents,
+    filterCourseId ? [] : calendarEntries,
+  );
 
   const step = useCallback(
     (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction)),
@@ -262,6 +284,8 @@ export function SessionsListView({
           highlightIds={highlightIds}
           onSelect={setDraft}
           onPickDay={pickDay}
+          spaceColor={spaceColor}
+          secondaryKind="calendarEntry"
         />
       ) : (
         <TimeGrid
@@ -272,6 +296,8 @@ export function SessionsListView({
           onSelect={setDraft}
           onPickDay={pickDay}
           slotCreateNoun="Session"
+          spaceColor={spaceColor}
+          secondaryKind="calendarEntry"
         />
       )}
 

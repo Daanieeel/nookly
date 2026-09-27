@@ -1,16 +1,19 @@
 import { IconX } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import type { CSSProperties } from "react";
 import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideOccurrence } from "#/lib/api/sessions.ts";
-import type { SessionOccurrence } from "#/lib/api/types.ts";
+import type { OccurrenceOverride, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../external-calendars/overlay-layout";
+import { heightPxFor, minutesToTime, timeToMinutes, topPxFor } from "./calendar-model";
+import { useItemDrag } from "./item-drag";
 import { SessionPopover } from "./SessionPopover";
 
 /// A Session occurrence on the time grid: outlined and quieter than a
@@ -27,6 +30,9 @@ export function SessionBlock({
   position,
   highlighted,
   accentColor,
+  secondary,
+  days,
+  dayIndex,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
@@ -34,19 +40,56 @@ export function SessionBlock({
   /// Briefly true right after the occurrence was created.
   highlighted: boolean;
   accentColor?: string;
+  /// True on the Calendar module page, where a Session is secondary context
+  /// next to that Space's own Calendar entries: rendered with less visual
+  /// weight, but still fully editable via the same popover.
+  secondary?: boolean;
+  /// The visible days on the time grid, and this occurrence's own column
+  /// among them, so dragging it to a new place can resolve which day it
+  /// landed on (see `useItemDrag`).
+  days: Date[];
+  dayIndex: number;
 }) {
   const queryClient = useQueryClient();
-  const cancel = useMutation({
-    mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
+  const invalidate = () =>
     // A predicate (not a fixed queryKey) so this also invalidates the
     // cross-Space ["sessions", "all"] cache the unified Calendar page reads.
-    onSuccess: () =>
-      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "sessions" }),
+    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "sessions" });
+  const cancel = useMutation({
+    mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
+    onSuccess: invalidate,
+  });
+  const reschedule = useMutation({
+    mutationFn: (patch: OccurrenceOverride) => overrideOccurrence(occurrence.entity.id, patch),
+    onSuccess: invalidate,
   });
   const cancelStatus = statusOf(cancel);
   const cancelLabel =
     cancelStatus === "error" ? "Couldn't cancel occurrence, try again" : "Cancel occurrence";
-  const short = position.height < 36;
+
+  const startMin = timeToMinutes(occurrence.startTime);
+  const endMin = timeToMinutes(occurrence.endTime);
+  const { previewRange, handleFor } = useItemDrag({
+    startMin,
+    endMin,
+    dayIndex,
+    dayCount: days.length,
+    onCommit: (result) => {
+      const patch: OccurrenceOverride = {
+        startTime: minutesToTime(result.startMin),
+        endTime: minutesToTime(result.endMin),
+      };
+      const targetDay = result.dayDelta !== 0 ? days[dayIndex + result.dayDelta] : undefined;
+      if (targetDay) patch.date = format(targetDay, "yyyy-MM-dd");
+      reschedule.mutate(patch);
+    },
+  });
+  const top = previewRange ? topPxFor(previewRange.startMin) : position.top;
+  const height = previewRange
+    ? heightPxFor(previewRange.startMin, previewRange.endMin)
+    : position.height;
+  const draggable = !occurrence.cancelled;
+  const short = height < 36;
   return (
     <div
       data-calendar-item
@@ -55,23 +98,31 @@ export function SessionBlock({
         occurrence.cancelled
           ? "border border-border bg-muted text-muted-foreground"
           : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground",
+        secondary && !occurrence.cancelled && "opacity-70",
         highlighted && "ring-2 ring-(--session-color)",
+        previewRange && "z-30 shadow-lg transition-none",
+        draggable && "cursor-grab active:cursor-grabbing",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
       // lengths computed from this occurrence's own start/end time and column,
-      // and `--session-color` only ever receives `accentColor` (a Space's own
-      // validated hex accent) or falls back to the `--primary` token — a per
-      // row/Space value can't be a static Tailwind class.
+      // `--occ-shift` only ever receives the live drag's own column-width based
+      // pixel offset, and `--session-color` only ever receives `accentColor` (a
+      // Space's own validated hex accent) or falls back to the `--primary`
+      // token — a per row/Space value can't be a static Tailwind class.
       style={
         {
-          "--occ-top": `${position.top}px`,
-          "--occ-height": `${position.height}px`,
+          "--occ-top": `${top}px`,
+          "--occ-height": `${height}px`,
           "--occ-left": position.left,
           "--occ-width": position.width,
           "--session-color": accentColor ?? "var(--primary)",
+          transform: previewRange?.dayDeltaPx
+            ? `translateX(${previewRange.dayDeltaPx}px)`
+            : undefined,
         } as CSSProperties
       }
       {...entityTarget(occurrence.entity, occurrence)}
+      {...(draggable ? handleFor("move") : {})}
     >
       <SessionPopover spaceId={spaceId} occurrence={occurrence}>
         <button
@@ -95,12 +146,26 @@ export function SessionBlock({
             <span className="min-w-0 truncate">{occurrence.courseTitle}</span>
           )}
           <span className="shrink-0 truncate">
-            {formatClock(occurrence.startTime)}
-            {short ? "" : ` to ${formatClock(occurrence.endTime)}`}
+            {formatClock(minutesToTime(previewRange?.startMin ?? startMin))}
+            {short ? "" : ` to ${formatClock(minutesToTime(previewRange?.endMin ?? endMin))}`}
           </span>
           {!short && occurrence.location && <span className="truncate">{occurrence.location}</span>}
         </button>
       </SessionPopover>
+      {draggable && (
+        <>
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--session-color)/50 group-hover:opacity-100"
+            {...handleFor("resize-start")}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--session-color)/50 group-hover:opacity-100"
+            {...handleFor("resize-end")}
+          />
+        </>
+      )}
       {!occurrence.cancelled && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -109,7 +174,7 @@ export function SessionBlock({
               aria-label={cancelLabel}
               onClick={() => !cancel.isPending && cancel.mutate()}
               className={cn(
-                "absolute top-0.5 right-0.5 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100",
+                "absolute top-0.5 right-0.5 z-20 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100",
                 cancelStatus === "idle" ? "opacity-0" : "opacity-100",
               )}
             >
@@ -130,11 +195,14 @@ export function SessionChip({
   occurrence,
   highlighted,
   accentColor,
+  secondary,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
   highlighted: boolean;
   accentColor?: string;
+  /// See `SessionBlock`'s `secondary`.
+  secondary?: boolean;
 }) {
   return (
     <SessionPopover spaceId={spaceId} occurrence={occurrence}>
@@ -147,6 +215,7 @@ export function SessionChip({
           occurrence.cancelled
             ? "border border-transparent text-muted-foreground line-through hover:bg-accent"
             : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground hover:bg-(--session-color)/14",
+          secondary && !occurrence.cancelled && "opacity-70",
           highlighted && "ring-2 ring-(--session-color)",
         )}
         // SAFETY: see `SessionBlock` above — a hex color or the `--primary` token.

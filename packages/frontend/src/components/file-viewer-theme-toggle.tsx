@@ -21,7 +21,7 @@ export function FileViewerThemeToggle() {
   return (
     // SAFETY: the only values Radix can emit are the `THEMES` trigger values below.
     <Tabs value={theme} onValueChange={(next) => setTheme(next as FileViewerTheme)}>
-      <TabsList>
+      <TabsList className="w-full">
         {THEMES.map((value) => {
           const Icon = ICON[value];
           return (

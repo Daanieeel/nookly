@@ -1,16 +1,24 @@
 import { IconX } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import type { CSSProperties } from "react";
 import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideCalendarEntryOccurrence } from "#/lib/api/calendarEntries.ts";
-import type { CalendarEntry } from "#/lib/api/types.ts";
-import { formatClock } from "#/lib/datetime.ts";
+import type { CalendarEntry, CalendarEntryOverride } from "#/lib/api/types.ts";
+import { formatClock, formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../../sessions/external-calendars/overlay-layout";
+import {
+  heightPxFor,
+  minutesToTime,
+  timeToMinutes,
+  topPxFor,
+} from "../../sessions/calendar/calendar-model";
+import { useItemDrag } from "../../sessions/calendar/item-drag";
 import { CalendarEntryPopover } from "./CalendarEntryPopover";
 
 /// A calendar entry occurrence on the time grid: solid and the bolder of the
@@ -25,6 +33,9 @@ export function CalendarEntryBlock({
   position,
   highlighted,
   accentColor,
+  secondary,
+  days,
+  dayIndex,
 }: {
   spaceId: string;
   entry: CalendarEntry;
@@ -33,17 +44,55 @@ export function CalendarEntryBlock({
   /// Overrides the default `--accent-purple` tint with the occurrence's own
   /// Space accent color — used only by the unified cross-Space Calendar page.
   accentColor?: string;
+  /// True on the Sessions page, where a Calendar entry is secondary context
+  /// next to that Space's own Sessions: rendered with less visual weight, but
+  /// still fully editable via the same popover.
+  secondary?: boolean;
+  /// The visible days on the time grid, and this entry's own column among
+  /// them, so dragging it to a new place can resolve which day it landed on
+  /// (see `useItemDrag`).
+  days: Date[];
+  dayIndex: number;
 }) {
   const queryClient = useQueryClient();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "calendar-entries" });
   const cancel = useMutation({
     mutationFn: () => overrideCalendarEntryOccurrence(entry.entity.id, { cancelled: true }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "calendar-entries" }),
+    onSuccess: invalidate,
+  });
+  const reschedule = useMutation({
+    mutationFn: (patch: CalendarEntryOverride) =>
+      overrideCalendarEntryOccurrence(entry.entity.id, patch),
+    onSuccess: invalidate,
   });
   const cancelStatus = statusOf(cancel);
   const cancelLabel =
     cancelStatus === "error" ? "Couldn't cancel entry, try again" : "Cancel entry";
-  const short = position.height < 36;
+
+  const startMin = timeToMinutes(entry.startTime ?? "00:00");
+  const endMin = timeToMinutes(entry.endTime ?? "00:00");
+  const { previewRange, handleFor } = useItemDrag({
+    startMin,
+    endMin,
+    dayIndex,
+    dayCount: days.length,
+    onCommit: (result) => {
+      const patch: CalendarEntryOverride = {
+        startTime: minutesToTime(result.startMin),
+        endTime: minutesToTime(result.endMin),
+      };
+      const targetDay = result.dayDelta !== 0 ? days[dayIndex + result.dayDelta] : undefined;
+      if (targetDay) patch.date = format(targetDay, "yyyy-MM-dd");
+      reschedule.mutate(patch);
+    },
+  });
+  const top = previewRange ? topPxFor(previewRange.startMin) : position.top;
+  const height = previewRange
+    ? heightPxFor(previewRange.startMin, previewRange.endMin)
+    : position.height;
+  const draggable = !entry.cancelled;
+  const short = height < 36;
   return (
     <div
       data-calendar-item
@@ -52,23 +101,32 @@ export function CalendarEntryBlock({
         entry.cancelled
           ? "border-border bg-muted text-muted-foreground"
           : "border-(--entry-color)/60 bg-(--entry-color)/30 text-foreground shadow-xs",
+        secondary && !entry.cancelled && "opacity-70 shadow-none",
         highlighted && "ring-2 ring-(--entry-color)",
+        previewRange && "z-30 shadow-lg transition-none",
+        draggable && "cursor-grab active:cursor-grabbing",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
       // lengths computed from this occurrence's own start/end time and column,
-      // and `--entry-color` only ever receives `accentColor` (a Space's own
-      // validated hex accent) or falls back to the `--accent-purple` token —
-      // a per row/Space value can't be a static Tailwind class.
+      // `--occ-shift` only ever receives the live drag's own column-width based
+      // pixel offset, and `--entry-color` only ever receives `accentColor` (a
+      // Space's own validated hex accent) or falls back to the
+      // `--accent-purple` token — a per row/Space value can't be a static
+      // Tailwind class.
       style={
         {
-          "--occ-top": `${position.top}px`,
-          "--occ-height": `${position.height}px`,
+          "--occ-top": `${top}px`,
+          "--occ-height": `${height}px`,
           "--occ-left": position.left,
           "--occ-width": position.width,
           "--entry-color": accentColor ?? "var(--accent-purple)",
+          transform: previewRange?.dayDeltaPx
+            ? `translateX(${previewRange.dayDeltaPx}px)`
+            : undefined,
         } as CSSProperties
       }
       {...entityTarget(entry.entity, entry)}
+      {...(draggable ? handleFor("move") : {})}
     >
       <CalendarEntryPopover spaceId={spaceId} entry={entry}>
         <button
@@ -89,8 +147,8 @@ export function CalendarEntryBlock({
           <span className="shrink-0 truncate opacity-70">
             {entry.allDay
               ? "All day"
-              : `${formatClock(entry.startTime ?? "00:00")}${
-                  short ? "" : ` to ${formatClock(entry.endTime ?? "00:00")}`
+              : `${formatClock(minutesToTime(previewRange?.startMin ?? startMin))}${
+                  short ? "" : ` to ${formatClock(minutesToTime(previewRange?.endMin ?? endMin))}`
                 }`}
           </span>
           {!short && entry.location && (
@@ -98,6 +156,20 @@ export function CalendarEntryBlock({
           )}
         </button>
       </CalendarEntryPopover>
+      {draggable && (
+        <>
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--entry-color)/50 group-hover:opacity-100"
+            {...handleFor("resize-start")}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--entry-color)/50 group-hover:opacity-100"
+            {...handleFor("resize-end")}
+          />
+        </>
+      )}
       {!entry.cancelled && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -106,7 +178,7 @@ export function CalendarEntryBlock({
               aria-label={cancelLabel}
               onClick={() => !cancel.isPending && cancel.mutate()}
               className={cn(
-                "absolute top-0.5 right-0.5 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100",
+                "absolute top-0.5 right-0.5 z-20 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100",
                 cancelStatus === "idle" ? "opacity-0" : "opacity-100",
               )}
             >
@@ -128,12 +200,20 @@ export function CalendarEntryChip({
   highlighted,
   showTime = false,
   accentColor,
+  secondary,
+  daySpan,
 }: {
   spaceId: string;
   entry: CalendarEntry;
   highlighted: boolean;
   showTime?: boolean;
   accentColor?: string;
+  /// See `CalendarEntryBlock`'s `secondary`.
+  secondary?: boolean;
+  /// Where this day falls in a multi-day entry's span (see
+  /// `calendar-model`'s `daySpanFor`), so only its first day shows the start
+  /// time and only its last day shows the end time.
+  daySpan?: "start" | "middle" | "end" | null;
 }) {
   return (
     <CalendarEntryPopover spaceId={spaceId} entry={entry}>
@@ -146,19 +226,27 @@ export function CalendarEntryChip({
           entry.cancelled
             ? "border-l-muted-foreground text-muted-foreground line-through hover:bg-accent"
             : "border-l-(--entry-color) bg-(--entry-color)/25 font-medium hover:bg-(--entry-color)/35",
+          secondary && !entry.cancelled && "opacity-70",
           highlighted && "ring-2 ring-(--entry-color)",
         )}
         // SAFETY: see `CalendarEntryBlock` above — a hex color or the `--accent-purple` token.
         style={{ "--entry-color": accentColor ?? "var(--accent-purple)" } as CSSProperties}
         {...entityTarget(entry.entity, entry)}
       >
-        {showTime && !entry.allDay && (
+        {daySpan && daySpan !== "start" && <span className="shrink-0 opacity-60">←</span>}
+        {(showTime || daySpan === "start") && !entry.allDay && (
           <span className="shrink-0 text-muted-foreground tabular-nums">
             {formatClock(entry.startTime ?? "00:00")}
           </span>
         )}
         <EntityIcon entity={entry.entity} size={13} className="shrink-0 text-(--entry-color)" />
         <span className="truncate">{displayTitle(entry.entity)}</span>
+        {daySpan === "end" && !entry.allDay && (
+          <span className="shrink-0 text-muted-foreground tabular-nums">
+            {formatClock(entry.endTime ?? "00:00")}
+          </span>
+        )}
+        {daySpan && daySpan !== "end" && <span className="shrink-0 opacity-60">→</span>}
       </button>
     </CalendarEntryPopover>
   );
@@ -166,5 +254,9 @@ export function CalendarEntryChip({
 
 function entryTooltip(entry: CalendarEntry): string {
   const title = `${entry.entity.key} ${displayTitle(entry.entity)}`;
-  return entry.location ? `${title}, ${entry.location}` : title;
+  const span =
+    entry.endDate && entry.endDate !== entry.date
+      ? `, ${formatShortDate(entry.date)} to ${formatShortDate(entry.endDate)}`
+      : "";
+  return `${title}${span}${entry.location ? `, ${entry.location}` : ""}`;
 }
