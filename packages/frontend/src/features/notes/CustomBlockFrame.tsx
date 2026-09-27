@@ -88,8 +88,11 @@ export function useRowKeyboard({
   const tryFocus = () => {
     const pending = pendingRef.current;
     if (!pending) return;
-    const input = containerRef.current?.querySelector<HTMLInputElement>(
-      `input[data-row="${pending.row}"][data-field="${pending.field}"]`,
+    // No tag qualifier: a row's field is an `<input>` in most of these blocks,
+    // but a `<textarea>` where it needs to word-wrap instead (Details' label
+    // and value) — both support the same `.focus()`/`.setSelectionRange()`.
+    const input = containerRef.current?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      `[data-row="${pending.row}"][data-field="${pending.field}"]`,
     );
     if (!input) return;
     pendingRef.current = null;
@@ -118,7 +121,11 @@ export function useRowKeyboard({
 
   /// Arrow keys move to the same field one row up or down, and out of the block
   /// past its first or last row.
-  const onArrow = (event: KeyboardEvent<HTMLInputElement>, row: number, rowCount: number) => {
+  const onArrow = (
+    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    row: number,
+    rowCount: number,
+  ) => {
     const field = event.currentTarget.dataset.field ?? "";
     if (event.key === "ArrowUp") {
       event.preventDefault();

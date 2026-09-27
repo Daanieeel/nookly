@@ -5,6 +5,15 @@ import { asString, type JSONAttrValue } from "./block-markdown";
 import { CustomBlockFrame, RemoveRowButton, useRowKeyboard } from "./CustomBlockFrame";
 import { parseCells, serializeCells } from "./custom-block-rows";
 
+/// Grows a row's textarea to fit its content instead of scrolling it, so a
+/// label or value longer than the column wraps onto new lines. Called on
+/// mount (existing long content) and on every change (typing past the edge).
+function autosize(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 /// Facts at a glance as aligned label and value pairs: a course's room and
 /// office hours, a contact, a trip.
 export function DetailsBlock(props: ReactNodeViewProps) {
@@ -28,7 +37,7 @@ export function DetailsBlock(props: ReactNodeViewProps) {
     focus(Math.max(0, index - 1), "value");
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>, index: number) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>, index: number) => {
     if (onArrow(event, index, rows.length)) return;
     const field = event.currentTarget.dataset.field;
     if (event.key === "Enter") {
@@ -57,25 +66,35 @@ export function DetailsBlock(props: ReactNodeViewProps) {
         {rows.map(([label, value], index) => (
           <div
             key={index}
-            className="group/row grid h-8 grid-cols-[minmax(6rem,12rem)_1fr_auto] items-center gap-3"
+            className="group/row grid min-h-8 grid-cols-[minmax(6rem,12rem)_1fr_auto] items-start gap-3 py-1.5"
           >
-            <input
+            <textarea
+              ref={autosize}
               data-row={index}
               data-field="label"
+              rows={1}
               value={label}
-              onChange={(event) => patch(index, 0, event.target.value)}
+              onChange={(event) => {
+                patch(index, 0, event.target.value);
+                autosize(event.currentTarget);
+              }}
               onKeyDown={(event) => onKeyDown(event, index)}
               placeholder="Label"
-              className="custom-block-input min-w-0 text-muted-foreground"
+              className="custom-block-input min-w-0 resize-none overflow-hidden text-muted-foreground"
             />
-            <input
+            <textarea
+              ref={autosize}
               data-row={index}
               data-field="value"
+              rows={1}
               value={value}
-              onChange={(event) => patch(index, 1, event.target.value)}
+              onChange={(event) => {
+                patch(index, 1, event.target.value);
+                autosize(event.currentTarget);
+              }}
               onKeyDown={(event) => onKeyDown(event, index)}
               placeholder="Value"
-              className="custom-block-input min-w-0"
+              className="custom-block-input min-w-0 resize-none overflow-hidden"
             />
             <RemoveRowButton label="Remove Detail" onClick={() => remove(index)} />
           </div>
