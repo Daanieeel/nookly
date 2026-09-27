@@ -41,11 +41,14 @@ export function createOneOffCalendarEntry(
   allDay: boolean,
   location: string | null,
   description: string | null,
+  /// Set only for a multi-day entry (inclusive); omit for a single day, `date` alone.
+  endDate: string | null = null,
 ): Promise<CalendarEntry> {
   return invoke("create_one_off_calendar_entry", {
     spaceId,
     title,
     date,
+    endDate,
     startTime,
     endTime,
     allDay,

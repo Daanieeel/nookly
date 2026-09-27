@@ -36,6 +36,8 @@ pub struct CalendarEntry {
     pub entity: Entity,
     pub template_id: Option<String>,
     pub date: String,
+    /// Set only for a multi-day entry (inclusive); `None` means a single day, `date` alone.
+    pub end_date: Option<String>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
     pub all_day: bool,
@@ -49,6 +51,7 @@ fn row_to_calendar_entry(row: &rusqlite::Row) -> rusqlite::Result<CalendarEntry>
         entity: crate::db::entities::row_to_entity(row)?,
         template_id: row.get("template_id")?,
         date: row.get("date")?,
+        end_date: row.get("end_date")?,
         start_time: row.get("start_time")?,
         end_time: row.get("end_time")?,
         all_day: row.get::<_, i64>("all_day")? != 0,
@@ -56,6 +59,18 @@ fn row_to_calendar_entry(row: &rusqlite::Row) -> rusqlite::Result<CalendarEntry>
         location: row.get("location")?,
         description: row.get("description")?,
     })
+}
+
+/// Rejects a multi-day entry (dragged from one day column to a later one)
+/// whose `end_date` comes before its `date` — plain string comparison is
+/// correct here since both are ISO `YYYY-MM-DD`.
+fn validate_date_range(date: &str, end_date: &Option<String>) -> AppResult<()> {
+    match end_date {
+        Some(end) if end.as_str() < date => Err(AppError::InvalidInput(
+            "a calendar entry can't end before it starts".into(),
+        )),
+        _ => Ok(()),
+    }
 }
 
 fn validate_times(
@@ -168,6 +183,10 @@ pub fn generate_occurrences(
                 &template.entity.title,
                 Some(template_id.to_string()),
                 date_str,
+                // A template always generates single-day occurrences — a
+                // multi-day span is only ever picked for one specific
+                // one-off entry, never a recurring cadence.
+                None,
                 template.start_time.clone(),
                 template.end_time.clone(),
                 template.all_day,
@@ -187,6 +206,7 @@ pub fn create_one_off_calendar_entry(
     space_id: String,
     title: String,
     date: String,
+    end_date: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
     all_day: bool,
@@ -199,6 +219,7 @@ pub fn create_one_off_calendar_entry(
         &title,
         None,
         date,
+        end_date,
         start_time,
         end_time,
         all_day,
@@ -214,6 +235,7 @@ fn create_occurrence(
     title: &str,
     template_id: Option<String>,
     date: String,
+    end_date: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
     all_day: bool,
@@ -221,6 +243,7 @@ fn create_occurrence(
     description: Option<String>,
 ) -> AppResult<CalendarEntry> {
     validate_times(all_day, &start_time, &end_time)?;
+    validate_date_range(&date, &end_date)?;
     let entity = crate::db::entities::create_entity(
         conn,
         space_id.to_string(),
@@ -229,14 +252,15 @@ fn create_occurrence(
         None,
     )?;
     conn.execute(
-        "INSERT INTO calendar_entries (entity_id, template_id, date, start_time, end_time, all_day, cancelled, location, description)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8)",
-        params![entity.id, template_id, date, start_time, end_time, all_day as i64, location, description],
+        "INSERT INTO calendar_entries (entity_id, template_id, date, end_date, start_time, end_time, all_day, cancelled, location, description)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9)",
+        params![entity.id, template_id, date, end_date, start_time, end_time, all_day as i64, location, description],
     )?;
     Ok(CalendarEntry {
         entity,
         template_id,
         date,
+        end_date,
         start_time,
         end_time,
         all_day,
@@ -250,6 +274,7 @@ fn create_occurrence(
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEntryOverride {
     pub date: Option<String>,
+    pub end_date: Option<Option<String>>,
     pub start_time: Option<Option<String>>,
     pub end_time: Option<Option<String>>,
     pub all_day: Option<bool>,
@@ -269,6 +294,9 @@ pub fn override_occurrence(
 
     if let Some(date) = patch.date {
         occurrence.date = date;
+    }
+    if let Some(end_date) = patch.end_date {
+        occurrence.end_date = end_date;
     }
     if let Some(start_time) = patch.start_time {
         occurrence.start_time = start_time;
@@ -293,11 +321,13 @@ pub fn override_occurrence(
         &occurrence.start_time,
         &occurrence.end_time,
     )?;
+    validate_date_range(&occurrence.date, &occurrence.end_date)?;
 
     conn.execute(
-        "UPDATE calendar_entries SET date = ?1, start_time = ?2, end_time = ?3, all_day = ?4, cancelled = ?5, location = ?6, description = ?7 WHERE entity_id = ?8",
+        "UPDATE calendar_entries SET date = ?1, end_date = ?2, start_time = ?3, end_time = ?4, all_day = ?5, cancelled = ?6, location = ?7, description = ?8 WHERE entity_id = ?9",
         params![
             occurrence.date,
+            occurrence.end_date,
             occurrence.start_time,
             occurrence.end_time,
             occurrence.all_day as i64,
@@ -679,6 +709,13 @@ const CALENDAR_ENTRY_FIELDS: &[FieldDef] = &[
         description: "ISO date this occurrence falls on.",
     },
     FieldDef {
+        name: "endDate",
+        kind: FieldKind::Date,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Optional ISO end date (inclusive) for a multi-day entry. Omit for a single day, \"date\" alone.",
+    },
+    FieldDef {
         name: "startTime",
         kind: FieldKind::Text,
         required_on_create: false,
@@ -727,6 +764,7 @@ fn cli_create_calendar_entry(
     input: CreateInput,
 ) -> AppResult<serde_json::Value> {
     let date = crate::db::schema::require_str(&input.fields, "date")?;
+    let end_date = crate::db::schema::field_str(&input.fields, "endDate");
     let start_time = crate::db::schema::field_str(&input.fields, "startTime");
     let end_time = crate::db::schema::field_str(&input.fields, "endTime");
     let all_day = crate::db::schema::field_bool(&input.fields, "allDay").unwrap_or(false);
@@ -737,6 +775,7 @@ fn cli_create_calendar_entry(
         input.space_id,
         input.title,
         date,
+        end_date,
         start_time,
         end_time,
         all_day,
@@ -753,6 +792,9 @@ fn cli_update_calendar_entry(
 ) -> AppResult<serde_json::Value> {
     let patch = CalendarEntryOverride {
         date: crate::db::schema::field_str(fields, "date"),
+        end_date: fields
+            .contains_key("endDate")
+            .then(|| crate::db::schema::field_str(fields, "endDate")),
         start_time: fields
             .contains_key("startTime")
             .then(|| crate::db::schema::field_str(fields, "startTime")),
@@ -995,6 +1037,7 @@ mod tests {
             space.id,
             "Dentist".into(),
             "2026-02-01".into(),
+            None,
             Some("10:00".into()),
             Some("11:00".into()),
             false,
@@ -1017,6 +1060,7 @@ mod tests {
             "2026-03-01".into(),
             None,
             None,
+            None,
             true,
             None,
             None,
@@ -1029,6 +1073,41 @@ mod tests {
             "2026-03-01".into(),
             None,
             None,
+            None,
+            false,
+            None,
+            None,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn multi_day_entry_spans_end_date() {
+        let conn = setup();
+        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
+        let entry = create_one_off_calendar_entry(
+            &conn,
+            space.id.clone(),
+            "Road trip".into(),
+            "2026-04-06".into(),
+            Some("2026-04-08".into()),
+            Some("12:00".into()),
+            Some("15:00".into()),
+            false,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(entry.end_date.as_deref(), Some("2026-04-08"));
+
+        assert!(create_one_off_calendar_entry(
+            &conn,
+            space.id,
+            "Backwards".into(),
+            "2026-04-06".into(),
+            Some("2026-04-01".into()),
+            Some("12:00".into()),
+            Some("15:00".into()),
             false,
             None,
             None,

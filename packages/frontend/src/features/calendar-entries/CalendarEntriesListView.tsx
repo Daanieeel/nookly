@@ -232,6 +232,7 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
           slotCreateNoun="Calendar Entry"
           spaceColor={spaceColor}
           secondaryKind="session"
+          allowMultiDay
         />
       )}
 

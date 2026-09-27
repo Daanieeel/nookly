@@ -100,11 +100,14 @@ export function QuickCreateCalendarEntryDialog({
   const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
   const ready = title.trim() !== "" && targetSpaceId !== "" && timesValid;
 
+  const spansDays = Boolean(draft?.endDate);
+
   const create = useMutation({
     mutationFn: async () => {
       if (!draft) throw new Error("Pick a time first");
       if (!targetSpaceId) throw new Error("Pick a Space first");
       const date = format(draft.date, "yyyy-MM-dd");
+      const endDate = draft.endDate ? format(draft.endDate, "yyyy-MM-dd") : null;
       const nextLocation = location.trim() || null;
       if (recurrence !== "none") {
         const template = await createCalendarEntryTemplate(
@@ -133,6 +136,7 @@ export function QuickCreateCalendarEntryDialog({
         allDay,
         nextLocation,
         null,
+        endDate,
       );
       return [occurrence.entity.id];
     },
@@ -162,7 +166,9 @@ export function QuickCreateCalendarEntryDialog({
           <DialogTitle>New calendar entry</DialogTitle>
           {draft && (
             <p className="text-sm text-muted-foreground">
-              {formatWeekday(draft.date)}, {formatShortDate(draft.date)}
+              {spansDays && draft.endDate
+                ? `${formatWeekday(draft.date)}, ${formatShortDate(draft.date)} to ${formatWeekday(draft.endDate)}, ${formatShortDate(draft.endDate)}`
+                : `${formatWeekday(draft.date)}, ${formatShortDate(draft.date)}`}
             </p>
           )}
         </DialogHeader>
@@ -230,22 +236,24 @@ export function QuickCreateCalendarEntryDialog({
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
-          <Select
-            value={recurrence}
-            // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
-            onValueChange={(v) => setRecurrence(v as Recurrence)}
-          >
-            <SelectTrigger className="w-full" aria-label="Repeat">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RECURRENCE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!spansDays && (
+            <Select
+              value={recurrence}
+              // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
+              onValueChange={(v) => setRecurrence(v as Recurrence)}
+            >
+              <SelectTrigger className="w-full" aria-label="Repeat">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RECURRENCE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <FieldError
             message={
               (!timesValid && startTime >= endTime && "End after it starts") ||

@@ -15,13 +15,14 @@ import {
   type DayColumn,
   type DayItem,
   HOUR_PX,
-  type MinuteRange,
   SCROLL_TO_HOUR,
   SNAP_MINUTES,
   type SlotRange,
+  daySpanFor,
   heightPxFor,
   isEmptySpot,
   minutesToTime,
+  rangeForDay,
   topPxFor,
 } from "./calendar-model";
 import { SessionBlock } from "./SessionBlock";
@@ -32,12 +33,18 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const ALL_DAY_ROW_PX = 22;
 /// All day rows shown before the strip stops growing; the rest scroll.
 const MAX_ALL_DAY_ROWS = 3;
+/// The hour gutter's own width (`w-14`), subtracted from the row's width to
+/// find which day column a drag's pointer is over.
+const GUTTER_PX = 56;
 
+/// `anchorCol`/`currentCol` are indexes into `columns`: equal for a same-day
+/// drag (the only kind `allowMultiDay` false ever produces), different once a
+/// drag crosses into another day column.
 interface Drag {
-  key: string;
-  date: Date;
-  anchor: number;
-  current: number;
+  anchorCol: number;
+  anchorMin: number;
+  currentCol: number;
+  currentMin: number;
   moved: boolean;
 }
 
@@ -55,10 +62,25 @@ function useNowMinutes(): number {
   return minutes;
 }
 
-function dragRange(drag: Drag): MinuteRange {
+/// Resolves a drag in progress to the `SlotRange` it would create right now:
+/// a single day when it never left its starting column, otherwise a span from
+/// whichever end came first to whichever came last.
+function dragToRange(drag: Drag, columns: DayColumn[]): SlotRange {
+  const startCol = Math.min(drag.anchorCol, drag.currentCol);
+  const endCol = Math.max(drag.anchorCol, drag.currentCol);
+  if (startCol === endCol) {
+    return {
+      date: columns[startCol].day,
+      startMin: Math.min(drag.anchorMin, drag.currentMin),
+      endMin: Math.max(drag.anchorMin, drag.currentMin) + SNAP_MINUTES,
+    };
+  }
+  const startIsAnchor = drag.anchorCol <= drag.currentCol;
   return {
-    startMin: Math.min(drag.anchor, drag.current),
-    endMin: Math.max(drag.anchor, drag.current) + SNAP_MINUTES,
+    date: columns[startCol].day,
+    startMin: startIsAnchor ? drag.anchorMin : drag.currentMin,
+    endMin: Math.min(DAY_MINUTES, (startIsAnchor ? drag.currentMin : drag.anchorMin) + SNAP_MINUTES),
+    endDate: columns[endCol].day,
   };
 }
 
@@ -74,6 +96,7 @@ export function TimeGrid({
   slotCreateNoun,
   spaceColor,
   secondaryKind,
+  allowMultiDay,
 }: {
   columns: DayColumn[];
   /// The range a create dialog is open for, kept highlighted meanwhile.
@@ -97,8 +120,13 @@ export function TimeGrid({
   /// items, but still fully editable. Omitted on the unified cross-Space page,
   /// where Sessions and Calendar entries carry equal weight.
   secondaryKind?: DayItem["kind"];
+  /// Lets a drag cross into another day column to create a multi-day Calendar
+  /// entry (dragging from Monday noon to Wednesday 3pm, say). Off by default,
+  /// so Sessions (always a single day) keep dragging exactly as before.
+  allowMultiDay?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const nowMinutes = useNowMinutes();
   const single = columns.length === 1;
@@ -127,6 +155,18 @@ export function TimeGrid({
     const minutes = ((e.clientY - rect.top) / HOUR_PX) * 60;
     const snapped = Math.floor(minutes / SNAP_MINUTES) * SNAP_MINUTES;
     return Math.max(0, Math.min(snapped, DAY_MINUTES - SNAP_MINUTES));
+  };
+
+  /// Which day column `e` is currently over, by x position in the row — used
+  /// while dragging, since pointer capture keeps delivering move events to the
+  /// column the drag started on even once the cursor has left it.
+  const columnAt = (e: ReactPointerEvent<HTMLElement>): number => {
+    const rowRect = rowRef.current?.getBoundingClientRect();
+    if (!rowRect) return 0;
+    const usableWidth = rowRect.width - GUTTER_PX;
+    const relX = e.clientX - rowRect.left - GUTTER_PX;
+    const colWidth = usableWidth / columns.length;
+    return Math.max(0, Math.min(columns.length - 1, Math.floor(relX / colWidth)));
   };
 
   return (
@@ -188,6 +228,7 @@ export function TimeGrid({
                     highlighted={highlightIds.has(entry.entity.id)}
                     accentColor={spaceColor?.(entry.entity.spaceId)}
                     secondary={secondaryKind === "calendarEntry"}
+                    daySpan={daySpanFor(entry, day)}
                   />
                 ))}
               </div>
@@ -196,7 +237,7 @@ export function TimeGrid({
         )}
       </div>
 
-      <div className="flex">
+      <div ref={rowRef} className="flex">
         <div className="w-14 shrink-0" aria-hidden>
           {HOURS.map((h) => (
             <div key={h} className="relative h-12">
@@ -210,12 +251,8 @@ export function TimeGrid({
         </div>
 
         {columns.map(({ day, key, items, lanes }, dayIndex) => {
-          const range =
-            drag?.key === key
-              ? dragRange(drag)
-              : selection && format(selection.date, "yyyy-MM-dd") === key
-                ? selection
-                : null;
+          const active = drag ? dragToRange(drag, columns) : (selection ?? null);
+          const range = active ? rangeForDay(day, active) : null;
           return (
             <div
               key={key}
@@ -229,20 +266,29 @@ export function TimeGrid({
                 if (!isEmptySpot(e.currentTarget, e.target, "[data-calendar-item]")) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
                 const minutes = minutesAt(e);
-                setDrag({ key, date: day, anchor: minutes, current: minutes, moved: false });
+                setDrag({
+                  anchorCol: dayIndex,
+                  anchorMin: minutes,
+                  currentCol: dayIndex,
+                  currentMin: minutes,
+                  moved: false,
+                });
               }}
               onPointerMove={(e) => {
-                if (drag?.key !== key) return;
+                if (!drag || drag.anchorCol !== dayIndex) return;
                 const minutes = minutesAt(e);
-                if (minutes !== drag.current) setDrag({ ...drag, current: minutes, moved: true });
+                const currentCol = allowMultiDay ? columnAt(e) : dayIndex;
+                if (minutes !== drag.currentMin || currentCol !== drag.currentCol) {
+                  setDrag({ ...drag, currentMin: minutes, currentCol, moved: true });
+                }
               }}
               onPointerUp={() => {
-                if (drag?.key !== key) return;
+                if (!drag || drag.anchorCol !== dayIndex) return;
                 setDrag(null);
                 if (drag.moved) {
-                  onSelect({ date: day, ...dragRange(drag) });
+                  onSelect(dragToRange(drag, columns));
                 } else {
-                  const startMin = Math.floor(drag.anchor / 30) * 30;
+                  const startMin = Math.floor(drag.anchorMin / 30) * 30;
                   onSelect({ date: day, startMin, endMin: Math.min(startMin + 60, DAY_MINUTES) });
                 }
               }}

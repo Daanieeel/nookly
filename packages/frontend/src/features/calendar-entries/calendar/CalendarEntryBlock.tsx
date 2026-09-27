@@ -8,7 +8,7 @@ import { EntityIcon } from "#/components/entity-icon.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideCalendarEntryOccurrence } from "#/lib/api/calendarEntries.ts";
 import type { CalendarEntry, CalendarEntryOverride } from "#/lib/api/types.ts";
-import { formatClock } from "#/lib/datetime.ts";
+import { formatClock, formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../../sessions/external-calendars/overlay-layout";
@@ -201,6 +201,7 @@ export function CalendarEntryChip({
   showTime = false,
   accentColor,
   secondary,
+  daySpan,
 }: {
   spaceId: string;
   entry: CalendarEntry;
@@ -209,6 +210,10 @@ export function CalendarEntryChip({
   accentColor?: string;
   /// See `CalendarEntryBlock`'s `secondary`.
   secondary?: boolean;
+  /// Where this day falls in a multi-day entry's span (see
+  /// `calendar-model`'s `daySpanFor`), so only its first day shows the start
+  /// time and only its last day shows the end time.
+  daySpan?: "start" | "middle" | "end" | null;
 }) {
   return (
     <CalendarEntryPopover spaceId={spaceId} entry={entry}>
@@ -228,13 +233,20 @@ export function CalendarEntryChip({
         style={{ "--entry-color": accentColor ?? "var(--accent-purple)" } as CSSProperties}
         {...entityTarget(entry.entity, entry)}
       >
-        {showTime && !entry.allDay && (
+        {daySpan && daySpan !== "start" && <span className="shrink-0 opacity-60">←</span>}
+        {(showTime || daySpan === "start") && !entry.allDay && (
           <span className="shrink-0 text-muted-foreground tabular-nums">
             {formatClock(entry.startTime ?? "00:00")}
           </span>
         )}
         <EntityIcon entity={entry.entity} size={13} className="shrink-0 text-(--entry-color)" />
         <span className="truncate">{displayTitle(entry.entity)}</span>
+        {daySpan === "end" && !entry.allDay && (
+          <span className="shrink-0 text-muted-foreground tabular-nums">
+            {formatClock(entry.endTime ?? "00:00")}
+          </span>
+        )}
+        {daySpan && daySpan !== "end" && <span className="shrink-0 opacity-60">→</span>}
       </button>
     </CalendarEntryPopover>
   );
@@ -242,5 +254,9 @@ export function CalendarEntryChip({
 
 function entryTooltip(entry: CalendarEntry): string {
   const title = `${entry.entity.key} ${displayTitle(entry.entity)}`;
-  return entry.location ? `${title}, ${entry.location}` : title;
+  const span =
+    entry.endDate && entry.endDate !== entry.date
+      ? `, ${formatShortDate(entry.date)} to ${formatShortDate(entry.endDate)}`
+      : "";
+  return `${title}${span}${entry.location ? `, ${entry.location}` : ""}`;
 }

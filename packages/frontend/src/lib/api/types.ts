@@ -240,6 +240,8 @@ export interface CalendarEntry {
   entity: Entity;
   templateId: string | null;
   date: string;
+  /// Set only for a multi-day entry (inclusive); null means a single day, `date` alone.
+  endDate: string | null;
   startTime: string | null;
   endTime: string | null;
   allDay: boolean;
@@ -261,6 +263,7 @@ export interface CalendarEntryTemplate {
 
 export interface CalendarEntryOverride {
   date?: string;
+  endDate?: string | null;
   startTime?: string | null;
   endTime?: string | null;
   allDay?: boolean;

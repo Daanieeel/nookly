@@ -250,6 +250,9 @@ function CalendarEntrySummary({
         <span className="flex items-start gap-2">
           <IconClock size={14} className="mt-0.5 shrink-0" />
           {formatWeekday(entry.date)}, {formatShortDate(entry.date)}
+          {entry.endDate &&
+            entry.endDate !== entry.date &&
+            ` to ${formatWeekday(entry.endDate)}, ${formatShortDate(entry.endDate)}`}
           {!entry.allDay &&
             `, ${formatClock(entry.startTime ?? "00:00")} to ${formatClock(entry.endTime ?? "00:00")}`}
           {entry.allDay && ", all day"}
@@ -280,12 +283,14 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
   const [scope, setScope] = useState<EditScope>("this");
   const [title, setTitle] = useState(entity.title);
   const [date, setDate] = useState(entry.date);
+  const [endDate, setEndDate] = useState(entry.endDate ?? "");
   const [allDay, setAllDay] = useState(entry.allDay);
   const [startTime, setStartTime] = useState(entry.startTime ?? "09:00");
   const [endTime, setEndTime] = useState(entry.endTime ?? "10:00");
   const [location, setLocation] = useState(entry.location ?? "");
   const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
-  const valid = title.trim() !== "" && Boolean(date) && timesValid;
+  const spanValid = !endDate || endDate >= date;
+  const valid = title.trim() !== "" && Boolean(date) && timesValid && spanValid;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -294,6 +299,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         if (title.trim() !== entity.title) await updateEntity(entity.id, { title: title.trim() });
         await overrideCalendarEntryOccurrence(entity.id, {
           date,
+          endDate: endDate || null,
           startTime: allDay ? null : startTime,
           endTime: allDay ? null : endTime,
           allDay,
@@ -341,12 +347,20 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         onChange={(e) => setTitle(e.target.value)}
       />
       {scope === "this" && (
-        <DateInput
-          aria-label="Date"
-          clearable={false}
-          value={date || null}
-          onChange={(day) => setDate(day ?? "")}
-        />
+        <>
+          <DateInput
+            aria-label="Date"
+            clearable={false}
+            value={date || null}
+            onChange={(day) => setDate(day ?? "")}
+          />
+          <DateInput
+            aria-label="End date"
+            placeholder="Ends same day"
+            value={endDate || null}
+            onChange={(day) => setEndDate(day ?? "")}
+          />
+        </>
       )}
       <div className="flex items-center gap-2">
         <Checkbox
@@ -394,6 +408,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       <FieldError
         message={
           (!timesValid && startTime >= endTime && "End after it starts") ||
+          (!spanValid && "Can't end before it starts") ||
           (save.isError && save.error.message)
         }
       />

@@ -136,9 +136,39 @@ export interface MinuteRange {
   endMin: number;
 }
 
-/// A time range on one day, picked on the grid, that a new Session starts from.
+/// A time range on the grid, picked by dragging or clicking, that a new
+/// Session or Calendar entry starts from. `endDate` is set only when the
+/// drag crossed into a later day column (a Calendar entry spanning days);
+/// omitted, the range is a single day, `date` alone.
 export interface SlotRange extends MinuteRange {
   date: Date;
+  endDate?: Date;
+}
+
+/// The part of a (possibly multi-day) `SlotRange` that falls on `day`, or null
+/// if `day` is outside it. The first and last day only show their own partial
+/// time; every day in between counts as the full day. Shared by the live
+/// drag preview and the picked-range highlight kept while a create dialog is
+/// open, so both agree on how a multi-day span looks per day.
+export function rangeForDay(day: Date, range: SlotRange): MinuteRange | null {
+  const key = dayKey(day);
+  const startKey = dayKey(range.date);
+  const endKey = range.endDate ? dayKey(range.endDate) : startKey;
+  if (key < startKey || key > endKey) return null;
+  if (startKey === endKey) return { startMin: range.startMin, endMin: range.endMin };
+  if (key === startKey) return { startMin: range.startMin, endMin: DAY_MINUTES };
+  if (key === endKey) return { startMin: 0, endMin: range.endMin };
+  return { startMin: 0, endMin: DAY_MINUTES };
+}
+
+/// Where `day` falls in a Calendar entry's span, for the all-day strip chip:
+/// null for a plain single-day entry (nothing special to show).
+export function daySpanFor(entry: CalendarEntry, day: Date): "start" | "middle" | "end" | null {
+  if (!entry.endDate || entry.endDate === entry.date) return null;
+  const key = dayKey(day);
+  if (key === entry.date) return "start";
+  if (key === entry.endDate) return "end";
+  return "middle";
 }
 
 export type DayItem =
@@ -171,9 +201,15 @@ export function buildColumns(
   return days.map((day) => {
     const key = dayKey(day);
     const { timed, allDay } = eventsForDay(externalEvents, key);
-    const dayEntries = calendarEntries.filter((a) => a.date === key);
-    const timedEntries = dayEntries.filter((a) => !a.allDay);
-    const allDayCalendarEntries = dayEntries.filter((a) => a.allDay);
+    // A multi-day entry (dragged from one day to a later one) always renders
+    // in the all-day strip on every day it touches, timed or not — there's no
+    // single time-of-day slot for it to sit in once it spans more than one
+    // column of the time grid.
+    const dayEntries = calendarEntries.filter((a) => a.date <= key && (a.endDate ?? a.date) >= key);
+    const timedEntries = dayEntries.filter((a) => !a.allDay && (a.endDate ?? a.date) === a.date);
+    const allDayCalendarEntries = dayEntries.filter(
+      (a) => a.allDay || (a.endDate ?? a.date) !== a.date,
+    );
     const items: DayItem[] = [
       ...sessions
         .filter((s) => s.date === key)

@@ -442,6 +442,17 @@ fn all() -> Vec<M<'static>> {
         UPDATE entities SET type = 'calendar_entry', key_prefix = 'CAL'
             WHERE type = 'appointment';
         ",
+    ), M::up(
+        "
+        -- Multi-day Calendar entries (calendar-improvements plan): a personal
+        -- calendar entry can now span from `date` through `end_date`
+        -- inclusive, so dragging across day columns (Monday noon to
+        -- Wednesday 3pm, say) creates one entry rather than being forced onto
+        -- a single day. NULL means the entry is still exactly one day, `date`
+        -- alone — true of every existing row, and of every Session (a
+        -- lecture occurrence never spans days).
+        ALTER TABLE calendar_entries ADD COLUMN end_date TEXT;
+        ",
     )]
 }
 
@@ -490,6 +501,7 @@ mod history {
         0x21582437e68c7d02,
         0xd13dbd1f7a779ef2,
         0xc8a0501233f85db1,
+        0x3646ef370368e4cc,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {
