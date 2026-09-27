@@ -3,7 +3,22 @@ import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring } from 
 
 import { cn } from "@nookly/ui/lib/utils";
 
-export type ScrollProgressSection = { id: string; label: string };
+export type ScrollProgressSection = {
+  id: string;
+  label: string;
+  /// Nesting depth (a markdown heading's level, say) — sections at a deeper
+  /// level than the shallowest one present indent under it in the open list.
+  level?: number;
+};
+
+/// Indentation step per level, relative to the shallowest level among
+/// `sections` (so a document whose headings start at level 2 isn't indented
+/// from the very first one).
+const INDENT_STEP_PX = 14;
+
+function indentPx(level: number | undefined, minLevel: number): number {
+  return Math.max(0, (level ?? minLevel) - minLevel) * INDENT_STEP_PX;
+}
 
 const EASE_IN_OUT = [0.65, 0, 0.35, 1] as const;
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
@@ -67,6 +82,7 @@ const ScrollProgress = ({
   }, [sections, containerRef, offset]);
 
   const label = sections.find((s) => s.id === activeId)?.label;
+  const minLevel = sections.length > 0 ? Math.min(...sections.map((s) => s.level ?? 1)) : 1;
 
   const labelVersion = React.useRef(0);
   const prevLabel = React.useRef(label);
@@ -168,7 +184,8 @@ const ScrollProgress = ({
           {sections.map((s) => (
             <div
               key={s.id}
-              className="flex items-center gap-3 px-3 py-2 text-sm font-medium leading-none"
+              className="flex items-center gap-3 py-2 pr-3 text-sm font-medium leading-none"
+              style={{ paddingLeft: 12 + indentPx(s.level, minLevel) }}
             >
               <span className="size-1.5" />
               <span className="whitespace-nowrap">{s.label}</span>
@@ -216,12 +233,13 @@ const ScrollProgress = ({
                         type="button"
                         onClick={() => selectSection(s.id)}
                         className={cn(
-                          "relative flex w-full items-center gap-3 rounded-[14px] px-3 py-2 text-left text-sm font-medium leading-none transition-colors",
+                          "relative flex w-full items-center gap-3 rounded-[14px] py-2 pr-3 text-left text-sm font-medium leading-none transition-colors",
                           squircle,
                           isActive
                             ? "text-accent-foreground"
                             : "text-muted-foreground hover:text-popover-foreground",
                         )}
+                        style={{ paddingLeft: 12 + indentPx(s.level, minLevel) }}
                       >
                         {isActive && (
                           <motion.span
