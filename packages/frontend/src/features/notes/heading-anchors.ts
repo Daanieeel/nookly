@@ -13,6 +13,9 @@ export function headingAnchorId(blockId: string): string {
 export interface PageSection {
   id: string;
   label: string;
+  /// Heading level (1 to 3, see `BlockEditor`'s heading config), so the
+  /// navigator can indent a Heading 2 or 3 under its parent.
+  level: number;
 }
 
 /// Longest label the section navigator shows before cutting a heading short.
@@ -28,6 +31,10 @@ export function pageSections(doc: ProseMirrorNode): PageSection[] {
     sections.push({
       id: headingAnchorId(blockId),
       label: text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1).trimEnd()}…` : text,
+      // SAFETY: already checked `node.type.name === "heading"` above, whose
+      // schema (`BlockEditor`'s `heading: { levels: [1, 2, 3] }`) always sets
+      // a numeric `level` attr.
+      level: (node.attrs.level as number | undefined) ?? 1,
     });
   });
   return sections;
