@@ -9,7 +9,7 @@ pub mod entities;
 pub mod exams;
 pub mod files;
 pub mod labels;
-mod migrations;
+pub(crate) mod migrations;
 pub mod notes;
 mod ocr;
 mod office_text;

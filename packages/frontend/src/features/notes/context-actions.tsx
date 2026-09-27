@@ -9,6 +9,7 @@ import {
   IconMarkdown,
   IconNotes,
   IconPlus,
+  IconSchool,
   IconStrikethrough,
   IconTextSize,
   IconTransform,
@@ -25,6 +26,7 @@ import {
 } from "#/components/context-menu/registry.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { renderPageMarkdown } from "#/lib/api/notes.ts";
+import { QuizDialog } from "#/features/assistant/QuizDialog.tsx";
 import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
 import { useState } from "react";
 import { savePageMarkdownFile } from "./PageExportMenu";
@@ -371,6 +373,18 @@ registerEntityType<EntityRecord>({
       errorLabel: "Couldn't create Note, try again",
       run: async ({ entity }, helpers) => {
         await refineJotIntoNote(entity, helpers.queryClient);
+      },
+    },
+    {
+      id: "quiz-me",
+      group: "type",
+      label: "Quiz Me",
+      icon: IconSchool,
+      when: ({ entity }) => !entity.deletedAt,
+      run: ({ entity }, helpers) => {
+        helpers.openDialog((close) => (
+          <QuizDialog entityId={entity.id} onOpenChange={(open) => !open && close()} />
+        ));
       },
     },
     {

@@ -8,6 +8,7 @@ import { QuickSwitcher } from "#/components/quick-switcher.tsx";
 import { EntityDetailRouter } from "#/components/entity-detail-router.tsx";
 import { ModuleView } from "#/components/module-view.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
+import { AssistantPage } from "#/features/assistant/AssistantPage.tsx";
 import { Titlebar } from "#/components/titlebar.tsx";
 import { SidebarInset, SidebarProvider } from "@nookly/ui/components/sidebar";
 import { Toaster } from "@nookly/ui/components/sonner";
@@ -36,6 +37,8 @@ function MainContent() {
       return <PinnedView />;
     case "calendar":
       return <UnifiedCalendarView />;
+    case "assistant":
+      return <AssistantPage />;
     case "trash":
       return <TrashView />;
     case "module":
@@ -66,6 +69,7 @@ function Shell() {
   const isBleedView =
     isEntityView ||
     view.kind === "calendar" ||
+    view.kind === "assistant" ||
     (view.kind === "module" &&
       [
         "tasks",

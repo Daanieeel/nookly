@@ -213,6 +213,30 @@ pub fn bulk_actions(entity_type: &str) -> Vec<&'static BulkActionDef> {
         .collect()
 }
 
+/// A verb on one entity of a type beyond a plain field edit — the generic
+/// backend counterpart of a module's context-menu action beyond the shared
+/// baseline (open/duplicate/pin/relate/move/restore/delete, all already
+/// generic through `update`/`convert`/`relate`/`restore`/`delete`). Registered
+/// next to the type's schema; the CLI's generic dispatcher exposes it as
+/// `<type> <action> <id> [--field name=value ...] --yes`, and the AI
+/// assistant's `run_action` tool (`ai::tools`) calls the exact same registry
+/// — never a one-off command for either caller.
+pub struct EntityActionDef {
+    pub entity_type: &'static str,
+    pub name: &'static str,
+    pub description: &'static str,
+    pub fields: &'static [FieldDef],
+    pub run: fn(&Connection, &str, &JsonMap) -> AppResult<Value>,
+}
+
+inventory::collect!(EntityActionDef);
+
+pub fn entity_actions(entity_type: &str) -> Vec<&'static EntityActionDef> {
+    inventory::iter::<EntityActionDef>()
+        .filter(|a| a.entity_type == entity_type)
+        .collect()
+}
+
 fn fields_json(fields: &[FieldDef]) -> Vec<Value> {
     fields
         .iter()
@@ -424,6 +448,15 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             }))
             .collect::<Vec<_>>(),
         "relationshipTypes": def.relationship_types,
+        "actions": entity_actions(def.entity_type)
+            .iter()
+            .map(|a| serde_json::json!({
+                "name": a.name,
+                "description": a.description,
+                "fields": fields_json(a.fields),
+                "command": format!("nookly cli {} {} <id> [--field name=value ...] --yes", def.entity_type, a.name),
+            }))
+            .collect::<Vec<_>>(),
         "childCollections": child_collections_json(def.entity_type),
         "bulkActions": bulk_actions(def.entity_type)
             .iter()

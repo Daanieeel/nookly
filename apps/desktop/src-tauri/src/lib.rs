@@ -1,5 +1,6 @@
 use tauri::Manager;
 
+mod ai;
 mod cli;
 mod commands;
 mod db;
@@ -51,11 +52,17 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_apple_intelligence::init())
         .setup(|app| {
             db::setup(app)?;
             app.manage(external_calendars::ExternalCalendarState::load(
                 &db::resolve_app_data_dir(app.path().app_data_dir()?),
             ));
+            let ai_state = ai::AiState::load(&db::resolve_app_data_dir(app.path().app_data_dir()?));
+            #[cfg(target_os = "macos")]
+            ai_state.ensure_apple_on_device_seeded();
+            app.manage(ai_state);
+            ai::ambient::spawn_periodic_sweep(app.handle().clone());
             #[cfg(target_os = "macos")]
             disable_trackpad_magnification(app);
             Ok(())
@@ -223,6 +230,34 @@ pub fn run() {
             commands::external_calendars::disconnect_external_calendar,
             commands::external_calendars::sync_external_calendars,
             commands::external_calendars::list_external_events,
+            commands::ai::ai_availability,
+            commands::ai::ai_list_providers,
+            commands::ai::ai_add_provider,
+            commands::ai::ai_remove_provider,
+            commands::ai::ai_set_default_provider,
+            commands::ai::ai_default_provider_id,
+            commands::ai::ai_set_provider_model,
+            commands::ai::ai_provider_capabilities,
+            commands::ai::ai_list_models,
+            commands::ai::ai_test_provider,
+            commands::ai::ai_read_profile_file,
+            commands::ai::ai_get_profile,
+            commands::ai::ai_set_profile,
+            commands::ai::ai_get_ambient,
+            commands::ai::ai_set_ambient,
+            commands::ai::ai_run_auto_title_now,
+            commands::ai::ai_auto_title_log,
+            commands::ai::ai_undo_auto_title,
+            commands::ai::ai_run_file_summary_now,
+            commands::ai::ai_file_summary,
+            commands::ai::ai_generate_quiz,
+            commands::ai::ai_list_conversations,
+            commands::ai::ai_get_conversation,
+            commands::ai::ai_new_conversation,
+            commands::ai::ai_delete_conversation,
+            commands::ai::ai_clear_conversations,
+            commands::ai::ai_send_message,
+            commands::ai::ai_resolve_pending,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

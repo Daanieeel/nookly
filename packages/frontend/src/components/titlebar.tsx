@@ -31,6 +31,8 @@ import {
   CalendarConnectionsDialog,
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
+import { AiSettingsDialog } from "#/features/assistant/AiSettingsDialog.tsx";
+import { aiListProviders } from "#/lib/api/assistant.ts";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
@@ -169,6 +171,7 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
 function SettingsPopover() {
   const [open, setOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
@@ -206,13 +209,41 @@ function SettingsPopover() {
             }}
           />
           <UiSeparator />
+          <AiSetting
+            onOpen={() => {
+              setOpen(false);
+              setAiSettingsOpen(true);
+            }}
+          />
+          <UiSeparator />
           <div className="flex flex-col gap-2">
             <VersionSection />
           </div>
         </PopoverContent>
       </Popover>
       <CalendarConnectionsDialog open={connectionsOpen} onOpenChange={setConnectionsOpen} />
+      <AiSettingsDialog open={aiSettingsOpen} onOpenChange={setAiSettingsOpen} />
     </>
+  );
+}
+
+/// Entry to Settings → AI: provider setup, profile, and ambient toggles.
+function AiSetting({ onOpen }: { onOpen: () => void }) {
+  const { data: providers = [] } = useQuery({ queryKey: ["ai-providers"], queryFn: aiListProviders });
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground">AI</span>
+        <span className="text-sm">
+          {providers.length === 0
+            ? "Not configured"
+            : `${providers.length} provider${providers.length === 1 ? "" : "s"}`}
+        </span>
+      </div>
+      <Button variant="secondary" size="sm" onClick={onOpen}>
+        Manage
+      </Button>
+    </div>
   );
 }
 

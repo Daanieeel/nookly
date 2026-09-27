@@ -316,6 +316,20 @@ impl Args {
 /// back: every validation, cardinality check and write happens for real, then none
 /// of it is kept. Works for every command with no per-command code. Database
 /// changes only; a `file create` from `localPath` still copies the file on disk.
+/// The same dispatcher `main` drives, exposed for the AI assistant's generic
+/// tool layer (`ai::tools`) so its `describe`/`search`/`list`/`get`/`create`/
+/// `update`/`delete`/`restore`/`relate`/`unrelate` tools run through the exact
+/// commands this CLI already validated, instead of a second implementation.
+/// Builds a synthetic argv from the tool call's JSON arguments the same way a
+/// shell caller would type them.
+pub fn run_for_agent(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
+    // Goes through `dispatch`, not `dispatch_command` directly, so a
+    // `--dry-run` argv (built by `ai::tools::call` for a write preview) gets
+    // the real savepoint-and-rollback treatment instead of just being parsed
+    // as an inert flag and then actually committing.
+    dispatch(conn, argv)
+}
+
 fn dispatch(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     if !argv.iter().any(|a| a == "--dry-run") {
         return dispatch_command(conn, argv);
@@ -851,11 +865,11 @@ fn validate_fields(
 /// for ids before the module's own adapter sees them.
 fn resolve_ref_fields(
     conn: &Connection,
-    def: &schema::EntitySchemaDef,
+    fields_def: &[schema::FieldDef],
     fields: &JsonMap,
 ) -> AppResult<JsonMap> {
     let mut resolved = fields.clone();
-    for f in def.fields {
+    for f in fields_def {
         if !matches!(f.kind, schema::FieldKind::EntityRef(_)) {
             continue;
         }
@@ -896,7 +910,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             let space_id = args.require_flag("space")?;
             let title = args.require_flag("title")?;
             let icon = args.flag("icon");
-            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let fields = resolve_ref_fields(conn, def.fields, &args.fields)?;
             let input = schema::CreateInput {
                 space_id,
                 title,
@@ -943,7 +957,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                     },
                 )?;
             }
-            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let fields = resolve_ref_fields(conn, def.fields, &args.fields)?;
             (def.update)(conn, &id, &fields)?;
             let after = (def.get)(conn, &id)?;
             let changes = view::diff_values(&before, &after);
@@ -992,6 +1006,22 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             block_command(conn, def, verb, args)
         }
         other => {
+            if let Some(action) = schema::entity_actions(entity_type)
+                .into_iter()
+                .find(|a| a.name == other)
+            {
+                let id = args.require_entity(conn, 0, "id")?;
+                args.require_yes()?;
+                validate_child_fields(
+                    &format!("action '{other}' on {entity_type}"),
+                    action.fields,
+                    &args.fields,
+                    true,
+                )?;
+                let fields = resolve_ref_fields(conn, action.fields, &args.fields)?;
+                let data = (action.run)(conn, &id, &fields)?;
+                return enrich(conn, entity_type, &id, data);
+            }
             if let Some(bulk) = schema::bulk_actions(entity_type)
                 .into_iter()
                 .find(|a| a.name == other)

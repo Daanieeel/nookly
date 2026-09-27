@@ -1,6 +1,6 @@
-import { IconArrowRight, IconCategory, IconFolder, IconTag } from "@tabler/icons-react";
+import { IconArrowRight, IconCategory, IconFolder, IconSparkles, IconTag } from "@tabler/icons-react";
 import { Command } from "cmdk";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { EntityIcon, iconForType } from "#/components/entity-icon.tsx";
@@ -12,6 +12,8 @@ import {
 } from "#/components/filter-menu.tsx";
 import { LabelDot } from "#/components/label-chip.tsx";
 import { QuickActions } from "#/components/quick-actions.tsx";
+import { aiAvailability, aiListProviders, aiNewConversation, aiSendMessage } from "#/lib/api/assistant.ts";
+import { looksLikeAQuestion } from "#/lib/assistant-question.ts";
 import {
   Highlighted,
   SpaceGlyph,
@@ -82,6 +84,28 @@ export function CommandPalette() {
     queryFn: () => search(trimmed),
     enabled: trimmed.length > 0,
     placeholderData: keepPreviousData,
+  });
+
+  // "Ask Assistant" (PLAN §6.3): one extra row above results, never a
+  // replacement for them, shown only once a usable provider exists.
+  const { data: providers = [] } = useQuery({ queryKey: ["ai-providers"], queryFn: aiListProviders });
+  const { data: availability = [] } = useQuery({ queryKey: ["ai-availability"], queryFn: aiAvailability });
+  const assistantUsable = availability.some((a) => a.usable);
+  const askAssistant = useMutation({
+    mutationFn: async (question: string) => {
+      // Same provider as this row's own `assistantUsable` check: whichever
+      // configured provider is actually usable right now, not just the first
+      // one in the list (which may be an on-device model still downloading).
+      const usableId = availability.find((a) => a.usable)?.id;
+      const provider = providers.find((p) => p.id === usableId) ?? providers[0];
+      const created = await aiNewConversation(provider?.id, provider?.defaultModel ?? "");
+      await aiSendMessage(created.id, question);
+      return created.id;
+    },
+    onSuccess: (conversationId) => {
+      useNavStore.getState().openAssistantConversation(conversationId);
+      close();
+    },
   });
 
   useEffect(() => {
@@ -265,6 +289,19 @@ export function CommandPalette() {
           </>
         ) : (
           <>
+            {assistantUsable && looksLikeAQuestion(trimmed) && (
+              <Command.Group heading="Assistant">
+                <SpotlightItem
+                  value={`ask-assistant-${trimmed}`}
+                  onSelect={() => !askAssistant.isPending && askAssistant.mutate(trimmed)}
+                >
+                  <IconSparkles size={16} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {askAssistant.isPending ? "Asking..." : `Ask Assistant: "${trimmed}"`}
+                  </span>
+                </SpotlightItem>
+              </Command.Group>
+            )}
             {groups.map(({ space, types }) => (
               <div key={space.id} className="pt-2 first:pt-0">
                 <div className="flex items-center gap-2 px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-foreground/80 uppercase">

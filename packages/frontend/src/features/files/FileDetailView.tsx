@@ -28,6 +28,7 @@ import {
 } from "@nookly/ui/components/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { PendingIcon } from "#/features/tasks/task-properties.tsx";
+import { aiFileSummary } from "#/lib/api/assistant.ts";
 import { convertEntity } from "#/lib/api/entities.ts";
 import {
   copyFileIntoStorage,
@@ -329,6 +330,18 @@ function OpenButton({
   );
 }
 
+/// The ambient "summarize files on upload" feature's result (PLAN §11), when
+/// one exists — a short, AI-generated paragraph built from the File's own
+/// extracted/OCR'd text, shown alongside its other properties.
+function FileSummary({ fileId }: { fileId: string }) {
+  const { data: summary } = useQuery({
+    queryKey: ["ai-file-summary", fileId],
+    queryFn: () => aiFileSummary(fileId),
+  });
+  if (!summary) return null;
+  return <p className="mb-2 text-sm text-muted-foreground">{summary}</p>;
+}
+
 function FileProperties({ file }: { file: FileEntity }) {
   const kind = fileKind(file);
   const queryClient = useQueryClient();
@@ -357,6 +370,7 @@ function FileProperties({ file }: { file: FileEntity }) {
 
   return (
     <section aria-label="Properties" className="flex flex-col gap-0.5">
+      <FileSummary fileId={entity.id} />
       <PropertyRow label="Kind">
         <Value>
           <kind.icon size={14} className={cn("shrink-0", kind.tone)} />

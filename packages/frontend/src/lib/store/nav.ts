@@ -24,6 +24,7 @@ export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
   | { kind: "calendar" }
+  | { kind: "assistant" }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
@@ -70,6 +71,11 @@ interface NavState {
   /// `focus` scrolls to a block once its page renders; its `entityId` is the
   /// page holding the block, which may be embedded in the opened entity.
   openEntity: (entityId: string, spaceId: string, focus?: FocusBlock) => void;
+  /// Set by "Ask Assistant" (Cmd+K) and "Continue in Assistant" so the
+  /// Assistant page picks up that conversation once it mounts, then clears it.
+  pendingAssistantConversationId: string | null;
+  openAssistantConversation: (conversationId: string) => void;
+  clearPendingAssistantConversation: () => void;
   /// The Bookmark shown in the details sheet, over whatever view is open.
   bookmarkSheetId: string | null;
   /// Bookmarks have no page of their own: an entity view opened for one steps
@@ -276,6 +282,14 @@ export const useNavStore = create<NavState>((set, get) => ({
       ...pushHistory(get(), view),
     });
   },
+  pendingAssistantConversationId: null,
+  openAssistantConversation: (conversationId) =>
+    set((state) => ({
+      view: { kind: "assistant" },
+      pendingAssistantConversationId: conversationId,
+      ...pushHistory(state, { kind: "assistant" }),
+    })),
+  clearPendingAssistantConversation: () => set({ pendingAssistantConversationId: null }),
   bookmarkSheetId: null,
   showBookmark: (entityId, spaceId) =>
     set((state) => {

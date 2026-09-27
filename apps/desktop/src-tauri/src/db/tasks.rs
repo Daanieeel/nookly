@@ -1,5 +1,5 @@
 use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
-use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
+use crate::db::schema::{CreateInput, EntityActionDef, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -490,6 +490,33 @@ inventory::submit! {
         update: cli_update_task,
         get: cli_get_task,
         list: cli_list_tasks,
+    }
+}
+
+/// Fields for the `convert-to-subtask` action below — a separate list from
+/// `TASK_UPDATE_FIELDS` since `parent_entity_id` is an action argument, not a
+/// stored field of the Task itself.
+const CONVERT_TO_SUBTASK_FIELDS: &[FieldDef] = &[FieldDef {
+    name: "parent_entity_id",
+    kind: FieldKind::EntityRef("task"),
+    required_on_create: true,
+    writable_on_update: false,
+    description: "The top-level Task this becomes a sub-task of",
+}];
+
+fn run_convert_to_subtask(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    let parent_id = crate::db::schema::require_str(fields, "parent_entity_id")?;
+    let task = convert_to_subtask(conn, id, &parent_id)?;
+    Ok(serde_json::to_value(task).expect("Task always serializes"))
+}
+
+inventory::submit! {
+    EntityActionDef {
+        entity_type: "task",
+        name: "convert-to-subtask",
+        description: "Turns a top-level Task into a Sub-task of another Task, moving it into that Task's Space first.",
+        fields: CONVERT_TO_SUBTASK_FIELDS,
+        run: run_convert_to_subtask,
     }
 }
 

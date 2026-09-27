@@ -1,0 +1,7 @@
+# `resources/libappleai.dylib` is copied by `build.rs` on every build (see its
+# comment) — without this, `tauri dev`'s watcher sees its own build's output
+# as a source change and triggers another rebuild, which produces another
+# "changed" file, looping (and, observed once, crashing on an abrupt restart
+# mid-async-task: "Cannot drop a runtime in a context where blocking is not
+# allowed").
+resources/

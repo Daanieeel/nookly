@@ -260,6 +260,16 @@ Google Calendar and iCloud events show on the Sessions calendar but are never en
 
 ---
 
+### Assistant is the sixth cross-Space sidebar exception
+
+**Why:** the in-app AI assistant (its own page, inline editor actions, Cmd+K integration) needs one place to live that isn't tied to a single Space, the same reasoning that already applies to Dashboard, Calendar, Pinned, Search and Recents. It reads and writes across every Space through the generic tool layer, so scoping its page to one Space would misrepresent what it can actually do.
+
+**Resolution:** positioned directly below Calendar in the sidebar. Anything it creates lands in the Space the user picks at the moment of confirming a write, defaulting to the most recently active one, rather than a Space of its own.
+
+**Rejected:** a per-Space assistant view (splits one conversation's context across Spaces for no benefit, and Spaces are a hard wall everywhere else in the app).
+
+---
+
 ### Turborepo monorepo with separate ui and frontend packages
 
 The design system lives in `@nookly/ui`, every other component and all app logic in `@nookly/frontend`, shared tooling config in `@nookly/config`, and the Tauri shell in `apps/desktop`.

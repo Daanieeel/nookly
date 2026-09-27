@@ -24,6 +24,7 @@ import {
   IconPin,
   IconPlus,
   IconSettings,
+  IconSparkles,
   IconTag,
   IconTrash,
 } from "@tabler/icons-react";
@@ -215,6 +216,16 @@ export function AppSidebar() {
             >
               <IconCalendarWeek />
               <span>Calendar</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Assistant"
+              isActive={view.kind === "assistant"}
+              onClick={() => setView({ kind: "assistant" })}
+            >
+              <IconSparkles />
+              <span>Assistant</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

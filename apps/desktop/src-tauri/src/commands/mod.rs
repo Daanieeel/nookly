@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod assignments;
 pub mod bookmark_screenshot;
 pub mod bookmarks;
