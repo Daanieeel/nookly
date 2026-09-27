@@ -94,6 +94,9 @@ export function useItemDrag({
   // reads the up to date value, even if it runs before this component's next
   // render commits.
   const movedRef = useRef(false);
+  // Whether pointer capture has been grabbed yet for the drag in progress —
+  // see `onPointerMove`.
+  const capturedRef = useRef(false);
 
   useEffect(() => {
     if (!drag) return;
@@ -108,9 +111,16 @@ export function useItemDrag({
         if (e.button !== 0) return;
         e.stopPropagation();
         movedRef.current = false;
+        capturedRef.current = false;
         const column = e.currentTarget.closest<HTMLElement>("[data-day-column]");
         const columnWidth = column?.getBoundingClientRect().width ?? 0;
-        e.currentTarget.setPointerCapture(e.pointerId);
+        // Pointer capture is grabbed lazily in `onPointerMove`, only once
+        // real movement confirms this is a drag rather than a plain click.
+        // Grabbing it here unconditionally used to break the click this same
+        // trigger also handles (opening the block's popover): the WebKit
+        // engine Tauri embeds stops delivering `click` to the actual pressed
+        // element once an ancestor (this one) holds pointer capture, even
+        // when the pointer never moved.
         setDrag({
           mode,
           pointerId: e.pointerId,
@@ -120,26 +130,34 @@ export function useItemDrag({
           offsetMin: 0,
           dayDelta: 0,
         });
-        if (mode === "move") {
-          // Swallows the click the browser fires right after pointerup on
-          // this same trigger — but only once real movement happened, so a
-          // plain click still opens the popover as normal.
-          const onClick = (clickEvent: MouseEvent) => {
-            if (movedRef.current) {
-              clickEvent.preventDefault();
-              clickEvent.stopPropagation();
-            }
-          };
-          window.addEventListener("click", onClick, { capture: true, once: true });
-        }
       },
       onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
         setDrag((current) => {
           if (!current || current.pointerId !== e.pointerId) return current;
           const deltaX = e.clientX - current.anchorX;
           const deltaY = e.clientY - current.anchorY;
-          if (Math.abs(deltaX) > CLICK_THRESHOLD_PX || Math.abs(deltaY) > CLICK_THRESHOLD_PX) {
+          if (
+            !movedRef.current &&
+            (Math.abs(deltaX) > CLICK_THRESHOLD_PX || Math.abs(deltaY) > CLICK_THRESHOLD_PX)
+          ) {
             movedRef.current = true;
+          }
+          if (movedRef.current && !capturedRef.current) {
+            capturedRef.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            if (current.mode === "move") {
+              // Swallows the click the browser fires right after pointerup on
+              // this same trigger, now that real movement happened, so a
+              // plain click (no capture ever grabbed) still opens the
+              // popover as normal.
+              const onClick = (clickEvent: MouseEvent) => {
+                if (movedRef.current) {
+                  clickEvent.preventDefault();
+                  clickEvent.stopPropagation();
+                }
+              };
+              window.addEventListener("click", onClick, { capture: true, once: true });
+            }
           }
           const offsetMin = snap((deltaY / HOUR_PX) * 60);
           const dayDelta =
