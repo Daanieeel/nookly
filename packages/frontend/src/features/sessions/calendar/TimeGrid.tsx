@@ -13,6 +13,7 @@ import { lanePosition } from "../external-calendars/overlay-layout";
 import {
   DAY_MINUTES,
   type DayColumn,
+  type DayItem,
   HOUR_PX,
   type MinuteRange,
   SCROLL_TO_HOUR,
@@ -72,6 +73,7 @@ export function TimeGrid({
   onPickDay,
   slotCreateNoun,
   spaceColor,
+  secondaryKind,
 }: {
   columns: DayColumn[];
   /// The range a create dialog is open for, kept highlighted meanwhile.
@@ -89,6 +91,12 @@ export function TimeGrid({
   /// origin Space instead of the default Session/Calendar Entry color — only
   /// the unified cross-Space Calendar page passes this.
   spaceColor?: (spaceId: string) => string | undefined;
+  /// The item kind this module treats as secondary context (Sessions shown on
+  /// the Calendar module page, or Calendar entries shown on the Sessions
+  /// page): rendered with less visual weight than the module's own primary
+  /// items, but still fully editable. Omitted on the unified cross-Space page,
+  /// where Sessions and Calendar entries carry equal weight.
+  secondaryKind?: DayItem["kind"];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -176,6 +184,7 @@ export function TimeGrid({
                     entry={entry}
                     highlighted={highlightIds.has(entry.entity.id)}
                     accentColor={spaceColor?.(entry.entity.spaceId)}
+                    secondary={secondaryKind === "calendarEntry"}
                   />
                 ))}
               </div>
@@ -288,6 +297,7 @@ export function TimeGrid({
                       position={position}
                       highlighted={highlightIds.has(item.occurrence.entity.id)}
                       accentColor={spaceColor?.(item.occurrence.entity.spaceId)}
+                      secondary={secondaryKind === "session"}
                     />
                   );
                 }
@@ -300,6 +310,7 @@ export function TimeGrid({
                       position={position}
                       highlighted={highlightIds.has(item.entry.entity.id)}
                       accentColor={spaceColor?.(item.entry.entity.spaceId)}
+                      secondary={secondaryKind === "calendarEntry"}
                     />
                   );
                 }

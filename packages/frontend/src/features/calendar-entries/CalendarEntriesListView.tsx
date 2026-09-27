@@ -13,6 +13,7 @@ import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listCalendarEntries } from "#/lib/api/calendarEntries.ts";
+import { listSessions } from "#/lib/api/sessions.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
@@ -66,6 +67,12 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
     queryKey: ["calendar-entries", spaceId],
     queryFn: () => listCalendarEntries(spaceId),
   });
+  // This Space's Sessions, shown here too but as secondary context next to
+  // Calendar entries (see `SessionsListView`'s reciprocal fetch of entries).
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["sessions", spaceId],
+    queryFn: () => listSessions(spaceId),
+  });
   // This Space's own accent color, so entries tint to it instead of the
   // fixed `--accent-purple` default (see `CalendarEntryBlock`'s `accentColor`).
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
@@ -73,7 +80,7 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
   const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
   const days = visibleDays(view, anchor, weekStartsOn);
-  const columns = buildColumns(days, [], [], entries);
+  const columns = buildColumns(days, sessions, [], entries);
 
   const step = useCallback(
     (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction)),
@@ -212,6 +219,7 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
           onSelect={setDraft}
           onPickDay={pickDay}
           spaceColor={spaceColor}
+          secondaryKind="session"
         />
       ) : (
         <TimeGrid
@@ -223,6 +231,7 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
           onPickDay={pickDay}
           slotCreateNoun="Calendar Entry"
           spaceColor={spaceColor}
+          secondaryKind="session"
         />
       )}
 

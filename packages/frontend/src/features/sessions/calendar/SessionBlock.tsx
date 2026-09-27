@@ -27,6 +27,7 @@ export function SessionBlock({
   position,
   highlighted,
   accentColor,
+  secondary,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
@@ -34,6 +35,10 @@ export function SessionBlock({
   /// Briefly true right after the occurrence was created.
   highlighted: boolean;
   accentColor?: string;
+  /// True on the Calendar module page, where a Session is secondary context
+  /// next to that Space's own Calendar entries: rendered with less visual
+  /// weight, but still fully editable via the same popover.
+  secondary?: boolean;
 }) {
   const queryClient = useQueryClient();
   const cancel = useMutation({
@@ -55,6 +60,7 @@ export function SessionBlock({
         occurrence.cancelled
           ? "border border-border bg-muted text-muted-foreground"
           : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground",
+        secondary && !occurrence.cancelled && "opacity-70",
         highlighted && "ring-2 ring-(--session-color)",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
@@ -130,11 +136,14 @@ export function SessionChip({
   occurrence,
   highlighted,
   accentColor,
+  secondary,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
   highlighted: boolean;
   accentColor?: string;
+  /// See `SessionBlock`'s `secondary`.
+  secondary?: boolean;
 }) {
   return (
     <SessionPopover spaceId={spaceId} occurrence={occurrence}>
@@ -147,6 +156,7 @@ export function SessionChip({
           occurrence.cancelled
             ? "border border-transparent text-muted-foreground line-through hover:bg-accent"
             : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground hover:bg-(--session-color)/14",
+          secondary && !occurrence.cancelled && "opacity-70",
           highlighted && "ring-2 ring-(--session-color)",
         )}
         // SAFETY: see `SessionBlock` above — a hex color or the `--primary` token.

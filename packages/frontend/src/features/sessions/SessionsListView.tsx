@@ -14,6 +14,7 @@ import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { listCalendarEntries } from "#/lib/api/calendarEntries.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { listExternalEvents } from "#/lib/api/externalCalendars.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
@@ -116,7 +117,21 @@ export function SessionsListView({
     enabled: !filterCourseId,
     placeholderData: keepPreviousData,
   });
-  const columns = buildColumns(days, sessions, filterCourseId ? [] : externalEvents);
+  // This Space's Calendar entries, shown here too but as secondary context
+  // next to Sessions (see `CalendarEntriesListView`'s reciprocal fetch of
+  // Sessions). Hidden while narrowed to one Course, since a calendar entry
+  // never has one.
+  const { data: calendarEntries = [] } = useQuery({
+    queryKey: ["calendar-entries", spaceId],
+    queryFn: () => listCalendarEntries(spaceId),
+    enabled: !filterCourseId,
+  });
+  const columns = buildColumns(
+    days,
+    sessions,
+    filterCourseId ? [] : externalEvents,
+    filterCourseId ? [] : calendarEntries,
+  );
 
   const step = useCallback(
     (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction)),
@@ -270,6 +285,7 @@ export function SessionsListView({
           onSelect={setDraft}
           onPickDay={pickDay}
           spaceColor={spaceColor}
+          secondaryKind="calendarEntry"
         />
       ) : (
         <TimeGrid
@@ -281,6 +297,7 @@ export function SessionsListView({
           onPickDay={pickDay}
           slotCreateNoun="Session"
           spaceColor={spaceColor}
+          secondaryKind="calendarEntry"
         />
       )}
 

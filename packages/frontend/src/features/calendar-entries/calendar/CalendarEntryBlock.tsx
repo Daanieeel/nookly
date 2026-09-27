@@ -25,6 +25,7 @@ export function CalendarEntryBlock({
   position,
   highlighted,
   accentColor,
+  secondary,
 }: {
   spaceId: string;
   entry: CalendarEntry;
@@ -33,6 +34,10 @@ export function CalendarEntryBlock({
   /// Overrides the default `--accent-purple` tint with the occurrence's own
   /// Space accent color — used only by the unified cross-Space Calendar page.
   accentColor?: string;
+  /// True on the Sessions page, where a Calendar entry is secondary context
+  /// next to that Space's own Sessions: rendered with less visual weight, but
+  /// still fully editable via the same popover.
+  secondary?: boolean;
 }) {
   const queryClient = useQueryClient();
   const cancel = useMutation({
@@ -52,6 +57,7 @@ export function CalendarEntryBlock({
         entry.cancelled
           ? "border-border bg-muted text-muted-foreground"
           : "border-(--entry-color)/60 bg-(--entry-color)/30 text-foreground shadow-xs",
+        secondary && !entry.cancelled && "opacity-70 shadow-none",
         highlighted && "ring-2 ring-(--entry-color)",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()`
@@ -128,12 +134,15 @@ export function CalendarEntryChip({
   highlighted,
   showTime = false,
   accentColor,
+  secondary,
 }: {
   spaceId: string;
   entry: CalendarEntry;
   highlighted: boolean;
   showTime?: boolean;
   accentColor?: string;
+  /// See `CalendarEntryBlock`'s `secondary`.
+  secondary?: boolean;
 }) {
   return (
     <CalendarEntryPopover spaceId={spaceId} entry={entry}>
@@ -146,6 +155,7 @@ export function CalendarEntryChip({
           entry.cancelled
             ? "border-l-muted-foreground text-muted-foreground line-through hover:bg-accent"
             : "border-l-(--entry-color) bg-(--entry-color)/25 font-medium hover:bg-(--entry-color)/35",
+          secondary && !entry.cancelled && "opacity-70",
           highlighted && "ring-2 ring-(--entry-color)",
         )}
         // SAFETY: see `CalendarEntryBlock` above — a hex color or the `--accent-purple` token.
