@@ -18,6 +18,7 @@ import { getEntity } from "#/lib/api/entities.ts";
 import { listExternalEvents } from "#/lib/api/externalCalendars.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
+import { listSpaces } from "#/lib/api/spaces.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -96,6 +97,12 @@ export function SessionsListView({
         ),
       )
     : allSessions;
+  // This Space's own accent color, so Sessions and Calendar entries tint to
+  // it instead of the fixed `--primary`/`--accent-purple` defaults (see
+  // `SessionBlock` and `CalendarEntryBlock`'s `accentColor`).
+  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
+  const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
   const days = visibleDays(view, anchor, weekStartsOn);
   // External calendars are a read only overlay, never Sessions. Hidden while the
@@ -262,6 +269,7 @@ export function SessionsListView({
           highlightIds={highlightIds}
           onSelect={setDraft}
           onPickDay={pickDay}
+          spaceColor={spaceColor}
         />
       ) : (
         <TimeGrid
@@ -272,6 +280,7 @@ export function SessionsListView({
           onSelect={setDraft}
           onPickDay={pickDay}
           slotCreateNoun="Session"
+          spaceColor={spaceColor}
         />
       )}
 
