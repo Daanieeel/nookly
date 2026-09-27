@@ -79,7 +79,10 @@ function dragToRange(drag: Drag, columns: DayColumn[]): SlotRange {
   return {
     date: columns[startCol].day,
     startMin: startIsAnchor ? drag.anchorMin : drag.currentMin,
-    endMin: Math.min(DAY_MINUTES, (startIsAnchor ? drag.currentMin : drag.anchorMin) + SNAP_MINUTES),
+    endMin: Math.min(
+      DAY_MINUTES,
+      (startIsAnchor ? drag.currentMin : drag.anchorMin) + SNAP_MINUTES,
+    ),
     endDate: columns[endCol].day,
   };
 }
