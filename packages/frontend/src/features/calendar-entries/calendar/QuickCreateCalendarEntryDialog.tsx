@@ -7,6 +7,7 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
+import { DateInput } from "#/components/date-input.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
 import {
   createCalendarEntryTemplate,
@@ -32,7 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@nookly/ui/components/select";
-import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
 
 type Recurrence = "none" | "daily" | "weekly" | "monthly";
@@ -78,6 +78,8 @@ export function QuickCreateCalendarEntryDialog({
   });
   const [title, setTitle] = useState("");
   const [targetSpaceId, setTargetSpaceId] = useState(spaceId ?? "");
+  const [date, setDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
@@ -89,6 +91,8 @@ export function QuickCreateCalendarEntryDialog({
     if (!draft) return;
     setTitle("");
     setTargetSpaceId(spaceId ?? "");
+    setDate(format(draft.date, "yyyy-MM-dd"));
+    setEndDate(draft.endDate ? format(draft.endDate, "yyyy-MM-dd") : "");
     setAllDay(false);
     setStartTime(minutesToTime(draft.startMin));
     setEndTime(minutesToTime(draft.endMin));
@@ -98,16 +102,15 @@ export function QuickCreateCalendarEntryDialog({
   }, [draft, spaceId]);
 
   const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
-  const ready = title.trim() !== "" && targetSpaceId !== "" && timesValid;
-
-  const spansDays = Boolean(draft?.endDate);
+  const spanValid = !endDate || endDate >= date;
+  const spansDays = Boolean(endDate);
+  const ready =
+    title.trim() !== "" && targetSpaceId !== "" && Boolean(date) && timesValid && spanValid;
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!draft) throw new Error("Pick a time first");
+      if (!draft || !date) throw new Error("Pick a date first");
       if (!targetSpaceId) throw new Error("Pick a Space first");
-      const date = format(draft.date, "yyyy-MM-dd");
-      const endDate = draft.endDate ? format(draft.endDate, "yyyy-MM-dd") : null;
       const nextLocation = location.trim() || null;
       if (recurrence !== "none") {
         const template = await createCalendarEntryTemplate(
@@ -136,7 +139,7 @@ export function QuickCreateCalendarEntryDialog({
         allDay,
         nextLocation,
         null,
-        endDate,
+        endDate || null,
       );
       return [occurrence.entity.id];
     },
@@ -164,13 +167,6 @@ export function QuickCreateCalendarEntryDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>New calendar entry</DialogTitle>
-          {draft && (
-            <p className="text-sm text-muted-foreground">
-              {spansDays && draft.endDate
-                ? `${formatWeekday(draft.date)}, ${formatShortDate(draft.date)} to ${formatWeekday(draft.endDate)}, ${formatShortDate(draft.endDate)}`
-                : `${formatWeekday(draft.date)}, ${formatShortDate(draft.date)}`}
-            </p>
-          )}
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -202,6 +198,21 @@ export function QuickCreateCalendarEntryDialog({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+          <div className="flex items-center gap-1.5">
+            <DateInput
+              aria-label="Date"
+              clearable={false}
+              value={date || null}
+              onChange={(day) => setDate(day ?? "")}
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <DateInput
+              aria-label="End date"
+              placeholder="Same day"
+              value={endDate || null}
+              onChange={(day) => setEndDate(day ?? "")}
+            />
+          </div>
           <div className="flex items-center gap-2">
             <Checkbox
               id="calendar-entry-create-all-day"
@@ -257,6 +268,7 @@ export function QuickCreateCalendarEntryDialog({
           <FieldError
             message={
               (!timesValid && startTime >= endTime && "End after it starts") ||
+              (!spanValid && "Can't end before it starts") ||
               (create.isError && create.error.message)
             }
           />
