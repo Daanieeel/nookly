@@ -33,6 +33,7 @@ import {
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
 import { getEntity } from "#/lib/api/entities.ts";
+import { getView } from "#/lib/api/views.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS, MODULE_LABELS, moduleForEntityType } from "#/lib/modules.ts";
@@ -167,6 +168,20 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
   );
 }
 
+/// A saved View's icon and name, the last crumb on its page.
+function SavedViewCrumb({ viewId }: { viewId: string }) {
+  const { data: view } = useQuery({ queryKey: ["view", viewId], queryFn: () => getView(viewId) });
+  if (!view) return null;
+  return (
+    <span className="contents" {...entityTarget(view.entity)}>
+      <Crumb
+        icon={<EntityIcon entity={view.entity} size={14} />}
+        label={displayTitle(view.entity)}
+      />
+    </span>
+  );
+}
+
 function SettingsPopover() {
   const [open, setOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
@@ -292,7 +307,23 @@ function Breadcrumbs() {
         <>
           <SpaceIndicator spaceId={view.spaceId} />
           <Separator />
-          <Crumb icon={<Icon />} label={MODULE_LABELS[view.module]} />
+          {view.viewId ? (
+            <>
+              <Crumb
+                icon={<Icon />}
+                label={MODULE_LABELS[view.module]}
+                onClick={() =>
+                  useNavStore
+                    .getState()
+                    .setView({ kind: "module", spaceId: view.spaceId, module: view.module })
+                }
+              />
+              <Separator />
+              <SavedViewCrumb viewId={view.viewId} />
+            </>
+          ) : (
+            <Crumb icon={<Icon />} label={MODULE_LABELS[view.module]} />
+          )}
         </>
       );
     }
@@ -384,9 +415,7 @@ export function Titlebar() {
         fullscreen ? "pl-3" : "pl-12",
       )}
     >
-      <div
-        className={cn("flex min-w-0 shrink-0 items-center gap-1.5", !fullscreen && "ml-10")}
-      >
+      <div className={cn("flex min-w-0 shrink-0 items-center gap-1.5", !fullscreen && "ml-10")}>
         <HistoryButtons />
         <Breadcrumbs />
       </div>

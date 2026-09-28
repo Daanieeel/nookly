@@ -502,7 +502,8 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
                   const active =
                     view.kind === "module" &&
                     view.spaceId === space.id &&
-                    view.module === moduleKey;
+                    view.module === moduleKey &&
+                    !view.viewId;
                   return (
                     <ModuleSubRow
                       key={moduleKey}
@@ -594,7 +595,18 @@ function ModuleSubRow({
   onNavigate: () => void;
 }) {
   const Icon = MODULE_ICONS[moduleKey];
+  const openViewModule = useNavStore(
+    (s) =>
+      s.view.kind === "module" &&
+      s.view.spaceId === space.id &&
+      s.view.module === moduleKey &&
+      !!s.view.viewId,
+  );
   const [childrenOpen, setChildrenOpen] = useState(false);
+  // Opening a View from anywhere (the palette, Back) reveals it in the sidebar.
+  useEffect(() => {
+    if (openViewModule) setChildrenOpen(true);
+  }, [openViewModule]);
   const expandable = EXPANDABLE_MODULE_KEYS.has(moduleKey);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: moduleKey,

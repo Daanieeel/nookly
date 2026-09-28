@@ -12,4 +12,5 @@ import "#/features/sessions/context-actions.tsx";
 import "#/features/courses/context-actions.tsx";
 import "#/features/exams/context-actions.tsx";
 import "#/features/assignments/context-actions.tsx";
+import "#/features/views/context-actions.tsx";
 import "#/components/sidebar/context-actions.tsx";

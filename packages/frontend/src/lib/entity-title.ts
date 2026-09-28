@@ -21,6 +21,7 @@ const TYPE_LABELS = new Map<string, string>([
   ["file", "File"],
   ["bookmark", "Bookmark"],
   ["recipe", "Recipe"],
+  ["view", "View"],
   ["space", "Space"],
 ]);
 

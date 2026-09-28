@@ -29,6 +29,7 @@ import {
   IconRocket,
   IconSchool,
   IconSparkles,
+  IconStack2,
   IconStar,
   IconSun,
   IconTarget,
@@ -60,6 +61,7 @@ const DEFAULT_ICONS = new Map<string, TablerIcon>([
   ["file", IconFile],
   ["bookmark", IconBookmark],
   ["recipe", IconToolsKitchen2],
+  ["view", IconStack2],
   ["space", IconFolder],
 ]);
 
@@ -114,8 +116,27 @@ export function isIconLibraryValue(value: string): boolean {
   return value.startsWith(ICON_LIBRARY_PREFIX);
 }
 
-export function iconLibraryValue(name: string): string {
-  return `${ICON_LIBRARY_PREFIX}${name}`;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/// `icon:<name>`, optionally followed by `#rrggbb` to tint it (`icon:Star#f59e0b`).
+/// Values saved before colors existed have no suffix and render as before.
+export function iconLibraryValue(name: string, color?: string | null): string {
+  return `${ICON_LIBRARY_PREFIX}${name}${color && HEX_COLOR.test(color) ? color : ""}`;
+}
+
+export interface IconLibraryChoice {
+  name: string;
+  /// `null` when untinted.
+  color: string | null;
+}
+
+/// Splits an icon-library value into its icon name and tint.
+export function parseIconLibraryValue(value: string): IconLibraryChoice {
+  const rest = value.slice(ICON_LIBRARY_PREFIX.length);
+  const at = rest.indexOf("#");
+  if (at === -1) return { name: rest, color: null };
+  const color = rest.slice(at);
+  return { name: rest.slice(0, at), color: HEX_COLOR.test(color) ? color : null };
 }
 
 /// Renders a stored `icon` value, whichever kind it is — a Tabler icon-library
@@ -126,8 +147,9 @@ export function iconLibraryValue(name: string): string {
 /// style through here — Tabler icons already draw with `currentColor`.
 export function renderIconValue(value: string, size: number, className?: string) {
   if (isIconLibraryValue(value)) {
-    const Icon = ICON_LIBRARY.get(value.slice(ICON_LIBRARY_PREFIX.length));
-    if (Icon) return <Icon size={size} className={className} />;
+    const { name, color } = parseIconLibraryValue(value);
+    const Icon = ICON_LIBRARY.get(name);
+    if (Icon) return <Icon size={size} className={className} color={color ?? undefined} />;
   }
   return (
     <span

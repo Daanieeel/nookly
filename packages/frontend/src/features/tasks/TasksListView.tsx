@@ -8,9 +8,13 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
-import { contextTarget } from "#/components/context-menu/registry.ts";
+import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
+import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
+import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
+import { ViewActions } from "#/features/views/ViewActions.tsx";
+import { useViewPage } from "#/features/views/use-view-page.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
-import { type GroupDef, type ViewGroup, buildGroups } from "#/components/grouped-view/grouping.ts";
+import { type ViewGroup, buildGroups } from "#/components/grouped-view/grouping.ts";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
 import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -20,7 +24,6 @@ import { attachLabel, detachLabel } from "#/lib/api/labels.ts";
 import { listTasks, updateTaskStatus } from "#/lib/api/tasks.ts";
 import type { Task } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { cn } from "@nookly/ui/lib/utils";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import { TaskBoard } from "./TaskBoard";
 import { taskGroupDefs } from "./task-groups";
@@ -29,22 +32,16 @@ import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { TaskList } from "./TaskList";
 import {
   DUE_BUCKETS,
-  type DisplayOptions,
   type Grouping,
-  type TaskTab,
   orderTasks,
+  normalizeDisplay,
   passesFilters,
   readDisplay,
-  statusInTab,
   writeDisplay,
 } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
 
-const TABS: { id: TaskTab; label: string }[] = [
-  { id: "all", label: "All tasks" },
-  { id: "active", label: "Active" },
-  { id: "backlog", label: "Backlog" },
-];
+const NO_FILTERS: ActiveFilter[] = [];
 
 /// True while typing somewhere, so single key shortcuts stay out of the way.
 function isEditable(target: EventTarget | null): boolean {
@@ -56,11 +53,18 @@ function isEditable(target: EventTarget | null): boolean {
 
 /// The Tasks page, modeled on Linear: a header with view tabs, a filter and display
 /// bar, then a board (default) or a grouped list. C opens the create modal.
-export function TasksListView({ spaceId }: { spaceId: string }) {
+export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
-  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+    spaceId,
+    module: "tasks",
+    viewId,
+    readDisplay,
+    normalizeDisplay,
+    remember: writeDisplay,
+    defaultFilters: NO_FILTERS,
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [draft, setDraft] = useState<TaskDraft>({});
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -71,13 +75,6 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   });
   const data = useTasksDataValue(spaceId);
   const { statuses, labels, kindOf } = data;
-  const hasBacklog = statuses.some((s) => kindOf(s.id) === "backlog");
-
-  const setDisplay = (next: DisplayOptions) => {
-    setDisplayState(next);
-    writeDisplay(next);
-  };
-  const tab = display.tab === "backlog" && !hasBacklog ? "all" : display.tab;
 
   const startCreate = useCallback((next: TaskDraft = {}) => {
     setDraft(next);
@@ -152,27 +149,24 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
   const visible = useMemo(
     () =>
       orderTasks(
-        tasks.filter((t) => statusInTab(t.statusId, tab, kindOf) && passesFilters(t, filters)),
+        tasks.filter((t) => passesFilters(t, filters)),
         display.ordering,
         statuses,
       ),
-    [tasks, tab, kindOf, filters, display.ordering, statuses],
+    [tasks, filters, display.ordering, statuses],
   );
 
   const groups = useMemo(() => {
     const defs = taskGroupDefs(display.grouping, statuses, labels, kindOf);
     const subDefs = taskGroupDefs(display.subGrouping, statuses, labels, kindOf);
-    // In a filtered tab, only the statuses that tab covers make sense as groups.
-    const inTab = (defs: GroupDef<Task>[] | null, kind: Grouping) =>
-      defs && kind === "status" ? defs.filter((d) => statusInTab(d.id, tab, kindOf)) : defs;
     const all = buildGroups(
       visible,
-      inTab(defs, display.grouping) ?? [{ id: "all", name: "All tasks", match: () => true }],
-      inTab(subDefs, display.subGrouping),
+      defs ?? [{ id: "all", name: "All tasks", match: () => true }],
+      subDefs,
     );
     const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
     return all.filter((g) => showEmpty || g.items.length > 0);
-  }, [visible, display, statuses, labels, tab, kindOf]);
+  }, [visible, display, statuses, labels, kindOf]);
 
   /// A new task placed in a group (and sub-group) starts with what they stand for.
   /// Date buckets have no single date to give, so they offer no create.
@@ -240,31 +234,32 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
         })}
       >
         <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-          <h1 className="flex items-center gap-2 text-sm font-medium">
-            <IconChecklist size={16} className="text-muted-foreground" />
-            Tasks
+          <h1
+            className="flex items-center gap-2 text-sm font-medium"
+            {...(view && entityTarget(view.entity))}
+          >
+            {view ? (
+              <ViewIconButton entity={view.entity} />
+            ) : (
+              <IconChecklist size={16} className="text-muted-foreground" />
+            )}
+            {view ? <EditableViewTitle entity={view.entity} /> : "Tasks"}
           </h1>
-          <nav aria-label="Task views" className="flex min-w-0 items-center gap-1 overflow-hidden">
-            {TABS.filter((t) => t.id !== "backlog" || hasBacklog).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                aria-pressed={tab === t.id}
-                onClick={() => setDisplay({ ...display, tab: t.id })}
-                className={cn(
-                  "h-7 shrink-0 cursor-pointer rounded-md border border-transparent px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
-                  tab === t.id && "border-border bg-accent text-foreground",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
             <div className="min-w-0 flex-1">
               <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
             </div>
-            <TaskDisplayMenu display={display} onChange={setDisplay} />
+            <ViewActions
+              spaceId={spaceId}
+              module="tasks"
+              view={view}
+              dirty={dirty}
+              save={save}
+              onDiscard={discard}
+              filters={filters}
+              display={display}
+            />
+            <TaskDisplayMenu display={display} onChange={setDisplay} columns={groups} />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -296,20 +291,13 @@ export function TasksListView({ spaceId }: { spaceId: string }) {
         ) : groups.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-center">
             <p className="text-sm text-muted-foreground">No tasks match this view.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setFilters([]);
-                setDisplay({ ...display, tab: "all" });
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
               Clear filters
             </Button>
           </div>
         ) : display.layout === "board" ? (
           <TaskBoard
-            groups={groups}
+            groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
             properties={display.properties}
             highlightId={highlightId}
             failedTaskId={failedTaskId}

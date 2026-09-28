@@ -6,7 +6,11 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
-import { contextTarget } from "#/components/context-menu/registry.ts";
+import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
+import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
+import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
+import { ViewActions } from "#/features/views/ViewActions.tsx";
+import { useViewPage } from "#/features/views/use-view-page.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityPickerPopover, EntityPickerValue } from "#/components/entity-picker.tsx";
 import {
@@ -45,8 +49,8 @@ import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
 import { assignmentGroupDefs } from "./assignment-groups";
 import {
   ASSIGNMENT_STATUSES,
-  type DisplayOptions,
   orderAssignments,
+  normalizeDisplay,
   readDisplay,
   statusKindOf,
   writeDisplay,
@@ -69,17 +73,29 @@ function courseFilter(courseId: string | undefined): ActiveFilter[] {
 export function AssignmentsListView({
   spaceId,
   filterCourseId,
+  viewId,
 }: {
   spaceId: string;
   filterCourseId?: string;
+  viewId?: string;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
-  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
-  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
+  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+    spaceId,
+    module: "assignments",
+    viewId,
+    readDisplay,
+    normalizeDisplay,
+    remember: writeDisplay,
+    defaultFilters: courseFilter(filterCourseId),
+  });
 
-  useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
+  // A Course's "view all" link applies its filter; a saved View brings its own.
+  useEffect(() => {
+    if (!viewId) setFilters(courseFilter(filterCourseId));
+  }, [filterCourseId, viewId, setFilters]);
 
   const { data: assignments = [], isPending } = useQuery({
     queryKey: ["assignments", spaceId],
@@ -89,11 +105,6 @@ export function AssignmentsListView({
 
   const startCreate = useCallback(() => setCreateOpen(true), []);
   useCreateShortcut(startCreate);
-
-  const setDisplay = (next: DisplayOptions) => {
-    setDisplayState(next);
-    writeDisplay(next);
-  };
 
   /// A drop changes whatever the target column or swimlane stands for: a status
   /// or the Course.
@@ -178,15 +189,32 @@ export function AssignmentsListView({
       })}
     >
       <header className="flex shrink-0 flex-col gap-1 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
-          <IconClipboardCheck size={16} className="text-muted-foreground" />
-          Assignments
+        <h1
+          className="flex h-8 items-center gap-2 text-sm font-medium"
+          {...(view && entityTarget(view.entity))}
+        >
+          {view ? (
+            <ViewIconButton entity={view.entity} />
+          ) : (
+            <IconClipboardCheck size={16} className="text-muted-foreground" />
+          )}
+          {view ? <EditableViewTitle entity={view.entity} /> : "Assignments"}
         </h1>
         <div className="flex min-w-0 items-center gap-1">
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
-          <AssignmentDisplayMenu display={display} onChange={setDisplay} />
+          <ViewActions
+            spaceId={spaceId}
+            module="assignments"
+            view={view}
+            dirty={dirty}
+            save={save}
+            onDiscard={discard}
+            filters={filters}
+            display={display}
+          />
+          <AssignmentDisplayMenu display={display} onChange={setDisplay} columns={groups} />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
@@ -221,7 +249,7 @@ export function AssignmentsListView({
         <GroupedBoard
           // Remount on regrouping so collapsed lanes start from their defaults.
           key={`${display.grouping}:${display.subGrouping}`}
-          groups={groups}
+          groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
           getKey={(a) => a.entity.id}
           draggable={boardDraggable}
           onMove={onMove}

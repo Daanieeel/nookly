@@ -13,6 +13,7 @@ import { TaskDetailView } from "#/features/tasks/TaskDetailView.tsx";
 import { getEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { getView } from "#/lib/api/views.ts";
 import { GenericDetailView } from "./generic-detail-view";
 
 export function EntityDetailRouter({ entityId }: { entityId: string }) {
@@ -50,6 +51,8 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <RecipeDetailView entity={entity} />;
     case "bookmark":
       return <BookmarkRedirect entity={entity} />;
+    case "view":
+      return <SavedViewRedirect entity={entity} />;
     default:
       return <GenericDetailView entity={entity} />;
   }
@@ -62,5 +65,18 @@ function BookmarkRedirect({ entity }: { entity: Entity }) {
     () => showBookmark(entity.id, entity.spaceId),
     [entity.id, entity.spaceId, showBookmark],
   );
+  return null;
+}
+
+/// Saved Views open as their module page, never as a page of their own.
+function SavedViewRedirect({ entity }: { entity: Entity }) {
+  const showSavedView = useNavStore((s) => s.showSavedView);
+  const { data: view } = useQuery({
+    queryKey: ["view", entity.id],
+    queryFn: () => getView(entity.id),
+  });
+  useEffect(() => {
+    if (view) showSavedView(entity.id, entity.spaceId, view.module);
+  }, [view, entity.id, entity.spaceId, showSavedView]);
   return null;
 }

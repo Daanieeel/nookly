@@ -22,6 +22,7 @@ pub mod space_modules;
 pub mod spaces;
 pub mod study_blocks;
 pub mod tasks;
+pub mod views;
 
 use rusqlite::Connection;
 use std::sync::Mutex;

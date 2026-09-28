@@ -45,14 +45,7 @@ import {
   useTasksData,
   useTasksDataValue,
 } from "./task-controls";
-import {
-  dueTone,
-  formatTimestamp,
-  groupTasks,
-  orderTasks,
-  readDisplay,
-  statusInTab,
-} from "./task-model";
+import { dueTone, formatTimestamp, groupTasks, orderTasks, readDisplay } from "./task-model";
 import { useTaskParent } from "./task-parent";
 import {
   DueDatePicker,
@@ -140,8 +133,7 @@ function TaskPage({ entity }: { entity: Entity }) {
 }
 
 /// Where this task sits among its neighbours, for Linear's "3 / 12" stepper. A Task
-/// steps through the Tasks page as it was last displayed (tab, grouping, ordering),
-/// or through every task when that tab hides it. A Sub-task steps through its
+/// steps through the Tasks page as it was last displayed (grouping, ordering). A Sub-task steps through its
 /// siblings under the same parent.
 function useTaskNeighbours(entity: Entity, parent: Entity | null | undefined) {
   const { statuses, labels, kindOf } = useTasksData();
@@ -164,20 +156,15 @@ function useTaskNeighbours(entity: Entity, parent: Entity | null | undefined) {
       list = siblings?.filter((t) => !t.entity.deletedAt || t.entity.id === entity.id);
     } else if (tasks) {
       const display = readDisplay();
-      const ordered = (tab: typeof display.tab) => {
-        const inView = tasks.filter((t) => statusInTab(t.statusId, tab, kindOf));
-        const grouped = groupTasks(
-          orderTasks(inView, display.ordering, statuses),
-          display.grouping,
-          statuses,
-          labels,
-        ).flatMap((g) => g.tasks);
-        // Label grouping can list a task twice; the first place counts.
-        const seen = new Set<string>();
-        return grouped.filter((t) => !seen.has(t.entity.id) && !!seen.add(t.entity.id));
-      };
-      list = ordered(display.tab);
-      if (!list.some((t) => t.entity.id === entity.id)) list = ordered("all");
+      const grouped = groupTasks(
+        orderTasks(tasks, display.ordering, statuses),
+        display.grouping,
+        statuses,
+        labels,
+      ).flatMap((g) => g.tasks);
+      // Label grouping can list a task twice; the first place counts.
+      const seen = new Set<string>();
+      list = grouped.filter((t) => !seen.has(t.entity.id) && !!seen.add(t.entity.id));
     }
     const index = list?.findIndex((t) => t.entity.id === entity.id) ?? -1;
     if (!list || index < 0 || list.length < 2) return null;

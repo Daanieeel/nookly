@@ -532,6 +532,25 @@ fn all() -> Vec<M<'static>> {
         UPDATE recipe_tags SET icon = 'beef' WHERE id = 'beef';
         UPDATE recipe_tags SET icon = 'pig' WHERE id = 'pork';
         ",
+    ), M::up(
+        "
+        -- Views (native entity): a named, per-Space snapshot of a module page's
+        -- filters and display options (Tasks and Assignments today). `config`
+        -- is opaque JSON the page itself reads back and validates.
+        CREATE TABLE views (
+            entity_id TEXT PRIMARY KEY REFERENCES entities(id),
+            module TEXT NOT NULL,
+            config TEXT NOT NULL DEFAULT '{}'
+        );
+        CREATE INDEX idx_views_module ON views(module);
+        ",
+    ), M::up(
+        "
+        -- Views can be reordered in the sidebar. Existing Views all start at 0 and
+        -- keep their creation order (the list sorts by position, then creation);
+        -- the first reorder writes explicit positions.
+        ALTER TABLE views ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        ",
     )]
 }
 
@@ -584,6 +603,8 @@ mod history {
         0x75618d812bb97c6c,
         0x37b01b76112ec465,
         0xc1e5af1629f9c19a,
+        0xc933a750ff4f5f72,
+        0x9385d76400678f57,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

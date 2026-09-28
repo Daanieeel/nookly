@@ -102,21 +102,6 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
   return null;
 }
 
-// View tabs
-
-export type TaskTab = "all" | "active" | "backlog";
-
-export function statusInTab(
-  statusId: string,
-  tab: TaskTab,
-  kindOf: (statusId: string) => StatusKind,
-): boolean {
-  const kind = kindOf(statusId);
-  if (tab === "active") return kind === "unstarted" || kind === "started";
-  if (tab === "backlog") return kind === "backlog";
-  return true;
-}
-
 // Display options
 
 export type Layout = "list" | "board";
@@ -149,7 +134,6 @@ export const DISPLAY_PROPERTIES: { id: DisplayProperty; label: string }[] = [
 ];
 
 export interface DisplayOptions {
-  tab: TaskTab;
   layout: Layout;
   grouping: Grouping;
   /// Splits each group again: nested headers in a list, swimlanes on a board.
@@ -158,16 +142,18 @@ export interface DisplayOptions {
   ordering: Ordering;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
   showEmpty: Record<Layout, boolean>;
+  /// Board columns (group ids) the user hid. Only the board honors it.
+  hiddenColumns: string[];
   properties: DisplayProperty[];
 }
 
 export const DEFAULT_DISPLAY: DisplayOptions = {
-  tab: "all",
   layout: "board",
   grouping: "status",
   subGrouping: "none",
   ordering: "due",
   showEmpty: { board: true, list: false },
+  hiddenColumns: [],
   properties: ["key", "status", "labels", "due", "created"],
 };
 
@@ -176,7 +162,6 @@ function pick<T extends string>(value: string | undefined, allowed: { id: T }[],
 }
 
 const LAYOUTS: { id: Layout }[] = [{ id: "list" }, { id: "board" }];
-const TABS: { id: TaskTab }[] = [{ id: "all" }, { id: "active" }, { id: "backlog" }];
 
 /// Every field is checked again, so an outdated or hand edited value falls back to
 /// its default instead of breaking the page.
@@ -186,14 +171,22 @@ export function readDisplay(): DisplayOptions {
     if (!raw) return DEFAULT_DISPLAY;
     // SAFETY: this key is only ever written by `writeDisplay` below, and every field
     // is validated before use, so a stale shape only loses that field.
-    const stored = JSON.parse(raw) as Partial<DisplayOptions>;
+    return normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>);
+  } catch {
+    return DEFAULT_DISPLAY;
+  }
+}
+
+/// Checks every field of a stored `DisplayOptions` (the remembered page display or a
+/// saved View's), falling back to the default for any that is missing or invalid.
+export function normalizeDisplay(stored: Partial<DisplayOptions>): DisplayOptions {
+  try {
     const layout = pick(stored.layout, LAYOUTS, DEFAULT_DISPLAY.layout);
     const rawGrouping = pick(stored.grouping, GROUPINGS, DEFAULT_DISPLAY.grouping);
     // A board always needs columns to group by.
     const grouping = layout === "board" && rawGrouping === "none" ? "status" : rawGrouping;
     const properties = Array.isArray(stored.properties) ? stored.properties : null;
     return {
-      tab: pick(stored.tab, TABS, DEFAULT_DISPLAY.tab),
       layout,
       grouping,
       subGrouping: validSubGrouping(
@@ -205,6 +198,9 @@ export function readDisplay(): DisplayOptions {
         board: stored.showEmpty?.board !== false,
         list: stored.showEmpty?.list === true,
       },
+      hiddenColumns: Array.isArray(stored.hiddenColumns)
+        ? stored.hiddenColumns.filter((id): id is string => typeof id === "string")
+        : [],
       properties: properties
         ? DISPLAY_PROPERTIES.filter((p) => properties.includes(p.id)).map((p) => p.id)
         : DEFAULT_DISPLAY.properties,

@@ -115,6 +115,8 @@ export interface DisplayOptions {
   subGrouping: Grouping;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
   showEmpty: Record<Layout, boolean>;
+  /// Board columns (group ids) the user hid. Only the board honors it.
+  hiddenColumns: string[];
 }
 
 export const DEFAULT_DISPLAY: DisplayOptions = {
@@ -122,6 +124,7 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   grouping: "deadline",
   subGrouping: "none",
   showEmpty: { board: true, list: false },
+  hiddenColumns: [],
 };
 
 const LAYOUTS: { id: Layout }[] = [{ id: "list" }, { id: "board" }];
@@ -141,7 +144,16 @@ export function readDisplay(): DisplayOptions {
     if (!raw) return DEFAULT_DISPLAY;
     // SAFETY: this key is only ever written by `writeDisplay` below, and every field
     // is validated before use, so a stale shape only loses that field.
-    const stored = JSON.parse(raw) as Partial<DisplayOptions>;
+    return normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>);
+  } catch {
+    return DEFAULT_DISPLAY;
+  }
+}
+
+/// Checks every field of a stored `DisplayOptions` (the remembered page display or a
+/// saved View's), falling back to the default for any that is missing or invalid.
+export function normalizeDisplay(stored: Partial<DisplayOptions>): DisplayOptions {
+  try {
     const layout = pick(stored.layout, LAYOUTS, DEFAULT_DISPLAY.layout);
     const rawGrouping = pick(stored.grouping, GROUPINGS, DEFAULT_DISPLAY.grouping);
     // A board always needs columns to group by.
@@ -154,6 +166,9 @@ export function readDisplay(): DisplayOptions {
         board: stored.showEmpty?.board !== false,
         list: stored.showEmpty?.list === true,
       },
+      hiddenColumns: Array.isArray(stored.hiddenColumns)
+        ? stored.hiddenColumns.filter((id): id is string => typeof id === "string")
+        : [],
     };
   } catch {
     return DEFAULT_DISPLAY;
