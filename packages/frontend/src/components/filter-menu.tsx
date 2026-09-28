@@ -147,7 +147,7 @@ export function FilterMenu({
       {available.length > 0 && (
         <Popover modal open={open} onOpenChange={onOpenChange}>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="ml-auto gap-1.5">
+            <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1.5">
               <IconFilter />
               Filter
               {filters.length === 0 && (
@@ -257,7 +257,7 @@ function FilterChip({
   }
 
   return (
-    <div className="flex h-8 items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-xs">
+    <div className="flex h-7 items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-xs">
       <span className="flex h-full items-center gap-1.5 px-2 text-muted-foreground">
         <field.icon size={14} />
         {field.label}

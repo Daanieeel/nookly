@@ -30,9 +30,12 @@ const LAYOUT_TILES: { id: Layout; label: string; icon: typeof IconList }[] = [
 export function TaskDisplayMenu({
   display,
   onChange,
+  columns,
 }: {
   display: DisplayOptions;
   onChange: (display: DisplayOptions) => void;
+  /// Every board column, so any of them can be hidden or brought back.
+  columns: { id: string; name: string }[];
 }) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...display, ...patch });
   const groupings = GROUPINGS.filter((g) => display.layout === "list" || g.id !== "none");
@@ -150,6 +153,27 @@ export function TaskDisplayMenu({
               }
             />
           </OptionRow>
+        )}
+
+        {display.layout === "board" && columns.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-muted-foreground">Columns</span>
+            {columns.map((column) => (
+              <OptionRow key={column.id} label={column.name}>
+                <Switch
+                  aria-label={`Show ${column.name} column`}
+                  checked={!display.hiddenColumns.includes(column.id)}
+                  onCheckedChange={(checked) =>
+                    set({
+                      hiddenColumns: checked
+                        ? display.hiddenColumns.filter((id) => id !== column.id)
+                        : [...display.hiddenColumns, column.id],
+                    })
+                  }
+                />
+              </OptionRow>
+            ))}
+          </div>
         )}
 
         <Separator />

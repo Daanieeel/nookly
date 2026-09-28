@@ -1,16 +1,72 @@
-import { useQuery } from "@tanstack/react-query";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { IconGripVertical, IconPlus } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { SidebarMenuSubButton, SidebarMenuSubItem } from "@nookly/ui/components/sidebar";
-import { listCourses } from "#/lib/api/courses.ts";
-import { listRecentNotes } from "#/lib/api/notes.ts";
+import { serializeViewConfig } from "#/features/views/view-config.ts";
+import { ViewDialog } from "#/features/views/ViewDialog.tsx";
+import { type SavedView, isViewModule, listViews, reorderViews } from "#/lib/api/views.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { MODULE_LABELS } from "#/lib/modules.ts";
-import { useNavStore, type ModuleKey } from "#/lib/store/nav.ts";
+import { type ModuleKey, useNavStore } from "#/lib/store/nav.ts";
+import { cn } from "@nookly/ui/lib/utils";
 
-const MAX_CHILDREN = 5;
+/// Modules whose row expands to list their saved Views.
+export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments"]);
 
-export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>([]);
+function ViewRow({
+  view,
+  active,
+  onOpen,
+}: {
+  view: SavedView;
+  active: boolean;
+  onOpen: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: view.entity.id,
+  });
+  const dragStyle = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <SidebarMenuSubItem
+      ref={setNodeRef}
+      style={dragStyle}
+      className={cn("group/view relative pl-3", isDragging && "z-10")}
+      {...entityTarget(view.entity)}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        tabIndex={-1}
+        aria-label={`Drag to reorder ${displayTitle(view.entity)}`}
+        className="absolute top-1/2 left-3 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-sidebar-foreground/0 group-hover/view:text-sidebar-foreground/40 active:cursor-grabbing"
+      >
+        <IconGripVertical size={12} />
+      </button>
+      <SidebarMenuSubButton isActive={active} onClick={onOpen}>
+        <EntityIcon entity={view.entity} size={14} />
+        <span className="truncate">{displayTitle(view.entity)}</span>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  );
+}
 
 export function ExpandableModuleChildren({
   moduleKey,
@@ -21,46 +77,75 @@ export function ExpandableModuleChildren({
   spaceId: string;
   open: boolean;
 }) {
-  const isCourses = moduleKey === "courses";
-  const { data = [] } = useQuery({
-    queryKey: [isCourses ? "courses" : "recent-notes", spaceId],
-    queryFn: () => (isCourses ? listCourses(spaceId) : listRecentNotes(spaceId, MAX_CHILDREN)),
-    enabled: open && EXPANDABLE_MODULE_KEYS.has(moduleKey),
+  const queryClient = useQueryClient();
+  const activeViewId = useNavStore((s) => (s.view.kind === "module" ? s.view.viewId : undefined));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const module = isViewModule(moduleKey) ? moduleKey : null;
+  const queryKey = ["views", spaceId, module];
+  const { data: views = [] } = useQuery({
+    queryKey,
+    queryFn: () => listViews(spaceId, module),
+    enabled: open && module !== null,
+  });
+  const reorder = useMutation({
+    mutationFn: (ids: string[]) =>
+      module ? reorderViews(spaceId, module, ids) : Promise.resolve(),
+    // Also puts the list back in the saved order when the reorder was refused.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["views", spaceId] }),
   });
 
-  if (!open || !EXPANDABLE_MODULE_KEYS.has(moduleKey)) return null;
-  const children = data.slice(0, MAX_CHILDREN);
+  if (!open || !module) return null;
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    const ids = views.map((v) => v.entity.id);
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from === -1 || to === -1) return;
+    const next = arrayMove(views, from, to);
+    queryClient.setQueryData(queryKey, next);
+    reorder.mutate(next.map((v) => v.entity.id));
+  }
 
   return (
     <>
-      {children.map((child) => (
-        <SidebarMenuSubItem key={child.id} {...entityTarget(child)}>
-          <SidebarMenuSubButton
-            onClick={() => useNavStore.getState().openEntity(child.id, spaceId)}
-          >
-            <EntityIcon entity={child} size={14} />
-            <span className="truncate">{displayTitle(child)}</span>
-          </SidebarMenuSubButton>
-        </SidebarMenuSubItem>
-      ))}
-      {children.length === 0 && (
-        <SidebarMenuSubItem>
-          <p className="px-2 py-1 text-xs text-sidebar-foreground/50">Nothing here yet</p>
-        </SidebarMenuSubItem>
-      )}
-      {children.length > 0 && (
-        <SidebarMenuSubItem>
-          <SidebarMenuSubButton
-            onClick={() =>
-              useNavStore.getState().setView({ kind: "module", spaceId, module: moduleKey })
-            }
-          >
-            <span className="truncate text-sidebar-foreground/50">
-              Show all {MODULE_LABELS[moduleKey]} →
-            </span>
-          </SidebarMenuSubButton>
-        </SidebarMenuSubItem>
-      )}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={views.map((v) => v.entity.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {views.map((view) => (
+            <ViewRow
+              key={view.entity.id}
+              view={view}
+              active={activeViewId === view.entity.id}
+              onOpen={() =>
+                useNavStore
+                  .getState()
+                  .setView({ kind: "module", spaceId, module, viewId: view.entity.id })
+              }
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
+      <SidebarMenuSubItem className="pl-3">
+        <SidebarMenuSubButton onClick={() => setDialogOpen(true)}>
+          <IconPlus />
+          <span className="truncate text-sidebar-foreground/70">New view</span>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+      <ViewDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        spaceId={spaceId}
+        module={module}
+        // A new View starts from the module's own defaults; its page takes it from there.
+        config={serializeViewConfig([], {})}
+        onSaved={(created) =>
+          useNavStore.getState().setView({ kind: "module", spaceId, module, viewId: created.id })
+        }
+      />
     </>
   );
 }

@@ -20,3 +20,4 @@ pub mod sessions;
 pub mod spaces;
 pub mod study_blocks;
 pub mod tasks;
+pub mod views;

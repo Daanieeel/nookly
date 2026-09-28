@@ -17,14 +17,16 @@ export function ModuleView({
   spaceId,
   module,
   filterCourseId,
+  viewId,
 }: {
   spaceId: string;
   module: ModuleKey;
   filterCourseId?: string;
+  viewId?: string;
 }) {
   switch (module) {
     case "tasks":
-      return <TasksListView spaceId={spaceId} />;
+      return <TasksListView spaceId={spaceId} viewId={viewId} />;
     case "notes":
       return <NotesListView spaceId={spaceId} />;
     case "jots":
@@ -42,7 +44,9 @@ export function ModuleView({
     case "decks":
       return <DecksListView spaceId={spaceId} />;
     case "assignments":
-      return <AssignmentsListView spaceId={spaceId} filterCourseId={filterCourseId} />;
+      return (
+        <AssignmentsListView spaceId={spaceId} filterCourseId={filterCourseId} viewId={viewId} />
+      );
     case "files":
       return <FilesListView spaceId={spaceId} />;
     case "bookmarks":

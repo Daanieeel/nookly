@@ -12,7 +12,13 @@ import {
 } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import emojiGroups from "unicode-emoji-json/data-by-group.json";
-import { ICON_LIBRARY, iconLibraryValue, isIconLibraryValue } from "#/components/entity-icon.tsx";
+import {
+  ICON_LIBRARY,
+  iconLibraryValue,
+  isIconLibraryValue,
+  parseIconLibraryValue,
+} from "#/components/entity-icon.tsx";
+import { ACCENT_COLORS } from "#/lib/colors.ts";
 import { Input } from "@nookly/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
@@ -73,16 +79,30 @@ function EmojiGrid({
 /// selection or a literal emoji (§1.3/§1.6). Icon choice is independent from
 /// any accent-color choice, and clearing falls back to the entity type's
 /// neutral default icon.
+///
+/// With `withColor`, the Icons tab adds a row of colors tinting the icon (emoji
+/// keep their own colors). Off by default: most icons stay neutral.
 export function IconPicker({
   value,
   onChange,
   trigger,
+  withColor = false,
 }: {
   value: string | null;
   onChange: (icon: string | null) => void;
   trigger: React.ReactNode;
+  withColor?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const current = value && isIconLibraryValue(value) ? parseIconLibraryValue(value) : null;
+  // A color picked before any icon is kept for the icon chosen next.
+  const [pendingColor, setPendingColor] = useState<string | null>(null);
+  const color = current ? current.color : pendingColor;
+
+  function pickColor(next: string | null) {
+    setPendingColor(next);
+    if (current) onChange(iconLibraryValue(current.name, next));
+  }
   const [category, setCategory] = useState(0);
   const [search, setSearch] = useState("");
 
@@ -117,27 +137,56 @@ export function IconPicker({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="icons" className="grid grid-cols-7 gap-0.5">
-            {[...ICON_LIBRARY].map(([name, Icon]) => {
-              const iconValue = iconLibraryValue(name);
-              return (
+          <TabsContent value="icons" className="flex flex-col gap-2">
+            {withColor && (
+              <div className="flex flex-wrap gap-1.5 border-b border-border pb-2">
+                <button
+                  type="button"
+                  aria-label="No color"
+                  aria-pressed={color === null}
+                  onClick={() => pickColor(null)}
+                  className={cn(
+                    "size-5 rounded-full border border-border bg-muted-foreground/40",
+                    color === null && "ring-2 ring-ring ring-offset-2 ring-offset-popover",
+                  )}
+                />
+                {ACCENT_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Color ${c}`}
+                    aria-pressed={color === c}
+                    onClick={() => pickColor(c)}
+                    className={cn(
+                      "size-5 rounded-full bg-(--swatch-color)",
+                      color === c && "ring-2 ring-ring ring-offset-2 ring-offset-popover",
+                    )}
+                    // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
+                    // `ACCENT_COLORS`. `CSSProperties` just doesn't model custom properties.
+                    style={{ "--swatch-color": c } as React.CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-7 gap-0.5">
+              {[...ICON_LIBRARY].map(([name, Icon]) => (
                 <button
                   key={name}
                   type="button"
                   title={name}
                   onClick={() => {
-                    onChange(iconValue);
+                    onChange(iconLibraryValue(name, withColor ? color : null));
                     setOpen(false);
                   }}
                   className={cn(
                     "flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground",
-                    value === iconValue && "bg-accent text-foreground ring-1 ring-ring",
+                    current?.name === name && "bg-accent text-foreground ring-1 ring-ring",
                   )}
                 >
-                  <Icon size={16} />
+                  <Icon size={16} color={withColor && color ? color : undefined} />
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </TabsContent>
 
           <TabsContent value="emoji" className="flex flex-col gap-2">

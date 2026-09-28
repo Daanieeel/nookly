@@ -26,7 +26,7 @@ export type View =
   | { kind: "pinned" }
   | { kind: "calendar" }
   | { kind: "trash" }
-  | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string }
+  | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string; viewId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
 
 export interface RecentEntry {
@@ -77,6 +77,9 @@ interface NavState {
   /// back to where it came from (or the Bookmarks page) and opens the sheet.
   showBookmark: (entityId: string, spaceId: string) => void;
   setBookmarkSheetId: (entityId: string | null) => void;
+  /// Saved Views have no page of their own: an entity view opened for one becomes
+  /// its module page with the View applied, replacing the entity view in history.
+  showSavedView: (entityId: string, spaceId: string, module: ModuleKey) => void;
   setActiveSpace: (spaceId: string | null) => void;
   toggleExpandedSpace: (spaceId: string) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -295,6 +298,14 @@ export const useNavStore = create<NavState>((set, get) => ({
       };
     }),
   setBookmarkSheetId: (bookmarkSheetId) => set({ bookmarkSheetId }),
+  showSavedView: (entityId, spaceId, module) =>
+    set((state) => {
+      const view: View = { kind: "module", spaceId, module, viewId: entityId };
+      // Only the entity view opened for this View is replaced, so an effect running
+      // twice can't clobber whatever was navigated to since.
+      if (state.view.kind !== "entity" || state.view.entityId !== entityId) return {};
+      return { view };
+    }),
   setActiveSpace: (spaceId) => {
     writeStoredActiveSpace(spaceId);
     set({ activeSpaceId: spaceId });

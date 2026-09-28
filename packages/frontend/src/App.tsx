@@ -44,6 +44,7 @@ function MainContent() {
           spaceId={view.spaceId}
           module={view.module}
           filterCourseId={view.filterCourseId}
+          viewId={view.viewId}
         />
       );
     case "entity":

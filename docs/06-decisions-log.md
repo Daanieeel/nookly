@@ -267,3 +267,13 @@ The design system lives in `@nookly/ui`, every other component and all app logic
 **Why:** a future web app can reuse the whole frontend without copying it, and the primitives stay isolated from app code, which keeps the frozen design system easy to guard.
 
 **Rejected:** one package with path aliases, which ties every component to the Tauri app; and a single shared package for ui and frontend, which lets primitives depend on app state.
+
+---
+
+### Saved Views are entities, listed under their module in the sidebar
+
+A View is a `view` entity holding a module (Tasks or Assignments) and a JSON config of that page's filters and display options. Its module's sidebar row expands to list the Space's Views, and opening one applies its config to the module page, where edits are a draft until saved. The CLI gets Views through the generic schema registry.
+
+**Why:** an entity brings the title, icon, pin, trash, duplicate and search for free, and keeps user made Views in the database, its backups and the CLI. The Space wall stays intact, since a View's filters (statuses, Courses, labels) only make sense inside one Space.
+
+**Rejected:** storing Views in the device preferences file (not in backups or the CLI) and a section apart from the modules in the sidebar.
