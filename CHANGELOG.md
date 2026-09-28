@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.9.1 (2026-09-28)
+
+### Fixed
+
+- Fix fullscreen titlebar
+
 ## 0.9.0 (2026-09-28)
 
 ### Changed
