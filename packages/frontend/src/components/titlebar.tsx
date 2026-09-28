@@ -36,6 +36,7 @@ import { getEntity } from "#/lib/api/entities.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS, MODULE_LABELS, moduleForEntityType } from "#/lib/modules.ts";
+import { useIsFullscreen } from "#/lib/fullscreen.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { APP_UPDATE_QUERY_KEY, checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -374,12 +375,18 @@ function HistoryButtons() {
 }
 
 export function Titlebar() {
+  const fullscreen = useIsFullscreen();
   return (
     <div
       data-tauri-drag-region
-      className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border bg-background pr-3 pl-12"
+      className={cn(
+        "flex h-11 shrink-0 items-center gap-1.5 border-b border-border bg-background pr-3",
+        fullscreen ? "pl-3" : "pl-12",
+      )}
     >
-      <div className="ml-10 flex min-w-0 shrink-0 items-center gap-1.5">
+      <div
+        className={cn("flex min-w-0 shrink-0 items-center gap-1.5", !fullscreen && "ml-10")}
+      >
         <HistoryButtons />
         <Breadcrumbs />
       </div>
