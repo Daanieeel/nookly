@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Entity, Recipe, RecipeIngredient, RecipeKind, RecipeStep } from "./types";
+import type { Entity, Recipe, RecipeIngredient, RecipeKind, RecipeStep, RecipeTag } from "./types";
 
 export function createRecipe(spaceId: string, title: string): Promise<Entity> {
   return invoke("create_recipe", { spaceId, title });
@@ -24,6 +24,17 @@ export function updateRecipeDuration(
   durationMinutes: number | null,
 ): Promise<Recipe> {
   return invoke("update_recipe_duration", { entityId, durationMinutes });
+}
+
+/// The whole recipe-tag catalog (global, fixed, not per-Space), for the tags
+/// multi-select control.
+export function listRecipeTags(): Promise<RecipeTag[]> {
+  return invoke("list_recipe_tags");
+}
+
+/// Replaces the recipe's whole tag set.
+export function updateRecipeTags(entityId: string, tagIds: string[]): Promise<Recipe> {
+  return invoke("update_recipe_tags", { entityId, tagIds });
 }
 
 /// `sourcePath` is a path on disk (from the file picker or a drag/drop), copied

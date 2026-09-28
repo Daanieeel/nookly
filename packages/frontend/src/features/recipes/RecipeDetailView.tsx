@@ -2,10 +2,11 @@ import { IconCamera, IconGripVertical, IconToolsKitchen2, IconTrash, IconX } fro
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { updateEntity } from "#/lib/api/entities.ts";
 import { Input } from "@nookly/ui/components/input";
+import { NumberInput } from "@nookly/ui/components/number-input";
 import {
   Select,
   SelectContent,
@@ -22,16 +23,25 @@ import {
   deleteStep,
   getRecipe,
   listIngredients,
+  listRecipeTags,
   listSteps,
   setRecipeBanner,
   updateIngredient,
   updateRecipeDuration,
   updateRecipeKind,
+  updateRecipeTags,
   updateStep,
 } from "#/lib/api/recipes.ts";
 import type { Entity, Recipe, RecipeKind, RecipeStep } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { RECIPE_KIND_LABELS, RECIPE_KINDS } from "./recipe-kind.ts";
+import { RECIPE_KIND_ICONS, RECIPE_KIND_LABELS, RECIPE_KINDS } from "./recipe-kind.ts";
+import { RecipeTagsPicker, RecipeTagsTrigger } from "./recipe-tags.tsx";
+
+type DurationUnit = "min" | "hr";
+
+function toUnit(minutes: number, unit: DurationUnit): number {
+  return unit === "hr" ? Math.round((minutes / 60) * 10) / 10 : minutes;
+}
 
 export function RecipeDetailView({ entity }: { entity: Entity }) {
   const { data: recipe } = useQuery({
@@ -46,27 +56,37 @@ export function RecipeDetailView({ entity }: { entity: Entity }) {
   );
 }
 
+/// The banner bleeds full width regardless of window size; everything else —
+/// including the title, which overlaps the banner's own bottom fade — reads
+/// at the same width a markdown page (`PageDetailView`) uses.
 function RecipeBody({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
   return (
     <div className="flex flex-col gap-4">
       <RecipeBanner entity={entity} recipe={recipe} />
-      <RecipeProperties entity={entity} recipe={recipe} />
-      <Separator />
-      <IngredientsSection recipeId={entity.id} />
-      <Separator />
-      <StepsSection recipeId={entity.id} />
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+        <RecipeTitle entity={entity} />
+        <RecipeProperties entity={entity} recipe={recipe} />
+        <Separator />
+        <IngredientsSection recipeId={entity.id} />
+        <Separator />
+        <StepsSection recipeId={entity.id} />
+      </div>
     </div>
   );
 }
 
-/// The banner bleeds to the edges of the body panel (`EntityDetailLayout`'s own
-/// `p-4`), and the title overlaps its bottom fade instead of sitting in a
-/// separate block below it — the one page in the app where the title isn't
-/// a plain inline field (§ Recipes module: "title slightly bleeding into the
-/// banner image").
+/// Bleeds to the edges of the body panel (`EntityDetailLayout`'s own `p-4`),
+/// unaffected by the reading-width column everything else in `RecipeBody`
+/// sits in. `RecipeTitle` renders separately, inside that column, and
+/// overlaps this banner's bottom fade via its own negative top margin.
 function RecipeBanner({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["recipe", entity.id] });
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["recipe", entity.id] }),
+      // The gallery cards show kind, duration, tags and banner too.
+      queryClient.invalidateQueries({ queryKey: ["recipes"] }),
+    ]);
 
   const setBanner = useMutation({
     mutationFn: (path: string) => setRecipeBanner(entity.id, path),
@@ -86,13 +106,16 @@ function RecipeBanner({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
 
   return (
     <div className="-mx-4 -mt-4">
-      <div className="group/banner relative flex h-48 items-start justify-end overflow-hidden">
+      <div className="group/banner relative flex h-55 items-start justify-end overflow-hidden">
         {src ? (
-          <img src={src} alt="" className="absolute inset-0 size-full object-cover" />
+          <img
+            src={src}
+            alt=""
+            className="recipe-banner-fade absolute inset-0 size-full object-cover"
+          />
         ) : (
-          <div className="absolute inset-0 bg-muted" />
+          <div className="recipe-banner-fade absolute inset-0 bg-muted" />
         )}
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-card to-transparent" />
         {!src && (
           <div className="absolute inset-0 flex items-center justify-center">
             <IconToolsKitchen2 size={28} className="text-muted-foreground/40" />
@@ -111,7 +134,6 @@ function RecipeBanner({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
           <TooltipContent>{src ? "Change banner image" : "Add banner image"}</TooltipContent>
         </Tooltip>
       </div>
-      <RecipeTitle entity={entity} />
     </div>
   );
 }
@@ -136,14 +158,27 @@ function RecipeTitle({ entity }: { entity: Entity }) {
       onBlur={() => title.trim() && title !== entity.title && rename.mutate(title.trim())}
       placeholder="Untitled Recipe"
       disabled={!!entity.deletedAt}
-      className="relative z-10 -mt-7 ml-1 w-[calc(100%-0.5rem)] overflow-x-hidden overflow-y-visible text-ellipsis whitespace-nowrap bg-transparent p-1 font-heading text-3xl/snug font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
+      className="relative z-10 -mt-11 -ml-2 w-[calc(100%+0.5rem)] overflow-x-hidden overflow-y-visible text-ellipsis whitespace-nowrap bg-transparent p-1 font-heading text-3xl/snug font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
     />
   );
 }
 
+/// A Notion-style property row: a small muted label above each control,
+/// three fields side by side — Duration, Category, Tags.
 function RecipeProperties({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["recipe", entity.id] });
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["recipe", entity.id] }),
+      // The gallery cards show kind, duration, tags and banner too.
+      queryClient.invalidateQueries({ queryKey: ["recipes"] }),
+    ]);
+
+  const { data: catalog = [] } = useQuery({
+    queryKey: ["recipe-tags"],
+    queryFn: listRecipeTags,
+    staleTime: Infinity, // fixed, not user-creatable in this version
+  });
 
   const setKind = useMutation({
     mutationFn: (kind: RecipeKind) => updateRecipeKind(entity.id, kind),
@@ -153,56 +188,114 @@ function RecipeProperties({ entity, recipe }: { entity: Entity; recipe: Recipe }
     mutationFn: (minutes: number | null) => updateRecipeDuration(entity.id, minutes),
     onSuccess: invalidate,
   });
+  const toggleTag = useMutation({
+    mutationFn: (tagId: string) => {
+      const current = recipe.tags.map((t) => t.id);
+      const next = current.includes(tagId)
+        ? current.filter((id) => id !== tagId)
+        : [...current, tagId];
+      return updateRecipeTags(entity.id, next);
+    },
+    onSuccess: invalidate,
+  });
 
-  const [duration, setDurationInput] = useState(recipe.durationMinutes?.toString() ?? "");
+  const [unit, setUnit] = useState<DurationUnit>("min");
+  // What's shown: the manual override, else the steps' sum, else 0. Stepping
+  // sets the override; landing on 0 clears it back to automatic.
+  const effectiveMinutes = recipe.durationMinutes ?? recipe.totalDurationMinutes ?? 0;
+  const [duration, setDurationValue] = useState(() => toUnit(effectiveMinutes, unit));
   useEffect(() => {
-    setDurationInput(recipe.durationMinutes?.toString() ?? "");
-  }, [recipe.durationMinutes]);
+    setDurationValue(toUnit(effectiveMinutes, unit));
+  }, [effectiveMinutes, unit]);
 
-  const commitDuration = () => {
-    const trimmed = duration.trim();
-    if (trimmed === "") {
+  const changeDuration = (next: number) => {
+    setDurationValue(next);
+    const minutes = Math.round(unit === "hr" ? next * 60 : next);
+    if (minutes === 0) {
       if (recipe.durationMinutes != null) setDuration.mutate(null);
-      return;
+    } else if (minutes !== recipe.durationMinutes) {
+      setDuration.mutate(minutes);
     }
-    const parsed = Number.parseInt(trimmed, 10);
-    if (!Number.isNaN(parsed) && parsed !== recipe.durationMinutes) setDuration.mutate(parsed);
   };
 
+  const KindIcon = RECIPE_KIND_ICONS[recipe.kind];
+
   return (
-    <div className="flex flex-wrap items-center gap-2 px-1">
-      <Select
-        value={recipe.kind}
-        // SAFETY: `v` only ever comes from a `SelectItem` below, whose values
-        // are drawn from `RECIPE_KINDS` itself.
-        onValueChange={(v) => setKind.mutate(v as RecipeKind)}
-      >
-        <SelectTrigger size="sm">
-          <SelectValue>{RECIPE_KIND_LABELS[recipe.kind]}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {RECIPE_KINDS.map((kind) => (
-            <SelectItem key={kind} value={kind}>
-              {RECIPE_KIND_LABELS[kind]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <div className="flex items-center gap-1.5">
-        <Input
-          type="number"
-          min={0}
-          value={duration}
-          onChange={(e) => setDurationInput(e.target.value)}
-          onBlur={commitDuration}
-          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          placeholder={recipe.totalDurationMinutes?.toString() ?? "Duration"}
-          className="h-8 w-24"
-        />
-        <span className="text-xs text-muted-foreground">
-          min{recipe.durationMinutes == null && recipe.totalDurationMinutes != null ? " (auto)" : ""}
-        </span>
-      </div>
+    <div className="grid grid-cols-3 gap-3 px-1">
+      <PropertyField label="Duration">
+        <div className="flex items-center gap-1.5">
+          <NumberInput
+            value={duration}
+            onChange={changeDuration}
+            min={0}
+            step={unit === "hr" ? 0.5 : 5}
+            className="min-w-0 flex-1"
+          />
+          <Select
+            value={unit}
+            // SAFETY: `v` only ever comes from the two `SelectItem`s below.
+            onValueChange={(v) => setUnit(v as DurationUnit)}
+          >
+            <SelectTrigger size="sm" className="w-16 shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="min">min</SelectItem>
+              <SelectItem value="hr">hr</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </PropertyField>
+
+      <PropertyField label="Category">
+        <Select
+          value={recipe.kind}
+          // SAFETY: `v` only ever comes from a `SelectItem` below, whose
+          // values are drawn from `RECIPE_KINDS` itself.
+          onValueChange={(v) => setKind.mutate(v as RecipeKind)}
+        >
+          <SelectTrigger size="sm" className="w-full">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <KindIcon size={14} className="shrink-0 text-muted-foreground" />
+              <SelectValue>{RECIPE_KIND_LABELS[recipe.kind]}</SelectValue>
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {RECIPE_KINDS.map((kind) => {
+              const Icon = RECIPE_KIND_ICONS[kind];
+              return (
+                <SelectItem key={kind} value={kind}>
+                  <Icon size={14} className="text-muted-foreground" />
+                  {RECIPE_KIND_LABELS[kind]}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      </PropertyField>
+
+      <PropertyField label="Tags">
+        <RecipeTagsPicker
+          tags={catalog}
+          selected={recipe.tags.map((t) => t.id)}
+          onToggle={(id) => !toggleTag.isPending && toggleTag.mutate(id)}
+          pendingId={toggleTag.isPending ? toggleTag.variables : undefined}
+          failedId={toggleTag.isError ? toggleTag.variables : undefined}
+        >
+          <button type="button" className="block w-full min-w-0 text-left">
+            <RecipeTagsTrigger tags={recipe.tags} />
+          </button>
+        </RecipeTagsPicker>
+      </PropertyField>
+    </div>
+  );
+}
+
+function PropertyField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
     </div>
   );
 }
@@ -338,6 +431,7 @@ function StepsSection({ recipeId }: { recipeId: string }) {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["recipe-steps", recipeId] });
     queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
+    queryClient.invalidateQueries({ queryKey: ["recipes"] });
   };
 
   const add = useMutation({

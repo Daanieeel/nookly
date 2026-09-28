@@ -24,6 +24,7 @@ import type { Recipe } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { RECIPE_KIND_LABELS } from "./recipe-kind.ts";
+import { RecipeTagChip } from "./recipe-tags.tsx";
 
 /// A card grid keyed off each recipe's own photo (§ Recipes module), not the
 /// gradient-blob identity Courses uses — a recipe's banner *is* its
@@ -105,6 +106,13 @@ function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => void }) 
             </span>
           )}
         </div>
+        {recipe.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {recipe.tags.map((tag) => (
+              <RecipeTagChip key={tag.id} tag={tag} />
+            ))}
+          </div>
+        )}
       </GalleryCardBody>
     </GalleryCard>
   );

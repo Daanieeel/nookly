@@ -191,6 +191,8 @@ pub fn run() {
             commands::recipes::get_recipe,
             commands::recipes::update_recipe_kind,
             commands::recipes::update_recipe_duration,
+            commands::recipes::list_recipe_tags,
+            commands::recipes::update_recipe_tags,
             commands::recipes::set_recipe_banner,
             commands::recipes::list_ingredients,
             commands::recipes::create_ingredient,

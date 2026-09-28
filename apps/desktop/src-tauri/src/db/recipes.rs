@@ -24,6 +24,81 @@ pub struct RecipeEntity {
     /// `durationMinutes` if set, else the sum of the steps' own
     /// `durationMinutes` (`None` if neither is set).
     pub total_duration_minutes: Option<i64>,
+    /// Read only — set with the `tagIds` field. Ordered by the catalog's own
+    /// `position`, not assignment order.
+    pub tags: Vec<RecipeTag>,
+}
+
+/// One entry in the fixed `recipe_tags` catalog (global, not per-Space, like
+/// `task_statuses` — see `02-entity-model.md`'s note that Labels are the
+/// *freeform* per-Space system; this is deliberately not that). Seeded by
+/// migration; not user-creatable in this version.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeTag {
+    pub id: String,
+    pub name: String,
+    /// A key the frontend maps to an icon component — not a Tabler
+    /// icon-library value string (that's `entity.icon`'s own convention for
+    /// user-chosen icons; this is a fixed, curated catalog instead).
+    pub icon: String,
+    pub color: String,
+    pub position: i64,
+}
+
+fn row_to_tag(row: &rusqlite::Row) -> rusqlite::Result<RecipeTag> {
+    Ok(RecipeTag {
+        id: row.get("id")?,
+        name: row.get("name")?,
+        icon: row.get("icon")?,
+        color: row.get("color")?,
+        position: row.get("position")?,
+    })
+}
+
+/// The whole catalog, in display order. Global — every Space's recipes pick
+/// from the same list.
+pub fn list_recipe_tags(conn: &Connection) -> AppResult<Vec<RecipeTag>> {
+    let mut stmt = conn.prepare("SELECT * FROM recipe_tags ORDER BY position ASC")?;
+    let rows = stmt.query_map([], row_to_tag)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+fn tags_for_recipe(conn: &Connection, recipe_id: &str) -> AppResult<Vec<RecipeTag>> {
+    let mut stmt = conn.prepare(
+        "SELECT t.* FROM recipe_tags t
+         JOIN recipe_tag_links l ON l.tag_id = t.id
+         WHERE l.recipe_entity_id = ?1 ORDER BY t.position ASC",
+    )?;
+    let rows = stmt.query_map(params![recipe_id], row_to_tag)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Replaces the recipe's whole tag set with `tag_ids`, refusing any id not in
+/// the catalog. Order doesn't matter — display order always follows the
+/// catalog's own `position`.
+pub fn set_recipe_tags(conn: &Connection, recipe_id: &str, tag_ids: &[String]) -> AppResult<()> {
+    for tag_id in tag_ids {
+        let exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM recipe_tags WHERE id = ?1",
+            params![tag_id],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            return Err(AppError::InvalidInput(format!("unknown recipe tag '{tag_id}'")));
+        }
+    }
+    conn.execute(
+        "DELETE FROM recipe_tag_links WHERE recipe_entity_id = ?1",
+        params![recipe_id],
+    )?;
+    for tag_id in tag_ids {
+        conn.execute(
+            "INSERT OR IGNORE INTO recipe_tag_links (recipe_entity_id, tag_id) VALUES (?1, ?2)",
+            params![recipe_id, tag_id],
+        )?;
+    }
+    Ok(())
 }
 
 fn recipe_core(conn: &Connection, entity_id: &str) -> AppResult<(String, Option<i64>, Option<String>)> {
@@ -62,12 +137,14 @@ pub fn get_recipe(conn: &Connection, entity_id: &str) -> AppResult<RecipeEntity>
         Some(minutes) => Some(minutes),
         None => steps_duration_sum(conn, entity_id)?,
     };
+    let tags = tags_for_recipe(conn, entity_id)?;
     Ok(RecipeEntity {
         entity,
         kind,
         duration_minutes,
         banner_path,
         total_duration_minutes,
+        tags,
     })
 }
 
@@ -364,6 +441,16 @@ const RECIPE_FIELDS: &[FieldDef] = &[
         writable_on_update: true,
         description: "Path to a local image to copy in as the banner, replacing any existing one.",
     },
+    FieldDef {
+        name: "tagIds",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Comma-separated ids from the recipe_tags catalog (a fixed, curated set — \
+                      see the read only tags field for the full list with name/icon/color; not \
+                      the generic per-Space Labels). Replaces the recipe's whole tag set; pass an \
+                      empty value to clear it.",
+    },
 ];
 
 fn recipe_json(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
@@ -382,6 +469,16 @@ fn apply_recipe_fields(conn: &Connection, id: &str, fields: &JsonMap) -> AppResu
             .map_err(|e| AppError::Db(e.to_string()))?
             .join("recipe-banners");
         set_recipe_banner(conn, &dir, id, Path::new(&path))?;
+    }
+    if fields.contains_key("tagIds") {
+        let tag_ids: Vec<String> = crate::db::schema::field_str(fields, "tagIds")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect();
+        set_recipe_tags(conn, id, &tag_ids)?;
     }
     Ok(())
 }
@@ -437,6 +534,16 @@ inventory::submit! {
         kind: FieldKind::Integer,
         description: "Read only. durationMinutes if set, else the sum of the steps' own \
                       durationMinutes (null if neither is set).",
+    }
+}
+
+inventory::submit! {
+    ComputedFieldDef {
+        entity_type: "recipe",
+        name: "tags",
+        kind: FieldKind::Object,
+        description: "Read only. Full detail (id, name, icon, color) for each id set via \
+                      tagIds, ordered by the recipe_tags catalog's own position.",
     }
 }
 
@@ -658,5 +765,63 @@ mod tests {
         assert!(set_recipe_kind(&conn, &recipe.id, "brunch".into()).is_err());
         set_recipe_kind(&conn, &recipe.id, "breakfast".into()).unwrap();
         assert_eq!(get_recipe(&conn, &recipe.id).unwrap().kind, "breakfast");
+    }
+
+    #[test]
+    fn recipe_tags_catalog_is_seeded_and_global() {
+        let conn = setup();
+        let tags = list_recipe_tags(&conn).unwrap();
+        assert_eq!(tags.len(), 14);
+        assert_eq!(tags[0].id, "chicken");
+        assert!(tags.iter().all(|t| !t.icon.is_empty() && !t.color.is_empty()));
+        // The three meats must not share an icon.
+        let icon_of = |id: &str| tags.iter().find(|t| t.id == id).unwrap().icon.clone();
+        assert_ne!(icon_of("chicken"), icon_of("beef"));
+        assert_ne!(icon_of("beef"), icon_of("pork"));
+        assert_ne!(icon_of("chicken"), icon_of("pork"));
+    }
+
+    #[test]
+    fn set_recipe_tags_replaces_the_whole_set_and_orders_by_catalog_position() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Stew".into()).unwrap();
+
+        set_recipe_tags(
+            &conn,
+            &recipe.id,
+            &["soup".to_string(), "beef".to_string()],
+        )
+        .unwrap();
+        let tags = get_recipe(&conn, &recipe.id).unwrap().tags;
+        // "beef" (position 1) sorts before "soup" (position 7) regardless of
+        // the order passed in.
+        assert_eq!(
+            tags.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+            vec!["beef", "soup"]
+        );
+
+        set_recipe_tags(&conn, &recipe.id, &["vegan".to_string()]).unwrap();
+        let tags = get_recipe(&conn, &recipe.id).unwrap().tags;
+        assert_eq!(tags.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), vec!["vegan"]);
+
+        assert!(set_recipe_tags(&conn, &recipe.id, &["not-a-tag".to_string()]).is_err());
+    }
+
+    #[test]
+    fn tag_ids_field_round_trips_through_the_cli_update_path() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Curry".into()).unwrap();
+
+        let mut fields = JsonMap::new();
+        fields.insert("tagIds".into(), serde_json::json!("chicken, spicy"));
+        apply_recipe_fields(&conn, &recipe.id, &fields).unwrap();
+
+        let tags = get_recipe(&conn, &recipe.id).unwrap().tags;
+        assert_eq!(
+            tags.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+            vec!["chicken", "spicy"]
+        );
     }
 }

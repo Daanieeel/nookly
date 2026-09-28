@@ -489,6 +489,49 @@ fn all() -> Vec<M<'static>> {
         );
         CREATE INDEX idx_recipe_steps_recipe ON recipe_steps(recipe_entity_id, position);
         ",
+    ), M::up(
+        "
+        -- Recipe Tags: a fixed, curated multi-select category distinct from
+        -- the generic freeform Labels system (§02) — global (not per-Space,
+        -- like `task_statuses`), seeded here, not user-creatable in this
+        -- version. Each recipe can carry several, via the join table below.
+        CREATE TABLE recipe_tags (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            icon TEXT NOT NULL,
+            color TEXT NOT NULL,
+            position INTEGER NOT NULL
+        );
+        INSERT INTO recipe_tags (id, name, icon, color, position) VALUES
+            ('chicken', 'Chicken', 'meat', '#f59e0b', 0),
+            ('beef', 'Beef', 'meat', '#b91c1c', 1),
+            ('pork', 'Pork', 'meat', '#ec4899', 2),
+            ('seafood', 'Seafood', 'fish', '#0ea5e9', 3),
+            ('vegetarian', 'Vegetarian', 'leaf', '#22c55e', 4),
+            ('vegan', 'Vegan', 'seedling', '#15803d', 5),
+            ('salad', 'Salad', 'salad', '#84cc16', 6),
+            ('soup', 'Soup', 'soup', '#f97316', 7),
+            ('pasta', 'Pasta', 'chef', '#ca8a04', 8),
+            ('baking', 'Baking', 'bread', '#92400e', 9),
+            ('dessert', 'Dessert', 'cake', '#db2777', 10),
+            ('grill', 'Grill', 'flame', '#dc2626', 11),
+            ('spicy', 'Spicy', 'pepper', '#e11d48', 12),
+            ('quick', 'Quick', 'bolt', '#06b6d4', 13);
+        CREATE TABLE recipe_tag_links (
+            recipe_entity_id TEXT NOT NULL REFERENCES entities(id),
+            tag_id TEXT NOT NULL REFERENCES recipe_tags(id),
+            PRIMARY KEY (recipe_entity_id, tag_id)
+        );
+        ",
+    ), M::up(
+        "
+        -- Chicken, beef and pork shared one generic 'meat' icon; each gets its
+        -- own now. Fixes forward instead of editing the seed above, which
+        -- already ran against existing databases.
+        UPDATE recipe_tags SET icon = 'drumstick' WHERE id = 'chicken';
+        UPDATE recipe_tags SET icon = 'beef' WHERE id = 'beef';
+        UPDATE recipe_tags SET icon = 'pig' WHERE id = 'pork';
+        ",
     )]
 }
 
@@ -539,6 +582,8 @@ mod history {
         0xc8a0501233f85db1,
         0x3646ef370368e4cc,
         0x75618d812bb97c6c,
+        0x37b01b76112ec465,
+        0xc1e5af1629f9c19a,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

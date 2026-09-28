@@ -436,6 +436,10 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
         params![id],
     )?;
     conn.execute("DELETE FROM recipes WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM recipe_tag_links WHERE recipe_entity_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM search_index WHERE entity_id = ?1", params![id])?;
 
     let affected = conn.execute(

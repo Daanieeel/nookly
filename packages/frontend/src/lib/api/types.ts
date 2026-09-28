@@ -58,6 +58,20 @@ export interface Recipe {
   bannerPath: string | null;
   /// `durationMinutes` if set, else the sum of the steps' own `durationMinutes`.
   totalDurationMinutes: number | null;
+  /// Set via `tagIds`; ordered by the catalog's own `position`.
+  tags: RecipeTag[];
+}
+
+/// One entry in the fixed, global `recipe_tags` catalog — deliberately not
+/// the generic per-Space Labels system (§02): a small curated set, seeded on
+/// the backend, not user-creatable in this version.
+export interface RecipeTag {
+  id: string;
+  name: string;
+  /// A key `RECIPE_TAG_ICONS` maps to a component — not an entity icon value.
+  icon: string;
+  color: string;
+  position: number;
 }
 
 export interface RecipeIngredient {

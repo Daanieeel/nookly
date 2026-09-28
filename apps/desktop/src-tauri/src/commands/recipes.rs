@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::recipes::{self, Ingredient, RecipeEntity, Step};
+use crate::db::recipes::{self, Ingredient, RecipeEntity, RecipeTag, Step};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use std::path::PathBuf;
@@ -53,6 +53,25 @@ pub fn update_recipe_duration(
 ) -> AppResult<RecipeEntity> {
     let conn = state.0.lock().unwrap();
     recipes::set_recipe_duration_minutes(&conn, &entity_id, duration_minutes)?;
+    recipes::get_recipe(&conn, &entity_id)
+}
+
+/// The whole recipe-tag catalog (global, fixed, not per-Space), for the
+/// tags multi-select control.
+#[tauri::command]
+pub fn list_recipe_tags(state: State<DbState>) -> AppResult<Vec<RecipeTag>> {
+    let conn = state.0.lock().unwrap();
+    recipes::list_recipe_tags(&conn)
+}
+
+#[tauri::command]
+pub fn update_recipe_tags(
+    state: State<DbState>,
+    entity_id: String,
+    tag_ids: Vec<String>,
+) -> AppResult<RecipeEntity> {
+    let conn = state.0.lock().unwrap();
+    recipes::set_recipe_tags(&conn, &entity_id, &tag_ids)?;
     recipes::get_recipe(&conn, &entity_id)
 }
 
