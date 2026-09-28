@@ -2,7 +2,11 @@ import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
-import { StatusButtonContent, statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
+import {
+  StatusButtonContent,
+  statusOf,
+  useCloseAfterSuccess,
+} from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -125,7 +129,9 @@ const PLACEHOLDER_WIDTHS = ["w-2/3", "w-1/2", "w-3/4", "w-1/2", "w-3/5"];
 function RecipesEmptyCard({ onCreate }: { onCreate: () => void }) {
   return (
     <GalleryCard variant="dashed">
-      <GalleryCardImageBanner icon={<IconToolsKitchen2 size={20} className="text-muted-foreground/50" />} />
+      <GalleryCardImageBanner
+        icon={<IconToolsKitchen2 size={20} className="text-muted-foreground/50" />}
+      />
       <GalleryCardBody className="items-center text-center">
         <p className="text-sm font-medium text-foreground">No recipes yet</p>
         <p className="text-xs text-muted-foreground">

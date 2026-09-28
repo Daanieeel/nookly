@@ -122,11 +122,7 @@ export function RecipeTagsPicker({
       }}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        className="w-56"
-        align="start"
-        onKeyDown={(e) => e.stopPropagation()}
-      >
+      <PopoverContent className="w-56" align="start" onKeyDown={(e) => e.stopPropagation()}>
         <Command loop>
           <CommandInput placeholder="Find tags…" value={search} onValueChange={setSearch} />
           <CommandList className="p-1">

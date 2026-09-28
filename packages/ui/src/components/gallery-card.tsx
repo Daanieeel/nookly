@@ -124,7 +124,10 @@ function GalleryCardImageBanner({
   return (
     <div
       data-slot="gallery-card-image-banner"
-      className={cn("relative flex h-24 shrink-0 items-end justify-end overflow-hidden p-2", className)}
+      className={cn(
+        "relative flex h-24 shrink-0 items-end justify-end overflow-hidden p-2",
+        className,
+      )}
     >
       {src ? (
         <img src={src} alt="" className="absolute inset-0 size-full object-cover" />

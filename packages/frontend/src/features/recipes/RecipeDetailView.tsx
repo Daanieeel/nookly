@@ -371,8 +371,7 @@ function IngredientsSection({ recipeId }: { recipeId: string }) {
     onSuccess: invalidate,
   });
   const move = useMutation({
-    mutationFn: (vars: { id: string; position: number }) =>
-      moveIngredient(vars.id, vars.position),
+    mutationFn: (vars: { id: string; position: number }) => moveIngredient(vars.id, vars.position),
     onSettled: invalidate,
   });
 
@@ -397,10 +396,7 @@ function IngredientsSection({ recipeId }: { recipeId: string }) {
       <h2 className="text-sm font-medium text-muted-foreground">Ingredients</h2>
       <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext
-            items={ingredients.map((i) => i.id)}
-            strategy={rectSortingStrategy}
-          >
+          <SortableContext items={ingredients.map((i) => i.id)} strategy={rectSortingStrategy}>
             {ingredients.map((ingredient) => (
               <BulletRow
                 key={ingredient.id}
@@ -583,7 +579,10 @@ function AutoTextarea({
         inner.current = el;
         if (textareaRef) textareaRef.current = el;
       }}
-      className={cn("min-w-0 flex-1 resize-none overflow-hidden bg-transparent outline-none", className)}
+      className={cn(
+        "min-w-0 flex-1 resize-none overflow-hidden bg-transparent outline-none",
+        className,
+      )}
     />
   );
 }
