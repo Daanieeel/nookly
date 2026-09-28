@@ -1,0 +1,662 @@
+use crate::db::entities::Entity;
+use crate::db::schema::{
+    ChildCollectionDef, ComputedFieldDef, CreateInput, EntitySchemaDef, FieldDef, FieldKind,
+    JsonMap,
+};
+use crate::error::{AppError, AppResult};
+use rusqlite::{params, Connection, OptionalExtension};
+use serde::Serialize;
+use std::path::Path;
+
+/// Meal kinds offered by the category select. Documented here rather than
+/// enforced by the CLI parser (`FieldKind::Enum` is descriptive only, per
+/// `schema.rs`), but `set_recipe_kind` refuses anything else.
+pub const RECIPE_KINDS: &[&str] = &["breakfast", "lunch", "dinner", "snack", "dessert", "other"];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeEntity {
+    pub entity: Entity,
+    pub kind: String,
+    /// Manual override, in minutes. `None` falls back to `totalDurationMinutes`.
+    pub duration_minutes: Option<i64>,
+    pub banner_path: Option<String>,
+    /// `durationMinutes` if set, else the sum of the steps' own
+    /// `durationMinutes` (`None` if neither is set).
+    pub total_duration_minutes: Option<i64>,
+}
+
+fn recipe_core(conn: &Connection, entity_id: &str) -> AppResult<(String, Option<i64>, Option<String>)> {
+    conn.query_row(
+        "SELECT kind, duration_minutes, banner_path FROM recipes WHERE entity_id = ?1",
+        params![entity_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )
+    .optional()?
+    .ok_or_else(|| AppError::NotFound(format!("recipe {entity_id}")))
+}
+
+/// The sum of the recipe's steps' `duration_minutes`, ignoring steps with none
+/// set and soft-deleted ones. `None` if nothing has a duration.
+fn steps_duration_sum(conn: &Connection, entity_id: &str) -> AppResult<Option<i64>> {
+    Ok(conn.query_row(
+        "SELECT SUM(duration_minutes) FROM recipe_steps WHERE recipe_entity_id = ?1 AND deleted_at IS NULL",
+        params![entity_id],
+        |row| row.get(0),
+    )?)
+}
+
+pub fn create_recipe(conn: &Connection, space_id: String, title: String) -> AppResult<Entity> {
+    let entity = crate::db::entities::create_entity(conn, space_id, "recipe".into(), title, None)?;
+    conn.execute(
+        "INSERT INTO recipes (entity_id) VALUES (?1)",
+        params![entity.id],
+    )?;
+    Ok(entity)
+}
+
+pub fn get_recipe(conn: &Connection, entity_id: &str) -> AppResult<RecipeEntity> {
+    let entity = crate::db::entities::get_entity(conn, entity_id)?;
+    let (kind, duration_minutes, banner_path) = recipe_core(conn, entity_id)?;
+    let total_duration_minutes = match duration_minutes {
+        Some(minutes) => Some(minutes),
+        None => steps_duration_sum(conn, entity_id)?,
+    };
+    Ok(RecipeEntity {
+        entity,
+        kind,
+        duration_minutes,
+        banner_path,
+        total_duration_minutes,
+    })
+}
+
+pub fn list_recipes(conn: &Connection, space_id: &str) -> AppResult<Vec<RecipeEntity>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.* FROM entities e JOIN recipes r ON r.entity_id = e.id
+         WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at ASC",
+    )?;
+    let rows = stmt.query_map(params![space_id], crate::db::entities::row_to_entity)?;
+    let entities: Vec<Entity> = rows.collect::<Result<Vec<_>, _>>()?;
+    entities.into_iter().map(|e| get_recipe(conn, &e.id)).collect()
+}
+
+pub fn set_recipe_kind(conn: &Connection, entity_id: &str, kind: String) -> AppResult<()> {
+    if !RECIPE_KINDS.contains(&kind.as_str()) {
+        return Err(AppError::InvalidInput(format!(
+            "kind must be one of {}, got '{kind}'",
+            RECIPE_KINDS.join(", ")
+        )));
+    }
+    conn.execute(
+        "UPDATE recipes SET kind = ?1 WHERE entity_id = ?2",
+        params![kind, entity_id],
+    )?;
+    Ok(())
+}
+
+/// `None` clears the manual override, falling back to `totalDurationMinutes` again.
+pub fn set_recipe_duration_minutes(
+    conn: &Connection,
+    entity_id: &str,
+    minutes: Option<i64>,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE recipes SET duration_minutes = ?1 WHERE entity_id = ?2",
+        params![minutes, entity_id],
+    )?;
+    Ok(())
+}
+
+/// Copies `source_path` into `banners_dir` and points the recipe at it,
+/// returning the previous banner's path (if any) so the caller can remove the
+/// now-orphaned file once the change is committed — same convention as
+/// `files::replace_file`.
+pub fn set_recipe_banner(
+    conn: &Connection,
+    banners_dir: &Path,
+    entity_id: &str,
+    source_path: &Path,
+) -> AppResult<(RecipeEntity, Option<String>)> {
+    let (_, _, previous) = recipe_core(conn, entity_id)?;
+    let bytes = std::fs::read(source_path).map_err(|e| AppError::Io(e.to_string()))?;
+    let ext = source_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png");
+    std::fs::create_dir_all(banners_dir).map_err(|e| AppError::Io(e.to_string()))?;
+    let dest = banners_dir.join(format!("{}.{ext}", crate::db::new_id()));
+    std::fs::write(&dest, &bytes).map_err(|e| AppError::Io(e.to_string()))?;
+    let dest_str = dest.to_string_lossy().to_string();
+    conn.execute(
+        "UPDATE recipes SET banner_path = ?1 WHERE entity_id = ?2",
+        params![dest_str, entity_id],
+    )?;
+    Ok((get_recipe(conn, entity_id)?, previous))
+}
+
+// --- ingredients -------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ingredient {
+    pub id: String,
+    pub recipe_entity_id: String,
+    pub text: String,
+    pub position: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub deleted_at: Option<String>,
+}
+
+fn row_to_ingredient(row: &rusqlite::Row) -> rusqlite::Result<Ingredient> {
+    Ok(Ingredient {
+        id: row.get("id")?,
+        recipe_entity_id: row.get("recipe_entity_id")?,
+        text: row.get("text")?,
+        position: row.get("position")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
+        deleted_at: row.get("deleted_at")?,
+    })
+}
+
+pub fn get_ingredient(conn: &Connection, id: &str) -> AppResult<Ingredient> {
+    conn.query_row(
+        "SELECT * FROM recipe_ingredients WHERE id = ?1",
+        params![id],
+        row_to_ingredient,
+    )
+    .optional()?
+    .ok_or_else(|| AppError::NotFound(format!("ingredient {id}")))
+}
+
+pub fn list_ingredients(
+    conn: &Connection,
+    recipe_id: &str,
+    include_deleted: bool,
+) -> AppResult<Vec<Ingredient>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM recipe_ingredients WHERE recipe_entity_id = ?1 AND (?2 OR deleted_at IS NULL)
+         ORDER BY position ASC",
+    )?;
+    let rows = stmt.query_map(params![recipe_id, include_deleted], row_to_ingredient)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+pub fn create_ingredient(conn: &Connection, recipe_id: String, text: String) -> AppResult<Ingredient> {
+    let position: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position), -1) + 1 FROM recipe_ingredients WHERE recipe_entity_id = ?1",
+        params![recipe_id],
+        |row| row.get(0),
+    )?;
+    let id = crate::db::new_id();
+    let now = crate::db::now();
+    conn.execute(
+        "INSERT INTO recipe_ingredients (id, recipe_entity_id, text, position, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        params![id, recipe_id, text, position, now],
+    )?;
+    get_ingredient(conn, &id)
+}
+
+pub fn update_ingredient(conn: &Connection, id: &str, text: String) -> AppResult<Ingredient> {
+    get_ingredient(conn, id)?;
+    conn.execute(
+        "UPDATE recipe_ingredients SET text = ?1, updated_at = ?2 WHERE id = ?3",
+        params![text, crate::db::now(), id],
+    )?;
+    get_ingredient(conn, id)
+}
+
+pub fn delete_ingredient(conn: &Connection, id: &str) -> AppResult<()> {
+    get_ingredient(conn, id)?;
+    conn.execute(
+        "UPDATE recipe_ingredients SET deleted_at = ?1 WHERE id = ?2",
+        params![crate::db::now(), id],
+    )?;
+    Ok(())
+}
+
+pub fn restore_ingredient(conn: &Connection, id: &str) -> AppResult<()> {
+    get_ingredient(conn, id)?;
+    conn.execute(
+        "UPDATE recipe_ingredients SET deleted_at = NULL WHERE id = ?1",
+        params![id],
+    )?;
+    Ok(())
+}
+
+// --- steps -------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Step {
+    pub id: String,
+    pub recipe_entity_id: String,
+    pub text: String,
+    pub duration_minutes: Option<i64>,
+    pub position: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub deleted_at: Option<String>,
+}
+
+fn row_to_step(row: &rusqlite::Row) -> rusqlite::Result<Step> {
+    Ok(Step {
+        id: row.get("id")?,
+        recipe_entity_id: row.get("recipe_entity_id")?,
+        text: row.get("text")?,
+        duration_minutes: row.get("duration_minutes")?,
+        position: row.get("position")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
+        deleted_at: row.get("deleted_at")?,
+    })
+}
+
+pub fn get_step(conn: &Connection, id: &str) -> AppResult<Step> {
+    conn.query_row(
+        "SELECT * FROM recipe_steps WHERE id = ?1",
+        params![id],
+        row_to_step,
+    )
+    .optional()?
+    .ok_or_else(|| AppError::NotFound(format!("step {id}")))
+}
+
+pub fn list_steps(conn: &Connection, recipe_id: &str, include_deleted: bool) -> AppResult<Vec<Step>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM recipe_steps WHERE recipe_entity_id = ?1 AND (?2 OR deleted_at IS NULL)
+         ORDER BY position ASC",
+    )?;
+    let rows = stmt.query_map(params![recipe_id, include_deleted], row_to_step)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+pub fn create_step(
+    conn: &Connection,
+    recipe_id: String,
+    text: String,
+    duration_minutes: Option<i64>,
+) -> AppResult<Step> {
+    let position: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position), -1) + 1 FROM recipe_steps WHERE recipe_entity_id = ?1",
+        params![recipe_id],
+        |row| row.get(0),
+    )?;
+    let id = crate::db::new_id();
+    let now = crate::db::now();
+    conn.execute(
+        "INSERT INTO recipe_steps (id, recipe_entity_id, text, duration_minutes, position, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+        params![id, recipe_id, text, duration_minutes, position, now],
+    )?;
+    get_step(conn, &id)
+}
+
+/// `None` for a field leaves that column unchanged; `Some(None)` for
+/// `duration_minutes` clears it (so the recipe's total falls back to
+/// whatever the other steps add up to).
+pub fn update_step(
+    conn: &Connection,
+    id: &str,
+    text: Option<String>,
+    duration_minutes: Option<Option<i64>>,
+) -> AppResult<Step> {
+    get_step(conn, id)?;
+    if let Some(text) = text {
+        conn.execute(
+            "UPDATE recipe_steps SET text = ?1, updated_at = ?2 WHERE id = ?3",
+            params![text, crate::db::now(), id],
+        )?;
+    }
+    if let Some(duration_minutes) = duration_minutes {
+        conn.execute(
+            "UPDATE recipe_steps SET duration_minutes = ?1, updated_at = ?2 WHERE id = ?3",
+            params![duration_minutes, crate::db::now(), id],
+        )?;
+    }
+    get_step(conn, id)
+}
+
+pub fn delete_step(conn: &Connection, id: &str) -> AppResult<()> {
+    get_step(conn, id)?;
+    conn.execute(
+        "UPDATE recipe_steps SET deleted_at = ?1 WHERE id = ?2",
+        params![crate::db::now(), id],
+    )?;
+    Ok(())
+}
+
+pub fn restore_step(conn: &Connection, id: &str) -> AppResult<()> {
+    get_step(conn, id)?;
+    conn.execute(
+        "UPDATE recipe_steps SET deleted_at = NULL WHERE id = ?1",
+        params![id],
+    )?;
+    Ok(())
+}
+
+// --- CLI schema registration (PLAN.md §1/§3) -------------------------------
+
+const RECIPE_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "kind",
+        kind: FieldKind::Enum(RECIPE_KINDS),
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Meal kind. Defaults to other.",
+    },
+    FieldDef {
+        name: "durationMinutes",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Manual override, in minutes. Unset falls back to summing the steps' own \
+                      durationMinutes — see the read only totalDurationMinutes. Pass an empty \
+                      value on update to clear it back to automatic.",
+    },
+    FieldDef {
+        name: "bannerPath",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Path to a local image to copy in as the banner, replacing any existing one.",
+    },
+];
+
+fn recipe_json(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    Ok(serde_json::to_value(get_recipe(conn, id)?).expect("RecipeEntity always serializes"))
+}
+
+fn apply_recipe_fields(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<()> {
+    if let Some(kind) = crate::db::schema::field_str(fields, "kind") {
+        set_recipe_kind(conn, id, kind)?;
+    }
+    if fields.contains_key("durationMinutes") {
+        set_recipe_duration_minutes(conn, id, crate::db::schema::field_i64(fields, "durationMinutes"))?;
+    }
+    if let Some(path) = crate::db::schema::field_str(fields, "bannerPath") {
+        let dir = crate::db::standalone_app_data_dir()
+            .map_err(|e| AppError::Db(e.to_string()))?
+            .join("recipe-banners");
+        set_recipe_banner(conn, &dir, id, Path::new(&path))?;
+    }
+    Ok(())
+}
+
+fn cli_create_recipe(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
+    let entity = create_recipe(conn, input.space_id, input.title)?;
+    apply_recipe_fields(conn, &entity.id, &input.fields)?;
+    recipe_json(conn, &entity.id)
+}
+
+fn cli_update_recipe(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    apply_recipe_fields(conn, id, fields)?;
+    recipe_json(conn, id)
+}
+
+fn cli_get_recipe(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    recipe_json(conn, id)
+}
+
+fn cli_list_recipes(
+    conn: &Connection,
+    space_id: Option<&str>,
+    _include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    let space_id = space_id
+        .ok_or_else(|| AppError::InvalidInput("recipe list requires --space <space-id>".into()))?;
+    list_recipes(conn, space_id)?
+        .into_iter()
+        .map(|r| Ok(serde_json::to_value(r).expect("RecipeEntity always serializes")))
+        .collect()
+}
+
+inventory::submit! {
+    EntitySchemaDef {
+        entity_type: "recipe",
+        supports_blocks: false,
+        description: "A recipe: banner image, meal kind, an ingredient list and a step list. \
+                      Duration is a manual override, or (when unset) the sum of the steps' own \
+                      durationMinutes.",
+        fields: RECIPE_FIELDS,
+        relationship_types: &["relates-to", "attached-file"],
+        create: cli_create_recipe,
+        update: cli_update_recipe,
+        get: cli_get_recipe,
+        list: cli_list_recipes,
+    }
+}
+
+inventory::submit! {
+    ComputedFieldDef {
+        entity_type: "recipe",
+        name: "totalDurationMinutes",
+        kind: FieldKind::Integer,
+        description: "Read only. durationMinutes if set, else the sum of the steps' own \
+                      durationMinutes (null if neither is set).",
+    }
+}
+
+const INGREDIENT_FIELDS: &[FieldDef] = &[FieldDef {
+    name: "text",
+    kind: FieldKind::Text,
+    required_on_create: true,
+    writable_on_update: true,
+    description: "The ingredient line, e.g. '2 cups flour'.",
+}];
+
+const CHILD_COMPUTED_POSITION: &[FieldDef] = &[FieldDef {
+    name: "position",
+    kind: FieldKind::Integer,
+    required_on_create: false,
+    writable_on_update: false,
+    description: "Order within the recipe, 0 based.",
+}];
+
+fn ingredient_json(ingredient: Ingredient) -> serde_json::Value {
+    serde_json::to_value(ingredient).expect("Ingredient always serializes")
+}
+
+fn cli_list_ingredients(
+    conn: &Connection,
+    recipe_id: &str,
+    include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    Ok(list_ingredients(conn, recipe_id, include_deleted)?
+        .into_iter()
+        .map(ingredient_json)
+        .collect())
+}
+
+fn cli_get_ingredient(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    get_ingredient(conn, id).map(ingredient_json)
+}
+
+fn cli_create_ingredient(
+    conn: &Connection,
+    recipe_id: &str,
+    fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    let text = crate::db::schema::require_str(fields, "text")?;
+    create_ingredient(conn, recipe_id.into(), text).map(ingredient_json)
+}
+
+fn cli_update_ingredient(
+    conn: &Connection,
+    id: &str,
+    fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    if let Some(text) = crate::db::schema::field_str(fields, "text") {
+        update_ingredient(conn, id, text)?;
+    }
+    cli_get_ingredient(conn, id)
+}
+
+inventory::submit! {
+    ChildCollectionDef {
+        parent_type: "recipe",
+        singular: "ingredient",
+        plural: "ingredients",
+        description: "The recipe's ingredient list, one line per ingredient, in order.",
+        fields: INGREDIENT_FIELDS,
+        computed: CHILD_COMPUTED_POSITION,
+        list: cli_list_ingredients,
+        get: cli_get_ingredient,
+        create: cli_create_ingredient,
+        update: cli_update_ingredient,
+        delete: delete_ingredient,
+        restore: restore_ingredient,
+        actions: &[],
+    }
+}
+
+const STEP_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "text",
+        kind: FieldKind::LongText,
+        required_on_create: true,
+        writable_on_update: true,
+        description: "The step's instructions.",
+    },
+    FieldDef {
+        name: "durationMinutes",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "How long this step takes, in minutes. Counts toward the recipe's \
+                      totalDurationMinutes when the recipe has no manual durationMinutes of its \
+                      own. Pass an empty value on update to clear it.",
+    },
+];
+
+fn step_json(step: Step) -> serde_json::Value {
+    serde_json::to_value(step).expect("Step always serializes")
+}
+
+fn cli_list_steps(
+    conn: &Connection,
+    recipe_id: &str,
+    include_deleted: bool,
+) -> AppResult<Vec<serde_json::Value>> {
+    Ok(list_steps(conn, recipe_id, include_deleted)?
+        .into_iter()
+        .map(step_json)
+        .collect())
+}
+
+fn cli_get_step(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    get_step(conn, id).map(step_json)
+}
+
+fn cli_create_step(conn: &Connection, recipe_id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    let text = crate::db::schema::require_str(fields, "text")?;
+    let duration_minutes = crate::db::schema::field_i64(fields, "durationMinutes");
+    create_step(conn, recipe_id.into(), text, duration_minutes).map(step_json)
+}
+
+fn cli_update_step(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    let text = crate::db::schema::field_str(fields, "text");
+    let duration_minutes = fields
+        .contains_key("durationMinutes")
+        .then(|| crate::db::schema::field_i64(fields, "durationMinutes"));
+    update_step(conn, id, text, duration_minutes)?;
+    cli_get_step(conn, id)
+}
+
+inventory::submit! {
+    ChildCollectionDef {
+        parent_type: "recipe",
+        singular: "step",
+        plural: "steps",
+        description: "The recipe's numbered step list, in order.",
+        fields: STEP_FIELDS,
+        computed: CHILD_COMPUTED_POSITION,
+        list: cli_list_steps,
+        get: cli_get_step,
+        create: cli_create_step,
+        update: cli_update_step,
+        delete: delete_step,
+        restore: restore_step,
+        actions: &[],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::spaces::create_space;
+
+    fn setup() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        conn
+    }
+
+    #[test]
+    fn duration_falls_back_to_summed_step_durations() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Pancakes".into()).unwrap();
+
+        // No manual duration and no step durations yet: unknown.
+        assert_eq!(get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes, None);
+
+        create_step(&conn, recipe.id.clone(), "Mix".into(), Some(5)).unwrap();
+        create_step(&conn, recipe.id.clone(), "Cook".into(), Some(10)).unwrap();
+        create_step(&conn, recipe.id.clone(), "Plate".into(), None).unwrap();
+        assert_eq!(
+            get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes,
+            Some(15)
+        );
+
+        // A manual override wins over the computed sum.
+        set_recipe_duration_minutes(&conn, &recipe.id, Some(30)).unwrap();
+        assert_eq!(
+            get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes,
+            Some(30)
+        );
+
+        // Clearing the override falls back to the sum again.
+        set_recipe_duration_minutes(&conn, &recipe.id, None).unwrap();
+        assert_eq!(
+            get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes,
+            Some(15)
+        );
+    }
+
+    #[test]
+    fn ingredients_and_steps_keep_insertion_order_and_soft_delete() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Soup".into()).unwrap();
+
+        let a = create_ingredient(&conn, recipe.id.clone(), "Carrot".into()).unwrap();
+        let b = create_ingredient(&conn, recipe.id.clone(), "Onion".into()).unwrap();
+        assert_eq!(a.position, 0);
+        assert_eq!(b.position, 1);
+
+        delete_ingredient(&conn, &a.id).unwrap();
+        let visible = list_ingredients(&conn, &recipe.id, false).unwrap();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].id, b.id);
+        assert_eq!(list_ingredients(&conn, &recipe.id, true).unwrap().len(), 2);
+
+        restore_ingredient(&conn, &a.id).unwrap();
+        assert_eq!(list_ingredients(&conn, &recipe.id, false).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn set_recipe_kind_rejects_unknown_values() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Toast".into()).unwrap();
+        assert!(set_recipe_kind(&conn, &recipe.id, "brunch".into()).is_err());
+        set_recipe_kind(&conn, &recipe.id, "breakfast".into()).unwrap();
+        assert_eq!(get_recipe(&conn, &recipe.id).unwrap().kind, "breakfast");
+    }
+}

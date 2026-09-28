@@ -13,6 +13,7 @@ pub mod labels;
 pub mod notes;
 pub mod office;
 pub mod office_install;
+pub mod recipes;
 pub mod relationships;
 pub mod search;
 pub mod sessions;

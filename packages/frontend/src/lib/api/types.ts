@@ -48,6 +48,39 @@ export interface EntityPatch {
   spaceId?: string;
 }
 
+export type RecipeKind = "breakfast" | "lunch" | "dinner" | "snack" | "dessert" | "other";
+
+export interface Recipe {
+  entity: Entity;
+  kind: RecipeKind;
+  /// Manual override, in minutes. `null` falls back to `totalDurationMinutes`.
+  durationMinutes: number | null;
+  bannerPath: string | null;
+  /// `durationMinutes` if set, else the sum of the steps' own `durationMinutes`.
+  totalDurationMinutes: number | null;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipeEntityId: string;
+  text: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface RecipeStep {
+  id: string;
+  recipeEntityId: string;
+  text: string;
+  durationMinutes: number | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
 export interface Relationship {
   id: string;
   fromEntityId: string;

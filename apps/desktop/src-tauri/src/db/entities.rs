@@ -45,6 +45,7 @@ pub fn key_prefix(entity_type: &str) -> &'static str {
         "assignment" => "ASG",
         "file" => "FIL",
         "bookmark" => "BMK",
+        "recipe" => "RCP",
         _ => "ENT",
     }
 }
@@ -426,6 +427,15 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM assignments WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM bookmarks WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM recipe_ingredients WHERE recipe_entity_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM recipe_steps WHERE recipe_entity_id = ?1",
+        params![id],
+    )?;
+    conn.execute("DELETE FROM recipes WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM search_index WHERE entity_id = ?1", params![id])?;
 
     let affected = conn.execute(

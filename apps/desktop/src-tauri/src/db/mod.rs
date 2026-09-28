@@ -13,6 +13,7 @@ mod migrations;
 pub mod notes;
 mod ocr;
 mod office_text;
+pub mod recipes;
 pub mod relationships;
 pub mod schema;
 pub mod search;

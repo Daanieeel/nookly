@@ -11,6 +11,7 @@ import {
   IconFeather,
   IconFile,
   IconNotes,
+  IconToolsKitchen2,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
 import type { Entity } from "#/lib/api/types.ts";
@@ -32,6 +33,7 @@ export const MODULE_LABELS = {
   assignments: "Assignments",
   files: "Files",
   bookmarks: "Bookmarks",
+  recipes: "Recipes",
 } satisfies Record<ModuleKey, string>;
 
 export const MODULE_DESCRIPTIONS = {
@@ -47,6 +49,7 @@ export const MODULE_DESCRIPTIONS = {
   assignments: "Track assignments with due dates and progress.",
   files: "Keep reference files and documents in one place.",
   bookmarks: "Save links you want to come back to.",
+  recipes: "Track recipes with ingredients and steps.",
 } satisfies Record<ModuleKey, string>;
 
 export const MODULE_ICONS = {
@@ -62,6 +65,7 @@ export const MODULE_ICONS = {
   assignments: IconClipboardList,
   files: IconFile,
   bookmarks: IconBookmark,
+  recipes: IconToolsKitchen2,
 } satisfies Record<ModuleKey, TablerIcon>;
 
 /// Which underlying entity `type`s belong to each module. Mirrors
@@ -80,6 +84,7 @@ export const MODULE_ENTITY_TYPES = {
   assignments: ["assignment"],
   files: ["file"],
   bookmarks: ["bookmark"],
+  recipes: ["recipe"],
 } satisfies Record<ModuleKey, string[]>;
 
 /// Modules that ride along with another module rather than being offered on

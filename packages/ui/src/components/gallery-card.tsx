@@ -105,4 +105,36 @@ function GalleryCardBody({ className, ...props }: React.ComponentProps<typeof Ca
   );
 }
 
-export { GalleryCard, GalleryCardBanner, GalleryCardBody };
+/// A photo banner instead of `GalleryCardBanner`'s flat/gradient fill — a
+/// Recipe's cover photo, say. Fades to the card's own background at the
+/// bottom so the body reads as one continuous surface rather than a hard
+/// seam under the image, and keeps `GalleryCardBanner` itself untouched
+/// (frozen primitives, §01) for callers that still want a plain color fill.
+function GalleryCardImageBanner({
+  src,
+  icon,
+  className,
+}: {
+  /// Image URL (or `null`/`undefined` to show only the icon on a muted fill,
+  /// e.g. before a banner has been set).
+  src?: string | null;
+  icon?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-slot="gallery-card-image-banner"
+      className={cn("relative flex h-24 shrink-0 items-end justify-end overflow-hidden p-2", className)}
+    >
+      {src ? (
+        <img src={src} alt="" className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 bg-muted" />
+      )}
+      <div className="absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-card to-transparent" />
+      <div className="relative text-white/70">{icon}</div>
+    </div>
+  );
+}
+
+export { GalleryCard, GalleryCardBanner, GalleryCardImageBanner, GalleryCardBody };

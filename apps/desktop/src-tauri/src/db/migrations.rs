@@ -453,6 +453,42 @@ fn all() -> Vec<M<'static>> {
         -- lecture occurrence never spans days).
         ALTER TABLE calendar_entries ADD COLUMN end_date TEXT;
         ",
+    ), M::up(
+        "
+        -- Recipes module (native entity): a banner image, a meal kind, and a
+        -- duration that is either a manual override or (when unset) the sum
+        -- of its steps' own durationMinutes. Ingredients and steps are child
+        -- collections owned by the recipe, not entities of their own (same
+        -- pattern as a Deck's index cards) — soft deleted, ordered by
+        -- `position`, no key/Space/relationships.
+        CREATE TABLE recipes (
+            entity_id TEXT PRIMARY KEY REFERENCES entities(id),
+            kind TEXT NOT NULL DEFAULT 'other',
+            duration_minutes INTEGER,
+            banner_path TEXT
+        );
+        CREATE TABLE recipe_ingredients (
+            id TEXT PRIMARY KEY,
+            recipe_entity_id TEXT NOT NULL REFERENCES entities(id),
+            text TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
+        );
+        CREATE INDEX idx_recipe_ingredients_recipe ON recipe_ingredients(recipe_entity_id, position);
+        CREATE TABLE recipe_steps (
+            id TEXT PRIMARY KEY,
+            recipe_entity_id TEXT NOT NULL REFERENCES entities(id),
+            text TEXT NOT NULL,
+            duration_minutes INTEGER,
+            position INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
+        );
+        CREATE INDEX idx_recipe_steps_recipe ON recipe_steps(recipe_entity_id, position);
+        ",
     )]
 }
 
@@ -502,6 +538,7 @@ mod history {
         0xd13dbd1f7a779ef2,
         0xc8a0501233f85db1,
         0x3646ef370368e4cc,
+        0x75618d812bb97c6c,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

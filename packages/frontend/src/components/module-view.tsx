@@ -8,6 +8,7 @@ import { ExamsListView } from "#/features/exams/ExamsListView.tsx";
 import { FilesListView } from "#/features/files/FilesListView.tsx";
 import { JotsListView } from "#/features/notes/JotsListView.tsx";
 import { NotesListView } from "#/features/notes/NotesListView.tsx";
+import { RecipesListView } from "#/features/recipes/RecipesListView.tsx";
 import { SessionsListView } from "#/features/sessions/SessionsListView.tsx";
 import { TasksListView } from "#/features/tasks/TasksListView.tsx";
 import type { ModuleKey } from "#/lib/store/nav.ts";
@@ -46,5 +47,7 @@ export function ModuleView({
       return <FilesListView spaceId={spaceId} />;
     case "bookmarks":
       return <BookmarksListView spaceId={spaceId} />;
+    case "recipes":
+      return <RecipesListView spaceId={spaceId} />;
   }
 }

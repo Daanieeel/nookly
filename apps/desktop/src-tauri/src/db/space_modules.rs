@@ -21,6 +21,7 @@ pub fn module_keys_for_entity_type(entity_type: &str) -> &'static [&'static str]
         "assignment" => &["assignments"],
         "file" => &["files"],
         "bookmark" => &["bookmarks"],
+        "recipe" => &["recipes"],
         _ => &[],
     }
 }
