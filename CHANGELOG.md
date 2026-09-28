@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.10.1 (2026-09-28)
+
+### Fixed
+
+- Fix collapsible sidebar
+
+## 0.10.0 (2026-09-28)
+
+### Changed
+
+- Task assignment kanban views (#23)
+
 ## 0.9.1 (2026-09-28)
 
 ### Fixed
