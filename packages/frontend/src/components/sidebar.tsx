@@ -21,6 +21,8 @@ import {
   IconFolder,
   IconGripVertical,
   IconLayoutDashboard,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
   IconPin,
   IconPlus,
   IconSettings,
@@ -86,6 +88,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@nookly/ui/components/sidebar";
 import { listEntities } from "#/lib/api/entities.ts";
 import { ACCENT_COLORS } from "#/lib/colors.ts";
@@ -186,12 +189,37 @@ export function AppSidebar() {
 
   const activeSpace = spaces.find((s) => s.id === activeSpaceId);
 
+  // Collapsed, the sidebar is gone and the page takes the whole window, like Arc or
+  // Zen. Resting the pointer on the left edge slides it back over the page until the
+  // pointer leaves it.
+  const { state, toggleSidebar } = useSidebar();
+  const collapsed = state === "collapsed";
+  const [peeking, setPeeking] = useState(false);
+  useEffect(() => {
+    if (!collapsed) setPeeking(false);
+  }, [collapsed]);
+  const peekOpen = collapsed && peeking;
+
   return (
     <Sidebar
-      collapsible="icon"
+      collapsible="offcanvas"
       variant="floating"
+      className={cn(peekOpen && "left-0! z-30")}
+      onMouseLeave={() => {
+        // A menu or dialog opened from the sidebar keeps it open while the pointer is in it.
+        if (!document.querySelector("[role=menu],[role=dialog],[role=alertdialog]")) {
+          setPeeking(false);
+        }
+      }}
       {...contextTarget("sidebar", { createSpace: () => setCreateOpen(true) })}
     >
+      {collapsed && !peeking && (
+        <div
+          aria-hidden
+          onMouseEnter={() => setPeeking(true)}
+          className="fixed top-(--titlebar-height,0px) bottom-0 left-0 z-20 w-2"
+        />
+      )}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem className="mb-4">
@@ -293,6 +321,15 @@ export function AppSidebar() {
             >
               <IconTrash />
               <span>Trash</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={collapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
+              onClick={toggleSidebar}
+            >
+              {collapsed ? <IconLayoutSidebarLeftExpand /> : <IconLayoutSidebarLeftCollapse />}
+              <span>{collapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -89,11 +89,12 @@ function Shell() {
       style={{ "--titlebar-height": "2.75rem" } as CSSProperties}
     >
       <Titlebar />
-      <div className="flex min-h-0 flex-1 gap-3 p-3">
+      {/* With the sidebar collapsed the page goes edge to edge: no padding, corners or shadow. */}
+      <div className="group/app flex min-h-0 flex-1 gap-3 p-3 has-[[data-slot=sidebar][data-state=collapsed]]:p-0">
         <SidebarProvider className="min-h-full">
           <AppSidebar />
           <SidebarInset className="min-h-0 min-w-0">
-            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md">
+            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none">
               <div
                 className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
               >
