@@ -48,6 +48,53 @@ export interface EntityPatch {
   spaceId?: string;
 }
 
+export type RecipeKind = "breakfast" | "lunch" | "dinner" | "snack" | "dessert" | "other";
+
+export interface Recipe {
+  entity: Entity;
+  kind: RecipeKind;
+  /// Manual override, in minutes. `null` falls back to `totalDurationMinutes`.
+  durationMinutes: number | null;
+  bannerPath: string | null;
+  /// `durationMinutes` if set, else the sum of the steps' own `durationMinutes`.
+  totalDurationMinutes: number | null;
+  /// Set via `tagIds`; ordered by the catalog's own `position`.
+  tags: RecipeTag[];
+}
+
+/// One entry in the fixed, global `recipe_tags` catalog — deliberately not
+/// the generic per-Space Labels system (§02): a small curated set, seeded on
+/// the backend, not user-creatable in this version.
+export interface RecipeTag {
+  id: string;
+  name: string;
+  /// A key `RECIPE_TAG_ICONS` maps to a component — not an entity icon value.
+  icon: string;
+  color: string;
+  position: number;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipeEntityId: string;
+  text: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface RecipeStep {
+  id: string;
+  recipeEntityId: string;
+  text: string;
+  durationMinutes: number | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
 export interface Relationship {
   id: string;
   fromEntityId: string;

@@ -676,6 +676,44 @@
     0 1px 2px rgb(0 0 0 / 0.06),
     0 8px 24px -12px rgb(0 0 0 / 0.25);
 }
+/* Recipe banner (`RecipeDetailView.tsx`): fades the photo itself to true
+   transparency via a mask, rather than laying a color-tinted gradient div on
+   top of it, so it blends cleanly into the page background instead of
+   looking like a flat wash over the image. The stops sample a smoothstep
+   curve (3t^2 - 2t^3) rather than a plain two-stop ramp: a plain
+   `transparent, black 60%` ramp has a constant slope right up until it goes
+   flat at 60%, and that sudden change in slope reads as a visible edge/ring
+   (a Mach band) even though the alpha itself is continuous. Smoothstep's
+   slope decays to zero by construction, so the hand-off into the flat,
+   fully-opaque top of the image has no kink to see. */
+.recipe-banner-fade {
+  --fade: linear-gradient(
+    to top,
+    transparent 0%,
+    rgb(0 0 0 / 4%) 8%,
+    rgb(0 0 0 / 16%) 16%,
+    rgb(0 0 0 / 32%) 23%,
+    rgb(0 0 0 / 50%) 31%,
+    rgb(0 0 0 / 68%) 39%,
+    rgb(0 0 0 / 84%) 47%,
+    rgb(0 0 0 / 96%) 54%,
+    black 62%
+  );
+  mask-image: var(--fade);
+  -webkit-mask-image: var(--fade);
+}
+
+/* Recipe tag chip (`recipe-tags.tsx`): tinted from the tag's own color
+   (`--tag-color`) so it stands out on any surface, including a card whose
+   background matches `--border` and `--muted`. */
+.recipe-tag-chip {
+  border-color: color-mix(in oklab, var(--tag-color) 40%, transparent);
+  background: color-mix(in oklab, var(--tag-color) 14%, transparent);
+}
+.recipe-tag-chip svg {
+  color: var(--tag-color);
+}
+
 /* A card laid out in the deck grid lifts a little under the pointer. */
 .index-card-mini {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);

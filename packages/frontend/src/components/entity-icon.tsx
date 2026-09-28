@@ -32,6 +32,7 @@ import {
   IconStar,
   IconSun,
   IconTarget,
+  IconToolsKitchen2,
   IconTrophy,
   IconWriting,
   type Icon as TablerIcon,
@@ -58,6 +59,7 @@ const DEFAULT_ICONS = new Map<string, TablerIcon>([
   ["assignment", IconClipboardList],
   ["file", IconFile],
   ["bookmark", IconBookmark],
+  ["recipe", IconToolsKitchen2],
   ["space", IconFolder],
 ]);
 
@@ -86,6 +88,7 @@ export const ICON_LIBRARY = new Map<string, TablerIcon>([
   ["ClipboardList", IconClipboardList],
   ["File", IconFile],
   ["Bookmark", IconBookmark],
+  ["Kitchen", IconToolsKitchen2],
   ["CalendarStats", IconCalendarStats],
   ["Star", IconStar],
   ["Heart", IconHeart],

@@ -8,6 +8,7 @@ import { DeckDetailView } from "#/features/exams/DeckDetailView.tsx";
 import { ExamDetailView } from "#/features/exams/ExamDetailView.tsx";
 import { FileDetailView } from "#/features/files/FileDetailView.tsx";
 import { PageDetailView } from "#/features/notes/PageDetailView.tsx";
+import { RecipeDetailView } from "#/features/recipes/RecipeDetailView.tsx";
 import { TaskDetailView } from "#/features/tasks/TaskDetailView.tsx";
 import { getEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
@@ -45,6 +46,8 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <SemesterDetailView entity={entity} />;
     case "file":
       return <FileDetailView entity={entity} />;
+    case "recipe":
+      return <RecipeDetailView entity={entity} />;
     case "bookmark":
       return <BookmarkRedirect entity={entity} />;
     default:
