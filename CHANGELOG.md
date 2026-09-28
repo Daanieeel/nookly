@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.9.0 (2026-09-28)
+
+### Changed
+
+- Recipe tracking (#22)
+
 ## 0.8.10 (2026-09-27)
 
 ### Changed
