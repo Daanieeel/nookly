@@ -153,6 +153,13 @@ pub fn update_step(
     recipes::update_step(&conn, &step_id, Some(text), Some(duration_minutes))
 }
 
+/// Moves a step to `position` (0 based) among the recipe's visible steps.
+#[tauri::command]
+pub fn move_step(state: State<DbState>, step_id: String, position: i64) -> AppResult<Step> {
+    let conn = state.0.lock().unwrap();
+    recipes::move_step(&conn, &step_id, position)
+}
+
 #[tauri::command]
 pub fn delete_step(state: State<DbState>, step_id: String) -> AppResult<()> {
     let conn = state.0.lock().unwrap();

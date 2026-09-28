@@ -79,6 +79,11 @@ export function updateStep(
   return invoke("update_step", { stepId, text, durationMinutes });
 }
 
+/// Moves a step to `position` (0 based) among the recipe's visible steps.
+export function moveStep(stepId: string, position: number): Promise<RecipeStep> {
+  return invoke("move_step", { stepId, position });
+}
+
 export function deleteStep(stepId: string): Promise<void> {
   return invoke("delete_step", { stepId });
 }

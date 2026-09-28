@@ -202,6 +202,7 @@ pub fn run() {
             commands::recipes::create_step,
             commands::recipes::update_step,
             commands::recipes::delete_step,
+            commands::recipes::move_step,
             commands::files::import_file,
             commands::files::import_file_from_url,
             commands::files::download_linked_file,

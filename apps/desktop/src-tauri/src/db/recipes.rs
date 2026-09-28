@@ -397,6 +397,31 @@ pub fn update_step(
     get_step(conn, id)
 }
 
+/// Moves a step to `position` (0 based, clamped) among the recipe's visible
+/// steps, shifting the ones in between, then rewrites the visible steps'
+/// positions as 0..n so they stay contiguous.
+pub fn move_step(conn: &Connection, id: &str, position: i64) -> AppResult<Step> {
+    let step = get_step(conn, id)?;
+    let mut ids: Vec<String> = list_steps(conn, &step.recipe_entity_id, false)?
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
+    let Some(from) = ids.iter().position(|s| s == id) else {
+        return Err(AppError::InvalidInput(format!("step {id} is deleted and can't be moved")));
+    };
+    ids.remove(from);
+    let to = position.clamp(0, ids.len() as i64) as usize;
+    ids.insert(to, id.to_string());
+    let now = crate::db::now();
+    for (index, step_id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE recipe_steps SET position = ?1, updated_at = ?2 WHERE id = ?3 AND position != ?1",
+            params![index as i64, now, step_id],
+        )?;
+    }
+    get_step(conn, id)
+}
+
 pub fn delete_step(conn: &Connection, id: &str) -> AppResult<()> {
     get_step(conn, id)?;
     conn.execute(
@@ -637,6 +662,14 @@ const STEP_FIELDS: &[FieldDef] = &[
                       totalDurationMinutes when the recipe has no manual durationMinutes of its \
                       own. Pass an empty value on update to clear it.",
     },
+    FieldDef {
+        name: "position",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Order within the recipe, 0 based. Setting it moves the step there and \
+                      shifts the others; a value past the end puts it last.",
+    },
 ];
 
 fn step_json(step: Step) -> serde_json::Value {
@@ -661,7 +694,11 @@ fn cli_get_step(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
 fn cli_create_step(conn: &Connection, recipe_id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
     let text = crate::db::schema::require_str(fields, "text")?;
     let duration_minutes = crate::db::schema::field_i64(fields, "durationMinutes");
-    create_step(conn, recipe_id.into(), text, duration_minutes).map(step_json)
+    let step = create_step(conn, recipe_id.into(), text, duration_minutes)?;
+    match crate::db::schema::field_i64(fields, "position") {
+        Some(position) => move_step(conn, &step.id, position).map(step_json),
+        None => Ok(step_json(step)),
+    }
 }
 
 fn cli_update_step(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
@@ -670,6 +707,9 @@ fn cli_update_step(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
         .contains_key("durationMinutes")
         .then(|| crate::db::schema::field_i64(fields, "durationMinutes"));
     update_step(conn, id, text, duration_minutes)?;
+    if let Some(position) = crate::db::schema::field_i64(fields, "position") {
+        move_step(conn, id, position)?;
+    }
     cli_get_step(conn, id)
 }
 
@@ -680,7 +720,7 @@ inventory::submit! {
         plural: "steps",
         description: "The recipe's numbered step list, in order.",
         fields: STEP_FIELDS,
-        computed: CHILD_COMPUTED_POSITION,
+        computed: &[],
         list: cli_list_steps,
         get: cli_get_step,
         create: cli_create_step,
@@ -755,6 +795,36 @@ mod tests {
 
         restore_ingredient(&conn, &a.id).unwrap();
         assert_eq!(list_ingredients(&conn, &recipe.id, false).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn move_step_reorders_and_keeps_positions_contiguous() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Bread".into()).unwrap();
+        let a = create_step(&conn, recipe.id.clone(), "A".into(), None).unwrap();
+        let b = create_step(&conn, recipe.id.clone(), "B".into(), None).unwrap();
+        let c = create_step(&conn, recipe.id.clone(), "C".into(), None).unwrap();
+        let order = |conn: &Connection| {
+            list_steps(conn, &recipe.id, false)
+                .unwrap()
+                .into_iter()
+                .map(|s| (s.text, s.position))
+                .collect::<Vec<_>>()
+        };
+
+        move_step(&conn, &c.id, 0).unwrap();
+        assert_eq!(
+            order(&conn),
+            vec![("C".into(), 0), ("A".into(), 1), ("B".into(), 2)]
+        );
+
+        // Past the end clamps to last; a soft-deleted step is skipped.
+        delete_step(&conn, &b.id).unwrap();
+        move_step(&conn, &c.id, 99).unwrap();
+        assert_eq!(order(&conn), vec![("A".into(), 0), ("C".into(), 1)]);
+        assert!(move_step(&conn, &b.id, 0).is_err());
+        let _ = a;
     }
 
     #[test]
