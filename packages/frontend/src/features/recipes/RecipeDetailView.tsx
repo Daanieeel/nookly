@@ -9,6 +9,7 @@ import {
 import {
   arrayMove,
   SortableContext,
+  rectSortingStrategy,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -46,6 +47,7 @@ import {
   deleteStep,
   getRecipe,
   listIngredients,
+  moveIngredient,
   listRecipeTags,
   listSteps,
   moveStep,
@@ -324,21 +326,41 @@ function PropertyField({ label, children }: { label: string; children: ReactNode
   );
 }
 
+/// A pasted list ("- 2 cups flour\n- 1 egg", "1. flour\n2. egg") becomes one
+/// ingredient per line: leading bullets, dashes and numbers are stripped.
+const LIST_MARKER = /^\s*(?:[•‣◦▪·]\s*|[-*–—]\s+|\d+[.)]\s+)/;
+function splitPastedList(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(LIST_MARKER, "").trim())
+    .filter(Boolean);
+}
+
 /// Two columns of bullet points, each backed by its own ingredient record. A
 /// trailing blank input is always present; typing into it and blurring (or
 /// Enter) creates the next ingredient and slides in a fresh blank one, so the
 /// list never needs a separate "Add" button (§05 content-aware creation).
+/// Pasting a multi-line list adds every line at once, and rows drag to reorder
+/// (the order reads across the columns, then down).
 function IngredientsSection({ recipeId }: { recipeId: string }) {
   const queryClient = useQueryClient();
   const { data: ingredients = [] } = useQuery({
     queryKey: ["recipe-ingredients", recipeId],
     queryFn: () => listIngredients(recipeId),
   });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["recipe-ingredients", recipeId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["recipe-ingredients", recipeId] });
 
   const add = useMutation({
     mutationFn: (text: string) => createIngredient(recipeId, text),
     onSuccess: invalidate,
+  });
+  const addMany = useMutation({
+    // One at a time, so they land in the order they were pasted.
+    mutationFn: async (lines: string[]) => {
+      for (const line of lines) await createIngredient(recipeId, line);
+    },
+    onSettled: invalidate,
   });
   const edit = useMutation({
     mutationFn: (vars: { id: string; text: string }) => updateIngredient(vars.id, vars.text),
@@ -348,47 +370,107 @@ function IngredientsSection({ recipeId }: { recipeId: string }) {
     mutationFn: (id: string) => deleteIngredient(id),
     onSuccess: invalidate,
   });
+  const move = useMutation({
+    mutationFn: (vars: { id: string; position: number }) =>
+      moveIngredient(vars.id, vars.position),
+    onSettled: invalidate,
+  });
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = ingredients.findIndex((i) => i.id === active.id);
+    const to = ingredients.findIndex((i) => i.id === over.id);
+    if (from === -1 || to === -1) return;
+    // Optimistic: show the new order now, the backend confirms behind it.
+    queryClient.setQueryData(["recipe-ingredients", recipeId], arrayMove(ingredients, from, to));
+    move.mutate({ id: ingredients[from]?.id ?? "", position: to });
+  };
+
+  // Enter on the blank row should land the cursor on the next blank row, which
+  // is a fresh instance once the new ingredient arrives; blur must not steal focus.
+  const refocusNew = useRef(false);
 
   return (
     <div className="flex flex-col gap-2">
       <h2 className="text-sm font-medium text-muted-foreground">Ingredients</h2>
-      <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-        {ingredients.map((ingredient) => (
-          <BulletRow
-            key={ingredient.id}
-            value={ingredient.text}
-            onCommit={(text) => {
-              if (text.trim() === "") remove.mutate(ingredient.id);
-              else if (text !== ingredient.text) edit.mutate({ id: ingredient.id, text });
-            }}
-            onRemove={() => remove.mutate(ingredient.id)}
-          />
-        ))}
+      <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={ingredients.map((i) => i.id)}
+            strategy={rectSortingStrategy}
+          >
+            {ingredients.map((ingredient) => (
+              <BulletRow
+                key={ingredient.id}
+                id={ingredient.id}
+                value={ingredient.text}
+                onCommit={(text) => {
+                  if (text.trim() === "") remove.mutate(ingredient.id);
+                  else if (text !== ingredient.text) edit.mutate({ id: ingredient.id, text });
+                }}
+                onRemove={() => remove.mutate(ingredient.id)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
         <NewBulletRow
           key={ingredients.length}
-          onCommit={(text) => text.trim() && add.mutate(text.trim())}
+          focusOnMount={refocusNew.current}
+          onCommit={(text, viaEnter) => {
+            refocusNew.current = viaEnter;
+            add.mutate(text.trim());
+          }}
+          onPasteList={(lines) => {
+            refocusNew.current = true;
+            addMany.mutate(lines);
+          }}
         />
       </div>
-      {ingredients.length === 0 && (
-        <p className="text-xs text-muted-foreground">Type your first ingredient below.</p>
-      )}
     </div>
   );
 }
 
 function BulletRow({
+  id,
   value,
   onCommit,
   onRemove,
 }: {
+  id: string;
   value: string;
   onCommit: (text: string) => void;
   onRemove: () => void;
 }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
   return (
-    <div className="group/row flex items-center gap-2">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        "group/row flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-accent/40 focus-within:bg-accent/40",
+        isDragging && "relative z-10 bg-card shadow-md",
+      )}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label="Drag to reorder ingredient"
+            className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-accent active:cursor-grabbing"
+          >
+            <IconGripVertical size={12} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Drag to Reorder</TooltipContent>
+      </Tooltip>
       <span className="text-muted-foreground">•</span>
       <input
         value={text}
@@ -397,14 +479,19 @@ function BulletRow({
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
       />
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Remove ingredient"
-        className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover/row:opacity-100"
-      >
-        <IconX size={12} />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label="Remove ingredient"
+            className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+          >
+            <IconX size={12} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Remove Ingredient</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -412,33 +499,52 @@ function BulletRow({
 /// The always-present blank row at the end of the list: typing and
 /// committing hands the text up to the parent (which creates the record),
 /// then this row itself resets to blank via its `key` bump in the parent.
-function NewBulletRow({ onCommit }: { onCommit: (text: string) => void }) {
+function NewBulletRow({
+  focusOnMount,
+  onCommit,
+  onPasteList,
+}: {
+  focusOnMount: boolean;
+  onCommit: (text: string, viaEnter: boolean) => void;
+  onPasteList: (lines: string[]) => void;
+}) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const commit = () => {
-    if (text.trim()) {
-      onCommit(text);
-      setText("");
-    }
+  useEffect(() => {
+    if (focusOnMount) inputRef.current?.focus();
+  }, [focusOnMount]);
+
+  const commit = (viaEnter: boolean) => {
+    if (!text.trim()) return;
+    onCommit(text, viaEnter);
+    setText("");
   };
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="group/row flex items-center gap-1.5 rounded-md px-1 py-0.5 focus-within:bg-accent/40">
+      <span className="size-5 shrink-0" />
       <span className="text-muted-foreground">•</span>
       <input
         ref={inputRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
+        onBlur={() => commit(false)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commit();
-            inputRef.current?.focus();
+            commit(true);
           }
+        }}
+        onPaste={(e) => {
+          const lines = splitPastedList(e.clipboardData.getData("text"));
+          if (lines.length < 2) return;
+          e.preventDefault();
+          onPasteList(lines);
         }}
         placeholder="Add an ingredient"
         className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
       />
+      <span className="size-5 shrink-0" />
     </div>
   );
 }

@@ -119,6 +119,17 @@ pub fn update_ingredient(
     recipes::update_ingredient(&conn, &ingredient_id, text)
 }
 
+/// Moves an ingredient to `position` (0 based) among the recipe's visible ingredients.
+#[tauri::command]
+pub fn move_ingredient(
+    state: State<DbState>,
+    ingredient_id: String,
+    position: i64,
+) -> AppResult<Ingredient> {
+    let conn = state.0.lock().unwrap();
+    recipes::move_ingredient(&conn, &ingredient_id, position)
+}
+
 #[tauri::command]
 pub fn delete_ingredient(state: State<DbState>, ingredient_id: String) -> AppResult<()> {
     let conn = state.0.lock().unwrap();

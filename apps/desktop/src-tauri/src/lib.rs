@@ -198,6 +198,7 @@ pub fn run() {
             commands::recipes::create_ingredient,
             commands::recipes::update_ingredient,
             commands::recipes::delete_ingredient,
+            commands::recipes::move_ingredient,
             commands::recipes::list_steps,
             commands::recipes::create_step,
             commands::recipes::update_step,

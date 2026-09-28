@@ -55,6 +55,11 @@ export function updateIngredient(ingredientId: string, text: string): Promise<Re
   return invoke("update_ingredient", { ingredientId, text });
 }
 
+/// Moves an ingredient to `position` (0 based) among the recipe's visible ingredients.
+export function moveIngredient(ingredientId: string, position: number): Promise<RecipeIngredient> {
+  return invoke("move_ingredient", { ingredientId, position });
+}
+
 export function deleteIngredient(ingredientId: string): Promise<void> {
   return invoke("delete_ingredient", { ingredientId });
 }

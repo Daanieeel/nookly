@@ -85,7 +85,9 @@ pub fn set_recipe_tags(conn: &Connection, recipe_id: &str, tag_ids: &[String]) -
             |row| row.get(0),
         )?;
         if exists == 0 {
-            return Err(AppError::InvalidInput(format!("unknown recipe tag '{tag_id}'")));
+            return Err(AppError::InvalidInput(format!(
+                "unknown recipe tag '{tag_id}'"
+            )));
         }
     }
     conn.execute(
@@ -101,7 +103,10 @@ pub fn set_recipe_tags(conn: &Connection, recipe_id: &str, tag_ids: &[String]) -
     Ok(())
 }
 
-fn recipe_core(conn: &Connection, entity_id: &str) -> AppResult<(String, Option<i64>, Option<String>)> {
+fn recipe_core(
+    conn: &Connection,
+    entity_id: &str,
+) -> AppResult<(String, Option<i64>, Option<String>)> {
     conn.query_row(
         "SELECT kind, duration_minutes, banner_path FROM recipes WHERE entity_id = ?1",
         params![entity_id],
@@ -155,7 +160,10 @@ pub fn list_recipes(conn: &Connection, space_id: &str) -> AppResult<Vec<RecipeEn
     )?;
     let rows = stmt.query_map(params![space_id], crate::db::entities::row_to_entity)?;
     let entities: Vec<Entity> = rows.collect::<Result<Vec<_>, _>>()?;
-    entities.into_iter().map(|e| get_recipe(conn, &e.id)).collect()
+    entities
+        .into_iter()
+        .map(|e| get_recipe(conn, &e.id))
+        .collect()
 }
 
 pub fn set_recipe_kind(conn: &Connection, entity_id: &str, kind: String) -> AppResult<()> {
@@ -261,7 +269,11 @@ pub fn list_ingredients(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn create_ingredient(conn: &Connection, recipe_id: String, text: String) -> AppResult<Ingredient> {
+pub fn create_ingredient(
+    conn: &Connection,
+    recipe_id: String,
+    text: String,
+) -> AppResult<Ingredient> {
     let position: i64 = conn.query_row(
         "SELECT COALESCE(MAX(position), -1) + 1 FROM recipe_ingredients WHERE recipe_entity_id = ?1",
         params![recipe_id],
@@ -283,6 +295,33 @@ pub fn update_ingredient(conn: &Connection, id: &str, text: String) -> AppResult
         "UPDATE recipe_ingredients SET text = ?1, updated_at = ?2 WHERE id = ?3",
         params![text, crate::db::now(), id],
     )?;
+    get_ingredient(conn, id)
+}
+
+/// Moves an ingredient to `position` (0 based, clamped) among the recipe's
+/// visible ingredients, shifting the ones in between, then rewrites their
+/// positions as 0..n so they stay contiguous.
+pub fn move_ingredient(conn: &Connection, id: &str, position: i64) -> AppResult<Ingredient> {
+    let ingredient = get_ingredient(conn, id)?;
+    let mut ids: Vec<String> = list_ingredients(conn, &ingredient.recipe_entity_id, false)?
+        .into_iter()
+        .map(|i| i.id)
+        .collect();
+    let Some(from) = ids.iter().position(|i| i == id) else {
+        return Err(AppError::InvalidInput(format!(
+            "ingredient {id} is deleted and can't be moved"
+        )));
+    };
+    ids.remove(from);
+    let to = position.clamp(0, ids.len() as i64) as usize;
+    ids.insert(to, id.to_string());
+    let now = crate::db::now();
+    for (index, ingredient_id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE recipe_ingredients SET position = ?1, updated_at = ?2 WHERE id = ?3 AND position != ?1",
+            params![index as i64, now, ingredient_id],
+        )?;
+    }
     get_ingredient(conn, id)
 }
 
@@ -342,7 +381,11 @@ pub fn get_step(conn: &Connection, id: &str) -> AppResult<Step> {
     .ok_or_else(|| AppError::NotFound(format!("step {id}")))
 }
 
-pub fn list_steps(conn: &Connection, recipe_id: &str, include_deleted: bool) -> AppResult<Vec<Step>> {
+pub fn list_steps(
+    conn: &Connection,
+    recipe_id: &str,
+    include_deleted: bool,
+) -> AppResult<Vec<Step>> {
     let mut stmt = conn.prepare(
         "SELECT * FROM recipe_steps WHERE recipe_entity_id = ?1 AND (?2 OR deleted_at IS NULL)
          ORDER BY position ASC",
@@ -407,7 +450,9 @@ pub fn move_step(conn: &Connection, id: &str, position: i64) -> AppResult<Step> 
         .map(|s| s.id)
         .collect();
     let Some(from) = ids.iter().position(|s| s == id) else {
-        return Err(AppError::InvalidInput(format!("step {id} is deleted and can't be moved")));
+        return Err(AppError::InvalidInput(format!(
+            "step {id} is deleted and can't be moved"
+        )));
     };
     ids.remove(from);
     let to = position.clamp(0, ids.len() as i64) as usize;
@@ -487,7 +532,11 @@ fn apply_recipe_fields(conn: &Connection, id: &str, fields: &JsonMap) -> AppResu
         set_recipe_kind(conn, id, kind)?;
     }
     if fields.contains_key("durationMinutes") {
-        set_recipe_duration_minutes(conn, id, crate::db::schema::field_i64(fields, "durationMinutes"))?;
+        set_recipe_duration_minutes(
+            conn,
+            id,
+            crate::db::schema::field_i64(fields, "durationMinutes"),
+        )?;
     }
     if let Some(path) = crate::db::schema::field_str(fields, "bannerPath") {
         let dir = crate::db::standalone_app_data_dir()
@@ -514,7 +563,11 @@ fn cli_create_recipe(conn: &Connection, input: CreateInput) -> AppResult<serde_j
     recipe_json(conn, &entity.id)
 }
 
-fn cli_update_recipe(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+fn cli_update_recipe(
+    conn: &Connection,
+    id: &str,
+    fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
     apply_recipe_fields(conn, id, fields)?;
     recipe_json(conn, id)
 }
@@ -572,21 +625,23 @@ inventory::submit! {
     }
 }
 
-const INGREDIENT_FIELDS: &[FieldDef] = &[FieldDef {
-    name: "text",
-    kind: FieldKind::Text,
-    required_on_create: true,
-    writable_on_update: true,
-    description: "The ingredient line, e.g. '2 cups flour'.",
-}];
-
-const CHILD_COMPUTED_POSITION: &[FieldDef] = &[FieldDef {
-    name: "position",
-    kind: FieldKind::Integer,
-    required_on_create: false,
-    writable_on_update: false,
-    description: "Order within the recipe, 0 based.",
-}];
+const INGREDIENT_FIELDS: &[FieldDef] = &[
+    FieldDef {
+        name: "text",
+        kind: FieldKind::Text,
+        required_on_create: true,
+        writable_on_update: true,
+        description: "The ingredient line, e.g. '2 cups flour'.",
+    },
+    FieldDef {
+        name: "position",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Order within the recipe, 0 based. Setting it moves the ingredient there and \
+                  shifts the others; a value past the end puts it last.",
+    },
+];
 
 fn ingredient_json(ingredient: Ingredient) -> serde_json::Value {
     serde_json::to_value(ingredient).expect("Ingredient always serializes")
@@ -613,7 +668,11 @@ fn cli_create_ingredient(
     fields: &JsonMap,
 ) -> AppResult<serde_json::Value> {
     let text = crate::db::schema::require_str(fields, "text")?;
-    create_ingredient(conn, recipe_id.into(), text).map(ingredient_json)
+    let ingredient = create_ingredient(conn, recipe_id.into(), text)?;
+    match crate::db::schema::field_i64(fields, "position") {
+        Some(position) => move_ingredient(conn, &ingredient.id, position).map(ingredient_json),
+        None => Ok(ingredient_json(ingredient)),
+    }
 }
 
 fn cli_update_ingredient(
@@ -623,6 +682,9 @@ fn cli_update_ingredient(
 ) -> AppResult<serde_json::Value> {
     if let Some(text) = crate::db::schema::field_str(fields, "text") {
         update_ingredient(conn, id, text)?;
+    }
+    if let Some(position) = crate::db::schema::field_i64(fields, "position") {
+        move_ingredient(conn, id, position)?;
     }
     cli_get_ingredient(conn, id)
 }
@@ -634,7 +696,7 @@ inventory::submit! {
         plural: "ingredients",
         description: "The recipe's ingredient list, one line per ingredient, in order.",
         fields: INGREDIENT_FIELDS,
-        computed: CHILD_COMPUTED_POSITION,
+        computed: &[],
         list: cli_list_ingredients,
         get: cli_get_ingredient,
         create: cli_create_ingredient,
@@ -691,7 +753,11 @@ fn cli_get_step(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     get_step(conn, id).map(step_json)
 }
 
-fn cli_create_step(conn: &Connection, recipe_id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+fn cli_create_step(
+    conn: &Connection,
+    recipe_id: &str,
+    fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
     let text = crate::db::schema::require_str(fields, "text")?;
     let duration_minutes = crate::db::schema::field_i64(fields, "durationMinutes");
     let step = create_step(conn, recipe_id.into(), text, duration_minutes)?;
@@ -751,27 +817,38 @@ mod tests {
         let recipe = create_recipe(&conn, space.id.clone(), "Pancakes".into()).unwrap();
 
         // No manual duration and no step durations yet: unknown.
-        assert_eq!(get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes, None);
+        assert_eq!(
+            get_recipe(&conn, &recipe.id)
+                .unwrap()
+                .total_duration_minutes,
+            None
+        );
 
         create_step(&conn, recipe.id.clone(), "Mix".into(), Some(5)).unwrap();
         create_step(&conn, recipe.id.clone(), "Cook".into(), Some(10)).unwrap();
         create_step(&conn, recipe.id.clone(), "Plate".into(), None).unwrap();
         assert_eq!(
-            get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes,
+            get_recipe(&conn, &recipe.id)
+                .unwrap()
+                .total_duration_minutes,
             Some(15)
         );
 
         // A manual override wins over the computed sum.
         set_recipe_duration_minutes(&conn, &recipe.id, Some(30)).unwrap();
         assert_eq!(
-            get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes,
+            get_recipe(&conn, &recipe.id)
+                .unwrap()
+                .total_duration_minutes,
             Some(30)
         );
 
         // Clearing the override falls back to the sum again.
         set_recipe_duration_minutes(&conn, &recipe.id, None).unwrap();
         assert_eq!(
-            get_recipe(&conn, &recipe.id).unwrap().total_duration_minutes,
+            get_recipe(&conn, &recipe.id)
+                .unwrap()
+                .total_duration_minutes,
             Some(15)
         );
     }
@@ -828,6 +905,34 @@ mod tests {
     }
 
     #[test]
+    fn move_ingredient_reorders_and_keeps_positions_contiguous() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let recipe = create_recipe(&conn, space.id.clone(), "Soup".into()).unwrap();
+        create_ingredient(&conn, recipe.id.clone(), "A".into()).unwrap();
+        let b = create_ingredient(&conn, recipe.id.clone(), "B".into()).unwrap();
+        let c = create_ingredient(&conn, recipe.id.clone(), "C".into()).unwrap();
+        let order = |conn: &Connection| {
+            list_ingredients(conn, &recipe.id, false)
+                .unwrap()
+                .into_iter()
+                .map(|i| (i.text, i.position))
+                .collect::<Vec<_>>()
+        };
+
+        move_ingredient(&conn, &c.id, 0).unwrap();
+        assert_eq!(
+            order(&conn),
+            vec![("C".into(), 0), ("A".into(), 1), ("B".into(), 2)]
+        );
+
+        delete_ingredient(&conn, &b.id).unwrap();
+        move_ingredient(&conn, &c.id, 99).unwrap();
+        assert_eq!(order(&conn), vec![("A".into(), 0), ("C".into(), 1)]);
+        assert!(move_ingredient(&conn, &b.id, 0).is_err());
+    }
+
+    #[test]
     fn set_recipe_kind_rejects_unknown_values() {
         let conn = setup();
         let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
@@ -843,7 +948,9 @@ mod tests {
         let tags = list_recipe_tags(&conn).unwrap();
         assert_eq!(tags.len(), 14);
         assert_eq!(tags[0].id, "chicken");
-        assert!(tags.iter().all(|t| !t.icon.is_empty() && !t.color.is_empty()));
+        assert!(tags
+            .iter()
+            .all(|t| !t.icon.is_empty() && !t.color.is_empty()));
         // The three meats must not share an icon.
         let icon_of = |id: &str| tags.iter().find(|t| t.id == id).unwrap().icon.clone();
         assert_ne!(icon_of("chicken"), icon_of("beef"));
@@ -857,12 +964,7 @@ mod tests {
         let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
         let recipe = create_recipe(&conn, space.id.clone(), "Stew".into()).unwrap();
 
-        set_recipe_tags(
-            &conn,
-            &recipe.id,
-            &["soup".to_string(), "beef".to_string()],
-        )
-        .unwrap();
+        set_recipe_tags(&conn, &recipe.id, &["soup".to_string(), "beef".to_string()]).unwrap();
         let tags = get_recipe(&conn, &recipe.id).unwrap().tags;
         // "beef" (position 1) sorts before "soup" (position 7) regardless of
         // the order passed in.
@@ -873,7 +975,10 @@ mod tests {
 
         set_recipe_tags(&conn, &recipe.id, &["vegan".to_string()]).unwrap();
         let tags = get_recipe(&conn, &recipe.id).unwrap().tags;
-        assert_eq!(tags.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), vec!["vegan"]);
+        assert_eq!(
+            tags.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+            vec!["vegan"]
+        );
 
         assert!(set_recipe_tags(&conn, &recipe.id, &["not-a-tag".to_string()]).is_err());
     }
