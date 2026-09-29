@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.0 (2026-09-29)
+
+### Changed
+
+- Back up the whole app to a folder (#24)
+
 ## 0.10.10 (2026-09-29)
 
 ### Added
