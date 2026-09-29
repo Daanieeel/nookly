@@ -155,6 +155,188 @@ pub fn reorder_views(
     Ok(())
 }
 
+// --- CLI config validation --------------------------------------------------
+
+const AGE_VALUES: &[&str] = &["today", "week", "last", "earlier"];
+const DATE_VALUES: &[&str] = &["overdue", "today", "week", "later", "none"];
+const LAYOUTS: &[&str] = &["list", "board"];
+
+/// What one module's View config may contain. Mirrors the filter fields and display
+/// options in `packages/frontend/src/features/{tasks,assignments}`. A filter with
+/// `None` values takes ids that only exist per Space (statuses, labels, courses).
+struct ConfigSpec {
+    module: &'static str,
+    filters: &'static [(&'static str, Option<&'static [&'static str]>)],
+    groupings: &'static [&'static str],
+    orderings: &'static [&'static str],
+    /// Card and row properties a display can show. Empty when the module has none.
+    properties: &'static [&'static str],
+}
+
+const CONFIG_SPECS: &[ConfigSpec] = &[
+    ConfigSpec {
+        module: "tasks",
+        filters: &[
+            ("status", None),
+            ("labels", None),
+            ("due", Some(DATE_VALUES)),
+            ("start", Some(DATE_VALUES)),
+            ("created", Some(AGE_VALUES)),
+            ("updated", Some(AGE_VALUES)),
+        ],
+        groupings: &[
+            "status", "label", "start", "due", "created", "updated", "none",
+        ],
+        orderings: &["due", "start", "created", "updated", "title", "status"],
+        properties: &["key", "status", "labels", "due", "created"],
+    },
+    ConfigSpec {
+        module: "assignments",
+        filters: &[
+            ("course", None),
+            (
+                "status",
+                Some(&["not_started", "in_progress", "submitted", "graded"]),
+            ),
+            (
+                "due",
+                Some(&["overdue", "today", "week", "next", "later", "none", "done"]),
+            ),
+            ("grade", Some(&["graded", "none"])),
+            ("created", Some(AGE_VALUES)),
+            ("updated", Some(AGE_VALUES)),
+        ],
+        groupings: &[
+            "deadline", "created", "updated", "status", "grade", "course", "none",
+        ],
+        orderings: &[
+            "auto", "due", "created", "updated", "title", "status", "grade",
+        ],
+        properties: &[],
+    },
+];
+
+fn bad(msg: String) -> AppError {
+    AppError::InvalidInput(format!("view config: {msg}"))
+}
+
+fn one_of(what: &str, value: &serde_json::Value, allowed: &[&str]) -> AppResult<()> {
+    match value.as_str() {
+        Some(v) if allowed.contains(&v) => Ok(()),
+        _ => Err(bad(format!(
+            "{what} must be one of: {} (got {value})",
+            allowed.join(", ")
+        ))),
+    }
+}
+
+fn string_list<'a>(what: &str, value: &'a serde_json::Value) -> AppResult<Vec<&'a str>> {
+    value
+        .as_array()
+        .and_then(|a| a.iter().map(|v| v.as_str()).collect::<Option<Vec<_>>>())
+        .ok_or_else(|| bad(format!("{what} must be an array of strings")))
+}
+
+/// Strict check for configs written through the CLI, so a typo is reported instead
+/// of quietly falling back to a default when the app opens the View. The app's own
+/// saves skip it: it reads back leniently and must never refuse a user's View.
+fn validate_config(module: &str, config: &str) -> AppResult<()> {
+    let spec = CONFIG_SPECS
+        .iter()
+        .find(|s| s.module == module)
+        .ok_or_else(|| bad(format!("no config format for module '{module}'")))?;
+    let value: serde_json::Value = serde_json::from_str(config)
+        .map_err(|_| AppError::InvalidInput("view config must be a JSON object".into()))?;
+    let root = value
+        .as_object()
+        .ok_or_else(|| AppError::InvalidInput("view config must be a JSON object".into()))?;
+    if let Some(key) = root.keys().find(|k| *k != "filters" && *k != "display") {
+        return Err(bad(format!(
+            "unknown key '{key}'. Use only 'filters' and 'display'"
+        )));
+    }
+
+    if let Some(filters) = root.get("filters") {
+        let filters = filters
+            .as_array()
+            .ok_or_else(|| bad("filters must be an array".into()))?;
+        let mut seen = Vec::new();
+        for f in filters {
+            let id = f.get("fieldId").and_then(|v| v.as_str()).unwrap_or("");
+            let Some((_, allowed)) = spec.filters.iter().find(|(name, _)| *name == id) else {
+                let names: Vec<_> = spec.filters.iter().map(|(n, _)| *n).collect();
+                return Err(bad(format!(
+                    "unknown filter field '{id}' for {module}. Use one of: {}",
+                    names.join(", ")
+                )));
+            };
+            if seen.contains(&id) {
+                return Err(bad(format!("filter field '{id}' appears twice")));
+            }
+            seen.push(id);
+            one_of(
+                "filter operator",
+                f.get("operator").unwrap_or(&serde_json::Value::Null),
+                &["is", "isNot"],
+            )?;
+            let values = string_list(
+                "filter values",
+                f.get("values").unwrap_or(&serde_json::Value::Null),
+            )?;
+            if values.is_empty() {
+                return Err(bad(format!("filter '{id}' needs at least one value")));
+            }
+            if let Some(allowed) = allowed {
+                if let Some(v) = values.iter().find(|v| !allowed.contains(v)) {
+                    return Err(bad(format!(
+                        "'{v}' is not a value of filter '{id}'. Use one of: {}",
+                        allowed.join(", ")
+                    )));
+                }
+            }
+        }
+    }
+
+    if let Some(display) = root.get("display") {
+        let display = display
+            .as_object()
+            .ok_or_else(|| bad("display must be an object".into()))?;
+        for (key, v) in display {
+            match key.as_str() {
+                "layout" => one_of("display.layout", v, LAYOUTS)?,
+                "grouping" | "subGrouping" => one_of(&format!("display.{key}"), v, spec.groupings)?,
+                "ordering" => one_of("display.ordering", v, spec.orderings)?,
+                "showEmpty" => {
+                    let ok = v.as_object().is_some_and(|o| {
+                        o.iter()
+                            .all(|(k, b)| LAYOUTS.contains(&k.as_str()) && b.is_boolean())
+                    });
+                    if !ok {
+                        return Err(bad(
+                            "display.showEmpty must be an object like {\"board\":true,\"list\":false}"
+                                .into(),
+                        ));
+                    }
+                }
+                "hiddenColumns" => {
+                    string_list("display.hiddenColumns", v)?;
+                }
+                "properties" if !spec.properties.is_empty() => {
+                    let props = string_list("display.properties", v)?;
+                    if let Some(p) = props.iter().find(|p| !spec.properties.contains(p)) {
+                        return Err(bad(format!(
+                            "'{p}' is not a display property. Use: {}",
+                            spec.properties.join(", ")
+                        )));
+                    }
+                }
+                other => return Err(bad(format!("unknown display option '{other}'"))),
+            }
+        }
+    }
+    Ok(())
+}
+
 // --- CLI schema registration ------------------------------------------------
 
 const VIEW_FIELDS: &[FieldDef] = &[
@@ -170,7 +352,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object holding the View's filters and display options, as the app saves it. Defaults to '{}', which opens the module with its default display.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none.",
     },
     FieldDef {
         name: "position",
@@ -185,12 +367,15 @@ fn cli_create_view(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
     let module = crate::db::schema::require_str(&input.fields, "module")?;
     let config =
         crate::db::schema::field_str(&input.fields, "config").unwrap_or_else(|| "{}".into());
+    check_module(&module)?;
+    validate_config(&module, &config)?;
     let view = create_view(conn, input.space_id, input.title, module, config, None)?;
     Ok(serde_json::to_value(view).expect("View always serializes"))
 }
 
 fn cli_update_view(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
     if let Some(config) = crate::db::schema::field_str(fields, "config") {
+        validate_config(&get_view(conn, id)?.module, &config)?;
         update_view_config(conn, id, config)?;
     }
     if let Some(position) = crate::db::schema::field_i64(fields, "position") {
@@ -352,5 +537,48 @@ mod tests {
             )
             .unwrap();
         assert_eq!(entities, 0);
+    }
+
+    #[test]
+    fn cli_config_is_checked_against_the_module() {
+        let good = r#"{"filters":[{"fieldId":"due","operator":"is","values":["overdue"]},{"fieldId":"labels","operator":"isNot","values":["any-label-id"]}],"display":{"layout":"board","grouping":"updated","subGrouping":"status","ordering":"start","showEmpty":{"board":true,"list":false},"hiddenColumns":["x"],"properties":["key","due"]}}"#;
+        assert!(validate_config("tasks", good).is_ok());
+        assert!(validate_config("tasks", "{}").is_ok());
+        assert!(validate_config(
+            "assignments",
+            r#"{"display":{"ordering":"grade","grouping":"grade"}}"#
+        )
+        .is_ok());
+
+        for (module, config) in [
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"grade","operator":"is","values":["graded"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"is","values":["next"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"eq","values":["today"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"is","values":[]}]}"#,
+            ),
+            ("tasks", r#"{"display":{"grouping":"course"}}"#),
+            ("tasks", r#"{"display":{"ordering":"grade"}}"#),
+            ("tasks", r#"{"display":{"layout":"grid"}}"#),
+            ("tasks", r#"{"display":{"colour":"red"}}"#),
+            ("assignments", r#"{"display":{"properties":["key"]}}"#),
+            ("assignments", r#"{"display":{"grouping":"label"}}"#),
+            ("tasks", r#"{"grouping":"status"}"#),
+        ] {
+            assert!(
+                validate_config(module, config).is_err(),
+                "{module} {config}"
+            );
+        }
     }
 }
