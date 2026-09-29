@@ -1,9 +1,21 @@
+import {
+  IconBan,
+  IconCalendarEvent,
+  IconCalendarPlus,
+  IconCircleDot,
+  IconClockEdit,
+  IconClockPlus,
+  IconLetterCase,
+  IconTag,
+  type Icon as TablerIcon,
+} from "@tabler/icons-react";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 
 /// Pure view logic for the Tasks page: status kinds, due buckets, grouping, ordering,
 /// filtering and the remembered display options. Nothing here touches the backend.
@@ -105,24 +117,27 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping = "status" | "label" | "start" | "due" | "none";
-export type Ordering = "due" | "created" | "updated" | "title" | "status";
+export type Grouping = "status" | "label" | "start" | "due" | "created" | "updated" | "none";
+export type Ordering = "due" | "start" | "created" | "updated" | "title" | "status";
 export type DisplayProperty = "key" | "status" | "labels" | "due" | "created";
 
-export const GROUPINGS: { id: Grouping; label: string }[] = [
-  { id: "status", label: "Status" },
-  { id: "label", label: "Label" },
-  { id: "start", label: "Start date" },
-  { id: "due", label: "Due date" },
-  { id: "none", label: "No grouping" },
+export const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
+  { id: "status", label: "Status", icon: IconCircleDot },
+  { id: "label", label: "Label", icon: IconTag },
+  { id: "start", label: "Start date", icon: IconCalendarPlus },
+  { id: "due", label: "Due date", icon: IconCalendarEvent },
+  { id: "created", label: "Created", icon: IconClockPlus },
+  { id: "updated", label: "Updated", icon: IconClockEdit },
+  { id: "none", label: "No grouping", icon: IconBan },
 ];
 
-export const ORDERINGS: { id: Ordering; label: string }[] = [
-  { id: "due", label: "Due date" },
-  { id: "created", label: "Created" },
-  { id: "updated", label: "Updated" },
-  { id: "title", label: "Title" },
-  { id: "status", label: "Status" },
+export const ORDERINGS: { id: Ordering; label: string; icon: TablerIcon }[] = [
+  { id: "due", label: "Due date", icon: IconCalendarEvent },
+  { id: "start", label: "Start date", icon: IconCalendarPlus },
+  { id: "created", label: "Created", icon: IconClockPlus },
+  { id: "updated", label: "Updated", icon: IconClockEdit },
+  { id: "title", label: "Title", icon: IconLetterCase },
+  { id: "status", label: "Status", icon: IconCircleDot },
 ];
 
 export const DISPLAY_PROPERTIES: { id: DisplayProperty; label: string }[] = [
@@ -275,6 +290,18 @@ export function groupTasks(
         bucket: b.id,
         tasks: tasks.filter((t) => dueBucket(t.dueDate) === b.id),
       }));
+    case "created":
+      return AGE_BUCKETS.map((b) => ({
+        id: b.id,
+        name: b.label,
+        tasks: tasks.filter((t) => ageBucket(t.entity.createdAt) === b.id),
+      }));
+    case "updated":
+      return AGE_BUCKETS.map((b) => ({
+        id: b.id,
+        name: b.label,
+        tasks: tasks.filter((t) => ageBucket(t.entity.updatedAt) === b.id),
+      }));
     case "none":
       return [{ id: "all", name: "All tasks", tasks }];
   }
@@ -286,6 +313,9 @@ export function orderTasks(tasks: Task[], ordering: Ordering, statuses: TaskStat
   const compare = {
     // Undated tasks sink to the bottom.
     due: (a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") || byCreated(a, b),
+    // Undated tasks sink to the bottom.
+    start: (a, b) =>
+      (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999") || byCreated(a, b),
     created: byCreated,
     updated: (a, b) => b.entity.updatedAt.localeCompare(a.entity.updatedAt),
     title: (a, b) =>
@@ -304,6 +334,9 @@ export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "status") return [task.statusId];
   if (fieldId === "labels") return task.labelIds;
   if (fieldId === "due") return [dueBucket(task.dueDate)];
+  if (fieldId === "start") return [dayBucket(task.startDate)];
+  if (fieldId === "created") return [ageBucket(task.entity.createdAt)];
+  if (fieldId === "updated") return [ageBucket(task.entity.updatedAt)];
   return [];
 }
 

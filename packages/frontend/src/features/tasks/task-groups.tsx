@@ -1,4 +1,5 @@
-import { IconCalendarEvent, IconTagOff } from "@tabler/icons-react";
+import { IconClockEdit, IconClockPlus, IconCalendarEvent, IconTagOff } from "@tabler/icons-react";
+import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { LabelDot } from "#/components/label-chip.tsx";
 import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
@@ -53,6 +54,10 @@ export function taskGroupDefs(
       return dateGroupDefs(START_BUCKETS, (t) => t.startDate, false);
     case "due":
       return dateGroupDefs(DUE_BUCKETS, (t) => t.dueDate, true);
+    case "created":
+      return ageGroupDefs((t) => t.entity.createdAt, IconClockPlus);
+    case "updated":
+      return ageGroupDefs((t) => t.entity.updatedAt, IconClockEdit);
     case "none":
       return null;
   }
@@ -79,5 +84,18 @@ function dateGroupDefs(
       />
     ),
     match: (t) => dayBucket(day(t)) === b.id,
+  }));
+}
+
+/// One group per age bucket of a timestamp: today, this week, last week, earlier.
+function ageGroupDefs(
+  timestamp: (task: Task) => string,
+  Icon: typeof IconClockPlus,
+): GroupDef<Task>[] {
+  return AGE_BUCKETS.map((b) => ({
+    id: b.id,
+    name: b.label,
+    icon: <Icon size={14} className="text-muted-foreground" />,
+    match: (t) => ageBucket(timestamp(t)) === b.id,
   }));
 }

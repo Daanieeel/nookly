@@ -1,4 +1,16 @@
 import {
+  IconBan,
+  IconCalendarEvent,
+  IconCircleDot,
+  IconClockEdit,
+  IconClockPlus,
+  IconLetterCase,
+  IconSchool,
+  IconStar,
+  IconWand,
+  type Icon as TablerIcon,
+} from "@tabler/icons-react";
+import {
   addWeeks,
   differenceInCalendarDays,
   endOfWeek,
@@ -10,6 +22,7 @@ import {
   subWeeks,
 } from "date-fns";
 import type { Assignment, TaskStatus } from "#/lib/api/types.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
 import type { StatusKind } from "#/features/tasks/task-model.ts";
@@ -85,27 +98,66 @@ export function deadlineBucket(a: Assignment, now = new Date()): string {
   return "later";
 }
 
-export function createdBucket(a: Assignment, now = new Date()): string {
+/// Where a timestamp falls relative to this week, shared by every "created" and
+/// "updated" bucket and filter.
+export function ageBucket(iso: string, now = new Date()): string {
   const today = startOfDay(now);
-  const created = startOfDay(parseISO(a.entity.createdAt));
-  if (isSameDay(created, today)) return "today";
+  const day = startOfDay(parseISO(iso));
+  if (isSameDay(day, today)) return "today";
   const weekStart = startOfWeek(today, WEEK);
-  if (!isBefore(created, weekStart)) return "week";
-  if (!isBefore(created, subWeeks(weekStart, 1))) return "last";
+  if (!isBefore(day, weekStart)) return "week";
+  if (!isBefore(day, subWeeks(weekStart, 1))) return "last";
   return "earlier";
 }
+
+export const AGE_BUCKETS: { id: string; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "week", label: "This week" },
+  { id: "last", label: "Last week" },
+  { id: "earlier", label: "Earlier" },
+];
+
+export function createdBucket(a: Assignment, now = new Date()): string {
+  return ageBucket(a.entity.createdAt, now);
+}
+
+export const GRADE_FILTER: { id: string; label: string }[] = [
+  { id: "graded", label: "Has a grade" },
+  { id: "none", label: "No grade" },
+];
 
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping = "deadline" | "created" | "status" | "course" | "none";
+export type Grouping =
+  | "deadline"
+  | "created"
+  | "updated"
+  | "status"
+  | "grade"
+  | "course"
+  | "none";
+/// "auto" keeps the order that fits the grouping.
+export type Ordering = "auto" | "due" | "created" | "updated" | "title" | "status" | "grade";
 
-export const GROUPINGS: { id: Grouping; label: string }[] = [
-  { id: "deadline", label: "Deadline" },
-  { id: "created", label: "Created" },
-  { id: "status", label: "Status" },
-  { id: "course", label: "Course" },
-  { id: "none", label: "No grouping" },
+export const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
+  { id: "deadline", label: "Deadline", icon: IconCalendarEvent },
+  { id: "created", label: "Created", icon: IconClockPlus },
+  { id: "updated", label: "Updated", icon: IconClockEdit },
+  { id: "status", label: "Status", icon: IconCircleDot },
+  { id: "grade", label: "Grade", icon: IconStar },
+  { id: "course", label: "Course", icon: IconSchool },
+  { id: "none", label: "No grouping", icon: IconBan },
+];
+
+export const ORDERINGS: { id: Ordering; label: string; icon: TablerIcon }[] = [
+  { id: "auto", label: "Automatic", icon: IconWand },
+  { id: "due", label: "Due date", icon: IconCalendarEvent },
+  { id: "created", label: "Created", icon: IconClockPlus },
+  { id: "updated", label: "Updated", icon: IconClockEdit },
+  { id: "title", label: "Title", icon: IconLetterCase },
+  { id: "status", label: "Status", icon: IconCircleDot },
+  { id: "grade", label: "Grade", icon: IconStar },
 ];
 
 export interface DisplayOptions {
@@ -113,6 +165,7 @@ export interface DisplayOptions {
   grouping: Grouping;
   /// Always `"none"` without a grouping, and never the grouping itself.
   subGrouping: Grouping;
+  ordering: Ordering;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
   showEmpty: Record<Layout, boolean>;
   /// Board columns (group ids) the user hid. Only the board honors it.
@@ -123,6 +176,7 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   layout: "list",
   grouping: "deadline",
   subGrouping: "none",
+  ordering: "auto",
   showEmpty: { board: true, list: false },
   hiddenColumns: [],
 };
@@ -162,6 +216,7 @@ export function normalizeDisplay(stored: Partial<DisplayOptions>): DisplayOption
       layout,
       grouping,
       subGrouping: validSubGrouping(grouping, pick(stored.subGrouping, GROUPINGS, "none")),
+      ordering: pick(stored.ordering, ORDERINGS, DEFAULT_DISPLAY.ordering),
       showEmpty: {
         board: stored.showEmpty?.board !== false,
         list: stored.showEmpty?.list === true,
@@ -181,11 +236,13 @@ export function writeDisplay(display: DisplayOptions) {
 
 // Ordering
 
-/// Deadline buckets list what is closest to today first, Created lists the newest
-/// first, and every other grouping goes by due date with undated ones last.
+/// Automatic ordering: deadline buckets list what is closest to today first, Created
+/// lists the newest first, and every other grouping goes by due date with undated
+/// ones last. A chosen ordering overrides that.
 export function orderAssignments(
   assignments: Assignment[],
   grouping: Grouping,
+  ordering: Ordering = "auto",
   now = new Date(),
 ): Assignment[] {
   const today = startOfDay(now);
@@ -193,12 +250,28 @@ export function orderAssignments(
     b.entity.createdAt.localeCompare(a.entity.createdAt);
   const distance = (a: Assignment) =>
     Math.abs(differenceInCalendarDays(parseISO(a.dueDate ?? a.entity.createdAt), today));
-  const compare =
-    grouping === "created"
-      ? byCreated
-      : grouping === "deadline"
-        ? (a: Assignment, b: Assignment) => distance(a) - distance(b) || byCreated(a, b)
-        : (a: Assignment, b: Assignment) =>
-            (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") || byCreated(a, b);
-  return [...assignments].sort(compare);
+  const byDue = (a: Assignment, b: Assignment) =>
+    (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") || byCreated(a, b);
+  const statusPosition = (a: Assignment) => assignmentStatus(a.status).position;
+  const compare: Record<Ordering, (a: Assignment, b: Assignment) => number> = {
+    auto:
+      grouping === "created"
+        ? byCreated
+        : grouping === "updated"
+          ? (a, b) => b.entity.updatedAt.localeCompare(a.entity.updatedAt)
+          : grouping === "deadline"
+            ? (a, b) => distance(a) - distance(b) || byCreated(a, b)
+            : byDue,
+    due: byDue,
+    created: byCreated,
+    updated: (a, b) => b.entity.updatedAt.localeCompare(a.entity.updatedAt),
+    title: (a, b) =>
+      displayTitle(a.entity).localeCompare(displayTitle(b.entity), undefined, {
+        sensitivity: "base",
+      }),
+    status: (a, b) => statusPosition(a) - statusPosition(b) || byDue(a, b),
+    // Highest grade first, ungraded last.
+    grade: (a, b) => (b.grade ?? -1) - (a.grade ?? -1) || byDue(a, b),
+  };
+  return [...assignments].sort(compare[ordering]);
 }

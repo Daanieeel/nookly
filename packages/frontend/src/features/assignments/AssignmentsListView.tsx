@@ -1,4 +1,13 @@
-import { IconCircleDot, IconClipboardCheck, IconPlus, IconSchool } from "@tabler/icons-react";
+import {
+  IconCalendarEvent,
+  IconCircleDot,
+  IconClipboardCheck,
+  IconClockEdit,
+  IconClockPlus,
+  IconPlus,
+  IconSchool,
+  IconStar,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -48,7 +57,12 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
 import { assignmentGroupDefs } from "./assignment-groups";
 import {
+  AGE_BUCKETS,
   ASSIGNMENT_STATUSES,
+  DEADLINE_BUCKETS,
+  GRADE_FILTER,
+  ageBucket,
+  deadlineBucket,
   orderAssignments,
   normalizeDisplay,
   readDisplay,
@@ -143,18 +157,47 @@ export function AssignmentsListView({
           icon: <TaskStatusIcon status={s} kind={statusKindOf(s.id)} />,
         })),
       },
+      {
+        id: "due",
+        label: "Due date",
+        icon: IconCalendarEvent,
+        options: DEADLINE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+      {
+        id: "grade",
+        label: "Grade",
+        icon: IconStar,
+        options: GRADE_FILTER.map((g) => ({ value: g.id, label: g.label })),
+      },
+      {
+        id: "created",
+        label: "Created",
+        icon: IconClockPlus,
+        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+      {
+        id: "updated",
+        label: "Updated",
+        icon: IconClockEdit,
+        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
     ],
     [courses],
   );
 
-  const visible = applyFilters(assignments, filters, (a, fieldId) =>
-    fieldId === "course" ? (courseOf.get(a.entity.id)?.id ?? "") : a.status,
-  );
+  const visible = applyFilters(assignments, filters, (a, fieldId) => {
+    if (fieldId === "course") return courseOf.get(a.entity.id)?.id ?? "";
+    if (fieldId === "due") return deadlineBucket(a);
+    if (fieldId === "grade") return a.grade === null ? "none" : "graded";
+    if (fieldId === "created") return ageBucket(a.entity.createdAt);
+    if (fieldId === "updated") return ageBucket(a.entity.updatedAt);
+    return a.status;
+  });
   const defs = assignmentGroupDefs(display.grouping, courses, courseOf);
   const subDefs = assignmentGroupDefs(display.subGrouping, courses, courseOf);
   const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
   const groups = buildGroups(
-    orderAssignments(visible, display.grouping),
+    orderAssignments(visible, display.grouping, display.ordering),
     defs ?? [{ id: "all", name: "All assignments", match: () => true }],
     subDefs,
   ).filter((g) => showEmpty || g.items.length > 0);

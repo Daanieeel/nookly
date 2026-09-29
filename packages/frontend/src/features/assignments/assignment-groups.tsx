@@ -5,9 +5,12 @@ import {
   IconCalendarOff,
   IconCalendarWeek,
   IconCircleCheck,
+  IconClockEdit,
   IconClockPlus,
   IconHistory,
   IconSchool,
+  IconStar,
+  IconStarOff,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
@@ -17,10 +20,12 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import {
   ASSIGNMENT_STATUSES,
   type BucketDef,
+  AGE_BUCKETS,
   CREATED_BUCKETS,
   DEADLINE_BUCKETS,
   type Grouping,
   type Tone,
+  ageBucket,
   createdBucket,
   deadlineBucket,
   statusKindOf,
@@ -81,6 +86,28 @@ export function assignmentGroupDefs(
         (a) => createdBucket(a, now),
         (id) => (id === "today" || id === "week" ? IconClockPlus : IconHistory),
       );
+    case "updated":
+      return AGE_BUCKETS.map((b) => ({
+        id: b.id,
+        name: b.label,
+        icon: <IconClockEdit size={14} className="text-muted-foreground" />,
+        match: (a: Assignment) => ageBucket(a.entity.updatedAt, now) === b.id,
+      }));
+    case "grade":
+      return [
+        {
+          id: "graded",
+          name: "Has a grade",
+          icon: <IconStar size={14} className="text-muted-foreground" />,
+          match: (a: Assignment) => a.grade !== null,
+        },
+        {
+          id: "no-grade",
+          name: "No grade",
+          icon: <IconStarOff size={14} className="text-muted-foreground" />,
+          match: (a: Assignment) => a.grade === null,
+        },
+      ];
     case "status":
       return ASSIGNMENT_STATUSES.map((status) => ({
         id: status.id,

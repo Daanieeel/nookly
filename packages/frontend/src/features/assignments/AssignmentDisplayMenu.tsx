@@ -16,6 +16,7 @@ import {
   GROUPINGS,
   type Grouping,
   type Layout,
+  ORDERINGS,
   validSubGrouping,
 } from "./assignment-model";
 
@@ -50,7 +51,7 @@ export function AssignmentDisplayMenu({
           Display
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-80 flex-col gap-3 p-3">
+      <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
         <div className="grid grid-cols-2 gap-2">
           {LAYOUT_TILES.map((tile) => (
             <button
@@ -83,12 +84,13 @@ export function AssignmentDisplayMenu({
             value={display.grouping}
             onValueChange={(v) => setGrouping(groupings.find((g) => g.id === v)?.id ?? "deadline")}
           >
-            <SelectTrigger size="sm" className="w-36">
+            <SelectTrigger size="sm" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {groupings.map((g) => (
                 <SelectItem key={g.id} value={g.id}>
+                  <g.icon />
                   {g.label}
                 </SelectItem>
               ))}
@@ -104,12 +106,13 @@ export function AssignmentDisplayMenu({
                 set({ subGrouping: subGroupings.find((g) => g.id === v)?.id ?? "none" })
               }
             >
-              <SelectTrigger size="sm" className="w-36">
+              <SelectTrigger size="sm" className="w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {subGroupings.map((g) => (
                   <SelectItem key={g.id} value={g.id}>
+                    <g.icon />
                     {g.id === "none" ? "No sub-grouping" : g.label}
                   </SelectItem>
                 ))}
@@ -117,6 +120,25 @@ export function AssignmentDisplayMenu({
             </Select>
           </OptionRow>
         )}
+
+        <OptionRow label="Ordering">
+          <Select
+            value={display.ordering}
+            onValueChange={(v) => set({ ordering: ORDERINGS.find((o) => o.id === v)?.id ?? "auto" })}
+          >
+            <SelectTrigger size="sm" className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ORDERINGS.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  <o.icon />
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </OptionRow>
 
         {display.grouping !== "none" && (
           <OptionRow label="Show empty groups">

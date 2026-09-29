@@ -1,7 +1,10 @@
 import {
   IconCalendarEvent,
+  IconCalendarPlus,
   IconChecklist,
   IconCircleDot,
+  IconClockEdit,
+  IconClockPlus,
   IconPlus,
   IconTag,
 } from "@tabler/icons-react";
@@ -13,6 +16,7 @@ import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { ViewActions } from "#/features/views/ViewActions.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
+import { AGE_BUCKETS } from "#/features/assignments/assignment-model.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { type ViewGroup, buildGroups } from "#/components/grouped-view/grouping.ts";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
@@ -32,6 +36,7 @@ import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { TaskList } from "./TaskList";
 import {
   DUE_BUCKETS,
+  START_BUCKETS,
   type Grouping,
   orderTasks,
   normalizeDisplay,
@@ -133,6 +138,24 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         icon: IconCalendarEvent,
         options: DUE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
       },
+      {
+        id: "start",
+        label: "Start date",
+        icon: IconCalendarPlus,
+        options: START_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+      {
+        id: "created",
+        label: "Created",
+        icon: IconClockPlus,
+        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+      {
+        id: "updated",
+        label: "Updated",
+        icon: IconClockEdit,
+        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
     ];
     const used = labels.filter((l) => tasks.some((t) => t.labelIds.includes(l.id)));
     if (used.length > 0) {
@@ -173,7 +196,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
   const onCreateIn = (group: ViewGroup<Task>, subgroup: ViewGroup<Task> | null) => {
     const parts: [Grouping, string][] = [[display.grouping, group.id]];
     if (subgroup) parts.push([display.subGrouping, subgroup.id]);
-    if (parts.some(([kind]) => kind === "due" || kind === "start")) return undefined;
+    if (parts.some(([kind]) => !["status", "label"].includes(kind))) return undefined;
     const next: TaskDraft = {};
     for (const [kind, id] of parts) {
       if (kind === "status") next.statusId = id;
