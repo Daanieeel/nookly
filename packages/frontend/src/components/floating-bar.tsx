@@ -22,7 +22,7 @@ export function FloatingBar({
         e.preventDefault();
         onSubmit?.(e);
       }}
-      className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4"
+      className="pointer-events-none absolute inset-x-0 bottom-4 z-40 flex justify-center px-4"
     >
       <div
         className={cn(
