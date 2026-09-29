@@ -198,6 +198,8 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
         <h1 className="text-lg font-semibold">Courses</h1>
         <div className="flex items-center gap-2">
           {courses.length > 1 && (
+            // SAFETY: the only items rendered below come from `COURSE_SORTS`, so the
+            // picked value is always one of its `CourseSort` ids.
             <Select value={sort} onValueChange={(v) => changeSort(v as CourseSort)}>
               <SelectTrigger size="sm" aria-label="Sort courses" className="w-36">
                 <SelectValue />

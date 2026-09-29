@@ -45,8 +45,25 @@ pub fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
+/// How many migrations `conn` has run.
+pub fn schema_version(conn: &Connection) -> Result<usize, rusqlite::Error> {
+    Ok(migrations::MIGRATIONS
+        .current_version(conn)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?
+        .into())
+}
+
+/// How many migrations this build ships: the newest schema it can open.
+pub fn latest_schema_version() -> usize {
+    *migrations::MIGRATION_COUNT
+}
+
 pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_data_dir = resolve_app_data_dir(app.path().app_data_dir()?);
+    // A restore chosen in the last session installs here, before the database opens.
+    if let Err(e) = crate::backup::apply_pending_restore(&app_data_dir) {
+        crate::backup::log_restore_error(&app_data_dir, &e);
+    }
     // `tauri.conf.json`'s `assetProtocol.scope` only ever covers the real,
     // platform default `$APPDATA` — meaningless once `resolve_app_data_dir`
     // redirects a debug build elsewhere. Granting the resolved directory here

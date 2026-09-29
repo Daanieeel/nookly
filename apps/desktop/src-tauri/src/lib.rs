@@ -1,5 +1,6 @@
 use tauri::Manager;
 
+mod backup;
 mod cli;
 mod commands;
 mod db;
@@ -248,6 +249,10 @@ pub fn run() {
             commands::external_calendars::disconnect_external_calendar,
             commands::external_calendars::sync_external_calendars,
             commands::external_calendars::list_external_events,
+            commands::backup::create_backup,
+            commands::backup::list_backups,
+            commands::backup::inspect_backup,
+            commands::backup::restore_backup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

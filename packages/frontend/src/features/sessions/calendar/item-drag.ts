@@ -47,6 +47,7 @@ export interface UseItemDragResult {
 /// tree, so a press on the popover's own buttons would otherwise start a drag
 /// of the block. Only events whose target sits inside the block's own DOM count.
 function isOwnEvent(e: ReactPointerEvent<HTMLElement>): boolean {
+  // SAFETY: a pointer event's target is a DOM element, which is always a `Node`.
   return e.currentTarget.contains(e.target as Node);
 }
 

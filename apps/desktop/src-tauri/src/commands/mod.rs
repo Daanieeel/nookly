@@ -1,4 +1,5 @@
 pub mod assignments;
+pub mod backup;
 pub mod bookmark_screenshot;
 pub mod bookmarks;
 pub mod calendar;
