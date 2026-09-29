@@ -34,12 +34,7 @@ import {
 import { formatDateTime } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import {
-  BACKUPS_KEY,
-  autoBackupEnabled,
-  backupFolder,
-  runBackup,
-} from "./backup-run.ts";
+import { BACKUPS_KEY, autoBackupEnabled, backupFolder, runBackup } from "./backup-run.ts";
 
 export function useBackups(folder: string | null) {
   return useQuery({
@@ -264,13 +259,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 /// Confirms replacing everything in Nookly with a backup, then restarts to install it.
-function RestoreDialog({
-  target,
-  onClose,
-}: {
-  target: RestoreTarget | null;
-  onClose: () => void;
-}) {
+function RestoreDialog({ target, onClose }: { target: RestoreTarget | null; onClose: () => void }) {
   const restore = useMutation({
     mutationFn: async (path: string) => {
       await restoreBackup(path);
