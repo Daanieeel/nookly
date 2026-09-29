@@ -113,12 +113,16 @@ function GalleryCardBody({ className, ...props }: React.ComponentProps<typeof Ca
 function GalleryCardImageBanner({
   src,
   icon,
+  fade = true,
   className,
 }: {
   /// Image URL (or `null`/`undefined` to show only the icon on a muted fill,
   /// e.g. before a banner has been set).
   src?: string | null;
   icon?: React.ReactNode;
+  /// Bottom fade into the card background. On by default; turn off for a
+  /// hard edge.
+  fade?: boolean;
   className?: string;
 }) {
   return (
@@ -134,7 +138,9 @@ function GalleryCardImageBanner({
       ) : (
         <div className="absolute inset-0 bg-muted" />
       )}
-      <div className="absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-card to-transparent" />
+      {fade && (
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-card to-transparent" />
+      )}
       <div className="relative text-white/70">{icon}</div>
     </div>
   );

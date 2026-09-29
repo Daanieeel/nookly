@@ -91,6 +91,8 @@ function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => void }) 
       <GalleryCardImageBanner
         src={recipe.bannerPath ? convertFileSrc(recipe.bannerPath) : null}
         icon={<IconToolsKitchen2 size={20} />}
+        fade={false}
+        className="h-32"
       />
       <GalleryCardBody>
         <span className="flex min-w-0 items-baseline gap-2">
@@ -131,6 +133,8 @@ function RecipesEmptyCard({ onCreate }: { onCreate: () => void }) {
     <GalleryCard variant="dashed">
       <GalleryCardImageBanner
         icon={<IconToolsKitchen2 size={20} className="text-muted-foreground/50" />}
+        fade={false}
+        className="h-32"
       />
       <GalleryCardBody className="items-center text-center">
         <p className="text-sm font-medium text-foreground">No recipes yet</p>
