@@ -1,5 +1,6 @@
 import {
   IconArrowLeft,
+  IconArchive,
   IconArrowRight,
   IconCalendarUser,
   IconChevronRight,
@@ -27,11 +28,14 @@ import { Button } from "@nookly/ui/components/button";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { BackupDialog, useBackups } from "#/features/backup/BackupDialog.tsx";
+import { backupFolder } from "#/features/backup/backup-run.ts";
 import {
   CalendarConnectionsDialog,
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
+import { formatEditedAt } from "#/lib/relative-time.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { getView } from "#/lib/api/views.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
@@ -185,6 +189,7 @@ function SavedViewCrumb({ viewId }: { viewId: string }) {
 function SettingsPopover() {
   const [open, setOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
@@ -222,12 +227,20 @@ function SettingsPopover() {
             }}
           />
           <UiSeparator />
+          <BackupSetting
+            onOpen={() => {
+              setOpen(false);
+              setBackupOpen(true);
+            }}
+          />
+          <UiSeparator />
           <div className="flex flex-col gap-2">
             <VersionSection />
           </div>
         </PopoverContent>
       </Popover>
       <CalendarConnectionsDialog open={connectionsOpen} onOpenChange={setConnectionsOpen} />
+      <BackupDialog open={backupOpen} onOpenChange={setBackupOpen} />
     </>
   );
 }
@@ -246,6 +259,27 @@ function CalendarConnectionsSetting({ onOpen }: { onOpen: () => void }) {
       </div>
       <Button variant="secondary" size="sm" onClick={onOpen}>
         <IconCalendarUser size={14} />
+        Manage
+      </Button>
+    </div>
+  );
+}
+
+/// Entry to backing up the whole app to a folder and restoring from one.
+function BackupSetting({ onOpen }: { onOpen: () => void }) {
+  const folder = backupFolder();
+  const { data: backups } = useBackups(folder);
+  const newest = backups?.find((b) => b.manifest)?.manifest?.createdAt;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground">Backup</span>
+        <span className="text-sm">
+          {!folder ? "Not set up" : newest ? `Last ${formatEditedAt(newest)}` : "No backup yet"}
+        </span>
+      </div>
+      <Button variant="secondary" size="sm" onClick={onOpen}>
+        <IconArchive size={14} />
         Manage
       </Button>
     </div>

@@ -16,6 +16,7 @@ import { UnifiedCalendarView } from "#/features/calendar/UnifiedCalendarView.tsx
 import { DashboardView } from "#/features/dashboard/DashboardView.tsx";
 import { PinnedView } from "#/features/dashboard/PinnedView.tsx";
 import { QuickJotDialog } from "#/features/notes/QuickJot.tsx";
+import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
@@ -58,6 +59,7 @@ function Shell() {
   const view = useNavStore((s) => s.view);
   useExternalDbChanges();
   useExternalCalendarSync();
+  useAutoBackup();
   useScopedSelectAll();
   // Formatters read the date settings directly; re-rendering from the root applies
   // a changed format everywhere at once.

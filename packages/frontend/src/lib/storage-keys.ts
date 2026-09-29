@@ -25,4 +25,7 @@ export const STORAGE_KEYS = {
   sessionsView: "nookly:sessions-view",
   calendarModuleView: "nookly:calendar-module-view",
   calendarView: "nookly:calendar-view",
+  backupFolder: "nookly:backup-folder",
+  backupAuto: "nookly:backup-auto",
+  backupError: "nookly:backup-error",
 } as const;
