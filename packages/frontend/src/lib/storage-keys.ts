@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   theme: "nookly:theme",
   fileViewerTheme: "nookly:file-viewer-theme",
   notesSort: "nookly:notes-sort",
+  coursesSort: "nookly:courses-sort",
   jotsSort: "nookly:jots-sort",
   jotsPreset: "nookly:jots-preset",
   tasksDisplay: "nookly:tasks-display",

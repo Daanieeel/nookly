@@ -48,6 +48,13 @@ import {
 } from "@nookly/ui/components/gallery-card";
 import { Input } from "@nookly/ui/components/input";
 import { ProgressCircle } from "@nookly/ui/components/progress-circle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nookly/ui/components/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listAssignments } from "#/lib/api/assignments.ts";
 import { createCourse, listCourses, listSemesters, setCourseSemester } from "#/lib/api/courses.ts";
@@ -58,6 +65,8 @@ import { listSessions } from "#/lib/api/sessions.ts";
 import type { Assignment, Entity, Exam, Semester, SessionOccurrence } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { gradientForName } from "#/lib/gallery-color.ts";
+import { preferences } from "#/lib/preferences.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
@@ -66,6 +75,37 @@ import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 /// Assignment statuses that count as "done" for the course card's progress
 /// ring, mirroring `isDone` in `assignment-model.ts`.
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
+
+const COURSE_SORTS = [
+  { id: "oldest", label: "Oldest first" },
+  { id: "newest", label: "Newest first" },
+  { id: "name-asc", label: "Name A to Z" },
+  { id: "name-desc", label: "Name Z to A" },
+] as const;
+
+type CourseSort = (typeof COURSE_SORTS)[number]["id"];
+
+function readStoredSort(): CourseSort {
+  const stored = preferences.get(STORAGE_KEYS.coursesSort);
+  return COURSE_SORTS.find((s) => s.id === stored)?.id ?? "oldest";
+}
+
+function sortCourses(courses: Entity[], sort: CourseSort): Entity[] {
+  const byName = (a: Entity, b: Entity) => displayTitle(a).localeCompare(displayTitle(b));
+  const byCreated = (a: Entity, b: Entity) => a.createdAt.localeCompare(b.createdAt);
+  return [...courses].sort((a, b) => {
+    switch (sort) {
+      case "newest":
+        return byCreated(b, a);
+      case "name-asc":
+        return byName(a, b);
+      case "name-desc":
+        return byName(b, a);
+      default:
+        return byCreated(a, b);
+    }
+  });
+}
 
 /// "in Nd" within a week, else "MMM d" — same convention as `SidebarUrgencyChip`
 /// (`src/components/sidebar/sidebar-badges.tsx`), copied rather than imported
@@ -83,6 +123,11 @@ function dateLabel(date: string): string {
 export function CoursesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
+  const [sort, setSort] = useState<CourseSort>(readStoredSort);
+  const changeSort = (next: CourseSort) => {
+    setSort(next);
+    preferences.set(STORAGE_KEYS.coursesSort, next);
+  };
 
   const { data: courses = [] } = useQuery({
     queryKey: ["courses", spaceId],
@@ -128,7 +173,10 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   const activeSemesterId = resolveActiveSemesterId(semesters);
   const activeSemester = semesters.find((s) => s.entity.id === activeSemesterId);
   const coursesFor = (semesterId: string | null) =>
-    courses.filter((c) => (semesterIdByCourse.get(c.id) ?? null) === semesterId);
+    sortCourses(
+      courses.filter((c) => (semesterIdByCourse.get(c.id) ?? null) === semesterId),
+      sort,
+    );
   const otherSemesters = semesters
     .filter((s) => s.entity.id !== activeSemesterId)
     .sort((a, b) =>
@@ -148,9 +196,25 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
     >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Courses</h1>
-        <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-          <IconPlus size={14} /> New course
-        </Button>
+        <div className="flex items-center gap-2">
+          {courses.length > 1 && (
+            <Select value={sort} onValueChange={(v) => changeSort(v as CourseSort)}>
+              <SelectTrigger size="sm" aria-label="Sort courses" className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {COURSE_SORTS.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+            <IconPlus size={14} /> New course
+          </Button>
+        </div>
       </div>
 
       {courses.length === 0 ? (
@@ -164,7 +228,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
         // No Semester exists yet — grouping (and an "Active" section with
         // nothing to contrast against) wouldn't mean anything, so stay flat.
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {courses.map((course) => (
+          {sortCourses(courses, sort).map((course) => (
             <CourseCard
               key={course.id}
               course={course}
