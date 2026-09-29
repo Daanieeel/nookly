@@ -514,14 +514,13 @@ function ReplaceButton({ file }: { file: FileEntity }) {
       if (!picked || Array.isArray(picked)) return null;
       return replaceFile(entity.id, picked);
     },
-    onSuccess: (replaced) =>
-      replaced &&
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["file", entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["file-text", entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["files", entity.spaceId] }),
-        queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
-      ]),
+    onSuccess: (replaced) => {
+      if (!replaced) return;
+      // The old copy is deleted from disk: put the new one in the cache now, so a note
+      // embedding this file never renders the old path, then refetch everything.
+      queryClient.setQueryData(["file", entity.id], replaced);
+      return queryClient.invalidateQueries();
+    },
   });
   const raw = useActionStatus(replace);
   // A cancelled open dialog resolves `null`: back to rest, not success.
