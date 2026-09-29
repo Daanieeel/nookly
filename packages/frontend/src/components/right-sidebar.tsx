@@ -1,5 +1,5 @@
 import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand } from "@tabler/icons-react";
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { CourseSemesterPanel } from "#/features/courses/CourseSemesterPanel.tsx";
@@ -48,6 +48,20 @@ export function RightSidebar({
   // Live width while dragging; persisted once on release instead of on every move.
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const width = dragWidth ?? storedWidth;
+
+  // Cmd/Ctrl+Shift+B, next to Cmd/Ctrl+B for the left sidebar. Capture phase plus
+  // `stopPropagation` keeps the left sidebar's own window listener from also seeing it
+  // (it would with Caps Lock on, where Shift+B reports a lowercase `b`).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "KeyB" || !event.shiftKey || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setCollapsed(!useNavStore.getState().rightSidebarCollapsed);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [setCollapsed]);
 
   if (collapsed) {
     return (
