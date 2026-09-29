@@ -60,6 +60,19 @@ interface RestoreTarget {
   manifest: BackupManifest;
 }
 
+/// Shortens a long path from the middle so the last segment always stays visible.
+function MiddleTruncatedPath({ path }: { path: string }) {
+  const end = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  const head = end > 0 ? path.slice(0, end) : "";
+  const tail = end > 0 ? path.slice(end) : path;
+  return (
+    <span className="flex min-w-0 text-sm" title={path}>
+      <span className="min-w-0 truncate">{head}</span>
+      <span className="max-w-full shrink-0 truncate">{tail}</span>
+    </span>
+  );
+}
+
 /// Where the whole app is backed up to a folder, on demand or daily, and where a
 /// backup is restored. Point the folder into iCloud Drive, Google Drive or Dropbox
 /// to keep the backups off this computer.
@@ -124,13 +137,15 @@ export function BackupDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <section className="flex flex-col gap-3 border-t border-border pt-4">
+          <section className="flex min-w-0 flex-col gap-3 border-t border-border pt-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 flex-col">
                 <span className="text-xs font-medium text-muted-foreground">Folder</span>
-                <span className="truncate text-sm" title={folder ?? undefined}>
-                  {folder ?? "No folder chosen"}
-                </span>
+                {folder ? (
+                  <MiddleTruncatedPath path={folder} />
+                ) : (
+                  <span className="truncate text-sm">No folder chosen</span>
+                )}
               </div>
               <Button
                 variant="secondary"
