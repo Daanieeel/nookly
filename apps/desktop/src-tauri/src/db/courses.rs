@@ -62,6 +62,46 @@ pub fn create_course(conn: &Connection, space_id: String, title: String) -> AppR
     Ok(entity)
 }
 
+/// A Course's free text details, shown in its properties panel.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseDetails {
+    pub professor: Option<String>,
+}
+
+pub fn get_course_details(conn: &Connection, entity_id: &str) -> AppResult<CourseDetails> {
+    conn.query_row(
+        "SELECT professor FROM courses WHERE entity_id = ?1",
+        params![entity_id],
+        |row| {
+            Ok(CourseDetails {
+                professor: row.get(0)?,
+            })
+        },
+    )
+    .optional()?
+    .ok_or_else(|| crate::error::AppError::NotFound(format!("course {entity_id}")))
+}
+
+/// Trims, and stores blank as unset.
+fn clean_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+pub fn update_course_professor(
+    conn: &Connection,
+    entity_id: &str,
+    professor: Option<String>,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE courses SET professor = ?1 WHERE entity_id = ?2",
+        params![clean_text(professor), entity_id],
+    )?;
+    Ok(())
+}
+
 pub fn get_semester(conn: &Connection, entity_id: &str) -> AppResult<Semester> {
     conn.query_row(
         "SELECT e.*, s.start_date, s.end_date, s.term_type, s.year, s.is_current, s.manual_position
@@ -372,6 +412,11 @@ pub fn get_course_grades(conn: &Connection, course_id: &str) -> AppResult<Course
 
 fn cli_create_course(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let entity = create_course(conn, input.space_id, input.title)?;
+    update_course_professor(
+        conn,
+        &entity.id,
+        crate::db::schema::field_str(&input.fields, "professor"),
+    )?;
     course_payload(conn, entity)
 }
 
@@ -379,10 +424,12 @@ fn cli_get_course(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     course_payload(conn, crate::db::entities::get_entity(conn, id)?)
 }
 
-/// The Course entity plus its `grades` computed field.
+/// The Course entity plus its `professor` and `grades` computed field.
 fn course_payload(conn: &Connection, entity: Entity) -> AppResult<serde_json::Value> {
     let grades = get_course_grades(conn, &entity.id)?;
+    let details = get_course_details(conn, &entity.id)?;
     let mut value = serde_json::to_value(entity).expect("Entity always serializes");
+    value["professor"] = serde_json::to_value(details.professor).expect("Option always serializes");
     value["grades"] = serde_json::to_value(grades).expect("CourseGrades always serializes");
     Ok(value)
 }
@@ -403,10 +450,13 @@ inventory::submit! {
 fn cli_update_course(
     conn: &Connection,
     id: &str,
-    _fields: &JsonMap,
+    fields: &JsonMap,
 ) -> AppResult<serde_json::Value> {
-    // No subtype fields — a Course's Semester is a generic (non-structural)
-    // relationship, set via `nookly cli relate <course> course-semester <semester>`.
+    // A Course's Semester is a generic (non-structural) relationship, set via
+    // `nookly cli relate <course> course-semester <semester>`.
+    if fields.contains_key("professor") {
+        update_course_professor(conn, id, crate::db::schema::field_str(fields, "professor"))?;
+    }
     cli_get_course(conn, id)
 }
 
@@ -424,12 +474,20 @@ fn cli_list_courses(
         .collect()
 }
 
+const COURSE_FIELDS: &[FieldDef] = &[FieldDef {
+    name: "professor",
+    kind: FieldKind::Text,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "Who teaches the course. Pass null to clear it.",
+}];
+
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "course",
         supports_blocks: false,
         description: "A course within a Space, optionally linked to a Semester.",
-        fields: &[],
+        fields: COURSE_FIELDS,
         relationship_types: &["sequel-of", "course-semester", "course-notes", "relates-to"],
         create: cli_create_course,
         update: cli_update_course,
@@ -544,6 +602,26 @@ mod tests {
             .to_latest(&mut conn)
             .unwrap();
         conn
+    }
+
+    #[test]
+    fn course_professor_round_trips() {
+        let conn = setup();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let course = create_course(&conn, space.id, "Algorithms".into()).unwrap();
+
+        let unset = get_course_details(&conn, &course.id).unwrap();
+        assert_eq!(unset.professor, None);
+
+        update_course_professor(&conn, &course.id, Some("  Prof. Ada  ".into())).unwrap();
+        let set = get_course_details(&conn, &course.id).unwrap();
+        assert_eq!(set.professor.as_deref(), Some("Prof. Ada"));
+
+        update_course_professor(&conn, &course.id, Some("   ".into())).unwrap();
+        assert_eq!(
+            get_course_details(&conn, &course.id).unwrap().professor,
+            None
+        );
     }
 
     #[test]

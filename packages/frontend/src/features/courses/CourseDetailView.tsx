@@ -7,9 +7,11 @@ import {
   IconWriting,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
+import { TextProperty } from "#/components/property-fields.tsx";
+import { PropertyRow } from "#/components/property-row.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
@@ -17,7 +19,12 @@ import { CardContent, CardHeader, CardTitle } from "@nookly/ui/components/card";
 import { InteractiveCard } from "@nookly/ui/components/interactive-card";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { listAssignments } from "#/lib/api/assignments.ts";
-import { getCourseGrades, getCourseNotes } from "#/lib/api/courses.ts";
+import {
+  getCourseDetails,
+  getCourseGrades,
+  getCourseNotes,
+  updateCourseProfessor,
+} from "#/lib/api/courses.ts";
 import { getDeckStats, listDecks } from "#/lib/api/decks.ts";
 import { listExams } from "#/lib/api/exams.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
@@ -50,9 +57,46 @@ function formatGrade(grade: number): string {
 /// scrollable Sessions/Exams/Assignments sections — is Course-specific.
 export function CourseDetailView({ entity }: { entity: Entity }) {
   return (
-    <EntityDetailLayout entity={entity}>
+    <EntityDetailLayout entity={entity} sidebar={<PropertiesPanel course={entity} />}>
       <CourseBody course={entity} />
     </EntityDetailLayout>
+  );
+}
+
+/// Saves one course detail and refreshes the details it's read from.
+function useCourseDetailSave(
+  course: Entity,
+  write: (id: string, value: string | null) => Promise<void>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: string | null) => write(course.id, value),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["course-details", course.id] }),
+  });
+}
+
+/// Professor, as a text property at the top of the right sidebar.
+function PropertiesPanel({ course }: { course: Entity }) {
+  const { data: details } = useQuery({
+    queryKey: ["course-details", course.id],
+    queryFn: () => getCourseDetails(course.id),
+  });
+  const setProfessor = useCourseDetailSave(course, updateCourseProfessor);
+
+  if (!details) return null;
+  return (
+    <section aria-label="Properties" className="flex flex-col gap-0.5">
+      <PropertyRow label="Professor">
+        <TextProperty
+          value={details.professor}
+          onSave={(professor) => setProfessor.mutate(professor)}
+          placeholder="Add professor"
+          label="Professor"
+          pending={setProfessor.isPending}
+          failed={setProfessor.isError}
+        />
+      </PropertyRow>
+    </section>
   );
 }
 

@@ -551,6 +551,13 @@ fn all() -> Vec<M<'static>> {
         -- the first reorder writes explicit positions.
         ALTER TABLE views ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
         ",
+    ), M::up(
+        "
+        -- Who teaches a Course and where. Free text, both optional; existing
+        -- Courses start with neither set.
+        ALTER TABLE courses ADD COLUMN professor TEXT;
+        ALTER TABLE courses ADD COLUMN room TEXT;
+        ",
     )]
 }
 
@@ -605,6 +612,7 @@ mod history {
         0xc1e5af1629f9c19a,
         0xc933a750ff4f5f72,
         0x9385d76400678f57,
+        0xb9406e703532694b,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

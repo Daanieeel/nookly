@@ -134,6 +134,8 @@ pub fn run() {
             commands::courses::get_course_notes,
             commands::courses::get_semester_notes,
             commands::courses::get_course_grades,
+            commands::courses::get_course_details,
+            commands::courses::update_course_professor,
             commands::sessions::create_session_template,
             commands::sessions::generate_occurrences,
             commands::sessions::create_one_off_session,

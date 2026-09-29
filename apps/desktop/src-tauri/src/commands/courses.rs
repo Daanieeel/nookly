@@ -1,4 +1,4 @@
-use crate::db::courses::{self, CourseGrades, Semester};
+use crate::db::courses::{self, CourseDetails, CourseGrades, Semester};
 use crate::db::entities::Entity;
 use crate::db::DbState;
 use crate::error::AppResult;
@@ -103,4 +103,20 @@ pub fn get_semester_notes(state: State<DbState>, semester_id: String) -> AppResu
 pub fn get_course_grades(state: State<DbState>, course_id: String) -> AppResult<CourseGrades> {
     let conn = state.0.lock().unwrap();
     courses::get_course_grades(&conn, &course_id)
+}
+
+#[tauri::command]
+pub fn get_course_details(state: State<DbState>, course_id: String) -> AppResult<CourseDetails> {
+    let conn = state.0.lock().unwrap();
+    courses::get_course_details(&conn, &course_id)
+}
+
+#[tauri::command]
+pub fn update_course_professor(
+    state: State<DbState>,
+    entity_id: String,
+    professor: Option<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    courses::update_course_professor(&conn, &entity_id, professor)
 }

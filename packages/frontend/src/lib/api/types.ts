@@ -374,6 +374,11 @@ export interface StudyBlock {
   endTime: string;
 }
 
+/// A Course's free text details.
+export interface CourseDetails {
+  professor: string | null;
+}
+
 /// A Course's grade rolled up from its Exams and Assignments.
 export interface CourseGrades {
   /// Weighted mean of the graded items, `null` until one is graded.
