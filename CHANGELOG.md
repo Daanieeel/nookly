@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.10.10 (2026-09-29)
+
+### Added
+
+- Add sorting options for courses
+
 ## 0.10.9 (2026-09-29)
 
 ### Changed
