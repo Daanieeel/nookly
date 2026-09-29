@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.10.9 (2026-09-29)
+
+### Changed
+
+- Dragging sessions in edit menus
+
+## 0.10.8 (2026-09-29)
+
+### Added
+
+- Add location field for create session dialog
+
 ## 0.10.7 (2026-09-29)
 
 ### Added
