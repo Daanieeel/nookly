@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.10.7 (2026-09-29)
+
+### Added
+
+- Add professor field for courses
+
+### Changed
+
+- Enlarge recipe preview banner
+- Fit more course cards per row on courses list
+
 ## 0.10.4 (2026-09-29)
 
 ### Changed
