@@ -43,6 +43,13 @@ export interface UseItemDragResult {
   handleFor: (mode: ItemDragMode) => ItemDragHandleProps;
 }
 
+/// React bubbles events from portaled children (a block's popover) up the React
+/// tree, so a press on the popover's own buttons would otherwise start a drag
+/// of the block. Only events whose target sits inside the block's own DOM count.
+function isOwnEvent(e: ReactPointerEvent<HTMLElement>): boolean {
+  return e.currentTarget.contains(e.target as Node);
+}
+
 function snap(min: number): number {
   return Math.round(min / SNAP_MINUTES) * SNAP_MINUTES;
 }
@@ -108,7 +115,7 @@ export function useItemDrag({
   const handleFor = useCallback(
     (mode: ItemDragMode) => ({
       onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || !isOwnEvent(e)) return;
         e.stopPropagation();
         movedRef.current = false;
         capturedRef.current = false;
@@ -132,6 +139,7 @@ export function useItemDrag({
         });
       },
       onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
+        if (!isOwnEvent(e)) return;
         setDrag((current) => {
           if (!current || current.pointerId !== e.pointerId) return current;
           const deltaX = e.clientX - current.anchorX;
@@ -172,6 +180,7 @@ export function useItemDrag({
         });
       },
       onPointerUp: (e: ReactPointerEvent<HTMLElement>) => {
+        if (!isOwnEvent(e)) return;
         setDrag((current) => {
           if (!current || current.pointerId !== e.pointerId) return null;
           if (movedRef.current) onCommit(resolve(current, startMin, endMin));
