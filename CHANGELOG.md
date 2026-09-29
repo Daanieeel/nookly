@@ -2,6 +2,19 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.10.4 (2026-09-29)
+
+### Changed
+
+- Cmd+shift+b toggles the right detail sidebar
+
+## 0.10.3 (2026-09-29)
+
+### Changed
+
+- Floating bar hidden behind sticky group headers on files page
+- Replaced file image no longer shows old copy in notes
+
 ## 0.10.1 (2026-09-28)
 
 ### Fixed
