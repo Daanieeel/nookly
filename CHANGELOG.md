@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.1 (2026-09-29)
+
+### Changed
+
+- Truncate long backup file paths
+
 ## 0.11.0 (2026-09-29)
 
 ### Changed
