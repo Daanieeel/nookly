@@ -48,6 +48,7 @@ export function QuickCreateSessionDialog({
   const [course, setCourse] = useState<Entity | null>(null);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [location, setLocation] = useState("");
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +58,7 @@ export function QuickCreateSessionDialog({
     setCourse(null);
     setStartTime(minutesToTime(draft.startMin));
     setEndTime(minutesToTime(draft.endMin));
+    setLocation("");
     setRepeatWeekly(false);
     setTimeout(() => titleRef.current?.focus(), 0);
   }, [draft]);
@@ -68,6 +70,7 @@ export function QuickCreateSessionDialog({
     mutationFn: async () => {
       if (!draft || !course) throw new Error("Pick a course first");
       const date = format(draft.date, "yyyy-MM-dd");
+      const place = location.trim() || null;
       if (repeatWeekly) {
         const template = await createSessionTemplate(
           spaceId,
@@ -76,7 +79,7 @@ export function QuickCreateSessionDialog({
           draft.date.getDay() === 0 ? 6 : draft.date.getDay() - 1,
           startTime,
           endTime,
-          null,
+          place,
           date,
         );
         const occurrences = await generateOccurrences(
@@ -92,7 +95,7 @@ export function QuickCreateSessionDialog({
         date,
         startTime,
         endTime,
-        null,
+        place,
       );
       return [occurrence.entity.id];
     },
@@ -164,6 +167,12 @@ export function QuickCreateSessionDialog({
               className="flex-1"
             />
           </div>
+          <Input
+            aria-label="Location"
+            placeholder="Location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
           <FieldError
             message={
               (!timesValid && startTime >= endTime && "End after it starts") ||
