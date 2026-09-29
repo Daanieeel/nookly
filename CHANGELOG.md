@@ -2,6 +2,14 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.3 (2026-09-29)
+
+### Changed
+
+- Filter, group and order tasks and assignments by every field
+- Validate view config written through the CLI
+- Keep type inference for assignment ordering
+
 ## 0.11.1 (2026-09-29)
 
 ### Changed
