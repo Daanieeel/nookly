@@ -253,7 +253,7 @@ export function orderAssignments(
   const byDue = (a: Assignment, b: Assignment) =>
     (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") || byCreated(a, b);
   const statusPosition = (a: Assignment) => assignmentStatus(a.status).position;
-  const compare: Record<Ordering, (a: Assignment, b: Assignment) => number> = {
+  const compare = {
     auto:
       grouping === "created"
         ? byCreated
@@ -272,6 +272,6 @@ export function orderAssignments(
     status: (a, b) => statusPosition(a) - statusPosition(b) || byDue(a, b),
     // Highest grade first, ungraded last.
     grade: (a, b) => (b.grade ?? -1) - (a.grade ?? -1) || byDue(a, b),
-  };
+  } satisfies Record<Ordering, (a: Assignment, b: Assignment) => number>;
   return [...assignments].sort(compare[ordering]);
 }
