@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addWeeks, format } from "date-fns";
+import { addWeeks, format, parse } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 import {
@@ -9,6 +9,7 @@ import {
   statusOf,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
+import { DateInput } from "#/components/date-input.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Checkbox } from "@nookly/ui/components/checkbox";
@@ -27,7 +28,6 @@ import {
   generateOccurrences,
 } from "#/lib/api/sessions.ts";
 import type { Entity } from "#/lib/api/types.ts";
-import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
 import { qk } from "#/lib/query-keys.ts";
@@ -36,6 +36,7 @@ const sessionSchema = z
   .object({
     title: z.string().trim().min(1),
     course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
+    date: z.string().min(1),
     startTime: z.string().min(1),
     endTime: z.string().min(1),
     location: z.string(),
@@ -51,6 +52,7 @@ type SessionValues = z.infer<typeof sessionSchema>;
 const emptyValues: SessionValues = {
   title: "",
   course: null,
+  date: "",
   startTime: "09:00",
   endTime: "10:00",
   location: "",
@@ -58,7 +60,7 @@ const emptyValues: SessionValues = {
 };
 
 /// Opens on the range picked on the calendar: the title and Course come first,
-/// the times arrive filled in and only need touching to fine tune them.
+/// the date and times arrive filled in and only need touching to fine tune them.
 export function QuickCreateSessionDialog({
   spaceId,
   draft,
@@ -86,6 +88,7 @@ export function QuickCreateSessionDialog({
     if (!draft) return;
     form.reset({
       ...emptyValues,
+      date: format(draft.date, "yyyy-MM-dd"),
       startTime: minutesToTime(draft.startMin),
       endTime: minutesToTime(draft.endMin),
     });
@@ -96,20 +99,21 @@ export function QuickCreateSessionDialog({
     mutationFn: async ({
       title,
       course,
+      date,
       startTime,
       endTime,
       location,
       repeatWeekly,
     }: SessionValues) => {
       if (!draft || !course) throw new Error("Pick a course first");
-      const date = format(draft.date, "yyyy-MM-dd");
+      const day = parse(date, "yyyy-MM-dd", new Date());
       const place = location.trim() || null;
       if (repeatWeekly) {
         const template = await createSessionTemplate(
           spaceId,
           title.trim(),
           course.id,
-          draft.date.getDay() === 0 ? 6 : draft.date.getDay() - 1,
+          day.getDay() === 0 ? 6 : day.getDay() - 1,
           startTime,
           endTime,
           place,
@@ -117,7 +121,7 @@ export function QuickCreateSessionDialog({
         );
         const occurrences = await generateOccurrences(
           template.id,
-          format(addWeeks(draft.date, 16), "yyyy-MM-dd"),
+          format(addWeeks(day, 16), "yyyy-MM-dd"),
         );
         return occurrences.map((o) => o.entity.id);
       }
@@ -154,11 +158,6 @@ export function QuickCreateSessionDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>New session</DialogTitle>
-          {draft && (
-            <p className="text-sm text-muted-foreground">
-              {formatWeekday(draft.date)}, {formatShortDate(draft.date)}
-            </p>
-          )}
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -189,6 +188,16 @@ export function QuickCreateSessionDialog({
                   </Button>
                 }
                 onSelect={field.handleChange}
+              />
+            )}
+          </form.Field>
+          <form.Field name="date">
+            {(field) => (
+              <DateInput
+                aria-label="Date"
+                clearable={false}
+                value={field.state.value || null}
+                onChange={(day) => field.handleChange(day ?? "")}
               />
             )}
           </form.Field>
