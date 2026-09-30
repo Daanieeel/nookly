@@ -10,7 +10,9 @@ import {
   IconWand,
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "@tanstack/react-form";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   type ActionStatus,
   StatusAnnouncer,
@@ -190,6 +192,10 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
 
 /// The two-date form reused for backfilling approximate dates on a Semester —
 /// cosmetic only (PLAN §1), never used for ordering or "current" detection.
+const dateRangeSchema = z
+  .object({ start: z.string(), end: z.string() })
+  .refine((v) => v.start !== "" || v.end !== "");
+
 function DateRangeForm({
   startDate,
   endDate,
@@ -201,40 +207,57 @@ function DateRangeForm({
   status: ActionStatus;
   onSave: (startDate: string, endDate: string) => void;
 }) {
-  const [start, setStart] = useState(startDate);
-  const [end, setEnd] = useState(endDate);
+  const form = useForm({
+    defaultValues: { start: startDate, end: endDate },
+    validators: { onChange: dateRangeSchema },
+    onSubmit: ({ value }) => {
+      if (status !== "pending" && status !== "success") onSave(value.start, value.end);
+    },
+  });
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (status !== "pending" && status !== "success") onSave(start, end);
+        void form.handleSubmit();
       }}
       className="flex flex-col gap-2 p-1"
     >
       <div className="flex flex-col gap-1 text-xs text-muted-foreground">
         Start (approximate)
-        <DateInput
-          aria-label="Start (approximate)"
-          value={start || null}
-          onChange={(day) => setStart(day ?? "")}
-        />
+        <form.Field name="start">
+          {(field) => (
+            <DateInput
+              aria-label="Start (approximate)"
+              value={field.state.value || null}
+              onChange={(day) => field.handleChange(day ?? "")}
+            />
+          )}
+        </form.Field>
       </div>
       <div className="flex flex-col gap-1 text-xs text-muted-foreground">
         End (approximate)
-        <DateInput
-          aria-label="End (approximate)"
-          value={end || null}
-          onChange={(day) => setEnd(day ?? "")}
-        />
+        <form.Field name="end">
+          {(field) => (
+            <DateInput
+              aria-label="End (approximate)"
+              value={field.state.value || null}
+              onChange={(day) => field.handleChange(day ?? "")}
+            />
+          )}
+        </form.Field>
       </div>
-      <Button type="submit" size="sm" disabled={!start && !end}>
-        <StatusButtonContent
-          status={status}
-          label="Save"
-          successLabel="Saved"
-          errorLabel="Couldn't save, try again"
-        />
-      </Button>
+      <form.Subscribe selector={(state) => dateRangeSchema.safeParse(state.values).success}>
+        {(ready) => (
+          <Button type="submit" size="sm" disabled={!ready}>
+            <StatusButtonContent
+              status={status}
+              label="Save"
+              successLabel="Saved"
+              errorLabel="Couldn't save, try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }
@@ -586,6 +609,12 @@ function CourseChips({ courses }: { courses: Entity[] }) {
   );
 }
 
+const createSemesterSchema = z.object({
+  title: z.string().trim().min(1),
+  termType: z.string(),
+  year: z.number(),
+});
+
 function CreateSemesterDialog({
   open,
   onOpenChange,
@@ -597,13 +626,18 @@ function CreateSemesterDialog({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [title, setTitle] = useState("");
-  const [termType, setTermType] = useState<string>("none");
-  const [year, setYear] = useState(new Date().getFullYear());
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const form = useForm({
+    defaultValues: { title: "", termType: "none", year: new Date().getFullYear() },
+    validators: { onChange: createSemesterSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending && !create.isSuccess) create.mutate(value);
+    },
+  });
+
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: ({ title, termType, year }: z.infer<typeof createSemesterSchema>) =>
       createSemester(spaceId, title.trim(), {
         termType: termType === "none" ? null : termType,
         year: termType === "none" ? null : year,
@@ -619,15 +653,10 @@ function CreateSemesterDialog({
   useEffect(() => {
     if (open) inputRef.current?.focus();
     else {
-      setTitle("");
-      setTermType("none");
+      form.reset();
       reset();
     }
-  }, [open, reset]);
-
-  const submit = () => {
-    if (title.trim() && !create.isPending && !create.isSuccess) create.mutate();
-  };
+  }, [open, reset, form]);
 
   const allTerms = Object.values(ACADEMIC_SYSTEMS).flatMap((s) => s.terms);
   const seenKeys = new Set<string>();
@@ -644,44 +673,72 @@ function CreateSemesterDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
           className="flex flex-col gap-2"
         >
-          <Input
-            ref={inputRef}
-            placeholder="e.g. Winter 2026/27"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <div className="flex items-center gap-2">
-            <Select value={termType} onValueChange={setTermType}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Term (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No term set</SelectItem>
-                {termOptions.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {termType !== "none" && (
-              <NumberInput value={year} onChange={setYear} min={2000} max={2100} />
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={inputRef}
+                placeholder="e.g. Winter 2026/27"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
             )}
+          </form.Field>
+          <div className="flex items-center gap-2">
+            <form.Field name="termType">
+              {(field) => (
+                <Select value={field.state.value} onValueChange={field.handleChange}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Term (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No term set</SelectItem>
+                    {termOptions.map((t) => (
+                      <SelectItem key={t.key} value={t.key}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </form.Field>
+            <form.Subscribe selector={(state) => state.values.termType !== "none"}>
+              {(hasTerm) =>
+                hasTerm && (
+                  <form.Field name="year">
+                    {(field) => (
+                      <NumberInput
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                        min={2000}
+                        max={2100}
+                      />
+                    )}
+                  </form.Field>
+                )
+              }
+            </form.Subscribe>
           </div>
         </form>
         <DialogFooter>
-          <Button disabled={!title.trim()} onClick={submit}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe
+            selector={(state) => createSemesterSchema.safeParse(state.values).success}
+          >
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,9 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
 import { IconCalendarEvent, IconChevronRight } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { FieldError, StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -34,12 +36,16 @@ export interface TaskDraft {
   labelIds?: string[];
 }
 
-interface NewTask {
-  title: string;
-  statusId: string | undefined;
-  labelIds: string[];
-  dueDate: string | null;
-}
+const taskSchema = z.object({
+  title: z.string().trim().min(1),
+  statusId: z.string().optional(),
+  labelIds: z.array(z.string()),
+  dueDate: z.string().nullable(),
+});
+
+type NewTask = z.infer<typeof taskSchema>;
+
+const emptyValues: NewTask = { title: "", statusId: undefined, labelIds: [], dueDate: null };
 
 /// Linear's "New issue" modal, cut down to the title and three property pills
 /// (status, labels, due date). Enter or Cmd+Enter creates; with "Create more" on
@@ -60,10 +66,13 @@ export function QuickCreateTask({
   const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
   const space = spaces.find((s) => s.id === spaceId);
 
-  const [title, setTitle] = useState("");
-  const [statusId, setStatusId] = useState<string | undefined>();
-  const [labelIds, setLabelIds] = useState<string[]>([]);
-  const [dueDate, setDueDate] = useState<string | null>(null);
+  const form = useForm({
+    defaultValues: emptyValues,
+    validators: { onChange: taskSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending) create.mutate({ ...value, title: value.title.trim() });
+    },
+  });
   const [createMore, setCreateMore] = useState(false);
   const newLabel = useCreateLabel(spaceId);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -71,11 +80,13 @@ export function QuickCreateTask({
   // Each opening starts from the draft of whatever opened it.
   useEffect(() => {
     if (!open) return;
-    setTitle("");
-    setStatusId(draft.statusId ?? statuses[0]?.id);
-    setLabelIds(draft.labelIds ?? []);
-    setDueDate(null);
-  }, [open, draft, statuses]);
+    form.reset({
+      title: "",
+      statusId: draft.statusId ?? statuses[0]?.id,
+      labelIds: draft.labelIds ?? [],
+      dueDate: null,
+    });
+  }, [open, draft, statuses, form]);
 
   const create = useMutation({
     mutationFn: async (vars: NewTask) => {
@@ -90,7 +101,7 @@ export function QuickCreateTask({
     onSuccess: (task) => {
       onCreated(task);
       if (createMore) {
-        setTitle("");
+        form.setFieldValue("title", "");
         requestAnimationFrame(() => titleRef.current?.focus());
       } else {
         onOpenChange(false);
@@ -98,14 +109,6 @@ export function QuickCreateTask({
     },
   });
   const createStatus = useActionStatus(create);
-
-  function submit() {
-    if (!title.trim() || create.isPending) return;
-    create.mutate({ title: title.trim(), statusId, labelIds, dueDate });
-  }
-
-  const status = statusId ? statusById.get(statusId) : undefined;
-  const chosenLabels = labelIds.flatMap((id) => labelById.get(id) ?? []);
 
   return (
     <Dialog
@@ -124,14 +127,14 @@ export function QuickCreateTask({
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }
         }}
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
         >
           <div className="flex items-center gap-1.5 px-4 pt-4 text-xs text-muted-foreground">
@@ -147,78 +150,97 @@ export function QuickCreateTask({
             </DialogDescription>
           </div>
 
-          <input
-            ref={titleRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Task title"
-            aria-label="Task title"
-            aria-invalid={create.isError || undefined}
-            className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
-          />
+          <form.Field name="title">
+            {(field) => (
+              <input
+                ref={titleRef}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Task title"
+                aria-label="Task title"
+                aria-invalid={create.isError || undefined}
+                className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
+              />
+            )}
+          </form.Field>
 
           <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
-            <StatusPicker
-              statuses={statuses}
-              kindOf={kindOf}
-              value={statusId}
-              onSelect={setStatusId}
-            >
-              <button type="button" className={PROPERTY_PILL} aria-label="Change Status">
-                {status && <TaskStatusIcon status={status} kind={kindOf(status.id)} />}
-                <span className="truncate text-foreground">{status?.name ?? "Status"}</span>
-              </button>
-            </StatusPicker>
-
-            <LabelsPicker
-              labels={labels}
-              selected={labelIds}
-              onToggle={(id) =>
-                setLabelIds((prev) =>
-                  prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id],
-                )
-              }
-              onCreate={(name) =>
-                newLabel.mutate(name, {
-                  onSuccess: (label) => setLabelIds((prev) => [...prev, label.id]),
-                })
-              }
-              creating={newLabel.isPending}
-            >
-              <button
-                type="button"
-                aria-label="Change Labels"
-                className={cn(
-                  PROPERTY_PILL,
-                  chosenLabels.length > 0 && "max-w-none border-none px-0",
-                )}
-              >
-                {chosenLabels.length > 0 ? (
-                  chosenLabels.map((l) => (
-                    <LabelChip
-                      key={l.id}
-                      label={l}
-                      className="h-6 rounded-full border-foreground/10"
-                    />
-                  ))
-                ) : (
-                  <LabelsPlaceholder />
-                )}
-              </button>
-            </LabelsPicker>
-
-            <DueDatePicker value={dueDate} onSelect={setDueDate}>
-              <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
-                {dueDate ? (
-                  <DueLabel day={dueDate} tone={null} />
-                ) : (
+            <form.Subscribe selector={(state) => state.values}>
+              {({ statusId, labelIds, dueDate }) => {
+                const status = statusId ? statusById.get(statusId) : undefined;
+                const chosenLabels = labelIds.flatMap((id) => labelById.get(id) ?? []);
+                return (
                   <>
-                    <IconCalendarEvent size={14} className="shrink-0" />
-                    Due date
+                    <StatusPicker
+                      statuses={statuses}
+                      kindOf={kindOf}
+                      value={statusId}
+                      onSelect={(id) => form.setFieldValue("statusId", id)}
+                    >
+                      <button type="button" className={PROPERTY_PILL} aria-label="Change Status">
+                        {status && <TaskStatusIcon status={status} kind={kindOf(status.id)} />}
+                        <span className="truncate text-foreground">{status?.name ?? "Status"}</span>
+                      </button>
+                    </StatusPicker>
+
+                    <LabelsPicker
+                      labels={labels}
+                      selected={labelIds}
+                      onToggle={(id) =>
+                        form.setFieldValue("labelIds", (prev) =>
+                          prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id],
+                        )
+                      }
+                      onCreate={(name) =>
+                        newLabel.mutate(name, {
+                          onSuccess: (label) =>
+                            form.setFieldValue("labelIds", (prev) => [...prev, label.id]),
+                        })
+                      }
+                      creating={newLabel.isPending}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Change Labels"
+                        className={cn(
+                          PROPERTY_PILL,
+                          chosenLabels.length > 0 && "max-w-none border-none px-0",
+                        )}
+                      >
+                        {chosenLabels.length > 0 ? (
+                          chosenLabels.map((l) => (
+                            <LabelChip
+                              key={l.id}
+                              label={l}
+                              className="h-6 rounded-full border-foreground/10"
+                            />
+                          ))
+                        ) : (
+                          <LabelsPlaceholder />
+                        )}
+                      </button>
+                    </LabelsPicker>
+
+                    <DueDatePicker
+                      value={dueDate}
+                      onSelect={(day) => form.setFieldValue("dueDate", day)}
+                    >
+                      <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
+                        {dueDate ? (
+                          <DueLabel day={dueDate} tone={null} />
+                        ) : (
+                          <>
+                            <IconCalendarEvent size={14} className="shrink-0" />
+                            Due date
+                          </>
+                        )}
+                      </button>
+                    </DueDatePicker>
                   </>
-                )}
-              </button>
-            </DueDatePicker>
+                );
+              }}
+            </form.Subscribe>
           </div>
 
           <div className="flex items-center gap-3 border-t border-border px-4 py-3">
@@ -231,14 +253,18 @@ export function QuickCreateTask({
                 Create more
               </label>
             </div>
-            <Button type="submit" size="sm" disabled={!title.trim() && createStatus === "idle"}>
-              <StatusButtonContent
-                status={createStatus}
-                label="Create task"
-                successLabel="Created"
-                errorLabel="Try again"
-              />
-            </Button>
+            <form.Subscribe selector={(state) => taskSchema.safeParse(state.values).success}>
+              {(ready) => (
+                <Button type="submit" size="sm" disabled={!ready && createStatus === "idle"}>
+                  <StatusButtonContent
+                    status={createStatus}
+                    label="Create task"
+                    successLabel="Created"
+                    errorLabel="Try again"
+                  />
+                </Button>
+              )}
+            </form.Subscribe>
           </div>
         </form>
       </DialogContent>

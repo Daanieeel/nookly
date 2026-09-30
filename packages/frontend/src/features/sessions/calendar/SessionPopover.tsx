@@ -8,11 +8,13 @@ import {
   IconRestore,
   IconTrash,
 } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   FieldError,
   StatusAnnouncer,
@@ -72,6 +74,21 @@ const SCOPES = [
   { id: "following", label: "This and following" },
   { id: "upcoming", label: "All upcoming" },
 ] satisfies { id: EditScope; label: string }[];
+
+const sessionEditSchema = z
+  .object({
+    title: z.string().trim().min(1),
+    date: z.string().min(1),
+    startTime: z.string().min(1),
+    endTime: z.string().min(1, "End after it starts"),
+    location: z.string(),
+  })
+  .refine((v) => v.startTime < v.endTime, {
+    path: ["endTime"],
+    message: "End after it starts",
+  });
+
+type SessionEditValues = z.infer<typeof sessionEditSchema>;
 
 function refreshSessions(queryClient: QueryClient, entityId: string) {
   return Promise.all([
@@ -291,16 +308,23 @@ function SessionEditForm({
   const queryClient = useQueryClient();
   const { entity, templateId } = occurrence;
   const [scope, setScope] = useState<EditScope>("this");
-  const [title, setTitle] = useState(entity.title);
-  const [date, setDate] = useState(occurrence.date);
-  const [startTime, setStartTime] = useState(occurrence.startTime);
-  const [endTime, setEndTime] = useState(occurrence.endTime);
-  const [location, setLocation] = useState(occurrence.location ?? "");
-  const timesValid = Boolean(startTime && endTime) && startTime < endTime;
-  const valid = title.trim() !== "" && Boolean(date) && timesValid;
+
+  const form = useForm({
+    defaultValues: {
+      title: entity.title,
+      date: occurrence.date,
+      startTime: occurrence.startTime,
+      endTime: occurrence.endTime,
+      location: occurrence.location ?? "",
+    } satisfies SessionEditValues,
+    validators: { onChange: sessionEditSchema },
+    onSubmit: ({ value }) => {
+      if (!save.isPending) save.mutate(value);
+    },
+  });
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ title, date, startTime, endTime, location }: SessionEditValues) => {
       const nextLocation = location.trim() || null;
       if (scope === "this" || !templateId) {
         if (title.trim() !== entity.title) await updateEntity(entity.id, { title: title.trim() });
@@ -330,7 +354,7 @@ function SessionEditForm({
       className="flex flex-col gap-2 p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid && !save.isPending) save.mutate();
+        void form.handleSubmit();
       }}
     >
       {templateId && (
@@ -345,43 +369,67 @@ function SessionEditForm({
           </TabsList>
         </Tabs>
       )}
-      <Input
-        aria-label="Title"
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
+      <form.Field name="title">
+        {(field) => (
+          <Input
+            aria-label="Title"
+            placeholder="Title"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
       {scope === "this" && (
-        <DateInput
-          aria-label="Date"
-          clearable={false}
-          value={date || null}
-          onChange={(day) => setDate(day ?? "")}
-        />
+        <form.Field name="date">
+          {(field) => (
+            <DateInput
+              aria-label="Date"
+              clearable={false}
+              value={field.state.value || null}
+              onChange={(day) => field.handleChange(day ?? "")}
+            />
+          )}
+        </form.Field>
       )}
       <div className="flex items-center gap-1.5">
-        <Input
-          type="time"
-          aria-label="Start time"
-          value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
-          className="flex-1"
-        />
+        <form.Field name="startTime">
+          {(field) => (
+            <Input
+              type="time"
+              aria-label="Start time"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              className="flex-1"
+            />
+          )}
+        </form.Field>
         <span className="text-xs text-muted-foreground">to</span>
-        <Input
-          type="time"
-          aria-label="End time"
-          value={endTime}
-          onChange={(e) => setEndTime(e.target.value)}
-          className="flex-1"
-        />
+        <form.Field name="endTime">
+          {(field) => (
+            <Input
+              type="time"
+              aria-label="End time"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              className="flex-1"
+            />
+          )}
+        </form.Field>
       </div>
-      <Input
-        aria-label="Location"
-        placeholder="Location"
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-      />
+      <form.Field name="location">
+        {(field) => (
+          <Input
+            aria-label="Location"
+            placeholder="Location"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
       {scope !== "this" && (
         <p className="text-xs text-muted-foreground">
           {scope === "following"
@@ -390,23 +438,26 @@ function SessionEditForm({
           Past sessions and changes made to single sessions stay as they are.
         </p>
       )}
-      <FieldError
-        message={
-          (!timesValid && startTime >= endTime && "End after it starts") ||
-          (save.isError && save.error.message)
-        }
-      />
+      <form.Subscribe selector={(state) => state.fieldMeta.endTime?.errors[0]}>
+        {(endError) => (
+          <FieldError message={endError?.message || (save.isError && save.error.message)} />
+        )}
+      </form.Subscribe>
       <div className="flex justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={!valid}>
-          <StatusButtonContent
-            status={statusOf(save)}
-            label="Save"
-            errorLabel="Couldn't save, try again"
-          />
-        </Button>
+        <form.Subscribe selector={(state) => sessionEditSchema.safeParse(state.values).success}>
+          {(ready) => (
+            <Button type="submit" size="sm" disabled={!ready}>
+              <StatusButtonContent
+                status={statusOf(save)}
+                label="Save"
+                errorLabel="Couldn't save, try again"
+              />
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   );

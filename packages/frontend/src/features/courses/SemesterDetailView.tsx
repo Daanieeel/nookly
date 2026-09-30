@@ -7,7 +7,9 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   StatusAnnouncer,
   StatusButtonContent,
@@ -256,6 +258,8 @@ function StatItem({
 /// tile, since it's an action rather than a Course — opening a small popover
 /// with the two ways to grow a Semester's Course grid: link an existing
 /// Course, or create a new one pre-linked to it.
+const addCourseSchema = z.object({ title: z.string().trim().min(1) });
+
 function AddCourseCard({
   spaceId,
   semesterId,
@@ -267,11 +271,18 @@ function AddCourseCard({
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const form = useForm({
+    defaultValues: { title: "" },
+    validators: { onChange: addCourseSchema },
+    onSubmit: ({ value }) => {
+      if (!busy) create.mutate(value.title);
+    },
+  });
+
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (title: string) => {
       const course = await createCourse(spaceId, title.trim());
       await setCourseSemester(course.id, semesterId);
       return course;
@@ -296,11 +307,11 @@ function AddCourseCard({
   useEffect(() => {
     if (open) inputRef.current?.focus();
     else {
-      setTitle("");
+      form.reset();
       resetCreate();
       resetLink();
     }
-  }, [open, resetCreate, resetLink]);
+  }, [open, resetCreate, resetLink, form]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -316,25 +327,34 @@ function AddCourseCard({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim() && !busy) create.mutate();
+            void form.handleSubmit();
           }}
           className="flex flex-col gap-2"
         >
-          <Input
-            ref={inputRef}
-            placeholder="New course name"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="h-8 text-sm"
-          />
-          <Button type="submit" size="sm" disabled={!title.trim()}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create & link"
-              successLabel="Created and linked"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={inputRef}
+                placeholder="New course name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                className="h-8 text-sm"
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => addCourseSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button type="submit" size="sm" disabled={!ready}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create & link"
+                  successLabel="Created and linked"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </form>
         <div className="my-2 flex items-center gap-2 text-xs text-muted-foreground">
           <Separator className="flex-1" /> or <Separator className="flex-1" />

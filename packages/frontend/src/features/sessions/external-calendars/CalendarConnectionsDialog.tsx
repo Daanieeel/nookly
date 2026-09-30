@@ -1,8 +1,9 @@
 import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { CSSProperties, ReactNode } from "react";
-import { useState } from "react";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -271,25 +272,38 @@ function GoogleConnect({ available }: { available: boolean }) {
   );
 }
 
+const icloudSchema = z.object({
+  appleId: z.string().trim().min(1),
+  password: z.string().trim().min(1),
+});
+
+type IcloudValues = z.infer<typeof icloudSchema>;
+
+const emptyValues: IcloudValues = { appleId: "", password: "" };
+
 function IcloudConnect() {
   const queryClient = useQueryClient();
-  const [appleId, setAppleId] = useState("");
-  const [password, setPassword] = useState("");
+  const form = useForm({
+    defaultValues: emptyValues,
+    validators: { onChange: icloudSchema },
+    onSubmit: ({ value }) => {
+      if (!connect.isPending) connect.mutate(value);
+    },
+  });
   const connect = useMutation({
-    mutationFn: () => connectIcloudCalendar(appleId, password),
+    mutationFn: ({ appleId, password }: IcloudValues) => connectIcloudCalendar(appleId, password),
     onSuccess: () => {
-      setPassword("");
+      form.setFieldValue("password", "");
       return queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY });
     },
   });
-  const ready = appleId.trim() !== "" && password.trim() !== "";
 
   return (
     <form
       className="flex flex-col gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready && !connect.isPending) connect.mutate();
+        void form.handleSubmit();
       }}
     >
       <p className="text-xs text-muted-foreground">
@@ -311,29 +325,49 @@ function IcloudConnect() {
         <IconExternalLink size={12} />
         Open Apple Account
       </Button>
-      <Input
-        type="email"
-        placeholder="Apple ID, e.g. you@icloud.com"
-        aria-label="Apple ID"
-        value={appleId}
-        onChange={(e) => setAppleId(e.target.value)}
-      />
-      <Input
-        type="password"
-        placeholder="App specific password"
-        aria-label="App specific password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <form.Field name="appleId">
+        {(field) => (
+          <Input
+            type="email"
+            placeholder="Apple ID, e.g. you@icloud.com"
+            aria-label="Apple ID"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
+      <form.Field name="password">
+        {(field) => (
+          <Input
+            type="password"
+            placeholder="App specific password"
+            aria-label="App specific password"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
       <FieldError message={connect.isError && connect.error.message} />
-      <Button type="submit" variant="secondary" size="sm" className="self-start" disabled={!ready}>
-        <StatusButtonContent
-          status={statusOf(connect)}
-          icon={<ProviderIcon provider="icloud" size={14} />}
-          label="Connect iCloud"
-          errorLabel="Try again"
-        />
-      </Button>
+      <form.Subscribe selector={(state) => icloudSchema.safeParse(state.values).success}>
+        {(ready) => (
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            disabled={!ready}
+          >
+            <StatusButtonContent
+              status={statusOf(connect)}
+              icon={<ProviderIcon provider="icloud" size={14} />}
+              label="Connect iCloud"
+              errorLabel="Try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

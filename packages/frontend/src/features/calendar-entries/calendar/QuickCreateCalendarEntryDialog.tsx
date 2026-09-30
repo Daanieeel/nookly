@@ -1,6 +1,8 @@
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMonths, addWeeks, format } from "date-fns";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -35,7 +37,44 @@ import {
 } from "@nookly/ui/components/select";
 import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
 
-type Recurrence = "none" | "daily" | "weekly" | "monthly";
+const recurrenceSchema = z.enum(["none", "daily", "weekly", "monthly"]);
+
+type Recurrence = z.infer<typeof recurrenceSchema>;
+
+const entrySchema = z
+  .object({
+    title: z.string().trim().min(1),
+    targetSpaceId: z.string().min(1),
+    date: z.string().min(1),
+    endDate: z.string(),
+    allDay: z.boolean(),
+    startTime: z.string(),
+    endTime: z.string(),
+    location: z.string(),
+    recurrence: recurrenceSchema,
+  })
+  .refine((v) => v.allDay || (Boolean(v.startTime && v.endTime) && v.startTime < v.endTime), {
+    path: ["endTime"],
+    message: "End after it starts",
+  })
+  .refine((v) => !v.endDate || v.endDate >= v.date, {
+    path: ["endDate"],
+    message: "Can't end before it starts",
+  });
+
+type EntryValues = z.infer<typeof entrySchema>;
+
+const emptyValues: EntryValues = {
+  title: "",
+  targetSpaceId: "",
+  date: "",
+  endDate: "",
+  allDay: false,
+  startTime: "09:00",
+  endTime: "10:00",
+  location: "",
+  recurrence: "none",
+};
 
 const RECURRENCE_OPTIONS = [
   { value: "none", label: "Doesn't repeat" },
@@ -43,6 +82,14 @@ const RECURRENCE_OPTIONS = [
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
 ] satisfies { value: Recurrence; label: string }[];
+
+/// The message for the time or span problem shown under the fields, if any.
+function entryError(values: EntryValues): string | undefined {
+  const issues = entrySchema.safeParse(values).error?.issues ?? [];
+  const timesIssue = issues.find((i) => i.path[0] === "endTime");
+  if (timesIssue && values.startTime >= values.endTime) return timesIssue.message;
+  return issues.find((i) => i.path[0] === "endDate")?.message;
+}
 
 /// How far ahead occurrences are generated up front for each cadence, so a
 /// recurring calendar entry shows a useful run on the calendar right away.
@@ -76,39 +123,44 @@ export function QuickCreateCalendarEntryDialog({
     queryFn: listSpaces,
     enabled: spaceId === undefined,
   });
-  const [title, setTitle] = useState("");
-  const [targetSpaceId, setTargetSpaceId] = useState(spaceId ?? "");
-  const [date, setDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [allDay, setAllDay] = useState(false);
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
-  const [location, setLocation] = useState("");
-  const [recurrence, setRecurrence] = useState<Recurrence>("none");
   const titleRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm({
+    defaultValues: { ...emptyValues, targetSpaceId: spaceId ?? "" },
+    validators: { onChange: entrySchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending && createStatus !== "success") create.mutate(value);
+    },
+  });
 
   useEffect(() => {
     if (!draft) return;
-    setTitle("");
-    setTargetSpaceId(spaceId ?? "");
-    setDate(format(draft.date, "yyyy-MM-dd"));
-    setEndDate(draft.endDate ? format(draft.endDate, "yyyy-MM-dd") : "");
-    setAllDay(false);
-    setStartTime(minutesToTime(draft.startMin));
-    setEndTime(minutesToTime(draft.endMin));
-    setLocation("");
-    setRecurrence("none");
+    form.reset({
+      title: "",
+      targetSpaceId: spaceId ?? "",
+      date: format(draft.date, "yyyy-MM-dd"),
+      endDate: draft.endDate ? format(draft.endDate, "yyyy-MM-dd") : "",
+      allDay: false,
+      startTime: minutesToTime(draft.startMin),
+      endTime: minutesToTime(draft.endMin),
+      location: "",
+      recurrence: "none",
+    });
     setTimeout(() => titleRef.current?.focus(), 0);
-  }, [draft, spaceId]);
-
-  const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
-  const spanValid = !endDate || endDate >= date;
-  const spansDays = Boolean(endDate);
-  const ready =
-    title.trim() !== "" && targetSpaceId !== "" && Boolean(date) && timesValid && spanValid;
+  }, [draft, spaceId, form]);
 
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({
+      title,
+      targetSpaceId,
+      date,
+      endDate,
+      allDay,
+      startTime,
+      endTime,
+      location,
+      recurrence,
+    }: EntryValues) => {
       if (!draft || !date) throw new Error("Pick a date first");
       if (!targetSpaceId) throw new Error("Pick a Space first");
       const nextLocation = location.trim() || null;
@@ -171,122 +223,167 @@ export function QuickCreateCalendarEntryDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (ready && !create.isPending) create.mutate();
+            void form.handleSubmit();
           }}
           className="flex flex-col gap-3"
         >
           {spaceId === undefined && (
-            <Select value={targetSpaceId} onValueChange={setTargetSpaceId}>
-              <SelectTrigger className="w-full" aria-label="Space">
-                <SelectValue placeholder="Pick a Space…" />
-              </SelectTrigger>
-              <SelectContent>
-                {spaces.map((space) => (
-                  <SelectItem key={space.id} value={space.id}>
-                    <span className="flex items-center gap-2">
-                      <SpaceGlyph space={space} size={14} />
-                      {space.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <form.Field name="targetSpaceId">
+              {(field) => (
+                <Select value={field.state.value} onValueChange={field.handleChange}>
+                  <SelectTrigger className="w-full" aria-label="Space">
+                    <SelectValue placeholder="Pick a Space…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {spaces.map((space) => (
+                      <SelectItem key={space.id} value={space.id}>
+                        <span className="flex items-center gap-2">
+                          <SpaceGlyph space={space} size={14} />
+                          {space.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </form.Field>
           )}
-          <Input
-            ref={titleRef}
-            placeholder="Title, e.g. Dentist"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={titleRef}
+                placeholder="Title, e.g. Dentist"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
           <div className="flex items-center gap-1.5">
-            <DateInput
-              aria-label="Date"
-              clearable={false}
-              value={date || null}
-              onChange={(day) => setDate(day ?? "")}
-            />
+            <form.Field name="date">
+              {(field) => (
+                <DateInput
+                  aria-label="Date"
+                  clearable={false}
+                  value={field.state.value || null}
+                  onChange={(day) => field.handleChange(day ?? "")}
+                />
+              )}
+            </form.Field>
             <span className="text-xs text-muted-foreground">to</span>
-            <DateInput
-              aria-label="End date"
-              placeholder="Same day"
-              value={endDate || null}
-              onChange={(day) => setEndDate(day ?? "")}
-            />
+            <form.Field name="endDate">
+              {(field) => (
+                <DateInput
+                  aria-label="End date"
+                  placeholder="Same day"
+                  value={field.state.value || null}
+                  onChange={(day) => field.handleChange(day ?? "")}
+                />
+              )}
+            </form.Field>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="calendar-entry-create-all-day"
-              checked={allDay}
-              onCheckedChange={(v) => setAllDay(v === true)}
-            />
-            <Label htmlFor="calendar-entry-create-all-day" className="font-normal">
-              All day
-            </Label>
-          </div>
-          {!allDay && (
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="time"
-                aria-label="Start time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="flex-1"
-              />
-              <span className="text-xs text-muted-foreground">to</span>
-              <Input
-                type="time"
-                aria-label="End time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="flex-1"
-              />
-            </div>
-          )}
-          <Input
-            placeholder="Location (optional)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-          {!spansDays && (
-            <Select
-              value={recurrence}
-              // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
-              onValueChange={(v) => setRecurrence(v as Recurrence)}
-            >
-              <SelectTrigger className="w-full" aria-label="Repeat">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {RECURRENCE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <FieldError
-            message={
-              (!timesValid && startTime >= endTime && "End after it starts") ||
-              (!spanValid && "Can't end before it starts") ||
-              (create.isError && create.error.message)
+          <form.Field name="allDay">
+            {(field) => (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="calendar-entry-create-all-day"
+                  checked={field.state.value}
+                  onCheckedChange={(v) => field.handleChange(v === true)}
+                />
+                <Label htmlFor="calendar-entry-create-all-day" className="font-normal">
+                  All day
+                </Label>
+              </div>
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => state.values.allDay}>
+            {(allDay) =>
+              !allDay && (
+                <div className="flex items-center gap-1.5">
+                  <form.Field name="startTime">
+                    {(field) => (
+                      <Input
+                        type="time"
+                        aria-label="Start time"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        className="flex-1"
+                      />
+                    )}
+                  </form.Field>
+                  <span className="text-xs text-muted-foreground">to</span>
+                  <form.Field name="endTime">
+                    {(field) => (
+                      <Input
+                        type="time"
+                        aria-label="End time"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        className="flex-1"
+                      />
+                    )}
+                  </form.Field>
+                </div>
+              )
             }
-          />
+          </form.Subscribe>
+          <form.Field name="location">
+            {(field) => (
+              <Input
+                placeholder="Location (optional)"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => Boolean(state.values.endDate)}>
+            {(spansDays) =>
+              !spansDays && (
+                <form.Field name="recurrence">
+                  {(field) => (
+                    <Select
+                      value={field.state.value}
+                      // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
+                      onValueChange={(v) => field.handleChange(v as Recurrence)}
+                    >
+                      <SelectTrigger className="w-full" aria-label="Repeat">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RECURRENCE_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </form.Field>
+              )
+            }
+          </form.Subscribe>
+          <form.Subscribe selector={(state) => entryError(state.values)}>
+            {(error) => <FieldError message={error || (create.isError && create.error.message)} />}
+          </form.Subscribe>
           {/* Lets Enter submit from any field. */}
           <button type="submit" hidden aria-label="Create calendar entry" />
         </form>
         <DialogFooter>
-          <Button
-            disabled={!ready}
-            onClick={() => !create.isPending && createStatus !== "success" && create.mutate()}
-          >
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Entry created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={(state) => entrySchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={createStatus}
+                  label="Create"
+                  successLabel="Entry created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

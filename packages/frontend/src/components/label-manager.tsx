@@ -1,6 +1,8 @@
 import { IconAlertTriangle, IconPlus, IconTag, IconTrash } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useState } from "react";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -68,6 +70,8 @@ export function useCreateLabel(spaceId: string) {
   });
 }
 
+const nameSchema = z.object({ name: z.string().trim().min(1) });
+
 /// A name field that creates a label on Enter, for surfaces without a picker of
 /// their own (the context menu's Labels submenu).
 export function NewLabelForm({
@@ -77,41 +81,57 @@ export function NewLabelForm({
   spaceId: string;
   onCreated: (label: Label) => Promise<void>;
 }) {
-  const [name, setName] = useState("");
   const create = useMutation({
     mutationFn: async (value: string) => {
       const label = await createLabel(spaceId, value, labelColorFor(value));
       await onCreated(label);
     },
   });
-  const trimmed = name.trim();
+  const form = useForm({
+    defaultValues: { name: "" },
+    validators: { onChange: nameSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending) create.mutate(value.name.trim());
+    },
+  });
   return (
     <form
       className="flex w-60 flex-col gap-1 p-1"
       onSubmit={(e) => {
         e.preventDefault();
-        if (trimmed && !create.isPending) create.mutate(trimmed);
+        void form.handleSubmit();
       }}
     >
       <div className="relative">
         <span className="pointer-events-none absolute top-1/2 left-3 flex -translate-y-1/2">
-          <StatusIcon
-            status={statusOf(create)}
-            idle={<Swatch color={trimmed ? labelColorFor(trimmed) : "var(--muted-foreground)"} />}
-            size={12}
-          />
+          <form.Subscribe selector={(state) => state.values.name.trim()}>
+            {(trimmed) => (
+              <StatusIcon
+                status={statusOf(create)}
+                idle={
+                  <Swatch color={trimmed ? labelColorFor(trimmed) : "var(--muted-foreground)"} />
+                }
+                size={12}
+              />
+            )}
+          </form.Subscribe>
         </span>
-        <Input
-          autoFocus
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            if (create.isError) create.reset();
-          }}
-          placeholder="New label, press Enter"
-          aria-label="New label name"
-          className="pl-8"
-        />
+        <form.Field name="name">
+          {(field) => (
+            <Input
+              autoFocus
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => {
+                field.handleChange(e.target.value);
+                if (create.isError) create.reset();
+              }}
+              placeholder="New label, press Enter"
+              aria-label="New label name"
+              className="pl-8"
+            />
+          )}
+        </form.Field>
       </div>
       <FieldError message={create.isError && "Couldn't create label."} />
     </form>
@@ -147,24 +167,26 @@ export function LabelsDialog({
     queryFn: () => listLabels(spaceId),
     enabled: open,
   });
-  const [draft, setDraft] = useState("");
   const create = useCreateLabel(spaceId);
-  const name = draft.trim();
-  const exists = labels.some((l) => l.name.toLowerCase() === name.toLowerCase());
+  const form = useForm({
+    defaultValues: { name: "" },
+    validators: { onChange: nameSchema },
+    onSubmit: ({ value }) => {
+      const name = value.name.trim();
+      const exists = labels.some((l) => l.name.toLowerCase() === name.toLowerCase());
+      if (exists || create.isPending) return;
+      create.mutate(name, { onSuccess: () => form.reset() });
+    },
+  });
 
   useEffect(() => {
     if (!open) {
-      setDraft("");
+      form.reset();
       create.reset();
     }
     // `create.reset` is stable; only the dialog closing should clear the draft.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  const submit = () => {
-    if (!name || exists || create.isPending) return;
-    create.mutate(name, { onSuccess: () => setDraft("") });
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -178,41 +200,57 @@ export function LabelsDialog({
           className="flex flex-col gap-1"
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
         >
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Swatch
-                color={name ? labelColorFor(name) : "var(--muted-foreground)"}
-                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-              />
-              <Input
-                autoFocus
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  if (create.isError) create.reset();
-                }}
-                placeholder="New label"
-                aria-label="New label name"
-                className="pl-8"
-              />
-            </div>
-            <Button type="submit" variant="secondary" disabled={!name || exists}>
-              <StatusButtonContent
-                status={statusOf(create)}
-                icon={<IconPlus />}
-                label="Add"
-                errorLabel="Retry"
-              />
-            </Button>
-          </div>
-          <FieldError
-            message={
-              exists ? "A label with this name exists." : create.isError && "Couldn't add label."
-            }
-          />
+          <form.Subscribe selector={(state) => state.values.name.trim()}>
+            {(name) => {
+              const exists = labels.some((l) => l.name.toLowerCase() === name.toLowerCase());
+              return (
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Swatch
+                        color={name ? labelColorFor(name) : "var(--muted-foreground)"}
+                        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                      />
+                      <form.Field name="name">
+                        {(field) => (
+                          <Input
+                            autoFocus
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              field.handleChange(e.target.value);
+                              if (create.isError) create.reset();
+                            }}
+                            placeholder="New label"
+                            aria-label="New label name"
+                            className="pl-8"
+                          />
+                        )}
+                      </form.Field>
+                    </div>
+                    <Button type="submit" variant="secondary" disabled={!name || exists}>
+                      <StatusButtonContent
+                        status={statusOf(create)}
+                        icon={<IconPlus />}
+                        label="Add"
+                        errorLabel="Retry"
+                      />
+                    </Button>
+                  </div>
+                  <FieldError
+                    message={
+                      exists
+                        ? "A label with this name exists."
+                        : create.isError && "Couldn't add label."
+                    }
+                  />
+                </>
+              );
+            }}
+          </form.Subscribe>
         </form>
 
         {labels.length === 0 ? (

@@ -7,11 +7,13 @@ import {
   IconRestore,
   IconTrash,
 } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   FieldError,
   StatusAnnouncer,
@@ -68,6 +70,27 @@ const SCOPES = [
   { id: "following", label: "This and following" },
   { id: "upcoming", label: "All upcoming" },
 ] satisfies { id: EditScope; label: string }[];
+
+const entryEditSchema = z
+  .object({
+    title: z.string().trim().min(1),
+    date: z.string().min(1),
+    endDate: z.string(),
+    allDay: z.boolean(),
+    startTime: z.string(),
+    endTime: z.string(),
+    location: z.string(),
+  })
+  .refine((v) => v.allDay || (v.startTime !== "" && v.endTime !== "" && v.startTime < v.endTime), {
+    path: ["endTime"],
+    message: "End after it starts",
+  })
+  .refine((v) => !v.endDate || v.endDate >= v.date, {
+    path: ["endDate"],
+    message: "Can't end before it starts",
+  });
+
+type EntryEditValues = z.infer<typeof entryEditSchema>;
 
 function refreshEntries(queryClient: QueryClient, entityId: string) {
   return Promise.all([
@@ -281,19 +304,33 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
   const queryClient = useQueryClient();
   const { entity, templateId } = entry;
   const [scope, setScope] = useState<EditScope>("this");
-  const [title, setTitle] = useState(entity.title);
-  const [date, setDate] = useState(entry.date);
-  const [endDate, setEndDate] = useState(entry.endDate ?? "");
-  const [allDay, setAllDay] = useState(entry.allDay);
-  const [startTime, setStartTime] = useState(entry.startTime ?? "09:00");
-  const [endTime, setEndTime] = useState(entry.endTime ?? "10:00");
-  const [location, setLocation] = useState(entry.location ?? "");
-  const timesValid = allDay || (Boolean(startTime && endTime) && startTime < endTime);
-  const spanValid = !endDate || endDate >= date;
-  const valid = title.trim() !== "" && Boolean(date) && timesValid && spanValid;
+
+  const form = useForm({
+    defaultValues: {
+      title: entity.title,
+      date: entry.date,
+      endDate: entry.endDate ?? "",
+      allDay: entry.allDay,
+      startTime: entry.startTime ?? "09:00",
+      endTime: entry.endTime ?? "10:00",
+      location: entry.location ?? "",
+    } satisfies EntryEditValues,
+    validators: { onChange: entryEditSchema },
+    onSubmit: ({ value }) => {
+      if (!save.isPending) save.mutate(value);
+    },
+  });
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({
+      title,
+      date,
+      endDate,
+      allDay,
+      startTime,
+      endTime,
+      location,
+    }: EntryEditValues) => {
       const nextLocation = location.trim() || null;
       if (scope === "this" || !templateId) {
         if (title.trim() !== entity.title) await updateEntity(entity.id, { title: title.trim() });
@@ -325,7 +362,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       className="flex flex-col gap-2 p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid && !save.isPending) save.mutate();
+        void form.handleSubmit();
       }}
     >
       {templateId && (
@@ -340,63 +377,99 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
           </TabsList>
         </Tabs>
       )}
-      <Input
-        aria-label="Title"
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
+      <form.Field name="title">
+        {(field) => (
+          <Input
+            aria-label="Title"
+            placeholder="Title"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
       {scope === "this" && (
         <>
-          <DateInput
-            aria-label="Date"
-            clearable={false}
-            value={date || null}
-            onChange={(day) => setDate(day ?? "")}
-          />
-          <DateInput
-            aria-label="End date"
-            placeholder="Ends same day"
-            value={endDate || null}
-            onChange={(day) => setEndDate(day ?? "")}
-          />
+          <form.Field name="date">
+            {(field) => (
+              <DateInput
+                aria-label="Date"
+                clearable={false}
+                value={field.state.value || null}
+                onChange={(day) => field.handleChange(day ?? "")}
+              />
+            )}
+          </form.Field>
+          <form.Field name="endDate">
+            {(field) => (
+              <DateInput
+                aria-label="End date"
+                placeholder="Ends same day"
+                value={field.state.value || null}
+                onChange={(day) => field.handleChange(day ?? "")}
+              />
+            )}
+          </form.Field>
         </>
       )}
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="calendar-entry-all-day"
-          checked={allDay}
-          onCheckedChange={(v) => setAllDay(v === true)}
-        />
-        <Label htmlFor="calendar-entry-all-day" className="font-normal">
-          All day
-        </Label>
-      </div>
-      {!allDay && (
-        <div className="flex items-center gap-1.5">
+      <form.Field name="allDay">
+        {(field) => (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="calendar-entry-all-day"
+              checked={field.state.value}
+              onCheckedChange={(v) => field.handleChange(v === true)}
+            />
+            <Label htmlFor="calendar-entry-all-day" className="font-normal">
+              All day
+            </Label>
+          </div>
+        )}
+      </form.Field>
+      <form.Subscribe selector={(state) => state.values.allDay}>
+        {(allDay) =>
+          !allDay && (
+            <div className="flex items-center gap-1.5">
+              <form.Field name="startTime">
+                {(field) => (
+                  <Input
+                    type="time"
+                    aria-label="Start time"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="flex-1"
+                  />
+                )}
+              </form.Field>
+              <span className="text-xs text-muted-foreground">to</span>
+              <form.Field name="endTime">
+                {(field) => (
+                  <Input
+                    type="time"
+                    aria-label="End time"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="flex-1"
+                  />
+                )}
+              </form.Field>
+            </div>
+          )
+        }
+      </form.Subscribe>
+      <form.Field name="location">
+        {(field) => (
           <Input
-            type="time"
-            aria-label="Start time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="flex-1"
+            aria-label="Location"
+            placeholder="Location"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
           />
-          <span className="text-xs text-muted-foreground">to</span>
-          <Input
-            type="time"
-            aria-label="End time"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            className="flex-1"
-          />
-        </div>
-      )}
-      <Input
-        aria-label="Location"
-        placeholder="Location"
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-      />
+        )}
+      </form.Field>
       {scope !== "this" && (
         <p className="text-xs text-muted-foreground">
           {scope === "following"
@@ -405,24 +478,30 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
           Past entries and changes made to single ones stay as they are.
         </p>
       )}
-      <FieldError
-        message={
-          (!timesValid && startTime >= endTime && "End after it starts") ||
-          (!spanValid && "Can't end before it starts") ||
-          (save.isError && save.error.message)
+      <form.Subscribe
+        selector={(state) =>
+          state.fieldMeta.endTime?.errors[0] ?? state.fieldMeta.endDate?.errors[0]
         }
-      />
+      >
+        {(fieldError) => (
+          <FieldError message={fieldError?.message || (save.isError && save.error.message)} />
+        )}
+      </form.Subscribe>
       <div className="flex justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={!valid}>
-          <StatusButtonContent
-            status={statusOf(save)}
-            label="Save"
-            errorLabel="Couldn't save, try again"
-          />
-        </Button>
+        <form.Subscribe selector={(state) => entryEditSchema.safeParse(state.values).success}>
+          {(ready) => (
+            <Button type="submit" size="sm" disabled={!ready}>
+              <StatusButtonContent
+                status={statusOf(save)}
+                label="Save"
+                errorLabel="Couldn't save, try again"
+              />
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   );

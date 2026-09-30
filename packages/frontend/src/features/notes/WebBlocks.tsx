@@ -7,9 +7,11 @@ import {
   IconWorld,
 } from "@tabler/icons-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -35,6 +37,8 @@ export interface WebBlockOptions {
 }
 
 const HTTP_URL = /^https?:\/\/\S+$/;
+const INVALID_URL = "Paste a full link, starting with https://";
+const urlSchema = z.object({ url: z.string().trim().regex(HTTP_URL, INVALID_URL) });
 
 function hostOf(url: string): string {
   try {
@@ -89,37 +93,43 @@ function UrlForm({
   onSubmit: (url: string) => void;
   children?: ReactNode;
 }) {
-  const [url, setUrl] = useState("");
-  const [invalid, setInvalid] = useState(false);
+  // Validated on submit only, so the error appears after a try and clears on the next edit.
+  const form = useForm({
+    defaultValues: { url: "" },
+    validators: { onSubmit: urlSchema },
+    onSubmit: ({ value }) => onSubmit(value.url.trim()),
+  });
   return (
     <div className="media-picker flex-col items-stretch">
       <form
         className="flex items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          const trimmed = url.trim();
-          if (!HTTP_URL.test(trimmed)) return setInvalid(true);
-          onSubmit(trimmed);
+          void form.handleSubmit();
         }}
       >
         <span className="flex shrink-0 text-muted-foreground">{icon}</span>
-        <Input
-          value={url}
-          onChange={(event) => {
-            setUrl(event.target.value);
-            setInvalid(false);
-          }}
-          placeholder={prompt}
-          aria-label={prompt}
-          aria-invalid={invalid}
-          className="h-7 min-w-0 flex-1 text-xs"
-        />
+        <form.Field name="url">
+          {(field) => (
+            <Input
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(event) => field.handleChange(event.target.value)}
+              placeholder={prompt}
+              aria-label={prompt}
+              aria-invalid={field.state.meta.errors.length > 0}
+              className="h-7 min-w-0 flex-1 text-xs"
+            />
+          )}
+        </form.Field>
         <Button type="submit" variant="secondary" size="sm" className="h-7 gap-1.5">
           <StatusButtonContent status={status} label={submitLabel} errorLabel="Try again" />
         </Button>
         {children}
       </form>
-      <FieldError message={invalid ? "Paste a full link, starting with https://" : error} />
+      <form.Subscribe selector={(state) => state.fieldMeta.url?.errors[0]?.message}>
+        {(invalid) => <FieldError message={invalid || error} />}
+      </form.Subscribe>
     </div>
   );
 }

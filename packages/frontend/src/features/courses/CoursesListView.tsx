@@ -14,7 +14,9 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   StatusAnnouncer,
   StatusButtonContent,
@@ -694,6 +696,8 @@ function RelatedChip({
   );
 }
 
+const createCourseSchema = z.object({ title: z.string().trim().min(1) });
+
 function CreateCourseDialog({
   open,
   onOpenChange,
@@ -705,11 +709,18 @@ function CreateCourseDialog({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const form = useForm({
+    defaultValues: { title: "" },
+    validators: { onChange: createCourseSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending && !create.isSuccess) create.mutate(value.title);
+    },
+  });
+
   const create = useMutation({
-    mutationFn: () => createCourse(spaceId, title.trim()),
+    mutationFn: (title: string) => createCourse(spaceId, title.trim()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
       queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
@@ -724,14 +735,10 @@ function CreateCourseDialog({
   useEffect(() => {
     if (open) inputRef.current?.focus();
     else {
-      setTitle("");
+      form.reset();
       reset();
     }
-  }, [open, reset]);
-
-  const submit = () => {
-    if (title.trim() && !create.isPending && !create.isSuccess) create.mutate();
-  };
+  }, [open, reset, form]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -742,25 +749,34 @@ function CreateCourseDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
         >
-          <Input
-            ref={inputRef}
-            placeholder="Course name"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={inputRef}
+                placeholder="Course name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
         </form>
         <DialogFooter>
-          <Button disabled={!title.trim()} onClick={submit}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={(state) => createCourseSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,8 @@
 import { IconStack2 } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { z } from "zod";
 import {
   StatusButtonContent,
   statusOf,
@@ -20,6 +22,15 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { Input } from "@nookly/ui/components/input";
+
+const viewSchema = z.object({
+  name: z.string().trim().min(1),
+  icon: z.string().nullable(),
+});
+
+type ViewValues = z.infer<typeof viewSchema>;
+
+const emptyValues: ViewValues = { name: "", icon: null };
 
 /// Name and icon for a View: creating one from `config`, or renaming `existing`.
 export function ViewDialog({
@@ -41,20 +52,25 @@ export function ViewDialog({
   onSaved?: (view: SavedView["entity"]) => void;
 }) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [icon, setIcon] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm({
+    defaultValues: emptyValues,
+    validators: { onChange: viewSchema },
+    onSubmit: ({ value }) => {
+      if (status === "idle" || status === "error") save.mutate(value);
+    },
+  });
 
   useEffect(() => {
     if (open) {
-      setName(existing?.title ?? "");
-      setIcon(existing?.icon ?? null);
+      form.reset({ name: existing?.title ?? "", icon: existing?.icon ?? null });
       nameInputRef.current?.focus();
     }
-  }, [open, existing]);
+  }, [open, existing, form]);
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ name, icon }: ViewValues) => {
       if (existing)
         return updateEntity(existing.id, { title: name.trim(), icon: icon ?? undefined });
       if (!module || config === undefined)
@@ -88,43 +104,57 @@ export function ViewDialog({
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (name.trim() && (status === "idle" || status === "error")) save.mutate();
+            void form.handleSubmit();
           }}
         >
-          <IconPicker
-            value={icon}
-            onChange={setIcon}
-            withColor
-            trigger={
-              <button
-                type="button"
-                aria-label="Choose view icon"
-                className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
-              >
-                {icon ? renderIconValue(icon, 15) : <IconStack2 size={15} />}
-              </button>
-            }
-          />
-          <Input
-            ref={nameInputRef}
-            placeholder="View name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="flex-1"
-          />
+          <form.Field name="icon">
+            {(field) => (
+              <IconPicker
+                value={field.state.value}
+                onChange={field.handleChange}
+                withColor
+                trigger={
+                  <button
+                    type="button"
+                    aria-label="Choose view icon"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
+                  >
+                    {field.state.value ? (
+                      renderIconValue(field.state.value, 15)
+                    ) : (
+                      <IconStack2 size={15} />
+                    )}
+                  </button>
+                }
+              />
+            )}
+          </form.Field>
+          <form.Field name="name">
+            {(field) => (
+              <Input
+                ref={nameInputRef}
+                placeholder="View name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                className="flex-1"
+              />
+            )}
+          </form.Field>
         </form>
         <DialogFooter>
-          <Button
-            disabled={!name.trim()}
-            onClick={() => (status === "idle" || status === "error") && save.mutate()}
-          >
-            <StatusButtonContent
-              status={status}
-              label={existing ? "Rename" : "Create view"}
-              successLabel={existing ? "Renamed" : "View created"}
-              errorLabel="Couldn't save, try again"
-            />
-          </Button>
+          <form.Subscribe selector={(state) => viewSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={status}
+                  label={existing ? "Rename" : "Create view"}
+                  successLabel={existing ? "Renamed" : "View created"}
+                  errorLabel="Couldn't save, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

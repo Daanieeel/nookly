@@ -16,8 +16,10 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { homeDir, join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import {
   type ActionStatus,
   StatusButtonContent,
@@ -122,6 +124,8 @@ type Offer = { kind: "webpage"; url: string } | { kind: "unviewable"; file: File
 /// Files like Finder's icon view: a grid of type tinted tiles by default, a dense
 /// list as the alternative. Dropping files anywhere on the window is the main way
 /// in; the floating bar takes a link or a path, or opens the file picker.
+const textSchema = z.object({ text: z.string().trim().min(1) });
+
 export function FilesListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
@@ -129,9 +133,15 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [text, setText] = useState("");
   const [offer, setOffer] = useState<Offer | null>(null);
   const [fresh, markFresh] = useFreshIds();
+  const form = useForm({
+    defaultValues: { text: "" },
+    validators: { onChange: textSchema },
+    onSubmit: ({ value }) => {
+      if (!addFromText.isPending) addFromText.mutate(value.text);
+    },
+  });
 
   const { data: files = [], isPending } = useQuery({
     queryKey: ["files", spaceId],
@@ -177,7 +187,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
         setOffer({ kind: "webpage", url: added.url });
         return;
       }
-      setText("");
+      form.reset();
       await imported(added.files);
       const [file] = added.files;
       if (added.fromLink && file && !isViewable(file)) setOffer({ kind: "unviewable", file });
@@ -200,7 +210,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
       void queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
-      setText("");
+      form.reset();
       // The check shows on the bar for a moment before it returns to the field.
       setTimeout(() => {
         setOffer(null);
@@ -229,9 +239,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   }, [pickAndImport]);
   useCreateShortcut(startImport);
 
-  const submitText = () => {
-    if (text.trim() && !addFromText.isPending) addFromText.mutate(text);
-  };
   const dismissOffer = () => {
     setOffer(null);
     addFromText.reset();
@@ -441,37 +448,46 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           </Tooltip>
         </FloatingBar>
       ) : (
-        <FloatingBar onSubmit={submitText} failed={addError !== null}>
+        <FloatingBar onSubmit={() => void form.handleSubmit()} failed={addError !== null}>
           <IconLink size={16} className="shrink-0 text-muted-foreground" />
-          <input
-            ref={inputRef}
-            placeholder="Paste a link or file path"
-            aria-label={addError ?? "Link or file path"}
-            aria-invalid={addError !== null || undefined}
-            title={addError ?? undefined}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              if (addFromText.isError) addFromText.reset();
-            }}
-            onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-            className={FLOATING_BAR_INPUT}
-          />
-          {(text.trim() || addStatus !== "idle") && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="iconSm"
-                  aria-label={addError ? "Couldn't add, try again" : "Add File"}
-                >
-                  <StatusIcon status={addStatus} idle={<IconArrowUp />} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{addError ?? "Add File"}</TooltipContent>
-            </Tooltip>
-          )}
+          <form.Field name="text">
+            {(field) => (
+              <input
+                ref={inputRef}
+                placeholder="Paste a link or file path"
+                aria-label={addError ?? "Link or file path"}
+                aria-invalid={addError !== null || undefined}
+                title={addError ?? undefined}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => {
+                  field.handleChange(e.target.value);
+                  if (addFromText.isError) addFromText.reset();
+                }}
+                onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                className={FLOATING_BAR_INPUT}
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => textSchema.safeParse(state.values).success}>
+            {(ready) =>
+              (ready || addStatus !== "idle") && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="iconSm"
+                      aria-label={addError ? "Couldn't add, try again" : "Add File"}
+                    >
+                      <StatusIcon status={addStatus} idle={<IconArrowUp />} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{addError ?? "Add File"}</TooltipContent>
+                </Tooltip>
+              )
+            }
+          </form.Subscribe>
           <span className="shrink-0 text-xs text-muted-foreground">or</span>
           <Tooltip>
             <TooltipTrigger asChild>

@@ -1,6 +1,8 @@
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addWeeks, format } from "date-fns";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -29,6 +31,31 @@ import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
 
+const sessionSchema = z
+  .object({
+    title: z.string().trim().min(1),
+    course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
+    startTime: z.string().min(1),
+    endTime: z.string().min(1),
+    location: z.string(),
+    repeatWeekly: z.boolean(),
+  })
+  .refine((v) => !v.startTime || !v.endTime || v.startTime < v.endTime, {
+    path: ["endTime"],
+    message: "End after it starts",
+  });
+
+type SessionValues = z.infer<typeof sessionSchema>;
+
+const emptyValues: SessionValues = {
+  title: "",
+  course: null,
+  startTime: "09:00",
+  endTime: "10:00",
+  location: "",
+  repeatWeekly: false,
+};
+
 /// Opens on the range picked on the calendar: the title and Course come first,
 /// the times arrive filled in and only need touching to fine tune them.
 export function QuickCreateSessionDialog({
@@ -44,30 +71,35 @@ export function QuickCreateSessionDialog({
   onCreated: (entityIds: string[]) => void;
 }) {
   const queryClient = useQueryClient();
-  const [title, setTitle] = useState("");
-  const [course, setCourse] = useState<Entity | null>(null);
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
-  const [location, setLocation] = useState("");
-  const [repeatWeekly, setRepeatWeekly] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm({
+    defaultValues: emptyValues,
+    validators: { onChange: sessionSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending && createStatus !== "success") create.mutate(value);
+    },
+  });
 
   useEffect(() => {
     if (!draft) return;
-    setTitle("");
-    setCourse(null);
-    setStartTime(minutesToTime(draft.startMin));
-    setEndTime(minutesToTime(draft.endMin));
-    setLocation("");
-    setRepeatWeekly(false);
+    form.reset({
+      ...emptyValues,
+      startTime: minutesToTime(draft.startMin),
+      endTime: minutesToTime(draft.endMin),
+    });
     setTimeout(() => titleRef.current?.focus(), 0);
-  }, [draft]);
-
-  const timesValid = Boolean(startTime && endTime) && startTime < endTime;
-  const ready = title.trim() !== "" && course !== null && timesValid;
+  }, [draft, form]);
 
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({
+      title,
+      course,
+      startTime,
+      endTime,
+      location,
+      repeatWeekly,
+    }: SessionValues) => {
       if (!draft || !course) throw new Error("Pick a course first");
       const date = format(draft.date, "yyyy-MM-dd");
       const place = location.trim() || null;
@@ -130,80 +162,108 @@ export function QuickCreateSessionDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (ready && !create.isPending) create.mutate();
+            void form.handleSubmit();
           }}
           className="flex flex-col gap-3"
         >
-          <Input
-            ref={titleRef}
-            placeholder="Title, e.g. Algorithms I"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <EntityPickerPopover
-            spaceId={spaceId}
-            typeFilter="course"
-            trigger={
-              <Button type="button" variant="secondary" size="sm" className="justify-start">
-                {course ? displayTitle(course) : "Pick course…"}
-              </Button>
-            }
-            onSelect={setCourse}
-          />
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={titleRef}
+                placeholder="Title, e.g. Algorithms I"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
+          <form.Field name="course">
+            {(field) => (
+              <EntityPickerPopover
+                spaceId={spaceId}
+                typeFilter="course"
+                trigger={
+                  <Button type="button" variant="secondary" size="sm" className="justify-start">
+                    {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
+                  </Button>
+                }
+                onSelect={field.handleChange}
+              />
+            )}
+          </form.Field>
           <div className="flex items-center gap-1.5">
-            <Input
-              type="time"
-              aria-label="Start time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="flex-1"
-            />
+            <form.Field name="startTime">
+              {(field) => (
+                <Input
+                  type="time"
+                  aria-label="Start time"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="flex-1"
+                />
+              )}
+            </form.Field>
             <span className="text-xs text-muted-foreground">to</span>
-            <Input
-              type="time"
-              aria-label="End time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="flex-1"
-            />
+            <form.Field name="endTime">
+              {(field) => (
+                <Input
+                  type="time"
+                  aria-label="End time"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="flex-1"
+                />
+              )}
+            </form.Field>
           </div>
-          <Input
-            aria-label="Location"
-            placeholder="Location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-          <FieldError
-            message={
-              (!timesValid && startTime >= endTime && "End after it starts") ||
-              (create.isError && create.error.message)
-            }
-          />
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="session-repeat-weekly"
-              checked={repeatWeekly}
-              onCheckedChange={(v) => setRepeatWeekly(v === true)}
-            />
-            <Label htmlFor="session-repeat-weekly" className="font-normal">
-              Repeat weekly (16 weeks)
-            </Label>
-          </div>
+          <form.Field name="location">
+            {(field) => (
+              <Input
+                aria-label="Location"
+                placeholder="Location"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => state.fieldMeta.endTime?.errors[0]}>
+            {(endError) => (
+              <FieldError message={endError?.message || (create.isError && create.error.message)} />
+            )}
+          </form.Subscribe>
+          <form.Field name="repeatWeekly">
+            {(field) => (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="session-repeat-weekly"
+                  checked={field.state.value}
+                  onCheckedChange={(v) => field.handleChange(v === true)}
+                />
+                <Label htmlFor="session-repeat-weekly" className="font-normal">
+                  Repeat weekly (16 weeks)
+                </Label>
+              </div>
+            )}
+          </form.Field>
           {/* Lets Enter submit from any field. */}
           <button type="submit" hidden aria-label="Create session" />
         </form>
         <DialogFooter>
-          <Button
-            disabled={!ready}
-            onClick={() => !create.isPending && createStatus !== "success" && create.mutate()}
-          >
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Session created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={(state) => sessionSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={createStatus}
+                  label="Create"
+                  successLabel="Session created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>
