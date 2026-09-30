@@ -1,6 +1,7 @@
 import { IconCalendarX, IconClockEdit, IconPlus, IconRestore } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -15,6 +16,7 @@ import { listSessions, overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock } from "#/lib/datetime.ts";
 import { minutesToTime } from "./calendar/calendar-model";
+import { qk } from "#/lib/query-keys.ts";
 
 declare module "#/components/context-menu/registry.ts" {
   interface ContextTargets {
@@ -31,7 +33,7 @@ declare module "#/components/context-menu/registry.ts" {
 
 function useOccurrenceRecord(entity: Entity): SessionOccurrence | undefined {
   const { data: sessions } = useQuery({
-    queryKey: ["sessions", entity.spaceId],
+    queryKey: qk.sessions.bySpace(entity.spaceId),
     queryFn: () => listSessions(entity.spaceId),
   });
   return sessions?.find((s) => s.entity.id === entity.id);
@@ -39,6 +41,16 @@ function useOccurrenceRecord(entity: Entity): SessionOccurrence | undefined {
 
 /// Moves one occurrence without touching the rest of its series, through the
 /// same per occurrence override the calendar's cancel button writes.
+const rescheduleSchema = z
+  .object({
+    date: z.string().min(1),
+    startTime: z.string().min(1),
+    endTime: z.string().min(1),
+  })
+  .refine((v) => v.startTime < v.endTime, { path: ["endTime"], message: "End after it starts" });
+
+type RescheduleValues = z.infer<typeof rescheduleSchema>;
+
 function RescheduleForm({
   occurrence,
   close,
@@ -48,13 +60,20 @@ function RescheduleForm({
   close: () => void;
   refresh: () => Promise<void>;
 }) {
-  const [date, setDate] = useState(occurrence.date);
-  const [startTime, setStartTime] = useState(occurrence.startTime);
-  const [endTime, setEndTime] = useState(occurrence.endTime);
-  const valid = Boolean(date && startTime && endTime) && startTime < endTime;
+  const form = useForm({
+    defaultValues: {
+      date: occurrence.date,
+      startTime: occurrence.startTime,
+      endTime: occurrence.endTime,
+    },
+    validators: { onChange: rescheduleSchema },
+    onSubmit: ({ value }) => {
+      if (!move.isPending) move.mutate(value);
+    },
+  });
   const move = useMutation({
-    mutationFn: async () => {
-      await overrideOccurrence(occurrence.entity.id, { date, startTime, endTime });
+    mutationFn: async (values: RescheduleValues) => {
+      await overrideOccurrence(occurrence.entity.id, values);
       await refresh();
     },
   });
@@ -66,40 +85,60 @@ function RescheduleForm({
       className="flex flex-col gap-2 p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid && !move.isPending) move.mutate();
+        void form.handleSubmit();
       }}
     >
-      <DateInput
-        aria-label="Date"
-        clearable={false}
-        value={date || null}
-        onChange={(day) => setDate(day ?? "")}
-      />
+      <form.Field name="date">
+        {(field) => (
+          <DateInput
+            aria-label="Date"
+            clearable={false}
+            value={field.state.value || null}
+            onChange={(day) => field.handleChange(day ?? "")}
+          />
+        )}
+      </form.Field>
       <div className="flex items-center gap-1.5">
-        <Input
-          type="time"
-          aria-label="Start time"
-          value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
-          className="h-8 flex-1"
-        />
+        <form.Field name="startTime">
+          {(field) => (
+            <Input
+              type="time"
+              aria-label="Start time"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              className="h-8 flex-1"
+            />
+          )}
+        </form.Field>
         <span className="text-xs text-muted-foreground">to</span>
-        <Input
-          type="time"
-          aria-label="End time"
-          value={endTime}
-          onChange={(e) => setEndTime(e.target.value)}
-          className="h-8 flex-1"
-        />
+        <form.Field name="endTime">
+          {(field) => (
+            <Input
+              type="time"
+              aria-label="End time"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              className="h-8 flex-1"
+            />
+          )}
+        </form.Field>
       </div>
-      <FieldError message={!valid && startTime >= endTime && "End after it starts"} />
-      <Button type="submit" size="sm" disabled={!valid}>
-        <StatusButtonContent
-          status={status}
-          label="Move Occurrence"
-          errorLabel="Couldn't move, try again"
-        />
-      </Button>
+      <form.Subscribe selector={(state) => state.fieldMeta.endTime?.errors[0]}>
+        {(endError) => <FieldError message={endError?.message} />}
+      </form.Subscribe>
+      <form.Subscribe selector={(state) => rescheduleSchema.safeParse(state.values).success}>
+        {(ready) => (
+          <Button type="submit" size="sm" disabled={!ready}>
+            <StatusButtonContent
+              status={status}
+              label="Move Occurrence"
+              errorLabel="Couldn't move, try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

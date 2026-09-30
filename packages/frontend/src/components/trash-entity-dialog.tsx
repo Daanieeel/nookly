@@ -28,6 +28,7 @@ import { softDeleteEntity } from "#/lib/api/entities.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import type { Entity, Relationship } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 interface TrashStat {
   icon: TablerIcon;
@@ -79,7 +80,7 @@ export function TrashEntityDialog({
   });
   const trashStatus = statusOf(trash);
   const { data: relationships = [] } = useQuery({
-    queryKey: ["relationships", entity.id],
+    queryKey: qk.relationships.of(entity.id),
     queryFn: () => listRelationships(entity.id, "both"),
     enabled: open,
   });

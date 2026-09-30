@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconChecklist,
   IconCircleDashed,
@@ -83,15 +84,15 @@ export function RelatedItemsSection({
   };
 
   const { data: links = [] } = useQuery({
-    queryKey: ["relationships", owner.id],
+    queryKey: qk.relationships.of(owner.id),
     queryFn: () => listRelationships(owner.id, "both"),
   });
   const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks", spaceId],
+    queryKey: qk.tasks.bySpace(spaceId),
     queryFn: () => listTasks(spaceId),
   });
   const { data: entities = [] } = useQuery({
-    queryKey: ["entities", spaceId],
+    queryKey: qk.entities.bySpace(spaceId),
     queryFn: () => listEntities(spaceId, false),
   });
 
@@ -104,12 +105,12 @@ export function RelatedItemsSection({
 
   const createLinkedTask = async (title: string) => {
     const task = await createTask(spaceId, title, null, null);
-    await queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] });
+    await queryClient.invalidateQueries({ queryKey: qk.tasks.bySpace(spaceId) });
     return task.entity.id;
   };
   const createLinkedNote = async (title: string) => {
     const note = await createNote(spaceId, title);
-    await queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+    await queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
     return note.id;
   };
   const counts = new Map([
@@ -131,8 +132,8 @@ export function RelatedItemsSection({
 
   const refreshLinks = (otherId: string) =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["relationships", owner.id] }),
-      queryClient.invalidateQueries({ queryKey: ["relationships", otherId] }),
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(owner.id) }),
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(otherId) }),
     ]);
 
   const link = useMutation({

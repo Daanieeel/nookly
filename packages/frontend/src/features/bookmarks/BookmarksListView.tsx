@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
   IconBookmark,
@@ -9,8 +10,10 @@ import {
   IconWorld,
 } from "@tabler/icons-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import { StatusIcon, useActionStatus } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
@@ -73,19 +76,26 @@ function passesFilters(bookmark: Bookmark, filters: ActiveFilter[]): boolean {
 /// Bookmarks as a wall of link previews, or a dense list. Pasting a URL is the
 /// way in: into the floating field at the bottom, or anywhere on the page. The
 /// new card shows up at once and fills in as the page's metadata arrives.
+const urlSchema = z.object({ url: z.string().trim().min(1) });
+
 export function BookmarksListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openDetails = useNavStore((s) => s.setBookmarkSheetId);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [url, setUrl] = useState("");
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [freshId, setFreshId] = useState<string | null>(null);
   const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
+  const form = useForm({
+    defaultValues: { url: "" },
+    validators: { onChange: urlSchema },
+    onSubmit: ({ value }) => submit(value.url),
+  });
+
   const { data: bookmarks = [], isPending } = useQuery({
-    queryKey: ["bookmarks", spaceId],
+    queryKey: qk.bookmarks.bySpace(spaceId),
     queryFn: () => listBookmarks(spaceId),
   });
   const labels = useSpaceLabels(spaceId);
@@ -104,14 +114,14 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
       // Best effort: offline, the card keeps its placeholder until metadata is
       // refreshed later. The `og:image` shows while the page itself is captured.
       fetchBookmarkMetadata(bookmark.entity.id, u)
-        .then(() => queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] }))
+        .then(() => queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) }))
         .catch(() => {})
         .finally(() => capture.mutate(bookmark.entity.id));
       return bookmark;
     },
     onSuccess: async (bookmark) => {
-      await queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
-      setUrl("");
+      await queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) });
+      form.reset();
       setPendingUrl(null);
       setFreshId(bookmark.entity.id);
       setTimeout(() => setFreshId(null), 2000);
@@ -287,34 +297,43 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
         </div>
       )}
 
-      <FloatingBar onSubmit={() => submit(url)} failed={add.isError}>
+      <FloatingBar onSubmit={() => void form.handleSubmit()} failed={add.isError}>
         <IconLink size={16} className="shrink-0 text-muted-foreground" />
-        <input
-          ref={inputRef}
-          placeholder="Paste a URL to save it"
-          aria-label={add.isError ? `Couldn't save the bookmark: ${add.error.message}` : "URL"}
-          aria-invalid={add.isError || undefined}
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-          className={FLOATING_BAR_INPUT}
-        />
+        <form.Field name="url">
+          {(field) => (
+            <input
+              ref={inputRef}
+              placeholder="Paste a URL to save it"
+              aria-label={add.isError ? `Couldn't save the bookmark: ${add.error.message}` : "URL"}
+              aria-invalid={add.isError || undefined}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+              className={FLOATING_BAR_INPUT}
+            />
+          )}
+        </form.Field>
         <Kbd className="max-sm:hidden">C</Kbd>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="submit"
-              size="iconSm"
-              aria-label={add.isError ? "Couldn't save, try again" : "Save Bookmark"}
-              disabled={!url.trim() && addStatus === "idle"}
-            >
-              <StatusIcon status={addStatus} idle={<IconArrowUp />} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {add.isError ? "Couldn't save, try again" : "Save Bookmark"}
-          </TooltipContent>
-        </Tooltip>
+        <form.Subscribe selector={(state) => urlSchema.safeParse(state.values).success}>
+          {(ready) => (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="submit"
+                  size="iconSm"
+                  aria-label={add.isError ? "Couldn't save, try again" : "Save Bookmark"}
+                  disabled={!ready && addStatus === "idle"}
+                >
+                  <StatusIcon status={addStatus} idle={<IconArrowUp />} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {add.isError ? "Couldn't save, try again" : "Save Bookmark"}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </form.Subscribe>
       </FloatingBar>
     </div>
   );

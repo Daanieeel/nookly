@@ -1,6 +1,7 @@
 import { IconArrowRight, IconCategory, IconFolder, IconTag } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useEffect, useRef, useState } from "react";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { EntityIcon, iconForType } from "#/components/entity-icon.tsx";
@@ -37,6 +38,9 @@ import {
   typeGroupFor,
 } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { qk } from "#/lib/query-keys.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Items shown per Space and type group before collapsing into "View all (N)".
 const GROUP_PREVIEW_LIMIT = 3;
@@ -50,10 +54,12 @@ export function CommandPalette() {
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
+  // Search runs once typing pauses, not on every keystroke.
+  const [searchTerm] = useDebouncedValue(trimmed, { wait: 120 });
 
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const { data: entities } = useQuery({
-    queryKey: ["entities", "all"],
+    queryKey: qk.entities.all,
     queryFn: () => listEntities(null, false),
     enabled: paletteOpen,
   });
@@ -61,12 +67,12 @@ export function CommandPalette() {
   // Labels are siloed per Space (§4.5), so the filter's option list and the
   // entity → label lookup both merge every Space's labels into one flat set.
   const { data: allLabels = [] } = useQuery({
-    queryKey: ["labels", "all", spaceIds],
+    queryKey: qk.labels.forSpaces(spaceIds),
     queryFn: () => Promise.all(spaceIds.map((id) => listLabels(id))).then((lists) => lists.flat()),
     enabled: paletteOpen && spaceIds.length > 0,
   });
   const { data: entityLabelIds } = useQuery({
-    queryKey: ["entity-label-ids", "all", spaceIds],
+    queryKey: qk.labels.idsForSpaces(spaceIds),
     queryFn: () =>
       Promise.all(spaceIds.map((id) => listEntityLabelIds(id))).then((maps) => {
         // SAFETY: the accumulator starts empty and every `map` is already a
@@ -78,22 +84,13 @@ export function CommandPalette() {
     enabled: paletteOpen && spaceIds.length > 0,
   });
   const { data: hits = [], isFetching } = useQuery({
-    queryKey: ["search", trimmed],
-    queryFn: () => search(trimmed),
-    enabled: trimmed.length > 0,
+    queryKey: qk.search(searchTerm),
+    queryFn: () => search(searchTerm),
+    enabled: trimmed.length > 0 && searchTerm.length > 0,
     placeholderData: keepPreviousData,
   });
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setPaletteOpen(!useNavStore.getState().paletteOpen);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setPaletteOpen]);
+  useAppHotkey(HOTKEYS.search, () => setPaletteOpen(!useNavStore.getState().paletteOpen));
 
   useEffect(() => {
     if (paletteOpen) return;

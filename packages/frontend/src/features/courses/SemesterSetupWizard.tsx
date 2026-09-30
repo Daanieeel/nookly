@@ -1,6 +1,8 @@
 import { IconCheck } from "@tabler/icons-react";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import {
   StatusButtonContent,
   statusOf,
@@ -32,10 +34,47 @@ import {
 import { createSemester, setCurrentSemester } from "#/lib/api/courses.ts";
 import { REGION_TERM_DATES, resolveTermDates } from "./region-term-dates";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 const DEFAULT_SEMESTER_COUNT = 4;
 
 type Step = "system" | "region" | "current" | "count" | "review";
+
+const wizardSchema = z.object({
+  system: z.custom<AcademicSystemKey>((v) => Object.hasOwn(ACADEMIC_SYSTEMS, String(v))),
+  regionKey: z.string().nullable(),
+  currentTermKey: z.string().min(1),
+  currentYear: z.number().int().min(2000).max(2100),
+  semesterCount: z.number().int().min(1).max(16),
+});
+
+type WizardValues = z.infer<typeof wizardSchema>;
+
+/// The fields each step owns, so Next only waits on the step being shown.
+const STEP_FIELDS = {
+  system: ["system"],
+  region: ["regionKey"],
+  current: ["currentTermKey", "currentYear"],
+  count: ["semesterCount"],
+  review: [],
+} satisfies Record<Step, string[]>;
+
+function stepIsValid(step: Step, values: WizardValues): boolean {
+  const issues = wizardSchema.safeParse(values).error?.issues ?? [];
+  const owned: readonly string[] = STEP_FIELDS[step];
+  return issues.every((i) => !owned.includes(String(i.path[0])));
+}
+
+function initialValues(): WizardValues {
+  const guess = guessCurrentTerm("winter_summer");
+  return {
+    system: "winter_summer",
+    regionKey: null,
+    currentTermKey: guess.term.key,
+    currentYear: guess.year,
+    semesterCount: DEFAULT_SEMESTER_COUNT,
+  };
+}
 
 /// Setup wizard (PLAN §3) — bootstraps a run of Semester entities starting at
 /// a confirmed "current" one, with rough auto-suggested dates. Only ever
@@ -54,22 +93,23 @@ export function SemesterSetupWizard({
 }) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>("system");
-  const [system, setSystem] = useState<AcademicSystemKey>("winter_summer");
-  const [regionKey, setRegionKey] = useState<string | null>(null);
-  const [currentTermKey, setCurrentTermKey] = useState<string>("");
-  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [semesterCount, setSemesterCount] = useState<number>(DEFAULT_SEMESTER_COUNT);
+  const form = useForm({
+    defaultValues: initialValues(),
+    validators: { onChange: wizardSchema },
+    onSubmit: () => {
+      if (!locked) finish.mutate();
+    },
+  });
+  const { system, regionKey, currentTermKey, currentYear, semesterCount } = useStore(
+    form.store,
+    (state) => state.values,
+  );
 
   useEffect(() => {
     if (!open) return;
     setStep("system");
-    setSystem("winter_summer");
-    setRegionKey(null);
-    setSemesterCount(DEFAULT_SEMESTER_COUNT);
-    const guess = guessCurrentTerm("winter_summer");
-    setCurrentTermKey(guess.term.key);
-    setCurrentYear(guess.year);
-  }, [open]);
+    form.reset(initialValues());
+  }, [open, form]);
 
   const terms = ACADEMIC_SYSTEMS[system].terms;
   const currentTerm = terms.find((t) => t.key === currentTermKey) ?? terms[0];
@@ -100,7 +140,7 @@ export function SemesterSetupWizard({
       if (currentEntityId) await setCurrentSemester(spaceId, currentEntityId);
     },
     // Also on error: semesters created before the failure should show up in the list.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) }),
   });
   useCloseAfterSuccess(finish, () => onOpenChange(false));
   const resetFinish = finish.reset;
@@ -132,7 +172,7 @@ export function SemesterSetupWizard({
               <button
                 key={key}
                 type="button"
-                onClick={() => setSystem(key)}
+                onClick={() => form.setFieldValue("system", key)}
                 className={cn(
                   "flex items-center justify-between rounded-md border border-input bg-accent px-3 py-2 text-left text-sm hover:bg-accent/80",
                   system === key && "border-primary",
@@ -149,7 +189,7 @@ export function SemesterSetupWizard({
           <div className="flex flex-col gap-2">
             <button
               type="button"
-              onClick={() => setRegionKey(null)}
+              onClick={() => form.setFieldValue("regionKey", null)}
               className={cn(
                 "flex items-center justify-between rounded-md border border-input bg-accent px-3 py-2 text-left text-sm hover:bg-accent/80",
                 regionKey === null && "border-primary",
@@ -162,7 +202,7 @@ export function SemesterSetupWizard({
               <button
                 key={r.key}
                 type="button"
-                onClick={() => setRegionKey(r.key)}
+                onClick={() => form.setFieldValue("regionKey", r.key)}
                 className={cn(
                   "flex items-center justify-between rounded-md border border-input bg-accent px-3 py-2 text-left text-sm hover:bg-accent/80",
                   regionKey === r.key && "border-primary",
@@ -181,7 +221,10 @@ export function SemesterSetupWizard({
 
         {step === "current" && (
           <div className="flex items-center gap-2">
-            <Select value={currentTermKey} onValueChange={setCurrentTermKey}>
+            <Select
+              value={currentTermKey}
+              onValueChange={(v) => form.setFieldValue("currentTermKey", v)}
+            >
               <SelectTrigger className="flex-1">
                 <SelectValue />
               </SelectTrigger>
@@ -193,14 +236,24 @@ export function SemesterSetupWizard({
                 ))}
               </SelectContent>
             </Select>
-            <NumberInput value={currentYear} onChange={setCurrentYear} min={2000} max={2100} />
+            <NumberInput
+              value={currentYear}
+              onChange={(v) => form.setFieldValue("currentYear", v)}
+              min={2000}
+              max={2100}
+            />
           </div>
         )}
 
         {step === "count" && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <NumberInput value={semesterCount} onChange={setSemesterCount} min={1} max={16} />
+              <NumberInput
+                value={semesterCount}
+                onChange={(v) => form.setFieldValue("semesterCount", v)}
+                min={1}
+                max={16}
+              />
               <span className="text-sm text-muted-foreground">
                 semester{semesterCount === 1 ? "" : "s"}, starting at{" "}
                 {ACADEMIC_SYSTEMS[system].formatTitle(currentTerm, currentYear)}
@@ -241,9 +294,22 @@ export function SemesterSetupWizard({
             </Button>
           )}
           {step !== "review" ? (
-            <Button onClick={() => setStep(NEXT_STEP[step])}>Next</Button>
+            <Button
+              disabled={
+                !stepIsValid(step, {
+                  system,
+                  regionKey,
+                  currentTermKey,
+                  currentYear,
+                  semesterCount,
+                })
+              }
+              onClick={() => setStep(NEXT_STEP[step])}
+            >
+              Next
+            </Button>
           ) : (
-            <Button onClick={() => !locked && finish.mutate()}>
+            <Button onClick={() => void form.handleSubmit()}>
               <StatusButtonContent
                 status={finishStatus}
                 label="Create semesters"

@@ -35,6 +35,7 @@ import {
   registerActions,
 } from "./registry";
 import { PickerFeedback } from "./picker-feedback";
+import { qk } from "#/lib/query-keys.ts";
 
 /// The baseline every entity gets for free (custom context menus plan §3). A
 /// type's registration can omit any of these by id, or replace one by reusing it.
@@ -45,7 +46,7 @@ function isViewing(entity: Entity): boolean {
 }
 
 function useMoveTargets({ entity }: EntityTarget): MenuSubItem[] | undefined {
-  const { data: spaces } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   return spaces
     ?.filter((space) => space.id !== entity.spaceId)
     .map((space) => ({
@@ -75,7 +76,7 @@ function RelateFromMenu({
   refresh: () => Promise<void>;
 }) {
   const { data: types = [] } = useQuery({
-    queryKey: ["relationship-types"],
+    queryKey: qk.relationships.types,
     queryFn: listRelationshipTypes,
   });
   const hidden = hiddenRelationshipTypes(entity);
@@ -208,11 +209,11 @@ export function labelsAction<TRecord extends EntityRecord>(): MenuAction<EntityT
 
 function useLabelItems({ entity }: EntityTarget): MenuSubItem[] | undefined {
   const { data: labels } = useQuery({
-    queryKey: ["labels", entity.spaceId],
+    queryKey: qk.labels.bySpace(entity.spaceId),
     queryFn: () => listLabels(entity.spaceId),
   });
   const { data: attached } = useQuery({
-    queryKey: ["entity-labels", entity.id],
+    queryKey: qk.labels.ofEntity(entity.id),
     queryFn: () => listLabelsForEntity(entity.id),
   });
   if (!labels || !attached) return undefined;

@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
@@ -21,10 +22,10 @@ export function EntityRow({
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: entity } = useQuery({
-    queryKey: ["entity", entityId],
+    queryKey: qk.entity.byId(entityId),
     queryFn: () => getEntity(entityId),
   });
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
 
   if (!entity) {
     return <div className="h-7 animate-pulse rounded bg-accent/40" />;

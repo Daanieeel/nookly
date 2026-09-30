@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconAt } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { listBlocks } from "#/lib/api/notes.ts";
@@ -11,7 +12,7 @@ import { SidebarHint, SidebarSection } from "./SidebarSection";
 /// no blocks (only Notes/Jots have any), with no type check needed.
 export function MentionedPanel({ entity }: { entity: Entity }) {
   const { data: blocks = [] } = useQuery({
-    queryKey: ["blocks", entity.id],
+    queryKey: qk.blocks(entity.id),
     queryFn: () => listBlocks(entity.id),
   });
   const mentionIds = extractMentionIds(blocks.map((b) => b.content).join("\n"));

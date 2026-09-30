@@ -1,5 +1,5 @@
 import { IconCheck, IconFilter, IconX, type Icon as TablerIcon } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -21,6 +21,8 @@ import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Command menu filters in the style of `docs/skills/data-tables.md` (the
 /// tablecn filter menu): one "Filter" button opens a searchable field list,
@@ -94,16 +96,7 @@ export function FilterMenu({
   const [search, setSearch] = useState("");
   const field = fields.find((f) => f.id === fieldId);
 
-  useEffect(() => {
-    function onKeyDown(e: globalThis.KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  useAppHotkey(HOTKEYS.filter, () => setOpen((o) => !o));
 
   function onOpenChange(next: boolean) {
     setOpen(next);

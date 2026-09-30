@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { type ModuleKey, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Where a Dashboard reference leads. A count opens its module's list page, a name
 /// opens that exact entity.
@@ -28,7 +29,7 @@ export function useOpenTarget(): (target: LinkTarget) => void {
   const setView = useNavStore((s) => s.setView);
   const openEntity = useNavStore((s) => s.openEntity);
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
 
   return useCallback(
     (target: LinkTarget) => {

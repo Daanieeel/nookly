@@ -1,8 +1,9 @@
 import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { CSSProperties, ReactNode } from "react";
-import { useState } from "react";
+import { z } from "zod";
 import {
   FieldError,
   StatusButtonContent,
@@ -33,18 +34,15 @@ import {
   setExternalCalendarSelected,
 } from "#/lib/api/externalCalendars.ts";
 import { formatEditedAt } from "#/lib/relative-time.ts";
-import {
-  EXTERNAL_CALENDAR_STATUS_KEY,
-  EXTERNAL_EVENTS_KEY,
-  syncExternalCalendarsNow,
-} from "./external-calendar-sync";
+import { syncExternalCalendarsNow } from "./external-calendar-sync";
 import { PROVIDER_LABELS, ProviderIcon } from "./ExternalEventBlock";
 import { safeColor } from "./overlay-layout";
+import { qk } from "#/lib/query-keys.ts";
 
 const APPLE_PASSWORDS_URL = "https://account.apple.com/account/manage";
 
 export function useExternalCalendarStatus() {
-  return useQuery({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY, queryFn: externalCalendarStatus });
+  return useQuery({ queryKey: qk.externalCalendars.status, queryFn: externalCalendarStatus });
 }
 
 /// Where Google Calendar and iCloud are connected, each on its own, and where
@@ -134,8 +132,8 @@ function DisconnectButton({ provider }: { provider: CalendarProvider }) {
     mutationFn: () => disconnectExternalCalendar(provider),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY }),
-        queryClient.invalidateQueries({ queryKey: EXTERNAL_EVENTS_KEY }),
+        queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status }),
+        queryClient.invalidateQueries({ queryKey: qk.externalCalendars.events }),
       ]),
   });
   return (
@@ -189,7 +187,7 @@ function CalendarRow({
   const toggle = useMutation({
     mutationFn: async (selected: boolean) => {
       const connection = await setExternalCalendarSelected(provider, calendar.id, selected);
-      queryClient.setQueryData<ExternalCalendarStatus>(EXTERNAL_CALENDAR_STATUS_KEY, (old) =>
+      queryClient.setQueryData<ExternalCalendarStatus>(qk.externalCalendars.status, (old) =>
         old
           ? {
               ...old,
@@ -199,7 +197,7 @@ function CalendarRow({
       );
       // Newly picked calendars have nothing cached yet.
       if (selected) await syncExternalCalendarsNow(queryClient);
-      else await queryClient.invalidateQueries({ queryKey: EXTERNAL_EVENTS_KEY });
+      else await queryClient.invalidateQueries({ queryKey: qk.externalCalendars.events });
     },
   });
   const status = statusOf(toggle);
@@ -229,7 +227,7 @@ function GoogleConnect({ available }: { available: boolean }) {
   const queryClient = useQueryClient();
   const connect = useMutation({
     mutationFn: connectGoogleCalendar,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status }),
   });
   const status = statusOf(connect);
 
@@ -271,25 +269,38 @@ function GoogleConnect({ available }: { available: boolean }) {
   );
 }
 
+const icloudSchema = z.object({
+  appleId: z.string().trim().min(1),
+  password: z.string().trim().min(1),
+});
+
+type IcloudValues = z.infer<typeof icloudSchema>;
+
+const emptyValues: IcloudValues = { appleId: "", password: "" };
+
 function IcloudConnect() {
   const queryClient = useQueryClient();
-  const [appleId, setAppleId] = useState("");
-  const [password, setPassword] = useState("");
-  const connect = useMutation({
-    mutationFn: () => connectIcloudCalendar(appleId, password),
-    onSuccess: () => {
-      setPassword("");
-      return queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY });
+  const form = useForm({
+    defaultValues: emptyValues,
+    validators: { onChange: icloudSchema },
+    onSubmit: ({ value }) => {
+      if (!connect.isPending) connect.mutate(value);
     },
   });
-  const ready = appleId.trim() !== "" && password.trim() !== "";
+  const connect = useMutation({
+    mutationFn: ({ appleId, password }: IcloudValues) => connectIcloudCalendar(appleId, password),
+    onSuccess: () => {
+      form.setFieldValue("password", "");
+      return queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status });
+    },
+  });
 
   return (
     <form
       className="flex flex-col gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready && !connect.isPending) connect.mutate();
+        void form.handleSubmit();
       }}
     >
       <p className="text-xs text-muted-foreground">
@@ -311,29 +322,49 @@ function IcloudConnect() {
         <IconExternalLink size={12} />
         Open Apple Account
       </Button>
-      <Input
-        type="email"
-        placeholder="Apple ID, e.g. you@icloud.com"
-        aria-label="Apple ID"
-        value={appleId}
-        onChange={(e) => setAppleId(e.target.value)}
-      />
-      <Input
-        type="password"
-        placeholder="App specific password"
-        aria-label="App specific password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <form.Field name="appleId">
+        {(field) => (
+          <Input
+            type="email"
+            placeholder="Apple ID, e.g. you@icloud.com"
+            aria-label="Apple ID"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
+      <form.Field name="password">
+        {(field) => (
+          <Input
+            type="password"
+            placeholder="App specific password"
+            aria-label="App specific password"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      </form.Field>
       <FieldError message={connect.isError && connect.error.message} />
-      <Button type="submit" variant="secondary" size="sm" className="self-start" disabled={!ready}>
-        <StatusButtonContent
-          status={statusOf(connect)}
-          icon={<ProviderIcon provider="icloud" size={14} />}
-          label="Connect iCloud"
-          errorLabel="Try again"
-        />
-      </Button>
+      <form.Subscribe selector={(state) => icloudSchema.safeParse(state.values).success}>
+        {(ready) => (
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            disabled={!ready}
+          >
+            <StatusButtonContent
+              status={statusOf(connect)}
+              icon={<ProviderIcon provider="icloud" size={14} />}
+              label="Connect iCloud"
+              errorLabel="Try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

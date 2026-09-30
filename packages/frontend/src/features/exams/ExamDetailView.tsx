@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarTime, IconCards } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
@@ -60,7 +61,7 @@ export function ExamDetailView({ entity }: { entity: Entity }) {
 function ExamPage({ entity }: { entity: Entity }) {
   const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", entity.spaceId],
+    queryKey: qk.exams.bySpace(entity.spaceId),
     queryFn: () => listExams(entity.spaceId),
   });
   const exam = exams.find((e) => e.entity.id === entity.id);
@@ -94,7 +95,8 @@ function useExamSave<T>(exam: Exam, save: (id: string, value: T) => Promise<void
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (value: T) => save(exam.entity.id, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exams", exam.entity.spaceId] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: qk.exams.bySpace(exam.entity.spaceId) }),
   });
 }
 
@@ -166,12 +168,10 @@ function PropertiesPanel({ exam }: { exam: Exam }) {
     onSuccess: (_, courseId) =>
       Promise.all(
         [
-          ["exams", exam.entity.spaceId],
-          ["relationships", courseId],
-          ["relationships", course?.id],
-        ]
-          .filter(([, id]) => id)
-          .map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+          qk.exams.bySpace(exam.entity.spaceId),
+          qk.relationships.of(courseId),
+          ...(course ? [qk.relationships.of(course.id)] : []),
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
       ),
   });
 
@@ -294,15 +294,15 @@ function useExamTabs(exam: Entity): ExtraTab[] {
   const queryClient = useQueryClient();
   const { spaceId } = exam;
   const { data: links = [] } = useQuery({
-    queryKey: ["relationships", exam.id],
+    queryKey: qk.relationships.of(exam.id),
     queryFn: () => listRelationships(exam.id, "both"),
   });
   const { data: decks = [] } = useQuery({
-    queryKey: ["decks", spaceId],
+    queryKey: qk.decks.bySpace(spaceId),
     queryFn: () => listDecks(spaceId),
   });
   const { data: blocks = [] } = useQuery({
-    queryKey: ["study-blocks", spaceId],
+    queryKey: qk.studyBlocks.bySpace(spaceId),
     queryFn: () => listStudyBlocks(spaceId),
   });
 
@@ -315,10 +315,10 @@ function useExamTabs(exam: Entity): ExtraTab[] {
     .filter((b) => blockIds.has(b.entity.id))
     .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
 
-  const refresh = (key: string) =>
+  const refresh = (bySpace: (spaceId: string) => readonly unknown[]) =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: [key, spaceId] }),
-      queryClient.invalidateQueries({ queryKey: ["relationships", exam.id] }),
+      queryClient.invalidateQueries({ queryKey: bySpace(spaceId) }),
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(exam.id) }),
     ]);
 
   return [
@@ -348,8 +348,8 @@ function useExamTabs(exam: Entity): ExtraTab[] {
           onAdd={async (title) => {
             await createDeck(spaceId, title, exam.id);
             await Promise.all([
-              refresh("decks"),
-              queryClient.invalidateQueries({ queryKey: ["deck-summaries", spaceId] }),
+              refresh(qk.decks.bySpace),
+              queryClient.invalidateQueries({ queryKey: qk.decks.summariesBySpace(spaceId) }),
             ]);
           }}
           onDone={done}
@@ -389,7 +389,7 @@ function useExamTabs(exam: Entity): ExtraTab[] {
               "18:00",
               "20:00",
             );
-            await refresh("study-blocks");
+            await refresh(qk.studyBlocks.bySpace);
           }}
           onDone={done}
         />
@@ -401,7 +401,7 @@ function useExamTabs(exam: Entity): ExtraTab[] {
 /// How many of a deck's cards are ready to study, or when the next one comes back.
 function DeckStudyCount({ deckId }: { deckId: string }) {
   const { data: stats } = useQuery({
-    queryKey: ["deck-stats", deckId],
+    queryKey: qk.decks.stats(deckId),
     queryFn: () => getDeckStats(deckId),
   });
   if (!stats) return null;

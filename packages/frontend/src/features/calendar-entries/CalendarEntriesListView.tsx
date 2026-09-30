@@ -34,14 +34,10 @@ import {
 import { MonthGrid } from "../sessions/calendar/MonthGrid";
 import { TimeGrid } from "../sessions/calendar/TimeGrid";
 import { QuickCreateCalendarEntryDialog } from "./calendar/QuickCreateCalendarEntryDialog";
-
-/// True while typing somewhere, so single key shortcuts stay out of the way.
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
+import { qk } from "#/lib/query-keys.ts";
+import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
+import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The per-Space Calendar module page: same Outlook-style calendar as
 /// Sessions (Day/Work week/Week/Month, drag-to-create), but entirely separate
@@ -64,18 +60,18 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
   }, []);
 
   const { data: entries = [] } = useQuery({
-    queryKey: ["calendar-entries", spaceId],
+    queryKey: qk.calendarEntries.bySpace(spaceId),
     queryFn: () => listCalendarEntries(spaceId),
   });
   // This Space's Sessions, shown here too but as secondary context next to
   // Calendar entries (see `SessionsListView`'s reciprocal fetch of entries).
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   // This Space's own accent color, so entries tint to it instead of the
   // fixed `--accent-purple` default (see `CalendarEntryBlock`'s `accentColor`).
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
   const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
@@ -100,22 +96,15 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
     setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
   }, [view, anchor, weekStartsOn]);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
-      const viewForKey = CALENDAR_VIEWS.find((v) => v.key === e.key);
-      if (viewForKey) setView(viewForKey.id);
-      else if (e.key === "t") setAnchor(new Date());
-      else if (e.key === "ArrowLeft") step(-1);
-      else if (e.key === "ArrowRight") step(1);
-      else if (e.key === "c") startCreate();
-      else return;
-      e.preventDefault();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setView, step, startCreate]);
+  const hotkeys: UseHotkeyDefinition[] = [
+    ...CALENDAR_VIEWS.map((v) => ({ hotkey: v.key, callback: () => setView(v.id) })),
+    { hotkey: HOTKEYS.today, callback: () => setAnchor(new Date()) },
+    { hotkey: HOTKEYS.previousPeriod, callback: () => step(-1) },
+    { hotkey: HOTKEYS.nextPeriod, callback: () => step(1) },
+    { hotkey: HOTKEYS.create, callback: () => startCreate() },
+    { hotkey: HOTKEYS.newItem, callback: () => startCreate() },
+  ];
+  useScreenHotkeys(hotkeys);
 
   useEffect(() => {
     if (highlightIds.size === 0) return;

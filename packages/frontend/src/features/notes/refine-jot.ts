@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import type { QueryClient } from "@tanstack/react-query";
 import { createNote } from "#/lib/api/notes.ts";
 import { createRelationship, listRelationships } from "#/lib/api/relationships.ts";
@@ -19,14 +20,14 @@ export async function refineJotIntoNote(jot: Entity, queryClient: QueryClient): 
   if (sessionLink) {
     await linkSessionPage(sessionLink.fromEntityId, "note", note.id);
     await queryClient.invalidateQueries({
-      queryKey: ["session-pages", sessionLink.fromEntityId],
+      queryKey: qk.sessions.pages(sessionLink.fromEntityId),
     });
   }
   await Promise.all([
     // Also covers both lists' summaries, which live under this key.
-    queryClient.invalidateQueries({ queryKey: ["entities", jot.spaceId] }),
-    queryClient.invalidateQueries({ queryKey: ["relationships", jot.id] }),
-    queryClient.invalidateQueries({ queryKey: ["unrefined-jots"] }),
+    queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(jot.spaceId) }),
+    queryClient.invalidateQueries({ queryKey: qk.relationships.of(jot.id) }),
+    queryClient.invalidateQueries({ queryKey: qk.jots.unrefined }),
   ]);
   useNavStore.getState().openEntity(note.id, note.spaceId);
   return note;

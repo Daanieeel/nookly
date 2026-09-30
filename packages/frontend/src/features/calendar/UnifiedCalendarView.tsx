@@ -27,10 +27,12 @@ import {
   weekNumber,
   writeView,
 } from "../sessions/calendar/calendar-model";
-import { EXTERNAL_EVENTS_KEY } from "../sessions/external-calendars/external-calendar-sync";
 import { MonthGrid } from "../sessions/calendar/MonthGrid";
 import { TimeGrid } from "../sessions/calendar/TimeGrid";
 import { QuickCreateCalendarEntryDialog } from "../calendar-entries/calendar/QuickCreateCalendarEntryDialog";
+import { qk } from "#/lib/query-keys.ts";
+import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The fifth cross-Space exception (`docs/04-navigation-spaces.md`): one
 /// unified, space-neutral calendar layering the external overlay (bottom, read
@@ -54,7 +56,7 @@ export function UnifiedCalendarView() {
     writeView(next, STORAGE_KEYS.calendarView);
   }, []);
 
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const spaceColorById = useMemo(() => new Map(spaces.map((s) => [s.id, s.color])), [spaces]);
   const spaceColor = useCallback(
     (spaceId: string) => spaceColorById.get(spaceId),
@@ -62,11 +64,11 @@ export function UnifiedCalendarView() {
   );
 
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", "all"],
+    queryKey: qk.sessions.all,
     queryFn: listSessionsAll,
   });
   const { data: calendarEntries = [] } = useQuery({
-    queryKey: ["calendar-entries", "all"],
+    queryKey: qk.calendarEntries.all,
     queryFn: listCalendarEntriesAll,
   });
 
@@ -74,7 +76,7 @@ export function UnifiedCalendarView() {
   const fromKey = dayKey(addDays(days[0], -1));
   const toKey = dayKey(addDays(days[days.length - 1], 1));
   const { data: externalEvents = [] } = useQuery({
-    queryKey: [...EXTERNAL_EVENTS_KEY, fromKey, toKey],
+    queryKey: qk.externalCalendars.eventsBetween(fromKey, toKey),
     queryFn: () => listExternalEvents(fromKey, toKey),
     placeholderData: keepPreviousData,
   });
@@ -97,6 +99,7 @@ export function UnifiedCalendarView() {
     const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
     setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
   }, [view, anchor, weekStartsOn]);
+  useScreenHotkey(HOTKEYS.newItem, () => startCreate());
 
   useEffect(() => {
     if (highlightIds.size === 0) return;

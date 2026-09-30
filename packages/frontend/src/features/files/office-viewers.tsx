@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -201,7 +202,7 @@ function SheetViewer({
   fallback: (hint?: string) => ReactNode;
 }) {
   const { data: loaded, isError } = useQuery({
-    queryKey: ["workbook", file.entity.id, src],
+    queryKey: qk.files.workbook(file.entity.id, src),
     staleTime: Infinity,
     queryFn: async () => {
       const [{ default: Excel }, bytes] = await Promise.all([import("exceljs"), fetchBytes(src)]);
@@ -379,12 +380,12 @@ function ConvertedViewer({
   fallback: (hint?: string) => ReactNode;
 }) {
   const { data: available, isPending: checking } = useQuery({
-    queryKey: ["office-converter"],
+    queryKey: qk.files.officeConverter,
     queryFn: officeConverterAvailable,
     staleTime: 60_000,
   });
   const { data: pdf, isError } = useQuery({
-    queryKey: ["office-pdf", file.entity.id, filePath(file)],
+    queryKey: qk.files.officePdfOf(file.entity.id, filePath(file)),
     queryFn: () => convertOfficeToPdf(file.entity.id),
     enabled: available === true,
     staleTime: Infinity,
@@ -425,7 +426,7 @@ function InstallLibreOffice() {
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<LibreOfficeInstallProgress | null>(null);
   const { data: options } = useQuery({
-    queryKey: ["libreoffice-install-options"],
+    queryKey: qk.files.libreofficeInstallOptions,
     queryFn: libreofficeInstallOptions,
   });
   const install = useMutation({
@@ -433,8 +434,8 @@ function InstallLibreOffice() {
     onMutate: () => setProgress(null),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["office-converter"] }),
-        queryClient.invalidateQueries({ queryKey: ["office-pdf"] }),
+        queryClient.invalidateQueries({ queryKey: qk.files.officeConverter }),
+        queryClient.invalidateQueries({ queryKey: qk.files.officePdf }),
       ]),
   });
 

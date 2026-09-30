@@ -19,6 +19,7 @@ import {
   StatusPicker,
   TaskStatusIcon,
 } from "./task-properties";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Everything the inline property controls on rows and cards need, shared once by
 /// the Tasks page instead of threaded through every row.
@@ -42,11 +43,11 @@ export function useTasksData(): TasksData {
 /// Builds the shared data for a Space: statuses in order, its labels, and lookups.
 export function useTasksDataValue(spaceId: string): TasksData {
   const { data: rawStatuses = [] } = useQuery({
-    queryKey: ["task-statuses"],
+    queryKey: qk.tasks.statuses,
     queryFn: listTaskStatuses,
   });
   const { data: labels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
   });
   return useMemo<TasksData>(() => {
@@ -72,9 +73,12 @@ export function useRefreshTasks(spaceId: string) {
   const queryClient = useQueryClient();
   return () =>
     Promise.all(
-      [["tasks", spaceId], ["task"], ["subtasks"], ["subtask-progress"]].map((queryKey) =>
-        queryClient.invalidateQueries({ queryKey }),
-      ),
+      [
+        qk.tasks.bySpace(spaceId),
+        qk.tasks.byIdRoot,
+        qk.tasks.subtasksRoot,
+        qk.tasks.subtaskProgressRoot,
+      ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     );
 }
 

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { getCliInstallStatus, installCli } from "#/lib/api/cli.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 function isDismissed(): boolean {
   return preferences.get(STORAGE_KEYS.cliInstallCardDismissed) === "1";
@@ -23,7 +24,7 @@ function dismiss() {
 export function CliInstallCard() {
   const [dismissed, setDismissed] = useState(isDismissed);
   const { data: status } = useQuery({
-    queryKey: ["cli-install-status"],
+    queryKey: qk.cliInstallStatus,
     queryFn: getCliInstallStatus,
     staleTime: Infinity,
   });
@@ -36,7 +37,7 @@ export function CliInstallCard() {
     mutationFn: installCli,
     onSuccess: (result) => {
       setInstalledHint(result.shellHint ?? "Try `nookly cli schema` in a terminal.");
-      queryClient.setQueryData(["cli-install-status"], result);
+      queryClient.setQueryData(qk.cliInstallStatus, result);
     },
   });
   const installStatus = statusOf(install);

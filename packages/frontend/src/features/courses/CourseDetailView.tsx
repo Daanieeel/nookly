@@ -34,6 +34,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 
@@ -71,14 +72,14 @@ function useCourseDetailSave(
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (value: string | null) => write(course.id, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["course-details", course.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.courses.details(course.id) }),
   });
 }
 
 /// Professor, as a text property at the top of the right sidebar.
 function PropertiesPanel({ course }: { course: Entity }) {
   const { data: details } = useQuery({
-    queryKey: ["course-details", course.id],
+    queryKey: qk.courses.details(course.id),
     queryFn: () => getCourseDetails(course.id),
   });
   const setProfessor = useCourseDetailSave(course, updateCourseProfessor);
@@ -106,40 +107,39 @@ function CourseBody({ course }: { course: Entity }) {
   const spaceId = course.spaceId;
 
   const { data: notesEntity } = useQuery({
-    queryKey: ["course-notes", course.id],
+    queryKey: qk.courses.notes(course.id),
     queryFn: () => getCourseNotes(course.id),
   });
   const { data: relationships = [], dataUpdatedAt: relationshipsUpdatedAt } = useQuery({
-    queryKey: ["relationships", course.id],
+    queryKey: qk.relationships.of(course.id),
     queryFn: () => listRelationships(course.id, "both"),
   });
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: exams = [], dataUpdatedAt: examsUpdatedAt } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { data: assignments = [], dataUpdatedAt: assignmentsUpdatedAt } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   // Keyed on when the lists it's computed from last loaded, so editing a grade,
   // weight or course link anywhere refreshes it without its own invalidation.
   const { data: grades } = useQuery({
-    queryKey: [
-      "course-grades",
+    queryKey: qk.courses.grades(
       course.id,
       examsUpdatedAt,
       assignmentsUpdatedAt,
       relationshipsUpdatedAt,
-    ],
+    ),
     queryFn: () => getCourseGrades(course.id),
     placeholderData: (previous) => previous,
   });
   const { data: decks = [] } = useQuery({
-    queryKey: ["decks", spaceId],
+    queryKey: qk.decks.bySpace(spaceId),
     queryFn: () => listDecks(spaceId),
   });
 
@@ -165,7 +165,7 @@ function CourseBody({ course }: { course: Entity }) {
   // are fetched separately.
   const examRelQueries = useQueries({
     queries: courseExams.map((exam) => ({
-      queryKey: ["relationships", exam.entity.id],
+      queryKey: qk.relationships.of(exam.entity.id),
       queryFn: () => listRelationships(exam.entity.id, "to"),
     })),
   });
@@ -175,7 +175,7 @@ function CourseBody({ course }: { course: Entity }) {
   const courseDecks = decks.filter((d) => courseDeckIds.includes(d.id));
   const deckStatsQueries = useQueries({
     queries: courseDecks.map((deck) => ({
-      queryKey: ["deck-stats", deck.id],
+      queryKey: qk.decks.stats(deck.id),
       queryFn: () => getDeckStats(deck.id),
     })),
   });

@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
 import { Selection, TextSelection } from "@tiptap/pm/state";
@@ -139,7 +140,7 @@ function HydratedBlockEditor({
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
   const { data: entities = [] } = useQuery({
-    queryKey: ["entities", spaceId],
+    queryKey: qk.entities.bySpace(spaceId),
     queryFn: () => listEntities(spaceId, false),
   });
 
@@ -166,7 +167,7 @@ function HydratedBlockEditor({
   // `refetchType: "all"` also refreshes the cache after a save flushed on
   // unmount, when no editor is observing the query anymore.
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["blocks", entityId], refetchType: "all" });
+    queryClient.invalidateQueries({ queryKey: qk.blocks(entityId), refetchType: "all" });
 
   const reconcile = useMutation({
     mutationKey: saveBlocksKey(entityId),

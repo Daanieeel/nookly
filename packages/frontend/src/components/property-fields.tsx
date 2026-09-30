@@ -1,5 +1,6 @@
 import { IconX } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useDebouncer } from "@tanstack/react-pacer";
+import { useEffect, useState } from "react";
 import { StatusIcon } from "#/components/action-feedback.tsx";
 import { PROPERTY_VALUE } from "#/components/property-row.tsx";
 import { NumberInput } from "@nookly/ui/components/number-input";
@@ -53,19 +54,23 @@ export function NumberProperty({
   unit?: string;
 }) {
   const [draft, setDraft] = useState<number | null>(value);
-  const saveRef = useRef(onSave);
-  saveRef.current = onSave;
+  // Unmounting flushes a pending save instead of dropping the last edit.
+  const saver = useDebouncer(
+    (next: number | null) => {
+      if (next !== value) onSave(next);
+    },
+    { wait: 500, onUnmount: (debouncer) => debouncer.flush() },
+  );
 
-  useEffect(() => {
-    if (draft === value) return;
-    const timer = setTimeout(() => saveRef.current(draft), 500);
-    return () => clearTimeout(timer);
-  }, [draft, value]);
+  function change(next: number | null) {
+    setDraft(next);
+    saver.maybeExecute(next);
+  }
 
   if (draft === null) {
     return (
       <div className="relative flex items-center">
-        <button type="button" onClick={() => setDraft(startAt)} className={PROPERTY_VALUE}>
+        <button type="button" onClick={() => change(startAt)} className={PROPERTY_VALUE}>
           <span className="text-muted-foreground">{addLabel}</span>
         </button>
         <span className="pointer-events-none absolute right-2">
@@ -78,7 +83,7 @@ export function NumberProperty({
     <div className="flex items-center gap-1 px-1">
       <NumberInput
         value={draft}
-        onChange={setDraft}
+        onChange={change}
         step={step}
         min={min}
         max={max}
@@ -90,7 +95,7 @@ export function NumberProperty({
           <button
             type="button"
             aria-label={failed ? "Couldn't save, try again" : clearLabel}
-            onClick={() => setDraft(null)}
+            onClick={() => change(null)}
             className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <IconX size={12} />

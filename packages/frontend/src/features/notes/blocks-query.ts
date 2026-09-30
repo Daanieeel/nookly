@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import type { QueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { listBlocks } from "#/lib/api/notes.ts";
@@ -6,7 +7,7 @@ import { listBlocks } from "#/lib/api/notes.ts";
 /// after hovering it renders straight from cache.
 export function blocksQueryOptions(entityId: string) {
   return queryOptions({
-    queryKey: ["blocks", entityId],
+    queryKey: qk.blocks(entityId),
     queryFn: () => listBlocks(entityId),
   });
 }

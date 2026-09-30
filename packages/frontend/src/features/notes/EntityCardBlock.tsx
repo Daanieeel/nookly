@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconReplace } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
@@ -72,10 +73,10 @@ function EntityCard({
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: entity, isError } = useQuery({
-    queryKey: ["entity", entityId],
+    queryKey: qk.entity.byId(entityId),
     queryFn: () => getEntity(entityId),
   });
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
 
   if (isError) {
     return (

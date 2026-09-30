@@ -26,6 +26,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { ASSIGNMENT_STATUSES, assignmentStatus, isDone, statusKindOf } from "./assignment-model";
+import { qk } from "#/lib/query-keys.ts";
 
 /// The status glyph, which opens the status picker, as on Tasks. Swaps to a
 /// spinner while saving and a warning when the change failed.
@@ -35,7 +36,9 @@ export function AssignmentStatusControl({ assignment }: { assignment: Assignment
     mutationFn: (status: string) =>
       updateAssignmentStatus(assignment.entity.id, status, assignment.grade),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] }),
+      queryClient.invalidateQueries({
+        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
+      }),
   });
   const status = assignmentStatus(assignment.status);
   const label = change.isError ? "Couldn't change status, try again" : "Change Status";
@@ -68,7 +71,9 @@ export function useSetAssignmentDueDate(assignment: Assignment) {
   return useMutation({
     mutationFn: (dueDate: string | null) => updateAssignmentDueDate(assignment.entity.id, dueDate),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] }),
+      queryClient.invalidateQueries({
+        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
+      }),
   });
 }
 

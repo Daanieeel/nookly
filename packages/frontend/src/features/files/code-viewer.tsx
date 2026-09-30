@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { ensureLanguage, highlightSpans } from "#/features/notes/highlighter.ts";
@@ -95,7 +96,7 @@ function Token({ css, children }: { css: string; children: string }) {
 /// `text` split into highlighted runs, in the accent colors code blocks use.
 function useHighlighted(text: string, language: string | null): ReactNode[] | null {
   const { data } = useQuery({
-    queryKey: ["highlight", language, text],
+    queryKey: qk.highlight(language, text),
     enabled: language !== null && text.length <= MAX_HIGHLIGHT_CHARS,
     staleTime: Infinity,
     queryFn: async () => {

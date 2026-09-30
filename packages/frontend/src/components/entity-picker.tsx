@@ -8,6 +8,7 @@ import { listEntities } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 export function EntityPickerPopover({
   spaceId,
@@ -56,7 +57,7 @@ export function EntityPickerList({
   typeFilter?: string | string[];
 }) {
   const { data: allEntities = [] } = useQuery({
-    queryKey: ["entities", spaceId],
+    queryKey: qk.entities.bySpace(spaceId),
     queryFn: () => listEntities(spaceId, false),
   });
   const allowedTypes = typeFilter

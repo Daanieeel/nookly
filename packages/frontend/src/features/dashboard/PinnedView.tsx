@@ -48,16 +48,17 @@ import { TYPE_GROUPS, typeGroupFor } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { dataTableFeatures } from "#/lib/table-features.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Cross-Space Pinned page (§4.2): pinned items grouped by Space, then by module,
 /// each drawn exactly the way its own module page draws it (task rows, note table,
 /// course cards, file tiles, ...), so a pinned item reads the same everywhere.
 export function PinnedView() {
   const { data: entities = [], isPending } = useQuery({
-    queryKey: ["entities", "all"],
+    queryKey: qk.entities.all,
     queryFn: () => listEntities(null, false),
   });
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const pinned = entities.filter((e) => e.pinned);
   const bySpace = spaces
     .map((space) => ({ space, items: pinned.filter((e) => e.spaceId === space.id) }))
@@ -214,13 +215,13 @@ function PinnedTasks({ spaceId, entities }: { spaceId: string; entities: Entity[
   const open = useOpen(spaceId);
   const data = useTasksDataValue(spaceId);
   const { data: tasks = [] } = useQuery({
-    queryKey: ["tasks", spaceId],
+    queryKey: qk.tasks.bySpace(spaceId),
     queryFn: () => listTasks(spaceId),
   });
   // Sub-tasks aren't in the Space's list, so each one loads like its own page does.
   const subtaskIds = entities.filter((e) => e.type === "sub_task").map((e) => e.id);
   const subtasks = useQueries({
-    queries: subtaskIds.map((id) => ({ queryKey: ["task", id], queryFn: () => getTask(id) })),
+    queries: subtaskIds.map((id) => ({ queryKey: qk.tasks.byId(id), queryFn: () => getTask(id) })),
   });
   const byId = new Map(tasks.map((t) => [t.entity.id, t]));
   for (const q of subtasks) if (q.data) byId.set(q.data.entity.id, q.data);
@@ -249,11 +250,11 @@ function PinnedNotes({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const open = useOpen(spaceId);
   const [sorting, setSorting] = useState<SortingState>([{ id: "edited", desc: true }]);
   const { data: summaries = [] } = useQuery({
-    queryKey: ["entities", spaceId, "note-summaries"],
+    queryKey: qk.entities.noteSummaries(spaceId),
     queryFn: () => listNoteSummaries(spaceId),
   });
   const { data: labels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
   });
   const data = useMemo<NoteRow[]>(() => {
@@ -291,14 +292,14 @@ function PinnedJots({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [sorting, setSorting] = useState<SortingState>([{ id: "edited", desc: true }]);
   const { data: summaries = [] } = useQuery({
-    queryKey: ["entities", spaceId, "jot-summaries"],
+    queryKey: qk.entities.jotSummaries(spaceId),
     queryFn: () => listJotSummaries(spaceId),
   });
   const { data: labels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
   });
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const data = useMemo(() => {
     const labelsById = new Map(labels.map((l) => [l.id, l]));
     return summaries.filter((s) => ids.has(s.entity.id)).map((s) => toRow(s, labelsById));
@@ -330,15 +331,15 @@ function PinnedCourses({ spaceId, entities }: { spaceId: string; entities: Entit
   const open = useOpen(spaceId);
   // Same lists the Courses page hands its cards, so the caches are shared.
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   return (
@@ -360,16 +361,16 @@ function PinnedCourses({ spaceId, entities }: { spaceId: string; entities: Entit
 
 function PinnedSemesters({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const { data: semesters = [] } = useQuery({
-    queryKey: ["semesters", spaceId],
+    queryKey: qk.semesters.bySpace(spaceId),
     queryFn: () => listSemesters(spaceId),
   });
   const { data: courses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   const courseRels = useQueries({
     queries: courses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });
@@ -413,7 +414,7 @@ function PinnedSemesters({ spaceId, ids }: { spaceId: string; ids: Set<string> }
 function PinnedSessions({ spaceId, entities }: { spaceId: string; entities: Entity[] }) {
   const open = useOpen(spaceId);
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const occurrences = new Map<string, SessionOccurrence>();
@@ -465,7 +466,7 @@ function SessionCard({
 function PinnedExams({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { courseOf } = useCourseLookup(spaceId, "exam-course");
@@ -486,7 +487,7 @@ function PinnedExams({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
 function PinnedAssignments({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const open = useOpen(spaceId);
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   const { courseOf } = useCourseLookup(spaceId, "assignment-course");
@@ -509,7 +510,7 @@ function PinnedAssignments({ spaceId, ids }: { spaceId: string; ids: Set<string>
 function PinnedFiles({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const open = useOpen(spaceId);
   const { data: files = [] } = useQuery({
-    queryKey: ["files", spaceId],
+    queryKey: qk.files.bySpace(spaceId),
     queryFn: () => listFiles(spaceId),
   });
   const pinned = files.filter((f) => ids.has(f.entity.id));
@@ -533,7 +534,7 @@ function PinnedFiles({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
 function PinnedBookmarks({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const openDetails = useNavStore((s) => s.setBookmarkSheetId);
   const { data: bookmarks = [] } = useQuery({
-    queryKey: ["bookmarks", spaceId],
+    queryKey: qk.bookmarks.bySpace(spaceId),
     queryFn: () => listBookmarks(spaceId),
   });
   const labels = useSpaceLabels(spaceId);

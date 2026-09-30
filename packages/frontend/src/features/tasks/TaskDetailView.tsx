@@ -55,14 +55,9 @@ import {
   StatusPicker,
   TaskStatusIcon,
 } from "./task-properties";
-
-/// True while typing somewhere, so single key shortcuts stay out of the way.
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
+import { qk } from "#/lib/query-keys.ts";
+import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// A Task's page: the same header and description editor as a Note, plus a
 /// previous and next stepper, the sub-tasks, and a properties panel at the top of
@@ -82,11 +77,11 @@ function TaskPage({ entity }: { entity: Entity }) {
   const isSubtask = entity.type === "sub_task";
 
   const { data: task } = useQuery({
-    queryKey: ["task", entity.id],
+    queryKey: qk.tasks.byId(entity.id),
     queryFn: () => getTask(entity.id),
   });
   const { data: progress } = useQuery({
-    queryKey: ["subtask-progress", entity.id],
+    queryKey: qk.tasks.subtaskProgress(entity.id),
     queryFn: () => subtaskProgress(entity.id),
     enabled: !isSubtask,
   });
@@ -139,12 +134,12 @@ function useTaskNeighbours(entity: Entity, parent: Entity | null | undefined) {
   const { statuses, labels, kindOf } = useTasksData();
   const isSubtask = entity.type === "sub_task";
   const { data: tasks } = useQuery({
-    queryKey: ["tasks", entity.spaceId],
+    queryKey: qk.tasks.bySpace(entity.spaceId),
     queryFn: () => listTasks(entity.spaceId),
     enabled: !isSubtask,
   });
   const { data: siblings } = useQuery({
-    queryKey: ["subtasks", parent?.id],
+    queryKey: qk.tasks.subtasks(parent?.id),
     queryFn: () => (parent ? listSubtasks(parent.id) : []),
     enabled: isSubtask && !!parent,
   });
@@ -186,18 +181,10 @@ function TaskStepper({
   onStep: (task: Task) => void;
 }) {
   // K and J step through tasks, as in Linear, whenever nothing else has the keyboard.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
-      const target = e.key === "k" ? prev : e.key === "j" ? next : undefined;
-      if (!target) return;
-      e.preventDefault();
-      onStep(target);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [prev, next, onStep]);
+  useScreenHotkey(HOTKEYS.previousTask, () => prev && onStep(prev), {
+    enabled: prev !== undefined,
+  });
+  useScreenHotkey(HOTKEYS.nextTask, () => next && onStep(next), { enabled: next !== undefined });
 
   return (
     <div className="flex items-center gap-0.5 pr-1">
@@ -244,7 +231,7 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: subtasks = [] } = useQuery({
-    queryKey: ["subtasks", parent.id],
+    queryKey: qk.tasks.subtasks(parent.id),
     queryFn: () => listSubtasks(parent.id),
   });
   const add = useMutation({

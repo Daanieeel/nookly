@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconAppWindow,
   IconBookmark,
@@ -67,7 +68,7 @@ const MAX_TEXT_BYTES = 1_000_000;
 /// relationships sit in the right sidebar.
 export function FileDetailView({ entity }: { entity: Entity }) {
   const { data: file } = useQuery({
-    queryKey: ["file", entity.id],
+    queryKey: qk.files.byId(entity.id),
     queryFn: () => getFile(entity.id),
   });
 
@@ -134,7 +135,7 @@ function FileViewer({ file }: { file: FileEntity }) {
 
 function TextViewer({ file, src }: { file: FileEntity; src: string }) {
   const { data: text, isError } = useQuery({
-    queryKey: ["file-text", file.entity.id],
+    queryKey: qk.files.text(file.entity.id),
     queryFn: async () => {
       const response = await fetch(src);
       const blob = await response.blob();
@@ -172,10 +173,10 @@ function useConvertToBookmark(file: FileEntity) {
     mutationFn: () => convertEntity(entity.id, "bookmark"),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["files", entity.spaceId] }),
-        queryClient.invalidateQueries({ queryKey: ["bookmarks", entity.spaceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.files.bySpace(entity.spaceId) }),
+        queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(entity.spaceId) }),
         // The entity route sees the new type and hands over to the sheet.
-        queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+        queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) }),
       ]),
   });
 }
@@ -215,8 +216,8 @@ function useDownloadLocalCopy(file: FileEntity) {
     onSuccess: (result) =>
       result.kind === "file" &&
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["file", file.entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["files", file.entity.spaceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.files.byId(file.entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.files.bySpace(file.entity.spaceId) }),
       ]),
   });
 }
@@ -337,8 +338,8 @@ function FileProperties({ file }: { file: FileEntity }) {
     mutationFn: (day: string) => setFileAddedAt(entity.id, day),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["file", entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["files", entity.spaceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.files.byId(entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.files.bySpace(entity.spaceId) }),
       ]),
   });
   const saveCopy = useMutation({
@@ -518,7 +519,7 @@ function ReplaceButton({ file }: { file: FileEntity }) {
       if (!replaced) return;
       // The old copy is deleted from disk: put the new one in the cache now, so a note
       // embedding this file never renders the old path, then refetch everything.
-      queryClient.setQueryData(["file", entity.id], replaced);
+      queryClient.setQueryData(qk.files.byId(entity.id), replaced);
       return queryClient.invalidateQueries();
     },
   });
@@ -551,8 +552,8 @@ function CopyIntoStorageButton({ file }: { file: FileEntity }) {
     mutationFn: () => copyFileIntoStorage(entity.id),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["file", entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["files", entity.spaceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.files.byId(entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.files.bySpace(entity.spaceId) }),
       ]),
   });
   return (
@@ -590,7 +591,7 @@ function OpenInMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   const { entity } = file;
   const { data: apps = [], isPending: loading } = useQuery({
-    queryKey: ["open-with-apps", entity.id, filePath(file)],
+    queryKey: qk.files.openWithApps(entity.id, filePath(file)),
     queryFn: () => listOpenWithApps(entity.id),
     enabled: menuOpen,
     staleTime: 60_000,

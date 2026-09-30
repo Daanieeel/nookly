@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { IconChevronDown, IconFeather } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +23,8 @@ import type { Entity, Space } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { jotTextToBlocks } from "./jot-blocks";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Tallest the capture box grows before it scrolls, in pixels.
 const MAX_COMPOSER_HEIGHT = 320;
@@ -57,8 +60,8 @@ export function useJotCapture({
       return entity;
     },
     onSuccess: (entity) => {
-      queryClient.invalidateQueries({ queryKey: ["entities", entity.spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["unrefined-jots"] });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(entity.spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.jots.unrefined });
       setText("");
       onSaved(entity);
     },
@@ -149,16 +152,7 @@ export function QuickJotDialog() {
   const open = useNavStore((s) => s.quickJotOpen);
   const setOpen = useNavStore((s) => s.setQuickJotOpen);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
-        event.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setOpen]);
+  useAppHotkey(HOTKEYS.quickJot, () => setOpen(true));
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -171,7 +165,7 @@ export function QuickJotDialog() {
 function QuickJotSurface({ onClose }: { onClose: () => void }) {
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
   const openEntity = useNavStore((s) => s.openEntity);
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(null);
   const space =
     spaces.find((s) => s.id === (pickedSpaceId ?? activeSpaceId)) ?? spaces[0] ?? undefined;

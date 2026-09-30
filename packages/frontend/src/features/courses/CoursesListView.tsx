@@ -14,7 +14,9 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   StatusAnnouncer,
   StatusButtonContent,
@@ -71,6 +73,8 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
+import { qk } from "#/lib/query-keys.ts";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 /// Assignment statuses that count as "done" for the course card's progress
 /// ring, mirroring `isDone` in `assignment-model.ts`.
@@ -123,6 +127,7 @@ function dateLabel(date: string): string {
 export function CoursesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
+  useCreateShortcut(() => setCreateOpen(true));
   const [sort, setSort] = useState<CourseSort>(readStoredSort);
   const changeSort = (next: CourseSort) => {
     setSort(next);
@@ -130,26 +135,26 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   };
 
   const { data: courses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   const { data: semesters = [] } = useQuery({
-    queryKey: ["semesters", spaceId],
+    queryKey: qk.semesters.bySpace(spaceId),
     queryFn: () => listSemesters(spaceId),
   });
   // Fetched once here (not per-card) and cross-referenced against each
   // course's own relationships below, so the gallery's progress rings/next-
   // session stat don't cost N extra queries per course.
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   // Same `queryKey` each `CourseCard` uses for its own relationships query —
@@ -157,7 +162,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   // extra network calls.
   const courseRelQueries = useQueries({
     queries: courses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });
@@ -409,7 +414,7 @@ export function CourseCard({
 }) {
   const queryClient = useQueryClient();
   const { data: relationships = [] } = useQuery({
-    queryKey: ["relationships", course.id],
+    queryKey: qk.relationships.of(course.id),
     queryFn: () => listRelationships(course.id, "both"),
   });
 
@@ -438,7 +443,7 @@ export function CourseCard({
 
   const assignSemester = useMutation({
     mutationFn: (semesterId: string) => setCourseSemester(course.id, semesterId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", course.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) }),
   });
 
   return (
@@ -679,7 +684,7 @@ function RelatedChip({
   prefix?: string;
 }) {
   const { data: entity } = useQuery({
-    queryKey: ["entity", entityId],
+    queryKey: qk.entity.byId(entityId),
     queryFn: () => getEntity(entityId),
   });
   if (!entity) return null;
@@ -694,6 +699,8 @@ function RelatedChip({
   );
 }
 
+const createCourseSchema = z.object({ title: z.string().trim().min(1) });
+
 function CreateCourseDialog({
   open,
   onOpenChange,
@@ -705,14 +712,21 @@ function CreateCourseDialog({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const form = useForm({
+    defaultValues: { title: "" },
+    validators: { onChange: createCourseSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending && !create.isSuccess) create.mutate(value.title);
+    },
+  });
+
   const create = useMutation({
-    mutationFn: () => createCourse(spaceId, title.trim()),
+    mutationFn: (title: string) => createCourse(spaceId, title.trim()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.courses.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
     },
   });
   const { reset } = create;
@@ -724,14 +738,10 @@ function CreateCourseDialog({
   useEffect(() => {
     if (open) inputRef.current?.focus();
     else {
-      setTitle("");
+      form.reset();
       reset();
     }
-  }, [open, reset]);
-
-  const submit = () => {
-    if (title.trim() && !create.isPending && !create.isSuccess) create.mutate();
-  };
+  }, [open, reset, form]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -742,25 +752,34 @@ function CreateCourseDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
         >
-          <Input
-            ref={inputRef}
-            placeholder="Course name"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={inputRef}
+                placeholder="Course name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
         </form>
         <DialogFooter>
-          <Button disabled={!title.trim()} onClick={submit}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={(state) => createCourseSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

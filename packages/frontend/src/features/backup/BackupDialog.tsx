@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconAlertTriangle, IconArchive, IconFolder, IconRestore } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { open as pickPath } from "@tauri-apps/plugin-dialog";
@@ -34,11 +35,11 @@ import {
 import { formatDateTime } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { BACKUPS_KEY, autoBackupEnabled, backupFolder, runBackup } from "./backup-run.ts";
+import { autoBackupEnabled, backupFolder, runBackup } from "./backup-run.ts";
 
 export function useBackups(folder: string | null) {
   return useQuery({
-    queryKey: [BACKUPS_KEY, folder],
+    queryKey: qk.backups.inFolder(folder),
     queryFn: () => listBackups(folder ?? ""),
     enabled: folder !== null,
   });

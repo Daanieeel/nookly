@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconBookmark,
   IconCloudDownload,
@@ -25,7 +26,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 
 function useFileRecord(entity: Entity): FileEntity | undefined {
   const { data: files } = useQuery({
-    queryKey: ["files", entity.spaceId],
+    queryKey: qk.files.bySpace(entity.spaceId),
     queryFn: () => listFiles(entity.spaceId),
   });
   return files?.find((f) => f.entity.id === entity.id);

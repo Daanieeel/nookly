@@ -3,10 +3,10 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useQuery } from "@tanstack/react-query";
 import { create } from "zustand";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Reads `latest.json` from the newest published GitHub release (endpoint in
 /// `src-tauri/tauri.conf.json`). Resolves `null` when already up to date.
-export const APP_UPDATE_QUERY_KEY = ["app-update"] as const;
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
@@ -27,7 +27,7 @@ export async function checkForUpdate(): Promise<Update | null> {
 /// Shared by the sidebar card and the settings popover, so one check serves both.
 export function useAppUpdate() {
   return useQuery({
-    queryKey: APP_UPDATE_QUERY_KEY,
+    queryKey: qk.appUpdate,
     queryFn: checkForUpdate,
     staleTime: CHECK_INTERVAL_MS,
     refetchInterval: CHECK_INTERVAL_MS,
@@ -39,7 +39,7 @@ export function useAppUpdate() {
 }
 
 export function useAppVersion() {
-  return useQuery({ queryKey: ["app-version"], queryFn: getVersion, staleTime: Infinity }).data;
+  return useQuery({ queryKey: qk.appVersion, queryFn: getVersion, staleTime: Infinity }).data;
 }
 
 type InstallState =

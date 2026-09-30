@@ -2,9 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { type ExternalCalendarStatus, syncExternalCalendars } from "#/lib/api/externalCalendars.ts";
-
-export const EXTERNAL_CALENDAR_STATUS_KEY = ["external-calendars", "status"];
-export const EXTERNAL_EVENTS_KEY = ["external-calendars", "events"];
+import { qk } from "#/lib/query-keys.ts";
 
 /// How often the overlay refreshes while the app is in the foreground.
 const POLL_MS = 15 * 60_000;
@@ -14,10 +12,10 @@ const CHECK_MS = 60_000;
 /// on their connection; the overlay keeps its last known events.
 export async function syncExternalCalendarsNow(queryClient: QueryClient) {
   const connections = await syncExternalCalendars();
-  queryClient.setQueryData<ExternalCalendarStatus>(EXTERNAL_CALENDAR_STATUS_KEY, (old) =>
+  queryClient.setQueryData<ExternalCalendarStatus>(qk.externalCalendars.status, (old) =>
     old ? { ...old, connections } : old,
   );
-  await queryClient.invalidateQueries({ queryKey: EXTERNAL_EVENTS_KEY });
+  await queryClient.invalidateQueries({ queryKey: qk.externalCalendars.events });
   return connections;
 }
 

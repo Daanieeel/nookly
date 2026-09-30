@@ -41,15 +41,10 @@ import {
 import { MonthGrid } from "./calendar/MonthGrid";
 import { QuickCreateSessionDialog } from "./calendar/QuickCreateSessionDialog";
 import { TimeGrid } from "./calendar/TimeGrid";
-import { EXTERNAL_EVENTS_KEY } from "./external-calendars/external-calendar-sync";
-
-/// True while typing somewhere, so single key shortcuts stay out of the way.
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
+import { qk } from "#/lib/query-keys.ts";
+import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
+import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The Sessions page is a full calendar, modeled on Outlook: Day, Work week,
 /// Week and Month views over the whole page. The calendar is the creation
@@ -76,17 +71,17 @@ export function SessionsListView({
   }, []);
 
   const { data: allSessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: filterCourse } = useQuery({
-    queryKey: ["entity", filterCourseId],
+    queryKey: qk.entity.byId(filterCourseId),
     // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
     queryFn: () => getEntity(filterCourseId as string),
     enabled: Boolean(filterCourseId),
   });
   const { data: courseRelationships = [] } = useQuery({
-    queryKey: ["relationships", filterCourseId],
+    queryKey: qk.relationships.of(filterCourseId),
     // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
     queryFn: () => listRelationships(filterCourseId as string, "to"),
     enabled: Boolean(filterCourseId),
@@ -101,7 +96,7 @@ export function SessionsListView({
   // This Space's own accent color, so Sessions and Calendar entries tint to
   // it instead of the fixed `--primary`/`--accent-purple` defaults (see
   // `SessionBlock` and `CalendarEntryBlock`'s `accentColor`).
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
   const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
@@ -112,7 +107,7 @@ export function SessionsListView({
   const fromKey = dayKey(addDays(days[0], -1));
   const toKey = dayKey(addDays(days[days.length - 1], 1));
   const { data: externalEvents = [] } = useQuery({
-    queryKey: [...EXTERNAL_EVENTS_KEY, fromKey, toKey],
+    queryKey: qk.externalCalendars.eventsBetween(fromKey, toKey),
     queryFn: () => listExternalEvents(fromKey, toKey),
     enabled: !filterCourseId,
     placeholderData: keepPreviousData,
@@ -122,7 +117,7 @@ export function SessionsListView({
   // Sessions). Hidden while narrowed to one Course, since a calendar entry
   // never has one.
   const { data: calendarEntries = [] } = useQuery({
-    queryKey: ["calendar-entries", spaceId],
+    queryKey: qk.calendarEntries.bySpace(spaceId),
     queryFn: () => listCalendarEntries(spaceId),
     enabled: !filterCourseId,
   });
@@ -153,22 +148,15 @@ export function SessionsListView({
     setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
   }, [view, anchor, weekStartsOn]);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
-      const viewForKey = CALENDAR_VIEWS.find((v) => v.key === e.key);
-      if (viewForKey) setView(viewForKey.id);
-      else if (e.key === "t") setAnchor(new Date());
-      else if (e.key === "ArrowLeft") step(-1);
-      else if (e.key === "ArrowRight") step(1);
-      else if (e.key === "c") startCreate();
-      else return;
-      e.preventDefault();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setView, step, startCreate]);
+  const hotkeys: UseHotkeyDefinition[] = [
+    ...CALENDAR_VIEWS.map((v) => ({ hotkey: v.key, callback: () => setView(v.id) })),
+    { hotkey: HOTKEYS.today, callback: () => setAnchor(new Date()) },
+    { hotkey: HOTKEYS.previousPeriod, callback: () => step(-1) },
+    { hotkey: HOTKEYS.nextPeriod, callback: () => step(1) },
+    { hotkey: HOTKEYS.create, callback: () => startCreate() },
+    { hotkey: HOTKEYS.newItem, callback: () => startCreate() },
+  ];
+  useScreenHotkeys(hotkeys);
 
   useEffect(() => {
     if (highlightIds.size === 0) return;

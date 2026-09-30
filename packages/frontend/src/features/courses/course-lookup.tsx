@@ -10,18 +10,19 @@ import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// The Course each entity belongs to through `relationshipType` (like
 /// `assignment-course`), keyed by the entity's id. Shares the per Course
 /// `["relationships", id]` cache `CoursesListView` already fills.
 export function useCourseLookup(spaceId: string, relationshipType: string) {
   const { data: courses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   const relQueries = useQueries({
     queries: courses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });

@@ -1,19 +1,13 @@
+import { qk } from "#/lib/query-keys.ts";
 import type { QueryClient } from "@tanstack/react-query";
-
-export const deckKeys = {
-  cards: (deckId: string) => ["cards", deckId] as const,
-  queue: (deckId: string) => ["study-queue", deckId] as const,
-  stats: (deckId: string) => ["deck-stats", deckId] as const,
-  summaries: (spaceId: string) => ["deck-summaries", spaceId] as const,
-};
 
 export function invalidateDeck(queryClient: QueryClient, deckId: string) {
   return Promise.all([
-    ...[deckKeys.cards, deckKeys.queue, deckKeys.stats].map((key) =>
+    ...[qk.decks.cards, qk.decks.queue, qk.decks.stats].map((key) =>
       queryClient.invalidateQueries({ queryKey: key(deckId) }),
     ),
     // The Decks page and sidebar count every deck of a Space.
-    queryClient.invalidateQueries({ queryKey: ["deck-summaries"] }),
+    queryClient.invalidateQueries({ queryKey: qk.decks.summaries }),
   ]);
 }
 

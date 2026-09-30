@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { StatusAnnouncer, StatusIcon } from "#/components/action-feedback.tsx";
@@ -16,9 +17,9 @@ export function EditableViewTitle({ entity }: { entity: Entity }) {
   const rename = useMutation({
     mutationFn: (newTitle: string) => updateEntity(entity.id, { title: newTitle }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["entity", entity.id] });
-      queryClient.invalidateQueries({ queryKey: ["view", entity.id] });
-      queryClient.invalidateQueries({ queryKey: ["views", entity.spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) });
+      queryClient.invalidateQueries({ queryKey: qk.views.byId(entity.id) });
+      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(entity.spaceId) });
     },
   });
 

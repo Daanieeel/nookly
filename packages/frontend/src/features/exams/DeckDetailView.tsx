@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUpRight,
   IconCalendarStats,
@@ -36,16 +37,16 @@ import { cn } from "@nookly/ui/lib/utils";
 import { CardText } from "./deck/card-text";
 import { CardWriter } from "./deck/CardWriter";
 import {
-  deckKeys,
   formatInterval,
   invalidateDeck,
   isDue,
-  isTypingTarget,
   studyCount,
   takeStudyRequest,
 } from "./deck/deck-data";
 import { DeckStack, STATE_TONE, stateGroup } from "./deck/index-card";
 import { StudySession } from "./deck/StudySession";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 type Mode = { kind: "overview" } | { kind: "write"; editing: IndexCard | null } | { kind: "study" };
 
@@ -53,11 +54,11 @@ type Mode = { kind: "overview" } | { kind: "write"; editing: IndexCard | null } 
 /// card laid out, the writing desk, and a study session.
 export function DeckDetailView({ entity }: { entity: Entity }) {
   const { data: cards = [], isFetched } = useQuery({
-    queryKey: deckKeys.cards(entity.id),
+    queryKey: qk.decks.cards(entity.id),
     queryFn: () => listCards(entity.id),
   });
   const { data: stats } = useQuery({
-    queryKey: deckKeys.stats(entity.id),
+    queryKey: qk.decks.stats(entity.id),
     queryFn: () => getDeckStats(entity.id),
   });
   const [mode, setMode] = useState<Mode>({ kind: "overview" });
@@ -77,21 +78,13 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
   const toStudy = stats ? studyCount(stats) : 0;
   const overview = () => setMode({ kind: "overview" });
 
-  useEffect(() => {
-    if (mode.kind !== "overview") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "n") {
-        e.preventDefault();
-        setMode({ kind: "write", editing: null });
-      } else if (e.key === "s" && toStudy > 0) {
-        e.preventDefault();
-        setMode({ kind: "study" });
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mode.kind, toStudy]);
+  const inOverview = mode.kind === "overview";
+  useAppHotkey(HOTKEYS.newCard, () => setMode({ kind: "write", editing: null }), {
+    enabled: inOverview,
+  });
+  useAppHotkey(HOTKEYS.study, () => setMode({ kind: "study" }), {
+    enabled: inOverview && toStudy > 0,
+  });
 
   return (
     <EntityDetailLayout entity={entity} sidebar={<DeckProperties entity={entity} stats={stats} />}>
@@ -297,11 +290,11 @@ function DeckProperties({ entity, stats }: { entity: Entity; stats: DeckStats | 
   const openEntity = useNavStore((s) => s.openEntity);
   const { spaceId } = entity;
   const { data: summaries = [] } = useQuery({
-    queryKey: deckKeys.summaries(spaceId),
+    queryKey: qk.decks.summariesBySpace(spaceId),
     queryFn: () => listDeckSummaries(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const examId = summaries.find((s) => s.entity.id === entity.id)?.examId ?? null;
@@ -312,13 +305,11 @@ function DeckProperties({ entity, stats }: { entity: Entity; stats: DeckStats | 
     onSuccess: (_, next) =>
       Promise.all(
         [
-          deckKeys.summaries(spaceId),
-          ["relationships", entity.id],
-          ["relationships", examId],
-          ["relationships", next],
-        ]
-          .filter(([, id]) => id)
-          .map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+          qk.decks.summariesBySpace(spaceId),
+          qk.relationships.of(entity.id),
+          ...(examId ? [qk.relationships.of(examId)] : []),
+          ...(next ? [qk.relationships.of(next)] : []),
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
       ),
   });
   const examStatus = statusOf(setExam) === "success" ? "idle" : statusOf(setExam);

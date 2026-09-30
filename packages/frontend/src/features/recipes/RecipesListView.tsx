@@ -1,7 +1,10 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   StatusButtonContent,
   statusOf,
@@ -29,6 +32,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { RECIPE_KIND_LABELS } from "./recipe-kind.ts";
 import { RecipeTagChip } from "./recipe-tags.tsx";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 /// A card grid keyed off each recipe's own photo (§ Recipes module), not the
 /// gradient-blob identity Courses uses — a recipe's banner *is* its
@@ -37,9 +41,10 @@ import { RecipeTagChip } from "./recipe-tags.tsx";
 export function RecipesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
+  useCreateShortcut(() => setCreateOpen(true));
 
   const { data: recipes = [] } = useQuery({
-    queryKey: ["recipes", spaceId],
+    queryKey: qk.recipes.bySpace(spaceId),
     queryFn: () => listRecipes(spaceId),
   });
 
@@ -167,6 +172,8 @@ function RecipePlaceholderCard({ titleWidth }: { titleWidth: string }) {
   );
 }
 
+const createRecipeSchema = z.object({ title: z.string().trim().min(1) });
+
 function CreateRecipeDialog({
   open,
   onOpenChange,
@@ -178,14 +185,21 @@ function CreateRecipeDialog({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const form = useForm({
+    defaultValues: { title: "" },
+    validators: { onChange: createRecipeSchema },
+    onSubmit: ({ value }) => {
+      if (!create.isPending && !create.isSuccess) create.mutate(value.title);
+    },
+  });
+
   const create = useMutation({
-    mutationFn: () => createRecipe(spaceId, title.trim()),
+    mutationFn: (title: string) => createRecipe(spaceId, title.trim()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipes", spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.recipes.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
     },
   });
   const { reset } = create;
@@ -197,14 +211,10 @@ function CreateRecipeDialog({
   useEffect(() => {
     if (open) inputRef.current?.focus();
     else {
-      setTitle("");
+      form.reset();
       reset();
     }
-  }, [open, reset]);
-
-  const submit = () => {
-    if (title.trim() && !create.isPending && !create.isSuccess) create.mutate();
-  };
+  }, [open, reset, form]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -215,25 +225,34 @@ function CreateRecipeDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
         >
-          <Input
-            ref={inputRef}
-            placeholder="Recipe name"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={inputRef}
+                placeholder="Recipe name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
         </form>
         <DialogFooter>
-          <Button disabled={!title.trim()} onClick={submit}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={(state) => createRecipeSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

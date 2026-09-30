@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconLink, IconPlus } from "@tabler/icons-react";
 import { type Query, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
@@ -43,11 +44,11 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
 
   const { data: relationships = [] } = useQuery({
-    queryKey: ["relationships", entity.id],
+    queryKey: qk.relationships.of(entity.id),
     queryFn: () => listRelationships(entity.id, "both"),
   });
   const { data: types = [] } = useQuery({
-    queryKey: ["relationship-types"],
+    queryKey: qk.relationships.types,
     queryFn: listRelationshipTypes,
   });
 
@@ -55,10 +56,10 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
     mutationFn: (vars: { toEntityId: string; relationshipType: string }) =>
       createRelationship(entity.id, vars.toEntityId, vars.relationshipType),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] });
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) });
       // A Jot counts as refined once linked to a Note through this same generic
       // relationship system (§ sidebar badges), so recount on every link change.
-      queryClient.invalidateQueries({ queryKey: ["unrefined-jots"] });
+      queryClient.invalidateQueries({ queryKey: qk.jots.unrefined });
       queryClient.invalidateQueries({ predicate: isJotSummaries });
     },
   });
@@ -112,10 +113,10 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
                   await deleteRelationship(r.id);
                   await Promise.all([
                     queryClient.invalidateQueries({
-                      queryKey: ["relationships", entity.id],
+                      queryKey: qk.relationships.of(entity.id),
                     }),
                     queryClient.invalidateQueries({
-                      queryKey: ["unrefined-jots"],
+                      queryKey: qk.jots.unrefined,
                     }),
                     queryClient.invalidateQueries({ predicate: isJotSummaries }),
                   ]);

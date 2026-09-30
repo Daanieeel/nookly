@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconExternalLink,
   IconFile,
@@ -12,9 +13,11 @@ import {
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { type ComponentType, useEffect, useState } from "react";
+import { z } from "zod";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -81,13 +84,13 @@ function useSource(content: string): SourceState {
   const mention = MENTION.exec(content.trim());
   const fileId = mention?.[2];
   const { data: file, isError } = useQuery({
-    queryKey: ["file", fileId],
+    queryKey: qk.files.byId(fileId),
     queryFn: () => getFile(fileId ?? ""),
     enabled: fileId !== undefined,
   });
   // The name follows renames: a rename refreshes `["entity", id]`, not the file query.
   const { data: entity } = useQuery({
-    queryKey: ["entity", fileId],
+    queryKey: qk.entity.byId(fileId),
     queryFn: () => getEntity(fileId ?? ""),
     enabled: fileId !== undefined,
   });
@@ -262,6 +265,13 @@ function ToolbarButton({
   );
 }
 
+const linkSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .regex(/^https?:\/\/\S+$/),
+});
+
 /// The empty block: upload a file, pick one already under Files, or paste a URL.
 function MediaPicker({
   kind,
@@ -275,7 +285,12 @@ function MediaPicker({
   const queryClient = useQueryClient();
   const { noun, icon: Icon, extensions } = KINDS[kind];
   const [linking, setLinking] = useState(false);
-  const [url, setUrl] = useState("");
+  // A value that is not a full link is ignored on submit.
+  const form = useForm({
+    defaultValues: { url: "" },
+    validators: { onSubmit: linkSchema },
+    onSubmit: ({ value }) => onPick(value.url.trim()),
+  });
 
   const upload = useMutation({
     mutationFn: async () => {
@@ -289,17 +304,13 @@ function MediaPicker({
     },
     onSuccess: (file) => {
       if (!file) return;
-      void queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
-      void queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      void queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
       onPick(mentionMarkdown(file.originalFilename ?? displayTitle(file.entity), file.entity.id));
     },
   });
   const status = useActionStatus(upload);
   const pickExisting = (entity: Entity) => onPick(mentionMarkdown(displayTitle(entity), entity.id));
-  const submitUrl = () => {
-    const trimmed = url.trim();
-    if (/^https?:\/\/\S+$/.test(trimmed)) onPick(trimmed);
-  };
 
   return (
     <div className="media-picker">
@@ -312,18 +323,23 @@ function MediaPicker({
           className="flex min-w-0 flex-1 items-center gap-1.5"
           onSubmit={(event) => {
             event.preventDefault();
-            submitUrl();
+            void form.handleSubmit();
           }}
         >
-          <Input
-            autoFocus
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            onKeyDown={(event) => event.key === "Escape" && setLinking(false)}
-            placeholder="https://"
-            aria-label={`Link to the ${noun}`}
-            className="h-7 min-w-0 flex-1 text-xs"
-          />
+          <form.Field name="url">
+            {(field) => (
+              <Input
+                autoFocus
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                onKeyDown={(event) => event.key === "Escape" && setLinking(false)}
+                placeholder="https://"
+                aria-label={`Link to the ${noun}`}
+                className="h-7 min-w-0 flex-1 text-xs"
+              />
+            )}
+          </form.Field>
           <Button type="submit" variant="secondary" size="sm" className="h-7">
             Add
           </Button>

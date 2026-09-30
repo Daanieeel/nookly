@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
@@ -30,7 +31,7 @@ export function useViewPage<D>({
   const [filters, setFilters] = useState<ActiveFilter[]>(defaultFilters);
 
   const { data: view } = useQuery({
-    queryKey: ["view", viewId],
+    queryKey: qk.views.byId(viewId),
     queryFn: () => getView(viewId ?? ""),
     enabled: !!viewId,
   });
@@ -71,8 +72,8 @@ export function useViewPage<D>({
   const save = useMutation({
     mutationFn: () => updateViewConfig(viewId ?? "", serializeViewConfig(filters, display)),
     onSuccess: (updated) => {
-      queryClient.setQueryData(["view", updated.entity.id], updated);
-      queryClient.invalidateQueries({ queryKey: ["views", spaceId] });
+      queryClient.setQueryData(qk.views.byId(updated.entity.id), updated);
+      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(spaceId) });
     },
   });
 

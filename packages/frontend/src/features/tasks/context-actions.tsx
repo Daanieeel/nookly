@@ -18,6 +18,7 @@ import {
   updateTaskStatus,
 } from "#/lib/api/tasks.ts";
 import type { Entity, Task, TaskStatus } from "#/lib/api/types.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 declare module "#/components/context-menu/registry.ts" {
   interface ContextTargets {
@@ -36,11 +37,11 @@ interface TaskMenuRecord {
 /// Both come from queries the Tasks views already keep warm.
 function useTaskRecord(entity: Entity): TaskMenuRecord {
   const { data: tasks } = useQuery({
-    queryKey: ["tasks", entity.spaceId],
+    queryKey: qk.tasks.bySpace(entity.spaceId),
     queryFn: () => listTasks(entity.spaceId),
     enabled: entity.type === "task",
   });
-  const { data: statuses } = useQuery({ queryKey: ["task-statuses"], queryFn: listTaskStatuses });
+  const { data: statuses } = useQuery({ queryKey: qk.tasks.statuses, queryFn: listTaskStatuses });
   return {
     entity,
     task: tasks?.find((t) => t.entity.id === entity.id),

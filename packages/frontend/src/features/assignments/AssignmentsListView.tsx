@@ -75,6 +75,7 @@ import {
   AssignmentColumnLabels,
   AssignmentRow,
 } from "./assignment-views";
+import { qk } from "#/lib/query-keys.ts";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
@@ -112,7 +113,7 @@ export function AssignmentsListView({
   }, [filterCourseId, viewId, setFilters]);
 
   const { data: assignments = [], isPending } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   const { courses, courseOf } = useCourseLookup(spaceId, "assignment-course");
@@ -129,11 +130,11 @@ export function AssignmentsListView({
       if (courseId) await setAssignmentCourse(assignment.entity.id, courseId);
     },
     onSuccess: (_, { assignment, courseId }) => {
-      queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) });
       if (courseId) {
         const previous = courseOf.get(assignment.entity.id);
         for (const id of [courseId, previous?.id]) {
-          if (id) queryClient.invalidateQueries({ queryKey: ["relationships", id] });
+          if (id) queryClient.invalidateQueries({ queryKey: qk.relationships.of(id) });
         }
       }
     },
@@ -360,8 +361,8 @@ function CreateAssignmentDialog({
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assignments", spaceId] });
-      if (course) queryClient.invalidateQueries({ queryKey: ["relationships", course.id] });
+      queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) });
+      if (course) queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) });
     },
   });
   const createStatus = statusOf(create);

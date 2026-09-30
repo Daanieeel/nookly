@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarStats, IconCards, IconPlayerPlayFilled, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
@@ -16,7 +17,7 @@ import type { DeckSummary, Exam } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { deckKeys, formatInterval, requestStudy, studyCount } from "./deck/deck-data";
+import { formatInterval, requestStudy, studyCount } from "./deck/deck-data";
 import { DeckStack, STATE_TONE } from "./deck/index-card";
 
 /// Every deck as a pile on the desk. Decks with cards to study come first, the
@@ -24,11 +25,11 @@ import { DeckStack, STATE_TONE } from "./deck/index-card";
 export function DecksListView({ spaceId }: { spaceId: string }) {
   const [creating, setCreating] = useState(false);
   const { data: decks = [], isPending } = useQuery({
-    queryKey: deckKeys.summaries(spaceId),
+    queryKey: qk.decks.summariesBySpace(spaceId),
     queryFn: () => listDeckSummaries(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const examOf = new Map(exams.map((e) => [e.entity.id, e]));
@@ -232,7 +233,7 @@ function NewDeckTile({ spaceId, onDone }: { spaceId: string; onDone: () => void 
   const create = useMutation({
     mutationFn: () => createDeck(spaceId, title.trim(), null),
     onSuccess: async (deck) => {
-      await queryClient.invalidateQueries({ queryKey: deckKeys.summaries(spaceId) });
+      await queryClient.invalidateQueries({ queryKey: qk.decks.summariesBySpace(spaceId) });
       onDone();
       openEntity(deck.id, spaceId);
     },

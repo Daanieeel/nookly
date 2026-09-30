@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconCalendarStats,
   IconCheck,
@@ -86,7 +87,7 @@ export function ExamsListView({
   useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
 
   const { data: exams = [], isPending } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { courses, courseOf } = useCourseLookup(spaceId, "exam-course");
@@ -481,10 +482,10 @@ function CreateExamDialog({
       return createExam(spaceId, `${displayTitle(course)} Exam`, course.id, examDate || null, null);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exams", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.exams.bySpace(spaceId) });
       if (course)
         queryClient.invalidateQueries({
-          queryKey: ["relationships", course.id],
+          queryKey: qk.relationships.of(course.id),
         });
     },
   });

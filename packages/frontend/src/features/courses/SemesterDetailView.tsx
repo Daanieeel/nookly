@@ -7,7 +7,9 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   StatusAnnouncer,
   StatusButtonContent,
@@ -42,6 +44,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { CourseCard } from "./CoursesListView";
+import { qk } from "#/lib/query-keys.ts";
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 /// Same 7-day window `dateLabel` elsewhere in Courses UI (`CoursesListView`/
@@ -58,7 +61,7 @@ const EXAM_LOOKAHEAD_DAYS = 7;
 export function SemesterDetailView({ entity }: { entity: Entity }) {
   const spaceId = entity.spaceId;
   const { data: semesters = [] } = useQuery({
-    queryKey: ["semesters", spaceId],
+    queryKey: qk.semesters.bySpace(spaceId),
     queryFn: () => listSemesters(spaceId),
   });
   const isCurrent = resolveActiveSemesterId(semesters) === entity.id;
@@ -78,23 +81,23 @@ function SemesterBody({ semester }: { semester: Entity }) {
   const openEntity = useNavStore((s) => s.openEntity);
 
   const { data: notesEntity } = useQuery({
-    queryKey: ["semester-notes", semester.id],
+    queryKey: qk.semesters.notes(semester.id),
     queryFn: () => getSemesterNotes(semester.id),
   });
   const { data: allCourses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
 
@@ -104,7 +107,7 @@ function SemesterBody({ semester }: { semester: Entity }) {
   // globally unassigned — a Course belongs to at most one Semester at a time.
   const courseRelQueries = useQueries({
     queries: allCourses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });
@@ -256,6 +259,8 @@ function StatItem({
 /// tile, since it's an action rather than a Course — opening a small popover
 /// with the two ways to grow a Semester's Course grid: link an existing
 /// Course, or create a new one pre-linked to it.
+const addCourseSchema = z.object({ title: z.string().trim().min(1) });
+
 function AddCourseCard({
   spaceId,
   semesterId,
@@ -267,24 +272,31 @@ function AddCourseCard({
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const form = useForm({
+    defaultValues: { title: "" },
+    validators: { onChange: addCourseSchema },
+    onSubmit: ({ value }) => {
+      if (!busy) create.mutate(value.title);
+    },
+  });
+
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (title: string) => {
       const course = await createCourse(spaceId, title.trim());
       await setCourseSemester(course.id, semesterId);
       return course;
     },
     onSuccess: (course) => {
-      queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
-      return queryClient.invalidateQueries({ queryKey: ["relationships", course.id] });
+      queryClient.invalidateQueries({ queryKey: qk.courses.bySpace(spaceId) });
+      return queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) });
     },
   });
   const link = useMutation({
     mutationFn: (courseId: string) => setCourseSemester(courseId, semesterId),
     onSuccess: (_, courseId) =>
-      queryClient.invalidateQueries({ queryKey: ["relationships", courseId] }),
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(courseId) }),
   });
   const close = () => setOpen(false);
   useCloseAfterSuccess(create, close);
@@ -296,11 +308,11 @@ function AddCourseCard({
   useEffect(() => {
     if (open) inputRef.current?.focus();
     else {
-      setTitle("");
+      form.reset();
       resetCreate();
       resetLink();
     }
-  }, [open, resetCreate, resetLink]);
+  }, [open, resetCreate, resetLink, form]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -316,25 +328,34 @@ function AddCourseCard({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim() && !busy) create.mutate();
+            void form.handleSubmit();
           }}
           className="flex flex-col gap-2"
         >
-          <Input
-            ref={inputRef}
-            placeholder="New course name"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="h-8 text-sm"
-          />
-          <Button type="submit" size="sm" disabled={!title.trim()}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create & link"
-              successLabel="Created and linked"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                ref={inputRef}
+                placeholder="New course name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                className="h-8 text-sm"
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => addCourseSchema.safeParse(state.values).success}>
+            {(ready) => (
+              <Button type="submit" size="sm" disabled={!ready}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create & link"
+                  successLabel="Created and linked"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </form>
         <div className="my-2 flex items-center gap-2 text-xs text-muted-foreground">
           <Separator className="flex-1" /> or <Separator className="flex-1" />
