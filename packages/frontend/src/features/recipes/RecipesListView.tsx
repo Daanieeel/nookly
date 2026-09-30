@@ -32,6 +32,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { RECIPE_KIND_LABELS } from "./recipe-kind.ts";
 import { RecipeTagChip } from "./recipe-tags.tsx";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 /// A card grid keyed off each recipe's own photo (§ Recipes module), not the
 /// gradient-blob identity Courses uses — a recipe's banner *is* its
@@ -40,6 +41,7 @@ import { RecipeTagChip } from "./recipe-tags.tsx";
 export function RecipesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
+  useCreateShortcut(() => setCreateOpen(true));
 
   const { data: recipes = [] } = useQuery({
     queryKey: qk.recipes.bySpace(spaceId),

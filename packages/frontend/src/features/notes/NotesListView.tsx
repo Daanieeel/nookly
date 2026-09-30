@@ -33,6 +33,7 @@ import { keyColumn } from "./key-column";
 import { notePreviewText } from "./note-preview";
 import { formatDateTime } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 export interface NoteRow {
   summary: PageSummary;
@@ -155,6 +156,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
   });
   const createStatus = statusOf(create);
   const startNote = () => !create.isPending && create.mutate();
+  useCreateShortcut(startNote);
 
   const rows = useMemo<NoteRow[]>(() => {
     const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));

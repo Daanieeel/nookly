@@ -72,6 +72,7 @@ import { orderSemesters, resolveActiveSemesterId } from "./current-semester";
 import { SemesterSetupWizard } from "./SemesterSetupWizard";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 /// The Semesters overview: chronological, not a card-grid — Semesters are
 /// inherently sequential (PLAN §2), unlike independent entities like Courses.
@@ -80,6 +81,7 @@ import { qk } from "#/lib/query-keys.ts";
 export function SemestersListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  useCreateShortcut(() => setCreateOpen(true));
   const [wizardOpen, setWizardOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 

@@ -15,6 +15,7 @@ export const HOTKEYS = {
   back: "Mod+[",
   forward: "Mod+]",
   create: "C",
+  newItem: "Mod+N",
   nextTask: "J",
   previousTask: "K",
   today: "T",

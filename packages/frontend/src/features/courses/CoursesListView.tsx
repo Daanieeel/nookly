@@ -74,6 +74,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 /// Assignment statuses that count as "done" for the course card's progress
 /// ring, mirroring `isDone` in `assignment-model.ts`.
@@ -126,6 +127,7 @@ function dateLabel(date: string): string {
 export function CoursesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
+  useCreateShortcut(() => setCreateOpen(true));
   const [sort, setSort] = useState<CourseSort>(readStoredSort);
   const changeSort = (next: CourseSort) => {
     setSort(next);

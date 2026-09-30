@@ -154,6 +154,7 @@ export function SessionsListView({
     { hotkey: HOTKEYS.previousPeriod, callback: () => step(-1) },
     { hotkey: HOTKEYS.nextPeriod, callback: () => step(1) },
     { hotkey: HOTKEYS.create, callback: () => startCreate() },
+    { hotkey: HOTKEYS.newItem, callback: () => startCreate() },
   ];
   useScreenHotkeys(hotkeys);
 

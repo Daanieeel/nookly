@@ -51,6 +51,7 @@ import { keyColumn } from "./key-column";
 import { notePreviewText, previewLines } from "./note-preview";
 import { formatClock, formatDateTime, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 export interface JotRow {
   summary: PageSummary;
@@ -218,6 +219,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const setQuickJotOpen = useNavStore((s) => s.setQuickJotOpen);
+  useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>(readStoredPresetFilters);
   const [sorting, setSorting] = useState<SortingState>(readStoredSorting);
