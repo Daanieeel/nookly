@@ -45,8 +45,6 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
-import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Grid shared by every timeline row: date, rail, content. The rail's center is
 /// where the connecting line runs.
@@ -152,7 +150,6 @@ export function ExamsListView({
               <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New exam
-                <ShortcutKeys hotkey={HOTKEYS.newItem} />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
@@ -168,7 +165,7 @@ export function ExamsListView({
             icon={IconCalendarStats}
             title="No exams yet"
             description="Press C to add one. Pick its Course and date, the rest comes later."
-            action={{ label: "New exam", onClick: startCreate, shortcut: HOTKEYS.newItem }}
+            action={{ label: "New exam", onClick: startCreate }}
           />
         </div>
       ) : visible.length === 0 ? (

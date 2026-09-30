@@ -33,8 +33,6 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { RECIPE_KIND_LABELS } from "./recipe-kind.ts";
 import { RecipeTagChip } from "./recipe-tags.tsx";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
-import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// A card grid keyed off each recipe's own photo (§ Recipes module), not the
 /// gradient-blob identity Courses uses — a recipe's banner *is* its
@@ -62,7 +60,7 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Recipes</h1>
         <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-          <IconPlus size={14} /> New recipe <ShortcutKeys hotkey={HOTKEYS.newItem} />
+          <IconPlus size={14} /> New recipe
         </Button>
       </div>
 
@@ -149,7 +147,7 @@ function RecipesEmptyCard({ onCreate }: { onCreate: () => void }) {
           Add a recipe to start tracking its ingredients and steps.
         </p>
         <Button size="sm" className="mt-1 gap-1.5" onClick={onCreate}>
-          <IconPlus size={14} /> New recipe <ShortcutKeys hotkey={HOTKEYS.newItem} />
+          <IconPlus size={14} /> New recipe
         </Button>
       </GalleryCardBody>
     </GalleryCard>

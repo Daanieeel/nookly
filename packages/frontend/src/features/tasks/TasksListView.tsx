@@ -47,8 +47,6 @@ import {
 import { TaskStatusIcon } from "./task-properties";
 import { qk } from "#/lib/query-keys.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
-import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const NO_FILTERS: ActiveFilter[] = [];
 
@@ -279,7 +277,6 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
                 >
                   <IconPlus />
                   New task
-                  <ShortcutKeys hotkey={HOTKEYS.newItem} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="flex items-center gap-2">
@@ -295,11 +292,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
               icon={IconChecklist}
               title="No tasks in this Space yet"
               description="Press C anywhere on this page to capture the first one."
-              action={{
-                label: "New task",
-                onClick: () => startCreate(),
-                shortcut: HOTKEYS.newItem,
-              }}
+              action={{ label: "New task", onClick: () => startCreate() }}
             />
           </div>
         ) : groups.length === 0 ? (

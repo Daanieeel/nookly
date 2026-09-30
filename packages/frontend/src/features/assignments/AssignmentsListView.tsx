@@ -76,8 +76,6 @@ import {
   AssignmentRow,
 } from "./assignment-views";
 import { qk } from "#/lib/query-keys.ts";
-import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
@@ -266,7 +264,6 @@ export function AssignmentsListView({
               <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New assignment
-                <ShortcutKeys hotkey={HOTKEYS.newItem} />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
@@ -282,7 +279,7 @@ export function AssignmentsListView({
             icon={IconClipboardCheck}
             title="No assignments yet"
             description="Press C to add one. Pick its Course and due date, the rest comes later."
-            action={{ label: "New assignment", onClick: startCreate, shortcut: HOTKEYS.newItem }}
+            action={{ label: "New assignment", onClick: startCreate }}
           />
         </div>
       ) : groups.every((g) => g.items.length === 0) ? (

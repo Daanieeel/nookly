@@ -75,8 +75,6 @@ import { resolveActiveSemesterId } from "./current-semester";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
-import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Assignment statuses that count as "done" for the course card's progress
 /// ring, mirroring `isDone` in `assignment-model.ts`.
@@ -221,7 +219,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
             </Select>
           )}
           <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <IconPlus size={14} /> New course <ShortcutKeys hotkey={HOTKEYS.newItem} />
+            <IconPlus size={14} /> New course
           </Button>
         </div>
       </div>
@@ -630,7 +628,7 @@ function CoursesEmptyCard({ onCreate }: { onCreate: () => void }) {
           Add a course to start tracking its assignments and materials.
         </p>
         <Button size="sm" className="mt-1 gap-1.5" onClick={onCreate}>
-          <IconPlus size={14} /> New course <ShortcutKeys hotkey={HOTKEYS.newItem} />
+          <IconPlus size={14} /> New course
         </Button>
       </GalleryCardBody>
     </GalleryCard>

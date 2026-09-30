@@ -73,8 +73,6 @@ import { SemesterSetupWizard } from "./SemesterSetupWizard";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
-import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The Semesters overview: chronological, not a card-grid — Semesters are
 /// inherently sequential (PLAN §2), unlike independent entities like Courses.
@@ -158,7 +156,7 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
             <IconWand size={14} /> Set up semesters
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <IconPlus size={14} /> New semester <ShortcutKeys hotkey={HOTKEYS.newItem} />
+            <IconPlus size={14} /> New semester
           </Button>
         </div>
       </div>
