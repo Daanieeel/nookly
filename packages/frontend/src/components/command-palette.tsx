@@ -1,6 +1,7 @@
 import { IconArrowRight, IconCategory, IconFolder, IconTag } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useEffect, useRef, useState } from "react";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { EntityIcon, iconForType } from "#/components/entity-icon.tsx";
@@ -51,6 +52,8 @@ export function CommandPalette() {
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
+  // Search runs once typing pauses, not on every keystroke.
+  const [searchTerm] = useDebouncedValue(trimmed, { wait: 120 });
 
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const { data: entities } = useQuery({
@@ -79,9 +82,9 @@ export function CommandPalette() {
     enabled: paletteOpen && spaceIds.length > 0,
   });
   const { data: hits = [], isFetching } = useQuery({
-    queryKey: qk.search(trimmed),
-    queryFn: () => search(trimmed),
-    enabled: trimmed.length > 0,
+    queryKey: qk.search(searchTerm),
+    queryFn: () => search(searchTerm),
+    enabled: trimmed.length > 0 && searchTerm.length > 0,
     placeholderData: keepPreviousData,
   });
 
