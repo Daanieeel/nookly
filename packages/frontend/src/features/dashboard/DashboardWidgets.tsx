@@ -33,6 +33,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { DashboardData, Deadline } from "./dashboard-data";
 import { EntityPill, entityLink, listLink, LinkToken, useOpenTarget } from "./dashboard-links";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Rows each Today section shows before pointing at the full list.
 const TODAY_LIMIT = 5;
@@ -49,7 +50,7 @@ function dayLabel(day: string, today: string): string {
 }
 
 function useSpaceNames(): Map<string, string> {
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   return new Map(spaces.map((s) => [s.id, s.name]));
 }
 

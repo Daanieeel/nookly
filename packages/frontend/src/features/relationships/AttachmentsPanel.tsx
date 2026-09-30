@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconPaperclip, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
@@ -18,13 +19,13 @@ import { SidebarHint, SidebarSection } from "./SidebarSection";
 export function AttachmentsPanel({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
   const { data: relationships = [] } = useQuery({
-    queryKey: ["relationships", entity.id],
+    queryKey: qk.relationships.of(entity.id),
     queryFn: () => listRelationships(entity.id, "both"),
   });
 
   const create = useMutation({
     mutationFn: (toEntityId: string) => createRelationship(entity.id, toEntityId, "attached-file"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", entity.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
   });
   // The new row appearing is the confirmation, so the trigger shows no success state.
   const createStatus = create.isSuccess ? "idle" : statusOf(create);
@@ -84,7 +85,7 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
                 onRemove={async () => {
                   await deleteRelationship(r.id);
                   await queryClient.invalidateQueries({
-                    queryKey: ["relationships", entity.id],
+                    queryKey: qk.relationships.of(entity.id),
                   });
                 }}
               />

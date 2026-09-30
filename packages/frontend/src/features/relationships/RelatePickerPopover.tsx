@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { Command } from "cmdk";
 import { IconChevronLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -60,7 +61,7 @@ export function RelatePicker({
   const [type, setType] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { data: entities = [] } = useQuery({
-    queryKey: ["entities", spaceId],
+    queryKey: qk.entities.bySpace(spaceId),
     queryFn: () => listEntities(spaceId, false),
   });
 

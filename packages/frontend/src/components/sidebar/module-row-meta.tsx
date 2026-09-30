@@ -6,10 +6,11 @@ import { listDeckSummaries } from "#/lib/api/decks.ts";
 import { listExams } from "#/lib/api/exams.ts";
 import type { ModuleKey } from "#/lib/store/nav.ts";
 import { SidebarUrgencyChip } from "./sidebar-badges";
+import { qk } from "#/lib/query-keys.ts";
 
 function ExamsMeta({ spaceId }: { spaceId: string }) {
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const today = startOfDay(new Date());
@@ -24,7 +25,7 @@ function ExamsMeta({ spaceId }: { spaceId: string }) {
 
 function AssignmentsMeta({ spaceId }: { spaceId: string }) {
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   const today = startOfDay(new Date());
@@ -38,7 +39,7 @@ function AssignmentsMeta({ spaceId }: { spaceId: string }) {
 /// How many cards are ready to study across the Space's decks.
 function DecksMeta({ spaceId }: { spaceId: string }) {
   const { data: decks = [] } = useQuery({
-    queryKey: ["deck-summaries", spaceId],
+    queryKey: qk.decks.summariesBySpace(spaceId),
     queryFn: () => listDeckSummaries(spaceId),
   });
   const toStudy = decks.reduce((sum, d) => sum + d.stats.new + d.stats.learning + d.stats.due, 0);

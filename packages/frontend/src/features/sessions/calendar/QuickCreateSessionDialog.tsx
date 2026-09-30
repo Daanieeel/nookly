@@ -30,6 +30,7 @@ import type { Entity } from "#/lib/api/types.ts";
 import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
+import { qk } from "#/lib/query-keys.ts";
 
 const sessionSchema = z
   .object({
@@ -132,7 +133,7 @@ export function QuickCreateSessionDialog({
       return [occurrence.entity.id];
     },
     onSuccess: async (ids) => {
-      await queryClient.invalidateQueries({ queryKey: ["sessions", spaceId] });
+      await queryClient.invalidateQueries({ queryKey: qk.sessions.bySpace(spaceId) });
       onCreated(ids);
     },
   });

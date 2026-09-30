@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconCopy, IconExternalLink, IconRefresh } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -8,7 +9,7 @@ import { copyText } from "#/lib/clipboard.ts";
 
 function useBookmarkRecord(entity: Entity): Bookmark | undefined {
   const { data: bookmarks } = useQuery({
-    queryKey: ["bookmarks", entity.spaceId],
+    queryKey: qk.bookmarks.bySpace(entity.spaceId),
     queryFn: () => listBookmarks(entity.spaceId),
   });
   return bookmarks?.find((b) => b.entity.id === entity.id);

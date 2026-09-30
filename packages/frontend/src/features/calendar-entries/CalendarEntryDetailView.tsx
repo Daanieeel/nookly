@@ -11,6 +11,7 @@ import { Textarea } from "@nookly/ui/components/textarea";
 import { listCalendarEntries, overrideCalendarEntryOccurrence } from "#/lib/api/calendarEntries.ts";
 import type { CalendarEntry, Entity } from "#/lib/api/types.ts";
 import { formatTimestamp } from "#/features/tasks/task-model.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 /// A calendar entry's page: like Sessions, it's calendar-first (see
 /// `CalendarEntriesListView`), but unlike Sessions it also gets a real detail
@@ -19,7 +20,7 @@ import { formatTimestamp } from "#/features/tasks/task-model.ts";
 /// by `EntityDetailLayout`/`RightSidebar` once the type is registered.
 export function CalendarEntryDetailView({ entity }: { entity: Entity }) {
   const { data: entries = [] } = useQuery({
-    queryKey: ["calendar-entries", entity.spaceId],
+    queryKey: qk.calendarEntries.bySpace(entity.spaceId),
     queryFn: () => listCalendarEntries(entity.spaceId),
   });
   const entry = entries.find((a) => a.entity.id === entity.id);
@@ -48,8 +49,7 @@ export function CalendarEntryDetailView({ entity }: { entity: Entity }) {
 
 function PropertiesPanel({ entry }: { entry: CalendarEntry }) {
   const queryClient = useQueryClient();
-  const refresh = () =>
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "calendar-entries" });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: qk.calendarEntries.root });
 
   const save = useMutation({
     mutationFn: (patch: Parameters<typeof overrideCalendarEntryOccurrence>[1]) =>

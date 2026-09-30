@@ -20,6 +20,7 @@ import {
 } from "../../sessions/calendar/calendar-model";
 import { useItemDrag } from "../../sessions/calendar/item-drag";
 import { CalendarEntryPopover } from "./CalendarEntryPopover";
+import { qk } from "#/lib/query-keys.ts";
 
 /// A calendar entry occurrence on the time grid: solid and the bolder of the
 /// two (personal entries carry more visual weight than class occurrences),
@@ -55,8 +56,7 @@ export function CalendarEntryBlock({
   dayIndex: number;
 }) {
   const queryClient = useQueryClient();
-  const invalidate = () =>
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "calendar-entries" });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: qk.calendarEntries.root });
   const cancel = useMutation({
     mutationFn: () => overrideCalendarEntryOccurrence(entry.entity.id, { cancelled: true }),
     onSuccess: invalidate,

@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconArrowBackUp, IconArrowLeft, IconConfetti } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -16,7 +17,7 @@ import { getDeckStats, getStudyQueue, reviewCard, undoReview } from "#/lib/api/d
 import type { CardRating, IndexCard } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { CardText, faceTextSize } from "./card-text";
-import { deckKeys, formatInterval, invalidateDeck, isTypingTarget } from "./deck-data";
+import { formatInterval, invalidateDeck, isTypingTarget } from "./deck-data";
 import { CardSurface, FlipCard, STATE_TONE, stateGroup } from "./index-card";
 
 const RATINGS: {
@@ -38,11 +39,11 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
   const queryClient = useQueryClient();
   const reduceMotion = useReducedMotion();
   const { data: queue = [], isFetched } = useQuery({
-    queryKey: deckKeys.queue(deckId),
+    queryKey: qk.decks.queue(deckId),
     queryFn: () => getStudyQueue(deckId),
   });
   const { data: stats } = useQuery({
-    queryKey: deckKeys.stats(deckId),
+    queryKey: qk.decks.stats(deckId),
     queryFn: () => getDeckStats(deckId),
   });
   const [flipped, setFlipped] = useState(false);
@@ -59,7 +60,7 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
       reviewCard(vars.card.id, vars.rating),
     onSuccess: async (_, { card, rating }) => {
       // Take the card off the pile right away, the refetch then settles where it goes.
-      queryClient.setQueryData<IndexCard[]>(deckKeys.queue(deckId), (old) =>
+      queryClient.setQueryData<IndexCard[]>(qk.decks.queue(deckId), (old) =>
         old?.filter((c) => c.id !== card.id),
       );
       setLastRating(rating);

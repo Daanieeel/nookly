@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
   IconCaretDownFilled,
@@ -144,7 +145,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   });
 
   const { data: files = [], isPending } = useQuery({
-    queryKey: ["files", spaceId],
+    queryKey: qk.files.bySpace(spaceId),
     queryFn: () => listFiles(spaceId),
   });
   const labels = useSpaceLabels(spaceId);
@@ -156,7 +157,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
 
   const imported = (created: FileEntity[]) => {
     markFresh(created.map((f) => f.entity.id));
-    return queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
+    return queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) });
   };
   const pickAndImport = useMutation({
     mutationFn: async () => {
@@ -208,8 +209,8 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
         .finally(() => capture.mutate(id));
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
-      void queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
+      void queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) });
       form.reset();
       // The check shows on the bar for a moment before it returns to the field.
       setTimeout(() => {
@@ -223,7 +224,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   /// "Reindex" button, shown only while at least one File still needs it.
   const reindexMissing = useMutation({
     mutationFn: () => reindexMissingFiles(spaceId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["files", spaceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) }),
   });
   const reindexStatus = useActionStatus(reindexMissing);
 

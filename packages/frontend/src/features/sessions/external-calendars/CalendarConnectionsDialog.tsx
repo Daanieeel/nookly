@@ -34,18 +34,15 @@ import {
   setExternalCalendarSelected,
 } from "#/lib/api/externalCalendars.ts";
 import { formatEditedAt } from "#/lib/relative-time.ts";
-import {
-  EXTERNAL_CALENDAR_STATUS_KEY,
-  EXTERNAL_EVENTS_KEY,
-  syncExternalCalendarsNow,
-} from "./external-calendar-sync";
+import { syncExternalCalendarsNow } from "./external-calendar-sync";
 import { PROVIDER_LABELS, ProviderIcon } from "./ExternalEventBlock";
 import { safeColor } from "./overlay-layout";
+import { qk } from "#/lib/query-keys.ts";
 
 const APPLE_PASSWORDS_URL = "https://account.apple.com/account/manage";
 
 export function useExternalCalendarStatus() {
-  return useQuery({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY, queryFn: externalCalendarStatus });
+  return useQuery({ queryKey: qk.externalCalendars.status, queryFn: externalCalendarStatus });
 }
 
 /// Where Google Calendar and iCloud are connected, each on its own, and where
@@ -135,8 +132,8 @@ function DisconnectButton({ provider }: { provider: CalendarProvider }) {
     mutationFn: () => disconnectExternalCalendar(provider),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY }),
-        queryClient.invalidateQueries({ queryKey: EXTERNAL_EVENTS_KEY }),
+        queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status }),
+        queryClient.invalidateQueries({ queryKey: qk.externalCalendars.events }),
       ]),
   });
   return (
@@ -190,7 +187,7 @@ function CalendarRow({
   const toggle = useMutation({
     mutationFn: async (selected: boolean) => {
       const connection = await setExternalCalendarSelected(provider, calendar.id, selected);
-      queryClient.setQueryData<ExternalCalendarStatus>(EXTERNAL_CALENDAR_STATUS_KEY, (old) =>
+      queryClient.setQueryData<ExternalCalendarStatus>(qk.externalCalendars.status, (old) =>
         old
           ? {
               ...old,
@@ -200,7 +197,7 @@ function CalendarRow({
       );
       // Newly picked calendars have nothing cached yet.
       if (selected) await syncExternalCalendarsNow(queryClient);
-      else await queryClient.invalidateQueries({ queryKey: EXTERNAL_EVENTS_KEY });
+      else await queryClient.invalidateQueries({ queryKey: qk.externalCalendars.events });
     },
   });
   const status = statusOf(toggle);
@@ -230,7 +227,7 @@ function GoogleConnect({ available }: { available: boolean }) {
   const queryClient = useQueryClient();
   const connect = useMutation({
     mutationFn: connectGoogleCalendar,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status }),
   });
   const status = statusOf(connect);
 
@@ -294,7 +291,7 @@ function IcloudConnect() {
     mutationFn: ({ appleId, password }: IcloudValues) => connectIcloudCalendar(appleId, password),
     onSuccess: () => {
       form.setFieldValue("password", "");
-      return queryClient.invalidateQueries({ queryKey: EXTERNAL_CALENDAR_STATUS_KEY });
+      return queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status });
     },
   });
 

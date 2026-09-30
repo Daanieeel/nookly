@@ -25,6 +25,7 @@ import { type SavedView, isViewModule, listViews, reorderViews } from "#/lib/api
 import { displayTitle } from "#/lib/entity-title.ts";
 import { type ModuleKey, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Modules whose row expands to list their saved Views.
 export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments"]);
@@ -82,7 +83,7 @@ export function ExpandableModuleChildren({
   const [dialogOpen, setDialogOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const module = isViewModule(moduleKey) ? moduleKey : null;
-  const queryKey = ["views", spaceId, module];
+  const queryKey = qk.views.byModule(spaceId, module);
   const { data: views = [] } = useQuery({
     queryKey,
     queryFn: () => listViews(spaceId, module),
@@ -92,7 +93,7 @@ export function ExpandableModuleChildren({
     mutationFn: (ids: string[]) =>
       module ? reorderViews(spaceId, module, ids) : Promise.resolve(),
     // Also puts the list back in the saved order when the reorder was refused.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["views", spaceId] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.views.bySpace(spaceId) }),
   });
 
   if (!open || !module) return null;

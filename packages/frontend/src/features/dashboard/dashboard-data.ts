@@ -9,6 +9,7 @@ import { listOpenTasksDueOrOverdue, listTaskStatuses } from "#/lib/api/tasks.ts"
 import type { BriefingSession, Entity, PageSummary, Task, TaskStatus } from "#/lib/api/types.ts";
 import { isDone } from "#/features/assignments/assignment-model.ts";
 import { parseDay, toDay } from "#/features/tasks/task-model.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 /// How far ahead "next up" looks for a Session. Longer than a week.
 const LOOKAHEAD_DAYS = 30;
@@ -66,28 +67,28 @@ export function useDashboardData(): DashboardData {
   const to = toDay(addDays(now, LOOKAHEAD_DAYS));
 
   const { data: tasks = [] } = useQuery({
-    queryKey: ["open-tasks-due-or-overdue", "list"],
+    queryKey: qk.tasks.openDueOrOverdueList,
     queryFn: listOpenTasksDueOrOverdue,
   });
   const { data: statuses = [] } = useQuery({
-    queryKey: ["task-statuses"],
+    queryKey: qk.tasks.statuses,
     queryFn: listTaskStatuses,
   });
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions-today", "between", from, to],
+    queryKey: qk.sessions.todayBetween(from, to),
     queryFn: () => listSessionsBetween(from, to),
   });
-  const { data: exams = [] } = useQuery({ queryKey: ["exams-all"], queryFn: listExamsAllSpaces });
+  const { data: exams = [] } = useQuery({ queryKey: qk.exams.all, queryFn: listExamsAllSpaces });
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments-all"],
+    queryKey: qk.assignments.all,
     queryFn: listAssignmentsAllSpaces,
   });
   const { data: jots = [] } = useQuery({
-    queryKey: ["unrefined-jots", "all", "list", JOT_LIMIT],
+    queryKey: qk.jots.unrefinedList(JOT_LIMIT),
     queryFn: () => listUnrefinedJotsAllSpaces(JOT_LIMIT),
   });
   const { data: jotCount = 0 } = useQuery({
-    queryKey: ["unrefined-jots", "all"],
+    queryKey: qk.jots.unrefinedAll,
     queryFn: countUnrefinedJotsAllSpaces,
   });
 

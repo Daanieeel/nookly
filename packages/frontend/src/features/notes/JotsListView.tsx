@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconCalendarEvent,
   IconCalendarWeek,
@@ -223,14 +224,14 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
-    queryKey: ["entities", spaceId, "jot-summaries"],
+    queryKey: qk.entities.jotSummaries(spaceId),
     queryFn: () => listJotSummaries(spaceId),
   });
   const { data: spaceLabels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
   });
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
 
   const rows = useMemo<JotRow[]>(() => {
     const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));

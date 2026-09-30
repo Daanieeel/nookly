@@ -34,6 +34,7 @@ import {
 import { MonthGrid } from "../sessions/calendar/MonthGrid";
 import { TimeGrid } from "../sessions/calendar/TimeGrid";
 import { QuickCreateCalendarEntryDialog } from "./calendar/QuickCreateCalendarEntryDialog";
+import { qk } from "#/lib/query-keys.ts";
 
 /// True while typing somewhere, so single key shortcuts stay out of the way.
 function isEditable(target: EventTarget | null): boolean {
@@ -64,18 +65,18 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
   }, []);
 
   const { data: entries = [] } = useQuery({
-    queryKey: ["calendar-entries", spaceId],
+    queryKey: qk.calendarEntries.bySpace(spaceId),
     queryFn: () => listCalendarEntries(spaceId),
   });
   // This Space's Sessions, shown here too but as secondary context next to
   // Calendar entries (see `SessionsListView`'s reciprocal fetch of entries).
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   // This Space's own accent color, so entries tint to it instead of the
   // fixed `--accent-purple` default (see `CalendarEntryBlock`'s `accentColor`).
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
   const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 

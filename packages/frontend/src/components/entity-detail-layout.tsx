@@ -21,6 +21,7 @@ import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 export function EntityDetailLayout({
   entity,
@@ -61,15 +62,15 @@ export function EntityDetailLayout({
 
   const rename = useMutation({
     mutationFn: (newTitle: string) => updateEntity(entity.id, { title: newTitle }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) }),
   });
   const togglePin = useMutation({
     mutationFn: () => updateEntity(entity.id, { pinned: !entity.pinned }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) }),
   });
   const setIcon = useMutation({
     mutationFn: (icon: string | null) => updateEntity(entity.id, { icon: icon ?? "" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) }),
   });
   const pinStatus = useActionStatus(togglePin);
   const renameFailed = rename.isError;
@@ -194,7 +195,7 @@ function TrashedBanner({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
   const restore = useMutation({
     mutationFn: () => restoreEntity(entity.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) }),
   });
   const restoreStatus = statusOf(restore);
   return (

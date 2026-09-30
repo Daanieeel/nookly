@@ -73,6 +73,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Assignment statuses that count as "done" for the course card's progress
 /// ring, mirroring `isDone` in `assignment-model.ts`.
@@ -132,26 +133,26 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   };
 
   const { data: courses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   const { data: semesters = [] } = useQuery({
-    queryKey: ["semesters", spaceId],
+    queryKey: qk.semesters.bySpace(spaceId),
     queryFn: () => listSemesters(spaceId),
   });
   // Fetched once here (not per-card) and cross-referenced against each
   // course's own relationships below, so the gallery's progress rings/next-
   // session stat don't cost N extra queries per course.
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
   // Same `queryKey` each `CourseCard` uses for its own relationships query —
@@ -159,7 +160,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   // extra network calls.
   const courseRelQueries = useQueries({
     queries: courses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });
@@ -411,7 +412,7 @@ export function CourseCard({
 }) {
   const queryClient = useQueryClient();
   const { data: relationships = [] } = useQuery({
-    queryKey: ["relationships", course.id],
+    queryKey: qk.relationships.of(course.id),
     queryFn: () => listRelationships(course.id, "both"),
   });
 
@@ -440,7 +441,7 @@ export function CourseCard({
 
   const assignSemester = useMutation({
     mutationFn: (semesterId: string) => setCourseSemester(course.id, semesterId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", course.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) }),
   });
 
   return (
@@ -681,7 +682,7 @@ function RelatedChip({
   prefix?: string;
 }) {
   const { data: entity } = useQuery({
-    queryKey: ["entity", entityId],
+    queryKey: qk.entity.byId(entityId),
     queryFn: () => getEntity(entityId),
   });
   if (!entity) return null;
@@ -722,8 +723,8 @@ function CreateCourseDialog({
   const create = useMutation({
     mutationFn: (title: string) => createCourse(spaceId, title.trim()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.courses.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
     },
   });
   const { reset } = create;

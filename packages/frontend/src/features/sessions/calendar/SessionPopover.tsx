@@ -64,6 +64,7 @@ import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Which occurrences an edit reaches, as in any calendar. A series edit never
 /// rewrites past occurrences or fields an occurrence changed on its own.
@@ -92,10 +93,10 @@ type SessionEditValues = z.infer<typeof sessionEditSchema>;
 
 function refreshSessions(queryClient: QueryClient, entityId: string) {
   return Promise.all([
-    // A predicate (not a fixed queryKey) so this also invalidates the
-    // cross-Space ["sessions", "all"] cache the unified Calendar page reads.
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "sessions" }),
-    queryClient.invalidateQueries({ queryKey: ["entity", entityId] }),
+    // The root key (not a per Space key) so this also invalidates the
+    // cross-Space qk.sessions.all cache the unified Calendar page reads.
+    queryClient.invalidateQueries({ queryKey: qk.sessions.root }),
+    queryClient.invalidateQueries({ queryKey: qk.entity.byId(entityId) }),
   ]);
 }
 
@@ -475,7 +476,7 @@ function SessionPages({
   close: () => void;
 }) {
   const { data: pages } = useQuery({
-    queryKey: ["session-pages", occurrence.entity.id],
+    queryKey: qk.sessions.pages(occurrence.entity.id),
     queryFn: () => getSessionPages(occurrence.entity.id),
   });
   // The next step stands out: first the Jot, then the Note refining it.
@@ -542,8 +543,8 @@ function SessionPageButton({
     // Straight into the new page: landing there confirms it was created.
     onSuccess: async (page) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["session-pages", occurrence.entity.id] }),
-        queryClient.invalidateQueries({ queryKey: ["entities", spaceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.sessions.pages(occurrence.entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) }),
       ]);
       close();
       openEntity(page.id, spaceId);
@@ -596,7 +597,7 @@ function DeleteSeriesDialog({
 }) {
   const queryClient = useQueryClient();
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
     enabled: open,
   });

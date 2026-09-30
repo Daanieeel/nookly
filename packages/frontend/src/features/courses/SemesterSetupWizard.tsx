@@ -34,6 +34,7 @@ import {
 import { createSemester, setCurrentSemester } from "#/lib/api/courses.ts";
 import { REGION_TERM_DATES, resolveTermDates } from "./region-term-dates";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 const DEFAULT_SEMESTER_COUNT = 4;
 
@@ -139,7 +140,7 @@ export function SemesterSetupWizard({
       if (currentEntityId) await setCurrentSemester(spaceId, currentEntityId);
     },
     // Also on error: semesters created before the failure should show up in the list.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) }),
   });
   useCloseAfterSuccess(finish, () => onOpenChange(false));
   const resetFinish = finish.reset;

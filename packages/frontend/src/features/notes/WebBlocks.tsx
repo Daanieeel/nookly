@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconBookmark,
   IconExternalLink,
@@ -222,8 +223,8 @@ export function BookmarkBlock({ node, updateAttributes, extension, editor }: Rea
   const add = useMutation({
     mutationFn: (url: string) => createBookmark(spaceId, url),
     onSuccess: (bookmark) => {
-      void queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
-      void queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      void queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
       updateAttributes({ rows: mentionMarkdown(bookmark.url, bookmark.entity.id) });
     },
   });
@@ -276,14 +277,14 @@ function BookmarkView({
 }) {
   const queryClient = useQueryClient();
   const { data: bookmark, isError } = useQuery({
-    queryKey: ["bookmark", bookmarkId],
+    queryKey: qk.bookmarks.byId(bookmarkId),
     queryFn: () => getBookmark(bookmarkId),
   });
   // Fetched on its own when missing (a bookmark added offline), and again on
   // Refresh Preview.
   const refresh = useMutation({
     mutationFn: (b: Bookmark) => fetchBookmarkMetadata(b.entity.id, b.url),
-    onSuccess: (fresh) => queryClient.setQueryData(["bookmark", bookmarkId], fresh),
+    onSuccess: (fresh) => queryClient.setQueryData(qk.bookmarks.byId(bookmarkId), fresh),
   });
   const refreshStatus = useActionStatus(refresh);
   const needsMetadata = bookmark !== undefined && bookmark.metadataFetchedAt === null;

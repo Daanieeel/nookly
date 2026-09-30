@@ -15,6 +15,7 @@ import type { BlockPosition } from "../external-calendars/overlay-layout";
 import { heightPxFor, minutesToTime, timeToMinutes, topPxFor } from "./calendar-model";
 import { useItemDrag } from "./item-drag";
 import { SessionPopover } from "./SessionPopover";
+import { qk } from "#/lib/query-keys.ts";
 
 /// A Session occurrence on the time grid: outlined and quieter than a
 /// calendar entry (personal entries carry more visual weight than class
@@ -52,9 +53,9 @@ export function SessionBlock({
 }) {
   const queryClient = useQueryClient();
   const invalidate = () =>
-    // A predicate (not a fixed queryKey) so this also invalidates the
-    // cross-Space ["sessions", "all"] cache the unified Calendar page reads.
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "sessions" });
+    // The root key (not a per Space key) so this also invalidates the
+    // cross-Space qk.sessions.all cache the unified Calendar page reads.
+    queryClient.invalidateQueries({ queryKey: qk.sessions.root });
   const cancel = useMutation({
     mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
     onSuccess: invalidate,

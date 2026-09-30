@@ -71,6 +71,7 @@ import { ACADEMIC_SYSTEMS, TERM_TYPE_META } from "./academic-terms";
 import { orderSemesters, resolveActiveSemesterId } from "./current-semester";
 import { SemesterSetupWizard } from "./SemesterSetupWizard";
 import { formatShortDate } from "#/lib/datetime.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 /// The Semesters overview: chronological, not a card-grid — Semesters are
 /// inherently sequential (PLAN §2), unlike independent entities like Courses.
@@ -83,18 +84,18 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const { data: semesters = [] } = useQuery({
-    queryKey: ["semesters", spaceId],
+    queryKey: qk.semesters.bySpace(spaceId),
     queryFn: () => listSemesters(spaceId),
   });
   const { data: courses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   // Same `queryKey` shape `CoursesListView` uses per-course — react-query
   // shares the cache, so this doesn't cost extra network calls there.
   const courseRelQueries = useQueries({
     queries: courses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });
@@ -116,7 +117,7 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
   const reorder = useMutation({
     mutationFn: ({ orderedIds }: { orderedIds: string[]; draggedId: string }) =>
       reorderSemesters(orderedIds),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) }),
   });
   const reorderStatusFor = (id: string): ActionStatus =>
     reorder.variables?.draggedId === id ? statusOf(reorder) : "idle";
@@ -300,7 +301,7 @@ export function SemesterRow({
   const setDates = useMutation({
     mutationFn: (patch: { startDate?: string; endDate?: string }) =>
       updateSemester(semester.entity.id, patch),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) }),
   });
   useCloseAfterSuccess(setDates, () => setDatesOpen(false));
   const resetDates = setDates.reset;
@@ -312,7 +313,7 @@ export function SemesterRow({
   const rename = useMutation({
     mutationFn: (title: string) => updateEntity(semester.entity.id, { title }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] });
+      await queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) });
       setEditingTitle(false);
     },
   });
@@ -323,7 +324,7 @@ export function SemesterRow({
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const flagCurrent = () =>
     setCurrentSemester(spaceId, semester.entity.id).then(() =>
-      queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+      queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) }),
     );
 
   const dateRange =
@@ -642,7 +643,7 @@ function CreateSemesterDialog({
         termType: termType === "none" ? null : termType,
         year: termType === "none" ? null : year,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["semesters", spaceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.semesters.bySpace(spaceId) }),
   });
   const { reset } = create;
   useCloseAfterSuccess(create, () => {

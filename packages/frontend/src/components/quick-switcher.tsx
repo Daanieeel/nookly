@@ -21,6 +21,7 @@ import { matchesKey } from "#/lib/entity-key.ts";
 import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { fuzzyMatch, type TextSegment } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 const MAX_RESULTS = 50;
 
@@ -38,15 +39,15 @@ export function QuickSwitcher() {
   const recents = useNavStore((s) => s.recents);
   const [query, setQuery] = useState("");
 
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const { data: allEntities = [] } = useQuery({
-    queryKey: ["entities", "all"],
+    queryKey: qk.entities.all,
     queryFn: () => listEntities(null, false),
     enabled: open,
   });
   // Notes embedded in a Course/Semester page aren't destinations of their own.
   const { data: embeddedIds = [] } = useQuery({
-    queryKey: ["embedded-page-ids"],
+    queryKey: qk.embeddedPageIds,
     queryFn: listEmbeddedPageIds,
     enabled: open,
   });

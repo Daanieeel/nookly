@@ -26,6 +26,7 @@ import {
   useSetAssignmentCourse,
   useSetAssignmentDueDate,
 } from "./assignment-views";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Assignment ↔ Course is structural (§5.8) but delegates Todos/Notes entirely to
 /// Relationships. Its own fields (status, due date, grade) sit in a Linear style
@@ -44,7 +45,7 @@ export function AssignmentDetailView({ entity }: { entity: Entity }) {
 function AssignmentPage({ entity }: { entity: Entity }) {
   const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", entity.spaceId],
+    queryKey: qk.assignments.bySpace(entity.spaceId),
     queryFn: () => listAssignments(entity.spaceId),
   });
   const assignment = assignments.find((a) => a.entity.id === entity.id);
@@ -103,7 +104,7 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
   const course = courseOf.get(assignment.entity.id);
   const status = assignmentStatus(assignment.status);
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] });
+    queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(assignment.entity.spaceId) });
 
   const setStatus = useMutation({
     mutationFn: (next: string) =>
@@ -186,7 +187,9 @@ function GradeField({ assignment }: { assignment: Assignment }) {
     mutationFn: (grade: number | null) =>
       updateAssignmentStatus(assignment.entity.id, assignment.status, grade),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["assignments", assignment.entity.spaceId] }),
+      queryClient.invalidateQueries({
+        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
+      }),
   });
   return (
     <NumberProperty

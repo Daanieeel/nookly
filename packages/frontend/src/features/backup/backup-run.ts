@@ -1,10 +1,9 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useEffect } from "react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type BackupInfo, createBackup, listBackups } from "#/lib/api/backup.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-
-export const BACKUPS_KEY = "backups";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 30 * 60 * 1000;
@@ -38,7 +37,7 @@ export function runBackup(queryClient: QueryClient): Promise<BackupInfo> {
     )
     .finally(() => {
       running = null;
-      void queryClient.invalidateQueries({ queryKey: [BACKUPS_KEY] });
+      void queryClient.invalidateQueries({ queryKey: qk.backups.root });
     });
   return running;
 }

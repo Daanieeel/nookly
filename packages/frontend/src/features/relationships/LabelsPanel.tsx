@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconPlus, IconTag } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreateLabel } from "#/components/label-manager.tsx";
@@ -13,18 +14,18 @@ import { SidebarSection } from "./SidebarSection";
 export function LabelsPanel({ entity }: { entity: Entity }) {
   const queryClient = useQueryClient();
   const { data: spaceLabels = [] } = useQuery({
-    queryKey: ["labels", entity.spaceId],
+    queryKey: qk.labels.bySpace(entity.spaceId),
     queryFn: () => listLabels(entity.spaceId),
   });
   const { data: attached = [] } = useQuery({
-    queryKey: ["entity-labels", entity.id],
+    queryKey: qk.labels.ofEntity(entity.id),
     queryFn: () => listLabelsForEntity(entity.id),
   });
 
   const refresh = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["entity-labels", entity.id] }),
-      queryClient.invalidateQueries({ queryKey: ["labels", entity.spaceId] }),
+      queryClient.invalidateQueries({ queryKey: qk.labels.ofEntity(entity.id) }),
+      queryClient.invalidateQueries({ queryKey: qk.labels.bySpace(entity.spaceId) }),
     ]);
 
   const toggle = useMutation({

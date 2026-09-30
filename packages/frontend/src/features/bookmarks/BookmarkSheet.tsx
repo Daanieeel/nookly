@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconCheck, IconExternalLink, IconPhoto, IconRefresh, IconTag } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -51,7 +52,7 @@ export function BookmarkSheet() {
   const id = useNavStore((s) => s.bookmarkSheetId);
   const setId = useNavStore((s) => s.setBookmarkSheetId);
   const { data: bookmark } = useQuery({
-    queryKey: ["bookmark", id],
+    queryKey: qk.bookmarks.byId(id),
     queryFn: () => getBookmark(id ?? ""),
     enabled: id !== null,
   });
@@ -80,8 +81,8 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
 
   const refreshAll = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["bookmark", entity.id] }),
-      queryClient.invalidateQueries({ queryKey: ["bookmarks", entity.spaceId] }),
+      queryClient.invalidateQueries({ queryKey: qk.bookmarks.byId(entity.id) }),
+      queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(entity.spaceId) }),
     ]);
   const capture = useCaptureScreenshot(entity.spaceId);
   const refresh = useMutation({
@@ -266,7 +267,7 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
         onOpenChange={setTrashOpen}
         onTrashed={() => {
           onClose();
-          void queryClient.invalidateQueries({ queryKey: ["bookmarks", entity.spaceId] });
+          void queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(entity.spaceId) });
         }}
       />
       <ComparePreviewsDialog

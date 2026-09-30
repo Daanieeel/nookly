@@ -29,6 +29,7 @@ import {
   StatusPicker,
   TaskStatusIcon,
 } from "./task-properties";
+import { qk } from "#/lib/query-keys.ts";
 
 /// What a new task starts with, e.g. the status of the column its "+" sits in.
 export interface TaskDraft {
@@ -63,7 +64,7 @@ export function QuickCreateTask({
 }) {
   const queryClient = useQueryClient();
   const { spaceId, statuses, labels, statusById, labelById, kindOf } = useTasksData();
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = spaces.find((s) => s.id === spaceId);
 
   const form = useForm({
@@ -95,7 +96,7 @@ export function QuickCreateTask({
         await updateTaskStatus(task.entity.id, vars.statusId);
       }
       await Promise.all(vars.labelIds.map((id) => attachLabel(task.entity.id, id)));
-      await queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] });
+      await queryClient.invalidateQueries({ queryKey: qk.tasks.bySpace(spaceId) });
       return task;
     },
     onSuccess: (task) => {

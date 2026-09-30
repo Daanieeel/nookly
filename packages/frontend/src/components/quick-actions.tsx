@@ -41,6 +41,7 @@ import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
 import { type ModuleKey, useNavStore, type View } from "#/lib/store/nav.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Entity types simple enough to be created directly from a palette with just a
 /// title (§3.2/§9 — "typing task: jumps straight into task creation"). Anything
@@ -261,11 +262,11 @@ export function QuickActions({
   const queryClient = useQueryClient();
   const trimmed = query.trim();
 
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   // Same keys the sidebar uses, so these are usually already cached.
   const spaceModules = useQueries({
     queries: spaces.map((space) => ({
-      queryKey: ["space-modules", space.id],
+      queryKey: qk.spaceModules(space.id),
       queryFn: () => listSpaceModules(space.id),
     })),
   });
@@ -282,7 +283,7 @@ export function QuickActions({
       queryClient.invalidateQueries({
         predicate: (q) => q.queryKey.includes(entity.spaceId),
       });
-      queryClient.invalidateQueries({ queryKey: ["entities", "all"] });
+      queryClient.invalidateQueries({ queryKey: qk.entities.all });
       openEntity(entity.id, entity.spaceId);
       onDone();
     },

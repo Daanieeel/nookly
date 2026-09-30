@@ -44,6 +44,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { CourseCard } from "./CoursesListView";
+import { qk } from "#/lib/query-keys.ts";
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
 /// Same 7-day window `dateLabel` elsewhere in Courses UI (`CoursesListView`/
@@ -60,7 +61,7 @@ const EXAM_LOOKAHEAD_DAYS = 7;
 export function SemesterDetailView({ entity }: { entity: Entity }) {
   const spaceId = entity.spaceId;
   const { data: semesters = [] } = useQuery({
-    queryKey: ["semesters", spaceId],
+    queryKey: qk.semesters.bySpace(spaceId),
     queryFn: () => listSemesters(spaceId),
   });
   const isCurrent = resolveActiveSemesterId(semesters) === entity.id;
@@ -80,23 +81,23 @@ function SemesterBody({ semester }: { semester: Entity }) {
   const openEntity = useNavStore((s) => s.openEntity);
 
   const { data: notesEntity } = useQuery({
-    queryKey: ["semester-notes", semester.id],
+    queryKey: qk.semesters.notes(semester.id),
     queryFn: () => getSemesterNotes(semester.id),
   });
   const { data: allCourses = [] } = useQuery({
-    queryKey: ["courses", spaceId],
+    queryKey: qk.courses.bySpace(spaceId),
     queryFn: () => listCourses(spaceId),
   });
   const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: exams = [] } = useQuery({
-    queryKey: ["exams", spaceId],
+    queryKey: qk.exams.bySpace(spaceId),
     queryFn: () => listExams(spaceId),
   });
   const { data: assignments = [] } = useQuery({
-    queryKey: ["assignments", spaceId],
+    queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
 
@@ -106,7 +107,7 @@ function SemesterBody({ semester }: { semester: Entity }) {
   // globally unassigned — a Course belongs to at most one Semester at a time.
   const courseRelQueries = useQueries({
     queries: allCourses.map((course) => ({
-      queryKey: ["relationships", course.id],
+      queryKey: qk.relationships.of(course.id),
       queryFn: () => listRelationships(course.id, "both"),
     })),
   });
@@ -288,14 +289,14 @@ function AddCourseCard({
       return course;
     },
     onSuccess: (course) => {
-      queryClient.invalidateQueries({ queryKey: ["courses", spaceId] });
-      return queryClient.invalidateQueries({ queryKey: ["relationships", course.id] });
+      queryClient.invalidateQueries({ queryKey: qk.courses.bySpace(spaceId) });
+      return queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) });
     },
   });
   const link = useMutation({
     mutationFn: (courseId: string) => setCourseSemester(courseId, semesterId),
     onSuccess: (_, courseId) =>
-      queryClient.invalidateQueries({ queryKey: ["relationships", courseId] }),
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(courseId) }),
   });
   const close = () => setOpen(false);
   useCloseAfterSuccess(create, close);

@@ -16,6 +16,7 @@ import { listSessions, overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock } from "#/lib/datetime.ts";
 import { minutesToTime } from "./calendar/calendar-model";
+import { qk } from "#/lib/query-keys.ts";
 
 declare module "#/components/context-menu/registry.ts" {
   interface ContextTargets {
@@ -32,7 +33,7 @@ declare module "#/components/context-menu/registry.ts" {
 
 function useOccurrenceRecord(entity: Entity): SessionOccurrence | undefined {
   const { data: sessions } = useQuery({
-    queryKey: ["sessions", entity.spaceId],
+    queryKey: qk.sessions.bySpace(entity.spaceId),
     queryFn: () => listSessions(entity.spaceId),
   });
   return sessions?.find((s) => s.entity.id === entity.id);

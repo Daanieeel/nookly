@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatusAnnouncer, StatusIcon } from "#/components/action-feedback.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
@@ -11,9 +12,9 @@ export function ViewIconButton({ entity }: { entity: Entity }) {
   const setIcon = useMutation({
     mutationFn: (icon: string | null) => updateEntity(entity.id, { icon: icon ?? "" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["entity", entity.id] });
-      queryClient.invalidateQueries({ queryKey: ["view", entity.id] });
-      queryClient.invalidateQueries({ queryKey: ["views", entity.spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) });
+      queryClient.invalidateQueries({ queryKey: qk.views.byId(entity.id) });
+      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(entity.spaceId) });
     },
   });
   const failed = setIcon.isError;

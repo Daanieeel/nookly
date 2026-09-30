@@ -61,6 +61,7 @@ import { restoreEntity, softDeleteEntity, updateEntity } from "#/lib/api/entitie
 import type { CalendarEntry } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Which occurrences an edit reaches, mirroring `SessionPopover`'s `EditScope`.
 type EditScope = "this" | "following" | "upcoming";
@@ -94,10 +95,10 @@ type EntryEditValues = z.infer<typeof entryEditSchema>;
 
 function refreshEntries(queryClient: QueryClient, entityId: string) {
   return Promise.all([
-    // A predicate (not a fixed queryKey) so this also invalidates the
-    // cross-Space ["calendar-entries", "all"] cache the unified Calendar page reads.
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "calendar-entries" }),
-    queryClient.invalidateQueries({ queryKey: ["entity", entityId] }),
+    // The root key (not a per Space key) so this also invalidates the
+    // cross-Space qk.calendarEntries.all cache the unified Calendar page reads.
+    queryClient.invalidateQueries({ queryKey: qk.calendarEntries.root }),
+    queryClient.invalidateQueries({ queryKey: qk.entity.byId(entityId) }),
   ]);
 }
 
@@ -522,7 +523,7 @@ function DeleteSeriesDialog({
 }) {
   const queryClient = useQueryClient();
   const { data: entries = [] } = useQuery({
-    queryKey: ["calendar-entries", spaceId],
+    queryKey: qk.calendarEntries.bySpace(spaceId),
     queryFn: () => listCalendarEntries(spaceId),
     enabled: open,
   });

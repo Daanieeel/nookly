@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -41,7 +42,7 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: recipes = [] } = useQuery({
-    queryKey: ["recipes", spaceId],
+    queryKey: qk.recipes.bySpace(spaceId),
     queryFn: () => listRecipes(spaceId),
   });
 
@@ -195,8 +196,8 @@ function CreateRecipeDialog({
   const create = useMutation({
     mutationFn: (title: string) => createRecipe(spaceId, title.trim()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipes", spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.recipes.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
     },
   });
   const { reset } = create;

@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@nookly/ui/components/select";
 import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
+import { qk } from "#/lib/query-keys.ts";
 
 const recurrenceSchema = z.enum(["none", "daily", "weekly", "monthly"]);
 
@@ -119,7 +120,7 @@ export function QuickCreateCalendarEntryDialog({
 }) {
   const queryClient = useQueryClient();
   const { data: spaces = [] } = useQuery({
-    queryKey: ["spaces"],
+    queryKey: qk.spaces,
     queryFn: listSpaces,
     enabled: spaceId === undefined,
   });
@@ -197,7 +198,7 @@ export function QuickCreateCalendarEntryDialog({
     },
     onSuccess: async (ids) => {
       await queryClient.invalidateQueries({
-        predicate: (q) => q.queryKey[0] === "calendar-entries",
+        queryKey: qk.calendarEntries.root,
       });
       onCreated(ids);
     },

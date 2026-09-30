@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconNotes, IconPin, IconPlus, IconSearch, IconTag } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -136,11 +137,11 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
-    queryKey: ["entities", spaceId, "note-summaries"],
+    queryKey: qk.entities.noteSummaries(spaceId),
     queryFn: () => listNoteSummaries(spaceId),
   });
   const { data: spaceLabels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
   });
 
@@ -148,7 +149,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
     // Empty title so the canvas opens with the title field focused and ready to type.
     mutationFn: () => createNote(spaceId, ""),
     onSuccess: (entity) => {
-      queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
       openEntity(entity.id, spaceId);
     },
   });

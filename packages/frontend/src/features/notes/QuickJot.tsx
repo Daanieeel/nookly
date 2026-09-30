@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { IconChevronDown, IconFeather } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,8 +58,8 @@ export function useJotCapture({
       return entity;
     },
     onSuccess: (entity) => {
-      queryClient.invalidateQueries({ queryKey: ["entities", entity.spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["unrefined-jots"] });
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(entity.spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.jots.unrefined });
       setText("");
       onSaved(entity);
     },
@@ -171,7 +172,7 @@ export function QuickJotDialog() {
 function QuickJotSurface({ onClose }: { onClose: () => void }) {
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
   const openEntity = useNavStore((s) => s.openEntity);
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(null);
   const space =
     spaces.find((s) => s.id === (pickedSpaceId ?? activeSpaceId)) ?? spaces[0] ?? undefined;

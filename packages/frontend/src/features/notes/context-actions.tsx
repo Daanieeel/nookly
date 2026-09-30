@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconBold,
   IconClipboard,
@@ -284,7 +285,7 @@ registerActions("note.block", [
       const [storedId, entity] = await Promise.all([
         resolveStoredId(blockId),
         helpers.queryClient.fetchQuery({
-          queryKey: ["entity", entityId],
+          queryKey: qk.entity.byId(entityId),
           queryFn: () => getEntity(entityId),
         }),
       ]);

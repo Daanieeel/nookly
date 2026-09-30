@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { labelColorFor } from "#/components/label-manager.tsx";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
@@ -137,7 +138,7 @@ export function bookmarkGroupDefs(
 
 export function useSpaceLabels(spaceId: string): Label[] {
   const { data = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
   });
   return data;
@@ -149,9 +150,9 @@ export function useBookmarkLabels(bookmark: Bookmark) {
   const { entity } = bookmark;
   const refresh = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["bookmark", entity.id] }),
-      queryClient.invalidateQueries({ queryKey: ["bookmarks", entity.spaceId] }),
-      queryClient.invalidateQueries({ queryKey: ["labels", entity.spaceId] }),
+      queryClient.invalidateQueries({ queryKey: qk.bookmarks.byId(entity.id) }),
+      queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(entity.spaceId) }),
+      queryClient.invalidateQueries({ queryKey: qk.labels.bySpace(entity.spaceId) }),
     ]);
   const toggle = useMutation({
     mutationFn: async (labelId: string) => {
@@ -181,8 +182,8 @@ export function useCaptureScreenshot(spaceId: string) {
     mutationFn: (entityId: string) => captureBookmarkScreenshot(entityId),
     onSettled: (_, __, entityId) =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["bookmark", entityId] }),
-        queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.bookmarks.byId(entityId) }),
+        queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) }),
       ]),
   });
 }

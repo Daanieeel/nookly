@@ -20,6 +20,7 @@ import {
   type ModuleKey,
 } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 declare module "#/components/context-menu/registry.ts" {
   interface ContextTargets {
@@ -46,7 +47,7 @@ export interface SpaceRowTarget {
 /// (Semesters rides along with Courses) never offered on their own.
 function useAddableModules({ space }: SpaceRowTarget): MenuSubItem[] | undefined {
   const { data: added } = useQuery({
-    queryKey: ["space-modules", space.id],
+    queryKey: qk.spaceModules(space.id),
     queryFn: () => listSpaceModules(space.id),
   });
   if (!added) return undefined;

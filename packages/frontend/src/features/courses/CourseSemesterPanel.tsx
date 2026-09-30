@@ -16,6 +16,7 @@ import { setCourseSemester } from "#/lib/api/courses.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { EntityRow } from "#/features/relationships/EntityRow.tsx";
 import { SidebarSection } from "#/features/relationships/SidebarSection.tsx";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Course page, right sidebar — bespoke Semester-assignment section. A Course
 /// belongs to at most one Semester at a time (`course-semester` relationship,
@@ -29,7 +30,7 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
   const queryClient = useQueryClient();
 
   const { data: relationships = [] } = useQuery({
-    queryKey: ["relationships", course.id],
+    queryKey: qk.relationships.of(course.id),
     queryFn: () => listRelationships(course.id, "both"),
   });
   // At most one, enforced at the data layer — `find` rather than `filter`.
@@ -39,11 +40,11 @@ export function CourseSemesterPanel({ course }: { course: Entity }) {
 
   const assign = useMutation({
     mutationFn: (semesterId: string) => setCourseSemester(course.id, semesterId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", course.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) }),
   });
   const unassign = useMutation({
     mutationFn: (relationshipId: string) => deleteRelationship(relationshipId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relationships", course.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) }),
   });
   const assignStatus = useActionStatus(assign);
   const unassignStatus = statusOf(unassign);

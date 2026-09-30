@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconArrowBackUp } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { listMentioningEntities } from "#/lib/api/notes.ts";
@@ -10,7 +11,7 @@ import { SidebarHint, SidebarSection } from "./SidebarSection";
 /// `mentions` index. Any entity type can be a mention target, so this applies to all.
 export function MentionedInPanel({ entity }: { entity: Entity }) {
   const { data: mentionedIn = [] } = useQuery({
-    queryKey: ["mentioning-entities", entity.id],
+    queryKey: qk.mentioning(entity.id),
     queryFn: () => listMentioningEntities(entity.id),
   });
 

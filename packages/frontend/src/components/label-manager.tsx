@@ -37,6 +37,7 @@ import { createLabel, deleteLabel, listLabels, updateLabel } from "#/lib/api/lab
 import type { Label } from "#/lib/api/types.ts";
 import { ACCENT_COLORS } from "#/lib/colors.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// Same palette as Spaces (§ "add more colors"), so a new label reads apart
 /// from its neighbours just as well as a new Space does.
@@ -54,9 +55,12 @@ function useRefreshLabels(spaceId: string) {
   const queryClient = useQueryClient();
   return () =>
     Promise.all(
-      [["labels", spaceId], ["entity-labels"], ["tasks", spaceId], ["task"]].map((queryKey) =>
-        queryClient.invalidateQueries({ queryKey }),
-      ),
+      [
+        qk.labels.bySpace(spaceId),
+        qk.labels.ofEntityRoot,
+        qk.tasks.bySpace(spaceId),
+        qk.tasks.byIdRoot,
+      ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     );
 }
 
@@ -163,7 +167,7 @@ export function LabelsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { data: labels = [] } = useQuery({
-    queryKey: ["labels", spaceId],
+    queryKey: qk.labels.bySpace(spaceId),
     queryFn: () => listLabels(spaceId),
     enabled: open,
   });

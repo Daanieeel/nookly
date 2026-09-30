@@ -121,6 +121,7 @@ import { CliInstallCard } from "./sidebar/cli-install-card";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
+import { qk } from "#/lib/query-keys.ts";
 
 const SPACE_COLORS = ACCENT_COLORS;
 
@@ -160,14 +161,14 @@ export function AppSidebar() {
   const { view, setView, expandedSpaceIds } = useNavStore();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
   const spaceSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
   const reorder = useMutation({
     mutationFn: reorderSpaces,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["spaces"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
   });
 
   function handleSpaceDragEnd(event: DragEndEvent) {
@@ -355,7 +356,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
   // Also fetched (not just when expanded) once the delete dialog is open, so its
   // "X items" count isn't stuck at 0 for a Space the user never expanded.
   const { data: entities = [] } = useQuery({
-    queryKey: ["entities", space.id],
+    queryKey: qk.entities.bySpace(space.id),
     queryFn: () => listEntities(space.id, false),
     enabled: expanded || deleteConfirmOpen,
   });
@@ -365,7 +366,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
   // Also fetched once the "+" menu opens, so an unexpanded row's "already added"
   // list is accurate before it computes `unusedKeys`.
   const { data: addedModules = [] } = useQuery({
-    queryKey: ["space-modules", space.id],
+    queryKey: qk.spaceModules(space.id),
     queryFn: () => listSpaceModules(space.id),
     enabled: expanded || addModuleOpen,
   });
@@ -382,7 +383,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
   );
   const reorderModules = useMutation({
     mutationFn: (keys: string[]) => reorderSpaceModules(space.id, keys),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["space-modules", space.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaceModules(space.id) }),
   });
 
   function handleModuleDragEnd(event: DragEndEvent) {
@@ -397,7 +398,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
     const to = keys.indexOf(String(over.id) as ModuleKey);
     if (from === -1 || to === -1) return;
     const nextKeys = arrayMove(keys, from, to);
-    queryClient.setQueryData(["space-modules", space.id], nextKeys);
+    queryClient.setQueryData(qk.spaceModules(space.id), nextKeys);
     reorderModules.mutate(nextKeys);
   }
 
@@ -409,7 +410,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
       }
     },
     onSuccess: (_data, key) => {
-      queryClient.invalidateQueries({ queryKey: ["space-modules", space.id] });
+      queryClient.invalidateQueries({ queryKey: qk.spaceModules(space.id) });
       setView({ kind: "module", spaceId: space.id, module: key });
     },
   });
@@ -417,7 +418,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
   const del = useMutation({ mutationFn: () => deleteSpace(space.id) });
   useCloseAfterSuccess(del, () => {
     setDeleteConfirmOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["spaces"] });
+    queryClient.invalidateQueries({ queryKey: qk.spaces });
     if ("spaceId" in view && view.spaceId === space.id) setView({ kind: "dashboard" });
   });
   const delStatus = statusOf(del);
@@ -728,7 +729,7 @@ function CreateSpaceDialog({
 
   const create = useMutation({
     mutationFn: () => createSpace(name.trim(), icon, color),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["spaces"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
   });
   useCloseAfterSuccess(create, () => {
     if (create.data) {
@@ -836,7 +837,7 @@ function SpaceSettingsDialog({
 
   const save = useMutation({
     mutationFn: () => updateSpace(space.id, { name: name.trim(), icon: icon ?? "", color }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["spaces"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
   });
   useCloseAfterSuccess(save, () => onOpenChange(false));
   const saveStatus = statusOf(save);

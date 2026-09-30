@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconDownload, IconFileDownload } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
@@ -30,7 +31,7 @@ function markdownFileName(entity: Entity): string {
 /// change on the same frame without reaching into the primitive's state.
 export function CopyPageMarkdownItem({ entity }: { entity: Entity }) {
   const { data: markdown } = useQuery({
-    queryKey: ["page-markdown", entity.id],
+    queryKey: qk.pageMarkdown(entity.id),
     queryFn: () => renderPageMarkdown(entity.id),
     staleTime: 0,
   });

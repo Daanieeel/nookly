@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconExternalLink,
   IconFile,
@@ -83,13 +84,13 @@ function useSource(content: string): SourceState {
   const mention = MENTION.exec(content.trim());
   const fileId = mention?.[2];
   const { data: file, isError } = useQuery({
-    queryKey: ["file", fileId],
+    queryKey: qk.files.byId(fileId),
     queryFn: () => getFile(fileId ?? ""),
     enabled: fileId !== undefined,
   });
   // The name follows renames: a rename refreshes `["entity", id]`, not the file query.
   const { data: entity } = useQuery({
-    queryKey: ["entity", fileId],
+    queryKey: qk.entity.byId(fileId),
     queryFn: () => getEntity(fileId ?? ""),
     enabled: fileId !== undefined,
   });
@@ -303,8 +304,8 @@ function MediaPicker({
     },
     onSuccess: (file) => {
       if (!file) return;
-      void queryClient.invalidateQueries({ queryKey: ["files", spaceId] });
-      void queryClient.invalidateQueries({ queryKey: ["entities", spaceId] });
+      void queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
       onPick(mentionMarkdown(file.originalFilename ?? displayTitle(file.entity), file.entity.id));
     },
   });

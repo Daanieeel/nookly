@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   closestCenter,
   DndContext,
@@ -71,7 +72,7 @@ function toUnit(minutes: number, unit: DurationUnit): number {
 
 export function RecipeDetailView({ entity }: { entity: Entity }) {
   const { data: recipe } = useQuery({
-    queryKey: ["recipe", entity.id],
+    queryKey: qk.recipes.byId(entity.id),
     queryFn: () => getRecipe(entity.id),
   });
 
@@ -109,9 +110,9 @@ function RecipeBanner({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
   const queryClient = useQueryClient();
   const invalidate = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["recipe", entity.id] }),
+      queryClient.invalidateQueries({ queryKey: qk.recipes.byId(entity.id) }),
       // The gallery cards show kind, duration, tags and banner too.
-      queryClient.invalidateQueries({ queryKey: ["recipes"] }),
+      queryClient.invalidateQueries({ queryKey: qk.recipes.root }),
     ]);
 
   const setBanner = useMutation({
@@ -174,7 +175,7 @@ function RecipeTitle({ entity }: { entity: Entity }) {
 
   const rename = useMutation({
     mutationFn: (newTitle: string) => updateEntity(entity.id, { title: newTitle }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["entity", entity.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) }),
   });
 
   return (
@@ -195,13 +196,13 @@ function RecipeProperties({ entity, recipe }: { entity: Entity; recipe: Recipe }
   const queryClient = useQueryClient();
   const invalidate = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["recipe", entity.id] }),
+      queryClient.invalidateQueries({ queryKey: qk.recipes.byId(entity.id) }),
       // The gallery cards show kind, duration, tags and banner too.
-      queryClient.invalidateQueries({ queryKey: ["recipes"] }),
+      queryClient.invalidateQueries({ queryKey: qk.recipes.root }),
     ]);
 
   const { data: catalog = [] } = useQuery({
-    queryKey: ["recipe-tags"],
+    queryKey: qk.recipes.tags,
     queryFn: listRecipeTags,
     staleTime: Infinity, // fixed, not user-creatable in this version
   });
@@ -345,11 +346,11 @@ function splitPastedList(text: string): string[] {
 function IngredientsSection({ recipeId }: { recipeId: string }) {
   const queryClient = useQueryClient();
   const { data: ingredients = [] } = useQuery({
-    queryKey: ["recipe-ingredients", recipeId],
+    queryKey: qk.recipes.ingredients(recipeId),
     queryFn: () => listIngredients(recipeId),
   });
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["recipe-ingredients", recipeId] });
+    queryClient.invalidateQueries({ queryKey: qk.recipes.ingredients(recipeId) });
 
   const add = useMutation({
     mutationFn: (text: string) => createIngredient(recipeId, text),
@@ -383,7 +384,7 @@ function IngredientsSection({ recipeId }: { recipeId: string }) {
     const to = ingredients.findIndex((i) => i.id === over.id);
     if (from === -1 || to === -1) return;
     // Optimistic: show the new order now, the backend confirms behind it.
-    queryClient.setQueryData(["recipe-ingredients", recipeId], arrayMove(ingredients, from, to));
+    queryClient.setQueryData(qk.recipes.ingredients(recipeId), arrayMove(ingredients, from, to));
     move.mutate({ id: ingredients[from]?.id ?? "", position: to });
   };
 
@@ -669,13 +670,13 @@ function StepDuration({
 function StepsSection({ recipeId }: { recipeId: string }) {
   const queryClient = useQueryClient();
   const { data: steps = [] } = useQuery({
-    queryKey: ["recipe-steps", recipeId],
+    queryKey: qk.recipes.steps(recipeId),
     queryFn: () => listSteps(recipeId),
   });
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ["recipe-steps", recipeId] });
-    queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
-    queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    queryClient.invalidateQueries({ queryKey: qk.recipes.steps(recipeId) });
+    queryClient.invalidateQueries({ queryKey: qk.recipes.byId(recipeId) });
+    queryClient.invalidateQueries({ queryKey: qk.recipes.root });
   };
 
   const add = useMutation({
@@ -705,7 +706,7 @@ function StepsSection({ recipeId }: { recipeId: string }) {
     const to = steps.findIndex((s) => s.id === over.id);
     if (from === -1 || to === -1) return;
     // Optimistic: show the new order now, the backend confirms behind it.
-    queryClient.setQueryData(["recipe-steps", recipeId], arrayMove(steps, from, to));
+    queryClient.setQueryData(qk.recipes.steps(recipeId), arrayMove(steps, from, to));
     move.mutate({ id: steps[from]?.id ?? "", position: to });
   };
 

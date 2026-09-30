@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import { IconStack2 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -78,8 +79,8 @@ export function ViewDialog({
       return (await createView(spaceId, name.trim(), module, config, icon)).entity;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["views", spaceId] });
-      queryClient.invalidateQueries({ queryKey: ["entity"] });
+      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.entity.root });
     },
   });
   useCloseAfterSuccess(save, () => {

@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
   IconBookmark,
@@ -94,7 +95,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
   });
 
   const { data: bookmarks = [], isPending } = useQuery({
-    queryKey: ["bookmarks", spaceId],
+    queryKey: qk.bookmarks.bySpace(spaceId),
     queryFn: () => listBookmarks(spaceId),
   });
   const labels = useSpaceLabels(spaceId);
@@ -113,13 +114,13 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
       // Best effort: offline, the card keeps its placeholder until metadata is
       // refreshed later. The `og:image` shows while the page itself is captured.
       fetchBookmarkMetadata(bookmark.entity.id, u)
-        .then(() => queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] }))
+        .then(() => queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) }))
         .catch(() => {})
         .finally(() => capture.mutate(bookmark.entity.id));
       return bookmark;
     },
     onSuccess: async (bookmark) => {
-      await queryClient.invalidateQueries({ queryKey: ["bookmarks", spaceId] });
+      await queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) });
       form.reset();
       setPendingUrl(null);
       setFreshId(bookmark.entity.id);

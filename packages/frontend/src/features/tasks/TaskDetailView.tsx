@@ -55,6 +55,7 @@ import {
   StatusPicker,
   TaskStatusIcon,
 } from "./task-properties";
+import { qk } from "#/lib/query-keys.ts";
 
 /// True while typing somewhere, so single key shortcuts stay out of the way.
 function isEditable(target: EventTarget | null): boolean {
@@ -82,11 +83,11 @@ function TaskPage({ entity }: { entity: Entity }) {
   const isSubtask = entity.type === "sub_task";
 
   const { data: task } = useQuery({
-    queryKey: ["task", entity.id],
+    queryKey: qk.tasks.byId(entity.id),
     queryFn: () => getTask(entity.id),
   });
   const { data: progress } = useQuery({
-    queryKey: ["subtask-progress", entity.id],
+    queryKey: qk.tasks.subtaskProgress(entity.id),
     queryFn: () => subtaskProgress(entity.id),
     enabled: !isSubtask,
   });
@@ -139,12 +140,12 @@ function useTaskNeighbours(entity: Entity, parent: Entity | null | undefined) {
   const { statuses, labels, kindOf } = useTasksData();
   const isSubtask = entity.type === "sub_task";
   const { data: tasks } = useQuery({
-    queryKey: ["tasks", entity.spaceId],
+    queryKey: qk.tasks.bySpace(entity.spaceId),
     queryFn: () => listTasks(entity.spaceId),
     enabled: !isSubtask,
   });
   const { data: siblings } = useQuery({
-    queryKey: ["subtasks", parent?.id],
+    queryKey: qk.tasks.subtasks(parent?.id),
     queryFn: () => (parent ? listSubtasks(parent.id) : []),
     enabled: isSubtask && !!parent,
   });
@@ -244,7 +245,7 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: subtasks = [] } = useQuery({
-    queryKey: ["subtasks", parent.id],
+    queryKey: qk.tasks.subtasks(parent.id),
     queryFn: () => listSubtasks(parent.id),
   });
   const add = useMutation({

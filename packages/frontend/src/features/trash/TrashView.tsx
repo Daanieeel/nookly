@@ -1,3 +1,4 @@
+import { qk } from "#/lib/query-keys.ts";
 import {
   IconAlertTriangle,
   IconArrowBackUp,
@@ -61,8 +62,6 @@ interface TrashRow {
   /// Always set: only trashed entities become rows.
   deletedAt: string;
 }
-
-const TRASH_KEY = ["entities", "all", "trash"];
 
 const columns: ColumnDef<DataTableFeatures, TrashRow>[] = [
   {
@@ -148,10 +147,10 @@ export function TrashView() {
   const [sorting, setSorting] = useState<SortingState>([{ id: "deleted", desc: true }]);
 
   const { data: entities = [], isPending } = useQuery({
-    queryKey: TRASH_KEY,
+    queryKey: qk.entities.trash,
     queryFn: () => listEntities(null, true),
   });
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
 
   const rows = useMemo<TrashRow[]>(() => {
     const spaceById = new Map(spaces.map((s) => [s.id, s]));
@@ -311,7 +310,7 @@ function EmptyTrashButton({ rows }: { rows: TrashRow[] }) {
   // Refreshing only once the dialog closes keeps its pending state visible.
   useCloseAfterSuccess(empty, () => {
     setOpen(false);
-    void queryClient.invalidateQueries({ queryKey: ["entities"] });
+    void queryClient.invalidateQueries({ queryKey: qk.entities.root });
   });
   const status = statusOf(empty);
   const spaceCount = new Set(rows.map((r) => r.entity.spaceId)).size;
@@ -379,8 +378,8 @@ function RowActions({ entity, title }: { entity: Entity; title: string }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const refresh = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: TRASH_KEY }),
-      queryClient.invalidateQueries({ queryKey: ["entities", entity.spaceId] }),
+      queryClient.invalidateQueries({ queryKey: qk.entities.trash }),
+      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(entity.spaceId) }),
     ]);
 
   const restore = useMutation({ mutationFn: () => restoreEntity(entity.id), onSuccess: refresh });

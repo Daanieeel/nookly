@@ -15,10 +15,11 @@ import type { Entity } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { getView } from "#/lib/api/views.ts";
 import { GenericDetailView } from "./generic-detail-view";
+import { qk } from "#/lib/query-keys.ts";
 
 export function EntityDetailRouter({ entityId }: { entityId: string }) {
   const { data: entity, isLoading } = useQuery({
-    queryKey: ["entity", entityId],
+    queryKey: qk.entity.byId(entityId),
     queryFn: () => getEntity(entityId),
   });
 
@@ -72,7 +73,7 @@ function BookmarkRedirect({ entity }: { entity: Entity }) {
 function SavedViewRedirect({ entity }: { entity: Entity }) {
   const showSavedView = useNavStore((s) => s.showSavedView);
   const { data: view } = useQuery({
-    queryKey: ["view", entity.id],
+    queryKey: qk.views.byId(entity.id),
     queryFn: () => getView(entity.id),
   });
   useEffect(() => {

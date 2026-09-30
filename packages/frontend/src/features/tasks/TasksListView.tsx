@@ -45,6 +45,7 @@ import {
   writeDisplay,
 } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
+import { qk } from "#/lib/query-keys.ts";
 
 const NO_FILTERS: ActiveFilter[] = [];
 
@@ -75,7 +76,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const { data: tasks = [], isPending } = useQuery({
-    queryKey: ["tasks", spaceId],
+    queryKey: qk.tasks.bySpace(spaceId),
     queryFn: () => listTasks(spaceId),
   });
   const data = useTasksDataValue(spaceId);
@@ -116,7 +117,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
       for (const labelId of vars.detachLabelIds ?? []) await detachLabel(id, labelId);
       if (vars.attachLabelId) await attachLabel(id, vars.attachLabelId);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks", spaceId] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.tasks.bySpace(spaceId) }),
   });
   const failedTaskId = move.isError ? move.variables?.task.entity.id : undefined;
 

@@ -12,6 +12,7 @@ import { countOpenTasksDueOrOverdue, countTasksDueToday } from "#/lib/api/tasks.
 import { listLink, useOpenTarget } from "#/features/dashboard/dashboard-links.tsx";
 import { formatDate, formatWeekday } from "#/lib/datetime.ts";
 import type { ModuleKey } from "#/lib/store/nav.ts";
+import { qk } from "#/lib/query-keys.ts";
 
 const CYCLE_MS = 5_000;
 const EXIT_MS = 380;
@@ -29,21 +30,21 @@ interface Stat {
 export function SidebarMascot() {
   const open = useOpenTarget();
   const { data: tasksToday } = useQuery({
-    queryKey: ["tasks-due-today"],
+    queryKey: qk.tasks.dueToday,
     queryFn: countTasksDueToday,
   });
   const { data: openTaskCount } = useQuery({
-    queryKey: ["open-tasks-due-or-overdue"],
+    queryKey: qk.tasks.openDueOrOverdue,
     queryFn: countOpenTasksDueOrOverdue,
   });
-  const { data: sessions } = useQuery({ queryKey: ["sessions-today"], queryFn: listSessionsToday });
+  const { data: sessions } = useQuery({ queryKey: qk.sessions.today, queryFn: listSessionsToday });
   const { data: jotCount } = useQuery({
-    queryKey: ["unrefined-jots", "all"],
+    queryKey: qk.jots.unrefinedAll,
     queryFn: countUnrefinedJotsAllSpaces,
   });
-  const { data: exams } = useQuery({ queryKey: ["exams-all"], queryFn: listExamsAllSpaces });
+  const { data: exams } = useQuery({ queryKey: qk.exams.all, queryFn: listExamsAllSpaces });
   const { data: assignments } = useQuery({
-    queryKey: ["assignments-all"],
+    queryKey: qk.assignments.all,
     queryFn: listAssignmentsAllSpaces,
   });
 

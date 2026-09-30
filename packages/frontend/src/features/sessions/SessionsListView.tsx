@@ -41,7 +41,7 @@ import {
 import { MonthGrid } from "./calendar/MonthGrid";
 import { QuickCreateSessionDialog } from "./calendar/QuickCreateSessionDialog";
 import { TimeGrid } from "./calendar/TimeGrid";
-import { EXTERNAL_EVENTS_KEY } from "./external-calendars/external-calendar-sync";
+import { qk } from "#/lib/query-keys.ts";
 
 /// True while typing somewhere, so single key shortcuts stay out of the way.
 function isEditable(target: EventTarget | null): boolean {
@@ -76,17 +76,17 @@ export function SessionsListView({
   }, []);
 
   const { data: allSessions = [] } = useQuery({
-    queryKey: ["sessions", spaceId],
+    queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
   });
   const { data: filterCourse } = useQuery({
-    queryKey: ["entity", filterCourseId],
+    queryKey: qk.entity.byId(filterCourseId),
     // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
     queryFn: () => getEntity(filterCourseId as string),
     enabled: Boolean(filterCourseId),
   });
   const { data: courseRelationships = [] } = useQuery({
-    queryKey: ["relationships", filterCourseId],
+    queryKey: qk.relationships.of(filterCourseId),
     // SAFETY: the query only runs when `enabled`, i.e. once `filterCourseId` is set.
     queryFn: () => listRelationships(filterCourseId as string, "to"),
     enabled: Boolean(filterCourseId),
@@ -101,7 +101,7 @@ export function SessionsListView({
   // This Space's own accent color, so Sessions and Calendar entries tint to
   // it instead of the fixed `--primary`/`--accent-purple` defaults (see
   // `SessionBlock` and `CalendarEntryBlock`'s `accentColor`).
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
   const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
@@ -112,7 +112,7 @@ export function SessionsListView({
   const fromKey = dayKey(addDays(days[0], -1));
   const toKey = dayKey(addDays(days[days.length - 1], 1));
   const { data: externalEvents = [] } = useQuery({
-    queryKey: [...EXTERNAL_EVENTS_KEY, fromKey, toKey],
+    queryKey: qk.externalCalendars.eventsBetween(fromKey, toKey),
     queryFn: () => listExternalEvents(fromKey, toKey),
     enabled: !filterCourseId,
     placeholderData: keepPreviousData,
@@ -122,7 +122,7 @@ export function SessionsListView({
   // Sessions). Hidden while narrowed to one Course, since a calendar entry
   // never has one.
   const { data: calendarEntries = [] } = useQuery({
-    queryKey: ["calendar-entries", spaceId],
+    queryKey: qk.calendarEntries.bySpace(spaceId),
     queryFn: () => listCalendarEntries(spaceId),
     enabled: !filterCourseId,
   });

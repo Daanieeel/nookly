@@ -43,8 +43,9 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS, MODULE_LABELS, moduleForEntityType } from "#/lib/modules.ts";
 import { useIsFullscreen } from "#/lib/fullscreen.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { APP_UPDATE_QUERY_KEY, checkForUpdate, useAppVersion } from "#/lib/updater.ts";
+import { checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 function Crumb({
   icon,
@@ -97,7 +98,7 @@ function Separator() {
 /// shown for Space-scoped views (module/entity); `view.spaceId` is used
 /// directly rather than the possibly-stale global `activeSpaceId`.
 function SpaceIndicator({ spaceId }: { spaceId: string }) {
-  const { data: spaces = [] } = useQuery({ queryKey: ["spaces"], queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) return null;
 
@@ -120,7 +121,7 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
   const setView = useNavStore((s) => s.setView);
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: entity } = useQuery({
-    queryKey: ["entity", entityId],
+    queryKey: qk.entity.byId(entityId),
     queryFn: () => getEntity(entityId),
   });
   // Tasks read by their ID alone, as in Linear, and a Sub-task sits under its
@@ -174,7 +175,10 @@ function EntityCrumbs({ entityId, spaceId }: { entityId: string; spaceId: string
 
 /// A saved View's icon and name, the last crumb on its page.
 function SavedViewCrumb({ viewId }: { viewId: string }) {
-  const { data: view } = useQuery({ queryKey: ["view", viewId], queryFn: () => getView(viewId) });
+  const { data: view } = useQuery({
+    queryKey: qk.views.byId(viewId),
+    queryFn: () => getView(viewId),
+  });
   if (!view) return null;
   return (
     <span className="contents" {...entityTarget(view.entity)}>
@@ -292,7 +296,7 @@ function VersionSection() {
   const checkUpdate = useMutation({
     mutationFn: () =>
       queryClient.fetchQuery({
-        queryKey: APP_UPDATE_QUERY_KEY,
+        queryKey: qk.appUpdate,
         queryFn: checkForUpdate,
         staleTime: 0,
       }),
