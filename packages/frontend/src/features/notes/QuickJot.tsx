@@ -23,6 +23,8 @@ import type { Entity, Space } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { jotTextToBlocks } from "./jot-blocks";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Tallest the capture box grows before it scrolls, in pixels.
 const MAX_COMPOSER_HEIGHT = 320;
@@ -150,16 +152,7 @@ export function QuickJotDialog() {
   const open = useNavStore((s) => s.quickJotOpen);
   const setOpen = useNavStore((s) => s.setQuickJotOpen);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
-        event.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setOpen]);
+  useAppHotkey(HOTKEYS.quickJot, () => setOpen(true));
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>

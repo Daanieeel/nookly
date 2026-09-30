@@ -9,6 +9,8 @@ import {
 } from "#/components/spotlight.tsx";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Cmd+Shift+P: every quick action and setting, nothing else, in the spirit of
 /// VS Code's command palette. Cmd+K mixes the same actions into search.
@@ -18,16 +20,7 @@ export function CommandsPalette() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        setOpen(!useNavStore.getState().commandsOpen);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setOpen]);
+  useAppHotkey(HOTKEYS.commands, () => setOpen(!useNavStore.getState().commandsOpen));
 
   useEffect(() => {
     if (!open) setQuery("");

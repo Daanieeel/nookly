@@ -40,12 +40,13 @@ import {
   formatInterval,
   invalidateDeck,
   isDue,
-  isTypingTarget,
   studyCount,
   takeStudyRequest,
 } from "./deck/deck-data";
 import { DeckStack, STATE_TONE, stateGroup } from "./deck/index-card";
 import { StudySession } from "./deck/StudySession";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 type Mode = { kind: "overview" } | { kind: "write"; editing: IndexCard | null } | { kind: "study" };
 
@@ -77,21 +78,13 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
   const toStudy = stats ? studyCount(stats) : 0;
   const overview = () => setMode({ kind: "overview" });
 
-  useEffect(() => {
-    if (mode.kind !== "overview") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "n") {
-        e.preventDefault();
-        setMode({ kind: "write", editing: null });
-      } else if (e.key === "s" && toStudy > 0) {
-        e.preventDefault();
-        setMode({ kind: "study" });
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mode.kind, toStudy]);
+  const inOverview = mode.kind === "overview";
+  useAppHotkey(HOTKEYS.newCard, () => setMode({ kind: "write", editing: null }), {
+    enabled: inOverview,
+  });
+  useAppHotkey(HOTKEYS.study, () => setMode({ kind: "study" }), {
+    enabled: inOverview && toStudy > 0,
+  });
 
   return (
     <EntityDetailLayout entity={entity} sidebar={<DeckProperties entity={entity} stats={stats} />}>

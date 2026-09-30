@@ -22,6 +22,8 @@ import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { fuzzyMatch, type TextSegment } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const MAX_RESULTS = 50;
 
@@ -54,16 +56,7 @@ export function QuickSwitcher() {
   const embedded = new Set(embeddedIds);
   const entities = allEntities.filter((e) => !embedded.has(e.id));
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        setOpen(!useNavStore.getState().switcherOpen);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setOpen]);
+  useAppHotkey(HOTKEYS.quickSwitcher, () => setOpen(!useNavStore.getState().switcherOpen));
 
   useEffect(() => {
     if (!open) setQuery("");

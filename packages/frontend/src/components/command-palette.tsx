@@ -39,6 +39,8 @@ import {
 } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Items shown per Space and type group before collapsing into "View all (N)".
 const GROUP_PREVIEW_LIMIT = 3;
@@ -88,16 +90,7 @@ export function CommandPalette() {
     placeholderData: keepPreviousData,
   });
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setPaletteOpen(!useNavStore.getState().paletteOpen);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setPaletteOpen]);
+  useAppHotkey(HOTKEYS.search, () => setPaletteOpen(!useNavStore.getState().paletteOpen));
 
   useEffect(() => {
     if (paletteOpen) return;

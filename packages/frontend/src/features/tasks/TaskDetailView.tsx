@@ -56,14 +56,8 @@ import {
   TaskStatusIcon,
 } from "./task-properties";
 import { qk } from "#/lib/query-keys.ts";
-
-/// True while typing somewhere, so single key shortcuts stay out of the way.
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
+import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// A Task's page: the same header and description editor as a Note, plus a
 /// previous and next stepper, the sub-tasks, and a properties panel at the top of
@@ -187,18 +181,10 @@ function TaskStepper({
   onStep: (task: Task) => void;
 }) {
   // K and J step through tasks, as in Linear, whenever nothing else has the keyboard.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
-      const target = e.key === "k" ? prev : e.key === "j" ? next : undefined;
-      if (!target) return;
-      e.preventDefault();
-      onStep(target);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [prev, next, onStep]);
+  useScreenHotkey(HOTKEYS.previousTask, () => prev && onStep(prev), {
+    enabled: prev !== undefined,
+  });
+  useScreenHotkey(HOTKEYS.nextTask, () => next && onStep(next), { enabled: next !== undefined });
 
   return (
     <div className="flex items-center gap-0.5 pr-1">

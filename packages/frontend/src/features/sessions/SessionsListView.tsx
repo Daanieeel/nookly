@@ -42,14 +42,9 @@ import { MonthGrid } from "./calendar/MonthGrid";
 import { QuickCreateSessionDialog } from "./calendar/QuickCreateSessionDialog";
 import { TimeGrid } from "./calendar/TimeGrid";
 import { qk } from "#/lib/query-keys.ts";
-
-/// True while typing somewhere, so single key shortcuts stay out of the way.
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
+import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
+import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The Sessions page is a full calendar, modeled on Outlook: Day, Work week,
 /// Week and Month views over the whole page. The calendar is the creation
@@ -153,22 +148,14 @@ export function SessionsListView({
     setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
   }, [view, anchor, weekStartsOn]);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
-      const viewForKey = CALENDAR_VIEWS.find((v) => v.key === e.key);
-      if (viewForKey) setView(viewForKey.id);
-      else if (e.key === "t") setAnchor(new Date());
-      else if (e.key === "ArrowLeft") step(-1);
-      else if (e.key === "ArrowRight") step(1);
-      else if (e.key === "c") startCreate();
-      else return;
-      e.preventDefault();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setView, step, startCreate]);
+  const hotkeys: UseHotkeyDefinition[] = [
+    ...CALENDAR_VIEWS.map((v) => ({ hotkey: v.key, callback: () => setView(v.id) })),
+    { hotkey: HOTKEYS.today, callback: () => setAnchor(new Date()) },
+    { hotkey: HOTKEYS.previousPeriod, callback: () => step(-1) },
+    { hotkey: HOTKEYS.nextPeriod, callback: () => step(1) },
+    { hotkey: HOTKEYS.create, callback: () => startCreate() },
+  ];
+  useScreenHotkeys(hotkeys);
 
   useEffect(() => {
     if (highlightIds.size === 0) return;

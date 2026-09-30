@@ -9,6 +9,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import type { Key } from "@tanstack/hotkeys";
 import type { ExternalEvent } from "#/lib/api/externalCalendars.ts";
 import type { CalendarEntry, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatMonth, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
@@ -30,7 +31,7 @@ export const CALENDAR_VIEWS = [
   { id: "workweek", label: "Work week", key: "2" },
   { id: "week", label: "Week", key: "3" },
   { id: "month", label: "Month", key: "4" },
-] satisfies { id: CalendarView; label: string; key: string }[];
+] satisfies { id: CalendarView; label: string; key: Key }[];
 
 /// `storageKey` lets Sessions, the Calendar module and the unified Calendar
 /// page each remember their own last picked view (see `STORAGE_KEYS`).

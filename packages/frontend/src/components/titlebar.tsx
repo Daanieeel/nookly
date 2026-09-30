@@ -46,6 +46,8 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 function Crumb({
   icon,
@@ -376,25 +378,17 @@ function HistoryButtons() {
   const canGoBack = useNavStore((s) => s.backStack.length > 0);
   const canGoForward = useNavStore((s) => s.forwardStack.length > 0);
 
+  useAppHotkey(HOTKEYS.back, () => useNavStore.getState().goBack());
+  useAppHotkey(HOTKEYS.forward, () => useNavStore.getState().goForward());
+
   useEffect(() => {
     const { goBack, goForward } = useNavStore.getState();
-    function onKeyDown(e: KeyboardEvent) {
-      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
-      if (e.key !== "[" && e.key !== "]") return;
-      e.preventDefault();
-      if (e.key === "[") goBack();
-      else goForward();
-    }
     function onMouseUp(e: MouseEvent) {
       if (e.button === 3) goBack();
       if (e.button === 4) goForward();
     }
-    window.addEventListener("keydown", onKeyDown);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
+    return () => window.removeEventListener("mouseup", onMouseUp);
   }, []);
 
   return (

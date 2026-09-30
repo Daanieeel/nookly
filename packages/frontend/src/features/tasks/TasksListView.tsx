@@ -46,16 +46,9 @@ import {
 } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
 import { qk } from "#/lib/query-keys.ts";
+import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 const NO_FILTERS: ActiveFilter[] = [];
-
-/// True while typing somewhere, so single key shortcuts stay out of the way.
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-  );
-}
 
 /// The Tasks page, modeled on Linear: a header with view tabs, a filter and display
 /// bar, then a board (default) or a grouped list. C opens the create modal.
@@ -87,17 +80,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
     setCreateOpen(true);
   }, []);
 
-  // C creates a task, as in Linear, whenever nothing else has the keyboard.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isEditable(e.target) || document.querySelector("[role=dialog],[role=menu]")) return;
-      e.preventDefault();
-      startCreate();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [startCreate]);
+  useCreateShortcut(() => startCreate());
 
   useEffect(() => {
     if (!highlightId) return;
