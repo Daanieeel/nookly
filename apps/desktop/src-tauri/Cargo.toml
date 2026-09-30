@@ -87,7 +87,7 @@ pdf-inspector = { version = "1", features = ["ocr"] }
 # xlsx via calamine, docx/pptx by walking their OOXML zip/XML parts directly.
 calamine = "0.36"
 quick-xml = "0.42"
-zip = "4"
+zip = "8"
 
 # Standalone image (PNG/JPG/screenshot) decoding for OCR input (`db/ocr.rs`).
 # pdf-inspector's own `ocr-oar` feature already depends on `image`; pinning the

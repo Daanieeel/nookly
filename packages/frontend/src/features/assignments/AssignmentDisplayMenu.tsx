@@ -124,7 +124,9 @@ export function AssignmentDisplayMenu({
         <OptionRow label="Ordering">
           <Select
             value={display.ordering}
-            onValueChange={(v) => set({ ordering: ORDERINGS.find((o) => o.id === v)?.id ?? "auto" })}
+            onValueChange={(v) =>
+              set({ ordering: ORDERINGS.find((o) => o.id === v)?.id ?? "auto" })
+            }
           >
             <SelectTrigger size="sm" className="w-44">
               <SelectValue />
