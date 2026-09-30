@@ -14,6 +14,8 @@ for await (const path of new Bun.Glob("**/*.{ts,tsx}").scan(root)) {
 }
 
 if (offenders.length > 0) {
-  console.error(`Inline query keys found, use \`qk\` from lib/query-keys.ts:\n${offenders.join("\n")}`);
+  console.error(
+    `Inline query keys found, use \`qk\` from lib/query-keys.ts:\n${offenders.join("\n")}`,
+  );
   process.exit(1);
 }

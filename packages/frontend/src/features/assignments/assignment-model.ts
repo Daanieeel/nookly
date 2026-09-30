@@ -129,14 +129,7 @@ export const GRADE_FILTER: { id: string; label: string }[] = [
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping =
-  | "deadline"
-  | "created"
-  | "updated"
-  | "status"
-  | "grade"
-  | "course"
-  | "none";
+export type Grouping = "deadline" | "created" | "updated" | "status" | "grade" | "course" | "none";
 /// "auto" keeps the order that fits the grouping.
 export type Ordering = "auto" | "due" | "created" | "updated" | "title" | "status" | "grade";
 

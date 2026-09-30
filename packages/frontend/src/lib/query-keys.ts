@@ -55,7 +55,7 @@ export const qk = {
     subtasksRoot: ["subtasks"] as const,
     subtasks: (parentId: string | undefined) => ["subtasks", parentId] as const,
     subtaskProgressRoot: ["subtask-progress"] as const,
-    subtaskProgress:(entityId: string) => ["subtask-progress", entityId] as const,
+    subtaskProgress: (entityId: string) => ["subtask-progress", entityId] as const,
     dueToday: ["tasks-due-today"] as const,
     openDueOrOverdue: ["open-tasks-due-or-overdue"] as const,
     openDueOrOverdueList: ["open-tasks-due-or-overdue", "list"] as const,
