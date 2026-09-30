@@ -31,6 +31,8 @@ import { MonthGrid } from "../sessions/calendar/MonthGrid";
 import { TimeGrid } from "../sessions/calendar/TimeGrid";
 import { QuickCreateCalendarEntryDialog } from "../calendar-entries/calendar/QuickCreateCalendarEntryDialog";
 import { qk } from "#/lib/query-keys.ts";
+import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The fifth cross-Space exception (`docs/04-navigation-spaces.md`): one
 /// unified, space-neutral calendar layering the external overlay (bottom, read
@@ -97,6 +99,7 @@ export function UnifiedCalendarView() {
     const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
     setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
   }, [view, anchor, weekStartsOn]);
+  useScreenHotkey(HOTKEYS.newItem, () => startCreate());
 
   useEffect(() => {
     if (highlightIds.size === 0) return;
