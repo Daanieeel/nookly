@@ -122,6 +122,8 @@ import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 import { qk } from "#/lib/query-keys.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const SPACE_COLORS = ACCENT_COLORS;
 
@@ -195,6 +197,7 @@ export function AppSidebar() {
   // pointer leaves it.
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
+  useAppHotkey(HOTKEYS.toggleSidebar, toggleSidebar);
   const [peeking, setPeeking] = useState(false);
   useEffect(() => {
     if (!collapsed) setPeeking(false);
@@ -326,7 +329,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip={collapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
+              tooltip={collapsed ? "Expand sidebar (⌘S)" : "Collapse sidebar (⌘S)"}
               onClick={toggleSidebar}
             >
               {collapsed ? <IconLayoutSidebarLeftExpand /> : <IconLayoutSidebarLeftCollapse />}
