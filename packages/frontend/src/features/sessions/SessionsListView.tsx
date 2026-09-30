@@ -45,6 +45,7 @@ import { qk } from "#/lib/query-keys.ts";
 import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
 
 /// The Sessions page is a full calendar, modeled on Outlook: Day, Work week,
 /// Week and Month views over the whole page. The calendar is the creation
@@ -256,6 +257,7 @@ export function SessionsListView({
               <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New session
+                <ShortcutKeys hotkey={HOTKEYS.newItem} />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">

@@ -34,6 +34,8 @@ import { notePreviewText } from "./note-preview";
 import { formatDateTime } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
+import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 export interface NoteRow {
   summary: PageSummary;
@@ -243,6 +245,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
           action={{
             label: create.isError ? "Couldn't create note, try again" : "New Note",
             onClick: startNote,
+            shortcut: HOTKEYS.newItem,
           }}
         />
       </div>
@@ -270,7 +273,12 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
           <StatusButtonContent
             status={createStatus}
             icon={<IconPlus size={14} />}
-            label="New Note"
+            label={
+              <>
+                New Note
+                <ShortcutKeys hotkey={HOTKEYS.newItem} />
+              </>
+            }
             errorLabel="Couldn't create note, try again"
           />
         </Button>

@@ -1,6 +1,8 @@
 import type { Icon as TablerIcon } from "@tabler/icons-react";
+import type { RegisterableHotkey } from "@tanstack/hotkeys";
 import { Button } from "@nookly/ui/components/button";
 import { cn } from "@nookly/ui/lib/utils";
+import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
 
 /// A good empty state names what's missing and gives the one action that fixes
 /// it, right there — never a bare "no data" line. `compact` drops the box/icon
@@ -16,7 +18,8 @@ export function EmptyState({
   icon: TablerIcon;
   title: string;
   description?: string;
-  action?: { label: string; onClick: () => void };
+  /// `shortcut` shows the action's key caps next to its label.
+  action?: { label: string; onClick: () => void; shortcut?: RegisterableHotkey };
   compact?: boolean;
   className?: string;
 }) {
@@ -46,6 +49,7 @@ export function EmptyState({
       {action && (
         <Button size="sm" variant="outline" onClick={action.onClick}>
           {action.label}
+          {action.shortcut && <ShortcutKeys hotkey={action.shortcut} />}
         </Button>
       )}
     </div>

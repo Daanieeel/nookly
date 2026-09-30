@@ -38,6 +38,7 @@ import { qk } from "#/lib/query-keys.ts";
 import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
 
 /// The per-Space Calendar module page: same Outlook-style calendar as
 /// Sessions (Day/Work week/Week/Month, drag-to-create), but entirely separate
@@ -191,6 +192,7 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
               <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New entry
+                <ShortcutKeys hotkey={HOTKEYS.newItem} />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">

@@ -19,6 +19,8 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { formatInterval, requestStudy, studyCount } from "./deck/deck-data";
 import { DeckStack, STATE_TONE } from "./deck/index-card";
+import { ShortcutKeys } from "#/components/shortcut-keys.tsx";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Every deck as a pile on the desk. Decks with cards to study come first, the
 /// ones prepping for the nearest exam leading; caught up decks follow by name.
@@ -64,6 +66,7 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
               <Button variant="secondary" size="sm" className="gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New deck
+                <ShortcutKeys hotkey={HOTKEYS.newItem} />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
@@ -80,7 +83,7 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
               icon={IconCards}
               title="No decks yet"
               description="Press C to add one. Name it, then start writing cards."
-              action={{ label: "New deck", onClick: startCreate }}
+              action={{ label: "New deck", onClick: startCreate, shortcut: HOTKEYS.newItem }}
             />
           ) : (
             <>
