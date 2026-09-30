@@ -304,7 +304,7 @@ impl Args {
             Ok(())
         } else {
             Err(AppError::InvalidInput(
-                "this is a mutating/destructive command — pass --yes to confirm (never prompts interactively)".into(),
+                "this is a mutating/destructive command, pass --yes to confirm (never prompts interactively)".into(),
             ))
         }
     }
@@ -392,7 +392,7 @@ fn top_level_help() -> Value {
         "note": "Every mutating command is non-interactive; pass --yes instead of confirming a prompt. \
                  Output is JSON on stdout always (pretty when attached to a TTY, compact when piped); \
                  errors are JSON on stderr with a non-zero exit code.",
-        "discovery": "Run `nookly cli schema` first — it dumps every entity type's fields and every \
+        "discovery": "Run `nookly cli schema` first, it dumps every entity type's fields and every \
                       relationship type in one call, so you never need to hardcode this app's data model.",
         "entityCommands": {
             "usage": "nookly cli <entity-type> <list|get|create|update|duplicate|convert|delete|restore> ...",
@@ -420,7 +420,7 @@ fn top_level_help() -> Value {
             "convert": "nookly cli <entity-type> convert <id> --to <entity-type> [--if-revision <rev>]  (turns the entity into \
                         another type in place, keeping its id, relationships, labels and pin; `describe <type>` lists \
                         `convertsTo`, e.g. a file from a link becoming a bookmark)",
-            "delete": "nookly cli <entity-type> delete <id> --yes [--if-revision <rev>]  (soft delete only — goes to Trash, never permanent)",
+            "delete": "nookly cli <entity-type> delete <id> --yes [--if-revision <rev>]  (soft delete only, goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
                      [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
@@ -429,7 +429,7 @@ fn top_level_help() -> Value {
                                  `add-<singular> <id> --field ...`, `get-<singular>`, `update-<singular>`, \
                                  `delete-<singular> --yes` (soft), `restore-<singular>`, and per collection actions \
                                  such as `index_card_deck review-card <card-id> --field rating=good`.",
-            "blocks": "block pages only: note, jot, task and sub_task (`describe <type>` reports supportsBlocks) — full block editing: \
+            "blocks": "block pages only: note, jot, task and sub_task (`describe <type>` reports supportsBlocks), full block editing: \
                        `nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]`, `add-block <id> --type <t> --content <c> [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
                        `update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]`, \
                        `delete-block <block-id> --yes`, `reorder-blocks <id> <block-id> <block-id> ...`. \
@@ -457,9 +457,9 @@ fn top_level_help() -> Value {
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
             "space": "nookly cli space <list|create|update|delete|reorder> ...",
             "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several \
-                      label ids; get <id> is the reverse lookup — every entity carrying that label)",
+                      label ids; get <id> is the reverse lookup, every entity carrying that label)",
             "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
-                                   agent that's never used this CLI before — start here, not with \
+                                   agent that's never used this CLI before, start here, not with \
                                    this --help output, if this is your first call)",
         },
     })
@@ -474,45 +474,64 @@ fn agent_instructions() -> Value {
     json!({ "markdown": AGENT_INSTRUCTIONS_MARKDOWN })
 }
 
-const AGENT_INSTRUCTIONS_MARKDOWN: &str = r##"# Nookly CLI — agent guide
+const AGENT_INSTRUCTIONS_MARKDOWN: &str = r##"# Nookly CLI agent guide
 
-Nookly is a personal life-organizer app (Notes, Tasks, Courses, Exams, ...). This CLI
+Nookly is a personal life organizer app (Notes, Tasks, Courses, Exams, ...). This CLI
 (`nookly cli ...`) is a full read/write interface to the same data the desktop app shows,
-built entirely on one generic pattern — there is no hand-written command for any specific
+built entirely on one generic pattern. There is no hand-written command for any specific
 entity type. That means:
 
 - Every command's output is JSON on stdout, always (pretty-printed on a TTY, compact when
-  piped) — parse it, don't scrape it.
+  piped). Parse it, don't scrape it.
 - Every mutating command is non-interactive: pass `--yes` instead of expecting a confirmation
   prompt (you'll get an error telling you to add it if you forget).
 - Errors are JSON on stderr, `{"error": {"kind": ..., "message": ...}}`, with a non-zero exit
-  code — the `message` is usually specific enough to fix the call and retry.
+  code. The `message` is usually specific enough to fix the call and retry. The `kind` is one of
+  `NotFound`, `UnknownRelationshipType`, `CardinalityViolation`, `InvalidInput`, `Conflict`,
+  `Db`, `Io` or `Remote`; `Conflict` means retry after re-reading (see "Writing safely"),
+  `InvalidInput` means fix the call.
 - Deleting an entity is *always* a soft delete (goes to Trash, `restore`-able) except `space
   delete`, which is genuinely permanent and takes every entity inside it with it.
+
+## Running it
+
+`nookly` is the desktop app's own binary. The sidebar's "Install CLI" card links it onto your
+PATH on macOS and Linux; elsewhere, run the app binary with `cli` as the first argument. The
+CLI opens the same database file as the app, so the app does not need to be running, and
+changes you make show up in an open app on their own.
 
 ## Step 1: discover the data model, don't guess it
 
 Run `nookly cli schema` before doing anything else. It dumps every entity type this app
 knows about, each one's fields, and every relationship type, in one call. `nookly cli
 describe <entity-type>` gives you the same detail for just one type. Both are cheap,
-read-only, and always reflect the actual running app — newer than whatever's in your
+read-only, and always reflect the actual running app, which is newer than whatever is in your
 training data or memory of a past session. If you're about to guess a field name or a
 relationship type, run one of these instead.
+
+Read each type's `description` and its field descriptions too. They state the rules that are
+specific to it: which field links it to a parent (and whether that link can change), which
+values are allowed, what a field defaults to, and what only the desktop app can do. The rest
+of this guide covers what holds for every type.
 
 ## The generic entity pattern
 
 Almost everything is one of:
 
 ```
-nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since 24h] [--label a,b] [--fields a,b] [--limit <n>]
+nookly cli <entity-type> list --space <id> [--include-deleted] [--since 24h] [--label a,b] [--fields a,b] [--limit <n>]
 nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b]   # includes relationships, labels + mentionedIn
 nookly cli <entity-type> create --space <id> --title <title> [--icon <icon>] [--field name=value ...]
 nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] [--field name=value ...]
 nookly cli <entity-type> duplicate <id>               # copy in the same Space, same fields, labels and blocks
 nookly cli <entity-type> convert <id> --to <type>     # same entity, another type; `describe` lists convertsTo
-nookly cli <entity-type> delete <id> --yes            # soft delete — Trash, not permanent
+nookly cli <entity-type> delete <id> --yes            # soft delete, goes to Trash, not permanent
 nookly cli <entity-type> restore <id>
 ```
+
+Most types require `--space` on `list`; the error says so when one does. `update --space`
+moves the entity, and everything it structurally owns (a Task's sub-tasks, for example), to
+that Space.
 
 Every entity carries a short `key` next to its `id`, like `TSK-14` or `NOT-3`: a three
 letter type prefix and a number. Anywhere a command takes an entity id (including `relate`,
@@ -528,7 +547,7 @@ that type instead of targeting one id, listed under `bulkActions` in `describe`:
 nookly cli <entity-type> <bulk-action-name> [--space <id>]   # omit --space to run over every Space
 ```
 
-`nookly cli file reindex [--space <id>]` is the one that exists today — see "Files: OCR and
+`nookly cli file reindex [--space <id>]` is the one that exists today. See "Files: OCR and
 search indexing" below.
 
 ## Reading cheaply
@@ -540,46 +559,48 @@ Pages can be large. Before pulling one whole:
 - `get <id> --summary` cuts every long string to an excerpt and, for pages, adds the heading
   `outline` with block ids and indexes.
 - `get <id> --fields title,updatedAt` returns only those fields (`id` and `key` always come along).
-- `<type> grep <id> <pattern> [--context 2]` returns just the matching lines with their block
-  id and index; `<type> blocks <id> --offset <n> --limit <n>` then fetches that section.
-- `get` takes several ids at once; `list --since 24h` (or `7d`, a date, a timestamp) shows what
-  changed recently, newest first.
+- `<type> grep <id> <pattern> [--context 2] [--max <n>]` returns just the matching lines with
+  their block id and index (at most 50 unless you raise `--max`); `<type> blocks <id> --offset
+  <n> --limit <n>` then fetches that section.
+- `get` takes several ids at once and returns `{count, items}`; an id that can't be read
+  becomes an `{ref, error}` row instead of failing the whole call. `list --since 24h` (or
+  `7d`, a date, a timestamp) shows what changed recently, newest first.
 - `search <query> --type note --in content` narrows search to one entity type and to block
   text (`--in title` for titles and keys).
 - `list --space <id> --label a,b` keeps only rows carrying every named label (AND match), so
   "everything tagged X and Y" doesn't mean a `get` per row and filtering client side. `--fields
-  labels` on `list` (not just `get`) returns each row's labels; `label get <id>` is the reverse —
+  labels` on `list` (not just `get`) returns each row's labels; `label get <id>` is the reverse:
   every entity carrying one label, across types.
 
 ## Files: OCR and search indexing
 
-A File's own content — not just its file name — is what `search` and the `--in content`
-filter actually match against. Extraction happens automatically on import/attach/replace, best
-effort:
+A File's own content, not just its file name, is what `search` and the `--in content`
+filter actually match against. Extraction happens automatically on import, attach and replace,
+best effort:
 
-- Scanned/image-only PDF pages and standalone images (`png`/`jpg`/`jpeg`) go through local OCR.
-  An ordinary text PDF costs nothing extra — only a page the OCR engine's own detector flags as
+- Scanned or image-only PDF pages and standalone images (`png`/`jpg`/`jpeg`) go through local OCR.
+  An ordinary text PDF costs nothing extra. Only a page the OCR engine's own detector flags as
   scanned gets OCR'd.
 - `docx`/`pptx`/`xlsx` get their text read directly out of the file's own XML, no OCR needed.
 - Code and plain text files (anything a source-file extension or `.txt`/`.md`/`.csv`/`.log`
   covers) are read as-is. A file with an unrecognized extension, or no extension at all
-  (`README`, `Dockerfile`, a dotfile), still gets indexed if its content looks like text —
-  extraction isn't gated on knowing the "right" extension.
+  (`README`, `Dockerfile`, a dotfile), still gets indexed if its content looks like text.
+  Extraction isn't gated on knowing the "right" extension.
 - Anything else (video, audio, archives, ...) isn't indexed at all.
 
 `file get <id>` carries two fields for this:
 
-- `needsReindex`: true for an indexable File with no search content yet — never indexed
-  (imported before this existed, or before its extension/content was recognized), or the last
+- `needsReindex`: true for an indexable File with no search content yet. It was never indexed
+  (imported before this existed, or before its extension or content was recognized), or the last
   attempt found nothing. `list` computes this too, cheaply.
-- `indexedContent`: the exact extracted/OCR'd text last indexed. Only `get` (one File by id)
-  populates it — `list` always returns `null` here, so listing many Files never drags their
+- `indexedContent`: the exact extracted or OCR'd text last indexed. Only `get` (one File by id)
+  populates it. `list` always returns `null` here, so listing many Files never drags their
   full extracted text along regardless of size.
 
 To fix a gap: `file update <id> --field reindexContent=true` re-runs extraction for one File
 even if it already has content; `file reindex [--space <id>]` (a bulk action, see above) does
 every File in scope missing content at once and reports `{"checked": <n>, "reindexed": <n>}`.
-Both are safe to run repeatedly — an already-indexed File is left untouched by `reindex`, and
+Both are safe to run repeatedly. An already-indexed File is left untouched by `reindex`, and
 a File whose extraction genuinely finds nothing (a blank image, an empty spreadsheet) just
 looks like "never tried" and is retried next time rather than treated as a permanent failure.
 
@@ -589,40 +610,40 @@ looks like "never tried" and is retried next time rather than treated as a perma
   back, so validation errors, cardinality checks and the resulting payload are all real, and
   nothing is kept. `--yes` isn't required alongside it. `update` and `update-block` responses
   (dry or not) list `changes` with before and after values, and a line diff for long text.
-- `get` returns a `revision`. Pass it back as `--if-revision <rev>` on `update`, `delete` or any
-  block write; if someone changed the entity since you read it you get a `Conflict` error
-  instead of silently overwriting their edit. Re-read, reapply, retry.
+- `get` returns a `revision`. Pass it back as `--if-revision <rev>` on `update`, `convert`,
+  `delete` or any block write; if someone changed the entity since you read it you get a
+  `Conflict` error instead of silently overwriting their edit. Re-read, reapply, retry.
 - There is no version history: once a write lands, the previous content is gone (deletes of
   entities go to Trash, though). Use the two tools above before writing, not after.
 - `relate <from> <type> <to> <to> ...` and `label attach <entity> <label> <label> ...` take
   several targets in one call, all or nothing.
 
 `--field` is for whatever extra fields that *specific* entity type declares beyond the
-universal ones (title/icon/pinned) — `describe <entity-type>` lists exactly which field names
+universal ones (title/icon/pinned). `describe <entity-type>` lists exactly which field names
 are valid and whether each is settable on create, update, or both. Passing an unknown field
 name is an error, not a silent no-op.
 
-## Notes and Jots: block-based pages, not a markdown blob
+## Pages: block based content, not a markdown blob
 
-`note` and `jot` are "pages" — their content is a sequence of typed blocks
-(heading, paragraph, code, list, table, ...), not one big string. **There is no `--field
-body=<markdown>` shortcut** — an earlier version of this CLI had one, and it was removed
-deliberately, because it let agents skip ever learning the real block commands (and a
-`code` block built that way had no way to get a language or filename). If you try it, the
-error message tells you this and points back here.
+`note`, `jot`, `task` and `sub_task` are "pages" (`describe` reports `supportsBlocks`). Their
+content is a sequence of typed blocks (heading, paragraph, code, list, table, ...), not one big
+string. **There is no `--field body=<markdown>` shortcut.** An earlier version of this CLI had
+one, and it was removed deliberately, because it let agents skip ever learning the real block
+commands (and a `code` block built that way had no way to get a language or filename). If you
+try it, the error message tells you this and points back here.
 
 Build a page's content with:
 
 ```
 nookly cli <type> blocks <id> [--offset <n>] [--limit <n>]                        # list blocks in order
-nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>]  # matching lines only
+nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] [--max <n>]  # matching lines only
 nookly cli <type> add-block <id> --type <blockType> --content <text> [--position <n>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]
 nookly cli <type> update-block <block-id> [--content <c>] [--type <t>] [--language <l>] [--filename <f>] [--attr <name>=<value> ...]
 nookly cli <type> delete-block <block-id> --yes
 nookly cli <type> reorder-blocks <id> <block-id> <block-id> ...
 ```
 
-One call per element — a heading, a paragraph, a code block, one list, one table — not one
+One call per element: a heading, a paragraph, a code block, one list, one table. Not one
 call with a whole document jammed into `--content`. A list is ONE block, not one block per
 item: `bulleted_list` and `numbered_list` content is every item of the list, one per line,
 with no `1. ` or `- ` markers (the editor numbers items within the block, so one block per
@@ -634,14 +655,15 @@ list right after another list of the same type. Check it instead of guessing wha
 ```
 nookly cli note add-block <id> --type numbered_list --content "$(printf 'First\nSecond\nThird')"
 ```
- `describe <type>` lists every known
-`blockType`. If you land a `paragraph` block whose content still looks like a whole unsplit
-document (headings, fences, several paragraphs), the response carries an advisory `warning`
-telling you to split it — the write still succeeds, but fix it before moving on.
+
+`describe <type>` lists every known `blockType`. If you land a `paragraph` block whose content
+still looks like a whole unsplit document (headings, fences, several paragraphs), the response
+carries an advisory `warning` telling you to split it. The write still succeeds, but fix it
+before moving on.
 
 ### Code blocks: `--language` and `--filename`
 
-A `code` block's header row in the editor shows a filename and a syntax-highlighting
+A `code` block's header row in the editor shows a filename and a syntax highlighting
 language. Both are plain flags, not buried in `--field`:
 
 ```
@@ -649,9 +671,9 @@ nookly cli note add-block <id> --type code --content 'console.log(1)' --language
 ```
 
 `--language` is a highlight.js grammar name (`javascript`, `typescript`, `python`, `rust`,
-`jsonc`, ... — anything is accepted, but only a recognized grammar actually highlights).
+`jsonc`, ... anything is accepted, but only a recognized grammar actually highlights).
 Omit it (or pass `--language ""` on `update-block`) for plain, unhighlighted text. Same
-`""`-clears convention for `--filename`.
+`""` clears convention for `--filename`.
 
 ### Custom blocks
 
@@ -689,7 +711,7 @@ dollar sign is written `\$`.
 
 A `table` block's `--content` is rows separated by `\n`, cells within a row separated by a
 literal tab character, first row is the header, no separator row. It is **not** the
-`| a | b |` / `|---|---|` markdown table syntax you'd write in a `.md` file — that's an easy,
+`| a | b |` / `|---|---|` markdown table syntax you'd write in a `.md` file. That's an easy,
 natural mistake, and this CLI auto-detects it and converts it for you, but you'll get an
 advisory `warning` back when that happens. Prefer real tabs from the start:
 
@@ -697,12 +719,41 @@ advisory `warning` back when that happens. Prefer real tabs from the start:
 nookly cli note add-block <id> --type table --content "$(printf 'Name\tAge\nAlice\t30\nBob\t25')"
 ```
 
+## Tasks and sub-tasks
+
+A `task` has a `statusId`, a start date and a due date. Status ids are short slugs; the
+defaults are `backlog` (what a new task gets), `todo`, `in_progress`, `done` and `cancelled`,
+and a task's current `statusId` always shows on `get`. Progress rolls up from sub-tasks when
+any exist.
+
+A `sub_task` is a one level child of a task, so a sub-task cannot have sub-tasks. Create one
+with `sub_task create --space <id> --title <t> --field parentId=<task-id>`; there is no
+separate `relate` call. Setting `parentId` on an existing task turns it into a sub-task of
+that task, which only works for a task that has no sub-tasks of its own and cannot be undone
+through that field.
+
+## Templates and occurrences
+
+Recurring items come as two types: a template (`session_template`, `calendar_entry_template`)
+holding the cadence, and the dated occurrences (`session`, `calendar_entry`) the calendar
+shows. Create one-off occurrences directly. Generating a template's occurrences is done by the
+desktop app only, not the CLI. Updating a template's times or location edits its series from
+the `applyFromDate` field on, per its `describe`.
+
+## Saved views
+
+A `view` is a saved View of a module page (Tasks or Assignments): a name plus the filters and
+display options to reopen it with. Its `module` is fixed at creation; `config` is a JSON
+object that is checked on every write, and a bad filter field, value or display option comes
+back as an `InvalidInput` error naming what is allowed. `describe view` spells out the exact
+filter fields, groupings and orderings per module. `view list` needs `--space`.
+
 ## Child collections: records without their own entity
 
-Some parent entity types own child records that aren't full entities themselves — no key,
-no Space, no relationships. Index Cards under a Deck are the one that exists today.
-`describe <parent-type>` lists these under `childCollections`, each with its own `fields`,
-`computedFields` and `actions`:
+Some parent entity types own child records that aren't full entities themselves: no key,
+no Space, no relationships. Index Cards under a Deck, and Ingredients and Steps under a Recipe,
+are the ones that exist today. `describe <parent-type>` lists these under `childCollections`,
+each with its own `fields`, `computedFields` and `actions`:
 
 ```
 nookly cli <parent-type> <plural> <id> [--include-deleted]                  # list a parent's children
@@ -713,7 +764,7 @@ nookly cli <parent-type> delete-<singular> <child-id> --yes                 # so
 nookly cli <parent-type> restore-<singular> <child-id>
 ```
 
-Plus whatever named actions that collection declares beyond the generic ones — a Deck's
+Plus whatever named actions that collection declares beyond the generic ones. A Deck's
 cards add `review-card`/`undo-review-card` for spaced repetition review:
 
 ```
@@ -721,31 +772,34 @@ nookly cli index_card_deck cards <deck-id>
 nookly cli index_card_deck add-card <deck-id> --field front="Q" --field back="A"
 nookly cli index_card_deck review-card <card-id> --field rating=good
 nookly cli index_card_deck undo-review-card <card-id>
+nookly cli recipe add-ingredient <recipe-id> --field text="2 cups flour"
+nookly cli recipe steps <recipe-id>
 ```
 
 ## Relationships and search
 
-Relationships link any two entities (or, for Notes, individual blocks) with a typed edge —
-`relates-to`, `blocks`, or a module-specific type (`schema` lists every relationship type
-that exists):
+Relationships link any two entities with a typed edge: `relates-to`, `blocks`, or a module
+specific type (`schema` lists every relationship type that exists, and `describe` lists the
+ones each entity type allows). The CLI links whole entities only. It cannot link a single
+block.
 
 ```
 nookly cli relate <from-id> <relationship-type> <to-id> [<to-id> ...] --yes
 nookly cli unrelate <relationship-id> --yes
-nookly cli search <query> [--space <id>] [--type <t>] [--in title|content] [--limit <n>]
+nookly cli search <query> [--space <id>] [--type <t>[,<t>...]] [--in title|content] [--limit <n>]
 ```
 
-Search matches entity titles and, for Notes/Jots, individual blocks. A block hit
+Search matches entity titles and keys and, for pages, individual blocks. A block hit
 carries `blockId` plus a `snippet` whose matched terms are wrapped in `\u0001` / `\u0002`.
 
 ## Spaces and Labels
 
-A Space is a top-level workspace (everything else lives inside exactly one). Labels are
+A Space is a top level workspace (everything else lives inside exactly one). Labels are
 freeform tags, siloed per Space (the same label name in two Spaces is two separate labels):
 
 ```
-nookly cli space <list|create|update|delete> ...      # space delete is PERMANENT, no Trash
-nookly cli label <list|create|update|delete|attach|detach> ...
+nookly cli space <list|create|update|delete|reorder> ...   # space delete is PERMANENT, no Trash
+nookly cli label <list|get|create|update|delete|attach|detach> ...
 ```
 
 Run `nookly cli space` or `nookly cli label` with no further arguments for the exact flags
@@ -774,7 +828,7 @@ fn schema_all() -> Value {
     json!({
         "entityTypes": entity_types,
         "relationshipTypes": relationship_types,
-        "note": "`space` and `label` are core infrastructure, not registered entity types — see \
+        "note": "`space` and `label` are core infrastructure, not registered entity types, see \
                  `nookly cli space`/`nookly cli label` --help-style usage in `nookly cli` with no args.",
     })
 }
@@ -808,7 +862,7 @@ fn validate_fields(
             // blocks-backed page has no fields at all.
             if key == "body" && def.supports_blocks {
                 return Err(AppError::InvalidInput(format!(
-                    "'{entity_type}' has no 'body' field — its content is built from real blocks, not \
+                    "'{entity_type}' has no 'body' field, its content is built from real blocks, not \
                      one markdown string. Add each element (heading, paragraph, code, ...) with its own \
                      `nookly cli {entity_type} add-block <id> --type <blockType> --content <text>` call \
                      (run `nookly cli describe {entity_type}` for knownBlockTypes), then `update-block`/ \
@@ -958,7 +1012,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             crate::db::entities::soft_delete_entity(conn, &id)?;
             let key = crate::db::entities::entity_key(conn, &id)?;
             Ok(
-                json!({ "deleted": id, "key": key, "note": "soft delete only — recoverable with `restore`, see Trash" }),
+                json!({ "deleted": id, "key": key, "note": "soft delete only, recoverable with `restore`, see Trash" }),
             )
         }
         "duplicate" => {
@@ -985,7 +1039,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
         "blocks" | "grep" | "add-block" | "update-block" | "delete-block" | "reorder-blocks" => {
             if !def.supports_blocks {
                 return Err(AppError::InvalidInput(format!(
-                    "'{entity_type}' has no block content — block commands only apply to types where \
+                    "'{entity_type}' has no block content, block commands only apply to types where \
                      `describe {entity_type}` reports supportsBlocks: true"
                 )));
             }
@@ -1114,7 +1168,7 @@ fn child_command(
             (c.delete)(conn, &record_id)?;
             Ok(json!({
                 "deleted": record_id,
-                "note": format!("soft delete only — recoverable with `restore-{singular}`"),
+                "note": format!("soft delete only, recoverable with `restore-{singular}`"),
             }))
         }
         "restore" => {
@@ -1225,7 +1279,7 @@ fn list_entities(
     if let Some(raw) = label_filter {
         let space_id = args.flag("space").ok_or_else(|| {
             AppError::InvalidInput(
-                "--label requires --space — labels are siloed per Space (§ entity model), so a \
+                "--label requires --space, labels are siloed per Space (§ entity model), so a \
                  name can't be resolved without knowing which Space's labels to search"
                     .into(),
             )
@@ -1249,7 +1303,7 @@ fn list_entities(
                 .find(|l| l.name.eq_ignore_ascii_case(name))
                 .ok_or_else(|| {
                     AppError::InvalidInput(format!(
-                        "no label named '{name}' in space {space_id} — see `nookly cli label list \
+                        "no label named '{name}' in space {space_id}, see `nookly cli label list \
                          --space {space_id}`"
                     ))
                 })?;
@@ -1524,7 +1578,7 @@ fn table_normalize_warning(
         "content looked like a markdown pipe table ('| a | b |' rows, optionally with a \
          '|---|---|' separator) and was auto-converted to this app's real table format: rows \
          separated by '\\n', cells within a row separated by a literal tab character, first row \
-         the header, no separator row. Verify with `blocks <id>` or `get <id>` — if this wasn't \
+         the header, no separator row. Verify with `blocks <id>` or `get <id>`, if this wasn't \
          intended, resubmit with real tabs between cells."
             .to_string(),
     )
@@ -1591,10 +1645,10 @@ fn paragraph_mistake_warning(
     Ok(Some(format!(
         "This page has {total} blocks, and this paragraph's content still looks like a whole \
          unsplit markdown document (headings, lists, quotes, code fences, or several blank-line- \
-         separated paragraphs). A 'paragraph' block renders its content as literal text — '#', \
+         separated paragraphs). A 'paragraph' block renders its content as literal text, '#', \
          '- ', '> ', and ``` fences will NOT become real headings/lists/quotes/code. Issue one \
          add-block/update-block call per element instead, with the matching --type (run \
-         `nookly cli describe {entity_type}` for knownBlockTypes) — for a 'code' block, also set \
+         `nookly cli describe {entity_type}` for knownBlockTypes), for a 'code' block, also set \
          --language/--filename for the editor's syntax-highlighted header."
     )))
 }
@@ -1722,7 +1776,7 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "list": "nookly cli space list",
             "create": "nookly cli space create --name <name> [--icon <icon>] --color <hex>",
             "update": "nookly cli space update <id> [--name <n>] [--icon <i>] [--color <hex>]",
-            "delete": "nookly cli space delete <id> --yes  (PERMANENT — Spaces have no Trash; deletes every entity inside)",
+            "delete": "nookly cli space delete <id> --yes  (PERMANENT, Spaces have no Trash; deletes every entity inside)",
             "reorder": "nookly cli space reorder <id> <id> ...  (every Space id, in its new sidebar order)",
         }));
     };
@@ -1753,7 +1807,7 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             let id = args.require_positional(0, "id")?;
             args.require_yes()?;
             crate::db::spaces::delete_space(conn, &id)?;
-            Ok(json!({ "deleted": id, "note": "permanent — Spaces have no Trash" }))
+            Ok(json!({ "deleted": id, "note": "permanent, Spaces have no Trash" }))
         }
         "reorder" => {
             if args.positional.is_empty() {
@@ -1784,7 +1838,7 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "get": "nookly cli label get <id> [--include-deleted]  (every entity carrying this label, the \
                     reverse of `get`'s own `labels`; across every entity type and Space, though a label is only \
                     ever attached within its own Space in practice)",
-            "note": "Labels are space-siloed (§ entity model) — the same name in two Spaces is two separate labels.",
+            "note": "Labels are space-siloed (§ entity model), the same name in two Spaces is two separate labels.",
         }));
     };
     run_command(&argv[1..], |args| {
