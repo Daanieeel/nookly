@@ -2,11 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
-## Unreleased
+## 0.11.16 (2026-10-01)
 
 ### Changed
 
 - Linux gpg signing (#29)
+- Faster update checks (#28)
+
+### Removed
+
+- Remove space modules (#31)
 
 ## 0.11.13 (2026-10-01)
 
