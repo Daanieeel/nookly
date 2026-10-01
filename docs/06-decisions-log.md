@@ -307,4 +307,3 @@ Remove Module on a sidebar row offers two choices. Hide keeps every entity and m
 **Why:** reusing `deleted_at` hides the content from search, Pinned, the Dashboard and the Calendar without touching dozens of queries. `hidden_at` keeps it out of Trash, restore, Delete Forever and Empty Trash, so kept data can never be erased from there.
 
 **Rejected:** hard deleting on removal (data loss), and only hiding the sidebar row (content would still show in search and Pinned).
-
