@@ -162,16 +162,63 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
       - name: Generate and upload SHA256SUMS
         run: |
           set -euo pipefail
           mkdir release-assets
           gh release download "$TAG" --repo "$REPO" --dir release-assets
           cd release-assets
-          find . -maxdepth 1 -type f ! -name "SHA256SUMS*" ! -name "latest.json" ! -name "*.sig" -exec sha256sum {} + \
+          find . -maxdepth 1 -type f ! -name "SHA256SUMS*" ! -name "latest.json" ! -name "*.sig" ! -name "*.asc" -exec sha256sum {} + \
             | sed 's| \./|  |' | sort -k 2 > ../SHA256SUMS
           cd ..
           gh release upload "$TAG" SHA256SUMS --repo "$REPO" --clobber
+
+      # Detached, ASCII armored GPG signatures (`<file>.asc`) for the Linux
+      # packages and for SHA256SUMS, which in turn covers every other platform.
+      # The public key is committed as `nookly-release.asc`; users verify with
+      # `gpg --verify <file>.asc <file>`. Skipped with a warning until the
+      # GPG_PRIVATE_KEY secret exists, so forks and key-less runs still release.
+      - name: Sign Linux packages and SHA256SUMS (GPG)
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::warning::GPG_PRIVATE_KEY is not set, Linux packages are not GPG signed."
+            exit 0
+          fi
+
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          fpr=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+
+          # The committed public key must match the signing key, otherwise users
+          # could never verify what we ship.
+          committed=$(gpg --batch --show-keys --with-colons nookly-release.asc | awk -F: '/^fpr:/ {print $10; exit}')
+          if [ "$fpr" != "$committed" ]; then
+            echo "::error::Signing key $fpr does not match nookly-release.asc ($committed)."
+            exit 1
+          fi
+
+          mkdir -p sign-out
+          cp SHA256SUMS sign-out/
+          cd release-assets
+          cp -- *.deb *.rpm *.AppImage ../sign-out/ 2>/dev/null || true
+          cd ../sign-out
+
+          for f in *; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+              --local-user "$fpr" --armor --detach-sign --output "$f.asc" "$f"
+            gpg --batch --verify "$f.asc" "$f"
+          done
+
+          gh release upload "$TAG" ./*.asc --repo "$REPO" --clobber
 
       - name: Build release notes (changelog + download links)
         run: |
@@ -202,6 +249,7 @@ jobs:
           rpm=$(find_url '\.rpm$')
           appimage=$(find_url '\.AppImage$')
           sha256sums=$(find_url '^SHA256SUMS$')
+          sha256sums_sig=$(find_url '^SHA256SUMS\.asc$')
 
           {
             cat changelog.md
@@ -228,6 +276,8 @@ jobs:
               echo ""
               echo "**Verification:**"
               echo "- [SHA256SUMS]($sha256sums)"
+              [ -n "$sha256sums_sig" ] && echo "- [SHA256SUMS.asc]($sha256sums_sig) (GPG signature, public key: [nookly-release.asc](https://github.com/$REPO/blob/main/nookly-release.asc))"
+              echo "- Linux packages have a matching \`.asc\` signature next to them. Check with \`gpg --verify <file>.asc <file>\`."
             fi
           } > notes.md
 
