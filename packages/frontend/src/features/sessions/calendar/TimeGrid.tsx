@@ -138,7 +138,7 @@ export function TimeGrid({
   const days = columns.map((c) => c.day);
   const allDayRows = Math.min(
     MAX_ALL_DAY_ROWS,
-    Math.max(0, ...columns.map((c) => c.allDay.length)),
+    Math.max(0, ...columns.map((c) => c.allDay.length + c.allDayCalendarEntries.length)),
   );
   const allDayHeightPx = allDayRows * ALL_DAY_ROW_PX + 4;
 
