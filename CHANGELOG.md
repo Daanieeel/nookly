@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.17 (2026-10-01)
+
+### Changed
+
+- Time input not adopting european time format (#32)
+
 ## 0.11.16 (2026-10-01)
 
 ### Changed
