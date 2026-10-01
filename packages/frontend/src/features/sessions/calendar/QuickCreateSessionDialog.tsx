@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
+import { TimeInput } from "#/components/time-input.tsx";
 import { Input } from "@nookly/ui/components/input";
 import { Label } from "@nookly/ui/components/label";
 import {
@@ -204,12 +205,11 @@ export function QuickCreateSessionDialog({
           <div className="flex items-center gap-1.5">
             <form.Field name="startTime">
               {(field) => (
-                <Input
-                  type="time"
+                <TimeInput
                   aria-label="Start time"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onChange={field.handleChange}
                   className="flex-1"
                 />
               )}
@@ -217,12 +217,11 @@ export function QuickCreateSessionDialog({
             <span className="text-xs text-muted-foreground">to</span>
             <form.Field name="endTime">
               {(field) => (
-                <Input
-                  type="time"
+                <TimeInput
                   aria-label="End time"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onChange={field.handleChange}
                   className="flex-1"
                 />
               )}

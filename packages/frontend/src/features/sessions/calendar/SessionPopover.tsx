@@ -45,6 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
+import { TimeInput } from "#/components/time-input.tsx";
 import { Input } from "@nookly/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tabs, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
@@ -396,12 +397,11 @@ function SessionEditForm({
       <div className="flex items-center gap-1.5">
         <form.Field name="startTime">
           {(field) => (
-            <Input
-              type="time"
+            <TimeInput
               aria-label="Start time"
               value={field.state.value}
               onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onChange={field.handleChange}
               className="flex-1"
             />
           )}
@@ -409,12 +409,11 @@ function SessionEditForm({
         <span className="text-xs text-muted-foreground">to</span>
         <form.Field name="endTime">
           {(field) => (
-            <Input
-              type="time"
+            <TimeInput
               aria-label="End time"
               value={field.state.value}
               onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onChange={field.handleChange}
               className="flex-1"
             />
           )}

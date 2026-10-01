@@ -169,6 +169,19 @@ export function formatClock(hhmm: string): string {
   }).format(date);
 }
 
+/// Whether clock times show on a 12 hour clock, and what the AM and PM labels are.
+export function clockCycle() {
+  const mode = settings().timeFormat;
+  const format = new Intl.DateTimeFormat(localeFor(mode), {
+    hour: "numeric",
+    hour12: mode === "timezone" ? undefined : mode === "american",
+  });
+  const label = (hour: number) =>
+    format.formatToParts(new Date(2000, 0, 1, hour)).find((p) => p.type === "dayPeriod")?.value;
+  const twelveHour = label(1) !== undefined;
+  return { twelveHour, am: label(1) ?? "AM", pm: label(13) ?? "PM" };
+}
+
 /// Date and time together, for full timestamps like tooltips. Pass an ISO
 /// string for an instant, so it shows in the chosen zone.
 export function formatDateTime(value: Date | string): string {
