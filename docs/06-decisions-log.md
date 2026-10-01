@@ -297,3 +297,13 @@ The release workflow signs `.deb`, `.rpm`, `.AppImage` and `SHA256SUMS` with a p
 **Why:** the Tauri updater key only protects in-app updates. A manual download needs a signature users can check against a key that lives in the repo, not only on the release page. Signing `SHA256SUMS` extends that to macOS and Windows files.
 
 **Rejected:** a signed apt repo (hosting and maintenance for one app) and AppImage embedded signatures (need the same key, verified by fewer tools).
+
+---
+
+### Removing a module from a Space hides or trashes its content
+
+Remove Module on a sidebar row offers two choices. Hide keeps every entity and marks it `hidden_at` (and `deleted_at`, so all existing queries skip it). Trash soft deletes them like any other deletion. Re-adding the module restores only the hidden ones.
+
+**Why:** reusing `deleted_at` hides the content from search, Pinned, the Dashboard and the Calendar without touching dozens of queries. `hidden_at` keeps it out of Trash, restore, Delete Forever and Empty Trash, so kept data can never be erased from there.
+
+**Rejected:** hard deleting on removal (data loss), and only hiding the sidebar row (content would still show in search and Pinned).

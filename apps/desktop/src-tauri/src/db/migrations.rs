@@ -558,6 +558,17 @@ fn all() -> Vec<M<'static>> {
         ALTER TABLE courses ADD COLUMN professor TEXT;
         ALTER TABLE courses ADD COLUMN room TEXT;
         ",
+    ), M::up(
+        "
+        -- Removing a module from a Space. `space_modules.hidden_at` marks the module
+        -- as removed (the row stays so the lazy backfill from entities can't bring
+        -- it back). `entities.hidden_at` marks entities that were hidden along with
+        -- their module: they also carry `deleted_at`, so every existing query already
+        -- leaves them out, but Trash, restore and Delete Forever skip them, and
+        -- re-adding the module undoes it. Both are NULL for all existing rows.
+        ALTER TABLE space_modules ADD COLUMN hidden_at TEXT;
+        ALTER TABLE entities ADD COLUMN hidden_at TEXT;
+        ",
     )]
 }
 
@@ -613,6 +624,7 @@ mod history {
         0xc933a750ff4f5f72,
         0x9385d76400678f57,
         0xb9406e703532694b,
+        0xba33a4192b4bbba9,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

@@ -334,7 +334,11 @@ pub fn list_entities(
     // in mentions, entity pickers, search, Dashboard Recent/Pinned, or any other
     // general listing. Every one of those goes through `list_entities`, so excluding
     // it here is the single choke point rather than patching each call site.
-    let mut sql = String::from("SELECT * FROM entities WHERE type != 'course_notes'");
+    // Entities hidden along with a removed module (`hidden_at`) are never listed,
+    // not even with `include_deleted`: they are not in Trash, they come back
+    // when the module is added again.
+    let mut sql =
+        String::from("SELECT * FROM entities WHERE type != 'course_notes' AND hidden_at IS NULL");
     if !include_deleted {
         sql.push_str(" AND deleted_at IS NULL");
     }
@@ -366,7 +370,7 @@ pub fn soft_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
 pub fn restore_entity(conn: &Connection, id: &str) -> AppResult<()> {
     let now = super::now();
     let affected = conn.execute(
-        "UPDATE entities SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NOT NULL",
+        "UPDATE entities SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NOT NULL AND hidden_at IS NULL",
         params![now, id],
     )?;
     if affected == 0 {
@@ -381,6 +385,18 @@ pub fn restore_entity(conn: &Connection, id: &str) -> AppResult<()> {
 /// explicitly. Only ever allowed on an already soft-deleted entity — this is the
 /// Trash view's "Delete Forever", not a general hard-delete.
 pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
+    // Checked before anything is swept: an entity hidden with its module is kept
+    // data, not trash, and must never be erased from here.
+    let hidden: bool = conn
+        .query_row(
+            "SELECT hidden_at IS NOT NULL FROM entities WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    if hidden {
+        return Err(AppError::NotFound(format!("trashed entity {id}")));
+    }
     conn.execute(
         "DELETE FROM relationships WHERE from_entity_id = ?1 OR to_entity_id = ?1",
         params![id],
@@ -445,7 +461,7 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM search_index WHERE entity_id = ?1", params![id])?;
 
     let affected = conn.execute(
-        "DELETE FROM entities WHERE id = ?1 AND deleted_at IS NOT NULL",
+        "DELETE FROM entities WHERE id = ?1 AND deleted_at IS NOT NULL AND hidden_at IS NULL",
         params![id],
     )?;
     if affected == 0 {
@@ -458,7 +474,7 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
 /// Returns how many were removed.
 pub fn empty_trash(conn: &Connection) -> AppResult<usize> {
     let ids: Vec<String> = conn
-        .prepare("SELECT id FROM entities WHERE deleted_at IS NOT NULL")?
+        .prepare("SELECT id FROM entities WHERE deleted_at IS NOT NULL AND hidden_at IS NULL")?
         .query_map([], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
     conn.execute_batch("SAVEPOINT empty_trash")?;

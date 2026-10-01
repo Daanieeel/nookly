@@ -6,10 +6,12 @@ import {
   IconLayoutGridAdd,
   IconSettings,
   IconTag,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { appActions } from "#/components/context-menu/app-actions.tsx";
 import { type MenuSubItem, registerActions } from "#/components/context-menu/registry.ts";
+import { isRemovableModule } from "#/components/sidebar/remove-module-dialog.tsx";
 import { addSpaceModule, listSpaceModules } from "#/lib/api/spaces.ts";
 import type { Space } from "#/lib/api/types.ts";
 import {
@@ -31,7 +33,7 @@ declare module "#/components/context-menu/registry.ts" {
     /// right-click must never lead to a hard delete.
     space: SpaceRowTarget;
     /// A module's row inside a Space.
-    "space-module": { spaceId: string; module: ModuleKey };
+    "space-module": { spaceId: string; module: ModuleKey; removeModule: () => void };
   }
 }
 
@@ -124,5 +126,15 @@ registerActions("space-module", [
     icon: IconArrowUpRight,
     run: ({ spaceId, module }) =>
       useNavStore.getState().setView({ kind: "module", spaceId, module }),
+  },
+  {
+    id: "remove",
+    group: "danger",
+    label: "Remove Module",
+    icon: IconTrash,
+    destructive: true,
+    afterClose: true,
+    when: ({ module }) => isRemovableModule(module),
+    run: ({ removeModule }) => removeModule(),
   },
 ]);
