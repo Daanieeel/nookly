@@ -2,6 +2,24 @@
 
 All notable changes to Nookly are listed here.
 
+## Unreleased
+
+### Changed
+
+- Linux gpg signing (#29)
+
+## 0.11.13 (2026-10-01)
+
+### Changed
+
+- Bump zip from 4.6.1 to 8.6.0 in /apps/desktop/src-tauri (#26)
+- Bump the minor-and-patch group in /apps/desktop/src-tauri with 11 updates (#25)
+- Switch to tanstack packages (#27)
+
+### Fixed
+
+- Fix all day appointments in calendar
+
 ## 0.11.3 (2026-09-29)
 
 ### Changed
