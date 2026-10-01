@@ -6,7 +6,7 @@ import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { TextProperty } from "#/components/property-fields.tsx";
 import { Badge } from "@nookly/ui/components/badge";
 import { Checkbox } from "@nookly/ui/components/checkbox";
-import { Input } from "@nookly/ui/components/input";
+import { TimeInput } from "#/components/time-input.tsx";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { listCalendarEntries, overrideCalendarEntryOccurrence } from "#/lib/api/calendarEntries.ts";
 import type { CalendarEntry, Entity } from "#/lib/api/types.ts";
@@ -81,19 +81,17 @@ function PropertiesPanel({ entry }: { entry: CalendarEntry }) {
       {!entry.allDay && (
         <PropertyRow label="Time">
           <div className="flex items-center gap-1.5 px-1">
-            <Input
-              type="time"
+            <TimeInput
               aria-label="Start time"
-              defaultValue={entry.startTime ?? "09:00"}
-              onChange={(e) => save.mutate({ startTime: e.target.value })}
+              value={entry.startTime ?? "09:00"}
+              onChange={(startTime) => save.mutate({ startTime })}
               className="h-7 flex-1"
             />
             <span className="text-xs text-muted-foreground">to</span>
-            <Input
-              type="time"
+            <TimeInput
               aria-label="End time"
-              defaultValue={entry.endTime ?? "10:00"}
-              onChange={(e) => save.mutate({ endTime: e.target.value })}
+              value={entry.endTime ?? "10:00"}
+              onChange={(endTime) => save.mutate({ endTime })}
               className="h-7 flex-1"
             />
           </div>

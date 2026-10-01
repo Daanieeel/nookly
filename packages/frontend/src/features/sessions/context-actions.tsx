@@ -11,7 +11,7 @@ import {
 import { registerActions, registerEntityType } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
 import { DateInput } from "#/components/date-input.tsx";
-import { Input } from "@nookly/ui/components/input";
+import { TimeInput } from "#/components/time-input.tsx";
 import { listSessions, overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock } from "#/lib/datetime.ts";
@@ -101,12 +101,11 @@ function RescheduleForm({
       <div className="flex items-center gap-1.5">
         <form.Field name="startTime">
           {(field) => (
-            <Input
-              type="time"
+            <TimeInput
               aria-label="Start time"
               value={field.state.value}
               onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onChange={field.handleChange}
               className="h-8 flex-1"
             />
           )}
@@ -114,12 +113,11 @@ function RescheduleForm({
         <span className="text-xs text-muted-foreground">to</span>
         <form.Field name="endTime">
           {(field) => (
-            <Input
-              type="time"
+            <TimeInput
               aria-label="End time"
               value={field.state.value}
               onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onChange={field.handleChange}
               className="h-8 flex-1"
             />
           )}
