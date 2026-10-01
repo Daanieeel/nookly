@@ -69,6 +69,7 @@ pub fn run() {
             commands::spaces::reorder_spaces,
             commands::spaces::list_space_modules,
             commands::spaces::add_space_module,
+            commands::spaces::remove_space_module,
             commands::spaces::reorder_space_modules,
             commands::entities::create_entity,
             commands::entities::get_entity,

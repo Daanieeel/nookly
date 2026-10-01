@@ -35,3 +35,14 @@ export function addSpaceModule(spaceId: string, moduleKey: string): Promise<void
 export function reorderSpaceModules(spaceId: string, orderedKeys: string[]): Promise<void> {
   return invoke("reorder_space_modules", { spaceId, orderedKeys });
 }
+
+/// Removes a module (and its passengers) from a Space. `deleteContent` moves its
+/// entities to Trash; otherwise they are kept, hidden everywhere, and return when
+/// the module is added again.
+export function removeSpaceModule(
+  spaceId: string,
+  moduleKey: string,
+  deleteContent: boolean,
+): Promise<void> {
+  return invoke("remove_space_module", { spaceId, moduleKey, deleteContent });
+}

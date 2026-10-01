@@ -55,6 +55,17 @@ pub fn add_space_module(
 }
 
 #[tauri::command]
+pub fn remove_space_module(
+    state: State<DbState>,
+    space_id: String,
+    module_key: String,
+    delete_content: bool,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    space_modules::remove_space_module(&conn, &space_id, &module_key, delete_content)
+}
+
+#[tauri::command]
 pub fn reorder_space_modules(
     state: State<DbState>,
     space_id: String,
