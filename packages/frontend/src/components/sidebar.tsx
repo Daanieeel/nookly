@@ -39,6 +39,7 @@ import {
 import { AddModuleMenu } from "#/components/add-module-menu.tsx";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { renderIconValue } from "#/components/entity-icon.tsx";
+import { RemoveModuleDialog } from "#/components/sidebar/remove-module-dialog.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
 import { LabelsDialog } from "#/components/label-manager.tsx";
@@ -644,6 +645,7 @@ function ModuleSubRow({
       !!s.view.viewId,
   );
   const [childrenOpen, setChildrenOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
   // Opening a View from anywhere (the palette, Back) reveals it in the sidebar.
   useEffect(() => {
     if (openViewModule) setChildrenOpen(true);
@@ -660,7 +662,11 @@ function ModuleSubRow({
         ref={setNodeRef}
         style={dragStyle}
         className={cn("group/module relative", isDragging && "z-10")}
-        {...contextTarget("space-module", { spaceId: space.id, module: moduleKey })}
+        {...contextTarget("space-module", {
+          spaceId: space.id,
+          module: moduleKey,
+          removeModule: () => setRemoveOpen(true),
+        })}
       >
         <button
           type="button"
@@ -702,6 +708,12 @@ function ModuleSubRow({
         )}
       </SidebarMenuSubItem>
       <ExpandableModuleChildren moduleKey={moduleKey} spaceId={space.id} open={childrenOpen} />
+      <RemoveModuleDialog
+        spaceId={space.id}
+        module={moduleKey}
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+      />
     </>
   );
 }

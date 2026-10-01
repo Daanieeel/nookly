@@ -22,6 +22,7 @@ The active Space's color carries into the UI beyond its sidebar label: active st
 - Only show the modules and pages a Space actually uses. Do not list every available module type by default. Rows appear as content is created, or when a module is added explicitly through the ghost "+".
 - Dashboard, Pinned, and Search sit in a fixed block above the list of Spaces, since they span all Spaces.
 - Trash and System are pinned to the bottom. They look quieter than the main content (muted and smaller) because they are utilities, not content.
+- A module row's context menu has Remove Module. It asks to either hide the module (everything stays saved, hidden from every list, search and Pinned, and back when the module is added again) or move all its content to Trash.
 - Each Space has a ghost "+" that appears on hover, for adding modules or pages to that Space. It is not a permanent, bold element.
 - The global "Spaces" header keeps its own "+" for creating a new Space. It gets the same subtle ghost treatment, not a bold boxed button.
 
