@@ -287,3 +287,13 @@ Settings has a Backup section that writes one zip to a chosen folder, on demand 
 **Why:** a folder needs no OAuth or network code, and pointing it into iCloud Drive, Google Drive or Dropbox reaches all of them. Backing up the whole app data folder, not a list of tables, means a new kind of stored data is covered without extra work. Swapping a live database is unsafe, so the swap happens when nothing has it open.
 
 **Rejected:** a Google Drive API integration (OAuth and upload code for one provider), and keeping the live database inside a synced folder (sync clients corrupt SQLite).
+
+---
+
+### Linux packages and SHA256SUMS get detached GPG signatures
+
+The release workflow signs `.deb`, `.rpm`, `.AppImage` and `SHA256SUMS` with a project GPG key and uploads `<file>.asc` beside them. The public key is committed as `nookly-release.asc`.
+
+**Why:** the Tauri updater key only protects in-app updates. A manual download needs a signature users can check against a key that lives in the repo, not only on the release page. Signing `SHA256SUMS` extends that to macOS and Windows files.
+
+**Rejected:** a signed apt repo (hosting and maintenance for one app) and AppImage embedded signatures (need the same key, verified by fewer tools).

@@ -14,7 +14,7 @@ Read the files in this folder before building any feature. Do not skip this step
 - [`06-decisions-log.md`](06-decisions-log.md): why decisions were made. Check it before reversing any decision.
 - [`07-deferred-scope.md`](07-deferred-scope.md): what is explicitly out of scope. Do not build any of it unless told to.
 - [`08-vision-and-motivation.md`](08-vision-and-motivation.md): the reasoning behind the app. Use it for judgment calls the other docs do not cover.
-- [`development/`](development/): repo layout ([`monorepo.md`](development/monorepo.md)), TanStack conventions ([`tanstack.md`](development/tanstack.md)) and reference tables.
+- [`development/`](development/): repo layout ([`monorepo.md`](development/monorepo.md)), TanStack conventions ([`tanstack.md`](development/tanstack.md)), release signing ([`release-signing.md`](development/release-signing.md)) and reference tables.
 - [`skills/`](skills/): focused guides for specific tasks.
 
 ## Hard Rules (never violate)
