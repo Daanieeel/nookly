@@ -8,7 +8,9 @@ import { qk } from "#/lib/query-keys.ts";
 /// Reads `latest.json` from the newest published GitHub release (endpoint in
 /// `src-tauri/tauri.conf.json`). Resolves `null` when already up to date.
 
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const CHECK_INTERVAL_MS = 30 * 60 * 1000;
+// Coming back to the window checks again, unless one ran in the last few minutes.
+const FOCUS_STALE_MS = 5 * 60 * 1000;
 
 // The plugin's `ReleaseNotFound`: every endpoint answered with a non success
 // status, e.g. 404 before the first release that ships `latest.json`.
@@ -24,14 +26,19 @@ export async function checkForUpdate(): Promise<Update | null> {
   }
 }
 
-/// Shared by the sidebar card and the settings popover, so one check serves both.
+/// Polled by the update card, which the titlebar and sidebar keep mounted, so
+/// checks run without any settings UI being open. Background polling stays on
+/// so a minimized or hidden window still learns about a release.
 export function useAppUpdate() {
   return useQuery({
     queryKey: qk.appUpdate,
     queryFn: checkForUpdate,
-    staleTime: CHECK_INTERVAL_MS,
-    refetchInterval: CHECK_INTERVAL_MS,
-    refetchOnWindowFocus: false,
+    staleTime: FOCUS_STALE_MS,
+    // A refetch mid install would swap the `Update` the card holds.
+    refetchInterval: () =>
+      useUpdateInstall.getState().state.status === "pending" ? false : CHECK_INTERVAL_MS,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     retry: false,
     // `Update` is a class instance holding a resource id; keep it as is.
     structuralSharing: false,
