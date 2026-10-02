@@ -2,7 +2,7 @@ import { IconCheck, IconLayoutList } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { iconLibraryValue, renderIconValue } from "#/components/entity-icon.tsx";
-import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
+import { type ActionStatus, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import type { FilterField } from "#/components/filter-menu.tsx";
 import { createView, listViews, type ViewModule } from "#/lib/api/views.ts";
 import { qk } from "#/lib/query-keys.ts";
@@ -12,7 +12,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
@@ -40,7 +39,6 @@ export function ViewPresetsButton<D>({
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(0);
   const { data: views = [] } = useQuery({
     queryKey: qk.views.byModule(spaceId, module),
     queryFn: () => listViews(spaceId, module),
@@ -48,8 +46,6 @@ export function ViewPresetsButton<D>({
   });
   const existing = (preset: ViewPreset<D>) =>
     views.find((v) => !v.entity.deletedAt && v.entity.title === preset.name);
-  const preset = presets[selected];
-  const found = existing(preset);
 
   const add = useMutation({
     mutationFn: (p: ViewPreset<D>) =>
@@ -76,7 +72,7 @@ export function ViewPresetsButton<D>({
     useNavStore.getState().setView({ kind: "module", spaceId, module, viewId });
   }
 
-  const status = statusOf(add);
+  const pendingName = add.variables?.name;
 
   return (
     <>
@@ -90,125 +86,105 @@ export function ViewPresetsButton<D>({
         View presets
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>View presets</DialogTitle>
             <DialogDescription>
               Ready made views. Adding one saves it to this Space, where you can change it freely.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid h-[30rem] grid-cols-[13rem_minmax(0,1fr)] overflow-hidden">
-            <ul className="flex flex-col gap-0.5 overflow-y-auto p-2">
-              {presets.map((p, i) => (
-                <li key={p.name}>
-                  <button
-                    type="button"
-                    aria-pressed={i === selected}
-                    onClick={() => setSelected(i)}
-                    className={cn(
-                      "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/60",
-                      i === selected && "bg-accent",
-                    )}
-                  >
-                    <span className="flex size-4 shrink-0 items-center justify-center">
-                      {renderIconValue(iconLibraryValue(p.icon, p.color), 16)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                    {existing(p) && <IconCheck size={14} className="text-muted-foreground" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <PresetPreview
-              preset={preset}
-              fields={fields}
-              summary={describeDisplay(preset.display)}
-            />
-          </div>
-          <DialogFooter>
-            {add.isError && (
-              <span role="alert" className="mr-auto text-xs text-destructive">
-                Couldn't add the view, try again
-              </span>
-            )}
-            {found ? (
-              <Button variant="secondary" onClick={() => openView(found.entity.id)}>
-                Open view
-              </Button>
-            ) : (
-              <Button
-                onClick={() => (status === "idle" || status === "error") && add.mutate(preset)}
-              >
-                <StatusButtonContent
-                  status={status}
-                  label="Add view"
-                  successLabel="Added"
-                  errorLabel="Try again"
+          <div className="grid h-[30rem] auto-rows-min grid-cols-1 content-start gap-3 overflow-y-auto sm:grid-cols-2">
+            {presets.map((p) => {
+              const found = existing(p);
+              return (
+                <PresetCard
+                  key={p.name}
+                  preset={p}
+                  fields={fields}
+                  summary={describeDisplay(p.display)}
+                  added={!!found}
+                  status={pendingName === p.name ? statusOf(add) : "idle"}
+                  onAdd={() => !add.isPending && add.mutate(p)}
+                  onOpen={() => found && openView(found.entity.id)}
                 />
-              </Button>
-            )}
-          </DialogFooter>
+              );
+            })}
+          </div>
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-function PresetPreview<D>({
+function PresetCard<D>({
   preset,
   fields,
   summary,
+  added,
+  status,
+  onAdd,
+  onOpen,
 }: {
   preset: ViewPreset<D>;
   fields: FilterField[];
   summary: DisplaySummary;
+  added: boolean;
+  status: ActionStatus;
+  onAdd: () => void;
+  onOpen: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-4 overflow-y-auto p-4">
-      <div className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-accent">
-          {renderIconValue(iconLibraryValue(preset.icon, preset.color), 18)}
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-3">
+      <LayoutSketch summary={summary} />
+      <div className="flex items-start gap-2.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-accent">
+          {renderIconValue(iconLibraryValue(preset.icon, preset.color), 16)}
         </span>
         <div className="min-w-0">
-          <h3 className="text-sm font-medium">{preset.name}</h3>
-          <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">{preset.description}</p>
+          <h3 className="truncate text-sm font-medium">{preset.name}</h3>
+          <p className="line-clamp-2 min-h-10 text-xs text-muted-foreground">
+            {preset.description}
+          </p>
         </div>
       </div>
-
-      <section className="flex flex-col gap-1.5">
-        <h4 className="text-xs font-medium text-muted-foreground">Filters</h4>
-        <div className="flex min-h-14 flex-wrap content-start gap-1.5">
-          {preset.filters.map((f) => {
-            const field = fields.find((x) => x.id === f.fieldId);
-            const names = f.values.map(
-              (v) => field?.options.find((o) => o.value === v)?.label ?? v,
-            );
-            return (
-              <span
-                key={f.fieldId}
-                className="inline-flex h-6 items-center gap-1.5 rounded-md border border-foreground/10 px-2 text-xs"
-              >
-                {field && <field.icon size={12} className="text-muted-foreground" />}
-                <span className="text-muted-foreground">{field?.label ?? f.fieldId}</span>
-                <span className="text-muted-foreground">
-                  {f.operator === "is" ? "is" : "is not"}
-                </span>
-                <span className="font-medium">{names.join(", ")}</span>
+      <div className="flex h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+        {preset.filters.map((f) => {
+          const field = fields.find((x) => x.id === f.fieldId);
+          const names = f.values.map((v) => field?.options.find((o) => o.value === v)?.label ?? v);
+          return (
+            <span
+              key={f.fieldId}
+              className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-md border border-foreground/10 px-2 text-xs"
+            >
+              {field && <field.icon size={12} className="shrink-0 text-muted-foreground" />}
+              <span className="shrink-0 text-muted-foreground">
+                {field?.label ?? f.fieldId} {f.operator === "is" ? "is" : "is not"}
               </span>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-1.5">
-        <h4 className="text-xs font-medium text-muted-foreground">Layout</h4>
-        <p className="min-h-10 text-sm">
-          {summary.layout === "board" ? "Board" : "List"}
-          {summary.grouping ? `, grouped by ${summary.grouping.toLowerCase()}` : ", no grouping"}
-          {`, ordered by ${summary.ordering.toLowerCase()}`}
-        </p>
-        <LayoutSketch summary={summary} />
-      </section>
+              <span className="min-w-0 truncate font-medium">{names.join(", ")}</span>
+            </span>
+          );
+        })}
+      </div>
+      <p className="truncate text-xs text-muted-foreground">
+        {summary.layout === "board" ? "Board" : "List"}
+        {summary.grouping ? `, by ${summary.grouping.toLowerCase()}` : ""}
+        {`, ordered by ${summary.ordering.toLowerCase()}`}
+      </p>
+      {added ? (
+        <Button variant="secondary" size="sm" className="mt-auto gap-1.5" onClick={onOpen}>
+          <IconCheck />
+          Open view
+        </Button>
+      ) : (
+        <Button size="sm" className="mt-auto" onClick={() => status !== "pending" && onAdd()}>
+          <StatusButtonContent
+            status={status}
+            label="Add view"
+            successLabel="Added"
+            errorLabel="Try again"
+          />
+        </Button>
+      )}
     </div>
   );
 }
@@ -220,7 +196,7 @@ const BAR = "h-1.5 rounded-full bg-foreground/15";
 function LayoutSketch({ summary }: { summary: DisplaySummary }) {
   if (summary.layout === "board") {
     return (
-      <div aria-hidden className="flex h-44 gap-2 overflow-hidden rounded-lg border border-border bg-foreground/3 p-2">
+      <div aria-hidden className="flex h-24 gap-2 overflow-hidden rounded-lg border border-border bg-foreground/3 p-2">
         {[3, 2, 1].map((cards, col) => (
           <div key={col} className="flex flex-1 flex-col gap-1.5">
             <div className={cn(BAR, "w-1/2 bg-foreground/30")} />
@@ -239,7 +215,7 @@ function LayoutSketch({ summary }: { summary: DisplaySummary }) {
   return (
     <div
       aria-hidden
-      className="flex h-44 flex-col overflow-hidden rounded-lg border border-border bg-foreground/3"
+      className="flex h-24 flex-col overflow-hidden rounded-lg border border-border bg-foreground/3"
     >
       {groups.map((rows, g) => (
         <div key={g}>
