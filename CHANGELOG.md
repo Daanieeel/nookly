@@ -2,6 +2,14 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.12.1 (2026-10-02)
+
+### Changed
+
+- Explain —yes flag correctly in agent-instructions
+- Task view filters (#36)
+- View presets (#37)
+
 ## 0.11.29 (2026-10-02)
 
 ### Changed
