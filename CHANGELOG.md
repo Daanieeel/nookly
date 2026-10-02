@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.20 (2026-10-02)
+
+### Added
+
+- Add code block improvements
+
+## 0.11.19 (2026-10-02)
+
+### Changed
+
+- Current time line spans all days with time label in gutter
+
 ## 0.11.18 (2026-10-02)
 
 ### Changed
