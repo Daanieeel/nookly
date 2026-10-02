@@ -147,19 +147,24 @@ export function FilterMenu({
           otherwise swallows wheel events on this portaled list. */}
       {showButton && available.length > 0 && (
         <Popover modal open={open} onOpenChange={onOpenChange}>
-          <PopoverTrigger asChild>
-            <Button variant="secondary" size="sm" className="ml-auto h-7 gap-1.5">
-              <IconFilter />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <Button variant="secondary" size="sm" className="ml-auto gap-1.5">
+                  <IconFilter />
+                  Filter
+                </Button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
               Filter
-              {filters.length === 0 && (
-                <KbdGroup>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>⇧</Kbd>
-                  <Kbd>F</Kbd>
-                </KbdGroup>
-              )}
-            </Button>
-          </PopoverTrigger>
+              <KbdGroup>
+                <Kbd>⌘</Kbd>
+                <Kbd>⇧</Kbd>
+                <Kbd>F</Kbd>
+              </KbdGroup>
+            </TooltipContent>
+          </Tooltip>
           <PopoverContent
             className="w-56"
             align="end"
