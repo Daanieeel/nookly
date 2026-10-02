@@ -51,6 +51,12 @@
   .tiptap-content h6 {
     font-size: 0.875rem;
   }
+  /* ⇒ and ⇔ come from a fallback font and draw small next to Inter's text (`arrow-ligatures.ts`). */
+  .tiptap-content .arrow-enlarged {
+    font-size: 1.3em;
+    line-height: 0;
+    vertical-align: -0.05em;
+  }
   .tiptap-content p {
     margin: 0.25rem 0;
   }
