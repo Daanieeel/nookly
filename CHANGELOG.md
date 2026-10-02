@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.18 (2026-10-02)
+
+### Changed
+
+- Name session jots and notes <Course> - <Session>, <date>
+
 ## 0.11.17 (2026-10-01)
 
 ### Changed
