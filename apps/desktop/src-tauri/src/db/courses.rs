@@ -299,6 +299,14 @@ pub fn get_or_create_course_notes(conn: &Connection, course_id: &str) -> AppResu
     Ok(note)
 }
 
+inventory::submit! {
+    crate::db::schema::EmbeddedPageDef {
+        entity_type: "course",
+        page_type: "course_notes",
+        resolve: get_or_create_course_notes,
+    }
+}
+
 /// Every Semester gets exactly one Semester Notes page, rendered inline on the
 /// Semester page (PLAN §2) — found via the `semester-notes` structural
 /// relationship, or created lazily on first request.

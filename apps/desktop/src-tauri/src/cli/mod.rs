@@ -538,6 +538,14 @@ letter type prefix and a number. Anywhere a command takes an entity id (includin
 `label attach`, block commands and entity reference `--field` values) you can pass the key
 instead. `search` matches keys too. Space, label, block and relationship ids have no key.
 
+### Pages owned by another entity
+
+A Course has its own notes page (type `course_notes`, key like `CNT-5`) that is not a `note`.
+Its block verbs live on the course: `nookly cli course blocks|grep|add-block|reorder-blocks <course-id>`
+edit that page (created on first use), and `update-block`/`delete-block` take its block ids as
+usual. The page's own id or key works in place of the course's. `describe course` shows it
+under `blockPage`.
+
 ### Entity actions
 
 Some entity types expose a verb that targets one entity and does several writes as one
@@ -1051,7 +1059,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             enrich(conn, entity_type, &id, data)
         }
         "blocks" | "grep" | "add-block" | "update-block" | "delete-block" | "reorder-blocks" => {
-            if !def.supports_blocks {
+            if !def.supports_blocks && schema::embedded_page(entity_type).is_none() {
                 return Err(AppError::InvalidInput(format!(
                     "'{entity_type}' has no block content, block commands only apply to types where \
                      `describe {entity_type}` reports supportsBlocks: true"
@@ -1430,7 +1438,29 @@ fn block_command(
     verb: &str,
     args: &Args,
 ) -> AppResult<Value> {
-    let entity_type = def.entity_type;
+    // An owner with an embedded page (a Course's notes) takes the block verbs for
+    // that page: its id or key, or the page's own, both land on the page.
+    let embedded = if def.supports_blocks {
+        None
+    } else {
+        schema::embedded_page(def.entity_type)
+    };
+    let entity_type = embedded.map_or(def.entity_type, |e| e.page_type);
+    let get_page = if embedded.is_some() {
+        schema::lookup("note").expect("note is registered").get
+    } else {
+        def.get
+    };
+    let target_page = |args: &Args| -> AppResult<String> {
+        let id = args.require_entity(conn, 0, "id")?;
+        if let Some(e) = embedded {
+            if crate::db::entities::get_entity(conn, &id)?.entity_type == def.entity_type {
+                return Ok((e.resolve)(conn, &id)?.id);
+            }
+        }
+        require_page(conn, entity_type, &id)?;
+        Ok(id)
+    };
     fn require_page(conn: &Connection, entity_type: &str, id: &str) -> AppResult<()> {
         let entity = crate::db::entities::get_entity(conn, id)?;
         if entity.entity_type != entity_type {
@@ -1444,8 +1474,7 @@ fn block_command(
 
     match verb {
         "blocks" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            require_page(conn, entity_type, &id)?;
+            let id = target_page(args)?;
             let blocks = crate::db::notes::list_blocks(conn, &id)?;
             let page_key = crate::db::entities::entity_key(conn, &id)?;
             let total = blocks.len();
@@ -1466,8 +1495,7 @@ fn block_command(
             }))
         }
         "grep" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            require_page(conn, entity_type, &id)?;
+            let id = target_page(args)?;
             let pattern = args.require_positional(1, "pattern")?;
             let re = view::build_pattern(
                 &pattern,
@@ -1490,9 +1518,8 @@ fn block_command(
             }))
         }
         "add-block" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            require_page(conn, entity_type, &id)?;
-            args.check_revision(&(def.get)(conn, &id)?)?;
+            let id = target_page(args)?;
+            args.check_revision(&get_page(conn, &id)?)?;
             let block_type = args.require_flag("type")?;
             let content = args.require_flag("content")?;
             let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
@@ -1527,7 +1554,7 @@ fn block_command(
         "update-block" => {
             let block_id = args.require_positional(0, "block-id")?;
             let before = crate::db::notes::get_block(conn, &block_id)?;
-            args.check_revision(&(def.get)(conn, &before.entity_id)?)?;
+            args.check_revision(&get_page(conn, &before.entity_id)?)?;
             let submitted_content = args.flag("content");
             let patch = crate::db::notes::BlockPatch {
                 content: submitted_content.clone(),
@@ -1557,14 +1584,13 @@ fn block_command(
             let block_id = args.require_positional(0, "block-id")?;
             args.require_yes()?;
             let block = crate::db::notes::get_block(conn, &block_id)?;
-            args.check_revision(&(def.get)(conn, &block.entity_id)?)?;
+            args.check_revision(&get_page(conn, &block.entity_id)?)?;
             crate::db::notes::delete_block(conn, &block_id)?;
             Ok(json!({ "deleted": block_id, "block": block }))
         }
         "reorder-blocks" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            require_page(conn, entity_type, &id)?;
-            args.check_revision(&(def.get)(conn, &id)?)?;
+            let id = target_page(args)?;
+            args.check_revision(&get_page(conn, &id)?)?;
             let ordered_ids: Vec<String> = args.positional[1..].to_vec();
             if ordered_ids.is_empty() {
                 return Err(AppError::InvalidInput(
@@ -2170,6 +2196,45 @@ mod tests {
         // The reverse lookup: every entity carrying a label.
         let reverse = run(&conn, &format!("label get {}", huk.id)).unwrap();
         assert_eq!(reverse["count"], 2);
+
+        drop(conn);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn course_block_verbs_edit_the_course_notes_page() {
+        let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+        let conn = crate::db::connect(&dir).unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let course =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Maths".into()).unwrap();
+
+        let described = run(&conn, "describe course").unwrap();
+        assert_eq!(described["supportsBlocks"], true);
+        assert_eq!(described["blockPage"]["pageType"], "course_notes");
+
+        let added = run(
+            &conn,
+            &format!(
+                "course add-block {} --type paragraph --content Hello",
+                course.id
+            ),
+        )
+        .unwrap();
+        let page_id = added["block"]["entityId"].as_str().unwrap().to_string();
+        let page = crate::db::entities::get_entity(&conn, &page_id).unwrap();
+        assert_eq!(page.entity_type, "course_notes");
+
+        // The course id and the page's own id reach the same blocks.
+        for target in [&course.id, &page_id] {
+            let blocks = run(&conn, &format!("course blocks {target}")).unwrap();
+            assert_eq!(blocks["pageId"], page_id.as_str());
+            assert_eq!(blocks["count"], 1);
+        }
+        // Other entities still refuse them, and notes still reject the page.
+        assert!(run(&conn, &format!("course blocks {}", space.id)).is_err());
+        assert!(run(&conn, &format!("note blocks {page_id}")).is_err());
 
         drop(conn);
         let _ = std::fs::remove_dir_all(dir);

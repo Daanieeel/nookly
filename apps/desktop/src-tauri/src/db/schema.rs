@@ -238,6 +238,25 @@ pub fn entity_actions(entity_type: &str) -> Vec<&'static EntityActionDef> {
         .collect()
 }
 
+/// A block page an entity owns without it being a listed entity type of its
+/// own, like a Course's notes page (`course_notes`, hidden from every list).
+/// Registered next to the owner's schema: the owner's CLI then accepts the
+/// block verbs (`blocks`, `grep`, `add-block`, `update-block`, `delete-block`,
+/// `reorder-blocks`) and runs them on this page, so `course add-block <course>`
+/// edits the page the app shows on the Course. `resolve` finds the page for an
+/// owner id, creating it when missing.
+pub struct EmbeddedPageDef {
+    pub entity_type: &'static str,
+    pub page_type: &'static str,
+    pub resolve: fn(&Connection, &str) -> AppResult<crate::db::entities::Entity>,
+}
+
+inventory::collect!(EmbeddedPageDef);
+
+pub fn embedded_page(entity_type: &str) -> Option<&'static EmbeddedPageDef> {
+    inventory::iter::<EmbeddedPageDef>().find(|d| d.entity_type == entity_type)
+}
+
 fn fields_json(fields: &[FieldDef]) -> Vec<Value> {
     fields
         .iter()
@@ -364,7 +383,9 @@ pub fn all() -> Vec<&'static EntitySchemaDef> {
 
 pub fn describe_json(def: &EntitySchemaDef) -> Value {
     let fields = fields_json(def.fields);
-    let block_commands = def.supports_blocks.then(|| {
+    let embedded = embedded_page(def.entity_type);
+    let supports_blocks = def.supports_blocks || embedded.is_some();
+    let block_commands = supports_blocks.then(|| {
         let custom = crate::db::block_types::all();
         let known: Vec<&str> = KNOWN_BLOCK_TYPES
             .iter()
@@ -425,7 +446,14 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
     serde_json::json!({
         "entityType": def.entity_type,
         "description": def.description,
-        "supportsBlocks": def.supports_blocks,
+        "supportsBlocks": supports_blocks,
+        "blockPage": embedded.map(|e| serde_json::json!({
+            "pageType": e.page_type,
+            "note": format!(
+                "The block commands take a {} id or key and edit its own notes page ({}), the page the app shows on it. Passing that page's id or key works too.",
+                def.entity_type, e.page_type
+            ),
+        })),
         "blockCommands": block_commands,
         "baseFields": [
             { "name": "id", "kind": "text", "description": "Stable unique id (UUID), generated" },
