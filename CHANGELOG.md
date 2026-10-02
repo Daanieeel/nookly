@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.22 (2026-10-02)
+
+### Changed
+
+- Update twinkleplop packages to latest patch
+- Support headings up to h6 in the markdown editor
+
 ## 0.11.20 (2026-10-02)
 
 ### Added
