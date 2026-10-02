@@ -52,6 +52,7 @@ import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { UniqueBlockId } from "./unique-block-id";
+import { ArrowLigatures } from "./arrow-ligatures";
 import { HeadingAnchors, type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
@@ -294,6 +295,7 @@ function HydratedBlockEditor({
       TableKit.configure({ table: { resizable: true } }),
       UniqueBlockId,
       HeadingAnchors,
+      ArrowLigatures,
       BlockSelection,
       SlashCommand,
       CodeCompletion,
