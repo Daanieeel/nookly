@@ -2,11 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
-## Unreleased
+## 0.11.29 (2026-10-02)
 
 ### Changed
 
 - Show keyboard shortcuts on the sidebar toggle buttons
+- Turn typed arrows and comparisons into symbols in the markdown editor
+- Draw the double arrows larger in the markdown editor
 
 ## 0.11.27 (2026-10-02)
 
