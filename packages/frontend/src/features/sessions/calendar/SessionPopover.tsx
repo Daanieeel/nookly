@@ -537,7 +537,7 @@ function SessionPageButton({
       createSessionPage(
         occurrence.entity.id,
         kind,
-        `${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`,
+        `${occurrence.courseTitle ? `${occurrence.courseTitle} - ` : ""}${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`,
       ),
     // Straight into the new page: landing there confirms it was created.
     onSuccess: async (page) => {
