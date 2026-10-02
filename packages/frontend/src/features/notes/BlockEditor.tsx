@@ -25,6 +25,7 @@ import {
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
+import { CodeCompletion } from "./code-completion-extension";
 import {
   Callout,
   Details,
@@ -295,6 +296,7 @@ function HydratedBlockEditor({
       HeadingAnchors,
       BlockSelection,
       SlashCommand,
+      CodeCompletion,
       Mention.configure({ getEntities: () => entitiesRef.current }),
       Callout,
       Timeline,

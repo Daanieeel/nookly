@@ -1,6 +1,7 @@
 import { CodeBlock } from "@tiptap/extension-code-block";
+import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { CodeBlockComponent } from "./CodeBlockComponent";
@@ -197,9 +198,123 @@ export const CodeBlockWithHeader = CodeBlock.extend({
         name: this.name,
         defaultLanguage: this.options.defaultLanguage ?? "plaintext",
       }),
+      AutoCloseBrackets(this.name),
     ];
   },
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockComponent);
   },
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      Tab: ({ editor }) => indentCodeBlock(editor, this.name, "in"),
+      "Shift-Tab": ({ editor }) => indentCodeBlock(editor, this.name, "out"),
+    };
+  },
 });
+
+const CLOSERS = new Map([
+  ["(", ")"],
+  ["[", "]"],
+  ["{", "}"],
+  ['"', '"'],
+  ["'", "'"],
+  ["`", "`"],
+]);
+const QUOTES = new Set(['"', "'", "`"]);
+const WORD_CHAR = /[\p{L}\p{N}_]/u;
+
+/// Typing an opening bracket or quote in a code block adds its partner, typing the partner
+/// right before an identical one steps over it, and Backspace between an empty pair removes
+/// both. Typing over a selection wraps it instead. Quotes only pair next to non-word text,
+/// so an apostrophe in `don't` stays a single character.
+function AutoCloseBrackets(name: string) {
+  return new Plugin({
+    props: {
+      handleTextInput(view, from, to, text) {
+        const { state } = view;
+        const { $from } = state.selection;
+        if ($from.parent.type.name !== name || text.length !== 1) return false;
+        const close = CLOSERS.get(text);
+        const before = state.doc.textBetween(Math.max($from.start(), from - 1), from);
+        const after = state.doc.textBetween(to, Math.min($from.end(), to + 1));
+        // Typing the partner of a pair we added steps over it.
+        if (from === to && after === text && (QUOTES.has(text) || ")]}".includes(text))) {
+          view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, to + 1)));
+          return true;
+        }
+        if (close === undefined) return false;
+        if (from !== to) {
+          const tr = state.tr.insertText(text + state.doc.textBetween(from, to) + close, from, to);
+          tr.setSelection(TextSelection.create(tr.doc, from + 1, to + 1));
+          view.dispatch(tr);
+          return true;
+        }
+        if (
+          QUOTES.has(text)
+            ? WORD_CHAR.test(before) || WORD_CHAR.test(after)
+            : after !== "" && !/[\s)\]}>,;:.]/.test(after)
+        ) {
+          return false;
+        }
+        const tr = state.tr.insertText(text + close, from, to);
+        tr.setSelection(TextSelection.create(tr.doc, from + 1));
+        view.dispatch(tr);
+        return true;
+      },
+      handleKeyDown(view, event) {
+        if (event.key !== "Backspace" || event.metaKey || event.ctrlKey || event.altKey)
+          return false;
+        const { state } = view;
+        const { $from, empty } = state.selection;
+        if (!empty || $from.parent.type.name !== name) return false;
+        const pos = $from.pos;
+        const before = state.doc.textBetween(Math.max($from.start(), pos - 1), pos);
+        const after = state.doc.textBetween(pos, Math.min($from.end(), pos + 1));
+        if (!before || CLOSERS.get(before) !== after) return false;
+        view.dispatch(state.tr.delete(pos - 1, pos + 1));
+        return true;
+      },
+    },
+  });
+}
+
+/// Tab inside a code block types a real tab character (a selection over several lines
+/// indents each of them); Shift+Tab takes one tab, or up to four spaces, off the start of
+/// each selected line. Always handled in a code block, so Tab never leaves the editor.
+function indentCodeBlock(editor: Editor, name: string, direction: "in" | "out"): boolean {
+  const { state } = editor;
+  const { $from, $to, empty } = state.selection;
+  if ($from.parent.type.name !== name || $from.parent !== $to.parent) return false;
+  if (direction === "in" && empty) {
+    editor.commands.insertContent("\t");
+    return true;
+  }
+  const blockStart = $from.start();
+  const text = $from.parent.textContent;
+  const from = $from.parentOffset;
+  const to = $to.parentOffset;
+  // Offsets (in the block's text) where each line the selection touches begins.
+  const lineStarts: number[] = [];
+  let lineStart = text.lastIndexOf("\n", Math.max(0, from - 1)) + 1;
+  if (from === 0) lineStart = 0;
+  for (;;) {
+    lineStarts.push(lineStart);
+    const next = text.indexOf("\n", lineStart);
+    if (next === -1 || next + 1 >= to) break;
+    lineStart = next + 1;
+  }
+  const tr = state.tr;
+  // Back to front, so earlier offsets stay valid while the text changes.
+  for (const start of lineStarts.reverse()) {
+    const at = blockStart + start;
+    if (direction === "in") {
+      tr.insertText("\t", at);
+      continue;
+    }
+    const lead = /^(\t| {1,4})/.exec(text.slice(start))?.[0];
+    if (lead) tr.delete(at, at + lead.length);
+  }
+  editor.view.dispatch(tr);
+  return true;
+}

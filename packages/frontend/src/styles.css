@@ -88,6 +88,7 @@
     background: var(--block-surface);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.8rem;
+    tab-size: 4;
     overflow-x: auto;
   }
   .tiptap-content pre.code-block-body code {
