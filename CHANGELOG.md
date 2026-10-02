@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.12.2 (2026-10-02)
+
+### Changed
+
+- Filter button height and shortcut display
+
 ## 0.12.1 (2026-10-02)
 
 ### Changed
