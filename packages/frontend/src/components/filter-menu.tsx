@@ -84,19 +84,25 @@ export function FilterMenu({
   filters,
   onFiltersChange,
   onDone,
+  part = "all",
 }: {
   fields: FilterField[];
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
   /// Called when a popover closes, e.g. to hand focus back to a search input.
   onDone?: () => void;
+  /// Renders the Filter button and the chips together, or only one of them, so a
+  /// page can place them apart. Render each part once, with the same props.
+  part?: "all" | "button" | "chips";
 }) {
+  const showChips = part !== "button";
+  const showButton = part !== "chips";
   const [open, setOpen] = useState(false);
   const [fieldId, setFieldId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const field = fields.find((f) => f.id === fieldId);
 
-  useAppHotkey(HOTKEYS.filter, () => setOpen((o) => !o));
+  useAppHotkey(HOTKEYS.filter, () => showButton && setOpen((o) => !o));
 
   function onOpenChange(next: boolean) {
     setOpen(next);
@@ -114,33 +120,35 @@ export function FilterMenu({
     onOpenChange(false);
   }
 
+  if (part === "chips" && filters.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {filters.map((filter) => {
-        const target = fields.find((f) => f.id === filter.fieldId);
-        if (!target) return null;
-        return (
-          <FilterChip
-            key={filter.fieldId}
-            field={target}
-            filter={filter}
-            onChange={(next) =>
-              onFiltersChange(
-                next
-                  ? filters.map((f) => (f.fieldId === filter.fieldId ? next : f))
-                  : filters.filter((f) => f.fieldId !== filter.fieldId),
-              )
-            }
-            onDone={onDone}
-          />
-        );
-      })}
+      {showChips &&
+        filters.map((filter) => {
+          const target = fields.find((f) => f.id === filter.fieldId);
+          if (!target) return null;
+          return (
+            <FilterChip
+              key={filter.fieldId}
+              field={target}
+              filter={filter}
+              onChange={(next) =>
+                onFiltersChange(
+                  next
+                    ? filters.map((f) => (f.fieldId === filter.fieldId ? next : f))
+                    : filters.filter((f) => f.fieldId !== filter.fieldId),
+                )
+              }
+              onDone={onDone}
+            />
+          );
+        })}
       {/* Modal so its own scroll lock wins over the enclosing dialog's, which
           otherwise swallows wheel events on this portaled list. */}
-      {available.length > 0 && (
+      {showButton && available.length > 0 && (
         <Popover modal open={open} onOpenChange={onOpenChange}>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1.5">
+            <Button variant="secondary" size="sm" className="ml-auto h-7 gap-1.5">
               <IconFilter />
               Filter
               {filters.length === 0 && (

@@ -18,7 +18,8 @@ import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
-import { ViewActions } from "#/features/views/ViewActions.tsx";
+import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { AGE_BUCKETS } from "#/features/assignments/assignment-model.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
@@ -43,6 +44,8 @@ import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { TaskList } from "./TaskList";
 import {
   COMPLETED_BUCKETS,
+  TASK_VIEW_PRESETS,
+  describeDisplay,
   DUE_BUCKETS,
   NO_EFFORT,
   START_BUCKETS,
@@ -289,36 +292,44 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
   return (
     <TasksDataContext.Provider value={data}>
       <div
-        className="flex h-full min-h-0 flex-col"
+        className="relative flex h-full min-h-0 flex-col"
         {...contextTarget("module-view", {
           spaceId,
           createLabel: "New Task",
           create: () => startCreate(),
         })}
       >
-        <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-          <h1
-            className="flex items-center gap-2 text-sm font-medium"
-            {...(view && entityTarget(view.entity))}
-          >
-            {view ? (
-              <ViewIconButton entity={view.entity} />
-            ) : (
-              <IconChecklist size={16} className="text-muted-foreground" />
-            )}
-            {view ? <EditableViewTitle entity={view.entity} /> : "Tasks"}
-          </h1>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-            <div className="min-w-0 flex-1">
-              <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
-            </div>
+        <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
+          <div className="flex min-w-0 items-center gap-1">
+            <h1
+              className="flex h-8 items-center gap-2 text-sm font-medium"
+              {...(view && entityTarget(view.entity))}
+            >
+              {view ? (
+                <ViewIconButton entity={view.entity} />
+              ) : (
+                <IconChecklist size={16} className="text-muted-foreground" />
+              )}
+              {view ? <EditableViewTitle entity={view.entity} /> : "Tasks"}
+            </h1>
+            <div className="flex-1" />
+            <ViewPresetsButton
+              spaceId={spaceId}
+              module="tasks"
+              presets={TASK_VIEW_PRESETS}
+              fields={filterFields}
+              describeDisplay={describeDisplay}
+            />
+            <FilterMenu
+              fields={filterFields}
+              filters={filters}
+              onFiltersChange={setFilters}
+              part="button"
+            />
             <ViewActions
               spaceId={spaceId}
               module="tasks"
               view={view}
-              dirty={dirty}
-              save={save}
-              onDiscard={discard}
               filters={filters}
               display={display}
             />
@@ -326,7 +337,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="secondary"
+                  variant="default"
                   size="sm"
                   className="ml-1 gap-1.5"
                   onClick={() => startCreate()}
@@ -340,7 +351,14 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
               </TooltipContent>
             </Tooltip>
           </div>
+          <FilterMenu
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            part="chips"
+          />
         </header>
+        <ViewSaveBar view={view} dirty={dirty} save={save} onDiscard={discard} />
 
         {!isPending && tasks.length === 0 ? (
           <div className="p-6">

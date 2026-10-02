@@ -16,6 +16,7 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
+import { type DisplaySummary, type ViewPreset, is, isNot } from "#/features/views/view-presets.ts";
 
 /// Pure view logic for the Tasks page: status kinds, due buckets, grouping, ordering,
 /// filtering and the remembered display options. Nothing here touches the backend.
@@ -359,4 +360,71 @@ export function passesFilters(task: Task, filters: ActiveFilter[]): boolean {
     const hit = filterValues(task, f.fieldId).some((v) => f.values.includes(v));
     return f.operator === "is" ? hit : !hit;
   });
+}
+
+// View presets
+
+/// Ready made Views, aimed at keeping Done and Cancelled usable once they pile up.
+/// They name the default statuses, so a preset whose status was deleted shows nothing.
+export const TASK_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
+  {
+    name: "Current",
+    icon: "Target",
+    color: "#3b82f6",
+    description: "What is on this week as a board, without done or cancelled tasks.",
+    filters: [isNot("status", "done", "cancelled"), is("due", "today", "week")],
+    display: normalizeDisplay({ layout: "board", grouping: "status" }),
+  },
+  {
+    name: "Backlog",
+    icon: "Checklist",
+    color: "#64748b",
+    description: "Backlog and Todo as a board, grouped by due date. Whatever is not up yet.",
+    filters: [is("status", "backlog", "todo")],
+    display: normalizeDisplay({ layout: "board", grouping: "due" }),
+  },
+  {
+    name: "Recently done",
+    icon: "Sparkles",
+    color: "#22c55e",
+    description: "Done this week, newest change first.",
+    filters: [is("status", "done"), is("completed", "today", "week")],
+    display: normalizeDisplay({ layout: "list", grouping: "none", ordering: "updated" }),
+  },
+  {
+    name: "Done, older",
+    icon: "Trophy",
+    color: "#a855f7",
+    description: "Done before this week, grouped by when it last changed.",
+    filters: [is("status", "done"), is("completed", "last", "earlier")],
+    display: normalizeDisplay({ layout: "list", grouping: "updated", ordering: "updated" }),
+  },
+  {
+    name: "Cancelled",
+    icon: "Flag",
+    color: "#ef4444",
+    description: "Only cancelled tasks. Rarely opened, so a view instead of a column.",
+    filters: [is("status", "cancelled")],
+    display: normalizeDisplay({ layout: "list", grouping: "none" }),
+  },
+  {
+    name: "No due date",
+    icon: "CalendarStats",
+    color: "#f59e0b",
+    description: "Open tasks without a due date, so none slip through.",
+    filters: [isNot("status", "done", "cancelled"), is("due", "none")],
+    display: normalizeDisplay({ layout: "list", grouping: "none" }),
+  },
+];
+
+export function describeDisplay(display: DisplayOptions): DisplaySummary {
+  return {
+    layout: display.layout,
+    grouping: display.grouping === "none" ? null : labelOf(GROUPINGS, display.grouping),
+    ordering: labelOf(ORDERINGS, display.ordering),
+  };
+}
+
+function labelOf<T extends string>(items: { id: T; label: string }[], id: T): string {
+  return items.find((i) => i.id === id)?.label ?? id;
 }
