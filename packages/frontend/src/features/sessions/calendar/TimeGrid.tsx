@@ -387,7 +387,6 @@ export function TimeGrid({
                   <ExternalEventBlock key={item.event.id} event={item.event} position={position} />
                 );
               })}
-
             </div>
           );
         })}

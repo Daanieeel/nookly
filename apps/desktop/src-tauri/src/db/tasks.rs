@@ -41,10 +41,26 @@ pub struct Task {
     pub status_id: String,
     pub start_date: Option<String>,
     pub due_date: Option<String>,
+    /// When the status last moved into a finished one (done or cancelled). Cleared
+    /// when the task is reopened; unrelated to any other edit.
+    pub completed_at: Option<String>,
+    /// The effort estimate as a step of the shared scale (see `EFFORT_STEPS`). T-shirt
+    /// sizes and points are only two names for these same values.
+    pub effort: Option<i64>,
     /// Ids of this Task's Labels, ordered by label name. Only `list_tasks` fills it;
     /// everywhere else it stays empty.
     pub label_ids: Vec<String>,
+    /// Ids of the Courses this Task is linked to through `relates-to`, in either
+    /// direction. Only `list_tasks` fills it.
+    pub course_ids: Vec<String>,
+    /// Ids of the Semesters of those Courses, plus any Semester the Task relates to
+    /// directly. Only `list_tasks` fills it.
+    pub semester_ids: Vec<String>,
 }
+
+/// The stored effort values: Fibonacci points. T-shirt sizes (XS to XXL) map onto
+/// the same six steps, so switching the scale never changes the data.
+pub const EFFORT_STEPS: [i64; 6] = [1, 2, 3, 5, 8, 13];
 
 fn task_row_to_task(
     entity: crate::db::entities::Entity,
@@ -55,7 +71,11 @@ fn task_row_to_task(
         status_id: row.get("status_id")?,
         start_date: row.get("start_date")?,
         due_date: row.get("due_date")?,
+        completed_at: row.get("completed_at")?,
+        effort: row.get("effort")?,
         label_ids: Vec::new(),
+        course_ids: Vec::new(),
+        semester_ids: Vec::new(),
     })
 }
 
@@ -76,7 +96,11 @@ pub fn create_task(
         status_id: "backlog".into(),
         start_date,
         due_date,
+        completed_at: None,
+        effort: None,
         label_ids: Vec::new(),
+        course_ids: Vec::new(),
+        semester_ids: Vec::new(),
     })
 }
 
@@ -111,7 +135,11 @@ pub fn create_subtask(
         status_id: "backlog".into(),
         start_date: None,
         due_date: None,
+        completed_at: None,
+        effort: None,
         label_ids: Vec::new(),
+        course_ids: Vec::new(),
+        semester_ids: Vec::new(),
     })
 }
 
@@ -169,7 +197,7 @@ pub fn convert_to_subtask(
 
 pub fn list_subtasks(conn: &Connection, parent_entity_id: &str) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
          FROM relationships r
          JOIN entities e ON e.id = r.from_entity_id
          JOIN tasks t ON t.entity_id = e.id
@@ -209,7 +237,7 @@ fn row_to_task_joined(row: &rusqlite::Row) -> rusqlite::Result<Task> {
 
 pub fn get_task(conn: &Connection, entity_id: &str) -> AppResult<Task> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
          FROM entities e JOIN tasks t ON t.entity_id = e.id
          WHERE e.id = ?1",
     )?;
@@ -233,7 +261,7 @@ pub fn get_task_with_labels(conn: &Connection, entity_id: &str) -> AppResult<Tas
 
 pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
          FROM entities e JOIN tasks t ON t.entity_id = e.id
          WHERE e.space_id = ?1 AND e.type = 'task' AND e.deleted_at IS NULL
          ORDER BY e.created_at ASC",
@@ -260,13 +288,118 @@ pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
             tasks[i].label_ids.push(row.get(1)?);
         }
     }
+    fill_courses_and_semesters(conn, space_id, &mut tasks, &index)?;
     Ok(tasks)
 }
 
+/// Links a Space's Tasks to the Courses and Semesters they relate to. A Task counts
+/// as part of a Course through a `relates-to` link in either direction, and as part
+/// of that Course's Semester too, so a finished Semester can be filtered out at once.
+fn fill_courses_and_semesters(
+    conn: &Connection,
+    space_id: &str,
+    tasks: &mut [Task],
+    index: &std::collections::HashMap<String, usize>,
+) -> AppResult<()> {
+    let mut stmt = conn.prepare(
+        "SELECT t.entity_id, o.id, o.type
+         FROM tasks t
+         JOIN entities te ON te.id = t.entity_id
+         JOIN relationships r ON r.relationship_type = 'relates-to'
+              AND (r.from_entity_id = t.entity_id OR r.to_entity_id = t.entity_id)
+         JOIN entities o ON o.id = CASE WHEN r.from_entity_id = t.entity_id
+                                        THEN r.to_entity_id ELSE r.from_entity_id END
+         WHERE te.space_id = ?1 AND te.type = 'task' AND te.deleted_at IS NULL
+           AND o.deleted_at IS NULL AND o.type IN ('course', 'semester')
+         ORDER BY o.id ASC",
+    )?;
+    let mut rows = stmt.query(params![space_id])?;
+    while let Some(row) = rows.next()? {
+        let entity_id: String = row.get(0)?;
+        let other_id: String = row.get(1)?;
+        let other_type: String = row.get(2)?;
+        let Some(&i) = index.get(&entity_id) else {
+            continue;
+        };
+        let (list, other_id) = if other_type == "course" {
+            (&mut tasks[i].course_ids, other_id)
+        } else {
+            (&mut tasks[i].semester_ids, other_id)
+        };
+        if !list.contains(&other_id) {
+            list.push(other_id);
+        }
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT r.from_entity_id, r.to_entity_id FROM relationships r
+         JOIN entities s ON s.id = r.to_entity_id
+         WHERE r.relationship_type = 'course-semester' AND s.deleted_at IS NULL",
+    )?;
+    let semester_of: std::collections::HashMap<String, String> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    for task in tasks.iter_mut() {
+        for course_id in task.course_ids.clone() {
+            if let Some(semester_id) = semester_of.get(&course_id) {
+                if !task.semester_ids.contains(semester_id) {
+                    task.semester_ids.push(semester_id.clone());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Moves a Task to a status. `completed_at` is stamped when the status changes into a
+/// finished one (doneness 100, so Done or Cancelled), kept while it stays in the same
+/// one, and cleared when the task is reopened. No other edit touches it.
 pub fn update_task_status(conn: &Connection, entity_id: &str, status_id: &str) -> AppResult<()> {
+    let doneness: i64 = conn
+        .query_row(
+            "SELECT doneness FROM task_statuses WHERE id = ?1",
+            params![status_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::NotFound(format!("task status {status_id}")))?;
+    let affected = if doneness >= 100 {
+        conn.execute(
+            "UPDATE tasks SET
+                completed_at = CASE
+                    WHEN status_id = ?1 AND completed_at IS NOT NULL THEN completed_at
+                    ELSE ?3 END,
+                status_id = ?1
+             WHERE entity_id = ?2",
+            params![status_id, entity_id, crate::db::now()],
+        )?
+    } else {
+        conn.execute(
+            "UPDATE tasks SET status_id = ?1, completed_at = NULL WHERE entity_id = ?2",
+            params![status_id, entity_id],
+        )?
+    };
+    if affected == 0 {
+        return Err(AppError::NotFound(format!("task {entity_id}")));
+    }
+    Ok(())
+}
+
+/// Sets or clears the effort estimate. Only the six steps of `EFFORT_STEPS` are valid.
+pub fn update_task_effort(
+    conn: &Connection,
+    entity_id: &str,
+    effort: Option<i64>,
+) -> AppResult<()> {
+    if let Some(value) = effort {
+        if !EFFORT_STEPS.contains(&value) {
+            return Err(AppError::InvalidInput(format!(
+                "effort must be one of 1, 2, 3, 5, 8 or 13, got {value}"
+            )));
+        }
+    }
     let affected = conn.execute(
-        "UPDATE tasks SET status_id = ?1 WHERE entity_id = ?2",
-        params![status_id, entity_id],
+        "UPDATE tasks SET effort = ?1 WHERE entity_id = ?2",
+        params![effort, entity_id],
     )?;
     if affected == 0 {
         return Err(AppError::NotFound(format!("task {entity_id}")));
@@ -319,7 +452,7 @@ pub fn count_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<i64> {
 /// the Dashboard's briefing sentence and its Today widget.
 pub fn list_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
          FROM entities e JOIN tasks t ON t.entity_id = e.id
          JOIN task_statuses s ON s.id = t.status_id
          WHERE e.deleted_at IS NULL AND t.due_date IS NOT NULL
@@ -379,6 +512,20 @@ const TASK_UPDATE_FIELDS: &[FieldDef] = &[
         writable_on_update: true,
         description: "ISO date",
     },
+    FieldDef {
+        name: "effort",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+    },
+    FieldDef {
+        name: "completedAt",
+        kind: FieldKind::DateTime,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+    },
 ];
 
 const SUB_TASK_FIELDS: &[FieldDef] = &[
@@ -410,6 +557,20 @@ const SUB_TASK_FIELDS: &[FieldDef] = &[
         writable_on_update: true,
         description: "ISO date",
     },
+    FieldDef {
+        name: "effort",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+    },
+    FieldDef {
+        name: "completedAt",
+        kind: FieldKind::DateTime,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+    },
 ];
 
 fn apply_task_fields(conn: &Connection, entity_id: &str, fields: &JsonMap) -> AppResult<()> {
@@ -419,6 +580,10 @@ fn apply_task_fields(conn: &Connection, entity_id: &str, fields: &JsonMap) -> Ap
     }
     if let Some(status_id) = crate::db::schema::field_str(fields, "statusId") {
         update_task_status(conn, entity_id, &status_id)?;
+    }
+    if fields.contains_key("effort") {
+        let effort = crate::db::schema::field_i64(fields, "effort");
+        update_task_effort(conn, entity_id, effort)?;
     }
     if fields.contains_key("startDate") || fields.contains_key("dueDate") {
         let current = get_task(conn, entity_id)?;
@@ -594,5 +759,87 @@ mod tests {
             vec![live.entity.id.as_str(), trashed.entity.id.as_str()]
         );
         assert_eq!(subtask_progress(&conn, &task.entity.id).unwrap(), Some(0.0));
+    }
+
+    #[test]
+    fn completed_at_follows_the_status_only() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let task = create_task(&conn, space.id.clone(), "Taxes".into(), None, None).unwrap();
+        let id = &task.entity.id;
+        assert!(get_task(&conn, id).unwrap().completed_at.is_none());
+
+        update_task_status(&conn, id, "done").unwrap();
+        let first = get_task(&conn, id).unwrap().completed_at.unwrap();
+
+        // Re-selecting the same status and unrelated edits keep the stamp.
+        update_task_status(&conn, id, "done").unwrap();
+        update_task_dates(&conn, id, None, Some("2030-01-01".into())).unwrap();
+        update_task_effort(&conn, id, Some(3)).unwrap();
+        assert_eq!(get_task(&conn, id).unwrap().completed_at.unwrap(), first);
+
+        update_task_status(&conn, id, "in_progress").unwrap();
+        assert!(get_task(&conn, id).unwrap().completed_at.is_none());
+        update_task_status(&conn, id, "cancelled").unwrap();
+        assert!(get_task(&conn, id).unwrap().completed_at.is_some());
+    }
+
+    #[test]
+    fn effort_accepts_only_the_scale_steps() {
+        let conn = setup();
+        let space = create_space(&conn, "Home".into(), None, "#000".into()).unwrap();
+        let task = create_task(&conn, space.id.clone(), "Taxes".into(), None, None).unwrap();
+        let id = &task.entity.id;
+        update_task_effort(&conn, id, Some(8)).unwrap();
+        assert_eq!(get_task(&conn, id).unwrap().effort, Some(8));
+        assert!(update_task_effort(&conn, id, Some(4)).is_err());
+        update_task_effort(&conn, id, None).unwrap();
+        assert_eq!(get_task(&conn, id).unwrap().effort, None);
+    }
+
+    #[test]
+    fn list_tasks_carries_courses_and_their_semesters() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let make = |kind: &str, title: &str| {
+            crate::db::entities::create_entity(
+                &conn,
+                space.id.clone(),
+                kind.into(),
+                title.into(),
+                None,
+            )
+            .unwrap()
+        };
+        let course = make("course", "Maths");
+        let semester = make("semester", "Fall");
+        let task = create_task(&conn, space.id.clone(), "Read".into(), None, None).unwrap();
+        let bare = create_task(&conn, space.id.clone(), "Other".into(), None, None).unwrap();
+        for (from, to, kind) in [
+            (&task.entity.id, &course.id, "relates-to"),
+            (&course.id, &semester.id, "course-semester"),
+        ] {
+            crate::db::relationships::create_relationship(
+                &conn,
+                from.clone(),
+                to.clone(),
+                kind.into(),
+                None,
+                None,
+            )
+            .unwrap();
+        }
+        let tasks = list_tasks(&conn, &space.id).unwrap();
+        let linked = tasks
+            .iter()
+            .find(|t| t.entity.id == task.entity.id)
+            .unwrap();
+        assert_eq!(linked.course_ids, vec![course.id]);
+        assert_eq!(linked.semester_ids, vec![semester.id]);
+        let other = tasks
+            .iter()
+            .find(|t| t.entity.id == bare.entity.id)
+            .unwrap();
+        assert!(other.course_ids.is_empty() && other.semester_ids.is_empty());
     }
 }

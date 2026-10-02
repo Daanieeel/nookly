@@ -16,6 +16,18 @@ Two fields: `start_date` and `due_date`. Having both makes a future timeline or 
 
 Freeform and scoped to a Space (see [labels](../02-entity-model.md#labels)). Grouping by label, status, or date is a display concern of the view, not something stored in the data.
 
+## Completed
+
+`completed_at` is set when the status changes to a finished one (doneness 100), kept while it stays there and cleared on reopening. No other edit touches it.
+
+## Effort
+
+One stored `effort` per task: the Fibonacci step 1, 2, 3, 5, 8 or 13. The scale setting names the steps as T-shirt sizes (XS to XXL) or points.
+
+## Course and Semester
+
+A task counts as part of a Course through a `relates-to` link in either direction, and of that Course's Semester. Views filter on both.
+
 ## Sub-tasks
 
 Sub-tasks are their own page type, linked through the structural Task and Sub-task relationship (see [structural relationships](../02-entity-model.md#structural-relationships)). Progress rolls up and changes cascade. Nesting is one level deep only.

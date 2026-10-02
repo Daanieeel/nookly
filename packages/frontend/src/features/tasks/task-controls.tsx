@@ -1,11 +1,18 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconBolt } from "@tabler/icons-react";
 import { createContext, useContext, useMemo } from "react";
 import { DueColumns } from "#/components/due-columns.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { attachLabel, detachLabel, listLabels } from "#/lib/api/labels.ts";
-import { listTaskStatuses, updateTaskDates, updateTaskStatus } from "#/lib/api/tasks.ts";
+import {
+  listTaskStatuses,
+  updateTaskDates,
+  updateTaskEffort,
+  updateTaskStatus,
+} from "#/lib/api/tasks.ts";
+import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, dueTone, sortStatuses, statusKind } from "./task-model";
@@ -13,6 +20,7 @@ import {
   DueDateButton,
   DueDatePicker,
   DueLabel,
+  EffortPicker,
   LabelsPicker,
   PendingIcon,
   PROPERTY_PILL,
@@ -236,5 +244,34 @@ export function TaskLabelsControl({
         )}
       </button>
     </LabelsPicker>
+  );
+}
+
+/// The effort estimate as a quiet pill, which opens the effort picker. Hidden
+/// while the task has none.
+export function TaskEffortControl({ task }: { task: Task }) {
+  const { spaceId } = useTasksData();
+  const refresh = useRefreshTasks(spaceId);
+  const scale = useEffortSettings((s) => s.scale);
+  const change = useMutation({
+    mutationFn: (effort: number | null) => updateTaskEffort(task.entity.id, effort),
+    onSuccess: refresh,
+  });
+  if (task.effort == null && !change.isError) return null;
+  return (
+    <EffortPicker value={task.effort} onSelect={(effort) => change.mutate(effort)}>
+      <button
+        type="button"
+        aria-label={change.isError ? "Couldn't set effort, try again" : "Change Effort"}
+        className={cn(PROPERTY_PILL, "relative", change.isError && "border-destructive/60")}
+      >
+        <PendingIcon
+          pending={change.isPending}
+          failed={change.isError}
+          idle={<IconBolt size={14} />}
+        />
+        {task.effort == null ? "Set effort" : effortLabel(task.effort, scale)}
+      </button>
+    </EffortPicker>
   );
 }

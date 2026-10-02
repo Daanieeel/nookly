@@ -103,3 +103,13 @@ pub fn convert_to_subtask(
     let conn = state.0.lock().unwrap();
     tasks::convert_to_subtask(&conn, &entity_id, &parent_entity_id)
 }
+
+#[tauri::command]
+pub fn update_task_effort(
+    state: State<DbState>,
+    entity_id: String,
+    effort: Option<i64>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    tasks::update_task_effort(&conn, &entity_id, effort)
+}

@@ -119,7 +119,7 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
 export type Layout = "list" | "board";
 export type Grouping = "status" | "label" | "start" | "due" | "created" | "updated" | "none";
 export type Ordering = "due" | "start" | "created" | "updated" | "title" | "status";
-export type DisplayProperty = "key" | "status" | "labels" | "due" | "created";
+export type DisplayProperty = "key" | "status" | "labels" | "due" | "effort" | "created";
 
 export const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
   { id: "status", label: "Status", icon: IconCircleDot },
@@ -145,6 +145,7 @@ export const DISPLAY_PROPERTIES: { id: DisplayProperty; label: string }[] = [
   { id: "status", label: "Status" },
   { id: "labels", label: "Labels" },
   { id: "due", label: "Due date" },
+  { id: "effort", label: "Effort" },
   { id: "created", label: "Created" },
 ];
 
@@ -169,7 +170,7 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   ordering: "due",
   showEmpty: { board: true, list: false },
   hiddenColumns: [],
-  properties: ["key", "status", "labels", "due", "created"],
+  properties: ["key", "status", "labels", "due", "effort", "created"],
 };
 
 function pick<T extends string>(value: string | undefined, allowed: { id: T }[], fallback: T): T {
@@ -330,6 +331,14 @@ export function orderTasks(tasks: Task[], ordering: Ordering, statuses: TaskStat
 
 // Filters
 
+/// Completed filter: when the task finished, or not at all.
+export const COMPLETED_BUCKETS: { id: string; label: string }[] = [
+  ...AGE_BUCKETS,
+  { id: "none", label: "Not completed" },
+];
+
+export const NO_EFFORT = "none";
+
 export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "status") return [task.statusId];
   if (fieldId === "labels") return task.labelIds;
@@ -337,6 +346,10 @@ export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "start") return [dayBucket(task.startDate)];
   if (fieldId === "created") return [ageBucket(task.entity.createdAt)];
   if (fieldId === "updated") return [ageBucket(task.entity.updatedAt)];
+  if (fieldId === "completed") return [task.completedAt ? ageBucket(task.completedAt) : "none"];
+  if (fieldId === "course") return task.courseIds;
+  if (fieldId === "semester") return task.semesterIds;
+  if (fieldId === "effort") return [task.effort == null ? NO_EFFORT : String(task.effort)];
   return [];
 }
 
