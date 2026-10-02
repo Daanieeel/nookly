@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.11.23 (2026-10-02)
+
+### Added
+
+- Add nookly cli jot refine, a generic entity action registry
+
 ## 0.11.22 (2026-10-02)
 
 ### Changed
