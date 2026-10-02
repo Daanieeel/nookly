@@ -2,6 +2,26 @@
 
 All notable changes to Nookly are listed here.
 
+## Unreleased
+
+### Changed
+
+- Show keyboard shortcuts on the sidebar toggle buttons
+
+## 0.11.27 (2026-10-02)
+
+### Changed
+
+- Render only nearby pages in the pdf viewer so large pdfs stay smooth
+- Import large files off the main thread and index their text in the background
+
+## 0.11.25 (2026-10-02)
+
+### Changed
+
+- Clearer relationship picker with plain names, typed targets and session dates
+- Let the cli edit a course's notes page through the course block commands
+
 ## 0.11.23 (2026-10-02)
 
 ### Added
