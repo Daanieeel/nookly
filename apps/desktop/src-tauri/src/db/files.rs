@@ -95,8 +95,9 @@ pub fn import_file(
         .file_name()
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_else(|| "untitled".to_string());
-    let bytes = std::fs::read(source_path).map_err(|e| AppError::Io(e.to_string()))?;
-    store_file(conn, files_dir, space_id, &original_filename, &bytes, None)
+    // Copied on disk rather than read into memory, so a huge file costs no RAM.
+    let local_path = copy_stored(files_dir, &original_filename, source_path)?;
+    register_stored(conn, space_id, &original_filename, local_path, None)
 }
 
 /// Writes `bytes` into storage as a new File. `source_url` is where a downloaded
@@ -110,6 +111,17 @@ pub fn store_file(
     source_url: Option<&str>,
 ) -> AppResult<FileEntity> {
     let local_path = write_stored(files_dir, filename, bytes)?;
+    register_stored(conn, space_id, filename, local_path, source_url)
+}
+
+/// Records a File whose bytes are already in storage at `local_path`.
+fn register_stored(
+    conn: &Connection,
+    space_id: String,
+    filename: &str,
+    local_path: String,
+    source_url: Option<&str>,
+) -> AppResult<FileEntity> {
     let provider = source_url.and_then(detect_provider).map(str::to_string);
     let entity =
         crate::db::entities::create_entity(conn, space_id, "file".into(), filename.into(), None)?;
@@ -192,18 +204,70 @@ fn is_indexable(path: &str) -> bool {
 /// code and other plain text files are read as-is, no extraction needed.
 /// Returns whether text was actually found and indexed.
 fn index_file_content(conn: &Connection, entity_id: &str, path: &str) -> bool {
+    if defer_indexing(entity_id, path) {
+        return false;
+    }
+    match extract_file_text(path) {
+        Some(text) => store_extracted_text(conn, entity_id, &text),
+        None => false,
+    }
+}
+
+/// The searchable text of the file at `path`, if it has any. Slow for a large
+/// PDF or image (OCR), and touches no database, so call it without holding the
+/// connection.
+pub fn extract_file_text(path: &str) -> Option<String> {
     let path_ref = Path::new(path);
-    let text = match extractor_for(path) {
+    match extractor_for(path) {
         Some(Extractor::Pdf) => super::ocr::extract_pdf_text(path_ref),
         Some(Extractor::Image) => super::ocr::extract_image_text(path_ref),
         Some(Extractor::Office) => super::office_text::extract_office_text(path_ref),
         Some(Extractor::PlainText) => std::fs::read_to_string(path_ref).ok(),
         None => None,
-    };
-    match text {
-        Some(text) => crate::db::search::index_entity_content(conn, entity_id, &text).is_ok(),
-        None => false,
     }
+}
+
+pub fn store_extracted_text(conn: &Connection, entity_id: &str, text: &str) -> bool {
+    crate::db::search::index_entity_content(conn, entity_id, text).is_ok()
+}
+
+/// A File to index later: its entity id and where its bytes are.
+pub type IndexJob = (String, String);
+
+thread_local! {
+    static DEFERRED_INDEX: std::cell::RefCell<Option<Vec<IndexJob>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+fn defer_indexing(entity_id: &str, path: &str) -> bool {
+    DEFERRED_INDEX.with(|queue| match queue.borrow_mut().as_mut() {
+        Some(jobs) => {
+            jobs.push((entity_id.to_string(), path.to_string()));
+            true
+        }
+        None => false,
+    })
+}
+
+/// Runs `f` with text extraction held back: every File it adds or changes comes
+/// back as a job instead of being indexed on the spot. The app calls this while
+/// it holds the database lock, then extracts the text afterwards without it, so
+/// one big PDF can't freeze every other command. The CLI indexes inline.
+pub fn with_deferred_indexing<T>(f: impl FnOnce() -> T) -> (T, Vec<IndexJob>) {
+    DEFERRED_INDEX.with(|queue| *queue.borrow_mut() = Some(Vec::new()));
+    let value = f();
+    let jobs = DEFERRED_INDEX
+        .with(|queue| queue.borrow_mut().take())
+        .unwrap_or_default();
+    (value, jobs)
+}
+
+fn copy_stored(files_dir: &Path, filename: &str, source: &Path) -> AppResult<String> {
+    std::fs::create_dir_all(files_dir).map_err(|e| AppError::Io(e.to_string()))?;
+    let dest_path = files_dir.join(format!("{}-{}", super::new_id(), filename));
+    std::fs::copy(source, &dest_path)
+        .map_err(|e| AppError::Io(format!("couldn't copy {}: {e}", source.display())))?;
+    Ok(dest_path.to_string_lossy().to_string())
 }
 
 fn write_stored(files_dir: &Path, filename: &str, bytes: &[u8]) -> AppResult<String> {
@@ -222,11 +286,20 @@ pub fn attach_download(
     bytes: &[u8],
 ) -> AppResult<FileEntity> {
     let local_path = write_stored(files_dir, filename, bytes)?;
+    attach_stored(conn, entity_id, filename, &local_path)
+}
+
+fn attach_stored(
+    conn: &Connection,
+    entity_id: &str,
+    filename: &str,
+    local_path: &str,
+) -> AppResult<FileEntity> {
     conn.execute(
         "UPDATE files SET local_path = ?1, original_filename = ?2 WHERE entity_id = ?3",
         params![local_path, filename, entity_id],
     )?;
-    index_file_content(conn, entity_id, &local_path);
+    index_file_content(conn, entity_id, local_path);
     get_file(conn, entity_id)
 }
 
@@ -269,10 +342,9 @@ pub fn copy_into_storage(
     let source = file.source_path.ok_or_else(|| {
         AppError::InvalidInput("this file isn't a reference to a file on disk".into())
     })?;
-    let bytes =
-        std::fs::read(&source).map_err(|e| AppError::Io(format!("couldn't read {source}: {e}")))?;
     let filename = file.original_filename.unwrap_or_else(|| "untitled".into());
-    attach_download(conn, files_dir, entity_id, &filename, &bytes)
+    let local_path = copy_stored(files_dir, &filename, Path::new(&source))?;
+    attach_stored(conn, entity_id, &filename, &local_path)
 }
 
 /// Swaps a File's stored copy for a newer one, keeping the entity (id, key,
@@ -290,8 +362,7 @@ pub fn replace_file(
         .file_name()
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_else(|| "untitled".to_string());
-    let bytes = std::fs::read(source_path).map_err(|e| AppError::Io(e.to_string()))?;
-    let local_path = write_stored(files_dir, &filename, &bytes)?;
+    let local_path = copy_stored(files_dir, &filename, source_path)?;
     conn.execute(
         "UPDATE files SET local_path = ?1, original_filename = ?2 WHERE entity_id = ?3",
         params![local_path, filename, entity_id],
@@ -892,6 +963,39 @@ mod tests {
         )
         .unwrap();
         zip.finish().unwrap();
+    }
+
+    #[test]
+    fn deferred_indexing_returns_jobs_instead_of_extracting() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-files-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("notes.txt");
+        std::fs::write(&source, "needle in the text").unwrap();
+
+        let (file, jobs) = with_deferred_indexing(|| {
+            import_file(&conn, &dir.join("store"), space.id.clone(), &source).unwrap()
+        });
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].0, file.entity.id);
+        assert!(file.needs_reindex, "not searchable until the job runs");
+        // The copy is on disk and the source untouched.
+        assert!(std::path::Path::new(file.local_path.as_ref().unwrap()).exists());
+        assert!(source.exists());
+
+        let text = extract_file_text(&jobs[0].1).unwrap();
+        assert!(store_extracted_text(&conn, &jobs[0].0, &text));
+        assert!(!get_file(&conn, &file.entity.id).unwrap().needs_reindex);
+
+        // Outside the wrapper, indexing is inline again (the CLI's path).
+        let inline = import_file(&conn, &dir.join("store"), space.id.clone(), &source).unwrap();
+        assert!(!inline.needs_reindex);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

@@ -2,28 +2,63 @@ use crate::db::files::{self, FileEntity};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+
+/// Runs `work` off the main thread with the database locked, with text
+/// extraction held back, then extracts in the background once the lock is free.
+/// A large PDF is OCR'd page by page, which used to freeze the whole app, since
+/// every command shares the one connection.
+async fn blocking_db<T: Send + 'static>(
+    app: &AppHandle,
+    work: impl FnOnce(&rusqlite::Connection) -> AppResult<T> + Send + 'static,
+) -> AppResult<T> {
+    let handle = app.clone();
+    let (result, jobs) = tauri::async_runtime::spawn_blocking(move || {
+        let state = handle.state::<DbState>();
+        let conn = state.0.lock().unwrap();
+        files::with_deferred_indexing(|| work(&conn))
+    })
+    .await
+    .map_err(|e| AppError::Io(e.to_string()))?;
+    let value = result?;
+    index_in_background(app.clone(), jobs);
+    Ok(value)
+}
+
+/// Extracts and indexes each File's text one after another on its own thread,
+/// taking the database lock only to write. Tells the UI when each is searchable.
+/// If the app quits first, the File just has no search content yet, and the
+/// Files list's "reindex" action picks up every File in that state.
+fn index_in_background(app: AppHandle, jobs: Vec<files::IndexJob>) {
+    if jobs.is_empty() {
+        return;
+    }
+    std::thread::spawn(move || {
+        for (entity_id, path) in jobs {
+            let Some(text) = files::extract_file_text(&path) else {
+                continue;
+            };
+            let state = app.state::<DbState>();
+            let Ok(conn) = state.0.lock() else { return };
+            if files::store_extracted_text(&conn, &entity_id, &text) {
+                drop(conn);
+                let _ = app.emit(crate::db::EXTERNAL_CHANGE_EVENT, ());
+            }
+        }
+    });
+}
 
 #[tauri::command]
-pub fn import_file(
+pub async fn import_file(
     app: AppHandle,
-    state: State<DbState>,
     space_id: String,
     source_path: String,
 ) -> AppResult<FileEntity> {
-    let files_dir: PathBuf = crate::db::resolve_app_data_dir(
-        app.path()
-            .app_data_dir()
-            .map_err(|e| AppError::Db(e.to_string()))?,
-    )
-    .join("files");
-    let conn = state.0.lock().unwrap();
-    files::import_file(
-        &conn,
-        &files_dir,
-        space_id,
-        std::path::Path::new(&source_path),
-    )
+    let dir = files_dir(&app)?;
+    blocking_db(&app, move |conn| {
+        files::import_file(conn, &dir, space_id, std::path::Path::new(&source_path))
+    })
+    .await
 }
 
 /// What a pasted link turned into.
@@ -56,7 +91,6 @@ async fn download(url: String) -> AppResult<files::Download> {
 #[tauri::command]
 pub async fn import_file_from_url(
     app: AppHandle,
-    state: State<'_, DbState>,
     space_id: String,
     url: String,
 ) -> AppResult<LinkImport> {
@@ -64,8 +98,10 @@ pub async fn import_file_from_url(
         files::Download::Webpage => Ok(LinkImport::Webpage),
         files::Download::File { filename, bytes } => {
             let dir = files_dir(&app)?;
-            let conn = state.0.lock().unwrap();
-            let file = files::store_file(&conn, &dir, space_id, &filename, &bytes, Some(&url))?;
+            let file = blocking_db(&app, move |conn| {
+                files::store_file(conn, &dir, space_id, &filename, &bytes, Some(&url))
+            })
+            .await?;
             Ok(LinkImport::File {
                 file: Box::new(file),
             })
@@ -90,8 +126,10 @@ pub async fn download_linked_file(
         files::Download::Webpage => Ok(LinkImport::Webpage),
         files::Download::File { filename, bytes } => {
             let dir = files_dir(&app)?;
-            let conn = state.0.lock().unwrap();
-            let file = files::attach_download(&conn, &dir, &entity_id, &filename, &bytes)?;
+            let file = blocking_db(&app, move |conn| {
+                files::attach_download(conn, &dir, &entity_id, &filename, &bytes)
+            })
+            .await?;
             Ok(LinkImport::File {
                 file: Box::new(file),
             })
@@ -142,28 +180,27 @@ pub fn get_file(app: AppHandle, state: State<DbState>, entity_id: String) -> App
 
 /// Adds a file from disk by reference, leaving it where it is.
 #[tauri::command]
-pub fn reference_file(
+pub async fn reference_file(
     app: AppHandle,
-    state: State<DbState>,
     space_id: String,
     path: String,
 ) -> AppResult<FileEntity> {
-    let conn = state.0.lock().unwrap();
-    let file = files::reference_file(&conn, space_id, std::path::Path::new(&path))?;
+    let file = blocking_db(&app, move |conn| {
+        files::reference_file(conn, space_id, std::path::Path::new(&path))
+    })
+    .await?;
     allow_reference(&app, &file);
     Ok(file)
 }
 
 /// Copies a referenced file into Nookly's storage.
 #[tauri::command]
-pub fn copy_file_into_storage(
-    app: AppHandle,
-    state: State<DbState>,
-    entity_id: String,
-) -> AppResult<FileEntity> {
+pub async fn copy_file_into_storage(app: AppHandle, entity_id: String) -> AppResult<FileEntity> {
     let dir = files_dir(&app)?;
-    let conn = state.0.lock().unwrap();
-    files::copy_into_storage(&conn, &dir, &entity_id)
+    blocking_db(&app, move |conn| {
+        files::copy_into_storage(conn, &dir, &entity_id)
+    })
+    .await
 }
 
 /// Where a File's bytes are: the stored copy, else the referenced original.
@@ -226,16 +263,16 @@ pub fn set_file_added_at(
 
 /// Replaces a File's stored copy with a newer version from disk.
 #[tauri::command]
-pub fn replace_file(
+pub async fn replace_file(
     app: AppHandle,
-    state: State<DbState>,
     entity_id: String,
     source_path: String,
 ) -> AppResult<FileEntity> {
     let dir = files_dir(&app)?;
-    let conn = state.0.lock().unwrap();
-    let (file, previous) =
-        files::replace_file(&conn, &dir, &entity_id, std::path::Path::new(&source_path))?;
+    let (file, previous) = blocking_db(&app, move |conn| {
+        files::replace_file(conn, &dir, &entity_id, std::path::Path::new(&source_path))
+    })
+    .await?;
     // Committed: the replaced copy has no entity left pointing at it.
     if let Some(previous) = previous.filter(|p| Some(p) != file.local_path.as_ref()) {
         let _ = std::fs::remove_file(previous);
