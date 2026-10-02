@@ -240,7 +240,19 @@ export function TimeGrid({
         )}
       </div>
 
-      <div ref={rowRef} className="flex">
+      <div ref={rowRef} className="relative flex">
+        {columns.some(({ day }) => isToday(day)) && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-(--now-top) z-20"
+            // SAFETY: a plain pixel length computed from the current time.
+            style={{ "--now-top": `${topPxFor(nowMinutes)}px` } as CSSProperties}
+          >
+            <div className="absolute inset-x-0 left-14 h-0.5 -translate-y-1/2 bg-destructive" />
+            <span className="absolute left-1 w-12 -translate-y-1/2 rounded-sm bg-destructive py-px text-center text-xs font-medium text-white tabular-nums">
+              {formatClock(minutesToTime(nowMinutes))}
+            </span>
+          </div>
+        )}
         <div className="w-14 shrink-0" aria-hidden>
           {HOURS.map((h) => (
             <div key={h} className="relative h-12">
@@ -376,15 +388,6 @@ export function TimeGrid({
                 );
               })}
 
-              {isToday(day) && (
-                <div
-                  className="pointer-events-none absolute inset-x-0 top-(--now-top) z-20 h-0.5 bg-destructive"
-                  // SAFETY: a plain pixel length computed from the current time.
-                  style={{ "--now-top": `${topPxFor(nowMinutes)}px` } as CSSProperties}
-                >
-                  <span className="absolute -top-1 -left-1 size-2.5 rounded-full bg-destructive" />
-                </div>
-              )}
             </div>
           );
         })}
