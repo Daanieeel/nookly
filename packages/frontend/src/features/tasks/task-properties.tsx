@@ -23,6 +23,7 @@ import {
 import { Calendar } from "#/components/date-input.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import type { Label, TaskStatus } from "#/lib/api/types.ts";
+import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, formatDay, toDay } from "./task-model";
 
@@ -276,6 +277,60 @@ export function LabelsPicker({
                 </CommandItem>
               );
             })}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/// Picks the effort estimate, named in whichever scale the settings use.
+export function EffortPicker({
+  value,
+  onSelect,
+  align = "start",
+  children,
+}: {
+  value: number | null;
+  onSelect: (effort: number | null) => void;
+  align?: "start" | "end";
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const scale = useEffortSettings((s) => s.scale);
+
+  function choose(effort: number | null) {
+    setOpen(false);
+    if (effort !== value) onSelect(effort);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent className="w-48" align={align} onKeyDown={stopKeys}>
+        <Command loop>
+          <CommandInput placeholder="Set effort…" />
+          <CommandList className="p-1">
+            <CommandEmpty>No size found.</CommandEmpty>
+            {EFFORT_STEPS.map((step) => (
+              <CommandItem
+                key={step.value}
+                value={`${step.tshirt} ${step.value}`}
+                onSelect={() => choose(step.value)}
+              >
+                <span className="truncate">{effortLabel(step.value, scale)}</span>
+                {step.value === value && <IconCheck size={14} className="ml-auto" />}
+              </CommandItem>
+            ))}
+            {value != null && (
+              <>
+                <CommandSeparator />
+                <CommandItem value="remove effort" onSelect={() => choose(null)}>
+                  <IconX size={14} />
+                  Remove effort
+                </CommandItem>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

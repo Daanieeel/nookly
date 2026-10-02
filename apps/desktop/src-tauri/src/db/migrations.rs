@@ -569,6 +569,19 @@ fn all() -> Vec<M<'static>> {
         ALTER TABLE space_modules ADD COLUMN hidden_at TEXT;
         ALTER TABLE entities ADD COLUMN hidden_at TEXT;
         ",
+    ), M::up(
+        "
+        -- Task filtering for Views. `completed_at` is when the status last moved into
+        -- a finished one (doneness 100); `effort` is the estimate as one of the
+        -- Fibonacci steps 1, 2, 3, 5, 8 or 13, whichever scale the app shows it in.
+        -- Tasks already finished get their last edit time as the best known stand in
+        -- for the completion time; open tasks and every estimate start empty.
+        ALTER TABLE tasks ADD COLUMN completed_at TEXT;
+        ALTER TABLE tasks ADD COLUMN effort INTEGER;
+        UPDATE tasks
+        SET completed_at = (SELECT updated_at FROM entities WHERE entities.id = tasks.entity_id)
+        WHERE status_id IN (SELECT id FROM task_statuses WHERE doneness >= 100);
+        ",
     )]
 }
 
@@ -625,6 +638,7 @@ mod history {
         0x9385d76400678f57,
         0xb9406e703532694b,
         0xba33a4192b4bbba9,
+        0x7c721406412ca45b,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

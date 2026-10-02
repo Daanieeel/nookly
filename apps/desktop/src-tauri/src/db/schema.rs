@@ -29,10 +29,7 @@ pub enum FieldKind {
     Float,
     Boolean,
     Date,
-    /// Not used by any core module's fields yet (all timestamp-ish subtype
-    /// columns today are plain dates) — kept for community modules that need
-    /// a combined date+time field.
-    #[allow(dead_code)]
+    /// A combined date and time, like a Task's read only `completedAt`.
     DateTime,
     /// Documents the expected shape; not enforced by the CLI parser itself
     /// (the underlying core function is the actual authority).

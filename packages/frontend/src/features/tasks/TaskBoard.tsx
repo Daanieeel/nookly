@@ -5,7 +5,12 @@ import { CardKey } from "#/components/entity-key.tsx";
 import type { Task } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { TaskDueControl, TaskLabelsControl, TaskStatusControl } from "./task-controls";
+import {
+  TaskDueControl,
+  TaskEffortControl,
+  TaskLabelsControl,
+  TaskStatusControl,
+} from "./task-controls";
 import type { DisplayProperty } from "./task-model";
 
 /// Linear style board: one column per group (and one swimlane per sub-group),
@@ -130,7 +135,10 @@ function TaskCardBody({
   footer?: React.ReactNode;
 }) {
   const show = (p: DisplayProperty) => properties.includes(p);
-  const hasPills = (show("due") && task.dueDate) || (show("labels") && task.labelIds.length > 0);
+  const hasPills =
+    (show("due") && task.dueDate) ||
+    (show("effort") && task.effort != null) ||
+    (show("labels") && task.labelIds.length > 0);
   return (
     <div
       className={cn(
@@ -155,6 +163,7 @@ function TaskCardBody({
       {hasPills && (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 pt-0.5">
           {show("due") && <TaskDueControl task={task} />}
+          {show("effort") && <TaskEffortControl task={task} />}
           {show("labels") && <TaskLabelsControl task={task} />}
         </div>
       )}

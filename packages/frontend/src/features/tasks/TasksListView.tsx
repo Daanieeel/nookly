@@ -1,11 +1,15 @@
 import {
   IconCalendarEvent,
   IconCalendarPlus,
+  IconBolt,
+  IconCalendarCheck,
+  IconCalendarStats,
   IconChecklist,
   IconCircleDot,
   IconClockEdit,
   IconClockPlus,
   IconPlus,
+  IconSchool,
   IconTag,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,8 +29,11 @@ import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { attachLabel, detachLabel } from "#/lib/api/labels.ts";
+import { listCourses, listSemesters } from "#/lib/api/courses.ts";
 import { listTasks, updateTaskStatus } from "#/lib/api/tasks.ts";
+import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import type { Task } from "#/lib/api/types.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import { TaskBoard } from "./TaskBoard";
@@ -35,7 +42,9 @@ import { TasksDataContext, useTasksDataValue } from "./task-controls";
 import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { TaskList } from "./TaskList";
 import {
+  COMPLETED_BUCKETS,
   DUE_BUCKETS,
+  NO_EFFORT,
   START_BUCKETS,
   type Grouping,
   orderTasks,
@@ -72,6 +81,15 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
     queryKey: qk.tasks.bySpace(spaceId),
     queryFn: () => listTasks(spaceId),
   });
+  const { data: courses = [] } = useQuery({
+    queryKey: qk.courses.bySpace(spaceId),
+    queryFn: () => listCourses(spaceId),
+  });
+  const { data: semesters = [] } = useQuery({
+    queryKey: qk.semesters.bySpace(spaceId),
+    queryFn: () => listSemesters(spaceId),
+  });
+  const effortScale = useEffortSettings((s) => s.scale);
   const data = useTasksDataValue(spaceId);
   const { statuses, labels, kindOf } = data;
 
@@ -140,7 +158,45 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         icon: IconClockEdit,
         options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
       },
+      {
+        id: "completed",
+        label: "Completed",
+        icon: IconCalendarCheck,
+        options: COMPLETED_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+      {
+        id: "effort",
+        label: "Effort",
+        icon: IconBolt,
+        options: [
+          ...EFFORT_STEPS.map((s) => ({
+            value: String(s.value),
+            label: effortLabel(s.value, effortScale),
+          })),
+          { value: NO_EFFORT, label: "No estimate" },
+        ],
+      },
     ];
+    const usedCourses = courses.filter((c) => tasks.some((t) => t.courseIds.includes(c.id)));
+    if (usedCourses.length > 0) {
+      fields.push({
+        id: "course",
+        label: "Course",
+        icon: IconSchool,
+        options: usedCourses.map((c) => ({ value: c.id, label: displayTitle(c) })),
+      });
+    }
+    const usedSemesters = semesters.filter((s) =>
+      tasks.some((t) => t.semesterIds.includes(s.entity.id)),
+    );
+    if (usedSemesters.length > 0) {
+      fields.push({
+        id: "semester",
+        label: "Semester",
+        icon: IconCalendarStats,
+        options: usedSemesters.map((s) => ({ value: s.entity.id, label: displayTitle(s.entity) })),
+      });
+    }
     const used = labels.filter((l) => tasks.some((t) => t.labelIds.includes(l.id)));
     if (used.length > 0) {
       fields.push({
@@ -151,7 +207,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
       });
     }
     return fields;
-  }, [statuses, labels, tasks, kindOf]);
+  }, [statuses, labels, tasks, kindOf, courses, semesters, effortScale]);
 
   const visible = useMemo(
     () =>

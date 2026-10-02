@@ -168,6 +168,14 @@ export interface Task {
   dueDate: string | null;
   /// Ordered by label name. Only filled by `listTasks`.
   labelIds: string[];
+  /// When the status last moved to a finished one. Cleared on reopening.
+  completedAt: string | null;
+  /// A step of the shared effort scale (1, 2, 3, 5, 8 or 13), see `lib/effort.ts`.
+  effort: number | null;
+  /// Courses linked through `relates-to`. Only filled by `listTasks`.
+  courseIds: string[];
+  /// Semesters of those Courses, and any linked directly. Only filled by `listTasks`.
+  semesterIds: string[];
 }
 
 export interface TaskDueTodaySummary {

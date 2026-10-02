@@ -8,7 +8,12 @@ import type { Task } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { formatDateTime } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { TaskDueColumns, TaskLabelsControl, TaskStatusControl } from "./task-controls";
+import {
+  TaskDueColumns,
+  TaskEffortControl,
+  TaskLabelsControl,
+  TaskStatusControl,
+} from "./task-controls";
 import { type DisplayProperty, formatTimestamp } from "./task-model";
 
 /// Dense Linear style list: group and sub-group headers with a count, one 44px row
@@ -112,6 +117,11 @@ export function TaskRow({
         </span>
       )}
       <span className="pointer-events-none relative min-w-0 flex-1 truncate text-sm">{title}</span>
+      {show("effort") && task.effort != null && (
+        <span className="relative hidden shrink-0 sm:flex">
+          <TaskEffortControl task={task} />
+        </span>
+      )}
       {show("labels") && (
         <span className="relative hidden min-w-0 md:flex">
           <TaskLabelsControl task={task} align="end" />

@@ -30,9 +30,11 @@ import {
   listTasks,
   subtaskProgress,
   updateTaskDates,
+  updateTaskEffort,
   updateTaskStatus,
 } from "#/lib/api/tasks.ts";
 import type { Entity, Task } from "#/lib/api/types.ts";
+import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -49,6 +51,7 @@ import { dueTone, formatTimestamp, groupTasks, orderTasks, readDisplay } from ".
 import { useTaskParent } from "./task-parent";
 import {
   DueDatePicker,
+  EffortPicker,
   DueLabel,
   LabelsPicker,
   PendingIcon,
@@ -527,6 +530,13 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
       await refresh();
     },
   });
+  const effortScale = useEffortSettings((s) => s.scale);
+  const setEffort = useMutation({
+    mutationFn: async (effort: number | null) => {
+      await updateTaskEffort(task.entity.id, effort);
+      await refresh();
+    },
+  });
   const toggleLabel = useMutation({
     mutationFn: async (labelId: string) => {
       if (task.labelIds.includes(labelId)) await detachLabel(task.entity.id, labelId);
@@ -624,11 +634,36 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
         );
       })}
 
+      <PropertyRow label="Effort">
+        <EffortPicker value={task.effort} align="end" onSelect={(next) => setEffort.mutate(next)}>
+          <button
+            type="button"
+            aria-label={setEffort.isError ? "Couldn't set effort, try again" : "Change Effort"}
+            className={PROPERTY_VALUE}
+          >
+            <PendingIcon pending={setEffort.isPending} failed={setEffort.isError} idle={null} />
+            {task.effort == null ? (
+              <span className="text-muted-foreground">Set effort</span>
+            ) : (
+              effortLabel(task.effort, effortScale)
+            )}
+          </button>
+        </EffortPicker>
+      </PropertyRow>
+
       {progress != null && (
         <PropertyRow label="Progress">
           <span className="flex h-7 items-center gap-2 px-2 text-sm tabular-nums">
             <ProgressCircle value={progress} size={14} />
             {Math.round(progress)}%
+          </span>
+        </PropertyRow>
+      )}
+
+      {task.completedAt && (
+        <PropertyRow label="Completed">
+          <span className="flex h-7 items-center px-2 text-sm text-muted-foreground">
+            {formatTimestamp(task.completedAt)}
           </span>
         </PropertyRow>
       )}
