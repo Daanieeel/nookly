@@ -81,8 +81,9 @@ function RelateFromMenu({
   });
   const hidden = hiddenRelationshipTypes(entity);
   const relate = useMutation({
-    mutationFn: async (vars: { toEntityId: string; relationshipType: string }) => {
-      await createRelationship(entity.id, vars.toEntityId, vars.relationshipType);
+    mutationFn: async (vars: { otherId: string; relationshipType: string; reverse: boolean }) => {
+      if (vars.reverse) await createRelationship(vars.otherId, entity.id, vars.relationshipType);
+      else await createRelationship(entity.id, vars.otherId, vars.relationshipType);
       await refresh();
     },
   });
@@ -93,9 +94,10 @@ function RelateFromMenu({
       <RelatePicker
         spaceId={entity.spaceId}
         exclude={entity.id}
+        entityType={entity.type}
         types={types.filter((t) => !hidden.has(t.name))}
-        onSelect={(target, relationshipType) => {
-          if (!relate.isPending) relate.mutate({ toEntityId: target.id, relationshipType });
+        onSelect={(target, relationshipType, reverse) => {
+          if (!relate.isPending) relate.mutate({ otherId: target.id, relationshipType, reverse });
         }}
       />
       <PickerFeedback

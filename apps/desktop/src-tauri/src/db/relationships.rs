@@ -35,6 +35,13 @@ pub enum MovesWith {
 
 pub struct RelationshipTypeDef {
     pub name: &'static str,
+    /// Plain name for pickers, read as "<this item> <label> <other item>".
+    pub label: &'static str,
+    /// One sentence on what the link means.
+    pub description: &'static str,
+    /// Entity types the `from` and `to` ends must be; `None` allows any.
+    pub from_type: Option<&'static str>,
+    pub to_type: Option<&'static str>,
     pub inverse_label: &'static str,
     pub cardinality: Cardinality,
     pub moves_with: MovesWith,
@@ -43,13 +50,13 @@ pub struct RelationshipTypeDef {
 inventory::collect!(RelationshipTypeDef);
 
 inventory::submit! {
-    RelationshipTypeDef { name: "relates-to", inverse_label: "related from", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
+    RelationshipTypeDef { name: "relates-to", label: "Related to", description: "A plain link between two items, in either direction.", from_type: None, to_type: None, inverse_label: "related from", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "blocks", inverse_label: "blocked by", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
+    RelationshipTypeDef { name: "blocks", label: "Blocks", description: "This item has to be done before the other one can move.", from_type: None, to_type: None, inverse_label: "blocked by", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "attached-file", inverse_label: "attached to", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
+    RelationshipTypeDef { name: "attached-file", label: "Attached file", description: "A file attached to this item.", from_type: None, to_type: None, inverse_label: "attached to", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 
 fn registry() -> &'static HashMap<&'static str, &'static RelationshipTypeDef> {
@@ -70,6 +77,10 @@ pub fn lookup_relationship_type(name: &str) -> Option<&'static RelationshipTypeD
 #[serde(rename_all = "camelCase")]
 pub struct RelationshipTypeInfo {
     pub name: String,
+    pub label: String,
+    pub description: String,
+    pub from_type: Option<String>,
+    pub to_type: Option<String>,
     pub inverse_label: String,
 }
 
@@ -78,6 +89,10 @@ pub fn list_relationship_types() -> Vec<RelationshipTypeInfo> {
         .values()
         .map(|def| RelationshipTypeInfo {
             name: def.name.to_string(),
+            label: def.label.to_string(),
+            description: def.description.to_string(),
+            from_type: def.from_type.map(str::to_string),
+            to_type: def.to_type.map(str::to_string),
             inverse_label: def.inverse_label.to_string(),
         })
         .collect()
@@ -212,7 +227,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     inventory::submit! {
-        RelationshipTypeDef { name: "test-one-to-per-from", inverse_label: "test inverse", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
+        RelationshipTypeDef { name: "test-one-to-per-from", label: "Test", description: "Test type.", from_type: None, to_type: None, inverse_label: "test inverse", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
     }
 
     fn setup() -> Connection {

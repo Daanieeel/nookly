@@ -7,15 +7,15 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "session-course", inverse_label: "has session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
+    RelationshipTypeDef { name: "session-course", label: "Session of course", description: "Ties a session to the course it belongs to.", from_type: Some("session"), to_type: Some("course"), inverse_label: "has session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 // The Jot typed during one occurrence and the Note that refines it afterwards.
 // Each occurrence has at most one of each; they are real Jots and Notes.
 inventory::submit! {
-    RelationshipTypeDef { name: "session-jot", inverse_label: "jot for session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+    RelationshipTypeDef { name: "session-jot", label: "Jot for session", description: "The jot typed during a session.", from_type: Some("session"), to_type: Some("jot"), inverse_label: "jot for session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "session-note", inverse_label: "note for session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+    RelationshipTypeDef { name: "session-note", label: "Note for session", description: "The note written for a session.", from_type: Some("session"), to_type: Some("note"), inverse_label: "note for session", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 
 #[derive(Debug, Clone, Serialize)]

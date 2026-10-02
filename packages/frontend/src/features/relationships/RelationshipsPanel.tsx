@@ -53,8 +53,10 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
   });
 
   const create = useMutation({
-    mutationFn: (vars: { toEntityId: string; relationshipType: string }) =>
-      createRelationship(entity.id, vars.toEntityId, vars.relationshipType),
+    mutationFn: (vars: { otherId: string; relationshipType: string; reverse: boolean }) =>
+      vars.reverse
+        ? createRelationship(vars.otherId, entity.id, vars.relationshipType)
+        : createRelationship(entity.id, vars.otherId, vars.relationshipType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) });
       // A Jot counts as refined once linked to a Note through this same generic
@@ -75,6 +77,7 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       <RelatePickerPopover
         spaceId={entity.spaceId}
         exclude={entity.id}
+        entityType={entity.type}
         types={pickableTypes}
         trigger={
           <Button
@@ -90,8 +93,8 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
             />
           </Button>
         }
-        onSelect={(target, relationshipType) =>
-          create.mutate({ toEntityId: target.id, relationshipType })
+        onSelect={(target, relationshipType, reverse) =>
+          create.mutate({ otherId: target.id, relationshipType, reverse })
         }
       />
 
@@ -100,7 +103,9 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
           const isFrom = r.fromEntityId === entity.id;
           const otherId = isFrom ? r.toEntityId : r.fromEntityId;
           const def = types.find((t) => t.name === r.relationshipType);
-          const label = isFrom ? r.relationshipType : (def?.inverseLabel ?? r.relationshipType);
+          const label = isFrom
+            ? (def?.label ?? r.relationshipType)
+            : (def?.inverseLabel ?? r.relationshipType);
           return (
             <div key={r.id} className="group flex items-center gap-1">
               <div className="min-w-0 flex-1">

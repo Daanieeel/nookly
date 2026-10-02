@@ -6,7 +6,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "assignment-course", inverse_label: "has assignment", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
+    RelationshipTypeDef { name: "assignment-course", label: "Assignment for course", description: "Ties an assignment to its course.", from_type: Some("assignment"), to_type: Some("course"), inverse_label: "has assignment", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
 #[derive(Debug, Clone, Serialize)]

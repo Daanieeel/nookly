@@ -6,18 +6,18 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "sequel-of", inverse_label: "prequel-of", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
+    RelationshipTypeDef { name: "sequel-of", label: "Sequel of", description: "Marks a course as the follow-up to another course.", from_type: Some("course"), to_type: Some("course"), inverse_label: "prequel-of", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
     // A Course belongs to at most one Semester (`OneToPerFrom` = the `from`
     // side, Course, capped at one); a Semester has unrestricted Courses.
-    RelationshipTypeDef { name: "course-semester", inverse_label: "has course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
+    RelationshipTypeDef { name: "course-semester", label: "Course in semester", description: "Puts a course in a semester.", from_type: Some("course"), to_type: Some("semester"), inverse_label: "has course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "course-notes", inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+    RelationshipTypeDef { name: "course-notes", label: "Notes for course", description: "The notes page of a course.", from_type: Some("course"), to_type: Some("note"), inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "semester-notes", inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+    RelationshipTypeDef { name: "semester-notes", label: "Notes for semester", description: "The notes page of a semester.", from_type: Some("semester"), to_type: Some("note"), inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 
 #[derive(Debug, Clone, Serialize)]

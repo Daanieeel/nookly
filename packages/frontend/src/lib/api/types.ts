@@ -107,7 +107,13 @@ export interface Relationship {
 
 export interface RelationshipTypeInfo {
   name: string;
+  /// Plain name, read as "<this item> <label> <other item>".
+  label: string;
+  description: string;
   inverseLabel: string;
+  /// Entity types the two ends must be; `null` allows any.
+  fromType: string | null;
+  toType: string | null;
 }
 
 export type RelationshipDirection = "from" | "to" | "both";

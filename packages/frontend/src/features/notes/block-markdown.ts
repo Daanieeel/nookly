@@ -266,7 +266,9 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return { blockId, blockType: "paragraph", content: encodeInline(node.content) };
     case "heading": {
       const level = asNumber(node.attrs?.level) ?? 1;
-      const blockType = HEADING_BLOCK_TYPES[level >= 2 && level <= 6 ? (level as 2 | 3 | 4 | 5 | 6) : 1];
+      // SAFETY: an unknown level misses the lookup and falls back to heading1.
+      const blockType =
+        HEADING_BLOCK_TYPES[level as keyof typeof HEADING_BLOCK_TYPES] ?? "heading1";
       return {
         blockId,
         blockType,

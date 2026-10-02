@@ -11,7 +11,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
-    RelationshipTypeDef { name: "deck-exam", inverse_label: "has deck", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
+    RelationshipTypeDef { name: "deck-exam", label: "Deck for exam", description: "Ties a flashcard deck to the exam it prepares for.", from_type: Some("index_card_deck"), to_type: Some("exam"), inverse_label: "has deck", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
 /// Learning cards due this soon still show when nothing else is due, so a

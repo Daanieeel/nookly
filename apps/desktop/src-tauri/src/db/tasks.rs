@@ -5,7 +5,7 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 
 inventory::submit! {
-    RelationshipTypeDef { name: "sub-task-of", inverse_label: "has sub-task", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
+    RelationshipTypeDef { name: "sub-task-of", label: "Sub-task of", description: "Makes this task a sub-task of another task.", from_type: Some("sub_task"), to_type: Some("task"), inverse_label: "has sub-task", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
 #[derive(Debug, Clone, Serialize)]

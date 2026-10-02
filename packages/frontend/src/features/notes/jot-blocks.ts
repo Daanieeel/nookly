@@ -13,7 +13,10 @@ const NUMBERED = /^\d+[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
 const FENCE = /^```\s*(\S*)/;
 
-const HEADING_TYPES: BlockType[] = ["heading1", "heading2", "heading3",
+const HEADING_TYPES: BlockType[] = [
+  "heading1",
+  "heading2",
+  "heading3",
   "heading4",
   "heading5",
   "heading6",
