@@ -1,6 +1,7 @@
 import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand } from "@tabler/icons-react";
 import { type CSSProperties, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
+import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { CourseSemesterPanel } from "#/features/courses/CourseSemesterPanel.tsx";
 import { RefineJotButton } from "#/features/notes/RefineJotButton.tsx";
@@ -21,6 +22,17 @@ import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const KEYBOARD_STEP_PX = 16;
+
+/// `HOTKEYS.toggleDetailSidebar`, as keycaps.
+function ToggleShortcut() {
+  return (
+    <KbdGroup>
+      <Kbd>⌘</Kbd>
+      <Kbd>⇧</Kbd>
+      <Kbd>S</Kbd>
+    </KbdGroup>
+  );
+}
 
 /// Fixed section order: Attachments, Mentioned, Mentioned in, Relationships.
 /// Relationships renders last because it's usually the largest section, and
@@ -64,7 +76,11 @@ export function RightSidebar({
               <IconLayoutSidebarRightExpand size={16} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Expand sidebar</TooltipContent>
+          <TooltipContent side="left">
+            <span className="flex items-center gap-2">
+              Expand sidebar <ToggleShortcut />
+            </span>
+          </TooltipContent>
         </Tooltip>
         {actions("mt-2 flex-col")}
       </div>
@@ -137,7 +153,11 @@ export function RightSidebar({
                 <IconLayoutSidebarRightCollapse size={16} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Collapse sidebar</TooltipContent>
+            <TooltipContent side="left">
+              <span className="flex items-center gap-2">
+                Collapse sidebar <ToggleShortcut />
+              </span>
+            </TooltipContent>
           </Tooltip>
           {actions()}
         </div>

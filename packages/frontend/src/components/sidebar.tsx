@@ -73,6 +73,7 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Input } from "@nookly/ui/components/input";
+import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   Sidebar,
@@ -330,11 +331,25 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip={collapsed ? "Expand sidebar (⌘S)" : "Collapse sidebar (⌘S)"}
+              tooltip={{
+                children: (
+                  <span className="flex items-center gap-2">
+                    {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    <KbdGroup>
+                      <Kbd>⌘</Kbd>
+                      <Kbd>S</Kbd>
+                    </KbdGroup>
+                  </span>
+                ),
+              }}
               onClick={toggleSidebar}
             >
               {collapsed ? <IconLayoutSidebarLeftExpand /> : <IconLayoutSidebarLeftCollapse />}
               <span>{collapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
+              <KbdGroup className="ml-auto group-data-[collapsible=icon]:hidden">
+                <Kbd>⌘</Kbd>
+                <Kbd>S</Kbd>
+              </KbdGroup>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
