@@ -190,7 +190,7 @@ const PREVIEW_CHARS: usize = 280;
 
 /// Block types whose content reads as prose in a preview; code, tables and media don't.
 const PREVIEW_BLOCK_TYPES: &str =
-    "'paragraph','heading1','heading2','heading3','quote','callout','bulleted_list','numbered_list'";
+    "'paragraph','heading1','heading2','heading3','heading4','heading5','heading6','quote','callout','bulleted_list','numbered_list'";
 
 /// Relationship edges seen from `e`: `t` is whichever end isn't `e`.
 const OTHER_END_JOIN: &str = "JOIN relationships r ON r.from_entity_id = e.id OR r.to_entity_id = e.id
@@ -632,6 +632,9 @@ pub fn block_to_markdown(block: &Block) -> String {
         "heading1" => format!("# {}", block.content),
         "heading2" => format!("## {}", block.content),
         "heading3" => format!("### {}", block.content),
+        "heading4" => format!("#### {}", block.content),
+        "heading5" => format!("##### {}", block.content),
+        "heading6" => format!("###### {}", block.content),
         "quote" => block
             .content
             .lines()

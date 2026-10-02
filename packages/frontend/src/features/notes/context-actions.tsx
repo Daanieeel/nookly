@@ -103,6 +103,21 @@ const BLOCK_KINDS: BlockKind[] = [
     apply: (chain) => chain.setNode("heading", { level: 3 }),
   },
   {
+    title: "Heading 4",
+    matches: isHeading(4),
+    apply: (chain) => chain.setNode("heading", { level: 4 }),
+  },
+  {
+    title: "Heading 5",
+    matches: isHeading(5),
+    apply: (chain) => chain.setNode("heading", { level: 5 }),
+  },
+  {
+    title: "Heading 6",
+    matches: isHeading(6),
+    apply: (chain) => chain.setNode("heading", { level: 6 }),
+  },
+  {
     title: "Quote",
     matches: (node) => node.type.name === "blockquote",
     apply: (chain) => chain.toggleBlockquote(),

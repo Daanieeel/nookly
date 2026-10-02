@@ -25,6 +25,9 @@ import {
   IconH1,
   IconH2,
   IconH3,
+  IconH4,
+  IconH5,
+  IconH6,
   IconList,
   IconListNumbers,
   IconLetterCase,
@@ -81,6 +84,30 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: <IconH3 size={15} />,
     run: (editor, range) =>
       editor.chain().focus().deleteRange(range).setNode("heading", { level: 3 }).run(),
+  },
+  {
+    title: "Heading 4",
+    group: "Text",
+    description: "Minor section heading",
+    icon: <IconH4 size={15} />,
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 4 }).run(),
+  },
+  {
+    title: "Heading 5",
+    group: "Text",
+    description: "Smaller section heading",
+    icon: <IconH5 size={15} />,
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 5 }).run(),
+  },
+  {
+    title: "Heading 6",
+    group: "Text",
+    description: "Smallest section heading",
+    icon: <IconH6 size={15} />,
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 6 }).run(),
   },
   {
     title: "Toggle heading",

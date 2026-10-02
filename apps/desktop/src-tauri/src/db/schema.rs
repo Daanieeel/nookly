@@ -114,6 +114,9 @@ pub const KNOWN_BLOCK_TYPES: &[&str] = &[
     "heading1",
     "heading2",
     "heading3",
+    "heading4",
+    "heading5",
+    "heading6",
     "quote",
     "code",
     "bulleted_list",
@@ -348,7 +351,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             .collect();
         let mut formats = serde_json::json!({
                 "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
-                "heading1/heading2/heading3": "The heading text, no leading '#'.",
+                "heading1 to heading6": "The heading text, no leading '#'.",
                 "quote": "The quote text, no leading '>'.",
                 "code": "The raw code. Set --language/--filename for the header row.",
                 "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
@@ -356,7 +359,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
         });
         let mut attrs = serde_json::Map::new();
         attrs.insert(
-            "heading1/heading2/heading3".into(),
+            "heading1 to heading6".into(),
             crate::db::block_types::describe_attr_defs(crate::db::block_types::declared_attrs("heading1")),
         );
         for block_def in &custom {

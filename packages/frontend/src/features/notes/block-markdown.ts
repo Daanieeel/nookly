@@ -133,7 +133,10 @@ export function blockToNode(block: Block): JSONNode {
   switch (block.blockType) {
     case "heading1":
     case "heading2":
-    case "heading3": {
+    case "heading3":
+    case "heading4":
+    case "heading5":
+    case "heading6": {
       const level = Number(block.blockType.slice(-1));
       return {
         type: "heading",
@@ -246,7 +249,10 @@ const HEADING_BLOCK_TYPES = {
   1: "heading1",
   2: "heading2",
   3: "heading3",
-} satisfies Record<1 | 2 | 3, BlockType>;
+  4: "heading4",
+  5: "heading5",
+  6: "heading6",
+} satisfies Record<1 | 2 | 3 | 4 | 5 | 6, BlockType>;
 
 /// The inverse of `blockToNode` (§ notes rewrite) — reads back one top-level
 /// editor node into what `updateBlock`/`createBlock` persist. Returns `null` for
@@ -260,7 +266,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return { blockId, blockType: "paragraph", content: encodeInline(node.content) };
     case "heading": {
       const level = asNumber(node.attrs?.level) ?? 1;
-      const blockType = HEADING_BLOCK_TYPES[level === 2 || level === 3 ? level : 1];
+      const blockType = HEADING_BLOCK_TYPES[level >= 2 && level <= 6 ? (level as 2 | 3 | 4 | 5 | 6) : 1];
       return {
         blockId,
         blockType,

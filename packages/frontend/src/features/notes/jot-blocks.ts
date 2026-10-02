@@ -6,14 +6,18 @@ export interface JotBlock {
   language: string | null;
 }
 
-const HEADING = /^(#{1,3})\s+(.*)$/;
+const HEADING = /^(#{1,6})\s+(.*)$/;
 const CHECK = /^[-*+]\s+\[([ xX])\]\s+(.*)$/;
 const BULLET = /^[-*+]\s+(.*)$/;
 const NUMBERED = /^\d+[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
 const FENCE = /^```\s*(\S*)/;
 
-const HEADING_TYPES: BlockType[] = ["heading1", "heading2", "heading3"];
+const HEADING_TYPES: BlockType[] = ["heading1", "heading2", "heading3",
+  "heading4",
+  "heading5",
+  "heading6",
+];
 
 /// Splits plain Jot text into the blocks the page editor stores, so markdown typed in
 /// the quick capture box opens as real headings, lists, quotes and code. Every other

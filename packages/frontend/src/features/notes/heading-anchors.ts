@@ -32,7 +32,7 @@ export function pageSections(doc: ProseMirrorNode): PageSection[] {
       id: headingAnchorId(blockId),
       label: text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1).trimEnd()}…` : text,
       // SAFETY: already checked `node.type.name === "heading"` above, whose
-      // schema (`BlockEditor`'s `heading: { levels: [1, 2, 3] }`) always sets
+      // schema (`BlockEditor`'s `heading: { levels: [1, 2, 3, 4, 5, 6] }`) always sets
       // a numeric `level` attr.
       level: (node.attrs.level as number | undefined) ?? 1,
     });
