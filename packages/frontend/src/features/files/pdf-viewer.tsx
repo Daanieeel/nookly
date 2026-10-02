@@ -9,7 +9,16 @@ import {
   IconZoomIn,
   IconZoomOut,
 } from "@tabler/icons-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { Document, Page, Thumbnail, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -44,6 +53,59 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// How far past the visible area a page still stays rendered. A long PDF drawn
+// all at once (canvas, text layer and annotations per page) is what made big
+// documents crawl, so only pages near the viewport are mounted.
+const RENDER_MARGIN = "1500px 0px";
+const THUMBNAIL_MARGIN = "600px 0px";
+const FALLBACK_PAGE_SIZE = { width: 612, height: 792 };
+
+interface PageSize {
+  width: number;
+  height: number;
+}
+
+/// Mounts `children` only while this box is within `margin` of the scroll area
+/// `rootRef` and leaves a box of `height` otherwise, so layout and scroll
+/// positions hold still while pages come and go.
+function LazyMount({
+  rootRef,
+  margin,
+  width,
+  minHeight,
+  children,
+}: {
+  rootRef: RefObject<HTMLElement | null>;
+  margin: string;
+  width: number;
+  minHeight: number;
+  children: ReactNode;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const observer = new IntersectionObserver(([entry]) => setNear(entry.isIntersecting), {
+      root: rootRef.current,
+      rootMargin: margin,
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [rootRef, margin]);
+  return (
+    <div
+      ref={boxRef}
+      // SAFETY: both custom properties only ever receive plain pixel lengths;
+      // `CSSProperties` just doesn't model custom properties.
+      style={{ "--lazy-width": `${width}px`, "--lazy-height": `${minHeight}px` } as CSSProperties}
+      className="min-h-(--lazy-height) w-(--lazy-width)"
+    >
+      {near ? children : null}
+    </div>
+  );
+}
+
 /// Our own PDF viewer, on top of `react-pdf` (pdf.js): a page-by-page zoom
 /// and a find-in-document search, with Nookly's own toolbar instead of
 /// WebKit's built-in PDF chrome. Also used for docx/pptx, which convert
@@ -58,11 +120,18 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeMatch, setActiveMatch] = useState(0);
-  const [matchCount, setMatchCount] = useState(0);
+  // Matches per page, counted from each page's extracted text so the search
+  // covers pages that aren't rendered right now.
+  const [pageMatches, setPageMatches] = useState<number[]>([]);
+  const matchCount = useMemo(() => pageMatches.reduce((a, b) => a + b, 0), [pageMatches]);
+  const [defaultSize, setDefaultSize] = useState<PageSize>(FALLBACK_PAGE_SIZE);
+  // Real sizes of the pages seen so far, so a placeholder matches its page.
+  const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
   const thumbnailRefs = useRef(new Map<number, HTMLDivElement>());
+  const thumbnailsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const clampScale = (next: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
@@ -164,30 +233,97 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
     thumbnailRefs.current.get(currentPage)?.scrollIntoView({ block: "nearest" });
   }, [currentPage, showThumbnails]);
 
-  // Search match count comes straight from the DOM marks `renderMatch` draws
-  // (see below), so the counter and the highlights can never disagree. A
-  // match split across two text runs isn't found — a known limitation of
-  // per-run highlighting, same as react-pdf's own documented approach.
-  const recount = useCallback(() => {
-    const marks = scrollRef.current?.querySelectorAll(".pdf-search-mark") ?? [];
-    setMatchCount(marks.length);
-  }, []);
+  const textCache = useRef(new Map<number, string[]>());
+  useEffect(() => {
+    textCache.current.clear();
+  }, [pdf]);
+
+  // Counts matches page by page. Extracted text is cached, so typing more of
+  // the query doesn't read the document again. Each count uses the same
+  // pattern `renderMatch` highlights with, per text run, so counter and marks agree.
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!pdf || !trimmed) {
+      setPageMatches([]);
+      return;
+    }
+    let cancelled = false;
+    const pattern = new RegExp(escapeRegExp(trimmed), "gi");
+    void (async () => {
+      const counts: number[] = [];
+      for (let n = 1; n <= pdf.numPages; n++) {
+        let items = textCache.current.get(n);
+        if (!items) {
+          const page = await pdf.getPage(n);
+          const content = await page.getTextContent();
+          if (cancelled) return;
+          items = content.items.map((item) => ("str" in item ? item.str : ""));
+          textCache.current.set(n, items);
+          page.cleanup();
+        }
+        counts.push(items.reduce((sum, str) => sum + (str.match(pattern)?.length ?? 0), 0));
+        if (n % 25 === 0) setPageMatches([...counts]);
+      }
+      if (!cancelled) setPageMatches(counts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdf, query]);
+
+  // 0: nothing to scroll to, 1: bring the active match's page into view,
+  // 2: page is coming in, scroll to the mark once its text layer is drawn.
+  const scrollStage = useRef<0 | 1 | 2>(0);
+  const activePage = useRef(0);
+  const [renderTick, setRenderTick] = useState(0);
 
   useEffect(() => {
     setActiveMatch(0);
-    const id = requestAnimationFrame(recount);
-    return () => cancelAnimationFrame(id);
-  }, [query, recount]);
+    scrollStage.current = 1;
+  }, [query]);
 
   useEffect(() => {
-    const marks = scrollRef.current?.querySelectorAll<HTMLElement>(".pdf-search-mark") ?? [];
-    marks.forEach((mark, i) => mark.classList.toggle("pdf-search-mark-active", i === activeMatch));
-    marks[activeMatch]?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [activeMatch, matchCount]);
+    const root = scrollRef.current;
+    if (!root) return;
+    for (const mark of root.querySelectorAll(".pdf-search-mark-active")) {
+      mark.classList.remove("pdf-search-mark-active");
+    }
+    let rest = activeMatch;
+    let page = 0;
+    let index = 0;
+    for (let i = 0; i < pageMatches.length; i++) {
+      if (rest < pageMatches[i]) {
+        page = i + 1;
+        index = rest;
+        break;
+      }
+      rest -= pageMatches[i];
+    }
+    activePage.current = page;
+    if (!page) return;
+    const wrapper = pageRefs.current.get(page);
+    const mark = wrapper?.querySelectorAll<HTMLElement>(".pdf-search-mark")[index];
+    mark?.classList.add("pdf-search-mark-active");
+    if (scrollStage.current === 0) return;
+    if (mark) {
+      mark.scrollIntoView({ block: "center", behavior: "smooth" });
+      scrollStage.current = 0;
+    } else if (scrollStage.current === 1) {
+      wrapper?.scrollIntoView({ block: "start" });
+      scrollStage.current = 2;
+    }
+  }, [activeMatch, pageMatches, renderTick]);
 
-  const nextMatch = () => matchCount > 0 && setActiveMatch((i) => (i + 1) % matchCount);
-  const prevMatch = () =>
-    matchCount > 0 && setActiveMatch((i) => (i - 1 + matchCount) % matchCount);
+  const onTextLayerRendered = (page: number) => {
+    if (page === activePage.current) setRenderTick((t) => t + 1);
+  };
+
+  const stepMatch = (delta: number) => {
+    scrollStage.current = 1;
+    setActiveMatch((i) => (i + delta + matchCount) % matchCount);
+  };
+  const nextMatch = () => matchCount > 0 && stepMatch(1);
+  const prevMatch = () => matchCount > 0 && stepMatch(-1);
 
   const openSearch = () => {
     setSearchOpen(true);
@@ -445,31 +581,45 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
 
       <div className="flex min-h-0 flex-1">
         {showThumbnails && (
-          <div className="w-32 shrink-0 space-y-3 overflow-y-auto border-r border-border p-2">
-            {pageNumbers.map((page) => (
-              <div
-                key={page}
-                ref={(el) => {
-                  if (el) thumbnailRefs.current.set(page, el);
-                  else thumbnailRefs.current.delete(page);
-                }}
-                className="flex flex-col items-center gap-1"
-              >
-                <Thumbnail
-                  pdf={pdf ?? undefined}
-                  pageNumber={page}
-                  width={96}
-                  onItemClick={() => goToPage(page)}
-                  className={cn(
-                    "block overflow-hidden rounded-md border-4",
-                    page === currentPage
-                      ? "border-primary"
-                      : "border-transparent hover:border-foreground/30",
-                  )}
-                />
-                <span className="text-xs text-muted-foreground">{page}</span>
-              </div>
-            ))}
+          <div
+            ref={thumbnailsRef}
+            className="w-32 shrink-0 space-y-3 overflow-y-auto border-r border-border p-2"
+          >
+            {pageNumbers.map((page) => {
+              const size = pageSizes[page] ?? defaultSize;
+              return (
+                <div
+                  key={page}
+                  ref={(el) => {
+                    if (el) thumbnailRefs.current.set(page, el);
+                    else thumbnailRefs.current.delete(page);
+                  }}
+                  className="flex flex-col items-center gap-1"
+                >
+                  <LazyMount
+                    rootRef={thumbnailsRef}
+                    margin={THUMBNAIL_MARGIN}
+                    // 96px wide thumbnail plus its 4px borders.
+                    width={104}
+                    minHeight={(size.height / size.width) * 96 + 8}
+                  >
+                    <Thumbnail
+                      pdf={pdf ?? undefined}
+                      pageNumber={page}
+                      width={96}
+                      onItemClick={() => goToPage(page)}
+                      className={cn(
+                        "block overflow-hidden rounded-md border-4",
+                        page === currentPage
+                          ? "border-primary"
+                          : "border-transparent hover:border-foreground/30",
+                      )}
+                    />
+                  </LazyMount>
+                  <span className="text-xs text-muted-foreground">{page}</span>
+                </div>
+              );
+            })}
           </div>
         )}
         <InvertibleDocument className="block min-w-0 flex-1">
@@ -486,6 +636,11 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                   onLoadSuccess={(doc) => {
                     setPdf(doc);
                     setNumPages(doc.numPages);
+                    setPageSizes({});
+                    void doc.getPage(1).then((first) => {
+                      const view = first.getViewport({ scale: 1 });
+                      setDefaultSize({ width: view.width, height: view.height });
+                    });
                   }}
                   // No <Suspense> boundary anywhere in this app; use the plain
                   // loading/error props instead of thrown promises.
@@ -500,24 +655,47 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                   // both sides.
                   className="mx-auto w-fit space-y-4"
                 >
-                  {pageNumbers.map((page) => (
-                    <div
-                      key={page}
-                      data-page={page}
-                      ref={(el) => {
-                        if (el) pageRefs.current.set(page, el);
-                        else pageRefs.current.delete(page);
-                      }}
-                      className={cn("shadow-sm", pageClass)}
-                    >
-                      <Page
-                        pageNumber={page}
-                        scale={renderScale}
-                        customTextRenderer={renderMatch}
-                        onRenderTextLayerSuccess={recount}
-                      />
-                    </div>
-                  ))}
+                  {pageNumbers.map((page) => {
+                    const size = pageSizes[page] ?? defaultSize;
+                    return (
+                      <div
+                        key={page}
+                        data-page={page}
+                        ref={(el) => {
+                          if (el) pageRefs.current.set(page, el);
+                          else pageRefs.current.delete(page);
+                        }}
+                        className={cn("shadow-sm", pageClass)}
+                      >
+                        <LazyMount
+                          rootRef={scrollRef}
+                          margin={RENDER_MARGIN}
+                          width={size.width * renderScale}
+                          minHeight={size.height * renderScale}
+                        >
+                          <Page
+                            pageNumber={page}
+                            scale={renderScale}
+                            customTextRenderer={renderMatch}
+                            onLoadSuccess={(loaded) =>
+                              setPageSizes((sizes) =>
+                                sizes[page]?.width === loaded.originalWidth
+                                  ? sizes
+                                  : {
+                                      ...sizes,
+                                      [page]: {
+                                        width: loaded.originalWidth,
+                                        height: loaded.originalHeight,
+                                      },
+                                    },
+                              )
+                            }
+                            onRenderTextLayerSuccess={() => onTextLayerRendered(page)}
+                          />
+                        </LazyMount>
+                      </div>
+                    );
+                  })}
                 </Document>
               </div>
             </div>
