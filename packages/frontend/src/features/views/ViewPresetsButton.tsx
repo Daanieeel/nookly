@@ -97,8 +97,8 @@ export function ViewPresetsButton<D>({
               Ready made views. Adding one saves it to this Space, where you can change it freely.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid min-h-80 grid-cols-[13rem_minmax(0,1fr)] overflow-hidden rounded-lg border border-border">
-            <ul className="flex flex-col gap-0.5 border-r border-border p-2">
+          <div className="grid h-[30rem] grid-cols-[13rem_minmax(0,1fr)] overflow-hidden">
+            <ul className="flex flex-col gap-0.5 overflow-y-auto p-2">
               {presets.map((p, i) => (
                 <li key={p.name}>
                   <button
@@ -164,20 +164,20 @@ function PresetPreview<D>({
   summary: DisplaySummary;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-4 p-4">
+    <div className="flex min-w-0 flex-col gap-4 overflow-y-auto p-4">
       <div className="flex items-start gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-accent">
           {renderIconValue(iconLibraryValue(preset.icon, preset.color), 18)}
         </span>
         <div className="min-w-0">
           <h3 className="text-sm font-medium">{preset.name}</h3>
-          <p className="text-sm text-muted-foreground">{preset.description}</p>
+          <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">{preset.description}</p>
         </div>
       </div>
 
       <section className="flex flex-col gap-1.5">
         <h4 className="text-xs font-medium text-muted-foreground">Filters</h4>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex min-h-14 flex-wrap content-start gap-1.5">
           {preset.filters.map((f) => {
             const field = fields.find((x) => x.id === f.fieldId);
             const names = f.values.map(
@@ -202,7 +202,7 @@ function PresetPreview<D>({
 
       <section className="flex flex-col gap-1.5">
         <h4 className="text-xs font-medium text-muted-foreground">Layout</h4>
-        <p className="text-sm">
+        <p className="min-h-10 text-sm">
           {summary.layout === "board" ? "Board" : "List"}
           {summary.grouping ? `, grouped by ${summary.grouping.toLowerCase()}` : ", no grouping"}
           {`, ordered by ${summary.ordering.toLowerCase()}`}
@@ -220,7 +220,7 @@ const BAR = "h-1.5 rounded-full bg-foreground/15";
 function LayoutSketch({ summary }: { summary: DisplaySummary }) {
   if (summary.layout === "board") {
     return (
-      <div aria-hidden className="flex gap-2 rounded-lg border border-border bg-foreground/3 p-2">
+      <div aria-hidden className="flex h-44 gap-2 overflow-hidden rounded-lg border border-border bg-foreground/3 p-2">
         {[3, 2, 1].map((cards, col) => (
           <div key={col} className="flex flex-1 flex-col gap-1.5">
             <div className={cn(BAR, "w-1/2 bg-foreground/30")} />
@@ -237,7 +237,10 @@ function LayoutSketch({ summary }: { summary: DisplaySummary }) {
   }
   const groups = summary.grouping ? [2, 2] : [4];
   return (
-    <div aria-hidden className="flex flex-col rounded-lg border border-border bg-foreground/3">
+    <div
+      aria-hidden
+      className="flex h-44 flex-col overflow-hidden rounded-lg border border-border bg-foreground/3"
+    >
       {groups.map((rows, g) => (
         <div key={g}>
           {summary.grouping && (
