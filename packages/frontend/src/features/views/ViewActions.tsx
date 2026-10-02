@@ -9,78 +9,101 @@ import { Button } from "@nookly/ui/components/button";
 import { ViewDialog } from "./ViewDialog";
 import { serializeViewConfig } from "./view-config";
 
-/// Linear's view controls, beside the filter menu: on a View with edits, Discard and
-/// Save; on the plain page with filters applied, Save as view.
+/// The View controls in the page header, beside the filter menu: on the plain page
+/// with filters applied, Save as view. Edits to a saved View
+/// are saved from `ViewSaveBar`.
 export function ViewActions<D>({
   spaceId,
   module,
   view,
-  dirty,
-  save,
-  onDiscard,
   filters,
   display,
 }: {
   spaceId: string;
   module: ViewModule;
   view: SavedView | undefined;
-  dirty: boolean;
-  save: UseMutationResult<SavedView, Error, void>;
-  onDiscard: () => void;
   filters: ActiveFilter[];
   display: D;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const status = useActionStatus(save);
-
-  if (view) {
-    if (!dirty && status === "idle") return null;
-    return (
-      <div className="flex shrink-0 items-center gap-1">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => !save.isPending && save.mutate()}
-          disabled={!dirty && status === "idle"}
-        >
-          <StatusButtonContent
-            status={status}
-            label="Save view"
-            successLabel="Saved"
-            errorLabel="Couldn't save"
-          />
-        </Button>
-        {dirty && (
-          <Button variant="ghost" size="sm" onClick={onDiscard}>
-            Discard
-          </Button>
-        )}
-      </div>
-    );
-  }
-
-  if (filters.length === 0) return null;
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="shrink-0 gap-1.5"
-        onClick={() => setDialogOpen(true)}
-      >
-        <IconStack2 />
-        Save as view
-      </Button>
-      <ViewDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        spaceId={spaceId}
-        module={module}
-        config={serializeViewConfig(filters, display)}
-        onSaved={(created) =>
-          useNavStore.getState().setView({ kind: "module", spaceId, module, viewId: created.id })
-        }
-      />
+      {!view && filters.length > 0 && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 gap-1.5"
+            onClick={() => setDialogOpen(true)}
+          >
+            <IconStack2 />
+            Save as view
+          </Button>
+          <ViewDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            spaceId={spaceId}
+            module={module}
+            config={serializeViewConfig(filters, display)}
+            onSaved={(created) =>
+              useNavStore
+                .getState()
+                .setView({ kind: "module", spaceId, module, viewId: created.id })
+            }
+          />
+        </>
+      )}
     </>
+  );
+}
+
+/// A bar floating at the bottom of the page while a saved View has unsaved edits,
+/// with Discard and Save. It lingers briefly after saving to confirm. Place it in a
+/// `relative` page container.
+export function ViewSaveBar({
+  view,
+  dirty,
+  save,
+  onDiscard,
+}: {
+  view: SavedView | undefined;
+  dirty: boolean;
+  save: UseMutationResult<SavedView, Error, void>;
+  onDiscard: () => void;
+}) {
+  const status = useActionStatus(save);
+  if (!view || (!dirty && status === "idle")) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
+      <div
+        role="region"
+        aria-label="Unsaved view changes"
+        className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border bg-popover py-1.5 pr-1.5 pl-3 shadow-lg"
+      >
+        <span className="text-sm text-muted-foreground">
+          {dirty ? "Unsaved changes to this view" : "View saved"}
+        </span>
+        <div className="flex items-center gap-1">
+          {dirty && (
+            <Button variant="ghost" size="sm" onClick={onDiscard}>
+              Discard
+            </Button>
+          )}
+          <Button
+            variant="positive"
+            size="sm"
+            onClick={() => !save.isPending && save.mutate()}
+            disabled={!dirty && status === "idle"}
+          >
+            <StatusButtonContent
+              status={status}
+              label="Save view"
+              successLabel="Saved"
+              errorLabel="Couldn't save"
+            />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

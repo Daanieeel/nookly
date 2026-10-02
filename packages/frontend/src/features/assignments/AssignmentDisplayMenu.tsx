@@ -46,7 +46,7 @@ export function AssignmentDisplayMenu({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1.5">
+        <Button variant="secondary" size="sm" className="gap-1.5">
           <IconAdjustmentsHorizontal />
           Display
         </Button>

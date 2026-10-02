@@ -18,7 +18,8 @@ import {
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
-import { ViewActions } from "#/features/views/ViewActions.tsx";
+import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityPickerPopover, EntityPickerValue } from "#/components/entity-picker.tsx";
@@ -68,6 +69,8 @@ import {
   readDisplay,
   statusKindOf,
   writeDisplay,
+  ASSIGNMENT_VIEW_PRESETS,
+  describeDisplay,
 } from "./assignment-model";
 import {
   AssignmentCard,
@@ -225,43 +228,51 @@ export function AssignmentsListView({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col"
+      className="relative flex h-full min-h-0 flex-col"
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Assignment",
         create: startCreate,
       })}
     >
-      <header className="flex shrink-0 flex-col gap-1 border-b border-border py-2 pr-2 pl-4">
-        <h1
-          className="flex h-8 items-center gap-2 text-sm font-medium"
-          {...(view && entityTarget(view.entity))}
-        >
-          {view ? (
-            <ViewIconButton entity={view.entity} />
-          ) : (
-            <IconClipboardCheck size={16} className="text-muted-foreground" />
-          )}
-          {view ? <EditableViewTitle entity={view.entity} /> : "Assignments"}
-        </h1>
+      <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
         <div className="flex min-w-0 items-center gap-1">
-          <div className="min-w-0 flex-1">
-            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
-          </div>
+          <h1
+            className="flex h-8 items-center gap-2 text-sm font-medium"
+            {...(view && entityTarget(view.entity))}
+          >
+            {view ? (
+              <ViewIconButton entity={view.entity} />
+            ) : (
+              <IconClipboardCheck size={16} className="text-muted-foreground" />
+            )}
+            {view ? <EditableViewTitle entity={view.entity} /> : "Assignments"}
+          </h1>
+          <div className="flex-1" />
+          <ViewPresetsButton
+            spaceId={spaceId}
+            module="assignments"
+            presets={ASSIGNMENT_VIEW_PRESETS}
+            fields={filterFields}
+            describeDisplay={describeDisplay}
+          />
+          <FilterMenu
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            part="button"
+          />
           <ViewActions
             spaceId={spaceId}
             module="assignments"
             view={view}
-            dirty={dirty}
-            save={save}
-            onDiscard={discard}
             filters={filters}
             display={display}
           />
           <AssignmentDisplayMenu display={display} onChange={setDisplay} columns={groups} />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+              <Button variant="default" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New assignment
               </Button>
@@ -271,7 +282,14 @@ export function AssignmentsListView({
             </TooltipContent>
           </Tooltip>
         </div>
+        <FilterMenu
+          fields={filterFields}
+          filters={filters}
+          onFiltersChange={setFilters}
+          part="chips"
+        />
       </header>
+      <ViewSaveBar view={view} dirty={dirty} save={save} onDiscard={discard} />
 
       {!isPending && assignments.length === 0 ? (
         <div className="p-6">

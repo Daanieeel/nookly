@@ -26,6 +26,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
 import type { StatusKind } from "#/features/tasks/task-model.ts";
+import { type DisplaySummary, type ViewPreset, is } from "#/features/views/view-presets.ts";
 
 /// Pure view logic for the Assignments page: statuses, date buckets, ordering and
 /// the remembered display options. Nothing here touches the backend.
@@ -267,4 +268,43 @@ export function orderAssignments(
     grade: (a, b) => (b.grade ?? -1) - (a.grade ?? -1) || byDue(a, b),
   } satisfies Record<Ordering, (a: Assignment, b: Assignment) => number>;
   return [...assignments].sort(compare[ordering]);
+}
+
+// View presets
+
+export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
+  {
+    name: "Open",
+    icon: "ClipboardList",
+    color: "#3b82f6",
+    description: "Overdue, due today and due up to next week, as a board by status.",
+    filters: [is("due", "overdue", "today", "week", "next")],
+    display: normalizeDisplay({ layout: "board", grouping: "status" }),
+  },
+  {
+    name: "Submitted",
+    icon: "Rocket",
+    color: "#a855f7",
+    description: "Handed in and waiting for a grade.",
+    filters: [is("status", "submitted")],
+    display: normalizeDisplay({ layout: "list", grouping: "none" }),
+  },
+  {
+    name: "Graded",
+    icon: "Star",
+    color: "#22c55e",
+    description: "Graded assignments as a board, one column per course.",
+    filters: [is("status", "graded")],
+    display: normalizeDisplay({ layout: "board", grouping: "course" }),
+  },
+];
+
+export function describeDisplay(display: DisplayOptions): DisplaySummary {
+  const label = (items: { id: string; label: string }[], id: string) =>
+    items.find((i) => i.id === id)?.label ?? id;
+  return {
+    layout: display.layout,
+    grouping: display.grouping === "none" ? null : label(GROUPINGS, display.grouping),
+    ordering: label(ORDERINGS, display.ordering),
+  };
 }
