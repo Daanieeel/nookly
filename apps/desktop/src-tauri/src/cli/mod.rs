@@ -10,7 +10,7 @@
 //!
 //! Design points an agent calling this CLI should know (see `--help`):
 //! - JSON on stdout always. Pretty-printed on a TTY, compact when piped.
-//! - Non-interactive: mutating commands take `--yes` instead of prompting.
+//! - Non-interactive: destructive commands take `--yes` instead of prompting.
 //! - Errors are JSON on stderr, `{"error": {"kind": ..., "message": ...}}`,
 //!   with a non-zero exit code.
 //! - Every entity type is discoverable at runtime: `nookly cli schema` dumps
@@ -318,7 +318,7 @@ impl Args {
 /// changes only; a `file create` from `localPath` still copies the file on disk.
 fn dispatch(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     if !argv.iter().any(|a| a == "--dry-run") {
-        return dispatch_command(conn, argv);
+        return dispatch_atomic(conn, argv);
     }
     conn.execute_batch("SAVEPOINT cli_dry_run")?;
     let result = dispatch_command(conn, argv);
@@ -328,6 +328,23 @@ fn dispatch(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
         "note": "nothing was written; rerun without --dry-run (and with --yes where required) to apply",
         "result": result?,
     }))
+}
+
+/// A command that fails for any reason, including flag validation that only runs
+/// after the command body (see `run_command`), must leave nothing behind, so a
+/// retry can never create a duplicate.
+fn dispatch_atomic(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
+    conn.execute_batch("SAVEPOINT cli_command")?;
+    match dispatch_command(conn, argv) {
+        Ok(value) => {
+            conn.execute_batch("RELEASE cli_command")?;
+            Ok(value)
+        }
+        Err(err) => {
+            conn.execute_batch("ROLLBACK TO cli_command; RELEASE cli_command")?;
+            Err(err)
+        }
+    }
 }
 
 fn dispatch_command(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
@@ -389,7 +406,7 @@ fn top_level_help() -> Value {
     let entity_types: Vec<&'static str> = schema::all().iter().map(|d| d.entity_type).collect();
     json!({
         "usage": "nookly cli <command> [args] [--flags]",
-        "note": "Every mutating command is non-interactive; pass --yes instead of confirming a prompt. \
+        "note": "Every command is non-interactive. Only destructive verbs (delete, relate, unrelate and similar) take --yes; create, update and the rest reject it. \
                  Output is JSON on stdout always (pretty when attached to a TTY, compact when piped); \
                  errors are JSON on stderr with a non-zero exit code.",
         "discovery": "Run `nookly cli schema` first, it dumps every entity type's fields and every \
@@ -483,8 +500,11 @@ entity type. That means:
 
 - Every command's output is JSON on stdout, always (pretty-printed on a TTY, compact when
   piped). Parse it, don't scrape it.
-- Every mutating command is non-interactive: pass `--yes` instead of expecting a confirmation
-  prompt (you'll get an error telling you to add it if you forget).
+- Every command is non-interactive and never prompts. Only destructive verbs (`delete`, `delete-block`,
+  `delete-<singular>`, `relate`, `unrelate`, `space delete`, `label delete`) take `--yes`, and
+  you'll get an error telling you to add it if you forget. `create`, `update`, `label attach` and
+  the rest reject it as an unknown flag. A command that fails writes nothing, so it is
+  safe to fix the call and retry.
 - Errors are JSON on stderr, `{"error": {"kind": ..., "message": ...}}`, with a non-zero exit
   code. The `message` is usually specific enough to fix the call and retry. The `kind` is one of
   `NotFound`, `UnknownRelationshipType`, `CardinalityViolation`, `InvalidInput`, `Conflict`,
@@ -1982,6 +2002,23 @@ mod tests {
 
     fn run(conn: &Connection, line: &str) -> AppResult<Value> {
         dispatch(conn, line.split_whitespace().map(str::to_string).collect())
+    }
+
+    #[test]
+    fn command_failing_flag_validation_writes_nothing() {
+        let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+        let conn = crate::db::connect(&dir).unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Inbox".into(), None, "#000".into()).unwrap();
+        let err = run(
+            &conn,
+            &format!("task create --space {} --title Dup --yes", space.id),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("unknown flag"), "{err}");
+        let listed = run(&conn, &format!("task list --space {}", space.id)).unwrap();
+        assert_eq!(listed["count"], 0);
     }
 
     #[test]
