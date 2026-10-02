@@ -45,7 +45,7 @@ export function TaskDisplayMenu({
 
   return (
     <Popover>
-<PopoverTrigger asChild>
+      <PopoverTrigger asChild>
         <Button variant="secondary" size="sm" className="gap-1.5">
           <IconAdjustmentsHorizontal />
           Display

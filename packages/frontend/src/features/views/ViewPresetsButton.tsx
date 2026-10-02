@@ -76,12 +76,7 @@ export function ViewPresetsButton<D>({
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="shrink-0 gap-1.5"
-        onClick={() => setOpen(true)}
-      >
+      <Button variant="ghost" size="sm" className="shrink-0 gap-1.5" onClick={() => setOpen(true)}>
         <IconLayoutList />
         View presets
       </Button>
@@ -93,7 +88,7 @@ export function ViewPresetsButton<D>({
               Ready made views. Adding one saves it to this Space, where you can change it freely.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid h-[30rem] auto-rows-min grid-cols-1 content-start gap-3 overflow-y-auto sm:grid-cols-2">
+          <div className="grid h-120 auto-rows-min grid-cols-1 content-start gap-3 overflow-y-auto sm:grid-cols-2">
             {presets.map((p) => {
               const found = existing(p);
               return (
@@ -196,7 +191,10 @@ const BAR = "h-1.5 rounded-full bg-foreground/15";
 function LayoutSketch({ summary }: { summary: DisplaySummary }) {
   if (summary.layout === "board") {
     return (
-      <div aria-hidden className="flex h-24 gap-2 overflow-hidden rounded-lg border border-border bg-foreground/3 p-2">
+      <div
+        aria-hidden
+        className="flex h-24 gap-2 overflow-hidden rounded-lg border border-border bg-foreground/3 p-2"
+      >
         {[3, 2, 1].map((cards, col) => (
           <div key={col} className="flex flex-1 flex-col gap-1.5">
             <div className={cn(BAR, "w-1/2 bg-foreground/30")} />
