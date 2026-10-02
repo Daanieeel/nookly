@@ -114,7 +114,9 @@ const HEADING_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
 /// The attrs `block_type` accepts: a custom block's own, the heading attrs, or none.
 pub fn declared_attrs(block_type: &str) -> &'static [BlockAttrDef] {
     match block_type {
-        "heading1" | "heading2" | "heading3" | "heading4" | "heading5" | "heading6" => HEADING_ATTRS,
+        "heading1" | "heading2" | "heading3" | "heading4" | "heading5" | "heading6" => {
+            HEADING_ATTRS
+        }
         _ => lookup(block_type).map_or(&[], |def| def.attrs),
     }
 }

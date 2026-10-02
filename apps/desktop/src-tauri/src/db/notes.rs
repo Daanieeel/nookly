@@ -835,6 +835,71 @@ fn cli_list_jots(
     cli_list_pages("jot")(conn, space_id, include_deleted)
 }
 
+/// Refines Jot `jot_id` into a new Note in the Jot's Space and links the two with
+/// `relates-to`, the same rule as the app's Refine button: the Note starts empty
+/// and titled like the Jot unless `title` is given, and the Jot is left untouched.
+/// A Jot written for a Session hands the Note to that Session too, unless it
+/// already has one. Returns the new Note. The caller wraps it in a transaction.
+pub fn refine_jot(conn: &Connection, jot_id: &str, title: Option<&str>) -> AppResult<Entity> {
+    let jot = crate::db::entities::get_entity(conn, jot_id)?;
+    if jot.entity_type != "jot" || jot.deleted_at.is_some() {
+        return Err(AppError::InvalidInput(format!(
+            "{jot_id} is not a live jot, refine only applies to jots"
+        )));
+    }
+    let title = title.map(str::trim).filter(|t| !t.is_empty());
+    let note = create_page(
+        conn,
+        jot.space_id.clone(),
+        "note",
+        title.unwrap_or(&jot.title).to_string(),
+    )?;
+    crate::db::relationships::create_relationship(
+        conn,
+        jot.id.clone(),
+        note.id.clone(),
+        "relates-to".into(),
+        None,
+        None,
+    )?;
+    let session_id: Option<String> = conn
+        .query_row(
+            "SELECT r.from_entity_id FROM relationships r
+             WHERE r.to_entity_id = ?1 AND r.relationship_type = 'session-jot'",
+            params![jot.id],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(session_id) = session_id {
+        crate::db::sessions::link_session_page(conn, &session_id, "note", &note.id)?;
+    }
+    Ok(note)
+}
+
+fn cli_refine_jot(
+    conn: &Connection,
+    id: &str,
+    title: Option<&str>,
+    _fields: &JsonMap,
+) -> AppResult<serde_json::Value> {
+    let note = refine_jot(conn, id, title)?;
+    Ok(serde_json::json!({
+        "note": cli_get_page(conn, &note.id)?,
+        "refinedFrom": id,
+        "relationshipType": "relates-to",
+    }))
+}
+
+inventory::submit! {
+    crate::db::schema::EntityActionDef {
+        entity_type: "jot",
+        name: "refine",
+        description: "Creates a new `note` in the jot's Space (titled like the jot unless --title is given) and links the jot to it with `relates-to`, in one step. The jot is not changed.",
+        fields: &[],
+        run: cli_refine_jot,
+    }
+}
+
 inventory::submit! {
     EntitySchemaDef {
         entity_type: "note",
@@ -866,6 +931,49 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn refine_jot_creates_linked_note_and_leaves_jot_alone() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let jot = create_page(&conn, space.id.clone(), "jot", "Raw idea".into()).unwrap();
+        create_block(
+            &conn,
+            &jot.id,
+            "paragraph".into(),
+            "keep me".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let note = refine_jot(&conn, &jot.id, Some("Clean idea")).unwrap();
+        assert_eq!(
+            (note.entity_type.as_str(), note.title.as_str()),
+            ("note", "Clean idea")
+        );
+        assert_eq!(note.space_id, space.id);
+        let link: (String, String, String) = conn
+            .query_row(
+                "SELECT from_entity_id, to_entity_id, relationship_type FROM relationships",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(link, (jot.id.clone(), note.id.clone(), "relates-to".into()));
+        assert_eq!(count_unrefined_jots(&conn, &space.id).unwrap(), 0);
+        let after = crate::db::entities::get_entity(&conn, &jot.id).unwrap();
+        assert_eq!((after.title, after.updated_at), (jot.title, jot.updated_at));
+        assert_eq!(list_blocks(&conn, &jot.id).unwrap().len(), 1);
+        // Default title, and a non jot is refused.
+        let again = refine_jot(&conn, &jot.id, None).unwrap();
+        assert_eq!(again.title, "Raw idea");
+        assert!(refine_jot(&conn, &note.id, None).is_err());
+    }
 
     #[test]
     fn note_summaries_carry_preview_recency_and_labels() {

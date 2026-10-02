@@ -538,6 +538,20 @@ letter type prefix and a number. Anywhere a command takes an entity id (includin
 `label attach`, block commands and entity reference `--field` values) you can pass the key
 instead. `search` matches keys too. Space, label, block and relationship ids have no key.
 
+### Entity actions
+
+Some entity types expose a verb that targets one entity and does several writes as one
+all or nothing step, listed under `entityActions` in `describe`:
+
+```
+nookly cli <entity-type> <action-name> <id> [--title <title>]
+```
+
+`nookly cli jot refine <jot-id> [--title <title>]` creates a new `note` in the jot's Space
+(titled like the jot unless `--title` is given), links the jot to it with `relates-to` and
+leaves the jot untouched. Use it instead of chaining `note create` and `relate`. The note
+starts empty, so fill it with `note add-block`.
+
 ### Bulk actions
 
 Some entity types also expose a bulk action: a verb that runs once across every entity of
@@ -1046,6 +1060,17 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             block_command(conn, def, verb, args)
         }
         other => {
+            if let Some(action) = schema::entity_actions(entity_type)
+                .into_iter()
+                .find(|a| a.name == other)
+            {
+                let id = args.require_entity(conn, 0, "id")?;
+                validate_child_fields(action.name, action.fields, &args.fields, true)?;
+                let title = args.flag("title");
+                return atomically(conn, || {
+                    (action.run)(conn, &id, title.as_deref(), &args.fields)
+                });
+            }
             if let Some(bulk) = schema::bulk_actions(entity_type)
                 .into_iter()
                 .find(|a| a.name == other)
@@ -1072,11 +1097,19 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                 .iter()
                 .map(|a| a.name)
                 .collect();
-            let extra = [child_verbs.join(", "), bulk_verbs.join(", ")]
-                .into_iter()
-                .filter(|s| !s.is_empty())
-                .map(|s| format!(", {s}"))
-                .collect::<String>();
+            let action_verbs: Vec<&str> = schema::entity_actions(entity_type)
+                .iter()
+                .map(|a| a.name)
+                .collect();
+            let extra = [
+                child_verbs.join(", "),
+                bulk_verbs.join(", "),
+                action_verbs.join(", "),
+            ]
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| format!(", {s}"))
+            .collect::<String>();
             Err(AppError::InvalidInput(format!(
                 "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
                  update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, \
@@ -2137,6 +2170,43 @@ mod tests {
         // The reverse lookup: every entity carrying a label.
         let reverse = run(&conn, &format!("label get {}", huk.id)).unwrap();
         assert_eq!(reverse["count"], 2);
+
+        drop(conn);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn jot_refine_entity_action_is_listed_and_dispatches() {
+        let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+        let conn = crate::db::connect(&dir).unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let described = run(&conn, "describe jot").unwrap();
+        assert!(described["entityActions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["name"] == "refine"));
+
+        let jot =
+            crate::db::notes::create_page(&conn, space.id.clone(), "jot", "Raw".into()).unwrap();
+        let refined = run(&conn, &format!("jot refine {} --title Clean", jot.id)).unwrap();
+        assert_eq!(refined["relationshipType"], "relates-to");
+        assert_eq!(refined["note"]["entity"]["title"], "Clean");
+        let note_id = refined["note"]["entity"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let links: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM relationships WHERE from_entity_id = ?1 AND to_entity_id = ?2 AND relationship_type = 'relates-to'",
+                [&jot.id, &note_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(links, 1);
+        // A note is not refinable, and nothing is left behind by the failure.
+        assert!(run(&conn, &format!("jot refine {note_id}")).is_err());
 
         drop(conn);
         let _ = std::fs::remove_dir_all(dir);
