@@ -14,6 +14,8 @@ export const HOTKEYS = {
   toggleDetailSidebar: "Mod+Shift+S",
   back: "Mod+[",
   forward: "Mod+]",
+  backArrow: "Mod+ArrowLeft",
+  forwardArrow: "Mod+ArrowRight",
   create: "C",
   newItem: "Mod+N",
   nextTask: "J",

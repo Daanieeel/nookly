@@ -49,6 +49,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 
@@ -405,14 +406,40 @@ function Breadcrumbs() {
   }
 }
 
+function isTyping() {
+  const el = document.activeElement;
+  return (
+    el instanceof HTMLElement && (el.isContentEditable || el.matches("input, textarea, select"))
+  );
+}
+
 /// Browser style Back and Forward through the views visited this session. Also on
-/// Cmd+[ and Cmd+], and the mouse's side buttons.
+/// Cmd+[ and Cmd+] (or Cmd+Left and Cmd+Right outside text fields), and the mouse's side buttons.
 function HistoryButtons() {
   const canGoBack = useNavStore((s) => s.backStack.length > 0);
   const canGoForward = useNavStore((s) => s.forwardStack.length > 0);
 
   useAppHotkey(HOTKEYS.back, () => useNavStore.getState().goBack());
   useAppHotkey(HOTKEYS.forward, () => useNavStore.getState().goForward());
+  // Cmd+Arrow moves the caret to the line edge while typing, so it only navigates outside text fields.
+  useHotkey(
+    HOTKEYS.backArrow,
+    (event) => {
+      if (isTyping()) return;
+      event.preventDefault();
+      useNavStore.getState().goBack();
+    },
+    { preventDefault: false, stopPropagation: false },
+  );
+  useHotkey(
+    HOTKEYS.forwardArrow,
+    (event) => {
+      if (isTyping()) return;
+      event.preventDefault();
+      useNavStore.getState().goForward();
+    },
+    { preventDefault: false, stopPropagation: false },
+  );
 
   useEffect(() => {
     const { goBack, goForward } = useNavStore.getState();
