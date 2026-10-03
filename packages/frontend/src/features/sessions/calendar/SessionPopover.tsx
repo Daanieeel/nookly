@@ -65,6 +65,7 @@ import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
 /// Which occurrences an edit reaches, as in any calendar. A series edit never
@@ -223,7 +224,13 @@ export function SessionSummary({
           )}
         </div>
         {occurrence.cancelled && <Badge variant="secondary">Cancelled</Badge>}
-        <div className="-mt-1 -mr-1 flex shrink-0 items-center">
+        <div
+          className={cn(
+            "-mt-1 -mr-1 flex shrink-0 items-center",
+            // Smaller buttons in the Session page's narrow sidebar.
+            !showTitle && "[&_button]:size-6 [&_svg]:size-3.5",
+          )}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
