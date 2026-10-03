@@ -1,3 +1,4 @@
+import { IconBook2, IconChevronDown } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse } from "date-fns";
@@ -248,11 +249,13 @@ export function QuickCreateSessionDialog({
                         data-field-control
                         className="h-8 justify-start px-3 font-normal"
                       >
+                        <IconBook2 className="text-muted-foreground" />
                         <span
                           className={cn("truncate", !field.state.value && "text-muted-foreground")}
                         >
                           {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
                         </span>
+                        <IconChevronDown className="ml-auto text-muted-foreground" />
                       </Button>
                     }
                     onSelect={field.handleChange}
