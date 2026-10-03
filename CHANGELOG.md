@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.15.1 (2026-10-03)
+
+### Changed
+
+- Save filters and display as page default from the floating bar
+
 ## 0.15.0 (2026-10-03)
 
 ### Changed
