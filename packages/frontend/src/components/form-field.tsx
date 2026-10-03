@@ -18,6 +18,15 @@ export function fieldMessage(field: AnyFieldApi): string | undefined {
   return first.success ? first.data : undefined;
 }
 
+/// True while any touched field shows an error. A form's submit button is disabled only
+/// then, so a form that looks valid never has a disabled button:
+/// `<form.Subscribe selector={hasVisibleErrors}>{(blocked) => <Button disabled={blocked} />}</form.Subscribe>`.
+export function hasVisibleErrors(state: {
+  fieldMeta: Record<string, { isTouched: boolean; errors: unknown[] }>;
+}): boolean {
+  return Object.values(state.fieldMeta).some((meta) => meta.isTouched && meta.errors.length > 0);
+}
+
 /// A form control with a small label above it and its error below. Pass the field's
 /// `error` (see `fieldMessage`) to outline the control in red and say what is missing. Custom triggers opt in with `data-field-control`.
 export function FormField({
