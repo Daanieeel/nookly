@@ -12,7 +12,6 @@ import {
 import { DateInput } from "#/components/date-input.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Checkbox } from "@nookly/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +20,13 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { TimeInput } from "#/components/time-input.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nookly/ui/components/select";
 import { Input } from "@nookly/ui/components/input";
 import { Label } from "@nookly/ui/components/label";
 import {
@@ -33,6 +39,8 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
 import { qk } from "#/lib/query-keys.ts";
 
+const MAX_REPEAT_WEEKS = 52;
+
 const sessionSchema = z
   .object({
     title: z.string().trim().min(1),
@@ -41,7 +49,7 @@ const sessionSchema = z
     startTime: z.string().min(1),
     endTime: z.string().min(1),
     location: z.string(),
-    repeatWeekly: z.boolean(),
+    repeatWeeks: z.number().int().min(1).max(MAX_REPEAT_WEEKS),
   })
   .refine((v) => !v.startTime || !v.endTime || v.startTime < v.endTime, {
     path: ["endTime"],
@@ -57,7 +65,7 @@ const emptyValues: SessionValues = {
   startTime: "09:00",
   endTime: "10:00",
   location: "",
-  repeatWeekly: false,
+  repeatWeeks: 1,
 };
 
 /// Opens on the range picked on the calendar: the title and Course come first,
@@ -104,12 +112,12 @@ export function QuickCreateSessionDialog({
       startTime,
       endTime,
       location,
-      repeatWeekly,
+      repeatWeeks,
     }: SessionValues) => {
       if (!draft || !course) throw new Error("Pick a course first");
       const day = parse(date, "yyyy-MM-dd", new Date());
       const place = location.trim() || null;
-      if (repeatWeekly) {
+      if (repeatWeeks > 1) {
         const template = await createSessionTemplate(
           spaceId,
           title.trim(),
@@ -122,7 +130,7 @@ export function QuickCreateSessionDialog({
         );
         const occurrences = await generateOccurrences(
           template.id,
-          format(addWeeks(day, 16), "yyyy-MM-dd"),
+          format(addWeeks(day, repeatWeeks), "yyyy-MM-dd"),
         );
         return occurrences.map((o) => o.entity.id);
       }
@@ -243,17 +251,28 @@ export function QuickCreateSessionDialog({
               <FieldError message={endError?.message || (create.isError && create.error.message)} />
             )}
           </form.Subscribe>
-          <form.Field name="repeatWeekly">
+          <form.Field name="repeatWeeks">
             {(field) => (
               <div className="flex items-center gap-2">
-                <Checkbox
-                  id="session-repeat-weekly"
-                  checked={field.state.value}
-                  onCheckedChange={(v) => field.handleChange(v === true)}
-                />
-                <Label htmlFor="session-repeat-weekly" className="font-normal">
-                  Repeat weekly (16 weeks)
+                <Label htmlFor="session-repeat-weeks" className="font-normal">
+                  Repeat weekly
                 </Label>
+                <Select
+                  value={String(field.state.value)}
+                  onValueChange={(v) => field.handleChange(Number(v))}
+                >
+                  <SelectTrigger id="session-repeat-weeks" size="sm" className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Does not repeat</SelectItem>
+                    {Array.from({ length: MAX_REPEAT_WEEKS - 1 }, (_, i) => i + 2).map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n} weeks
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </form.Field>
