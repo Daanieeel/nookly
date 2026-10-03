@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addMonths, addWeeks, format, parse } from "date-fns";
+import { addDays, addMonths, addWeeks, addYears, format, parse } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 import {
@@ -12,7 +12,6 @@ import {
 import { DateInput } from "#/components/date-input.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Checkbox } from "@nookly/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -41,10 +40,39 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
 import { qk } from "#/lib/query-keys.ts";
 
-const REPEAT_UNITS = {
-  weeks: { max: 52, advance: addWeeks },
-  months: { max: 12, advance: addMonths },
+const CADENCES = {
+  none: "Does not repeat",
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
 };
+const DURATION_UNITS = {
+  days: addDays,
+  weeks: addWeeks,
+  months: addMonths,
+  years: addYears,
+};
+const MAX_OCCURRENCES = 366;
+
+/// Every date the session lands on, from `start` up to but not including `start` plus the duration.
+function repeatDates(
+  start: Date,
+  v: Pick<SessionValues, "cadence" | "durationCount" | "durationUnit">,
+) {
+  if (v.cadence === "none") return [start];
+  const end = DURATION_UNITS[v.durationUnit](start, v.durationCount);
+  const step = { daily: addDays, weekly: addWeeks, monthly: addMonths }[v.cadence];
+  const dates: Date[] = [];
+  for (let i = 0; dates.length <= MAX_OCCURRENCES; i++) {
+    const next = step(start, i);
+    if (next >= end) break;
+    dates.push(next);
+  }
+  return dates;
+}
+
+const cadenceSchema = z.enum(["none", "daily", "weekly", "monthly"]);
+const durationUnitSchema = z.enum(["days", "weeks", "months", "years"]);
 
 const sessionSchema = z
   .object({
@@ -54,9 +82,9 @@ const sessionSchema = z
     startTime: z.string().min(1),
     endTime: z.string().min(1),
     location: z.string(),
-    repeatWeekly: z.boolean(),
-    repeatCount: z.number().int().min(1).max(52),
-    repeatUnit: z.enum(["weeks", "months"]),
+    cadence: cadenceSchema,
+    durationCount: z.number().int().min(1).max(999),
+    durationUnit: durationUnitSchema,
   })
   .refine((v) => !v.startTime || !v.endTime || v.startTime < v.endTime, {
     path: ["endTime"],
@@ -72,9 +100,9 @@ const emptyValues: SessionValues = {
   startTime: "09:00",
   endTime: "10:00",
   location: "",
-  repeatWeekly: false,
-  repeatCount: 16,
-  repeatUnit: "weeks",
+  cadence: "none",
+  durationCount: 16,
+  durationUnit: "weeks",
 };
 
 /// Opens on the range picked on the calendar: the title and Course come first,
@@ -121,14 +149,18 @@ export function QuickCreateSessionDialog({
       startTime,
       endTime,
       location,
-      repeatWeekly,
-      repeatCount,
-      repeatUnit,
+      cadence,
+      durationCount,
+      durationUnit,
     }: SessionValues) => {
       if (!draft || !course) throw new Error("Pick a course first");
       const day = parse(date, "yyyy-MM-dd", new Date());
       const place = location.trim() || null;
-      if (repeatWeekly) {
+      const dates = repeatDates(day, { cadence, durationCount, durationUnit });
+      if (dates.length > MAX_OCCURRENCES) {
+        throw new Error(`Too many sessions, ${MAX_OCCURRENCES} at most`);
+      }
+      if (cadence === "weekly" && dates.length > 1) {
         const template = await createSessionTemplate(
           spaceId,
           title.trim(),
@@ -141,9 +173,25 @@ export function QuickCreateSessionDialog({
         );
         const occurrences = await generateOccurrences(
           template.id,
-          format(REPEAT_UNITS[repeatUnit].advance(day, repeatCount), "yyyy-MM-dd"),
+          format(dates[dates.length - 1], "yyyy-MM-dd"),
         );
         return occurrences.map((o) => o.entity.id);
+      }
+      if (dates.length > 1) {
+        const ids: string[] = [];
+        for (const d of dates) {
+          const o = await createOneOffSession(
+            spaceId,
+            title.trim(),
+            course.id,
+            format(d, "yyyy-MM-dd"),
+            startTime,
+            endTime,
+            place,
+          );
+          ids.push(o.entity.id);
+        }
+        return ids;
       }
       const occurrence = await createOneOffSession(
         spaceId,
@@ -263,49 +311,66 @@ export function QuickCreateSessionDialog({
             )}
           </form.Subscribe>
           <div className="flex items-center gap-2">
-            <form.Field name="repeatWeekly">
+            <Label className="font-normal">Repeat</Label>
+            <form.Field name="cadence">
               {(field) => (
-                <>
-                  <Checkbox
-                    id="session-repeat-weekly"
-                    checked={field.state.value}
-                    onCheckedChange={(v) => field.handleChange(v === true)}
-                  />
-                  <Label htmlFor="session-repeat-weekly" className="font-normal">
-                    Repeat weekly for
-                  </Label>
-                </>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(v) => {
+                    const parsed = cadenceSchema.safeParse(v);
+                    if (parsed.success) field.handleChange(parsed.data);
+                  }}
+                >
+                  <SelectTrigger size="sm" aria-label="Repeat interval">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CADENCES).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </form.Field>
-            <form.Subscribe selector={(state) => state.values}>
-              {(values) =>
-                values.repeatWeekly && (
+            <form.Subscribe selector={(state) => state.values.cadence !== "none"}>
+              {(repeats) =>
+                repeats && (
                   <>
-                    <NumberInput
-                      value={values.repeatCount}
-                      onChange={(n) => form.setFieldValue("repeatCount", n)}
-                      min={1}
-                      max={REPEAT_UNITS[values.repeatUnit].max}
-                    />
-                    <Select
-                      value={values.repeatUnit}
-                      onValueChange={(unit) => {
-                        if (unit !== "weeks" && unit !== "months") return;
-                        form.setFieldValue("repeatUnit", unit);
-                        form.setFieldValue(
-                          "repeatCount",
-                          Math.min(values.repeatCount, REPEAT_UNITS[unit].max),
-                        );
-                      }}
-                    >
-                      <SelectTrigger size="sm" aria-label="Repeat interval">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weeks">weeks</SelectItem>
-                        <SelectItem value="months">months</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="font-normal">for</Label>
+                    <form.Field name="durationCount">
+                      {(field) => (
+                        <NumberInput
+                          value={field.state.value}
+                          onChange={field.handleChange}
+                          min={1}
+                          max={999}
+                        />
+                      )}
+                    </form.Field>
+                    <form.Field name="durationUnit">
+                      {(field) => (
+                        <Select
+                          value={field.state.value}
+                          onValueChange={(v) => {
+                            const parsed = durationUnitSchema.safeParse(v);
+                            if (parsed.success) field.handleChange(parsed.data);
+                          }}
+                        >
+                          <SelectTrigger size="sm" aria-label="Duration unit">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.keys(DURATION_UNITS).map((unit) => (
+                              <SelectItem key={unit} value={unit}>
+                                {unit}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </form.Field>
                   </>
                 )
               }
