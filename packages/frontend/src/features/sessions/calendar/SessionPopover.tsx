@@ -87,6 +87,9 @@ export function refreshSessions(queryClient: QueryClient, entityId: string) {
     // The root key (not a per Space key) so this also invalidates the
     // cross-Space qk.sessions.all cache the unified Calendar page reads.
     queryClient.invalidateQueries({ queryKey: qk.sessions.root }),
+    // The Dashboard's and the sidebar's sessions of today and this week
+    // (`qk.sessions.todayBetween` shares this prefix).
+    queryClient.invalidateQueries({ queryKey: qk.sessions.today }),
     queryClient.invalidateQueries({ queryKey: qk.entity.byId(entityId) }),
   ]);
 }
@@ -361,7 +364,9 @@ export function SessionEditForm({
         if (endTime !== occurrence.endTime) patch.endTime = endTime;
         if (nextLocation !== occurrence.location) patch.location = nextLocation;
         const from = scope === "following" ? occurrence.date : format(new Date(), "yyyy-MM-dd");
-        await updateSessionSeries(templateId, from, patch);
+        // The opened session anchors the edit: it takes the change even where
+        // it was edited on its own before (when it is not before `from`).
+        await updateSessionSeries(templateId, from, patch, entity.id);
       }
       await refreshSessions(queryClient, entity.id);
     },
@@ -376,7 +381,7 @@ export function SessionEditForm({
         void form.handleSubmit();
       }}
     >
-      {templateId && <EditScopeTabs value={scope} onChange={setScope} thisLabel="This session" />}
+      {templateId && <EditScopeTabs value={scope} onChange={setScope} />}
       <form.Field name="title">
         {(field) => (
           <FormField
@@ -420,9 +425,10 @@ export function SessionEditForm({
       {scope !== "this" && (
         <p className="text-xs text-muted-foreground">
           {scope === "following"
-            ? "Changes this session and every later one in the series."
-            : "Changes every session from today on."}{" "}
-          Past sessions and changes made to single sessions stay as they are.
+            ? "Changes this session and every later one in the series. Earlier ones, and fields changed on single later ones, stay as they are."
+            : occurrence.date >= format(new Date(), "yyyy-MM-dd")
+              ? "Changes this session and every one from today on. Earlier ones, and fields changed on single later ones, stay as they are."
+              : "Changes every session from today on. This one is earlier and stays as it is, and so do fields changed on single later ones."}
         </p>
       )}
       <FieldError message={save.isError && save.error.message} />

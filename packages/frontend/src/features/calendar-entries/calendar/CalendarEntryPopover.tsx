@@ -325,7 +325,9 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         if (endTime !== entry.endTime) patch.endTime = allDay ? null : endTime;
         if (nextLocation !== entry.location) patch.location = nextLocation;
         const from = scope === "following" ? entry.date : format(new Date(), "yyyy-MM-dd");
-        await updateCalendarEntrySeries(templateId, from, patch);
+        // The opened entry anchors the edit: it takes the change even where
+        // it was edited on its own before (when it is not before `from`).
+        await updateCalendarEntrySeries(templateId, from, patch, entity.id);
       }
       await refreshEntries(queryClient, entity.id);
     },
@@ -340,14 +342,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         void form.handleSubmit();
       }}
     >
-      {templateId && (
-        <EditScopeTabs
-          value={scope}
-          onChange={setScope}
-          thisLabel="This one"
-          className="col-span-2"
-        />
-      )}
+      {templateId && <EditScopeTabs value={scope} onChange={setScope} className="col-span-2" />}
       <form.Field name="title">
         {(field) => (
           <FormField
@@ -402,9 +397,10 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       {scope !== "this" && (
         <p className="col-span-2 text-xs text-muted-foreground">
           {scope === "following"
-            ? "Changes this entry and every later one in the series."
-            : "Changes every entry from today on."}{" "}
-          Past entries and changes made to single ones stay as they are.
+            ? "Changes this entry and every later one in the series. Earlier ones, and fields changed on single later ones, stay as they are."
+            : entry.date >= format(new Date(), "yyyy-MM-dd")
+              ? "Changes this entry and every one from today on. Earlier ones, and fields changed on single later ones, stay as they are."
+              : "Changes every entry from today on. This one is earlier and stays as it is, and so do fields changed on single later ones."}
         </p>
       )}
       <div className="col-span-2 empty:hidden">

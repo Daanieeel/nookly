@@ -106,9 +106,16 @@ pub fn update_session_series(
     template_id: String,
     from_date: String,
     patch: SeriesPatch,
+    anchor_id: Option<String>,
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
-    sessions::update_session_series(&conn, &template_id, &from_date, patch)
+    sessions::update_session_series_anchored(
+        &conn,
+        &template_id,
+        &from_date,
+        anchor_id.as_deref(),
+        patch,
+    )
 }
 
 #[tauri::command]

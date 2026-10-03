@@ -42,11 +42,32 @@ pub(crate) enum Field {
     Description = 16,
 }
 
-/// Sets `field`'s bit in `mask` when an occurrence edit changes its value
-/// (`before` to `after`). Re-sending the same value is not an override, so a
+/// Updates `field`'s bit in `mask` for an occurrence edit that sets its value
+/// from `before` to `after`, where the series template holds `series` (`None`
+/// for a one-off). Setting the field back to the series value ends the
+/// override, so the occurrence follows later series edits again. Changing it
+/// to anything else marks it. Re-sending the same value changes nothing, so a
 /// form that submits every field marks only the ones the user changed.
-pub(crate) fn mark_override<T: PartialEq>(mask: &mut i64, field: Field, before: &T, after: &T) {
-    if before != after {
+pub(crate) fn mark_override<T: PartialEq>(
+    mask: &mut i64,
+    field: Field,
+    before: &T,
+    after: &T,
+    series: Option<&T>,
+) {
+    if series == Some(after) {
+        *mask &= !(field as i64);
+    } else if before != after {
+        *mask |= field as i64;
+    }
+}
+
+/// `field`'s bit in `mask` once an occurrence holds `value` and the series
+/// `series`: set when they differ, clear when they match.
+pub(crate) fn sync_override<T: PartialEq>(mask: &mut i64, field: Field, value: &T, series: &T) {
+    if value == series {
+        *mask &= !(field as i64);
+    } else {
         *mask |= field as i64;
     }
 }
@@ -81,9 +102,46 @@ pub(crate) fn keep_or<T: PartialEq + Clone>(current: &T, previous: &T, next: &T)
     }
 }
 
-/// Rejects times that don't end after they start. `what` names the thing in
-/// the message, e.g. "a session". An all-day one needs no times at all.
-/// Plain string comparison is correct since both are `HH:MM`.
+/// Deserializes a patch field that can be left out, cleared or set: an absent
+/// key is `None` (with `#[serde(default)]`), `null` is `Some(None)` and a value
+/// is `Some(Some(v))`. Plain `Option<Option<T>>` would read `null` as `None`,
+/// so the forms' `{"location": null}` would leave the value instead of
+/// clearing it.
+pub(crate) fn double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    serde::Deserialize::deserialize(deserializer).map(Some)
+}
+
+/// Whether `time` is a zero padded 24-hour `HH:MM` (00:00 to 23:59).
+fn is_clock_time(time: &str) -> bool {
+    let b = time.as_bytes();
+    b.len() == 5
+        && b[2] == b':'
+        && [b[0], b[1], b[3], b[4]].iter().all(u8::is_ascii_digit)
+        && (b[0] - b'0') * 10 + (b[1] - b'0') < 24
+        && b[3] < b'6'
+}
+
+/// Rejects a date that is not an ISO `YYYY-MM-DD` calendar date. `field`
+/// names it in the message, e.g. "anchorDate".
+pub(crate) fn validate_date(field: &str, date: &str) -> AppResult<()> {
+    // Formatting it back rejects unpadded input like "2026-1-5", which chrono
+    // parses but string comparisons of dates would get wrong.
+    match chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+        Ok(d) if d.format("%Y-%m-%d").to_string() == date => Ok(()),
+        _ => Err(AppError::InvalidInput(format!(
+            "{field} must be a YYYY-MM-DD date"
+        ))),
+    }
+}
+
+/// Rejects times that are not zero padded `HH:MM` or don't end after they
+/// start. `what` names the thing in the message, e.g. "a session". An
+/// all-day one needs no times at all. Plain string comparison is correct
+/// once both are `HH:MM`.
 pub(crate) fn validate_times(
     what: &str,
     all_day: bool,
@@ -92,6 +150,13 @@ pub(crate) fn validate_times(
 ) -> AppResult<()> {
     if all_day {
         return Ok(());
+    }
+    for time in [start_time, end_time].into_iter().flatten() {
+        if !is_clock_time(time) {
+            return Err(AppError::InvalidInput(format!(
+                "times must be HH:MM, 24-hour (got \"{time}\")"
+            )));
+        }
     }
     match (start_time, end_time) {
         (Some(s), Some(e)) if s < e => Ok(()),
@@ -159,13 +224,17 @@ fn set_title(conn: &Connection, entity_id: &str, title: &str) -> AppResult<()> {
 /// row. Retitles the template when `new_title` differs from `old_title`, then
 /// hands every live occurrence dated `from_date` or later to
 /// `update_occurrence` and retitles each one that still carries `old_title`.
+/// `update_occurrence` learns whether the occurrence is `anchor_id`, the one
+/// the user opened to edit the series: it takes every patched field, even one
+/// it overrode before. An anchor dated before `from_date` is not reached.
 pub(crate) fn update_series<O: SeriesOccurrence>(
     conn: &Connection,
     template_id: &str,
     from_date: &str,
+    anchor_id: Option<&str>,
     old_title: &str,
     new_title: Option<String>,
-    mut update_occurrence: impl FnMut(&O) -> AppResult<()>,
+    mut update_occurrence: impl FnMut(&O, bool) -> AppResult<()>,
 ) -> AppResult<()> {
     let title = new_title.filter(|t| t != old_title);
     if let Some(title) = &title {
@@ -182,7 +251,8 @@ pub(crate) fn update_series<O: SeriesOccurrence>(
         .query_map(params![template_id, from_date], O::from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     for occurrence in occurrences {
-        update_occurrence(&occurrence)?;
+        let is_anchor = anchor_id == Some(occurrence.entity().id.as_str());
+        update_occurrence(&occurrence, is_anchor)?;
         if let Some(title) = &title {
             if occurrence.entity().title == old_title {
                 set_title(conn, &occurrence.entity().id, title)?;
@@ -194,7 +264,17 @@ pub(crate) fn update_series<O: SeriesOccurrence>(
 
 /// Moves a series' occurrences from `from_date` on to Trash, and the template
 /// too once no occurrence is left. Returns how many occurrences went.
+/// All or nothing: a call that fails (the template already in Trash) leaves
+/// every occurrence as it was.
 pub(crate) fn delete_series<O: SeriesOccurrence>(
+    conn: &Connection,
+    template_id: &str,
+    from_date: &str,
+) -> AppResult<usize> {
+    crate::db::atomically(conn, || trash_series::<O>(conn, template_id, from_date))
+}
+
+fn trash_series<O: SeriesOccurrence>(
     conn: &Connection,
     template_id: &str,
     from_date: &str,

@@ -52,9 +52,13 @@ export function SessionBlock({
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const invalidate = () =>
-    // The root key (not a per Space key) so this also invalidates the
-    // cross-Space qk.sessions.all cache the unified Calendar page reads.
-    queryClient.invalidateQueries({ queryKey: qk.sessions.root });
+    Promise.all([
+      // The root key (not a per Space key) so this also invalidates the
+      // cross-Space qk.sessions.all cache the unified Calendar page reads.
+      queryClient.invalidateQueries({ queryKey: qk.sessions.root }),
+      // The Dashboard's and the sidebar's sessions of today and this week.
+      queryClient.invalidateQueries({ queryKey: qk.sessions.today }),
+    ]);
   const cancel = useMutation({
     mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
     onSuccess: invalidate,

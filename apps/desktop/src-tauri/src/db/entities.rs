@@ -383,8 +383,14 @@ pub fn restore_entity(conn: &Connection, id: &str) -> AppResult<()> {
 /// its id — there is no `ON DELETE CASCADE` anywhere in this schema (SQLite FK
 /// enforcement is never turned on), so each subtype/child table has to be swept
 /// explicitly. Only ever allowed on an already soft-deleted entity — this is the
-/// Trash view's "Delete Forever", not a general hard-delete.
+/// Trash view's "Delete Forever", not a general hard-delete. All or nothing:
+/// a failure halfway (a series template whose occurrences still point at it)
+/// rolls back what was already swept.
 pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
+    super::atomically(conn, || sweep_entity(conn, id))
+}
+
+fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
     // Checked before anything is swept: an entity hidden with its module is kept
     // data, not trash, and must never be erased from here.
     let hidden: bool = conn
@@ -472,23 +478,52 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
 
 /// Permanently removes every trashed entity in every Space, all or nothing.
 /// Returns how many were removed.
+///
+/// A series' occurrences point at their template (`template_id`), so they go
+/// first and the templates after them. A trashed template that a live
+/// occurrence still points at (one restored from Trash on its own) stays in
+/// Trash, since removing it would break that occurrence's series link.
 pub fn empty_trash(conn: &Connection) -> AppResult<usize> {
     let ids: Vec<String> = conn
         .prepare("SELECT id FROM entities WHERE deleted_at IS NOT NULL AND hidden_at IS NULL")?
         .query_map([], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
-    conn.execute_batch("SAVEPOINT empty_trash")?;
-    let result = ids.iter().try_for_each(|id| hard_delete_entity(conn, id));
-    match result {
-        Ok(()) => {
-            conn.execute_batch("RELEASE empty_trash")?;
-            Ok(ids.len())
-        }
-        Err(e) => {
-            conn.execute_batch("ROLLBACK TO empty_trash; RELEASE empty_trash")?;
-            Err(e)
+    let is_template = |id: &str| -> AppResult<bool> {
+        Ok(conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM session_templates WHERE entity_id = ?1)
+                 OR EXISTS(SELECT 1 FROM calendar_entry_templates WHERE entity_id = ?1)",
+            params![id],
+            |row| row.get(0),
+        )?)
+    };
+    let mut templates = Vec::new();
+    let mut others = Vec::new();
+    for id in ids {
+        if is_template(&id)? {
+            templates.push(id);
+        } else {
+            others.push(id);
         }
     }
+    super::atomically(conn, || {
+        for id in &others {
+            sweep_entity(conn, id)?;
+        }
+        let mut removed = others.len();
+        for id in &templates {
+            let still_used: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions WHERE template_id = ?1)
+                     OR EXISTS(SELECT 1 FROM calendar_entries WHERE template_id = ?1)",
+                params![id],
+                |row| row.get(0),
+            )?;
+            if !still_used {
+                sweep_entity(conn, id)?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    })
 }
 
 #[cfg(test)]

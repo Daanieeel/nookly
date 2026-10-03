@@ -16,18 +16,14 @@ use serde::Serialize;
 
 const RECURRENCES: &[&str] = &["daily", "weekly", "monthly"];
 
-fn advance(cursor: NaiveDate, recurrence: &str) -> NaiveDate {
+/// The next cadence date after `cursor`, or `None` past the last date chrono
+/// can represent.
+fn advance(cursor: NaiveDate, recurrence: &str) -> Option<NaiveDate> {
     match recurrence {
-        "daily" => cursor
-            .checked_add_days(chrono::Days::new(1))
-            .expect("date overflow"),
-        "monthly" => cursor
-            .checked_add_months(Months::new(1))
-            .expect("date overflow"),
+        "daily" => cursor.checked_add_days(chrono::Days::new(1)),
+        "monthly" => cursor.checked_add_months(Months::new(1)),
         // "weekly", and any other value validation already rejected.
-        _ => cursor
-            .checked_add_days(chrono::Days::new(7))
-            .expect("date overflow"),
+        _ => cursor.checked_add_days(chrono::Days::new(7)),
     }
 }
 
@@ -138,19 +134,22 @@ pub fn create_calendar_entry_template(
         )));
     }
     validate_times(all_day, &start_time, &end_time)?;
-    let entity = crate::db::entities::create_entity(
-        conn,
-        space_id,
-        "calendar_entry_template".into(),
-        title,
-        None,
-    )?;
-    conn.execute(
-        "INSERT INTO calendar_entry_templates (entity_id, recurrence, start_time, end_time, all_day, location, description, anchor_date)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![entity.id, recurrence, start_time, end_time, all_day as i64, location, description, anchor_date],
-    )?;
-    Ok(entity)
+    crate::db::series::validate_date("anchorDate", &anchor_date)?;
+    crate::db::atomically(conn, || {
+        let entity = crate::db::entities::create_entity(
+            conn,
+            space_id,
+            "calendar_entry_template".into(),
+            title,
+            None,
+        )?;
+        conn.execute(
+            "INSERT INTO calendar_entry_templates (entity_id, recurrence, start_time, end_time, all_day, location, description, anchor_date)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![entity.id, recurrence, start_time, end_time, all_day as i64, location, description, anchor_date],
+        )?;
+        Ok(entity)
+    })
 }
 
 /// Generates occurrences from the template's anchor date (its own first
@@ -172,30 +171,36 @@ pub fn generate_occurrences(
     let mut slots = Vec::new();
     while cursor <= until {
         slots.push(cursor.format("%Y-%m-%d").to_string());
-        cursor = advance(cursor, &template.recurrence);
+        let Some(next) = advance(cursor, &template.recurrence) else {
+            break;
+        };
+        cursor = next;
     }
 
-    let mut created = Vec::new();
-    for date in crate::db::series::slots_to_generate::<CalendarEntry>(conn, template_id, slots)? {
-        let occurrence = create_occurrence(
-            conn,
-            &template.entity.space_id,
-            &template.entity.title,
-            Some(template_id.to_string()),
-            date,
-            // A template always generates single-day occurrences — a
-            // multi-day span is only ever picked for one specific
-            // one-off entry, never a recurring cadence.
-            None,
-            template.start_time.clone(),
-            template.end_time.clone(),
-            template.all_day,
-            template.location.clone(),
-            template.description.clone(),
-        )?;
-        created.push(occurrence);
-    }
-    Ok(created)
+    let dates = crate::db::series::slots_to_generate::<CalendarEntry>(conn, template_id, slots)?;
+    crate::db::atomically(conn, || {
+        let mut created = Vec::new();
+        for date in dates {
+            let occurrence = create_occurrence(
+                conn,
+                &template.entity.space_id,
+                &template.entity.title,
+                Some(template_id.to_string()),
+                date,
+                // A template always generates single-day occurrences — a
+                // multi-day span is only ever picked for one specific
+                // one-off entry, never a recurring cadence.
+                None,
+                template.start_time.clone(),
+                template.end_time.clone(),
+                template.all_day,
+                template.location.clone(),
+                template.description.clone(),
+            )?;
+            created.push(occurrence);
+        }
+        Ok(created)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -273,12 +278,17 @@ fn create_occurrence(
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEntryOverride {
     pub date: Option<String>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub end_date: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub start_time: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub end_time: Option<Option<String>>,
     pub all_day: Option<bool>,
     pub cancelled: Option<bool>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub location: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub description: Option<Option<String>>,
 }
 
@@ -292,6 +302,14 @@ pub fn override_occurrence(
     use crate::db::series::{mark_override, Field};
     let mut occurrence = get_calendar_entry(conn, entity_id)?;
     let mut overridden = occurrence.overridden_fields;
+    // What the series holds, so setting a field back to it ends its override.
+    let series = match &occurrence.template_id {
+        Some(tid) => get_calendar_entry_template(conn, tid).ok(),
+        None => None,
+    };
+    let series = series.as_ref();
+    let times_changed =
+        patch.start_time.is_some() || patch.end_time.is_some() || patch.all_day.is_some();
 
     if let Some(date) = patch.date {
         occurrence.date = date;
@@ -305,6 +323,7 @@ pub fn override_occurrence(
             Field::StartTime,
             &occurrence.start_time,
             &start_time,
+            series.map(|t| &t.start_time),
         );
         occurrence.start_time = start_time;
     }
@@ -314,6 +333,7 @@ pub fn override_occurrence(
             Field::EndTime,
             &occurrence.end_time,
             &end_time,
+            series.map(|t| &t.end_time),
         );
         occurrence.end_time = end_time;
     }
@@ -323,6 +343,7 @@ pub fn override_occurrence(
             Field::AllDay,
             &occurrence.all_day,
             &all_day,
+            series.map(|t| &t.all_day),
         );
         occurrence.all_day = all_day;
     }
@@ -335,6 +356,7 @@ pub fn override_occurrence(
             Field::Location,
             &occurrence.location,
             &location,
+            series.map(|t| &t.location),
         );
         occurrence.location = location;
     }
@@ -344,15 +366,21 @@ pub fn override_occurrence(
             Field::Description,
             &occurrence.description,
             &description,
+            series.map(|t| &t.description),
         );
         occurrence.description = description;
     }
     occurrence.overridden_fields = overridden;
-    validate_times(
-        occurrence.all_day,
-        &occurrence.start_time,
-        &occurrence.end_time,
-    )?;
+    // Only a change to the times is checked, like `sessions::override_occurrence`,
+    // so an entry stored with odd times before the HH:MM check existed can
+    // still be moved, cancelled or annotated.
+    if times_changed {
+        validate_times(
+            occurrence.all_day,
+            &occurrence.start_time,
+            &occurrence.end_time,
+        )?;
+    }
     validate_date_range(&occurrence.date, &occurrence.end_date)?;
 
     conn.execute(
@@ -434,15 +462,20 @@ pub fn list_calendar_entries(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// A change to a recurring series. `None` leaves a field as it is.
+/// A change to a recurring series. `None` (an absent key) leaves a field as it
+/// is; `Some(None)` (`null`) clears it.
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEntrySeriesPatch {
     pub title: Option<String>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub start_time: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub end_time: Option<Option<String>>,
     pub all_day: Option<bool>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub location: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub description: Option<Option<String>>,
 }
 
@@ -455,7 +488,26 @@ pub fn update_calendar_entry_series(
     from_date: &str,
     patch: CalendarEntrySeriesPatch,
 ) -> AppResult<()> {
+    update_calendar_entry_series_anchored(conn, template_id, from_date, None, patch)
+}
+
+/// `update_calendar_entry_series`, opened on the occurrence `anchor_id`: when
+/// it is dated `from_date` or later it takes every patched field, even one it
+/// overrode on its own before, and those fields stop counting as overridden.
+/// Later occurrences keep their own overrides as usual.
+pub fn update_calendar_entry_series_anchored(
+    conn: &Connection,
+    template_id: &str,
+    from_date: &str,
+    anchor_id: Option<&str>,
+    patch: CalendarEntrySeriesPatch,
+) -> AppResult<()> {
     let old = get_calendar_entry_template(conn, template_id)?;
+    let patched_start = patch.start_time.is_some();
+    let patched_end = patch.end_time.is_some();
+    let patched_all_day = patch.all_day.is_some();
+    let patched_location = patch.location.is_some();
+    let patched_description = patch.description.is_some();
     let all_day = patch.all_day.unwrap_or(old.all_day);
     let start_time = patch.start_time.unwrap_or_else(|| old.start_time.clone());
     let end_time = patch.end_time.unwrap_or_else(|| old.end_time.clone());
@@ -463,55 +515,109 @@ pub fn update_calendar_entry_series(
     let description = patch.description.unwrap_or_else(|| old.description.clone());
     validate_times(all_day, &start_time, &end_time)?;
 
-    conn.execute(
+    crate::db::atomically(conn, || {
+        conn.execute(
         "UPDATE calendar_entry_templates SET start_time = ?1, end_time = ?2, all_day = ?3, location = ?4, description = ?5 WHERE entity_id = ?6",
         params![start_time, end_time, all_day as i64, location, description, template_id],
     )?;
-    crate::db::series::update_series::<CalendarEntry>(
-        conn,
-        template_id,
-        from_date,
-        &old.entity.title,
-        patch.title,
-        |occurrence| {
-            use crate::db::series::{series_value, Field};
-            let o = occurrence;
-            let new_start = series_value(
-                o,
-                Field::StartTime,
-                &o.start_time,
-                &old.start_time,
-                &start_time,
-            );
-            let new_end = series_value(o, Field::EndTime, &o.end_time, &old.end_time, &end_time);
-            let new_all_day = series_value(o, Field::AllDay, &o.all_day, &old.all_day, &all_day);
-            let new_location =
-                series_value(o, Field::Location, &o.location, &old.location, &location);
-            let new_description = series_value(
-                o,
-                Field::Description,
-                &o.description,
-                &old.description,
-                &description,
-            );
-            // An override that would end up invalid keeps its own times/all_day.
-            let (new_start, new_end, new_all_day) =
-                if validate_times(new_all_day, &new_start, &new_end).is_ok() {
-                    (new_start, new_end, new_all_day)
-                } else {
-                    (
-                        occurrence.start_time.clone(),
-                        occurrence.end_time.clone(),
-                        occurrence.all_day,
-                    )
+        crate::db::series::update_series::<CalendarEntry>(
+            conn,
+            template_id,
+            from_date,
+            anchor_id,
+            &old.entity.title,
+            patch.title,
+            |occurrence, is_anchor| {
+                use crate::db::series::{series_value, sync_override, Field};
+                let o = occurrence;
+                // The anchor takes a patched field as is; any other occurrence
+                // keeps a field it overrode (`series_value`).
+                let value = |patched: bool,
+                             field: Field,
+                             cur: &Option<String>,
+                             prev: &Option<String>,
+                             next: &Option<String>| {
+                    if is_anchor && patched {
+                        next.clone()
+                    } else {
+                        series_value(o, field, cur, prev, next)
+                    }
                 };
-            conn.execute(
-                "UPDATE calendar_entries SET start_time = ?1, end_time = ?2, all_day = ?3, location = ?4, description = ?5 WHERE entity_id = ?6",
-                params![new_start, new_end, new_all_day as i64, new_location, new_description, occurrence.entity.id],
+                let new_start = value(
+                    patched_start,
+                    Field::StartTime,
+                    &o.start_time,
+                    &old.start_time,
+                    &start_time,
+                );
+                let new_end = value(
+                    patched_end,
+                    Field::EndTime,
+                    &o.end_time,
+                    &old.end_time,
+                    &end_time,
+                );
+                let new_all_day = if is_anchor && patched_all_day {
+                    all_day
+                } else {
+                    series_value(o, Field::AllDay, &o.all_day, &old.all_day, &all_day)
+                };
+                let new_location = value(
+                    patched_location,
+                    Field::Location,
+                    &o.location,
+                    &old.location,
+                    &location,
+                );
+                let new_description = value(
+                    patched_description,
+                    Field::Description,
+                    &o.description,
+                    &old.description,
+                    &description,
+                );
+                // An override that would end up invalid keeps its own times/all_day;
+                // the anchor takes the series' instead, which are valid.
+                let times_fit = validate_times(new_all_day, &new_start, &new_end).is_ok();
+                let (new_start, new_end, new_all_day) = if times_fit {
+                    (new_start, new_end, new_all_day)
+                } else if is_anchor {
+                    (start_time.clone(), end_time.clone(), all_day)
+                } else {
+                    (o.start_time.clone(), o.end_time.clone(), o.all_day)
+                };
+                let mut mask = o.overridden_fields;
+                if is_anchor {
+                    let reset = !times_fit;
+                    if patched_start || reset {
+                        sync_override(&mut mask, Field::StartTime, &new_start, &start_time);
+                    }
+                    if patched_end || reset {
+                        sync_override(&mut mask, Field::EndTime, &new_end, &end_time);
+                    }
+                    if patched_all_day || reset {
+                        sync_override(&mut mask, Field::AllDay, &new_all_day, &all_day);
+                    }
+                    if patched_location {
+                        sync_override(&mut mask, Field::Location, &new_location, &location);
+                    }
+                    if patched_description {
+                        sync_override(
+                            &mut mask,
+                            Field::Description,
+                            &new_description,
+                            &description,
+                        );
+                    }
+                }
+                conn.execute(
+                "UPDATE calendar_entries SET start_time = ?1, end_time = ?2, all_day = ?3, location = ?4, description = ?5, overridden_fields = ?6 WHERE entity_id = ?7",
+                params![new_start, new_end, new_all_day as i64, new_location, new_description, mask, o.entity.id],
             )?;
-            Ok(())
-        },
-    )
+                Ok(())
+            },
+        )
+    })
 }
 
 impl crate::db::series::SeriesOccurrence for CalendarEntry {

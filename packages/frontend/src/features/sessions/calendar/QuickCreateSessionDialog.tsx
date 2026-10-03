@@ -154,7 +154,11 @@ export function QuickCreateSessionDialog({
       return [occurrence.entity.id];
     },
     onSuccess: async (ids) => {
-      await queryClient.invalidateQueries({ queryKey: qk.sessions.bySpace(spaceId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.sessions.bySpace(spaceId) }),
+        // The Dashboard's and the sidebar's sessions of today and this week.
+        queryClient.invalidateQueries({ queryKey: qk.sessions.today }),
+      ]);
       onCreated(ids);
     },
   });

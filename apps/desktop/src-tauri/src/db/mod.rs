@@ -19,6 +19,8 @@ pub mod relationships;
 pub mod schema;
 pub mod search;
 mod series;
+#[cfg(test)]
+mod series_scenarios;
 pub mod sessions;
 pub mod space_modules;
 pub mod spaces;
@@ -45,6 +47,27 @@ pub fn now() -> String {
 
 pub fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+/// Runs `f` inside a SAVEPOINT, so a call that fails halfway leaves nothing
+/// behind: everything it wrote is rolled back. Savepoints nest, so this is
+/// safe inside a caller's own transaction or savepoint (Empty Trash, the
+/// CLI's `--dry-run`).
+pub(crate) fn atomically<T>(
+    conn: &Connection,
+    f: impl FnOnce() -> crate::error::AppResult<T>,
+) -> crate::error::AppResult<T> {
+    conn.execute_batch("SAVEPOINT atomically")?;
+    match f() {
+        Ok(value) => {
+            conn.execute_batch("RELEASE atomically")?;
+            Ok(value)
+        }
+        Err(e) => {
+            conn.execute_batch("ROLLBACK TO atomically; RELEASE atomically")?;
+            Err(e)
+        }
+    }
 }
 
 /// An in-memory database migrated to the latest schema, for unit tests.

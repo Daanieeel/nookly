@@ -60,6 +60,17 @@ fn validate_times(start_time: &str, end_time: &str) -> AppResult<()> {
     crate::db::series::validate_times("a session", false, Some(start_time), Some(end_time))
 }
 
+/// Rejects a weekday outside 0 (Monday) to 6 (Sunday).
+fn validate_weekday(weekday: i64) -> AppResult<()> {
+    if (0..=6).contains(&weekday) {
+        Ok(())
+    } else {
+        Err(AppError::InvalidInput(
+            "weekday must be 0 (Monday) to 6 (Sunday)".into(),
+        ))
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn create_session_template(
     conn: &Connection,
@@ -73,22 +84,32 @@ pub fn create_session_template(
     anchor_date: String,
 ) -> AppResult<Entity> {
     validate_times(&start_time, &end_time)?;
-    let entity =
-        crate::db::entities::create_entity(conn, space_id, "session_template".into(), title, None)?;
-    conn.execute(
-        "INSERT INTO session_templates (entity_id, weekday, start_time, end_time, location, anchor_date)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![entity.id, weekday, start_time, end_time, location, anchor_date],
-    )?;
-    crate::db::relationships::create_relationship(
-        conn,
-        entity.id.clone(),
-        course_id,
-        "session-course".into(),
-        None,
-        None,
-    )?;
-    Ok(entity)
+    validate_weekday(weekday)?;
+    crate::db::series::validate_date("anchorDate", &anchor_date)?;
+    // All or nothing: an unknown Course must not leave a template behind.
+    crate::db::atomically(conn, || {
+        let entity = crate::db::entities::create_entity(
+            conn,
+            space_id,
+            "session_template".into(),
+            title,
+            None,
+        )?;
+        conn.execute(
+            "INSERT INTO session_templates (entity_id, weekday, start_time, end_time, location, anchor_date)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![entity.id, weekday, start_time, end_time, location, anchor_date],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity.id.clone(),
+            course_id,
+            "session-course".into(),
+            None,
+            None,
+        )?;
+        Ok(entity)
+    })
 }
 
 /// Generates weekly occurrences from the template's anchor date up to (and including)
@@ -118,38 +139,45 @@ pub fn generate_occurrences(
         .map_err(|e| AppError::Db(format!("invalid anchor_date: {e}")))?;
     let until = NaiveDate::parse_from_str(until_date, "%Y-%m-%d")
         .map_err(|e| AppError::Db(format!("invalid until_date: {e}")))?;
+    // A weekday stored before it was validated would never match below.
+    validate_weekday(weekday)?;
     let target_weekday = weekday as u32;
-    while cursor.weekday().num_days_from_monday() != target_weekday {
-        cursor = cursor
-            .checked_add_days(Days::new(1))
-            .expect("date overflow");
-    }
-
     let mut slots = Vec::new();
+    // At most six steps to the first matching weekday.
+    while cursor.weekday().num_days_from_monday() != target_weekday {
+        match cursor.checked_add_days(Days::new(1)) {
+            Some(next) => cursor = next,
+            None => return Ok(Vec::new()),
+        }
+    }
     while cursor <= until {
         slots.push(cursor.format("%Y-%m-%d").to_string());
-        cursor = cursor
-            .checked_add_days(Days::new(7))
-            .expect("date overflow");
+        match cursor.checked_add_days(Days::new(7)) {
+            Some(next) => cursor = next,
+            None => break,
+        }
     }
 
-    let mut created = Vec::new();
-    for date in crate::db::series::slots_to_generate::<SessionOccurrence>(conn, template_id, slots)?
-    {
-        let occurrence = create_occurrence(
-            conn,
-            &template_entity.space_id,
-            &template_entity.title,
-            &course_id,
-            Some(template_id.to_string()),
-            date,
-            start_time.clone(),
-            end_time.clone(),
-            location.clone(),
-        )?;
-        created.push(occurrence);
-    }
-    Ok(created)
+    let dates =
+        crate::db::series::slots_to_generate::<SessionOccurrence>(conn, template_id, slots)?;
+    crate::db::atomically(conn, || {
+        let mut created = Vec::new();
+        for date in dates {
+            let occurrence = create_occurrence(
+                conn,
+                &template_entity.space_id,
+                &template_entity.title,
+                &course_id,
+                Some(template_id.to_string()),
+                date,
+                start_time.clone(),
+                end_time.clone(),
+                location.clone(),
+            )?;
+            created.push(occurrence);
+        }
+        Ok(created)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -164,9 +192,12 @@ pub fn create_one_off_session(
     location: Option<String>,
 ) -> AppResult<SessionOccurrence> {
     validate_times(&start_time, &end_time)?;
-    create_occurrence(
-        conn, &space_id, &title, &course_id, None, date, start_time, end_time, location,
-    )
+    // All or nothing: an unknown Course must not leave a session behind.
+    crate::db::atomically(conn, || {
+        create_occurrence(
+            conn, &space_id, &title, &course_id, None, date, start_time, end_time, location,
+        )
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -222,7 +253,9 @@ pub struct OccurrenceOverride {
     pub start_time: Option<String>,
     pub end_time: Option<String>,
     pub cancelled: Option<bool>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub location: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub notes: Option<Option<String>>,
 }
 
@@ -241,6 +274,12 @@ pub fn override_occurrence(
 
     use crate::db::series::{mark_override, Field};
     let mut overridden = occurrence.overridden_fields;
+    // What the series holds, so setting a field back to it ends its override.
+    let series = match &occurrence.template_id {
+        Some(tid) => get_session_template(conn, tid).ok(),
+        None => None,
+    };
+    let series = series.as_ref();
     let times_changed = patch.start_time.is_some() || patch.end_time.is_some();
     if let Some(date) = patch.date {
         occurrence.date = date;
@@ -251,6 +290,7 @@ pub fn override_occurrence(
             Field::StartTime,
             &occurrence.start_time,
             &start_time,
+            series.map(|t| &t.start_time),
         );
         occurrence.start_time = start_time;
     }
@@ -260,6 +300,7 @@ pub fn override_occurrence(
             Field::EndTime,
             &occurrence.end_time,
             &end_time,
+            series.map(|t| &t.end_time),
         );
         occurrence.end_time = end_time;
     }
@@ -272,6 +313,7 @@ pub fn override_occurrence(
             Field::Location,
             &occurrence.location,
             &location,
+            series.map(|t| &t.location),
         );
         occurrence.location = location;
     }
@@ -442,13 +484,15 @@ pub fn list_sessions_between(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// A change to a recurring series. `None` leaves a field as it is.
+/// A change to a recurring series. `None` (an absent key) leaves a field as it
+/// is; `Some(None)` (`null`) clears the location.
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeriesPatch {
     pub title: Option<String>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    #[serde(default, deserialize_with = "crate::db::series::double_option")]
     pub location: Option<Option<String>>,
 }
 
@@ -461,47 +505,96 @@ pub fn update_session_series(
     from_date: &str,
     patch: SeriesPatch,
 ) -> AppResult<()> {
+    update_session_series_anchored(conn, template_id, from_date, None, patch)
+}
+
+/// `update_session_series`, opened on the occurrence `anchor_id`: when it is
+/// dated `from_date` or later it takes every patched field, even one it
+/// overrode on its own before, and those fields stop counting as overridden.
+/// Later occurrences keep their own overrides as usual.
+pub fn update_session_series_anchored(
+    conn: &Connection,
+    template_id: &str,
+    from_date: &str,
+    anchor_id: Option<&str>,
+    patch: SeriesPatch,
+) -> AppResult<()> {
     let old = get_session_template(conn, template_id)?;
+    let patched_start = patch.start_time.is_some();
+    let patched_end = patch.end_time.is_some();
+    let patched_location = patch.location.is_some();
     let start_time = patch.start_time.unwrap_or_else(|| old.start_time.clone());
     let end_time = patch.end_time.unwrap_or_else(|| old.end_time.clone());
     let location = patch.location.unwrap_or_else(|| old.location.clone());
     validate_times(&start_time, &end_time)?;
-    conn.execute(
+    crate::db::atomically(conn, || {
+        conn.execute(
         "UPDATE session_templates SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
         params![start_time, end_time, location, template_id],
     )?;
-    crate::db::series::update_series::<SessionOccurrence>(
-        conn,
-        template_id,
-        from_date,
-        &old.entity.title,
-        patch.title,
-        |occurrence| {
-            use crate::db::series::{series_value, Field};
-            let o = occurrence;
-            let new_start = series_value(
-                o,
-                Field::StartTime,
-                &o.start_time,
-                &old.start_time,
-                &start_time,
-            );
-            let new_end = series_value(o, Field::EndTime, &o.end_time, &old.end_time, &end_time);
-            let new_location =
-                series_value(o, Field::Location, &o.location, &old.location, &location);
-            // An override that would end before it starts keeps its own times.
-            let (new_start, new_end) = if validate_times(&new_start, &new_end).is_ok() {
-                (new_start, new_end)
-            } else {
-                (occurrence.start_time.clone(), occurrence.end_time.clone())
-            };
-            conn.execute(
-                "UPDATE sessions SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
-                params![new_start, new_end, new_location, occurrence.entity.id],
+        crate::db::series::update_series::<SessionOccurrence>(
+            conn,
+            template_id,
+            from_date,
+            anchor_id,
+            &old.entity.title,
+            patch.title,
+            |occurrence, is_anchor| {
+                use crate::db::series::{series_value, sync_override, Field};
+                let o = occurrence;
+                // The anchor takes a patched field as is; any other occurrence
+                // keeps a field it overrode (`series_value`).
+                let new_start = if is_anchor && patched_start {
+                    start_time.clone()
+                } else {
+                    series_value(
+                        o,
+                        Field::StartTime,
+                        &o.start_time,
+                        &old.start_time,
+                        &start_time,
+                    )
+                };
+                let new_end = if is_anchor && patched_end {
+                    end_time.clone()
+                } else {
+                    series_value(o, Field::EndTime, &o.end_time, &old.end_time, &end_time)
+                };
+                let new_location = if is_anchor && patched_location {
+                    location.clone()
+                } else {
+                    series_value(o, Field::Location, &o.location, &old.location, &location)
+                };
+                // An override that would end before it starts keeps its own times;
+                // the anchor takes the series' instead, which are valid.
+                let times_fit = validate_times(&new_start, &new_end).is_ok();
+                let (new_start, new_end) = if times_fit {
+                    (new_start, new_end)
+                } else if is_anchor {
+                    (start_time.clone(), end_time.clone())
+                } else {
+                    (o.start_time.clone(), o.end_time.clone())
+                };
+                let mut mask = o.overridden_fields;
+                if is_anchor {
+                    if patched_start || !times_fit {
+                        sync_override(&mut mask, Field::StartTime, &new_start, &start_time);
+                    }
+                    if patched_end || !times_fit {
+                        sync_override(&mut mask, Field::EndTime, &new_end, &end_time);
+                    }
+                    if patched_location {
+                        sync_override(&mut mask, Field::Location, &new_location, &location);
+                    }
+                }
+                conn.execute(
+                "UPDATE sessions SET start_time = ?1, end_time = ?2, location = ?3, overridden_fields = ?4 WHERE entity_id = ?5",
+                params![new_start, new_end, new_location, mask, o.entity.id],
             )?;
-            Ok(())
-        },
-    )
+                Ok(())
+            },
+        )
+    })
 }
 
 impl crate::db::series::SeriesOccurrence for SessionOccurrence {

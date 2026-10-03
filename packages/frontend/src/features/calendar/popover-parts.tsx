@@ -32,18 +32,16 @@ export type EditScope = "this" | "following" | "upcoming";
 export function EditScopeTabs({
   value,
   onChange,
-  thisLabel,
   className,
 }: {
   value: EditScope;
   onChange: (scope: EditScope) => void;
-  thisLabel: string;
   className?: string;
 }) {
   const scopes = [
-    { id: "this", label: thisLabel },
-    { id: "following", label: "This and following" },
-    { id: "upcoming", label: "All upcoming" },
+    { id: "this", label: "Only this" },
+    { id: "following", label: "This and after" },
+    { id: "upcoming", label: "Upcoming after today" },
   ] satisfies { id: EditScope; label: string }[];
   return (
     // SAFETY: Radix only emits the `scopes` trigger values below.
