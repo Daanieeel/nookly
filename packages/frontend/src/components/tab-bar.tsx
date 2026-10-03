@@ -138,7 +138,7 @@ function TabItem({
       {...contextTarget("tab", { tabId: tab.id })}
       className={cn(
         "group/tab flex h-7 min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs transition-colors select-none [&_svg]:size-3.5 [&_svg]:shrink-0",
-        tab.pinned ? "max-w-10 justify-center px-1.5" : "max-w-48",
+        tab.pinned ? "justify-center px-1.5" : "max-w-48",
         active
           ? "border-input bg-accent text-foreground"
           : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -146,7 +146,7 @@ function TabItem({
         dragOver && "border-primary",
       )}
     >
-      {space && !tab.pinned && <SpaceDot space={space} />}
+      {space && <SpaceDot space={space} />}
       {icon}
       {!tab.pinned && (
         <>
@@ -185,7 +185,7 @@ function TabItem({
 
 /// Shortcuts for tabs, and Cmd or middle click on anything that navigates to open it
 /// in a new tab instead.
-function useTabInteractions() {
+export function useTabInteractions() {
   const { newTab, closeTab, closeOthers, cycle } = useMemo(
     () => ({
       newTab: () => useNavStore.getState().openInNewTab(),
@@ -231,9 +231,8 @@ function useTabInteractions() {
   }, []);
 }
 
-/// The open tabs, in a slim row under the titlebar.
+/// The open tabs, in a slim row under the titlebar. Shown only while more than one is open.
 export function TabBar() {
-  useTabInteractions();
   const tabs = useNavStore((s) => s.tabs);
   const activeTabId = useNavStore((s) => s.activeTabId);
   const view = useNavStore((s) => s.view);

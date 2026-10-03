@@ -34,7 +34,7 @@ When no icon is chosen, the item falls back to its entity type's default icon, r
 
 ## Tabs
 
-A slim tab strip under the titlebar holds concurrent work. Each tab is one view with its own Back and Forward history, and several tabs can sit in different Spaces. Open tabs, their order, pins and history are remembered across restarts. Split view is out of scope.
+A slim tab strip under the titlebar holds concurrent work. It only shows while more than one tab is open. Each tab is one view with its own Back and Forward history, and several tabs can sit in different Spaces. Open tabs, their order, pins and history are remembered across restarts. Split view is out of scope.
 
 | Action                    | How                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------- |
