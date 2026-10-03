@@ -10,6 +10,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { renderIconValue } from "#/components/entity-icon.tsx";
+import { SpaceDot } from "#/components/space-chip.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
 import { updateEntity } from "#/lib/api/entities.ts";
 import { createView, type SavedView, type ViewModule } from "#/lib/api/views.ts";
@@ -179,6 +180,7 @@ export function ViewDialog({
               <SelectContent>
                 {spaces.map((space) => (
                   <SelectItem key={space.id} value={space.id}>
+                    <SpaceDot space={space} />
                     {space.name}
                   </SelectItem>
                 ))}

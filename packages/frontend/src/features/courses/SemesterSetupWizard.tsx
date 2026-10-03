@@ -1,4 +1,11 @@
-import { IconCheck, IconFlower, IconLeaf, IconSnowflake, IconSun } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconFlower,
+  IconLeaf,
+  IconSnowflake,
+  IconSun,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -17,6 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
+import { Input } from "@nookly/ui/components/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { NumberInput } from "@nookly/ui/components/number-input";
 import {
   Select,
@@ -108,6 +117,8 @@ export function SemesterSetupWizard({
   useEffect(() => {
     if (!open) return;
     setStep("system");
+    setTitleEdits({});
+    setRemovedKeys([]);
     form.reset(initialValues());
   }, [open, form]);
 
@@ -115,7 +126,17 @@ export function SemesterSetupWizard({
   const currentTerm = terms.find((t) => t.key === currentTermKey) ?? terms[0];
   const region = REGION_TERM_DATES.find((r) => r.key === regionKey && r.system === system) ?? null;
 
-  const plan = buildSemesterPlan(system, currentTerm, currentYear, semesterCount);
+  // Review step tweaks, keyed by plan item: renamed titles and items taken out.
+  const [titleEdits, setTitleEdits] = useState<Record<string, string>>({});
+  const [removedKeys, setRemovedKeys] = useState<string[]>([]);
+  const plan = buildSemesterPlan(system, currentTerm, currentYear, semesterCount)
+    .map((item) => {
+      const key = `${item.term.key}-${item.year}`;
+      const defaultTitle = ACADEMIC_SYSTEMS[system].formatTitle(item.term, item.year);
+      return { ...item, key, defaultTitle, title: titleEdits[key] ?? defaultTitle };
+    })
+    .filter((item) => !removedKeys.includes(item.key));
+  const planReady = plan.length > 0 && plan.every((item) => item.title.trim() !== "");
   // SAFETY: ACADEMIC_SYSTEMS is defined as Record<AcademicSystemKey, ...>, so its own keys are exactly that union.
   const systemKeys = Object.keys(ACADEMIC_SYSTEMS) as AcademicSystemKey[];
 
@@ -125,16 +146,12 @@ export function SemesterSetupWizard({
       for (const item of plan) {
         const window = region?.windows[item.term.key];
         const dates = window ? resolveTermDates(window, item.year) : null;
-        const created = await createSemester(
-          spaceId,
-          ACADEMIC_SYSTEMS[system].formatTitle(item.term, item.year),
-          {
-            termType: item.term.key,
-            year: item.year,
-            startDate: dates?.startDate,
-            endDate: dates?.endDate,
-          },
-        );
+        const created = await createSemester(spaceId, item.title.trim(), {
+          termType: item.term.key,
+          year: item.year,
+          startDate: dates?.startDate,
+          endDate: dates?.endDate,
+        });
         if (item.isCurrent) currentEntityId = created.entity.id;
       }
       if (currentEntityId) await setCurrentSemester(spaceId, currentEntityId);
@@ -270,20 +287,42 @@ export function SemesterSetupWizard({
           <div className="flex flex-col gap-1">
             {plan.map((item) => (
               <div
-                key={`${item.term.key}-${item.year}`}
+                key={item.key}
                 className={cn(
-                  "flex items-center justify-between rounded-md border border-border px-3 py-1.5 text-sm",
+                  "flex items-center gap-1.5 rounded-md border border-border py-1 px-1.5 text-sm",
                   item.isCurrent && "border-primary bg-primary/5",
                 )}
               >
-                {ACADEMIC_SYSTEMS[system].formatTitle(item.term, item.year)}
+                <Input
+                  aria-label={`Name for ${item.defaultTitle}`}
+                  value={item.title}
+                  disabled={locked}
+                  onChange={(e) =>
+                    setTitleEdits((prev) => ({ ...prev, [item.key]: e.target.value }))
+                  }
+                  className="h-7 flex-1"
+                />
                 {item.isCurrent && (
                   <span className="text-xs font-medium text-primary">Current</span>
                 )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="iconSm"
+                      aria-label="Remove Semester"
+                      disabled={locked}
+                      onClick={() => setRemovedKeys((prev) => [...prev, item.key])}
+                    >
+                      <IconTrash size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove Semester</TooltipContent>
+                </Tooltip>
               </div>
             ))}
             <p className="mt-1 text-xs text-muted-foreground">
-              You can rename, add, delete, reorder, or edit dates for any of these afterward.
+              You can also rename, reorder, or edit dates for any of these afterward.
             </p>
           </div>
         )}
@@ -310,7 +349,7 @@ export function SemesterSetupWizard({
               Next
             </Button>
           ) : (
-            <Button onClick={() => void form.handleSubmit()}>
+            <Button disabled={!planReady} onClick={() => void form.handleSubmit()}>
               <StatusButtonContent
                 status={finishStatus}
                 label="Create semesters"
