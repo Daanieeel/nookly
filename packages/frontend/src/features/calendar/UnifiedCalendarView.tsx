@@ -31,7 +31,8 @@ import { MonthGrid } from "../sessions/calendar/MonthGrid";
 import { TimeGrid } from "../sessions/calendar/TimeGrid";
 import { QuickCreateCalendarEntryDialog } from "../calendar-entries/calendar/QuickCreateCalendarEntryDialog";
 import { qk } from "#/lib/query-keys.ts";
-import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
+import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
+import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The fifth cross-Space exception (`docs/04-navigation-spaces.md`): one
@@ -99,7 +100,16 @@ export function UnifiedCalendarView() {
     const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
     setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
   }, [view, anchor, weekStartsOn]);
-  useScreenHotkey(HOTKEYS.newItem, () => startCreate());
+
+  const hotkeys: UseHotkeyDefinition[] = [
+    ...CALENDAR_VIEWS.map((v) => ({ hotkey: v.key, callback: () => setView(v.id) })),
+    { hotkey: HOTKEYS.today, callback: () => setAnchor(new Date()) },
+    { hotkey: HOTKEYS.previousPeriod, callback: () => step(-1) },
+    { hotkey: HOTKEYS.nextPeriod, callback: () => step(1) },
+    { hotkey: HOTKEYS.create, callback: () => startCreate() },
+    { hotkey: HOTKEYS.newItem, callback: () => startCreate() },
+  ];
+  useScreenHotkeys(hotkeys);
 
   useEffect(() => {
     if (highlightIds.size === 0) return;
