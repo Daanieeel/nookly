@@ -2,6 +2,23 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.17.0 (2026-10-03)
+
+### Changed
+
+- Weekly repeat select in new session dialog, term icons in semester setup
+- Space color in view dialog, edit and remove semesters in setup, cmd+arrow history
+- Number input with weeks or months interval for session repeat
+- Repeat cadence and duration for new sessions
+- Repeat control as filter style chip
+- Larger repeat chip text
+- Repeat chip fills dialog width
+- Brighter clickable chip segments, centered content
+- Cross-space view presets no longer ask for a space
+- Save view dialog no longer asks for a space
+- Improved form error states (#53)
+- Tabs (#54)
+
 ## 0.15.1 (2026-10-03)
 
 ### Changed
