@@ -65,6 +65,7 @@ import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
 /// Which occurrences an edit reaches, as in any calendar. A series edit never
@@ -92,7 +93,13 @@ const sessionEditSchema = z
 
 type SessionEditValues = z.infer<typeof sessionEditSchema>;
 
-function refreshSessions(queryClient: QueryClient, entityId: string) {
+/// What a Jot or Note made for one occurrence is called until renamed.
+export function sessionPageTitle(occurrence: SessionOccurrence): string {
+  const course = occurrence.courseTitle ? `${occurrence.courseTitle} - ` : "";
+  return `${course}${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`;
+}
+
+export function refreshSessions(queryClient: QueryClient, entityId: string) {
   return Promise.all([
     // The root key (not a per Space key) so this also invalidates the
     // cross-Space qk.sessions.all cache the unified Calendar page reads.
@@ -158,17 +165,25 @@ export function SessionPopover({
   );
 }
 
-function SessionSummary({
+export function SessionSummary({
   occurrence,
   onEdit,
   onDeleteSeries,
   close,
+  showTitle = true,
+  compact = false,
 }: {
   occurrence: SessionOccurrence;
   onEdit: () => void;
   onDeleteSeries: () => void;
+  /// Called after the Session went to Trash.
   close: () => void;
+  /// False on the Session's own page, whose header already carries the title.
+  showTitle?: boolean;
+  /// Tighter text, spacing and buttons, for the Session page's narrow sidebar.
+  compact?: boolean;
 }) {
+  const openEntity = useNavStore((s) => s.openEntity);
   const queryClient = useQueryClient();
   const { entity } = occurrence;
   const toggleCancelled = useMutation({
@@ -201,16 +216,23 @@ function SessionSummary({
   });
 
   return (
-    <div className="flex flex-col gap-2.5 p-3">
+    <div className={cn("flex flex-col gap-2.5 p-3", compact && "gap-2 p-2.5 text-xs")}>
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="font-semibold wrap-break-word">{displayTitle(entity)}</span>
+          {showTitle && (
+            <span className="font-semibold wrap-break-word">{displayTitle(entity)}</span>
+          )}
           {occurrence.courseTitle && (
             <span className="text-muted-foreground wrap-break-word">{occurrence.courseTitle}</span>
           )}
         </div>
         {occurrence.cancelled && <Badge variant="secondary">Cancelled</Badge>}
-        <div className="-mt-1 -mr-1 flex shrink-0 items-center">
+        <div
+          className={cn(
+            "-mt-1 -mr-1 flex shrink-0 items-center",
+            compact && "[&_button]:size-6 [&_svg]:size-3.5",
+          )}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -227,6 +249,24 @@ function SessionSummary({
             </TooltipTrigger>
             <TooltipContent>{toggleLabel}</TooltipContent>
           </Tooltip>
+          {showTitle && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Open Session"
+                  onClick={() => {
+                    close();
+                    openEntity(entity.id, entity.spaceId);
+                  }}
+                >
+                  <IconArrowUpRight />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open Session</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="iconSm" aria-label="Edit Session" onClick={onEdit}>
@@ -277,19 +317,19 @@ function SessionSummary({
 
       <div className="flex flex-col gap-1.5 text-muted-foreground">
         <span className="flex items-start gap-2">
-          <IconClock size={14} className="mt-0.5 shrink-0" />
+          <IconClock size={compact ? 12 : 14} className="mt-0.5 shrink-0" />
           {formatWeekday(occurrence.date)}, {formatShortDate(occurrence.date)},{" "}
           {formatClock(occurrence.startTime)} to {formatClock(occurrence.endTime)}
         </span>
         {occurrence.location && (
           <span className="flex items-start gap-2">
-            <IconMapPin size={14} className="mt-0.5 shrink-0" />
+            <IconMapPin size={compact ? 12 : 14} className="mt-0.5 shrink-0" />
             <span className="wrap-break-word">{occurrence.location}</span>
           </span>
         )}
         {occurrence.templateId && (
           <span className="flex items-center gap-2">
-            <IconRepeat size={14} className="shrink-0" />
+            <IconRepeat size={compact ? 12 : 14} className="shrink-0" />
             Repeats weekly
           </span>
         )}
@@ -300,7 +340,7 @@ function SessionSummary({
   );
 }
 
-function SessionEditForm({
+export function SessionEditForm({
   occurrence,
   onDone,
 }: {
@@ -465,14 +505,17 @@ function SessionEditForm({
 
 /// The Jot typed during this occurrence and the Note that refines it later.
 /// Each button creates its page once, then opens it.
-function SessionPages({
+export function SessionPages({
   spaceId,
   occurrence,
   close,
+  compact = false,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
   close: () => void;
+  /// Smaller buttons and spacing, for the Session page's narrow sidebar.
+  compact?: boolean;
 }) {
   const { data: pages } = useQuery({
     queryKey: qk.sessions.pages(occurrence.entity.id),
@@ -487,7 +530,12 @@ function SessionPages({
         ? "note"
         : null;
   return (
-    <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-2 border-t border-border p-3",
+        compact && "gap-1.5 p-2.5",
+      )}
+    >
       <SessionPageButton
         kind="jot"
         spaceId={spaceId}
@@ -496,6 +544,7 @@ function SessionPages({
         primary={next === "jot"}
         loading={!pages}
         close={close}
+        compact={compact}
       />
       <SessionPageButton
         kind="note"
@@ -505,6 +554,7 @@ function SessionPages({
         primary={next === "note"}
         loading={!pages}
         close={close}
+        compact={compact}
       />
     </div>
   );
@@ -518,6 +568,7 @@ function SessionPageButton({
   primary,
   loading,
   close,
+  compact,
 }: {
   kind: "jot" | "note";
   spaceId: string;
@@ -527,18 +578,15 @@ function SessionPageButton({
   primary: boolean;
   loading: boolean;
   close: () => void;
+  compact: boolean;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const size = compact ? "sm" : "default";
   const Icon = MODULE_ICONS[kind === "jot" ? "jots" : "notes"];
   const noun = kind === "jot" ? "jot" : "note";
   const create = useMutation({
-    mutationFn: () =>
-      createSessionPage(
-        occurrence.entity.id,
-        kind,
-        `${occurrence.courseTitle ? `${occurrence.courseTitle} - ` : ""}${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`,
-      ),
+    mutationFn: () => createSessionPage(occurrence.entity.id, kind, sessionPageTitle(occurrence)),
     // Straight into the new page: landing there confirms it was created.
     onSuccess: async (page) => {
       await Promise.all([
@@ -555,6 +603,7 @@ function SessionPageButton({
     return (
       <Button
         variant="secondary"
+        size={size}
         onClick={() => {
           close();
           openEntity(pageId, spaceId);
@@ -568,6 +617,7 @@ function SessionPageButton({
   return (
     <Button
       variant={primary ? "default" : "secondary"}
+      size={size}
       disabled={loading}
       onClick={() => !create.isPending && create.mutate()}
     >
@@ -581,7 +631,7 @@ function SessionPageButton({
   );
 }
 
-function DeleteSeriesDialog({
+export function DeleteSeriesDialog({
   spaceId,
   occurrence,
   templateId,

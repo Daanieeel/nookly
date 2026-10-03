@@ -22,6 +22,10 @@ Every relationship (Jots, Notes, Tasks, Files) targets a **specific occurrence**
 
 Each occurrence can have one Jot (`session-jot`, typed during the session) and one Note (`session-note`, the refinement afterwards). Both are real Jots and Notes, created and opened from the calendar popover.
 
+## Session Page
+
+Opened from the calendar popover, by double clicking a Session, or by its ID anywhere an entity opens. A markdown editor for the occurrence's notes field, a week cut-out of the calendar scrolled to the Session and highlighting it, and previews of its Jot and Note (a create card when one is missing). The sidebar carries the popover's controls, including the edit scope.
+
 ## Layout Direction
 
 A full page calendar modeled on Outlook, with Day, Work week, Week and Month views (keys 1 to 4, T for today, arrows to step). The time grid shows the whole day with hour and half hour lines.

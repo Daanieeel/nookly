@@ -100,12 +100,15 @@ export function TimeGrid({
   spaceColor,
   secondaryKind,
   allowMultiDay,
+  initialScrollMinutes,
 }: {
   columns: DayColumn[];
   /// The range a create dialog is open for, kept highlighted meanwhile.
   selection: SlotRange | null;
   highlightIds: Set<string>;
-  onSelect: (range: SlotRange) => void;
+  /// Omitted on an embedded, read only slice of the calendar: empty time is then
+  /// not draggable and creates nothing.
+  onSelect?: (range: SlotRange) => void;
   /// Opens one day on its own, from its header.
   onPickDay: (day: Date) => void;
   /// What a right-click on an empty slot offers to create ("Session" or
@@ -127,6 +130,8 @@ export function TimeGrid({
   /// entry (dragging from Monday noon to Wednesday 3pm, say). Off by default,
   /// so Sessions (always a single day) keep dragging exactly as before.
   allowMultiDay?: boolean;
+  /// Minutes after midnight to open scrolled to, instead of `SCROLL_TO_HOUR`.
+  initialScrollMinutes?: number;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -143,7 +148,11 @@ export function TimeGrid({
   const allDayHeightPx = allDayRows * ALL_DAY_ROW_PX + 4;
 
   useLayoutEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_PX;
+    if (scrollRef.current)
+      scrollRef.current.scrollTop =
+        initialScrollMinutes === undefined
+          ? SCROLL_TO_HOUR * HOUR_PX
+          : topPxFor(initialScrollMinutes);
   }, []);
 
   useEffect(() => {
@@ -277,7 +286,7 @@ export function TimeGrid({
                 isWeekend(day) && "bg-weekend",
               )}
               onPointerDown={(e) => {
-                if (e.button !== 0) return;
+                if (e.button !== 0 || !onSelect) return;
                 if (!isEmptySpot(e.currentTarget, e.target, "[data-calendar-item]")) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
                 const minutes = minutesAt(e);
@@ -300,6 +309,7 @@ export function TimeGrid({
               onPointerUp={() => {
                 if (!drag || drag.anchorCol !== dayIndex) return;
                 setDrag(null);
+                if (!onSelect) return;
                 if (drag.moved) {
                   onSelect(dragToRange(drag, columns));
                 } else {
@@ -316,7 +326,7 @@ export function TimeGrid({
                     "h-6 border-b",
                     i % 2 === 0 ? "border-dashed border-border/50" : "border-border",
                   )}
-                  {...(slotCreateNoun
+                  {...(slotCreateNoun && onSelect
                     ? contextTarget("calendar.slot", {
                         startMin: i * 30,
                         noun: slotCreateNoun,

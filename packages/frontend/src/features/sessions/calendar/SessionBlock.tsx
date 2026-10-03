@@ -15,6 +15,7 @@ import type { BlockPosition } from "../external-calendars/overlay-layout";
 import { heightPxFor, minutesToTime, timeToMinutes, topPxFor } from "./calendar-model";
 import { useItemDrag } from "./item-drag";
 import { SessionPopover } from "./SessionPopover";
+import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 /// A Session occurrence on the time grid: outlined and quieter than a
@@ -52,6 +53,7 @@ export function SessionBlock({
   dayIndex: number;
 }) {
   const queryClient = useQueryClient();
+  const openEntity = useNavStore((s) => s.openEntity);
   const invalidate = () =>
     // The root key (not a per Space key) so this also invalidates the
     // cross-Space qk.sessions.all cache the unified Calendar page reads.
@@ -122,6 +124,7 @@ export function SessionBlock({
             : undefined,
         } as CSSProperties
       }
+      onDoubleClick={() => openEntity(occurrence.entity.id, spaceId)}
       {...entityTarget(occurrence.entity, occurrence)}
       {...(draggable ? handleFor("move") : {})}
     >
@@ -205,11 +208,13 @@ export function SessionChip({
   /// See `SessionBlock`'s `secondary`.
   secondary?: boolean;
 }) {
+  const openEntity = useNavStore((s) => s.openEntity);
   return (
     <SessionPopover spaceId={spaceId} occurrence={occurrence}>
       <button
         type="button"
         data-calendar-item
+        onDoubleClick={() => openEntity(occurrence.entity.id, spaceId)}
         title={sessionTooltip(occurrence)}
         className={cn(
           "flex h-5 w-full min-w-0 shrink-0 items-center gap-1.5 rounded-sm px-1 text-left text-xs",

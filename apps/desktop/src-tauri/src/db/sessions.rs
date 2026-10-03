@@ -787,7 +787,7 @@ const SESSION_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "Free-text notes on this occurrence.",
+        description: "Notes on this occurrence, as markdown. Edited in the Session page.",
     },
 ];
 
