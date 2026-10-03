@@ -17,13 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
 import { cn } from "@nookly/ui/lib/utils";
 import { serializeViewConfig } from "./view-config";
 import type { DisplaySummary, ViewPreset } from "./view-presets";
@@ -41,8 +34,8 @@ export function ViewPresetsButton<D>({
   describeDisplay,
 }: {
   spaceId: string;
-  /// Set on a cross-Space page, whose Views each live in one Space: a preset is added
-  /// to the chosen one (starting at `spaceId`) and counts as added when any Space has it.
+  /// Set on a cross-Space page. Its Views show every Space's items whichever Space stores
+  /// them, so a preset is stored in `spaceId` and counts as added when any Space has it.
   spaces?: Space[];
   module: ViewModule;
   presets: ViewPreset<D>[];
@@ -52,7 +45,6 @@ export function ViewPresetsButton<D>({
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [targetSpaceId, setTargetSpaceId] = useState(spaceId);
   const scopeIds = spaces ? spaces.map((s) => s.id) : [spaceId];
   const views = useQueries({
     queries: scopeIds.map((id) => ({
@@ -68,14 +60,14 @@ export function ViewPresetsButton<D>({
   const add = useMutation({
     mutationFn: (p: ViewPreset<D>) =>
       createView(
-        targetSpaceId,
+        spaceId,
         p.name,
         module,
         serializeViewConfig(p.filters, p.display),
         iconLibraryValue(p.icon, p.color),
       ),
     onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: qk.views.bySpace(targetSpaceId) });
+      await queryClient.invalidateQueries({ queryKey: qk.views.bySpace(spaceId) });
       await queryClient.invalidateQueries({ queryKey: qk.entity.root });
       openView(created.entity.id);
     },
@@ -83,8 +75,7 @@ export function ViewPresetsButton<D>({
   const { reset } = add;
   useEffect(() => {
     if (!open) reset();
-    else setTargetSpaceId(spaceId);
-  }, [open, reset, spaceId]);
+  }, [open, reset]);
 
   function openView(viewId: string) {
     setOpen(false);
@@ -104,27 +95,10 @@ export function ViewPresetsButton<D>({
           <DialogHeader>
             <DialogTitle>View presets</DialogTitle>
             <DialogDescription>
-              Ready made views. Adding one saves it to {spaces ? "a Space" : "this Space"}, where
-              you can change it freely.
+              Ready made views. Adding one saves it{" "}
+              {spaces ? "for all your Spaces" : "to this Space"}, where you can change it freely.
             </DialogDescription>
           </DialogHeader>
-          {spaces && (
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Add to</span>
-              <Select value={targetSpaceId} onValueChange={setTargetSpaceId}>
-                <SelectTrigger size="sm" className="w-44" aria-label="Space to add the view to">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {spaces.map((space) => (
-                    <SelectItem key={space.id} value={space.id}>
-                      {space.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <div className="grid h-120 auto-rows-min grid-cols-1 content-start gap-3 overflow-y-auto sm:grid-cols-2">
             {presets.map((p) => {
               const found = existing(p);
