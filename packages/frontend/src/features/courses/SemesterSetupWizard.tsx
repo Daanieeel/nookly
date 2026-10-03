@@ -14,6 +14,7 @@ import {
   StatusButtonContent,
   statusOf,
   useCloseAfterSuccess,
+  FieldError,
 } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -136,7 +137,12 @@ export function SemesterSetupWizard({
       return { ...item, key, defaultTitle, title: titleEdits[key] ?? defaultTitle };
     })
     .filter((item) => !removedKeys.includes(item.key));
-  const planReady = plan.length > 0 && plan.every((item) => item.title.trim() !== "");
+  const planError =
+    plan.length === 0
+      ? "Keep at least one semester"
+      : plan.some((item) => item.title.trim() === "")
+        ? "Give every semester a name"
+        : null;
   // SAFETY: ACADEMIC_SYSTEMS is defined as Record<AcademicSystemKey, ...>, so its own keys are exactly that union.
   const systemKeys = Object.keys(ACADEMIC_SYSTEMS) as AcademicSystemKey[];
 
@@ -291,6 +297,7 @@ export function SemesterSetupWizard({
                 className={cn(
                   "flex items-center gap-1.5 rounded-md border border-border py-1 px-1.5 text-sm",
                   item.isCurrent && "border-primary bg-primary/5",
+                  item.title.trim() === "" && "border-destructive",
                 )}
               >
                 <Input
@@ -321,6 +328,7 @@ export function SemesterSetupWizard({
                 </Tooltip>
               </div>
             ))}
+            <FieldError message={planError} />
             <p className="mt-1 text-xs text-muted-foreground">
               You can also rename, reorder, or edit dates for any of these afterward.
             </p>
@@ -349,7 +357,7 @@ export function SemesterSetupWizard({
               Next
             </Button>
           ) : (
-            <Button disabled={!planReady} onClick={() => void form.handleSubmit()}>
+            <Button disabled={planError !== null} onClick={() => void form.handleSubmit()}>
               <StatusButtonContent
                 status={finishStatus}
                 label="Create semesters"

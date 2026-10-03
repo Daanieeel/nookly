@@ -27,7 +27,7 @@ import {
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Badge } from "@nookly/ui/components/badge";
@@ -772,14 +772,18 @@ function CreateCourseDialog({
           </form.Field>
         </form>
         <DialogFooter>
-          <Button onClick={() => void form.handleSubmit()}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

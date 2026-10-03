@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { Input } from "@nookly/ui/components/input";
 import {
   type CalendarConnection,
@@ -358,14 +358,24 @@ function IcloudConnect() {
         </form.Field>
       </div>
       <FieldError message={connect.isError && connect.error.message} />
-      <Button type="submit" variant="secondary" size="sm" className="self-start">
-        <StatusButtonContent
-          status={statusOf(connect)}
-          icon={<ProviderIcon provider="icloud" size={14} />}
-          label="Connect iCloud"
-          errorLabel="Try again"
-        />
-      </Button>
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            disabled={blocked}
+          >
+            <StatusButtonContent
+              status={statusOf(connect)}
+              icon={<ProviderIcon provider="icloud" size={14} />}
+              label="Connect iCloud"
+              errorLabel="Try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

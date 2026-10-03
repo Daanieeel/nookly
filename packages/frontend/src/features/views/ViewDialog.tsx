@@ -1,5 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { IconStack2 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -167,14 +167,18 @@ export function ViewDialog({
           </form.Field>
         </form>
         <DialogFooter>
-          <Button onClick={() => void form.handleSubmit()}>
-            <StatusButtonContent
-              status={status}
-              label={existing ? "Rename" : "Create view"}
-              successLabel={existing ? "Renamed" : "View created"}
-              errorLabel="Couldn't save, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
+                <StatusButtonContent
+                  status={status}
+                  label={existing ? "Rename" : "Create view"}
+                  successLabel={existing ? "Renamed" : "View created"}
+                  errorLabel="Couldn't save, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

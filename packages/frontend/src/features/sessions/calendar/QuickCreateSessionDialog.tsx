@@ -11,7 +11,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { DateInput } from "#/components/date-input.tsx";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -337,14 +337,18 @@ export function QuickCreateSessionDialog({
           <button type="submit" hidden aria-label="Create session" />
         </form>
         <DialogFooter>
-          <Button onClick={() => void form.handleSubmit()}>
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Session created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
+                <StatusButtonContent
+                  status={createStatus}
+                  label="Create"
+                  successLabel="Session created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

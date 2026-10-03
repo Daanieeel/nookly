@@ -22,7 +22,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { FeedbackMenuItem } from "#/components/feedback-menu-item.tsx";
@@ -253,14 +253,18 @@ function DateRangeForm({
           )}
         </form.Field>
       </div>
-      <Button type="submit" size="sm">
-        <StatusButtonContent
-          status={status}
-          label="Save"
-          successLabel="Saved"
-          errorLabel="Couldn't save, try again"
-        />
-      </Button>
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <Button type="submit" size="sm" disabled={blocked}>
+            <StatusButtonContent
+              status={status}
+              label="Save"
+              successLabel="Saved"
+              errorLabel="Couldn't save, try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }
@@ -735,14 +739,18 @@ function CreateSemesterDialog({
           </div>
         </form>
         <DialogFooter>
-          <Button onClick={() => void form.handleSubmit()}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

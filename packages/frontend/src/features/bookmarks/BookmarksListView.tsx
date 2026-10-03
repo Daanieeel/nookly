@@ -10,13 +10,14 @@ import {
   IconWorld,
 } from "@tabler/icons-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { StatusIcon, useActionStatus } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
+import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
 import {
@@ -76,7 +77,7 @@ function passesFilters(bookmark: Bookmark, filters: ActiveFilter[]): boolean {
 /// Bookmarks as a wall of link previews, or a dense list. Pasting a URL is the
 /// way in: into the floating field at the bottom, or anywhere on the page. The
 /// new card shows up at once and fills in as the page's metadata arrives.
-const urlSchema = z.object({ url: z.string().trim().min(1) });
+const urlSchema = z.object({ url: z.string().trim().min(1, "Paste a URL to save") });
 
 export function BookmarksListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
@@ -93,6 +94,9 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
     validators: { onChange: urlSchema },
     onSubmit: ({ value }) => submit(value.url),
   });
+  const emptyError = useStore(form.store, (state) =>
+    hasVisibleErrors(state) ? "Paste a URL to save" : null,
+  );
 
   const { data: bookmarks = [], isPending } = useQuery({
     queryKey: qk.bookmarks.bySpace(spaceId),
@@ -297,15 +301,22 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
         </div>
       )}
 
-      <FloatingBar onSubmit={() => void form.handleSubmit()} failed={add.isError}>
+      <FloatingBar
+        onSubmit={() => void form.handleSubmit()}
+        failed={add.isError || emptyError !== null}
+      >
         <IconLink size={16} className="shrink-0 text-muted-foreground" />
         <form.Field name="url">
           {(field) => (
             <input
               ref={inputRef}
               placeholder="Paste a URL to save it"
-              aria-label={add.isError ? `Couldn't save the bookmark: ${add.error.message}` : "URL"}
-              aria-invalid={add.isError || undefined}
+              aria-label={
+                add.isError
+                  ? `Couldn't save the bookmark: ${add.error.message}`
+                  : (emptyError ?? "URL")
+              }
+              aria-invalid={add.isError || emptyError !== null || undefined}
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(e) => field.handleChange(e.target.value)}
@@ -315,21 +326,23 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
           )}
         </form.Field>
         <Kbd className="max-sm:hidden">C</Kbd>
-        <form.Subscribe selector={(state) => urlSchema.safeParse(state.values).success}>
-          {(ready) => (
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   type="submit"
                   size="iconSm"
-                  aria-label={add.isError ? "Couldn't save, try again" : "Save Bookmark"}
-                  disabled={!ready && addStatus === "idle"}
+                  aria-label={
+                    add.isError ? "Couldn't save, try again" : (emptyError ?? "Save Bookmark")
+                  }
+                  disabled={blocked}
                 >
                   <StatusIcon status={addStatus} idle={<IconArrowUp />} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {add.isError ? "Couldn't save, try again" : "Save Bookmark"}
+                {add.isError ? "Couldn't save, try again" : (emptyError ?? "Save Bookmark")}
               </TooltipContent>
             </Tooltip>
           )}

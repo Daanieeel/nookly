@@ -1,5 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -245,14 +245,18 @@ function CreateRecipeDialog({
           </form.Field>
         </form>
         <DialogFooter>
-          <Button onClick={() => void form.handleSubmit()}>
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create"
+                  successLabel="Created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

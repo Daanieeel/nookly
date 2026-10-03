@@ -10,7 +10,7 @@ import {
 } from "#/components/action-feedback.tsx";
 import { registerActions, registerEntityType } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { DateInput } from "#/components/date-input.tsx";
 import { TimeInput } from "#/components/time-input.tsx";
 import { listSessions, overrideOccurrence } from "#/lib/api/sessions.ts";
@@ -130,13 +130,17 @@ function RescheduleForm({
         </form.Field>
       </div>
       <FieldError message={move.isError && move.error.message} />
-      <Button type="submit" size="sm">
-        <StatusButtonContent
-          status={status}
-          label="Move Occurrence"
-          errorLabel="Couldn't move, try again"
-        />
-      </Button>
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <Button type="submit" size="sm" disabled={blocked}>
+            <StatusButtonContent
+              status={status}
+              label="Move Occurrence"
+              errorLabel="Couldn't move, try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

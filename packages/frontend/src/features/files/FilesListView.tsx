@@ -17,7 +17,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { homeDir, join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { z } from "zod";
@@ -36,6 +36,7 @@ import {
   FilterMenu,
   applyFilters,
 } from "#/components/filter-menu.tsx";
+import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
 import {
   buildGroups,
@@ -125,7 +126,7 @@ type Offer = { kind: "webpage"; url: string } | { kind: "unviewable"; file: File
 /// Files like Finder's icon view: a grid of type tinted tiles by default, a dense
 /// list as the alternative. Dropping files anywhere on the window is the main way
 /// in; the floating bar takes a link or a path, or opens the file picker.
-const textSchema = z.object({ text: z.string().trim().min(1) });
+const textSchema = z.object({ text: z.string().trim().min(1, "Paste a link or file path") });
 
 export function FilesListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
@@ -143,6 +144,9 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
       if (!addFromText.isPending) addFromText.mutate(value.text);
     },
   });
+  const emptyError = useStore(form.store, (state) =>
+    hasVisibleErrors(state) ? "Paste a link or file path" : null,
+  );
 
   const { data: files = [], isPending } = useQuery({
     queryKey: qk.files.bySpace(spaceId),
@@ -449,16 +453,19 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           </Tooltip>
         </FloatingBar>
       ) : (
-        <FloatingBar onSubmit={() => void form.handleSubmit()} failed={addError !== null}>
+        <FloatingBar
+          onSubmit={() => void form.handleSubmit()}
+          failed={addError !== null || emptyError !== null}
+        >
           <IconLink size={16} className="shrink-0 text-muted-foreground" />
           <form.Field name="text">
             {(field) => (
               <input
                 ref={inputRef}
                 placeholder="Paste a link or file path"
-                aria-label={addError ?? "Link or file path"}
-                aria-invalid={addError !== null || undefined}
-                title={addError ?? undefined}
+                aria-label={addError ?? emptyError ?? "Link or file path"}
+                aria-invalid={addError !== null || emptyError !== null || undefined}
+                title={addError ?? emptyError ?? undefined}
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => {
@@ -470,24 +477,23 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
               />
             )}
           </form.Field>
-          <form.Subscribe selector={(state) => textSchema.safeParse(state.values).success}>
-            {(ready) =>
-              (ready || addStatus !== "idle") && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="iconSm"
-                      aria-label={addError ? "Couldn't add, try again" : "Add File"}
-                    >
-                      <StatusIcon status={addStatus} idle={<IconArrowUp />} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{addError ?? "Add File"}</TooltipContent>
-                </Tooltip>
-              )
-            }
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="iconSm"
+                    disabled={blocked}
+                    aria-label={addError ? "Couldn't add, try again" : "Add File"}
+                  >
+                    <StatusIcon status={addStatus} idle={<IconArrowUp />} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{addError ?? emptyError ?? "Add File"}</TooltipContent>
+              </Tooltip>
+            )}
           </form.Subscribe>
           <span className="shrink-0 text-xs text-muted-foreground">or</span>
           <Tooltip>

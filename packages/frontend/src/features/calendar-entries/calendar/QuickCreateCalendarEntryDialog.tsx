@@ -10,7 +10,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { DateInput } from "#/components/date-input.tsx";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
 import {
   createCalendarEntryTemplate,
@@ -388,14 +388,18 @@ export function QuickCreateCalendarEntryDialog({
           <button type="submit" hidden aria-label="Create calendar entry" />
         </form>
         <DialogFooter>
-          <Button onClick={() => void form.handleSubmit()}>
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Entry created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
+                <StatusButtonContent
+                  status={createStatus}
+                  label="Create"
+                  successLabel="Entry created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

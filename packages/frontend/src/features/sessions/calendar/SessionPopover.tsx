@@ -24,7 +24,7 @@ import {
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
 import {
@@ -490,13 +490,17 @@ export function SessionEditForm({
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" size="sm">
-          <StatusButtonContent
-            status={statusOf(save)}
-            label="Save"
-            errorLabel="Couldn't save, try again"
-          />
-        </Button>
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <Button type="submit" size="sm" disabled={blocked}>
+              <StatusButtonContent
+                status={statusOf(save)}
+                label="Save"
+                errorLabel="Couldn't save, try again"
+              />
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   );

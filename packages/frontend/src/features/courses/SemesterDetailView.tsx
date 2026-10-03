@@ -8,7 +8,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
 import { useForm } from "@tanstack/react-form";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
@@ -352,14 +352,18 @@ function AddCourseCard({
               </FormField>
             )}
           </form.Field>
-          <Button type="submit" size="sm">
-            <StatusButtonContent
-              status={statusOf(create)}
-              label="Create & link"
-              successLabel="Created and linked"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button type="submit" size="sm" disabled={blocked}>
+                <StatusButtonContent
+                  status={statusOf(create)}
+                  label="Create & link"
+                  successLabel="Created and linked"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </form>
         <div className="my-2 flex items-center gap-2 text-xs text-muted-foreground">
           <Separator className="flex-1" /> or <Separator className="flex-1" />
