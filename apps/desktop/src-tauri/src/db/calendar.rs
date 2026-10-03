@@ -1050,4 +1050,1247 @@ mod tests {
         )
         .is_err());
     }
+
+    // --- Characterization tests: recurring series logic -------------------
+    // Pin the CURRENT behavior so a later refactor (shared series module with
+    // `sessions`) can be verified. Mirrored by tests in `sessions.rs`.
+
+    type Snap = (
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        bool,
+        Option<String>,
+        Option<String>,
+        bool,
+    );
+
+    /// Every row of a template (trashed included), ordered by date.
+    fn snapshot(conn: &Connection, template_id: &str) -> Vec<Snap> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT e.id FROM entities e JOIN calendar_entries a ON a.entity_id = e.id
+                 WHERE a.template_id = ?1 ORDER BY a.date ASC",
+            )
+            .unwrap();
+        let ids: Vec<String> = stmt
+            .query_map(params![template_id], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        ids.iter()
+            .map(|id| {
+                let o = get_calendar_entry(conn, id).unwrap();
+                (
+                    o.date,
+                    o.entity.title,
+                    o.start_time,
+                    o.end_time,
+                    o.all_day,
+                    o.location,
+                    o.description,
+                    o.cancelled,
+                )
+            })
+            .collect()
+    }
+
+    fn row_count(conn: &Connection, template_id: &str) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM calendar_entries WHERE template_id = ?1",
+            params![template_id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    fn trashed(conn: &Connection, id: &str) -> bool {
+        get_calendar_entry(conn, id)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_some()
+    }
+
+    fn set_title(conn: &Connection, id: &str, title: &str) {
+        crate::db::entities::update_entity(
+            conn,
+            id,
+            crate::db::entities::EntityPatch {
+                title: Some(title.into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    }
+
+    /// Weekly Monday gym with location and description, occurrences
+    /// 01-05, 01-12, 01-19, 01-26 (07:00 to 08:00).
+    fn series(conn: &Connection) -> (String, String, Vec<CalendarEntry>) {
+        let space = crate::db::test_space(conn, "Life");
+        let template = create_calendar_entry_template(
+            conn,
+            space.id.clone(),
+            "Gym".into(),
+            "weekly".into(),
+            Some("07:00".into()),
+            Some("08:00".into()),
+            false,
+            Some("Room 1".into()),
+            Some("Bring towel".into()),
+            "2026-01-05".into(),
+        )
+        .unwrap();
+        let occ = generate_occurrences(conn, &template.id, "2026-01-26").unwrap();
+        (space.id, template.id, occ)
+    }
+
+    fn ov(date: &str) -> CalendarEntryOverride {
+        CalendarEntryOverride {
+            date: Some(date.into()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn series_update_from_date_changes_only_later_occurrences() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        let before = snapshot(&conn, &tid);
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[2].date,
+            CalendarEntrySeriesPatch {
+                title: Some("Gym II".into()),
+                start_time: Some(Some("08:00".into())),
+                end_time: Some(Some("09:00".into())),
+                location: Some(Some("Studio".into())),
+                description: Some(Some("Bring water".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let after = snapshot(&conn, &tid);
+        assert_eq!(after[0], before[0]);
+        assert_eq!(after[1], before[1]);
+        for row in &after[2..] {
+            assert_eq!(row.1, "Gym II");
+            assert_eq!(row.2.as_deref(), Some("08:00"));
+            assert_eq!(row.3.as_deref(), Some("09:00"));
+            assert_eq!(row.5.as_deref(), Some("Studio"));
+            assert_eq!(row.6.as_deref(), Some("Bring water"));
+        }
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!(t.entity.title, "Gym II");
+        assert_eq!(t.start_time.as_deref(), Some("08:00"));
+        assert_eq!(t.end_time.as_deref(), Some("09:00"));
+        assert_eq!(t.location.as_deref(), Some("Studio"));
+        assert_eq!(t.description.as_deref(), Some("Bring water"));
+        // Recurrence and anchor never change.
+        assert_eq!(t.recurrence, "weekly");
+        assert_eq!(t.anchor_date, "2026-01-05");
+    }
+
+    #[test]
+    fn series_update_title_only_reaches_occurrences_with_the_old_title() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        set_title(&conn, &occ[2].entity.id, "Leg day");
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[1].date,
+            CalendarEntrySeriesPatch {
+                title: Some("Gym II".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let titles: Vec<String> = snapshot(&conn, &tid).into_iter().map(|r| r.1).collect();
+        assert_eq!(titles, vec!["Gym", "Gym II", "Leg day", "Gym II"]);
+        assert_eq!(
+            get_calendar_entry_template(&conn, &tid)
+                .unwrap()
+                .entity
+                .title,
+            "Gym II"
+        );
+        // A second rename compares against the template's now current title.
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                title: Some("Gym III".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let titles: Vec<String> = snapshot(&conn, &tid).into_iter().map(|r| r.1).collect();
+        // NOTE: possible bug: occ[0] still carries "Gym" (the pre-from_date title) so
+        // it no longer matches the template's old title "Gym II" and never follows.
+        assert_eq!(titles, vec!["Gym", "Gym III", "Leg day", "Gym III"]);
+    }
+
+    #[test]
+    fn series_update_same_title_is_a_noop_for_titles() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                title: Some("Gym".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let titles: Vec<String> = snapshot(&conn, &tid).into_iter().map(|r| r.1).collect();
+        assert_eq!(titles, vec!["Gym"; 4]);
+    }
+
+    #[test]
+    fn series_update_empty_patch_changes_nothing() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(
+            &conn,
+            &occ[1].entity.id,
+            CalendarEntryOverride {
+                cancelled: Some(true),
+                location: Some(Some("Elsewhere".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let before = snapshot(&conn, &tid);
+        let template_before = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert!(update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch::default()
+        )
+        .is_ok());
+        assert_eq!(snapshot(&conn, &tid), before);
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!(t.start_time, template_before.start_time);
+        assert_eq!(t.end_time, template_before.end_time);
+        assert_eq!(t.location, template_before.location);
+        assert_eq!(t.description, template_before.description);
+        assert_eq!(t.entity.title, template_before.entity.title);
+    }
+
+    #[test]
+    fn series_update_from_date_before_first_reaches_all_after_last_reaches_none() {
+        let conn = setup();
+        let (_, tid, _) = series(&conn);
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            "2025-01-01",
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("06:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(snapshot(&conn, &tid)
+            .iter()
+            .all(|r| r.2.as_deref() == Some("06:00")));
+
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            "2027-01-01",
+            CalendarEntrySeriesPatch {
+                title: Some("Renamed".into()),
+                start_time: Some(Some("05:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert!(rows.iter().all(|r| r.2.as_deref() == Some("06:00")));
+        assert!(rows.iter().all(|r| r.1 == "Gym"));
+        // The template itself is updated regardless of from_date.
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!(t.start_time.as_deref(), Some("05:00"));
+        assert_eq!(t.entity.title, "Renamed");
+    }
+
+    #[test]
+    fn series_update_from_date_is_inclusive_and_by_string_date() {
+        let conn = setup();
+        let (_, tid, _) = series(&conn);
+        // The day after the 2nd occurrence: only the 3rd and 4th change.
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            "2026-01-13",
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("07:30".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let starts: Vec<_> = snapshot(&conn, &tid).into_iter().map(|r| r.2).collect();
+        assert_eq!(
+            starts,
+            vec![
+                Some("07:00".to_string()),
+                Some("07:00".into()),
+                Some("07:30".into()),
+                Some("07:30".into())
+            ]
+        );
+    }
+
+    #[test]
+    fn series_update_unknown_template_is_not_found() {
+        let conn = setup();
+        let err = update_calendar_entry_series(
+            &conn,
+            "nope",
+            "2026-01-01",
+            CalendarEntrySeriesPatch::default(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+        // A session template id is not a calendar template either.
+        let (_, tid, _) = series(&conn);
+        let entry = create_one_off_calendar_entry(
+            &conn,
+            crate::db::spaces::list_spaces(&conn).unwrap()[0].id.clone(),
+            "One".into(),
+            "2026-02-01".into(),
+            None,
+            None,
+            None,
+            true,
+            None,
+            None,
+        )
+        .unwrap();
+        assert!(update_calendar_entry_series(
+            &conn,
+            &entry.entity.id,
+            "2026-01-01",
+            CalendarEntrySeriesPatch::default()
+        )
+        .is_err());
+        assert!(get_calendar_entry_template(&conn, &tid).is_ok());
+    }
+
+    #[test]
+    fn series_update_invalid_times_error_and_leave_everything_untouched() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        let before = snapshot(&conn, &tid);
+        let err = update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                title: Some("Changed".into()),
+                end_time: Some(Some("06:30".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(err, AppError::InvalidInput(_)));
+        // Clearing a time on a timed series is rejected too.
+        assert!(update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                start_time: Some(None),
+                ..Default::default()
+            }
+        )
+        .is_err());
+        assert_eq!(snapshot(&conn, &tid), before);
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!(t.entity.title, "Gym");
+        assert_eq!(t.end_time.as_deref(), Some("08:00"));
+    }
+
+    #[test]
+    fn series_update_keeps_overridden_fields_but_updates_the_rest() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(
+            &conn,
+            &occ[1].entity.id,
+            CalendarEntryOverride {
+                location: Some(Some("Hall".into())),
+                description: Some(Some("Custom".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("06:00".into())),
+                location: Some(Some("Studio".into())),
+                description: Some(Some("New".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert_eq!(rows[1].2.as_deref(), Some("06:00"));
+        assert_eq!(rows[1].5.as_deref(), Some("Hall"));
+        assert_eq!(rows[1].6.as_deref(), Some("Custom"));
+        assert_eq!(rows[0].5.as_deref(), Some("Studio"));
+        assert_eq!(rows[0].6.as_deref(), Some("New"));
+    }
+
+    #[test]
+    fn series_update_can_clear_location_and_description() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                location: Some(None),
+                description: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for row in snapshot(&conn, &tid) {
+            assert_eq!((row.5, row.6), (None, None));
+        }
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!((t.location, t.description), (None, None));
+    }
+
+    #[test]
+    fn series_update_overrides_that_become_invalid_keep_their_own_times() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(
+            &conn,
+            &occ[1].entity.id,
+            CalendarEntryOverride {
+                end_time: Some(Some("07:30".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("07:45".into())),
+                location: Some(Some("Studio".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert_eq!(rows[0].2.as_deref(), Some("07:45"));
+        // 07:45 to 07:30 would be invalid, so both times stay; location still follows.
+        assert_eq!(rows[1].2.as_deref(), Some("07:00"));
+        assert_eq!(rows[1].3.as_deref(), Some("07:30"));
+        assert_eq!(rows[1].5.as_deref(), Some("Studio"));
+    }
+
+    #[test]
+    fn series_update_reaches_cancelled_and_skips_trashed_occurrences() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(
+            &conn,
+            &occ[1].entity.id,
+            CalendarEntryOverride {
+                cancelled: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &occ[2].entity.id).unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                title: Some("Gym II".into()),
+                start_time: Some(Some("06:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert_eq!((rows[1].2.as_deref(), rows[1].7), (Some("06:00"), true));
+        assert_eq!(rows[1].1, "Gym II");
+        // The trashed one is left exactly as it was.
+        assert_eq!(rows[2].2.as_deref(), Some("07:00"));
+        assert_eq!(rows[2].1, "Gym");
+        assert!(trashed(&conn, &occ[2].entity.id));
+    }
+
+    #[test]
+    fn series_update_judges_moved_occurrences_by_their_current_date() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        // The last one moved before from_date, the first moved after it.
+        override_occurrence(&conn, &occ[3].entity.id, ov("2026-01-06")).unwrap();
+        override_occurrence(&conn, &occ[0].entity.id, ov("2026-02-02")).unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            "2026-01-19",
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("06:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let get = |i: usize| get_calendar_entry(&conn, &occ[i].entity.id).unwrap();
+        assert_eq!(get(3).start_time.as_deref(), Some("07:00"));
+        assert_eq!(get(0).start_time.as_deref(), Some("06:00"));
+        assert_eq!(get(1).start_time.as_deref(), Some("07:00"));
+        assert_eq!(get(2).start_time.as_deref(), Some("06:00"));
+    }
+
+    #[test]
+    fn series_update_all_day_conversions() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        // One occurrence already overridden to all day keeps that.
+        override_occurrence(
+            &conn,
+            &occ[1].entity.id,
+            CalendarEntryOverride {
+                all_day: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("06:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert!(rows[1].4);
+        assert_eq!(rows[1].2.as_deref(), Some("06:00"));
+
+        // Timed series turned all-day: times cleared where they followed the series.
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[2].date,
+            CalendarEntrySeriesPatch {
+                all_day: Some(true),
+                start_time: Some(None),
+                end_time: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert_eq!(
+            (rows[2].4, rows[2].2.clone(), rows[2].3.clone()),
+            (true, None, None)
+        );
+        assert_eq!(
+            (rows[3].4, rows[3].2.clone(), rows[3].3.clone()),
+            (true, None, None)
+        );
+        assert!(!rows[0].4);
+        assert!(get_calendar_entry_template(&conn, &tid).unwrap().all_day);
+
+        // An all-day series can become timed.
+        let space = crate::db::test_space(&conn, "Other");
+        let rent = create_calendar_entry_template(
+            &conn,
+            space.id,
+            "Rent".into(),
+            "monthly".into(),
+            None,
+            None,
+            true,
+            None,
+            None,
+            "2026-01-01".into(),
+        )
+        .unwrap();
+        generate_occurrences(&conn, &rent.id, "2026-03-01").unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &rent.id,
+            "2026-02-01",
+            CalendarEntrySeriesPatch {
+                all_day: Some(false),
+                start_time: Some(Some("09:00".into())),
+                end_time: Some(Some("10:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &rent.id);
+        assert!(rows[0].4 && rows[0].2.is_none());
+        assert!(!rows[1].4 && rows[1].2.as_deref() == Some("09:00"));
+        assert!(!rows[2].4 && rows[2].3.as_deref() == Some("10:00"));
+        // An all-day series can't turn timed without times.
+        assert!(update_calendar_entry_series(
+            &conn,
+            &rent.id,
+            "2026-01-01",
+            CalendarEntrySeriesPatch {
+                all_day: Some(false),
+                start_time: Some(None),
+                ..Default::default()
+            }
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn series_update_works_on_daily_and_monthly_and_keeps_multi_day_overrides() {
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let daily = create_calendar_entry_template(
+            &conn,
+            space.id.clone(),
+            "Standup".into(),
+            "daily".into(),
+            Some("09:00".into()),
+            Some("09:15".into()),
+            false,
+            None,
+            None,
+            "2026-01-05".into(),
+        )
+        .unwrap();
+        let occ = generate_occurrences(&conn, &daily.id, "2026-01-08").unwrap();
+        override_occurrence(
+            &conn,
+            &occ[1].entity.id,
+            CalendarEntryOverride {
+                end_date: Some(Some("2026-01-07".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &daily.id,
+            "2026-01-06",
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("09:30".into())),
+                end_time: Some(Some("09:45".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &daily.id);
+        assert_eq!(rows[0].2.as_deref(), Some("09:00"));
+        assert_eq!(rows[1].2.as_deref(), Some("09:30"));
+        assert_eq!(rows[3].3.as_deref(), Some("09:45"));
+        // The multi-day span set by an override is never touched by the series.
+        let moved = get_calendar_entry(&conn, &occ[1].entity.id).unwrap();
+        assert_eq!(moved.end_date.as_deref(), Some("2026-01-07"));
+
+        let monthly = create_calendar_entry_template(
+            &conn,
+            space.id,
+            "Rent".into(),
+            "monthly".into(),
+            None,
+            None,
+            true,
+            None,
+            None,
+            "2026-01-01".into(),
+        )
+        .unwrap();
+        generate_occurrences(&conn, &monthly.id, "2026-03-01").unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &monthly.id,
+            "2026-02-01",
+            CalendarEntrySeriesPatch {
+                title: Some("Rent due".into()),
+                location: Some(Some("Bank".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &monthly.id);
+        assert_eq!((rows[0].1.as_str(), rows[0].5.clone()), ("Rent", None));
+        assert_eq!(
+            (rows[2].1.as_str(), rows[2].5.as_deref()),
+            ("Rent due", Some("Bank"))
+        );
+    }
+
+    #[test]
+    fn series_update_on_a_trashed_template_still_applies() {
+        // Pins current behavior: the template lookup does not filter deleted_at.
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap();
+        assert!(update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("05:00".into())),
+                ..Default::default()
+            }
+        )
+        .is_ok());
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!(t.start_time.as_deref(), Some("05:00"));
+        assert!(t.entity.deleted_at.is_some());
+        // Trashed occurrences are not rewritten.
+        assert!(snapshot(&conn, &tid)
+            .iter()
+            .all(|r| r.2.as_deref() == Some("07:00")));
+    }
+
+    // --- delete series ---
+
+    #[test]
+    fn series_delete_soft_deletes_from_date_and_keeps_rows() {
+        let conn = setup();
+        let (space, tid, occ) = series(&conn);
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[2].date).unwrap(),
+            2
+        );
+        assert_eq!(row_count(&conn, &tid), 4);
+        assert!(!trashed(&conn, &occ[0].entity.id));
+        assert!(!trashed(&conn, &occ[1].entity.id));
+        assert!(trashed(&conn, &occ[2].entity.id));
+        assert!(trashed(&conn, &occ[3].entity.id));
+        // Gone from listings, but the entity rows are still there.
+        let live = list_calendar_entries(&conn, Some(&space)).unwrap();
+        assert_eq!(live.len(), 2);
+        let entity_rows: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM entities WHERE id IN (?1, ?2)",
+                params![occ[2].entity.id, occ[3].entity.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(entity_rows, 2);
+        // Template survives while a live occurrence remains.
+        assert!(get_calendar_entry_template(&conn, &tid)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_none());
+        // Trashed occurrences keep their data.
+        let kept = get_calendar_entry(&conn, &occ[3].entity.id).unwrap();
+        assert_eq!(kept.start_time.as_deref(), Some("07:00"));
+        assert_eq!(kept.template_id.as_deref(), Some(tid.as_str()));
+    }
+
+    #[test]
+    fn series_delete_from_first_occurrence_trashes_template_too() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap(),
+            4
+        );
+        assert!(get_calendar_entry_template(&conn, &tid)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_some());
+        assert_eq!(row_count(&conn, &tid), 4);
+        assert!(
+            list_calendar_entry_templates(&conn, &occ[0].entity.space_id)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn series_delete_does_not_double_count_trashed_occurrences() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        crate::db::entities::soft_delete_entity(&conn, &occ[3].entity.id).unwrap();
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[2].date).unwrap(),
+            1
+        );
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[2].date).unwrap(),
+            0
+        );
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn series_delete_after_last_occurrence_trashes_nothing() {
+        let conn = setup();
+        let (_, tid, _) = series(&conn);
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, "2027-01-01").unwrap(),
+            0
+        );
+        assert!(snapshot(&conn, &tid).len() == 4);
+        assert!(get_calendar_entry_template(&conn, &tid)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_none());
+        assert_eq!(list_calendar_entries(&conn, None).unwrap().len(), 4);
+    }
+
+    #[test]
+    fn series_delete_trashes_template_when_earlier_ones_were_trashed_by_hand() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        crate::db::entities::soft_delete_entity(&conn, &occ[0].entity.id).unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &occ[1].entity.id).unwrap();
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[2].date).unwrap(),
+            2
+        );
+        assert!(get_calendar_entry_template(&conn, &tid)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_some());
+    }
+
+    #[test]
+    fn series_delete_includes_cancelled_and_uses_current_dates() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(
+            &conn,
+            &occ[3].entity.id,
+            CalendarEntryOverride {
+                cancelled: Some(true),
+                date: Some("2026-01-06".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // occ[3] now sits on 01-06, before from_date, so it survives.
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[1].date).unwrap(),
+            2
+        );
+        assert!(!trashed(&conn, &occ[3].entity.id));
+        assert!(trashed(&conn, &occ[1].entity.id));
+        assert!(trashed(&conn, &occ[2].entity.id));
+        override_occurrence(
+            &conn,
+            &occ[3].entity.id,
+            CalendarEntryOverride {
+                date: Some("2026-03-02".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // Cancelled occurrences are deleted like any other.
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, "2026-02-01").unwrap(),
+            1
+        );
+        assert!(trashed(&conn, &occ[3].entity.id));
+    }
+
+    #[test]
+    fn series_delete_leaves_other_series_and_one_offs_alone() {
+        let conn = setup();
+        let (space, tid, occ) = series(&conn);
+        let other = create_calendar_entry_template(
+            &conn,
+            space.clone(),
+            "Yoga".into(),
+            "weekly".into(),
+            Some("18:00".into()),
+            Some("19:00".into()),
+            false,
+            None,
+            None,
+            "2026-01-05".into(),
+        )
+        .unwrap();
+        generate_occurrences(&conn, &other.id, "2026-01-26").unwrap();
+        let one_off = create_one_off_calendar_entry(
+            &conn,
+            space,
+            "Dentist".into(),
+            "2026-01-20".into(),
+            None,
+            Some("10:00".into()),
+            Some("11:00".into()),
+            false,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap(),
+            4
+        );
+        assert!(!trashed(&conn, &one_off.entity.id));
+        assert!(snapshot(&conn, &other.id).len() == 4);
+        assert_eq!(list_calendar_entries(&conn, None).unwrap().len(), 5);
+        assert!(get_calendar_entry_template(&conn, &other.id)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_none());
+    }
+
+    #[test]
+    fn series_delete_unknown_id_and_repeat_delete_error() {
+        let conn = setup();
+        let err = delete_calendar_entry_series(&conn, "nope", "2026-01-01").unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+        let (_, tid, occ) = series(&conn);
+        delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap();
+        // NOTE: possible bug: deleting again after the template is trashed errors
+        // (NotFound) instead of returning Ok(0), because with no live occurrence
+        // left it tries to trash the already trashed template.
+        assert!(matches!(
+            delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap_err(),
+            AppError::NotFound(_)
+        ));
+    }
+
+    #[test]
+    fn series_delete_with_no_generated_occurrences_trashes_the_template() {
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = weekly_gym(&conn, space.id);
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &template.id, "2026-01-01").unwrap(),
+            0
+        );
+        assert!(get_calendar_entry_template(&conn, &template.id)
+            .unwrap()
+            .entity
+            .deleted_at
+            .is_some());
+    }
+
+    // --- generate_occurrences ---
+
+    #[test]
+    fn generate_is_idempotent_and_extends_without_duplicates() {
+        let conn = setup();
+        let (_, tid, _) = series(&conn);
+        assert!(generate_occurrences(&conn, &tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        let more = generate_occurrences(&conn, &tid, "2026-02-09").unwrap();
+        assert_eq!(
+            more.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02", "2026-02-09"]
+        );
+        assert_eq!(row_count(&conn, &tid), 6);
+        assert_eq!(more[0].template_id.as_deref(), Some(tid.as_str()));
+    }
+
+    #[test]
+    fn generate_does_not_resurrect_trashed_or_duplicate_cancelled_occurrences() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        delete_calendar_entry_series(&conn, &tid, &occ[2].date).unwrap();
+        override_occurrence(
+            &conn,
+            &occ[0].entity.id,
+            CalendarEntryOverride {
+                cancelled: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(generate_occurrences(&conn, &tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        assert_eq!(row_count(&conn, &tid), 4);
+        assert!(trashed(&conn, &occ[2].entity.id));
+    }
+
+    #[test]
+    fn generate_refills_a_date_vacated_by_a_moved_occurrence() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(&conn, &occ[1].entity.id, ov("2026-01-14")).unwrap();
+        let created = generate_occurrences(&conn, &tid, "2026-01-26").unwrap();
+        // NOTE: possible bug: idempotency is keyed on date, so moving an occurrence
+        // off its slot makes the next generate create a fresh one on the old date.
+        assert_eq!(created.len(), 1);
+        assert_eq!(created[0].date, "2026-01-12");
+        assert_eq!(row_count(&conn, &tid), 5);
+    }
+
+    #[test]
+    fn generate_copies_current_template_values_and_weekday() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            "2026-01-01",
+            CalendarEntrySeriesPatch {
+                title: Some("Gym II".into()),
+                start_time: Some(Some("06:00".into())),
+                description: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let created = generate_occurrences(&conn, &tid, "2026-02-02").unwrap();
+        assert_eq!(created.len(), 1);
+        let c = &created[0];
+        assert_eq!(c.entity.title, "Gym II");
+        assert_eq!(c.entity.entity_type, "calendar_entry");
+        assert_eq!(c.entity.space_id, occ[0].entity.space_id);
+        assert_eq!(c.start_time.as_deref(), Some("06:00"));
+        assert_eq!(c.end_time.as_deref(), Some("08:00"));
+        assert_eq!(c.location.as_deref(), Some("Room 1"));
+        assert_eq!(c.description, None);
+        assert!(!c.all_day && !c.cancelled);
+        assert_eq!(c.end_date, None);
+        // Every date is exactly seven days after the previous one, from the anchor.
+        let dates: Vec<_> = snapshot(&conn, &tid).into_iter().map(|r| r.0).collect();
+        for pair in dates.windows(2) {
+            let a = NaiveDate::parse_from_str(&pair[0], "%Y-%m-%d").unwrap();
+            let b = NaiveDate::parse_from_str(&pair[1], "%Y-%m-%d").unwrap();
+            assert_eq!((b - a).num_days(), 7);
+        }
+    }
+
+    #[test]
+    fn generate_boundaries_and_errors() {
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = weekly_gym(&conn, space.id);
+        // Until before the anchor: nothing. Until equal to the anchor: one.
+        assert!(generate_occurrences(&conn, &template.id, "2026-01-04")
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            generate_occurrences(&conn, &template.id, "2026-01-05")
+                .unwrap()
+                .len(),
+            1
+        );
+        // Until between cadence dates: inclusive upper bound only.
+        assert_eq!(
+            generate_occurrences(&conn, &template.id, "2026-01-18")
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(matches!(
+            generate_occurrences(&conn, "nope", "2026-01-18").unwrap_err(),
+            AppError::NotFound(_)
+        ));
+        assert!(matches!(
+            generate_occurrences(&conn, &template.id, "garbage").unwrap_err(),
+            AppError::Db(_)
+        ));
+    }
+
+    #[test]
+    fn generate_works_for_trashed_templates() {
+        // Pins current behavior: nothing checks the template's deleted_at.
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap();
+        assert!(
+            generate_occurrences(&conn, &tid, "2026-02-02")
+                .unwrap()
+                .len()
+                == 1
+        );
+    }
+
+    #[test]
+    fn generate_all_day_and_monthly_end_of_month_drift() {
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = create_calendar_entry_template(
+            &conn,
+            space.id,
+            "Payday".into(),
+            "monthly".into(),
+            None,
+            None,
+            true,
+            None,
+            None,
+            "2026-01-31".into(),
+        )
+        .unwrap();
+        let created = generate_occurrences(&conn, &template.id, "2026-04-30").unwrap();
+        assert!(created
+            .iter()
+            .all(|o| o.all_day && o.start_time.is_none() && o.end_time.is_none()));
+        // NOTE: possible bug: advancing from the previous cursor (not the anchor)
+        // clamps Jan 31 to Feb 28 and then stays on the 28th.
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-01-31", "2026-02-28", "2026-03-28", "2026-04-28"]
+        );
+    }
+
+    #[test]
+    fn generate_uses_anchor_as_is_for_any_weekday() {
+        // DIFFERS: sessions snap the anchor forward to the template's weekday;
+        // a calendar template's first occurrence is always its anchor date.
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = create_calendar_entry_template(
+            &conn,
+            space.id,
+            "Odd".into(),
+            "weekly".into(),
+            Some("07:00".into()),
+            Some("08:00".into()),
+            false,
+            None,
+            None,
+            "2026-01-07".into(),
+        )
+        .unwrap();
+        let created = generate_occurrences(&conn, &template.id, "2026-01-21").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-01-07", "2026-01-14", "2026-01-21"]
+        );
+    }
+
+    // --- template creation and override ---
+
+    #[test]
+    fn template_creation_validates_recurrence_and_times() {
+        // DIFFERS: `sessions::create_session_template` performs no validation.
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let make = |recurrence: &str, start: Option<&str>, end: Option<&str>, all_day: bool| {
+            create_calendar_entry_template(
+                &conn,
+                space.id.clone(),
+                "T".into(),
+                recurrence.into(),
+                start.map(Into::into),
+                end.map(Into::into),
+                all_day,
+                None,
+                None,
+                "2026-01-05".into(),
+            )
+        };
+        assert!(make("yearly", Some("07:00"), Some("08:00"), false).is_err());
+        assert!(make("weekly", Some("08:00"), Some("07:00"), false).is_err());
+        assert!(make("weekly", Some("08:00"), Some("08:00"), false).is_err());
+        assert!(make("weekly", None, None, false).is_err());
+        assert!(make("weekly", None, None, true).is_ok());
+        assert!(make("daily", Some("07:00"), Some("08:00"), false).is_ok());
+        assert_eq!(
+            list_calendar_entry_templates(&conn, &space.id)
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn override_validates_and_persists_nothing_on_error() {
+        // DIFFERS: `sessions::override_occurrence` performs no validation.
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        let before = snapshot(&conn, &tid);
+        assert!(override_occurrence(
+            &conn,
+            &occ[0].entity.id,
+            CalendarEntryOverride {
+                end_time: Some(Some("06:00".into())),
+                ..Default::default()
+            }
+        )
+        .is_err());
+        assert!(override_occurrence(
+            &conn,
+            &occ[0].entity.id,
+            CalendarEntryOverride {
+                end_date: Some(Some("2026-01-01".into())),
+                ..Default::default()
+            }
+        )
+        .is_err());
+        assert_eq!(snapshot(&conn, &tid), before);
+        assert!(matches!(
+            override_occurrence(&conn, "nope", CalendarEntryOverride::default()).unwrap_err(),
+            AppError::NotFound(_)
+        ));
+    }
+
+    #[test]
+    fn override_can_move_clear_and_toggle_without_touching_series_link() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        let o = override_occurrence(
+            &conn,
+            &occ[0].entity.id,
+            CalendarEntryOverride {
+                date: Some("2026-01-06".into()),
+                location: Some(None),
+                description: Some(None),
+                cancelled: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(o.template_id.as_deref(), Some(tid.as_str()));
+        let stored = get_calendar_entry(&conn, &occ[0].entity.id).unwrap();
+        assert_eq!(stored.date, "2026-01-06");
+        assert_eq!((stored.location, stored.description), (None, None));
+        assert!(stored.cancelled);
+        let t = get_calendar_entry_template(&conn, &tid).unwrap();
+        assert_eq!(t.location.as_deref(), Some("Room 1"));
+        assert_eq!(t.description.as_deref(), Some("Bring towel"));
+        // Series update does not change cancelled state.
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            "2026-01-01",
+            CalendarEntrySeriesPatch {
+                start_time: Some(Some("06:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            get_calendar_entry(&conn, &occ[0].entity.id)
+                .unwrap()
+                .cancelled
+        );
+    }
 }
