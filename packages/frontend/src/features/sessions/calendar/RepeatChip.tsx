@@ -50,7 +50,7 @@ export function RepeatChip({
 }) {
   const repeats = value.cadence !== "none";
   return (
-    <div className="flex h-8 w-fit items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-sm">
+    <div className="flex h-8 w-full items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-sm">
       <span className="flex h-full items-center gap-1 px-1.5 text-muted-foreground">
         <IconRepeat size={16} />
         Repeat
@@ -60,7 +60,7 @@ export function RepeatChip({
           <button
             type="button"
             aria-label="Repeat interval"
-            className={cn(CHIP_SEGMENT, "font-medium")}
+            className={cn(CHIP_SEGMENT, "flex-1 font-medium")}
           >
             {CADENCE_LABELS[value.cadence]}
           </button>
@@ -89,7 +89,7 @@ export function RepeatChip({
               <button
                 type="button"
                 aria-label="Repeat duration"
-                className={cn(CHIP_SEGMENT, "font-medium tabular-nums")}
+                className={cn(CHIP_SEGMENT, "flex-1 font-medium tabular-nums")}
               >
                 {value.durationCount}
               </button>
@@ -108,7 +108,7 @@ export function RepeatChip({
               <button
                 type="button"
                 aria-label="Repeat duration unit"
-                className={cn(CHIP_SEGMENT, "font-medium")}
+                className={cn(CHIP_SEGMENT, "flex-1 font-medium")}
               >
                 {value.durationUnit}
               </button>
