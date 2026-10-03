@@ -10,6 +10,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { DateInput } from "#/components/date-input.tsx";
+import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -59,11 +60,11 @@ function repeatDates(
 
 const sessionSchema = z
   .object({
-    title: z.string().trim().min(1),
+    title: z.string().trim().min(1, "Give the session a title"),
     course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
-    date: z.string().min(1),
-    startTime: z.string().min(1),
-    endTime: z.string().min(1),
+    date: z.string().min(1, "Pick a date"),
+    startTime: z.string().min(1, "Set a start time"),
+    endTime: z.string().min(1, "Set an end time"),
     location: z.string(),
     cadence: cadenceSchema,
     durationCount: z.number().int().min(1).max(999),
@@ -206,7 +207,7 @@ export function QuickCreateSessionDialog({
         if (!open) create.reset();
       }}
     >
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>New session</DialogTitle>
         </DialogHeader>
@@ -219,108 +220,119 @@ export function QuickCreateSessionDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <Input
-                ref={titleRef}
-                placeholder="Title, e.g. Algorithms I"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            )}
-          </form.Field>
-          <form.Field name="course">
-            {(field) => (
-              <EntityPickerPopover
-                spaceId={spaceId}
-                typeFilter="course"
-                trigger={
-                  <Button type="button" variant="secondary" size="sm" className="justify-start">
-                    {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
-                  </Button>
-                }
-                onSelect={field.handleChange}
-              />
-            )}
-          </form.Field>
-          <form.Field name="date">
-            {(field) => (
-              <DateInput
-                aria-label="Date"
-                clearable={false}
-                value={field.state.value || null}
-                onChange={(day) => field.handleChange(day ?? "")}
-              />
-            )}
-          </form.Field>
-          <div className="flex items-center gap-1.5">
-            <form.Field name="startTime">
-              {(field) => (
-                <TimeInput
-                  aria-label="Start time"
+              <FormField label="Title" htmlFor="session-title" error={fieldMessage(field)}>
+                <Input
+                  id="session-title"
+                  ref={titleRef}
+                  placeholder="e.g. Algorithms I"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={field.handleChange}
-                  className="flex-1"
+                  onChange={(e) => field.handleChange(e.target.value)}
                 />
+              </FormField>
+            )}
+          </form.Field>
+          <div className="grid grid-cols-2 gap-3">
+            <form.Field name="course">
+              {(field) => (
+                <FormField label="Course" error={fieldMessage(field)}>
+                  <EntityPickerPopover
+                    spaceId={spaceId}
+                    typeFilter="course"
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 justify-start"
+                      >
+                        <span className="truncate">
+                          {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
+                        </span>
+                      </Button>
+                    }
+                    onSelect={field.handleChange}
+                  />
+                </FormField>
               )}
             </form.Field>
-            <span className="text-xs text-muted-foreground">to</span>
+            <form.Field name="date">
+              {(field) => (
+                <FormField label="Date" error={fieldMessage(field)}>
+                  <DateInput
+                    aria-label="Date"
+                    clearable={false}
+                    value={field.state.value || null}
+                    onChange={(day) => field.handleChange(day ?? "")}
+                  />
+                </FormField>
+              )}
+            </form.Field>
+            <form.Field name="startTime">
+              {(field) => (
+                <FormField label="Starts" error={fieldMessage(field)}>
+                  <TimeInput
+                    aria-label="Start time"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                  />
+                </FormField>
+              )}
+            </form.Field>
             <form.Field name="endTime">
               {(field) => (
-                <TimeInput
-                  aria-label="End time"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={field.handleChange}
-                  className="flex-1"
-                />
+                <FormField label="Ends" error={fieldMessage(field)}>
+                  <TimeInput
+                    aria-label="End time"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                  />
+                </FormField>
               )}
             </form.Field>
           </div>
           <form.Field name="location">
             {(field) => (
-              <Input
-                aria-label="Location"
-                placeholder="Location"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
+              <FormField label="Location" htmlFor="session-location">
+                <Input
+                  id="session-location"
+                  placeholder="Optional, e.g. Room 2.14"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
             )}
           </form.Field>
-          <form.Subscribe selector={(state) => state.fieldMeta.endTime?.errors[0]}>
-            {(endError) => (
-              <FieldError message={endError?.message || (create.isError && create.error.message)} />
-            )}
-          </form.Subscribe>
+          <FieldError message={create.isError && create.error.message} />
           <form.Subscribe selector={(state) => state.values}>
             {(values) => (
-              <RepeatChip
-                value={values}
-                onChange={(repeat) => {
-                  form.setFieldValue("cadence", repeat.cadence);
-                  form.setFieldValue("durationCount", repeat.durationCount);
-                  form.setFieldValue("durationUnit", repeat.durationUnit);
-                }}
-              />
+              <FormField label="Repeat">
+                <RepeatChip
+                  value={values}
+                  onChange={(repeat) => {
+                    form.setFieldValue("cadence", repeat.cadence);
+                    form.setFieldValue("durationCount", repeat.durationCount);
+                    form.setFieldValue("durationUnit", repeat.durationUnit);
+                  }}
+                />
+              </FormField>
             )}
           </form.Subscribe>
           {/* Lets Enter submit from any field. */}
           <button type="submit" hidden aria-label="Create session" />
         </form>
         <DialogFooter>
-          <form.Subscribe selector={(state) => sessionSchema.safeParse(state.values).success}>
-            {(ready) => (
-              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
-                <StatusButtonContent
-                  status={createStatus}
-                  label="Create"
-                  successLabel="Session created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
+          <Button onClick={() => void form.handleSubmit()}>
+            <StatusButtonContent
+              status={createStatus}
+              label="Create"
+              successLabel="Session created"
+              errorLabel="Couldn't create, try again"
+            />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -8,6 +8,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
 import { useForm } from "@tanstack/react-form";
+import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
@@ -259,7 +260,7 @@ function StatItem({
 /// tile, since it's an action rather than a Course — opening a small popover
 /// with the two ways to grow a Semester's Course grid: link an existing
 /// Course, or create a new one pre-linked to it.
-const addCourseSchema = z.object({ title: z.string().trim().min(1) });
+const addCourseSchema = z.object({ title: z.string().trim().min(1, "Give the course a name") });
 
 function AddCourseCard({
   spaceId,
@@ -334,28 +335,31 @@ function AddCourseCard({
         >
           <form.Field name="title">
             {(field) => (
-              <Input
-                ref={inputRef}
-                placeholder="New course name"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="h-8 text-sm"
-              />
+              <FormField
+                label="New course"
+                htmlFor="semester-new-course"
+                error={fieldMessage(field)}
+              >
+                <Input
+                  id="semester-new-course"
+                  ref={inputRef}
+                  placeholder="e.g. Algorithms I"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </FormField>
             )}
           </form.Field>
-          <form.Subscribe selector={(state) => addCourseSchema.safeParse(state.values).success}>
-            {(ready) => (
-              <Button type="submit" size="sm" disabled={!ready}>
-                <StatusButtonContent
-                  status={statusOf(create)}
-                  label="Create & link"
-                  successLabel="Created and linked"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
+          <Button type="submit" size="sm">
+            <StatusButtonContent
+              status={statusOf(create)}
+              label="Create & link"
+              successLabel="Created and linked"
+              errorLabel="Couldn't create, try again"
+            />
+          </Button>
         </form>
         <div className="my-2 flex items-center gap-2 text-xs text-muted-foreground">
           <Separator className="flex-1" /> or <Separator className="flex-1" />

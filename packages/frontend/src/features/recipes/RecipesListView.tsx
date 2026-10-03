@@ -1,4 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
+import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -172,7 +173,7 @@ function RecipePlaceholderCard({ titleWidth }: { titleWidth: string }) {
   );
 }
 
-const createRecipeSchema = z.object({ title: z.string().trim().min(1) });
+const createRecipeSchema = z.object({ title: z.string().trim().min(1, "Give the recipe a name") });
 
 function CreateRecipeDialog({
   open,
@@ -230,29 +231,28 @@ function CreateRecipeDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <Input
-                ref={inputRef}
-                placeholder="Recipe name"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
+              <FormField label="Name" htmlFor="recipe-name" error={fieldMessage(field)}>
+                <Input
+                  id="recipe-name"
+                  ref={inputRef}
+                  placeholder="e.g. Tomato soup"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
             )}
           </form.Field>
         </form>
         <DialogFooter>
-          <form.Subscribe selector={(state) => createRecipeSchema.safeParse(state.values).success}>
-            {(ready) => (
-              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
-                <StatusButtonContent
-                  status={statusOf(create)}
-                  label="Create"
-                  successLabel="Created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
+          <Button onClick={() => void form.handleSubmit()}>
+            <StatusButtonContent
+              status={statusOf(create)}
+              label="Create"
+              successLabel="Created"
+              errorLabel="Couldn't create, try again"
+            />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
