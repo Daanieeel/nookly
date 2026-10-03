@@ -61,6 +61,34 @@ pub async fn import_file(
     .await
 }
 
+/// Stores pasted or dropped bytes as a new File. The bytes travel as the raw request
+/// body (no JSON number array), with the Space and the URL encoded filename in headers.
+#[tauri::command]
+pub async fn import_file_from_bytes(
+    app: AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> AppResult<FileEntity> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(AppError::Io("Expected the file as raw bytes".into()));
+    };
+    let header = |name: &str| -> AppResult<String> {
+        request
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string)
+            .ok_or_else(|| AppError::Io(format!("Missing {name} header")))
+    };
+    let space_id = header("x-space-id")?;
+    let filename = header("x-filename")?;
+    let bytes = bytes.clone();
+    let dir = files_dir(&app)?;
+    blocking_db(&app, move |conn| {
+        files::store_pasted_file(conn, &dir, space_id, &filename, &bytes)
+    })
+    .await
+}
+
 /// What a pasted link turned into.
 #[derive(serde::Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
