@@ -1,9 +1,11 @@
 import { create } from "zustand";
+import { z } from "zod";
 import { viewTarget } from "#/features/views/view-target.ts";
 import type { ViewModule } from "#/lib/api/views.ts";
 import { touchEntityOpened } from "#/lib/api/entities.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { type Tab, makeTab, moveTab, pinnedFirst, tabAfterClose } from "./tab-model.ts";
 
 export const MODULE_KEYS = [
   "tasks",
@@ -33,6 +35,38 @@ export type View =
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string; viewId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
 
+const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("dashboard") }),
+  z.object({ kind: z.literal("pinned") }),
+  z.object({ kind: z.literal("calendar") }),
+  z.object({ kind: z.literal("tasks"), viewId: z.string().optional() }),
+  z.object({ kind: z.literal("assignments"), viewId: z.string().optional() }),
+  z.object({ kind: z.literal("trash") }),
+  z.object({
+    kind: z.literal("module"),
+    spaceId: z.string(),
+    module: z.enum(MODULE_KEYS),
+    filterCourseId: z.string().optional(),
+    viewId: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("entity"), entityId: z.string(), spaceId: z.string() }),
+]);
+
+const storedTabsSchema = z.object({
+  activeTabId: z.string(),
+  tabs: z
+    .array(
+      z.object({
+        id: z.string(),
+        view: viewSchema,
+        backStack: z.array(viewSchema),
+        forwardStack: z.array(viewSchema),
+        pinned: z.boolean(),
+      }),
+    )
+    .min(1),
+});
+
 export interface RecentEntry {
   entityId: string;
   spaceId: string;
@@ -52,6 +86,23 @@ export interface FocusBlock {
 
 interface NavState {
   view: View;
+  /// Every open tab. The active one's `view` and history live in `view`, `backStack`
+  /// and `forwardStack` below, so read tabs through `currentTabs`.
+  tabs: Tab[];
+  activeTabId: string;
+  /// Opens a view in a new tab. Pass `activate: false` to leave it in the background.
+  openInNewTab: (view?: View, options?: { activate?: boolean }) => void;
+  switchTab: (id: string) => void;
+  /// Steps to the next (1) or previous (-1) tab, wrapping around.
+  cycleTab: (step: 1 | -1) => void;
+  closeTab: (id: string) => void;
+  /// Closes every tab except the active one and the pinned ones.
+  closeOtherTabs: () => void;
+  pinTab: (id: string, pinned: boolean) => void;
+  reorderTab: (id: string, toIndex: number) => void;
+  /// The tab being dragged in the tab bar.
+  draggingTabId: string | null;
+  setDraggingTabId: (id: string | null) => void;
   activeSpaceId: string | null;
   /// Spaces expanded in the sidebar. Several can be open at once, unlike
   /// `activeSpaceId`, which tracks the single Space the current view belongs to.
@@ -187,6 +238,77 @@ function pushHistory(
   return { backStack: [...state.backStack, state.view].slice(-MAX_HISTORY), forwardStack: [] };
 }
 
+/// The tabs with the active one brought up to date from the live view and history.
+export function currentTabs(
+  state: Pick<NavState, "tabs" | "activeTabId" | "view" | "backStack" | "forwardStack">,
+): Tab[] {
+  return state.tabs.map((tab) =>
+    tab.id === state.activeTabId
+      ? { ...tab, view: state.view, backStack: state.backStack, forwardStack: state.forwardStack }
+      : tab,
+  );
+}
+
+interface StoredTabs {
+  tabs: Tab[];
+  activeTabId: string;
+}
+
+function readStoredTabs(): StoredTabs {
+  try {
+    const raw = preferences.get(STORAGE_KEYS.tabs);
+    if (raw) {
+      const parsed = storedTabsSchema.safeParse(JSON.parse(raw));
+      if (parsed.success && parsed.data.tabs.some((t) => t.id === parsed.data.activeTabId)) {
+        return parsed.data;
+      }
+    }
+  } catch {
+    // fall through to a single fresh tab
+  }
+  const tab = makeTab({ kind: "dashboard" });
+  return { tabs: [tab], activeTabId: tab.id };
+}
+
+const initialTabs = readStoredTabs();
+const initialTab =
+  initialTabs.tabs.find((t) => t.id === initialTabs.activeTabId) ?? initialTabs.tabs[0];
+
+/// Set by a Cmd or middle click (`useNewTabClicks`) so the navigation that click triggers
+/// opens in a new tab. It clears itself right after the click has been handled.
+let newTabIntent = false;
+export function armNewTabIntent() {
+  newTabIntent = true;
+  setTimeout(() => {
+    newTabIntent = false;
+  }, 0);
+}
+function consumeNewTabIntent(): boolean {
+  const armed = newTabIntent;
+  newTabIntent = false;
+  return armed;
+}
+
+/// What switching to `tab` changes: its view and history become the live ones.
+function showTab(state: NavState, tab: Tab): Partial<NavState> {
+  const activeSpaceId = "spaceId" in tab.view ? tab.view.spaceId : state.activeSpaceId;
+  if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+  const expandedSpaceIds =
+    "spaceId" in tab.view
+      ? withSpaceExpanded(state.expandedSpaceIds, tab.view.spaceId)
+      : state.expandedSpaceIds;
+  if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+  return {
+    activeTabId: tab.id,
+    view: tab.view,
+    backStack: tab.backStack,
+    forwardStack: tab.forwardStack,
+    activeSpaceId,
+    expandedSpaceIds,
+    focusBlock: null,
+  };
+}
+
 /// The Bookmark sheet is modal too, so a palette opening over it closes it.
 const NO_OVERLAY = {
   paletteOpen: false,
@@ -196,7 +318,9 @@ const NO_OVERLAY = {
 };
 
 export const useNavStore = create<NavState>((set, get) => ({
-  view: { kind: "dashboard" },
+  view: initialTab.view,
+  tabs: initialTabs.tabs,
+  activeTabId: initialTab.id,
   activeSpaceId: readStoredActiveSpace(),
   expandedSpaceIds: readStoredExpandedSpaces(),
   paletteOpen: false,
@@ -208,10 +332,59 @@ export const useNavStore = create<NavState>((set, get) => ({
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
   rightSidebarWidth: readStoredRightSidebarWidth(),
   recents: readStoredRecents(),
-  backStack: [],
-  forwardStack: [],
+  backStack: initialTab.backStack,
+  forwardStack: initialTab.forwardStack,
+  openInNewTab: (view = { kind: "dashboard" }, { activate = true } = {}) =>
+    set((state) => {
+      const tab = makeTab(view);
+      const tabs = [...currentTabs(state), tab];
+      return activate ? { tabs, ...showTab(state, tab) } : { tabs };
+    }),
+  switchTab: (id) =>
+    set((state) => {
+      if (id === state.activeTabId) return {};
+      const tabs = currentTabs(state);
+      const tab = tabs.find((t) => t.id === id);
+      return tab ? { tabs, ...showTab(state, tab) } : {};
+    }),
+  cycleTab: (step) =>
+    set((state) => {
+      const tabs = currentTabs(state);
+      if (tabs.length < 2) return {};
+      const index = tabs.findIndex((t) => t.id === state.activeTabId);
+      return { tabs, ...showTab(state, tabs[(index + step + tabs.length) % tabs.length]) };
+    }),
+  closeTab: (id) =>
+    set((state) => {
+      const tabs = currentTabs(state);
+      if (!tabs.some((t) => t.id === id)) return {};
+      // Closing the last tab leaves a fresh Dashboard one behind.
+      if (tabs.length === 1) {
+        const tab = makeTab({ kind: "dashboard" });
+        return { tabs: [tab], ...showTab(state, tab) };
+      }
+      const remaining = tabs.filter((t) => t.id !== id);
+      if (id !== state.activeTabId) return { tabs: remaining };
+      const next = tabAfterClose(tabs, id) ?? remaining[0];
+      return { tabs: remaining, ...showTab(state, next) };
+    }),
+  closeOtherTabs: () =>
+    set((state) => {
+      const tabs = currentTabs(state).filter((t) => t.id === state.activeTabId || t.pinned);
+      return { tabs };
+    }),
+  pinTab: (id, pinned) =>
+    set((state) => ({
+      tabs: pinnedFirst(currentTabs(state).map((t) => (t.id === id ? { ...t, pinned } : t))),
+    })),
+  draggingTabId: null,
+  setDraggingTabId: (draggingTabId) => set({ draggingTabId }),
+  reorderTab: (id, toIndex) => set((state) => ({ tabs: moveTab(currentTabs(state), id, toIndex) })),
   setView: (view) =>
     set((state) => {
+      if (consumeNewTabIntent()) {
+        return { tabs: [...currentTabs(state), makeTab(view)] };
+      }
       const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
       if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
       const expandedSpaceIds =
@@ -262,6 +435,10 @@ export const useNavStore = create<NavState>((set, get) => ({
       };
     }),
   openEntity: (entityId, spaceId, focus) => {
+    if (consumeNewTabIntent()) {
+      get().openInNewTab({ kind: "entity", entityId, spaceId }, { activate: false });
+      return;
+    }
     // Fire-and-forget (§ prep for a future 'reclaim space' feature): never
     // awaited, and a failure here must never block navigation.
     touchEntityOpened(entityId).catch(() => {});
@@ -347,3 +524,25 @@ export const useNavStore = create<NavState>((set, get) => ({
     set({ rightSidebarWidth });
   },
 }));
+
+// Open tabs and their history are remembered across restarts.
+let tabsWriteTimer: ReturnType<typeof setTimeout> | undefined;
+useNavStore.subscribe((state, previous) => {
+  if (
+    state.tabs === previous.tabs &&
+    state.activeTabId === previous.activeTabId &&
+    state.view === previous.view &&
+    state.backStack === previous.backStack &&
+    state.forwardStack === previous.forwardStack
+  ) {
+    return;
+  }
+  clearTimeout(tabsWriteTimer);
+  tabsWriteTimer = setTimeout(() => {
+    const latest = useNavStore.getState();
+    preferences.set(
+      STORAGE_KEYS.tabs,
+      JSON.stringify({ activeTabId: latest.activeTabId, tabs: currentTabs(latest) }),
+    );
+  }, 300);
+});

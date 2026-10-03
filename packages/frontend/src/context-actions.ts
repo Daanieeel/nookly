@@ -14,3 +14,4 @@ import "#/features/exams/context-actions.tsx";
 import "#/features/assignments/context-actions.tsx";
 import "#/features/views/context-actions.tsx";
 import "#/components/sidebar/context-actions.tsx";
+import "#/components/tab-actions.tsx";

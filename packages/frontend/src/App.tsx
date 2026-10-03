@@ -8,6 +8,7 @@ import { QuickSwitcher } from "#/components/quick-switcher.tsx";
 import { EntityDetailRouter } from "#/components/entity-detail-router.tsx";
 import { ModuleView } from "#/components/module-view.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
+import { TabBar, useTabInteractions } from "#/components/tab-bar.tsx";
 import { Titlebar } from "#/components/titlebar.tsx";
 import { SidebarInset, SidebarProvider } from "@nookly/ui/components/sidebar";
 import { Toaster } from "@nookly/ui/components/sonner";
@@ -63,6 +64,8 @@ function MainContent() {
 
 function Shell() {
   const view = useNavStore((s) => s.view);
+  const showTabBar = useNavStore((s) => s.tabs.length > 1);
+  useTabInteractions();
   useExternalDbChanges();
   useExternalCalendarSync();
   useAutoBackup();
@@ -93,12 +96,13 @@ function Shell() {
     <div
       className="flex h-screen flex-col bg-background text-foreground"
       // SAFETY: `--titlebar-height` only ever receives this fixed rem value,
-      // matching `Titlebar`'s own `h-11` — `CSSProperties` just doesn't model
+      // matching `Titlebar`'s own `h-11`, plus the `h-9` tab bar while more than one tab is open — `CSSProperties` just doesn't model
       // custom properties. Read by the sidebar primitive's fixed rail so it
       // starts below the titlebar instead of painting over it.
-      style={{ "--titlebar-height": "2.75rem" } as CSSProperties}
+      style={{ "--titlebar-height": showTabBar ? "5rem" : "2.75rem" } as CSSProperties}
     >
       <Titlebar />
+      {showTabBar && <TabBar />}
       {/* With the sidebar collapsed the page goes edge to edge: no padding, corners or shadow. */}
       <div className="group/app flex min-h-0 flex-1 gap-3 p-3 has-[[data-slot=sidebar][data-state=collapsed]]:p-0">
         <SidebarProvider className="min-h-full">

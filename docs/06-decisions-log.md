@@ -316,6 +316,6 @@ A Tasks page below Calendar lists every Space's tasks, and an Assignments page b
 
 **Why:** with several Spaces, "what is due across everything" was only answerable one Space at a time. The sidebar was also filling up with cross-Space entries not everyone uses.
 
-The overviews can be saved as Views (modules `tasks-overview` and `assignments-overview`) and take the view presets. Like every entity, a View still belongs to one Space, picked when saving, and is listed under the Tasks row of the sidebar. Trashing that Space trashes its Views with it.
+The overviews can be saved as Views (modules `tasks-overview` and `assignments-overview`) and take the view presets. Like every entity, a View still belongs to one Space, which is the active one when saving, and is listed under the Tasks row of the sidebar. Trashing that Space trashes its Views with it.
 
 **Rejected:** a View without a Space (breaks one Space per entity), and a cross-Space task create (a task needs a Space to live in).

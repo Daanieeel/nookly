@@ -8,6 +8,62 @@ mod error;
 mod external_calendars;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// The default menu minus "Close Window": its Cmd+W would close the whole app, and
+/// Cmd+W closes the current tab instead. The window still closes with its own button.
+fn app_menu<R: tauri::Runtime>(
+    handle: &tauri::AppHandle<R>,
+) -> tauri::Result<tauri::menu::Menu<R>> {
+    use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
+    // A menu item belongs to one place, so each divider is its own item.
+    let separator = || PredefinedMenuItem::separator(handle);
+    let app = Submenu::with_items(
+        handle,
+        "Nookly",
+        true,
+        &[
+            &PredefinedMenuItem::about(handle, None, None)?,
+            &separator()?,
+            &PredefinedMenuItem::services(handle, None)?,
+            &separator()?,
+            &PredefinedMenuItem::hide(handle, None)?,
+            &PredefinedMenuItem::hide_others(handle, None)?,
+            &PredefinedMenuItem::show_all(handle, None)?,
+            &separator()?,
+            &PredefinedMenuItem::quit(handle, None)?,
+        ],
+    )?;
+    let edit = Submenu::with_items(
+        handle,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(handle, None)?,
+            &PredefinedMenuItem::redo(handle, None)?,
+            &separator()?,
+            &PredefinedMenuItem::cut(handle, None)?,
+            &PredefinedMenuItem::copy(handle, None)?,
+            &PredefinedMenuItem::paste(handle, None)?,
+            &PredefinedMenuItem::select_all(handle, None)?,
+        ],
+    )?;
+    let view = Submenu::with_items(
+        handle,
+        "View",
+        true,
+        &[&PredefinedMenuItem::fullscreen(handle, None)?],
+    )?;
+    let window = Submenu::with_items(
+        handle,
+        "Window",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(handle, None)?,
+            &PredefinedMenuItem::maximize(handle, None)?,
+        ],
+    )?;
+    Menu::with_items(handle, &[&app, &edit, &view, &window])
+}
+
 pub fn run() {
     // Capture panics to a crash log before `panic = "abort"` kills the process,
     // so any future startup crash is diagnosable without a debug build.
@@ -46,6 +102,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .menu(app_menu)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
