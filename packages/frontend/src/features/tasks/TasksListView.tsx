@@ -18,7 +18,7 @@ import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
-import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { AGE_BUCKETS } from "#/features/assignments/assignment-model.ts";
@@ -57,6 +57,7 @@ import {
   writeDisplay,
 } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
@@ -74,6 +75,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
     readDisplay,
     normalizeDisplay,
     remember: writeDisplay,
+    filtersKey: STORAGE_KEYS.tasksFilters,
     defaultFilters: NO_FILTERS,
   });
   const [createOpen, setCreateOpen] = useState(false);
@@ -326,13 +328,6 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
               onFiltersChange={setFilters}
               part="button"
             />
-            <ViewActions
-              spaceId={spaceId}
-              module="tasks"
-              view={view}
-              filters={filters}
-              display={display}
-            />
             <TaskDisplayMenu display={display} onChange={setDisplay} columns={groups} />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -358,7 +353,16 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
             part="chips"
           />
         </header>
-        <ViewSaveBar view={view} dirty={dirty} save={save} onDiscard={discard} />
+        <ViewSaveBar
+          view={view}
+          dirty={dirty}
+          save={save}
+          onDiscard={discard}
+          spaceId={spaceId}
+          module="tasks"
+          filters={filters}
+          display={display}
+        />
 
         {!isPending && tasks.length === 0 ? (
           <div className="p-6">

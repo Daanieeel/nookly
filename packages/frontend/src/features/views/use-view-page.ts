@@ -3,13 +3,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import { getView, updateViewConfig, type ViewModule } from "#/lib/api/views.ts";
+import { preferences } from "#/lib/preferences.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { viewTarget } from "./view-target";
-import { parseViewConfig, sameViewConfig, serializeViewConfig } from "./view-config";
+import {
+  type ViewConfig,
+  parseViewConfig,
+  sameViewConfig,
+  serializeViewConfig,
+} from "./view-config";
 
 /// The filters and display a list page (Tasks, Assignments) works with, on its own
 /// or opened on a saved View. On a View both start as saved and edits are a draft
-/// until `save`; off a View, the display is remembered per device through `remember`.
+/// until `save`. Off a View the same holds against the page's own saved default: the
+/// display through `remember` and the filters under `filtersKey` (per Space when the
+/// page has one), both per device.
 export function useViewPage<D>({
   spaceId,
   module,
@@ -17,6 +25,7 @@ export function useViewPage<D>({
   readDisplay,
   normalizeDisplay,
   remember,
+  filtersKey,
   defaultFilters,
 }: {
   /// The Space whose page this is; unused (any value) on a cross-Space page.
@@ -26,11 +35,25 @@ export function useViewPage<D>({
   readDisplay: () => D;
   normalizeDisplay: (stored: Partial<D>) => D;
   remember: (display: D) => void;
+  /// Preference key the page's saved default filters live under.
+  filtersKey: string;
   defaultFilters: ActiveFilter[];
 }) {
   const queryClient = useQueryClient();
-  const [display, setDisplayState] = useState<D>(readDisplay);
-  const [filters, setFilters] = useState<ActiveFilter[]>(defaultFilters);
+  const key = spaceId ? `${filtersKey}:${spaceId}` : filtersKey;
+  // The page's own saved default: what it opens as when it is not on a View.
+  const readPlain = (): ViewConfig<D> => {
+    const raw = preferences.get(key);
+    return {
+      filters: raw
+        ? parseViewConfig(`{"filters":${raw}}`, normalizeDisplay).filters
+        : defaultFilters,
+      display: readDisplay(),
+    };
+  };
+  const [plain, setPlain] = useState(readPlain);
+  const [display, setDisplayState] = useState<D>(plain.display);
+  const [filters, setFilters] = useState<ActiveFilter[]>(plain.filters);
 
   const { data: view } = useQuery({
     queryKey: qk.views.byId(viewId),
@@ -52,8 +75,10 @@ export function useViewPage<D>({
       setDisplayState(saved.display);
       wasView.current = true;
     } else if (!viewId && wasView.current) {
-      setFilters(defaultFilters);
-      setDisplayState(readDisplay());
+      const fresh = readPlain();
+      setPlain(fresh);
+      setFilters(fresh.filters);
+      setDisplayState(fresh.display);
       wasView.current = false;
     }
     // Only a different View, or a save of this one, resets what the user is editing.
@@ -66,16 +91,22 @@ export function useViewPage<D>({
     setView(viewTarget(module, spaceId));
   }, [view, spaceId, module]);
 
-  const setDisplay = (next: D) => {
-    setDisplayState(next);
-    if (!viewId) remember(next);
-  };
-
-  const dirty = !!saved && !sameViewConfig(saved, { filters, display });
+  const baseline = saved ?? plain;
+  // Until a View has loaded there is nothing to compare against.
+  const dirty = (!viewId || !!saved) && !sameViewConfig(baseline, { filters, display });
 
   const save = useMutation({
-    mutationFn: () => updateViewConfig(viewId ?? "", serializeViewConfig(filters, display)),
+    mutationFn: async () => {
+      if (!viewId) {
+        remember(display);
+        preferences.set(key, JSON.stringify(filters));
+        setPlain({ filters, display });
+        return null;
+      }
+      return updateViewConfig(viewId, serializeViewConfig(filters, display));
+    },
     onSuccess: (updated) => {
+      if (!updated) return;
       queryClient.setQueryData(qk.views.byId(updated.entity.id), updated);
       // The View's own Space, which for a cross-Space page isn't `spaceId`.
       queryClient.invalidateQueries({ queryKey: qk.views.bySpace(updated.entity.spaceId) });
@@ -84,16 +115,15 @@ export function useViewPage<D>({
 
   return {
     display,
-    setDisplay,
+    setDisplay: setDisplayState,
     filters,
     setFilters,
     view: activeView,
     dirty,
     save,
     discard: () => {
-      if (!saved) return;
-      setFilters(saved.filters);
-      setDisplayState(saved.display);
+      setFilters(baseline.filters);
+      setDisplayState(baseline.display);
     },
   };
 }

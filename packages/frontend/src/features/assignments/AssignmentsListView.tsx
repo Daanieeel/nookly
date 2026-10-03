@@ -15,7 +15,7 @@ import { FieldError, StatusButtonContent, statusOf } from "#/components/action-f
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
-import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { SpaceDot } from "#/components/space-chip.tsx";
@@ -85,6 +85,7 @@ import {
   AssignmentColumnLabels,
   AssignmentRow,
 } from "./assignment-views";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
@@ -114,12 +115,13 @@ export function AssignmentsListView({
     readDisplay,
     normalizeDisplay,
     remember: writeDisplay,
+    filtersKey: STORAGE_KEYS.assignmentsFilters,
     defaultFilters: courseFilter(filterCourseId),
   });
 
   // A Course's "view all" link applies its filter; a saved View brings its own.
   useEffect(() => {
-    if (!viewId) setFilters(courseFilter(filterCourseId));
+    if (!viewId && filterCourseId) setFilters(courseFilter(filterCourseId));
   }, [filterCourseId, viewId, setFilters]);
 
   const { data: assignments = [], isPending } = useQuery({
@@ -270,13 +272,6 @@ export function AssignmentsListView({
             onFiltersChange={setFilters}
             part="button"
           />
-          <ViewActions
-            spaceId={spaceId}
-            module="assignments"
-            view={view}
-            filters={filters}
-            display={display}
-          />
           <AssignmentDisplayMenu display={display} onChange={setDisplay} columns={groups} />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -297,7 +292,16 @@ export function AssignmentsListView({
           part="chips"
         />
       </header>
-      <ViewSaveBar view={view} dirty={dirty} save={save} onDiscard={discard} />
+      <ViewSaveBar
+        view={view}
+        dirty={dirty}
+        save={save}
+        onDiscard={discard}
+        spaceId={spaceId}
+        module="assignments"
+        filters={filters}
+        display={display}
+      />
 
       {!isPending && assignments.length === 0 ? (
         <div className="p-6">

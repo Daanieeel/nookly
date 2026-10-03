@@ -25,7 +25,7 @@ import { useCourseLookupAcross } from "#/features/courses/course-lookup.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
-import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { listAssignmentsAllSpaces, updateAssignmentStatus } from "#/lib/api/assignments.ts";
@@ -33,6 +33,7 @@ import { listSpaces } from "#/lib/api/spaces.ts";
 import type { Assignment } from "#/lib/api/types.ts";
 import { ASSIGNMENTS_OVERVIEW } from "#/lib/api/views.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { CreateAssignmentDialog } from "./AssignmentsListView";
@@ -77,6 +78,7 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
     readDisplay: readOverviewDisplay,
     normalizeDisplay,
     remember: writeOverviewDisplay,
+    filtersKey: STORAGE_KEYS.assignmentsOverviewFilters,
     defaultFilters: [],
   });
 
@@ -213,14 +215,6 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
             onFiltersChange={setFilters}
             part="button"
           />
-          <ViewActions
-            spaceId={saveSpaceId}
-            spaces={spaces}
-            module={ASSIGNMENTS_OVERVIEW}
-            view={view}
-            filters={filters}
-            display={display}
-          />
           <AssignmentDisplayMenu
             display={display}
             onChange={setDisplay}
@@ -252,7 +246,17 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
           part="chips"
         />
       </header>
-      <ViewSaveBar view={view} dirty={dirty} save={save} onDiscard={discard} />
+      <ViewSaveBar
+        view={view}
+        dirty={dirty}
+        save={save}
+        onDiscard={discard}
+        spaceId={saveSpaceId}
+        spaces={spaces}
+        module={ASSIGNMENTS_OVERVIEW}
+        filters={filters}
+        display={display}
+      />
 
       {!isPending && assignments.length === 0 ? (
         <div className="p-6">

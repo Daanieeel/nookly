@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
-import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
@@ -30,6 +30,7 @@ import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { listTaskStatuses, listTasksAll, updateTaskStatus } from "#/lib/api/tasks.ts";
 import type { Task } from "#/lib/api/types.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { TaskBoard } from "./TaskBoard";
@@ -86,6 +87,7 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
     readDisplay: readOverviewDisplay,
     normalizeDisplay,
     remember: writeOverviewDisplay,
+    filtersKey: STORAGE_KEYS.tasksOverviewFilters,
     defaultFilters: NO_FILTERS,
   });
 
@@ -275,14 +277,6 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
               onFiltersChange={setFilters}
               part="button"
             />
-            <ViewActions
-              spaceId={saveSpaceId}
-              spaces={spaces}
-              module={TASKS_OVERVIEW}
-              view={view}
-              filters={filters}
-              display={display}
-            />
             <TaskDisplayMenu display={display} onChange={setDisplay} columns={columns} crossSpace />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -309,7 +303,17 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
             part="chips"
           />
         </header>
-        <ViewSaveBar view={view} dirty={dirty} save={save} onDiscard={discard} />
+        <ViewSaveBar
+          view={view}
+          dirty={dirty}
+          save={save}
+          onDiscard={discard}
+          spaceId={saveSpaceId}
+          spaces={spaces}
+          module={TASKS_OVERVIEW}
+          filters={filters}
+          display={display}
+        />
 
         {!isPending && tasks.length === 0 ? (
           <div className="p-6">
