@@ -38,6 +38,11 @@ import { PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { Editor, Range } from "@tiptap/react";
 import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
+import { EntityIcon } from "#/components/entity-icon.tsx";
+import type { Entity } from "#/lib/api/types.ts";
+import { compareKeys, isKeyQuery, matchesKey } from "#/lib/entity-key.ts";
+import { displayTitle, labelForType } from "#/lib/entity-title.ts";
+import { insertMention } from "./mention-extension";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 
@@ -361,8 +366,27 @@ export function toListItem(item: SlashItem): SuggestionListItem {
 
 /// Typing "/" opens the block-type menu (§ notes rewrite) — the same picker a
 /// Notion page uses to turn the current (usually empty) block into another type.
-export const SlashCommand = Extension.create({
+export interface SlashCommandOptions {
+  /// Read live, like the mention menu's, so `/FIL-23` can offer entities by ID.
+  getEntities: () => Entity[];
+}
+
+function entityItem(entity: Entity): SlashItem {
+  return {
+    title: displayTitle(entity),
+    group: "Links and media",
+    description: `${entity.key} · ${labelForType(entity.type)}`,
+    icon: <EntityIcon entity={entity} size={15} />,
+    run: (editor, range) => insertMention(editor, range, entity),
+  };
+}
+
+export const SlashCommand = Extension.create<SlashCommandOptions>({
   name: "slashCommand",
+
+  addOptions() {
+    return { getEntities: () => [] };
+  },
 
   addProseMirrorPlugins() {
     return [
@@ -373,6 +397,14 @@ export const SlashCommand = Extension.create({
         allowedPrefixes: null,
         allow: allowOutsideCode,
         items: ({ query }) => {
+          if (isKeyQuery(query)) {
+            return this.options
+              .getEntities()
+              .filter((e) => matchesKey(e.key, query))
+              .toSorted(compareKeys)
+              .slice(0, 8)
+              .map(entityItem);
+          }
           const q = query.toLowerCase();
           return SLASH_ITEMS.filter(
             (item) =>

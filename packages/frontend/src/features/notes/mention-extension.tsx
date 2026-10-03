@@ -4,7 +4,7 @@ import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import type { Entity } from "#/lib/api/types.ts";
-import { matchesTitleOrKey } from "#/lib/entity-key.ts";
+import { compareKeys, isKeyQuery, matchesTitleOrKey } from "#/lib/entity-key.ts";
 import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
@@ -15,7 +15,7 @@ export interface MentionOptions {
   getEntities: () => Entity[];
 }
 
-function insertMention(editor: Editor, range: Range, entity: Entity) {
+export function insertMention(editor: Editor, range: Range, entity: Entity) {
   editor
     .chain()
     .focus()
@@ -55,11 +55,12 @@ export const Mention = Extension.create<MentionOptions>({
         pluginKey: new PluginKey("mention"),
         char: "@",
         allow: allowOutsideCode,
-        items: ({ query }) =>
-          this.options
+        items: ({ query }) => {
+          const matches = this.options
             .getEntities()
-            .filter((e) => matchesTitleOrKey(e, query, displayTitle(e)))
-            .slice(0, 8),
+            .filter((e) => matchesTitleOrKey(e, query, displayTitle(e)));
+          return (isKeyQuery(query) ? matches.toSorted(compareKeys) : matches).slice(0, 8);
+        },
         command: ({ editor, range, props }) => insertMention(editor, range, props),
         render: createSuggestionRender(toListItem),
       }),
