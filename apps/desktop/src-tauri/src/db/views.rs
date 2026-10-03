@@ -6,8 +6,16 @@ use serde::Serialize;
 
 /// Modules whose page can be saved as a View. Mirrors `VIEW_MODULES` in
 /// `packages/frontend/src/lib/api/views.ts`.
-pub const VIEW_MODULES: &[&str] = &["tasks", "assignments"];
+pub const VIEW_MODULES: &[&str] = &[
+    "tasks",
+    "assignments",
+    "tasks-overview",
+    "assignments-overview",
+];
 
+/// `tasks-overview` and `assignments-overview` are the cross-Space pages. Their Views still live in one Space,
+/// since every entity does, but show the tasks of all of them.
+///
 /// A named, per-Space snapshot of one module page: its filters and display
 /// options. The backend keeps `config` as opaque JSON; the page that owns the
 /// module reads it back and checks every field, so a stale shape only loses
@@ -95,6 +103,19 @@ pub fn list_views(conn: &Connection, space_id: &str, module: Option<&str>) -> Ap
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Every Space's Views of `module`, for the cross-Space pages whose Views live in
+/// whichever Space they were saved in.
+pub fn list_views_everywhere(conn: &Connection, module: &str) -> AppResult<Vec<View>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.*, v.module, v.config, v.position FROM entities e
+         JOIN views v ON v.entity_id = e.id
+         WHERE e.deleted_at IS NULL AND v.module = ?1
+         ORDER BY v.position ASC, e.created_at ASC",
+    )?;
+    let rows = stmt.query_map(params![module], row_to_view)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn get_view(conn: &Connection, entity_id: &str) -> AppResult<View> {
     conn.query_row(
         "SELECT e.*, v.module, v.config, v.position FROM entities e
@@ -122,20 +143,22 @@ pub fn update_view_config(conn: &Connection, entity_id: &str, config: String) ->
     get_view(conn, entity_id)
 }
 
-/// Puts the Space's Views of `module` in the order of `ids`. `ids` must name each of
+/// Puts the Views of `module` in the order of `ids`: a Space's own, or with no
+/// `space_id` the Views of a cross-Space page from every Space. `ids` must name each of
 /// them exactly once, so a stale list (a View created or trashed meanwhile) is
 /// refused instead of scrambling the order.
 pub fn reorder_views(
     conn: &Connection,
-    space_id: &str,
+    space_id: Option<&str>,
     module: &str,
     ids: &[String],
 ) -> AppResult<()> {
     check_module(module)?;
-    let mut current: Vec<String> = list_views(conn, space_id, Some(module))?
-        .into_iter()
-        .map(|v| v.entity.id)
-        .collect();
+    let listed = match space_id {
+        Some(space_id) => list_views(conn, space_id, Some(module))?,
+        None => list_views_everywhere(conn, module)?,
+    };
+    let mut current: Vec<String> = listed.into_iter().map(|v| v.entity.id).collect();
     let mut wanted = ids.to_vec();
     current.sort();
     wanted.sort();
@@ -189,6 +212,52 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
         ],
         orderings: &["due", "start", "created", "updated", "title", "status"],
         properties: &["key", "status", "labels", "due", "created"],
+    },
+    ConfigSpec {
+        module: "tasks-overview",
+        filters: &[
+            ("space", None),
+            ("status", None),
+            ("due", Some(DATE_VALUES)),
+            ("start", Some(DATE_VALUES)),
+            ("created", Some(AGE_VALUES)),
+            ("updated", Some(AGE_VALUES)),
+            (
+                "completed",
+                Some(&["today", "week", "last", "earlier", "none"]),
+            ),
+            ("effort", None),
+        ],
+        groupings: &[
+            "status", "space", "start", "due", "created", "updated", "none",
+        ],
+        orderings: &["due", "start", "created", "updated", "title", "status"],
+        properties: &["key", "status", "due", "effort", "created"],
+    },
+    ConfigSpec {
+        module: "assignments-overview",
+        filters: &[
+            ("space", None),
+            ("course", None),
+            (
+                "status",
+                Some(&["not_started", "in_progress", "submitted", "graded"]),
+            ),
+            (
+                "due",
+                Some(&["overdue", "today", "week", "next", "later", "none", "done"]),
+            ),
+            ("grade", Some(&["graded", "none"])),
+            ("created", Some(AGE_VALUES)),
+            ("updated", Some(AGE_VALUES)),
+        ],
+        groupings: &[
+            "deadline", "created", "updated", "status", "grade", "course", "space", "none",
+        ],
+        orderings: &[
+            "auto", "due", "created", "updated", "title", "status", "grade",
+        ],
+        properties: &[],
     },
     ConfigSpec {
         module: "assignments",
@@ -352,7 +421,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
     },
     FieldDef {
         name: "position",
@@ -465,6 +534,39 @@ mod tests {
     }
 
     #[test]
+    fn cross_space_views_reorder_across_spaces() {
+        let conn = setup();
+        let one = create_space(&conn, "One".into(), None, "#000".into()).unwrap();
+        let two = create_space(&conn, "Two".into(), None, "#111".into()).unwrap();
+        let make = |space: &str, title: &str| {
+            create_view(
+                &conn,
+                space.into(),
+                title.into(),
+                "tasks-overview".into(),
+                "{}".into(),
+                None,
+            )
+            .unwrap()
+            .entity
+            .id
+        };
+        let (a, b) = (make(&one.id, "A"), make(&two.id, "B"));
+        let order = || -> Vec<String> {
+            list_views_everywhere(&conn, "tasks-overview")
+                .unwrap()
+                .into_iter()
+                .map(|v| v.entity.id)
+                .collect()
+        };
+        assert_eq!(order(), [a.clone(), b.clone()]);
+        reorder_views(&conn, None, "tasks-overview", &[b.clone(), a.clone()]).unwrap();
+        assert_eq!(order(), [b.clone(), a.clone()]);
+        // A list missing one of the Spaces' Views is refused.
+        assert!(reorder_views(&conn, None, "tasks-overview", &[a]).is_err());
+    }
+
+    #[test]
     fn reorders_views_and_refuses_a_stale_list() {
         let conn = setup();
         let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
@@ -493,7 +595,7 @@ mod tests {
 
         reorder_views(
             &conn,
-            &space.id,
+            Some(&space.id),
             "tasks",
             &[c.clone(), a.clone(), b.clone()],
         )
@@ -501,8 +603,8 @@ mod tests {
         assert_eq!(order(), [c.clone(), a.clone(), b.clone()]);
 
         // A missing or unknown id changes nothing.
-        assert!(reorder_views(&conn, &space.id, "tasks", &[a.clone(), b.clone()]).is_err());
-        assert!(reorder_views(&conn, &space.id, "tasks", &[a, b, "nope".into()]).is_err());
+        assert!(reorder_views(&conn, Some(&space.id), "tasks", &[a.clone(), b.clone()]).is_err());
+        assert!(reorder_views(&conn, Some(&space.id), "tasks", &[a, b, "nope".into()]).is_err());
         assert_eq!(order()[0], c);
 
         // A View made afterwards lands last.
@@ -544,6 +646,16 @@ mod tests {
         let good = r#"{"filters":[{"fieldId":"due","operator":"is","values":["overdue"]},{"fieldId":"labels","operator":"isNot","values":["any-label-id"]}],"display":{"layout":"board","grouping":"updated","subGrouping":"status","ordering":"start","showEmpty":{"board":true,"list":false},"hiddenColumns":["x"],"properties":["key","due"]}}"#;
         assert!(validate_config("tasks", good).is_ok());
         assert!(validate_config("tasks", "{}").is_ok());
+        assert!(validate_config(
+            "tasks-overview",
+            r#"{"filters":[{"fieldId":"space","operator":"is","values":["any-space-id"]}],"display":{"grouping":"space"}}"#
+        )
+        .is_ok());
+        assert!(validate_config(
+            "tasks",
+            r#"{"filters":[{"fieldId":"space","operator":"is","values":["x"]}]}"#
+        )
+        .is_err());
         assert!(validate_config(
             "assignments",
             r#"{"display":{"ordering":"grade","grouping":"grade"}}"#

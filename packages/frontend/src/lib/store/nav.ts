@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { viewTarget } from "#/features/views/view-target.ts";
+import type { ViewModule } from "#/lib/api/views.ts";
 import { touchEntityOpened } from "#/lib/api/entities.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
@@ -25,7 +27,8 @@ export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
   | { kind: "calendar" }
-  | { kind: "tasks" }
+  | { kind: "tasks"; viewId?: string }
+  | { kind: "assignments"; viewId?: string }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string; viewId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
@@ -80,7 +83,7 @@ interface NavState {
   setBookmarkSheetId: (entityId: string | null) => void;
   /// Saved Views have no page of their own: an entity view opened for one becomes
   /// its module page with the View applied, replacing the entity view in history.
-  showSavedView: (entityId: string, spaceId: string, module: ModuleKey) => void;
+  showSavedView: (entityId: string, spaceId: string, module: ViewModule) => void;
   setActiveSpace: (spaceId: string | null) => void;
   toggleExpandedSpace: (spaceId: string) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -301,7 +304,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   setBookmarkSheetId: (bookmarkSheetId) => set({ bookmarkSheetId }),
   showSavedView: (entityId, spaceId, module) =>
     set((state) => {
-      const view: View = { kind: "module", spaceId, module, viewId: entityId };
+      const view = viewTarget(module, spaceId, entityId);
       // Only the entity view opened for this View is replaced, so an effect running
       // twice can't clobber whatever was navigated to since.
       if (state.view.kind !== "entity" || state.view.entityId !== entityId) return {};

@@ -34,7 +34,18 @@ pub fn reorder_views(
     ids: Vec<String>,
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
-    views::reorder_views(&conn, &space_id, &module, &ids)
+    views::reorder_views(&conn, Some(&space_id), &module, &ids)
+}
+
+/// Reorders a cross-Space page's Views, which live in different Spaces.
+#[tauri::command]
+pub fn reorder_overview_views(
+    state: State<DbState>,
+    module: String,
+    ids: Vec<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    views::reorder_views(&conn, None, &module, &ids)
 }
 
 #[tauri::command]

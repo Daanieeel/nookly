@@ -214,6 +214,7 @@ pub fn run() {
             commands::views::list_views,
             commands::views::get_view,
             commands::views::reorder_views,
+            commands::views::reorder_overview_views,
             commands::views::update_view_config,
             commands::files::import_file,
             commands::files::import_file_from_url,

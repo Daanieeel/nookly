@@ -30,7 +30,7 @@ import { qk } from "#/lib/query-keys.ts";
 /// Modules whose row expands to list their saved Views.
 export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments"]);
 
-function ViewRow({
+export function ViewRow({
   view,
   active,
   onOpen,

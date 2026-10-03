@@ -310,10 +310,12 @@ Remove Module on a sidebar row offers two choices. Hide keeps every entity and m
 
 ---
 
-### The Tasks overview is a sixth cross-Space exception
+### The Tasks and Assignments overviews are cross-Space exceptions
 
-A Tasks page below Calendar lists every Space's tasks, each marked with its Space's color. Labels are left out of it, since they belong to a Space. Sidebar items that span Spaces can be hidden and reordered from a settings button, stored as a device preference.
+A Tasks page below Calendar lists every Space's tasks, and an Assignments page below it does the same for assignments, each marked with its Space's color. Labels are left out of it, since they belong to a Space. Sidebar items that span Spaces can be hidden and reordered from a settings button, stored as a device preference.
 
 **Why:** with several Spaces, "what is due across everything" was only answerable one Space at a time. The sidebar was also filling up with cross-Space entries not everyone uses.
 
-**Rejected:** per-Space saved Views for the overview (Views are scoped to one Space), and a cross-Space task create (a task needs a Space to live in).
+The overviews can be saved as Views (modules `tasks-overview` and `assignments-overview`) and take the view presets. Like every entity, a View still belongs to one Space, picked when saving, and is listed under the Tasks row of the sidebar. Trashing that Space trashes its Views with it.
+
+**Rejected:** a View without a Space (breaks one Space per entity), and a cross-Space task create (a task needs a Space to live in).

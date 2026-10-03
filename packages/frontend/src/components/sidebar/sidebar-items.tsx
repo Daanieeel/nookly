@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   IconCalendarWeek,
   IconChecklist,
+  IconClipboardCheck,
   IconEye,
   IconEyeOff,
   IconFeather,
@@ -30,8 +31,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/p
 import { SidebarMenuButton, SidebarMenuItem } from "@nookly/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { ASSIGNMENTS_OVERVIEW, TASKS_OVERVIEW } from "#/lib/api/views.ts";
 import { type SidebarItemId, type SidebarItemPref, useSidebarItems } from "#/lib/sidebar-items.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
+import { OverviewNavItem } from "./overview-nav-item";
 import { QuickJotTrigger } from "./quick-jot-trigger";
 
 interface NavItemDef {
@@ -45,6 +48,7 @@ const ITEMS = {
   dashboard: { label: "Dashboard", icon: IconLayoutDashboard, view: { kind: "dashboard" } },
   calendar: { label: "Calendar", icon: IconCalendarWeek, view: { kind: "calendar" } },
   tasks: { label: "Tasks", icon: IconChecklist, view: { kind: "tasks" } },
+  assignments: { label: "Assignments", icon: IconClipboardCheck, view: { kind: "assignments" } },
   pinned: { label: "Pinned", icon: IconPin, view: { kind: "pinned" } },
   "quick-jot": { label: "Quick Jot", icon: IconFeather },
 } satisfies Record<SidebarItemId, NavItemDef>;
@@ -60,11 +64,23 @@ export function SidebarNavItems() {
     .map(({ id }) => {
       const { label, icon: Icon, view: target }: NavItemDef = ITEMS[id];
       if (!target) return <QuickJotTrigger key={id} />;
+      if (target.kind === "tasks" || target.kind === "assignments") {
+        return (
+          <OverviewNavItem
+            key={id}
+            label={label}
+            icon={Icon}
+            target={target}
+            module={target.kind === "tasks" ? TASKS_OVERVIEW : ASSIGNMENTS_OVERVIEW}
+          />
+        );
+      }
       return (
         <SidebarMenuItem key={id}>
           <SidebarMenuButton
+            size="sm"
             tooltip={label}
-            isActive={view.kind === target.kind}
+            isActive={view.kind === target.kind && !("viewId" in view && view.viewId)}
             onClick={() => setView(target)}
           >
             <Icon />

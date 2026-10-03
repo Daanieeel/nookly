@@ -15,7 +15,8 @@ import {
 } from "@tabler/icons-react";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
-import type { Assignment, Entity } from "#/lib/api/types.ts";
+import { SpaceDot } from "#/components/space-chip.tsx";
+import type { Assignment, Entity, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import {
   ASSIGNMENT_STATUSES,
@@ -71,6 +72,7 @@ export function assignmentGroupDefs(
   grouping: Grouping,
   courses: Entity[],
   courseOf: Map<string, Entity>,
+  spaces: Space[] = [],
 ): GroupDef<Assignment>[] | null {
   const now = new Date();
   switch (grouping) {
@@ -130,6 +132,17 @@ export function assignmentGroupDefs(
           match: (a: Assignment) => !courseOf.has(a.entity.id),
         },
       ];
+    case "space":
+      return spaces.map((space) => ({
+        id: space.id,
+        name: space.name,
+        icon: (
+          <span className="flex size-3.5 items-center justify-center">
+            <SpaceDot space={space} />
+          </span>
+        ),
+        match: (a: Assignment) => a.entity.spaceId === space.id,
+      }));
     case "none":
       return null;
   }

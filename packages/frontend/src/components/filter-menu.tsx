@@ -222,6 +222,19 @@ export function FilterMenu({
           </PopoverContent>
         </Popover>
       )}
+      {showChips && filters.length > 0 && (
+        <Button
+          variant="linkMuted"
+          size="sm"
+          className={cn(part === "chips" && "ml-auto")}
+          onClick={() => {
+            onFiltersChange([]);
+            onDone?.();
+          }}
+        >
+          Clear all
+        </Button>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { SpaceDot } from "#/components/space-chip.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -13,11 +14,18 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nookly/ui/components/select";
 import { Switch } from "@nookly/ui/components/switch";
 import { attachLabel } from "#/lib/api/labels.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { createTask, updateTaskStatus } from "#/lib/api/tasks.ts";
-import type { Task } from "#/lib/api/types.ts";
+import type { Space, Task } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { useTasksData } from "./task-controls";
 import {
@@ -54,18 +62,24 @@ const emptyValues: NewTask = { title: "", statusId: undefined, labelIds: [], due
 export function QuickCreateTask({
   open,
   draft,
+  spaces,
+  onSpaceChange,
   onOpenChange,
   onCreated,
 }: {
   open: boolean;
   draft: TaskDraft;
+  /// Set on the cross-Space overview: the Space chip then picks which Space the task
+  /// goes to (the page provides that Space's `TasksData`; `onSpaceChange` switches it).
+  spaces?: Space[];
+  onSpaceChange?: (spaceId: string) => void;
   onOpenChange: (open: boolean) => void;
   onCreated: (task: Task) => void;
 }) {
   const queryClient = useQueryClient();
   const { spaceId, statuses, labels, statusById, labelById, kindOf } = useTasksData();
-  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
-  const space = spaces.find((s) => s.id === spaceId);
+  const { data: allSpaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const space = allSpaces.find((s) => s.id === spaceId);
 
   const form = useForm({
     defaultValues: emptyValues,
@@ -97,6 +111,7 @@ export function QuickCreateTask({
       }
       await Promise.all(vars.labelIds.map((id) => attachLabel(task.entity.id, id)));
       await queryClient.invalidateQueries({ queryKey: qk.tasks.bySpace(spaceId) });
+      await queryClient.invalidateQueries({ queryKey: qk.tasks.all });
       return task;
     },
     onSuccess: (task) => {
@@ -139,9 +154,25 @@ export function QuickCreateTask({
           }}
         >
           <div className="flex items-center gap-1.5 px-4 pt-4 text-xs text-muted-foreground">
-            <span className="inline-flex h-6 items-center rounded-md border border-border px-2 font-medium text-foreground">
-              {space?.name ?? "Tasks"}
-            </span>
+            {spaces && onSpaceChange ? (
+              <Select value={spaceId} onValueChange={onSpaceChange}>
+                <SelectTrigger size="sm" className="h-6 w-auto gap-1.5" aria-label="Space">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {spaces.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      <SpaceDot space={option} />
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span className="inline-flex h-6 items-center rounded-md border border-border px-2 font-medium text-foreground">
+                {space?.name ?? "Tasks"}
+              </span>
+            )}
             <IconChevronRight size={12} />
             <span className="text-foreground">
               <DialogTitle className="text-xs font-normal">New task</DialogTitle>

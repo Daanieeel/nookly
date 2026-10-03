@@ -1,7 +1,8 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBolt } from "@tabler/icons-react";
-import { type CSSProperties, createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
+import { SpaceChip } from "#/components/space-chip.tsx";
 import { DueColumns } from "#/components/due-columns.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -279,33 +280,8 @@ export function TaskEffortControl({ task }: { task: Task }) {
   );
 }
 
-/// A Space's color as a small dot.
-export function SpaceDot({ space }: { space: Space }) {
-  return (
-    <span
-      className="size-2 shrink-0 rounded-full bg-(--space-color)"
-      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
-      style={{ "--space-color": space.color } as CSSProperties}
-    />
-  );
-}
-
 /// The task's Space as a color coded chip; renders only on the cross-Space overview.
 export function TaskSpaceChip({ task, className }: { task: Task; className?: string }) {
   const space = useTasksData().spaces?.get(task.entity.spaceId);
-  if (!space) return null;
-  return (
-    <span
-      title={`Space: ${space.name}`}
-      className={cn(
-        "pointer-events-none relative flex max-w-40 shrink-0 items-center gap-1.5 rounded-md border border-(--space-color)/40 bg-(--space-color)/10 px-1.5 py-0.5 text-xs text-foreground",
-        className,
-      )}
-      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
-      style={{ "--space-color": space.color } as CSSProperties}
-    >
-      <SpaceDot space={space} />
-      <span className="truncate">{space.name}</span>
-    </span>
-  );
+  return space ? <SpaceChip space={space} className={className} /> : null;
 }

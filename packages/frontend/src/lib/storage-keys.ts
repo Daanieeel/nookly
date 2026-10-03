@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   sidebarItems: "nookly:sidebar-items",
   effortScale: "nookly:effort-scale",
   assignmentsDisplay: "nookly:assignments-display",
+  assignmentsOverview: "nookly:assignments-overview",
   filesDisplay: "nookly:files-display",
   bookmarksDisplay: "nookly:bookmarks-display",
   relatedTab: "nookly:related-tab",

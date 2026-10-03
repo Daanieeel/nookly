@@ -3,6 +3,7 @@ import {
   IconCalendarWeek,
   IconCheck,
   IconChecklist,
+  IconClipboardCheck,
   IconDeviceDesktop,
   IconLayoutDashboard,
   IconLayoutSidebarRight,
@@ -439,6 +440,12 @@ export function QuickActions({
       { id: "dashboard", icon: IconLayoutDashboard, label: "Dashboard", keywords: "home overview" },
       { id: "calendar", icon: IconCalendarWeek, label: "Calendar", keywords: "unified schedule" },
       { id: "tasks", icon: IconChecklist, label: "Tasks", keywords: "todo overview all spaces" },
+      {
+        id: "assignments",
+        icon: IconClipboardCheck,
+        label: "Assignments",
+        keywords: "homework overview all spaces",
+      },
       { id: "pinned", icon: IconPin, label: "Pinned", keywords: "favorites" },
       { id: "trash", icon: IconTrash, label: "Trash", keywords: "deleted restore bin" },
     ].map((n): ActionEntry => ({
@@ -446,8 +453,10 @@ export function QuickActions({
       category: "navigate",
       words: `Go to ${n.label} ${n.keywords}`,
       node: simpleItem(n.id, n.icon, `Go to ${n.label}`, () =>
-        // SAFETY: `n.id` is one of the five literal non Space views above.
-        go({ kind: n.id as "dashboard" | "calendar" | "tasks" | "pinned" | "trash" }),
+        // SAFETY: `n.id` is one of the six literal non Space views above.
+        go({
+          kind: n.id as "dashboard" | "calendar" | "tasks" | "assignments" | "pinned" | "trash",
+        }),
       ),
     })),
     // Only modules at least one Space actually uses.

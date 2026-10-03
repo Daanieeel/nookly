@@ -1,5 +1,5 @@
 import { IconCircleDot } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { DueColumnLabels, DueColumns } from "#/components/due-columns.tsx";
@@ -21,12 +21,21 @@ import {
   updateAssignmentDueDate,
   updateAssignmentStatus,
 } from "#/lib/api/assignments.ts";
-import type { Assignment, Entity } from "#/lib/api/types.ts";
+import { SpaceChip } from "#/components/space-chip.tsx";
+import type { Assignment, Entity, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { ASSIGNMENT_STATUSES, assignmentStatus, isDone, statusKindOf } from "./assignment-model";
 import { qk } from "#/lib/query-keys.ts";
+
+/// A Space's list and the cross-Space overview both show the same assignments.
+export function refreshAssignments(queryClient: QueryClient, spaceId: string) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) }),
+    queryClient.invalidateQueries({ queryKey: qk.assignments.all }),
+  ]);
+}
 
 /// The status glyph, which opens the status picker, as on Tasks. Swaps to a
 /// spinner while saving and a warning when the change failed.
@@ -35,10 +44,7 @@ export function AssignmentStatusControl({ assignment }: { assignment: Assignment
   const change = useMutation({
     mutationFn: (status: string) =>
       updateAssignmentStatus(assignment.entity.id, status, assignment.grade),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
-      }),
+    onSuccess: () => refreshAssignments(queryClient, assignment.entity.spaceId),
   });
   const status = assignmentStatus(assignment.status);
   const label = change.isError ? "Couldn't change status, try again" : "Change Status";
@@ -70,10 +76,7 @@ export function useSetAssignmentDueDate(assignment: Assignment) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dueDate: string | null) => updateAssignmentDueDate(assignment.entity.id, dueDate),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
-      }),
+    onSuccess: () => refreshAssignments(queryClient, assignment.entity.spaceId),
   });
 }
 
@@ -89,6 +92,7 @@ export function useSetAssignmentCourse(
       Promise.all(
         [
           ["assignments", assignment.entity.spaceId],
+          qk.assignments.all,
           ["relationships", courseId],
           ["relationships", currentCourseId],
         ]
@@ -159,10 +163,13 @@ function Grade({ grade }: { grade: number }) {
 export function AssignmentRow({
   assignment,
   course,
+  space,
   onOpen,
 }: {
   assignment: Assignment;
   course: Entity | undefined;
+  /// Set on the cross-Space overview, where each row names its Space.
+  space?: Space;
   onOpen: () => void;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
@@ -200,6 +207,7 @@ export function AssignmentRow({
           className="relative max-md:hidden"
         />
       )}
+      {space && <SpaceChip space={space} />}
     </div>
   );
 }
@@ -225,12 +233,14 @@ export function AssignmentColumnLabels() {
 export function AssignmentCard({
   assignment,
   course,
+  space,
   drag,
   failed,
   onOpen,
 }: {
   assignment: Assignment;
   course: Entity | undefined;
+  space?: Space;
   drag: CardDrag;
   failed: boolean;
   onOpen: () => void;
@@ -239,6 +249,7 @@ export function AssignmentCard({
     <AssignmentCardBody
       assignment={assignment}
       course={course}
+      space={space}
       interactive
       className={cn(drag.isDragging && "opacity-40", failed && "border-destructive/60")}
       footer={
@@ -269,6 +280,7 @@ export function AssignmentCard({
 export function AssignmentCardBody({
   assignment,
   course,
+  space,
   interactive = false,
   className,
   children,
@@ -276,6 +288,7 @@ export function AssignmentCardBody({
 }: {
   assignment: Assignment;
   course: Entity | undefined;
+  space?: Space;
   /// A live status control; the drag preview renders it inert.
   interactive?: boolean;
   className?: string;
@@ -295,6 +308,7 @@ export function AssignmentCardBody({
     >
       {children}
       <CardKey entityKey={assignment.entity.key} interactive={interactive} />
+      {space && <SpaceChip space={space} className="self-start" />}
       <div className="flex items-start gap-1.5">
         <span className="relative -mt-0.5 -ml-1">
           <AssignmentStatusControl assignment={assignment} />

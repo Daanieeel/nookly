@@ -12,7 +12,7 @@ import {
   type StatusKind,
   dayBucket,
 } from "./task-model";
-import { SpaceDot } from "./task-controls";
+import { SpaceDot } from "#/components/space-chip.tsx";
 import { TaskStatusIcon } from "./task-properties";
 
 /// The groups a grouping splits tasks into, each with its header glyph. `null`

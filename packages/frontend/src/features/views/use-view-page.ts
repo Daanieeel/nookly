@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import { getView, updateViewConfig, type ViewModule } from "#/lib/api/views.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { viewTarget } from "./view-target";
 import { parseViewConfig, sameViewConfig, serializeViewConfig } from "./view-config";
 
 /// The filters and display a list page (Tasks, Assignments) works with, on its own
@@ -18,6 +19,7 @@ export function useViewPage<D>({
   remember,
   defaultFilters,
 }: {
+  /// The Space whose page this is; unused (any value) on a cross-Space page.
   spaceId: string;
   module: ViewModule;
   viewId: string | undefined;
@@ -59,7 +61,9 @@ export function useViewPage<D>({
   }, [saved, viewId]);
 
   useEffect(() => {
-    if (view?.entity.deletedAt) useNavStore.getState().setView({ kind: "module", spaceId, module });
+    if (!view?.entity.deletedAt) return;
+    const { setView } = useNavStore.getState();
+    setView(viewTarget(module, spaceId));
   }, [view, spaceId, module]);
 
   const setDisplay = (next: D) => {
@@ -73,7 +77,8 @@ export function useViewPage<D>({
     mutationFn: () => updateViewConfig(viewId ?? "", serializeViewConfig(filters, display)),
     onSuccess: (updated) => {
       queryClient.setQueryData(qk.views.byId(updated.entity.id), updated);
-      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(spaceId) });
+      // The View's own Space, which for a cross-Space page isn't `spaceId`.
+      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(updated.entity.spaceId) });
     },
   });
 

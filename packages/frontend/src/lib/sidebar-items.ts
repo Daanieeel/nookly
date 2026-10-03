@@ -6,7 +6,14 @@ import { preferences } from "#/lib/preferences.ts";
 /// The cross-Space entries at the top of the sidebar, in their default order. The
 /// user can reorder and hide them (the sidebar's settings button); Spaces are not
 /// part of this.
-export const SIDEBAR_ITEM_IDS = ["dashboard", "calendar", "tasks", "pinned", "quick-jot"] as const;
+export const SIDEBAR_ITEM_IDS = [
+  "dashboard",
+  "calendar",
+  "tasks",
+  "assignments",
+  "pinned",
+  "quick-jot",
+] as const;
 
 export type SidebarItemId = (typeof SIDEBAR_ITEM_IDS)[number];
 

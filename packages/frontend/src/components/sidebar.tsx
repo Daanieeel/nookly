@@ -224,7 +224,7 @@ export function AppSidebar() {
         />
       )}
       <SidebarHeader>
-        <SidebarMenu>
+        <SidebarMenu className="gap-0.5">
           <SidebarMenuItem className="mb-1">
             <SidebarMascot />
           </SidebarMenuItem>

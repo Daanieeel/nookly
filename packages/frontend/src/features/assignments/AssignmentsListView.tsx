@@ -3,17 +3,18 @@ import {
   IconCircleDot,
   IconClipboardCheck,
   IconClockEdit,
+  IconChevronRight,
   IconClockPlus,
   IconPlus,
   IconSchool,
   IconStar,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  FieldError,
   StatusButtonContent,
   statusOf,
-  useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
@@ -21,8 +22,9 @@ import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { ViewActions, ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
+import { SpaceDot } from "#/components/space-chip.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
-import { EntityPickerPopover, EntityPickerValue } from "#/components/entity-picker.tsx";
+import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import {
   type ActiveFilter,
   type FilterField,
@@ -33,16 +35,25 @@ import { GroupedBoard } from "#/components/grouped-view/grouped-board.tsx";
 import { GroupedList } from "#/components/grouped-view/grouped-list.tsx";
 import { buildGroups } from "#/components/grouped-view/grouping.ts";
 import { Button } from "@nookly/ui/components/button";
-import { DateInput } from "#/components/date-input.tsx";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nookly/ui/components/select";
 import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { DueDatePicker, DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
+import { listSpaces } from "#/lib/api/spaces.ts";
+import { cn } from "@nookly/ui/lib/utils";
+import { Switch } from "@nookly/ui/components/switch";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
@@ -52,7 +63,7 @@ import {
   setAssignmentCourse,
   updateAssignmentStatus,
 } from "#/lib/api/assignments.ts";
-import type { Assignment, Entity } from "#/lib/api/types.ts";
+import type { Assignment, Entity, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
@@ -134,6 +145,7 @@ export function AssignmentsListView({
     },
     onSuccess: (_, { assignment, courseId }) => {
       queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.assignments.all });
       if (courseId) {
         const previous = courseOf.get(assignment.entity.id);
         for (const id of [courseId, previous?.id]) {
@@ -354,93 +366,196 @@ export function AssignmentsListView({
   );
 }
 
-function CreateAssignmentDialog({
-  spaceId,
+/// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
+/// and property pills (Course, due date). The title is optional and defaults to
+/// "<Course> Assignment". Enter or Cmd+Enter creates; with "Create more" on the modal
+/// stays open for the next one. On the cross-Space overview `spaces` makes the
+/// breadcrumb's Space a picker (starting at `spaceId`), since the Course has to come
+/// from the Space it goes to.
+export function CreateAssignmentDialog({
+  spaceId: initialSpaceId,
+  spaces,
   open,
   onOpenChange,
 }: {
   spaceId: string;
+  spaces?: Space[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const [spaceId, setSpaceId] = useState(initialSpaceId);
+  const [title, setTitle] = useState("");
   const [course, setCourse] = useState<Entity | null>(null);
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState<string | null>(null);
+  const [createMore, setCreateMore] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const { data: allSpaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const space = allSpaces.find((s) => s.id === spaceId);
 
   const create = useMutation({
     mutationFn: () => {
       if (!course) throw new Error("pick a course");
       return createAssignment(
         spaceId,
-        `${displayTitle(course)} Assignment`,
+        title.trim() || `${displayTitle(course)} Assignment`,
         course.id,
-        dueDate || null,
+        dueDate,
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) });
-      if (course) queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) });
+    onSuccess: async (created) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) }),
+        queryClient.invalidateQueries({ queryKey: qk.assignments.all }),
+        course && queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) }),
+      ]);
+      if (createMore) {
+        setTitle("");
+        requestAnimationFrame(() => titleRef.current?.focus());
+      } else {
+        handleOpenChange(false);
+        openEntity(created.entity.id, spaceId);
+      }
     },
   });
   const createStatus = statusOf(create);
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
+    if (next) setSpaceId(initialSpaceId);
     if (!next) {
+      setTitle("");
       setCourse(null);
-      setDueDate("");
+      setDueDate(null);
       create.reset();
     }
   }
 
-  useCloseAfterSuccess(create, () => {
-    const created = create.data;
-    handleOpenChange(false);
-    if (created) openEntity(created.entity.id, spaceId);
-  });
+  function submit() {
+    if (course && (createStatus === "idle" || createStatus === "error")) create.mutate();
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>New assignment</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <EntityPickerPopover
-            spaceId={spaceId}
-            typeFilter="course"
-            trigger={
-              <Button variant="secondary" size="sm" className="w-full justify-start">
-                <EntityPickerValue entity={course} placeholder="Pick a course…" />
-              </Button>
-            }
-            onSelect={setCourse}
+      <DialogContent
+        className="max-w-2xl gap-0 p-0"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          titleRef.current?.focus();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            submit();
+          }
+        }}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
+          <div className="flex items-center gap-1.5 px-4 pt-4 text-xs text-muted-foreground">
+            {spaces ? (
+              <Select
+                value={spaceId}
+                onValueChange={(next) => {
+                  setSpaceId(next);
+                  // A Course belongs to one Space.
+                  setCourse(null);
+                }}
+              >
+                <SelectTrigger size="sm" className="h-6 w-auto gap-1.5" aria-label="Space">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {spaces.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      <SpaceDot space={option} />
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span className="inline-flex h-6 items-center rounded-md border border-border px-2 font-medium text-foreground">
+                {space?.name ?? "Assignments"}
+              </span>
+            )}
+            <IconChevronRight size={12} />
+            <span className="text-foreground">
+              <DialogTitle className="text-xs font-normal">New assignment</DialogTitle>
+            </span>
+            <DialogDescription className="sr-only">
+              Give the assignment a title, then pick its course and due date.
+            </DialogDescription>
+          </div>
+
+          <input
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={course ? `${displayTitle(course)} Assignment` : "Assignment title"}
+            aria-label="Assignment title"
+            aria-invalid={create.isError || undefined}
+            className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
           />
-          <DateInput
-            aria-label="Due date"
-            placeholder="Due date…"
-            value={dueDate || null}
-            onChange={(day) => setDueDate(day ?? "")}
-          />
-          <p className="text-xs text-muted-foreground">
-            Status and grade can be filled in afterward.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button
-            size="sm"
-            disabled={!course}
-            onClick={() => (createStatus === "idle" || createStatus === "error") && create.mutate()}
-          >
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Created"
-              errorLabel="Couldn't create, try again"
+
+          <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
+            <EntityPickerPopover
+              spaceId={spaceId}
+              typeFilter="course"
+              exclude={course?.id}
+              onSelect={setCourse}
+              trigger={
+                <button type="button" className={PROPERTY_PILL} aria-label="Change Course">
+                  <IconSchool size={14} className="shrink-0" />
+                  <span className={cn("truncate", course && "text-foreground")}>
+                    {course ? displayTitle(course) : "Course"}
+                  </span>
+                </button>
+              }
             />
-          </Button>
-        </DialogFooter>
+            <DueDatePicker value={dueDate} onSelect={setDueDate}>
+              <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
+                {dueDate ? (
+                  <DueLabel day={dueDate} tone={null} />
+                ) : (
+                  <>
+                    <IconCalendarEvent size={14} className="shrink-0" />
+                    Due date
+                  </>
+                )}
+              </button>
+            </DueDatePicker>
+          </div>
+
+          <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+            <div className="mr-auto">
+              <FieldError message={create.isError && "Couldn't create the assignment, try again"} />
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                id="create-more-assignments"
+                checked={createMore}
+                onCheckedChange={setCreateMore}
+              />
+              <label htmlFor="create-more-assignments" className="cursor-pointer">
+                Create more
+              </label>
+            </div>
+            <Button type="submit" size="sm" disabled={!course && createStatus === "idle"}>
+              <StatusButtonContent
+                status={createStatus}
+                label="Create assignment"
+                successLabel="Created"
+                errorLabel="Try again"
+              />
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
