@@ -310,7 +310,7 @@ export function QuickCreateSessionDialog({
               <FormField label="Location" htmlFor="session-location">
                 <Input
                   id="session-location"
-                  placeholder="Optional, e.g. Room 2.14"
+                  placeholder="Room..."
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
