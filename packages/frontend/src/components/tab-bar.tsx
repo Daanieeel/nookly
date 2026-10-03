@@ -138,7 +138,9 @@ function TabItem({
       {...contextTarget("tab", { tabId: tab.id })}
       className={cn(
         "group/tab flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs transition-colors select-none [&_svg]:size-3.5 [&_svg]:shrink-0",
-        tab.pinned ? "shrink-0 justify-center px-1.5" : "min-w-24 flex-1 basis-0",
+        tab.pinned
+          ? "shrink-0 justify-center px-1.5"
+          : "relative min-w-24 flex-1 basis-0 justify-center px-6",
         active
           ? "border-input bg-accent text-foreground"
           : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -160,7 +162,7 @@ function TabItem({
                   e.stopPropagation();
                   useNavStore.getState().closeTab(tab.id);
                 }}
-                className="-mr-1 flex size-4 items-center justify-center rounded-sm text-muted-foreground opacity-0 hover:bg-foreground/10 hover:text-foreground group-hover/tab:opacity-100 focus-visible:opacity-100"
+                className="absolute top-1/2 right-1.5 flex size-4 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground opacity-0 hover:bg-foreground/10 hover:text-foreground group-hover/tab:opacity-100 focus-visible:opacity-100"
               >
                 <IconX size={12} />
               </button>
