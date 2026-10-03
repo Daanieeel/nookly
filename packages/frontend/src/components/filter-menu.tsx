@@ -222,11 +222,27 @@ export function FilterMenu({
           </PopoverContent>
         </Popover>
       )}
+      {showChips && filters.length > 0 && (
+        <Button
+          variant="linkMuted"
+          size="sm"
+          className={cn(part === "chips" && "ml-auto")}
+          onClick={() => {
+            onFiltersChange([]);
+            onDone?.();
+          }}
+        >
+          Clear all
+        </Button>
+      )}
     </div>
   );
 }
 
-const CHIP_SEGMENT = "flex h-full cursor-pointer items-center gap-1.5 px-2 hover:bg-accent/60";
+/// Icons a chip shows before the rest collapse into "+N".
+const MAX_CHIP_ICONS = 5;
+
+const CHIP_SEGMENT = "flex h-full cursor-pointer items-center gap-1 px-1.5 hover:bg-accent/60";
 
 function FilterChip({
   field,
@@ -242,6 +258,8 @@ function FilterChip({
 }) {
   const selected = field.options.filter((o) => filter.values.includes(o.value));
   const single = selected.length === 1 ? selected[0] : undefined;
+  // Several options read as a row of their icons when each has one, instead of a count.
+  const iconsOnly = selected.length > 1 && selected.every((o) => o.icon);
   const refocus = (e: Event) => {
     e.preventDefault();
     onDone?.();
@@ -264,7 +282,7 @@ function FilterChip({
 
   return (
     <div className="flex h-7 items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-xs">
-      <span className="flex h-full items-center gap-1.5 px-2 text-muted-foreground">
+      <span className="flex h-full items-center gap-1 px-1.5 text-muted-foreground">
         <field.icon size={14} />
         {field.label}
       </span>
@@ -303,12 +321,28 @@ function FilterChip({
         }}
       >
         <PopoverTrigger asChild>
-          <button type="button" className={cn(CHIP_SEGMENT, "font-medium")}>
+          <button
+            type="button"
+            title={selected.map((o) => o.label).join(", ")}
+            aria-label={`${field.label}: ${selected.map((o) => o.label).join(", ")}`}
+            className={cn(CHIP_SEGMENT, "font-medium")}
+          >
             {single ? (
               <>
                 {single.icon}
                 <span className="max-w-32 truncate">{single.label}</span>
               </>
+            ) : iconsOnly ? (
+              <span className="flex items-center gap-1">
+                {selected.slice(0, MAX_CHIP_ICONS).map((o) => (
+                  <span key={o.value} className="flex shrink-0 items-center">
+                    {o.icon}
+                  </span>
+                ))}
+                {selected.length > MAX_CHIP_ICONS && (
+                  <span className="text-muted-foreground">+{selected.length - MAX_CHIP_ICONS}</span>
+                )}
+              </span>
             ) : (
               `${selected.length} selected`
             )}
@@ -353,7 +387,7 @@ function FilterChip({
               onChange(null);
               onDone?.();
             }}
-            className={cn(CHIP_SEGMENT, "px-1.5 text-muted-foreground")}
+            className={cn(CHIP_SEGMENT, "px-1 text-muted-foreground")}
           >
             <IconX size={14} />
           </button>

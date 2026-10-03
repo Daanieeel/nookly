@@ -4,6 +4,7 @@ import {
   IconCalendarPlus,
   IconCircleDot,
   IconClockEdit,
+  IconFolder,
   IconClockPlus,
   IconLetterCase,
   IconTag,
@@ -118,13 +119,22 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping = "status" | "label" | "start" | "due" | "created" | "updated" | "none";
+export type Grouping =
+  | "status"
+  | "label"
+  | "space"
+  | "start"
+  | "due"
+  | "created"
+  | "updated"
+  | "none";
 export type Ordering = "due" | "start" | "created" | "updated" | "title" | "status";
 export type DisplayProperty = "key" | "status" | "labels" | "due" | "effort" | "created";
 
 export const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
   { id: "status", label: "Status", icon: IconCircleDot },
   { id: "label", label: "Label", icon: IconTag },
+  { id: "space", label: "Space", icon: IconFolder },
   { id: "start", label: "Start date", icon: IconCalendarPlus },
   { id: "due", label: "Due date", icon: IconCalendarEvent },
   { id: "created", label: "Created", icon: IconClockPlus },
@@ -236,6 +246,28 @@ export function writeDisplay(display: DisplayOptions) {
   preferences.set(STORAGE_KEYS.tasksDisplay, JSON.stringify(display));
 }
 
+/// The cross-Space overview opens as a list grouped by due date.
+export const OVERVIEW_DISPLAY: DisplayOptions = {
+  ...DEFAULT_DISPLAY,
+  layout: "list",
+  grouping: "due",
+  properties: DEFAULT_DISPLAY.properties.filter((p) => p !== "labels"),
+};
+
+export function readOverviewDisplay(): DisplayOptions {
+  try {
+    const raw = preferences.get(STORAGE_KEYS.tasksOverview);
+    // SAFETY: only ever written by `writeOverviewDisplay`; every field is validated before use.
+    return raw ? normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>) : OVERVIEW_DISPLAY;
+  } catch {
+    return OVERVIEW_DISPLAY;
+  }
+}
+
+export function writeOverviewDisplay(display: DisplayOptions) {
+  preferences.set(STORAGE_KEYS.tasksOverview, JSON.stringify(display));
+}
+
 // Grouping and ordering
 
 /// One list section or board column. At most one of `status`, `label` and `bucket`
@@ -256,6 +288,9 @@ export function groupTasks(
   labels: Label[],
 ): TaskGroup[] {
   switch (grouping) {
+    // Spaces only group on the cross-Space overview, through `taskGroupDefs`.
+    case "space":
+      return [{ id: "all", name: "All tasks", tasks }];
     case "status":
       return statuses.map((status) => ({
         id: status.id,
@@ -342,6 +377,7 @@ export const NO_EFFORT = "none";
 
 export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "status") return [task.statusId];
+  if (fieldId === "space") return [task.entity.spaceId];
   if (fieldId === "labels") return task.labelIds;
   if (fieldId === "due") return [dueBucket(task.dueDate)];
   if (fieldId === "start") return [dayBucket(task.startDate)];

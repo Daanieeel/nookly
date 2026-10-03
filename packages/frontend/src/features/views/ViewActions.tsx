@@ -4,9 +4,11 @@ import { useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
+import type { Space } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { Button } from "@nookly/ui/components/button";
 import { ViewDialog } from "./ViewDialog";
+import { viewTarget } from "./view-target";
 import { serializeViewConfig } from "./view-config";
 
 /// The View controls in the page header, beside the filter menu: on the plain page
@@ -18,12 +20,16 @@ export function ViewActions<D>({
   view,
   filters,
   display,
+  spaces,
 }: {
   spaceId: string;
   module: ViewModule;
   view: SavedView | undefined;
   filters: ActiveFilter[];
   display: D;
+  /// The Spaces a new View can be saved in; set on a cross-Space page, whose Views
+  /// belong to a Space like any entity.
+  spaces?: Space[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   return (
@@ -43,12 +49,11 @@ export function ViewActions<D>({
             open={dialogOpen}
             onOpenChange={setDialogOpen}
             spaceId={spaceId}
+            spaces={spaces}
             module={module}
             config={serializeViewConfig(filters, display)}
             onSaved={(created) =>
-              useNavStore
-                .getState()
-                .setView({ kind: "module", spaceId, module, viewId: created.id })
+              useNavStore.getState().setView(viewTarget(module, spaceId, created.id))
             }
           />
         </>

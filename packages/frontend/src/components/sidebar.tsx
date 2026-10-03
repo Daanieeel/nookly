@@ -15,15 +15,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   IconAlertTriangle,
-  IconCalendarWeek,
   IconChevronRight,
   IconDotsVertical,
   IconFolder,
   IconGripVertical,
-  IconLayoutDashboard,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
-  IconPin,
   IconPlus,
   IconSettings,
   IconTag,
@@ -121,7 +118,7 @@ import {
 import { UpdateCard } from "#/components/update-card.tsx";
 import { CliInstallCard } from "./sidebar/cli-install-card";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
-import { QuickJotTrigger } from "./sidebar/quick-jot-trigger";
+import { SidebarCustomizeButton, SidebarNavItems } from "./sidebar/sidebar-items";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
@@ -227,41 +224,14 @@ export function AppSidebar() {
         />
       )}
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem className="mb-4">
+        <SidebarMenu className="gap-0.5">
+          <SidebarMenuItem className="mb-1">
             <SidebarMascot />
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Dashboard"
-              isActive={view.kind === "dashboard"}
-              onClick={() => setView({ kind: "dashboard" })}
-            >
-              <IconLayoutDashboard />
-              <span>Dashboard</span>
-            </SidebarMenuButton>
+          <SidebarMenuItem className="mb-2">
+            <SidebarCustomizeButton />
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Calendar"
-              isActive={view.kind === "calendar"}
-              onClick={() => setView({ kind: "calendar" })}
-            >
-              <IconCalendarWeek />
-              <span>Calendar</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Pinned"
-              isActive={view.kind === "pinned"}
-              onClick={() => setView({ kind: "pinned" })}
-            >
-              <IconPin />
-              <span>Pinned</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <QuickJotTrigger />
+          <SidebarNavItems />
         </SidebarMenu>
       </SidebarHeader>
 

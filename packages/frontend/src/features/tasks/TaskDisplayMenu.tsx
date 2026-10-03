@@ -31,15 +31,20 @@ export function TaskDisplayMenu({
   display,
   onChange,
   columns,
+  crossSpace = false,
 }: {
   display: DisplayOptions;
   onChange: (display: DisplayOptions) => void;
   /// Every board column, so any of them can be hidden or brought back.
   columns: { id: string; name: string }[];
+  /// The cross-Space overview groups by Space, and has no labels (they belong to a Space).
+  crossSpace?: boolean;
 }) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...display, ...patch });
-  const groupings = GROUPINGS.filter((g) => display.layout === "list" || g.id !== "none");
-  const subGroupings = GROUPINGS.filter((g) => g.id !== display.grouping);
+  const available = GROUPINGS.filter((g) => (crossSpace ? g.id !== "label" : g.id !== "space"));
+  const groupings = available.filter((g) => display.layout === "list" || g.id !== "none");
+  const subGroupings = available.filter((g) => g.id !== display.grouping);
+  const properties = DISPLAY_PROPERTIES.filter((p) => !crossSpace || p.id !== "labels");
   // Ordering by status inside status groups would change nothing.
   const orderings = ORDERINGS.filter((o) => display.grouping !== "status" || o.id !== "status");
 
@@ -184,7 +189,7 @@ export function TaskDisplayMenu({
         <div className="flex flex-col gap-2">
           <span className="text-xs text-muted-foreground">Display properties</span>
           <div className="flex flex-wrap gap-1.5">
-            {DISPLAY_PROPERTIES.map((p) => {
+            {properties.map((p) => {
               const on = display.properties.includes(p.id);
               return (
                 <button
@@ -195,9 +200,9 @@ export function TaskDisplayMenu({
                     set({
                       properties: on
                         ? display.properties.filter((id) => id !== p.id)
-                        : DISPLAY_PROPERTIES.filter(
-                            (d) => d.id === p.id || display.properties.includes(d.id),
-                          ).map((d) => d.id),
+                        : properties
+                            .filter((d) => d.id === p.id || display.properties.includes(d.id))
+                            .map((d) => d.id),
                     })
                   }
                   className={cn(

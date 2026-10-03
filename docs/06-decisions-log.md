@@ -307,3 +307,15 @@ Remove Module on a sidebar row offers two choices. Hide keeps every entity and m
 **Why:** reusing `deleted_at` hides the content from search, Pinned, the Dashboard and the Calendar without touching dozens of queries. `hidden_at` keeps it out of Trash, restore, Delete Forever and Empty Trash, so kept data can never be erased from there.
 
 **Rejected:** hard deleting on removal (data loss), and only hiding the sidebar row (content would still show in search and Pinned).
+
+---
+
+### The Tasks and Assignments overviews are cross-Space exceptions
+
+A Tasks page below Calendar lists every Space's tasks, and an Assignments page below it does the same for assignments, each marked with its Space's color. Labels are left out of it, since they belong to a Space. Sidebar items that span Spaces can be hidden and reordered from a settings button, stored as a device preference.
+
+**Why:** with several Spaces, "what is due across everything" was only answerable one Space at a time. The sidebar was also filling up with cross-Space entries not everyone uses.
+
+The overviews can be saved as Views (modules `tasks-overview` and `assignments-overview`) and take the view presets. Like every entity, a View still belongs to one Space, picked when saving, and is listed under the Tasks row of the sidebar. Trashing that Space trashes its Views with it.
+
+**Rejected:** a View without a Space (breaks one Space per entity), and a cross-Space task create (a task needs a Space to live in).

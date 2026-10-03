@@ -12,6 +12,8 @@ import { Titlebar } from "#/components/titlebar.tsx";
 import { SidebarInset, SidebarProvider } from "@nookly/ui/components/sidebar";
 import { Toaster } from "@nookly/ui/components/sonner";
 import { TooltipProvider } from "@nookly/ui/components/tooltip";
+import { AssignmentsOverviewView } from "#/features/assignments/AssignmentsOverviewView.tsx";
+import { TasksOverviewView } from "#/features/tasks/TasksOverviewView.tsx";
 import { UnifiedCalendarView } from "#/features/calendar/UnifiedCalendarView.tsx";
 import { DashboardView } from "#/features/dashboard/DashboardView.tsx";
 import { PinnedView } from "#/features/dashboard/PinnedView.tsx";
@@ -37,6 +39,10 @@ function MainContent() {
       return <PinnedView />;
     case "calendar":
       return <UnifiedCalendarView />;
+    case "tasks":
+      return <TasksOverviewView viewId={view.viewId} />;
+    case "assignments":
+      return <AssignmentsOverviewView viewId={view.viewId} />;
     case "trash":
       return <TrashView />;
     case "module":
@@ -69,6 +75,8 @@ function Shell() {
   const isBleedView =
     isEntityView ||
     view.kind === "calendar" ||
+    view.kind === "tasks" ||
+    view.kind === "assignments" ||
     (view.kind === "module" &&
       [
         "tasks",

@@ -12,6 +12,7 @@ import {
   TaskDueColumns,
   TaskEffortControl,
   TaskLabelsControl,
+  TaskSpaceChip,
   TaskStatusControl,
 } from "./task-controls";
 import { type DisplayProperty, formatTimestamp } from "./task-model";
@@ -117,6 +118,7 @@ export function TaskRow({
         </span>
       )}
       <span className="pointer-events-none relative min-w-0 flex-1 truncate text-sm">{title}</span>
+      <TaskSpaceChip task={task} />
       {show("effort") && task.effort != null && (
         <span className="relative hidden shrink-0 sm:flex">
           <TaskEffortControl task={task} />

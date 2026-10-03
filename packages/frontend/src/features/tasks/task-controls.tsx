@@ -2,6 +2,7 @@ import { useCreateLabel } from "#/components/label-manager.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBolt } from "@tabler/icons-react";
 import { createContext, useContext, useMemo } from "react";
+import { SpaceChip } from "#/components/space-chip.tsx";
 import { DueColumns } from "#/components/due-columns.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -13,7 +14,7 @@ import {
   updateTaskStatus,
 } from "#/lib/api/tasks.ts";
 import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
-import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
+import type { Label, Space, Task, TaskStatus } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, dueTone, sortStatuses, statusKind } from "./task-model";
 import {
@@ -38,6 +39,8 @@ export interface TasksData {
   statusById: Map<string, TaskStatus>;
   labelById: Map<string, Label>;
   kindOf: (statusId: string) => StatusKind;
+  /// Set only on the cross-Space overview: rows and cards then show their Space.
+  spaces?: Map<string, Space>;
 }
 
 export const TasksDataContext = createContext<TasksData | null>(null);
@@ -83,6 +86,8 @@ export function useRefreshTasks(spaceId: string) {
     Promise.all(
       [
         qk.tasks.bySpace(spaceId),
+        // The cross-Space overview lists the same tasks.
+        qk.tasks.all,
         qk.tasks.byIdRoot,
         qk.tasks.subtasksRoot,
         qk.tasks.subtaskProgressRoot,
@@ -93,8 +98,8 @@ export function useRefreshTasks(spaceId: string) {
 /// The status glyph, which opens the status picker. Swaps to a spinner while saving
 /// and a warning when the change failed.
 export function TaskStatusControl({ task, size = 14 }: { task: Task; size?: number }) {
-  const { spaceId, statuses, statusById, kindOf } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const { statuses, statusById, kindOf } = useTasksData();
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const status = statusById.get(task.statusId);
   const change = useMutation({
     mutationFn: (statusId: string) => updateTaskStatus(task.entity.id, statusId),
@@ -127,8 +132,8 @@ export function TaskStatusControl({ task, size = 14 }: { task: Task; size?: numb
 
 /// The due date pill, which opens the date picker. Hidden while the task has none.
 export function TaskDueControl({ task }: { task: Task }) {
-  const { spaceId, kindOf } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const { kindOf } = useTasksData();
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const change = useMutation({
     mutationFn: (dueDate: string | null) =>
       updateTaskDates(task.entity.id, task.startDate, dueDate),
@@ -160,8 +165,8 @@ export function TaskDueControl({ task }: { task: Task }) {
 /// A list row's due date columns, as on Assignments: the day opens the date
 /// picker (also on rows without one), then how far away it is.
 export function TaskDueColumns({ task }: { task: Task }) {
-  const { spaceId, kindOf } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const { kindOf } = useTasksData();
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const change = useMutation({
     mutationFn: (dueDate: string | null) =>
       updateTaskDates(task.entity.id, task.startDate, dueDate),
@@ -250,8 +255,7 @@ export function TaskLabelsControl({
 /// The effort estimate as a quiet pill, which opens the effort picker. Hidden
 /// while the task has none.
 export function TaskEffortControl({ task }: { task: Task }) {
-  const { spaceId } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const scale = useEffortSettings((s) => s.scale);
   const change = useMutation({
     mutationFn: (effort: number | null) => updateTaskEffort(task.entity.id, effort),
@@ -274,4 +278,10 @@ export function TaskEffortControl({ task }: { task: Task }) {
       </button>
     </EffortPicker>
   );
+}
+
+/// The task's Space as a color coded chip; renders only on the cross-Space overview.
+export function TaskSpaceChip({ task, className }: { task: Task; className?: string }) {
+  const space = useTasksData().spaces?.get(task.entity.spaceId);
+  return space ? <SpaceChip space={space} className={className} /> : null;
 }

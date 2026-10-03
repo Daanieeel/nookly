@@ -38,6 +38,33 @@ export function useCourseLookup(spaceId: string, relationshipType: string) {
   return { courses, courseOf };
 }
 
+/// `useCourseLookup` over several Spaces, for the cross-Space pages.
+export function useCourseLookupAcross(spaceIds: string[], relationshipType: string) {
+  const courses = useQueries({
+    queries: spaceIds.map((id) => ({
+      queryKey: qk.courses.bySpace(id),
+      queryFn: () => listCourses(id),
+    })),
+    combine: (results) => results.flatMap((r) => r.data ?? []),
+  });
+  const relQueries = useQueries({
+    queries: courses.map((course) => ({
+      queryKey: qk.relationships.of(course.id),
+      queryFn: () => listRelationships(course.id, "both"),
+    })),
+  });
+
+  const courseOf = new Map<string, Entity>();
+  courses.forEach((course, i) => {
+    for (const r of relQueries[i]?.data ?? []) {
+      if (r.relationshipType === relationshipType && r.toEntityId === course.id) {
+        courseOf.set(r.fromEntityId, course);
+      }
+    }
+  });
+  return { courses, courseOf };
+}
+
 /// A quiet, read only chip naming a Course.
 export function CourseChip({ course, className }: { course: Entity; className?: string }) {
   return (

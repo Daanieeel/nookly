@@ -6,7 +6,7 @@ Formerly called "Environments." Spaces are groupings in the sidebar, similar to 
 
 Spaces are flat and cannot be nested. Every entity belongs to exactly **one** Space, with no exceptions and no sub-spaces.
 
-Spaces are a hard wall. By default there is no browsing, filtering, or module view across Spaces, so there is no "all Tasks in every Space" list. This matches how Notion behaves.
+Spaces are a hard wall. By default there is no browsing, filtering, or module view across Spaces, apart from the deliberate [cross-Space exceptions](#cross-space-exceptions) below. This matches how Notion behaves.
 
 **Fields:** name, icon, and color. The user picks the icon and the accent color separately. A Space's icon renders in its own accent color, which is the **one** exception to the neutral fallback icon rule (see [base fields](02-entity-model.md#base-fields)).
 
@@ -20,7 +20,7 @@ The active Space's color carries into the UI beyond its sidebar label: active st
 
 - Each Space shows a flat list. There are **no** sub-groups or category headers such as "Personal" or "Study." Remove them entirely.
 - Only show the modules and pages a Space actually uses. Do not list every available module type by default. Rows appear as content is created, or when a module is added explicitly through the ghost "+".
-- Dashboard, Pinned, and Search sit in a fixed block above the list of Spaces, since they span all Spaces.
+- Dashboard, Calendar, Tasks, Assignments, Pinned and Quick Jot sit in a block above the list of Spaces, since they span all Spaces. A settings button under the mascot opens a popover to hide each of them and drag them into a different order. The choice is a device preference (`nookly:sidebar-items`).
 - Trash and System are pinned to the bottom. They look quieter than the main content (muted and smaller) because they are utilities, not content.
 - A module row's context menu has Remove Module. It asks to either hide the module (everything stays saved, hidden from every list, search and Pinned, and back when the module is added again) or move all its content to Trash.
 - Each Space has a ghost "+" that appears on hover, for adding modules or pages to that Space. It is not a permanent, bold element.
@@ -34,12 +34,16 @@ When no icon is chosen, the item falls back to its entity type's default icon, r
 
 ## Cross-Space Exceptions
 
-There are exactly five. Adding another requires a deliberate decision.
+There are exactly seven. Adding another requires a deliberate decision.
 
 1. **Dashboard:** a single, global page of flat sections. Its content is editable, but the page itself cannot be duplicated. Per-Space and user-created dashboards may come later, but are out of scope for now.
 2. **Calendar:** a unified calendar layering the external calendar overlay, every Space's Sessions, and every Space's Calendar entries into one view, positioned directly below Dashboard. Sessions and Calendar entries render in their origin Space's accent color and are editable in place; the external overlay stays read only. It does not replace either module's own per-Space calendar.
 3. **Pinned:** a section at the top of the sidebar holding individually pinned items of any type from any Space.
 4. **Search:** smart, full-text search across the whole app. It counts as a utility rather than a view, so it ignores the Space wall.
 5. **Recents:** quick access to the last few entities actually opened, of any type and from any Space. Unlike Pinned, it is automatic rather than curated by hand. It lives in the `Cmd+K` palette only; there is no Recents page.
+
+6. **Tasks:** an overview of every Space's tasks, positioned directly below Calendar. Each row shows its origin Space as a color coded chip. It lists, filters and edits in place; creating a task still happens inside its Space. Both overviews can be saved as Views and take the same view presets as their Space pages.
+
+7. **Assignments:** the same for assignments, positioned directly below Tasks. It also groups by Space, and creating an assignment still happens inside its Space.
 
 Any future cross-Space feature must be added individually and deliberately. It is not a general capability modules can opt into.

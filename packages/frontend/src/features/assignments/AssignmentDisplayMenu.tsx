@@ -31,15 +31,19 @@ export function AssignmentDisplayMenu({
   display,
   onChange,
   columns,
+  crossSpace = false,
 }: {
   display: DisplayOptions;
   onChange: (display: DisplayOptions) => void;
   /// Every board column, so any of them can be hidden or brought back.
   columns: { id: string; name: string }[];
+  /// The cross-Space overview can group by Space; a Space's own page can't.
+  crossSpace?: boolean;
 }) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...display, ...patch });
-  const groupings = GROUPINGS.filter((g) => display.layout === "list" || g.id !== "none");
-  const subGroupings = GROUPINGS.filter((g) => g.id !== display.grouping);
+  const available = GROUPINGS.filter((g) => crossSpace || g.id !== "space");
+  const groupings = available.filter((g) => display.layout === "list" || g.id !== "none");
+  const subGroupings = available.filter((g) => g.id !== display.grouping);
   const setGrouping = (grouping: Grouping, layout = display.layout) =>
     set({ layout, grouping, subGrouping: validSubGrouping(grouping, display.subGrouping) });
 

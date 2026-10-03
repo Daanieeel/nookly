@@ -1,10 +1,12 @@
 import { IconCheck, IconLayoutList } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { iconLibraryValue, renderIconValue } from "#/components/entity-icon.tsx";
 import { type ActionStatus, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import type { FilterField } from "#/components/filter-menu.tsx";
+import type { Space } from "#/lib/api/types.ts";
 import { createView, listViews, type ViewModule } from "#/lib/api/views.ts";
+import { viewTarget } from "./view-target";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { Button } from "@nookly/ui/components/button";
@@ -15,6 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nookly/ui/components/select";
 import { cn } from "@nookly/ui/lib/utils";
 import { serializeViewConfig } from "./view-config";
 import type { DisplaySummary, ViewPreset } from "./view-presets";
@@ -25,12 +34,16 @@ import type { DisplaySummary, ViewPreset } from "./view-presets";
 /// opens that View instead of adding a second copy.
 export function ViewPresetsButton<D>({
   spaceId,
+  spaces,
   module,
   presets,
   fields,
   describeDisplay,
 }: {
   spaceId: string;
+  /// Set on a cross-Space page, whose Views each live in one Space: a preset is added
+  /// to the chosen one (starting at `spaceId`) and counts as added when any Space has it.
+  spaces?: Space[];
   module: ViewModule;
   presets: ViewPreset<D>[];
   /// The page's filter fields, to name each preset's filters.
@@ -39,10 +52,15 @@ export function ViewPresetsButton<D>({
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const { data: views = [] } = useQuery({
-    queryKey: qk.views.byModule(spaceId, module),
-    queryFn: () => listViews(spaceId, module),
-    enabled: open,
+  const [targetSpaceId, setTargetSpaceId] = useState(spaceId);
+  const scopeIds = spaces ? spaces.map((s) => s.id) : [spaceId];
+  const views = useQueries({
+    queries: scopeIds.map((id) => ({
+      queryKey: qk.views.byModule(id, module),
+      queryFn: () => listViews(id, module),
+      enabled: open,
+    })),
+    combine: (results) => results.flatMap((r) => r.data ?? []),
   });
   const existing = (preset: ViewPreset<D>) =>
     views.find((v) => !v.entity.deletedAt && v.entity.title === preset.name);
@@ -50,14 +68,14 @@ export function ViewPresetsButton<D>({
   const add = useMutation({
     mutationFn: (p: ViewPreset<D>) =>
       createView(
-        spaceId,
+        targetSpaceId,
         p.name,
         module,
         serializeViewConfig(p.filters, p.display),
         iconLibraryValue(p.icon, p.color),
       ),
     onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: qk.views.bySpace(spaceId) });
+      await queryClient.invalidateQueries({ queryKey: qk.views.bySpace(targetSpaceId) });
       await queryClient.invalidateQueries({ queryKey: qk.entity.root });
       openView(created.entity.id);
     },
@@ -65,11 +83,12 @@ export function ViewPresetsButton<D>({
   const { reset } = add;
   useEffect(() => {
     if (!open) reset();
-  }, [open, reset]);
+    else setTargetSpaceId(spaceId);
+  }, [open, reset, spaceId]);
 
   function openView(viewId: string) {
     setOpen(false);
-    useNavStore.getState().setView({ kind: "module", spaceId, module, viewId });
+    useNavStore.getState().setView(viewTarget(module, spaceId, viewId));
   }
 
   const pendingName = add.variables?.name;
@@ -85,9 +104,27 @@ export function ViewPresetsButton<D>({
           <DialogHeader>
             <DialogTitle>View presets</DialogTitle>
             <DialogDescription>
-              Ready made views. Adding one saves it to this Space, where you can change it freely.
+              Ready made views. Adding one saves it to {spaces ? "a Space" : "this Space"}, where
+              you can change it freely.
             </DialogDescription>
           </DialogHeader>
+          {spaces && (
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">Add to</span>
+              <Select value={targetSpaceId} onValueChange={setTargetSpaceId}>
+                <SelectTrigger size="sm" className="w-44" aria-label="Space to add the view to">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {spaces.map((space) => (
+                    <SelectItem key={space.id} value={space.id}>
+                      {space.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid h-120 auto-rows-min grid-cols-1 content-start gap-3 overflow-y-auto sm:grid-cols-2">
             {presets.map((p) => {
               const found = existing(p);

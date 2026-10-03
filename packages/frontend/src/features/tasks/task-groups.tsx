@@ -2,7 +2,7 @@ import { IconClockEdit, IconClockPlus, IconCalendarEvent, IconTagOff } from "@ta
 import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { LabelDot } from "#/components/label-chip.tsx";
-import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
+import type { Label, Space, Task, TaskStatus } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   DUE_BUCKETS,
@@ -12,6 +12,7 @@ import {
   type StatusKind,
   dayBucket,
 } from "./task-model";
+import { SpaceDot } from "#/components/space-chip.tsx";
 import { TaskStatusIcon } from "./task-properties";
 
 /// The groups a grouping splits tasks into, each with its header glyph. `null`
@@ -21,6 +22,7 @@ export function taskGroupDefs(
   statuses: TaskStatus[],
   labels: Label[],
   kindOf: (statusId: string) => StatusKind,
+  spaces: Space[] = [],
 ): GroupDef<Task>[] | null {
   switch (grouping) {
     case "status":
@@ -50,6 +52,17 @@ export function taskGroupDefs(
           match: (t: Task) => t.labelIds.length === 0,
         },
       ];
+    case "space":
+      return spaces.map((space) => ({
+        id: space.id,
+        name: space.name,
+        icon: (
+          <span className="flex size-3.5 items-center justify-center">
+            <SpaceDot space={space} />
+          </span>
+        ),
+        match: (t: Task) => t.entity.spaceId === space.id,
+      }));
     case "start":
       return dateGroupDefs(START_BUCKETS, (t) => t.startDate, false);
     case "due":

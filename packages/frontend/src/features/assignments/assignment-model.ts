@@ -2,6 +2,7 @@ import {
   IconBan,
   IconCalendarEvent,
   IconCircleDot,
+  IconFolder,
   IconClockEdit,
   IconClockPlus,
   IconLetterCase,
@@ -130,7 +131,15 @@ export const GRADE_FILTER: { id: string; label: string }[] = [
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping = "deadline" | "created" | "updated" | "status" | "grade" | "course" | "none";
+export type Grouping =
+  | "deadline"
+  | "created"
+  | "updated"
+  | "status"
+  | "grade"
+  | "course"
+  | "space"
+  | "none";
 /// "auto" keeps the order that fits the grouping.
 export type Ordering = "auto" | "due" | "created" | "updated" | "title" | "status" | "grade";
 
@@ -141,6 +150,7 @@ export const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
   { id: "status", label: "Status", icon: IconCircleDot },
   { id: "grade", label: "Grade", icon: IconStar },
   { id: "course", label: "Course", icon: IconSchool },
+  { id: "space", label: "Space", icon: IconFolder },
   { id: "none", label: "No grouping", icon: IconBan },
 ];
 
@@ -226,6 +236,21 @@ export function normalizeDisplay(stored: Partial<DisplayOptions>): DisplayOption
 
 export function writeDisplay(display: DisplayOptions) {
   preferences.set(STORAGE_KEYS.assignmentsDisplay, JSON.stringify(display));
+}
+
+/// The cross-Space overview remembers its display apart from a Space's page.
+export function readOverviewDisplay(): DisplayOptions {
+  try {
+    const raw = preferences.get(STORAGE_KEYS.assignmentsOverview);
+    // SAFETY: only ever written by `writeOverviewDisplay`; every field is validated before use.
+    return raw ? normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>) : DEFAULT_DISPLAY;
+  } catch {
+    return DEFAULT_DISPLAY;
+  }
+}
+
+export function writeOverviewDisplay(display: DisplayOptions) {
+  preferences.set(STORAGE_KEYS.assignmentsOverview, JSON.stringify(display));
 }
 
 // Ordering

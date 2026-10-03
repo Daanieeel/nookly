@@ -35,6 +35,11 @@ export function listTasks(spaceId: string): Promise<Task[]> {
   return invoke("list_tasks", { spaceId });
 }
 
+/// Every Space's tasks, for the cross-Space Tasks overview.
+export function listTasksAll(): Promise<Task[]> {
+  return invoke("list_tasks_all");
+}
+
 export function updateTaskStatus(entityId: string, statusId: string): Promise<void> {
   return invoke("update_task_status", { entityId, statusId });
 }

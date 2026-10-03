@@ -4,6 +4,8 @@ import {
   IconArrowRight,
   IconCalendarUser,
   IconChevronRight,
+  IconChecklist,
+  IconClipboardCheck,
   IconFolder,
   IconLayoutDashboard,
   IconPin,
@@ -342,6 +344,34 @@ function Breadcrumbs() {
       return <Crumb icon={<IconLayoutDashboard />} label="Dashboard" />;
     case "pinned":
       return <Crumb icon={<IconPin />} label="Pinned" />;
+    case "tasks":
+      return view.viewId ? (
+        <>
+          <Crumb
+            icon={<IconChecklist />}
+            label="Tasks"
+            onClick={() => useNavStore.getState().setView({ kind: "tasks" })}
+          />
+          <Separator />
+          <SavedViewCrumb viewId={view.viewId} />
+        </>
+      ) : (
+        <Crumb icon={<IconChecklist />} label="Tasks" />
+      );
+    case "assignments":
+      return view.viewId ? (
+        <>
+          <Crumb
+            icon={<IconClipboardCheck />}
+            label="Assignments"
+            onClick={() => useNavStore.getState().setView({ kind: "assignments" })}
+          />
+          <Separator />
+          <SavedViewCrumb viewId={view.viewId} />
+        </>
+      ) : (
+        <Crumb icon={<IconClipboardCheck />} label="Assignments" />
+      );
     case "trash":
       return <Crumb icon={<IconTrash />} label="Trash" />;
     case "module": {
