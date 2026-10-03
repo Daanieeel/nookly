@@ -168,7 +168,7 @@ function TabItem({
                 <IconX size={12} />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Close Tab</TooltipContent>
+            <TooltipContent side="bottom">Close Tab</TooltipContent>
           </Tooltip>
         </>
       )}
@@ -179,7 +179,7 @@ function TabItem({
   return tab.pinned ? (
     <Tooltip>
       <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   ) : (
     content
@@ -280,7 +280,7 @@ export function TabBar() {
             <IconPlus />
           </Button>
         </TooltipTrigger>
-        <TooltipContent className="flex items-center gap-2">
+        <TooltipContent side="bottom" className="flex items-center gap-2">
           New Tab
           <KbdGroup>
             <Kbd>⌘</Kbd>
