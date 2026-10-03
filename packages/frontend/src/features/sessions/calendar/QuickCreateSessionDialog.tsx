@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addDays, addMonths, addWeeks, addYears, format, parse } from "date-fns";
+import { format, parse } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 import {
@@ -20,16 +20,7 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { TimeInput } from "#/components/time-input.tsx";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
-import { NumberInput } from "@nookly/ui/components/number-input";
 import { Input } from "@nookly/ui/components/input";
-import { Label } from "@nookly/ui/components/label";
 import {
   createOneOffSession,
   createSessionTemplate,
@@ -38,20 +29,15 @@ import {
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
+import {
+  CADENCE_STEPS,
+  DURATION_UNITS,
+  RepeatChip,
+  cadenceSchema,
+  durationUnitSchema,
+} from "./RepeatChip";
 import { qk } from "#/lib/query-keys.ts";
 
-const CADENCES = {
-  none: "Does not repeat",
-  daily: "Daily",
-  weekly: "Weekly",
-  monthly: "Monthly",
-};
-const DURATION_UNITS = {
-  days: addDays,
-  weeks: addWeeks,
-  months: addMonths,
-  years: addYears,
-};
 const MAX_OCCURRENCES = 366;
 
 /// Every date the session lands on, from `start` up to but not including `start` plus the duration.
@@ -61,7 +47,7 @@ function repeatDates(
 ) {
   if (v.cadence === "none") return [start];
   const end = DURATION_UNITS[v.durationUnit](start, v.durationCount);
-  const step = { daily: addDays, weekly: addWeeks, monthly: addMonths }[v.cadence];
+  const step = CADENCE_STEPS[v.cadence];
   const dates: Date[] = [];
   for (let i = 0; dates.length <= MAX_OCCURRENCES; i++) {
     const next = step(start, i);
@@ -70,9 +56,6 @@ function repeatDates(
   }
   return dates;
 }
-
-const cadenceSchema = z.enum(["none", "daily", "weekly", "monthly"]);
-const durationUnitSchema = z.enum(["days", "weeks", "months", "years"]);
 
 const sessionSchema = z
   .object({
@@ -310,72 +293,18 @@ export function QuickCreateSessionDialog({
               <FieldError message={endError?.message || (create.isError && create.error.message)} />
             )}
           </form.Subscribe>
-          <div className="flex items-center gap-2">
-            <Label className="font-normal">Repeat</Label>
-            <form.Field name="cadence">
-              {(field) => (
-                <Select
-                  value={field.state.value}
-                  onValueChange={(v) => {
-                    const parsed = cadenceSchema.safeParse(v);
-                    if (parsed.success) field.handleChange(parsed.data);
-                  }}
-                >
-                  <SelectTrigger size="sm" aria-label="Repeat interval">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CADENCES).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </form.Field>
-            <form.Subscribe selector={(state) => state.values.cadence !== "none"}>
-              {(repeats) =>
-                repeats && (
-                  <>
-                    <Label className="font-normal">for</Label>
-                    <form.Field name="durationCount">
-                      {(field) => (
-                        <NumberInput
-                          value={field.state.value}
-                          onChange={field.handleChange}
-                          min={1}
-                          max={999}
-                        />
-                      )}
-                    </form.Field>
-                    <form.Field name="durationUnit">
-                      {(field) => (
-                        <Select
-                          value={field.state.value}
-                          onValueChange={(v) => {
-                            const parsed = durationUnitSchema.safeParse(v);
-                            if (parsed.success) field.handleChange(parsed.data);
-                          }}
-                        >
-                          <SelectTrigger size="sm" aria-label="Duration unit">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.keys(DURATION_UNITS).map((unit) => (
-                              <SelectItem key={unit} value={unit}>
-                                {unit}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </form.Field>
-                  </>
-                )
-              }
-            </form.Subscribe>
-          </div>
+          <form.Subscribe selector={(state) => state.values}>
+            {(values) => (
+              <RepeatChip
+                value={values}
+                onChange={(repeat) => {
+                  form.setFieldValue("cadence", repeat.cadence);
+                  form.setFieldValue("durationCount", repeat.durationCount);
+                  form.setFieldValue("durationUnit", repeat.durationUnit);
+                }}
+              />
+            )}
+          </form.Subscribe>
           {/* Lets Enter submit from any field. */}
           <button type="submit" hidden aria-label="Create session" />
         </form>

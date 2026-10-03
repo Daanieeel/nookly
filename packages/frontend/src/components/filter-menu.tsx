@@ -242,7 +242,8 @@ export function FilterMenu({
 /// Icons a chip shows before the rest collapse into "+N".
 const MAX_CHIP_ICONS = 5;
 
-const CHIP_SEGMENT = "flex h-full cursor-pointer items-center gap-1 px-1.5 hover:bg-accent/60";
+export const CHIP_SEGMENT =
+  "flex h-full cursor-pointer items-center gap-1 px-1.5 hover:bg-accent/60";
 
 function FilterChip({
   field,
