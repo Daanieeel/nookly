@@ -297,7 +297,7 @@ function HydratedBlockEditor({
       HeadingAnchors,
       ArrowLigatures,
       BlockSelection,
-      SlashCommand,
+      SlashCommand.configure({ getEntities: () => entitiesRef.current }),
       CodeCompletion,
       Mention.configure({ getEntities: () => entitiesRef.current }),
       Callout,
