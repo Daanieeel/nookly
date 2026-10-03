@@ -50,9 +50,9 @@ export function RepeatChip({
 }) {
   const repeats = value.cadence !== "none";
   return (
-    <div className="flex h-7 w-fit items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-xs">
+    <div className="flex h-8 w-fit items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-sm">
       <span className="flex h-full items-center gap-1 px-1.5 text-muted-foreground">
-        <IconRepeat size={14} />
+        <IconRepeat size={16} />
         Repeat
       </span>
       <DropdownMenu>
