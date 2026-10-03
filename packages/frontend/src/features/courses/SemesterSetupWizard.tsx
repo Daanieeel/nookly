@@ -1,4 +1,4 @@
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconFlower, IconLeaf, IconSnowflake, IconSun } from "@tabler/icons-react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -231,6 +231,7 @@ export function SemesterSetupWizard({
               <SelectContent>
                 {terms.map((t) => (
                   <SelectItem key={t.key} value={t.key}>
+                    <TermIcon termKey={t.key} />
                     {t.label}
                   </SelectItem>
                 ))}
@@ -336,6 +337,21 @@ const PREV_STEP = {
   count: "current",
   review: "count",
 } satisfies Record<Exclude<Step, "system">, Step>;
+function TermIcon({ termKey }: { termKey: string }) {
+  switch (termKey) {
+    case "winter":
+      return <IconSnowflake size={14} />;
+    case "summer":
+      return <IconSun size={14} />;
+    case "fall":
+      return <IconLeaf size={14} />;
+    case "spring":
+      return <IconFlower size={14} />;
+    default:
+      return null;
+  }
+}
+
 const STEPS: Step[] = ["system", "region", "current", "count", "review"];
 
 function StepDots({ step }: { step: Step }) {
