@@ -11,6 +11,7 @@ import {
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
+import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
 import {
   AlertDialog,
@@ -74,7 +75,7 @@ export function useCreateLabel(spaceId: string) {
   });
 }
 
-const nameSchema = z.object({ name: z.string().trim().min(1) });
+const nameSchema = z.object({ name: z.string().trim().min(1, "Name the label") });
 
 /// A name field that creates a label on Enter, for surfaces without a picker of
 /// their own (the context menu's Labels submenu).
@@ -137,7 +138,13 @@ export function NewLabelForm({
           )}
         </form.Field>
       </div>
-      <FieldError message={create.isError && "Couldn't create label."} />
+      <form.Field name="name">
+        {(field) => (
+          <FieldError
+            message={fieldMessage(field) || (create.isError && "Couldn't create label.")}
+          />
+        )}
+      </form.Field>
     </form>
   );
 }
@@ -235,22 +242,30 @@ export function LabelsDialog({
                         )}
                       </form.Field>
                     </div>
-                    <Button type="submit" variant="secondary" disabled={!name || exists}>
-                      <StatusButtonContent
-                        status={statusOf(create)}
-                        icon={<IconPlus />}
-                        label="Add"
-                        errorLabel="Retry"
-                      />
-                    </Button>
+                    <form.Subscribe selector={hasVisibleErrors}>
+                      {(blocked) => (
+                        <Button type="submit" variant="secondary" disabled={exists || blocked}>
+                          <StatusButtonContent
+                            status={statusOf(create)}
+                            icon={<IconPlus />}
+                            label="Add"
+                            errorLabel="Retry"
+                          />
+                        </Button>
+                      )}
+                    </form.Subscribe>
                   </div>
-                  <FieldError
-                    message={
-                      exists
-                        ? "A label with this name exists."
-                        : create.isError && "Couldn't add label."
-                    }
-                  />
+                  <form.Field name="name">
+                    {(field) => (
+                      <FieldError
+                        message={
+                          exists
+                            ? "A label with this name exists."
+                            : fieldMessage(field) || (create.isError && "Couldn't add label.")
+                        }
+                      />
+                    )}
+                  </form.Field>
                 </>
               );
             }}

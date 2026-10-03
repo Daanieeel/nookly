@@ -8,6 +8,8 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   FieldError,
@@ -18,6 +20,7 @@ import {
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityPickerPopover, EntityPickerValue } from "#/components/entity-picker.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import {
   type ActiveFilter,
   type FilterField,
@@ -462,6 +465,13 @@ export function ExamTimelineRows({
   );
 }
 
+const examSchema = z.object({
+  course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
+  examDate: z.string(),
+});
+type ExamValues = z.infer<typeof examSchema>;
+const emptyExam: ExamValues = { course: null, examDate: "" };
+
 function CreateExamDialog({
   spaceId,
   open,
@@ -473,15 +483,21 @@ function CreateExamDialog({
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [course, setCourse] = useState<Entity | null>(null);
-  const [examDate, setExamDate] = useState("");
+
+  const form = useForm({
+    defaultValues: emptyExam,
+    validators: { onChange: examSchema },
+    onSubmit: ({ value }) => {
+      if (createStatus !== "pending" && createStatus !== "success") create.mutate(value);
+    },
+  });
 
   const create = useMutation({
-    mutationFn: () => {
+    mutationFn: ({ course, examDate }: ExamValues) => {
       if (!course) throw new Error("Pick a course first");
       return createExam(spaceId, `${displayTitle(course)} Exam`, course.id, examDate || null, null);
     },
-    onSuccess: () => {
+    onSuccess: (_exam, { course }) => {
       queryClient.invalidateQueries({ queryKey: qk.exams.bySpace(spaceId) });
       if (course)
         queryClient.invalidateQueries({
@@ -492,8 +508,7 @@ function CreateExamDialog({
   const createStatus = statusOf(create);
   useCloseAfterSuccess(create, () => {
     const exam = create.data;
-    setCourse(null);
-    setExamDate("");
+    form.reset();
     onOpenChange(false);
     create.reset();
     if (exam) openEntity(exam.entity.id, spaceId);
@@ -504,50 +519,75 @@ function CreateExamDialog({
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
-        if (!next && !create.isSuccess) create.reset();
+        if (!next && !create.isSuccess) {
+          form.reset();
+          create.reset();
+        }
       }}
     >
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>New exam</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <EntityPickerPopover
-            spaceId={spaceId}
-            typeFilter="course"
-            trigger={
-              <Button variant="secondary" size="sm" className="w-full justify-start">
-                <EntityPickerValue entity={course} placeholder="Pick a course…" />
-              </Button>
-            }
-            onSelect={setCourse}
-          />
-          <DateInput
-            aria-label="Exam date"
-            placeholder="Exam date…"
-            value={examDate || null}
-            onChange={(day) => setExamDate(day ?? "")}
-          />
-          <FieldError message={create.isError && create.error.message} />
-          <p className="text-xs text-muted-foreground">
-            Grade, weight and status can be filled in afterward.
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <form.Field name="course">
+            {(field) => (
+              <FormField
+                label="Course"
+                required
+                error={fieldMessage(field)}
+                className="col-span-2 sm:col-span-1"
+              >
+                <EntityPickerPopover
+                  spaceId={spaceId}
+                  typeFilter="course"
+                  trigger={
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      data-field-control
+                      className="w-full justify-start"
+                    >
+                      <EntityPickerValue entity={field.state.value} placeholder="Pick a course…" />
+                    </Button>
+                  }
+                  onSelect={field.handleChange}
+                />
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="examDate">
+            {(field) => (
+              <FormField label="Exam date" className="col-span-2 sm:col-span-1">
+                <DateInput
+                  aria-label="Exam date"
+                  placeholder="Exam date…"
+                  value={field.state.value || null}
+                  onChange={(day) => field.handleChange(day ?? "")}
+                />
+              </FormField>
+            )}
+          </form.Field>
+          <div className="col-span-2 flex flex-col gap-2">
+            <FieldError message={create.isError && create.error.message} />
+            <p className="text-xs text-muted-foreground">
+              Grade, weight and status can be filled in afterward.
+            </p>
+          </div>
         </div>
         <DialogFooter>
-          <Button
-            size="sm"
-            disabled={!course}
-            onClick={() =>
-              createStatus !== "pending" && createStatus !== "success" && create.mutate()
-            }
-          >
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Exam created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button size="sm" disabled={blocked} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={createStatus}
+                  label="Create"
+                  successLabel="Exam created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

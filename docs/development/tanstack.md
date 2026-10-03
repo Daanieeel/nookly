@@ -4,7 +4,7 @@ Frontend code in `packages/frontend/src`.
 
 ## Forms
 
-Submit forms use `useForm` from `@tanstack/react-form` with a Zod v4 schema in `validators.onChange`. Read `features/sessions/calendar/QuickCreateSessionDialog.tsx` for the pattern: one `form.Field` per input, `form.Subscribe` with `schema.safeParse(state.values).success` for the submit button, `form.reset(...)` when the dialog reseeds.
+Submit forms use `useForm` from `@tanstack/react-form` with a Zod v4 schema in `validators.onChange`. Read `features/sessions/calendar/QuickCreateSessionDialog.tsx` for the pattern: one `form.Field` per input, `form.Subscribe` with `selector={hasVisibleErrors}` (from `components/form-field.tsx`) for the submit button, which is disabled only while an error is visible, `form.reset(...)` when the dialog reseeds.
 
 Inline renames and autosave fields stay plain `useState`.
 

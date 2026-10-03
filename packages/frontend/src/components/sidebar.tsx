@@ -27,7 +27,9 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "@tanstack/react-form";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import {
   StatusButtonContent,
   statusOf,
@@ -38,6 +40,7 @@ import { contextTarget } from "#/components/context-menu/registry.ts";
 import { renderIconValue } from "#/components/entity-icon.tsx";
 import { RemoveModuleDialog } from "#/components/sidebar/remove-module-dialog.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
 import { LabelsDialog } from "#/components/label-manager.tsx";
 import {
@@ -703,6 +706,13 @@ function ModuleSubRow({
   );
 }
 
+const spaceSchema = z.object({
+  name: z.string().trim().min(1, "Give the space a name"),
+  color: z.string(),
+  icon: z.string().nullable(),
+});
+type SpaceValues = z.infer<typeof spaceSchema>;
+
 function CreateSpaceDialog({
   open,
   onOpenChange,
@@ -711,24 +721,26 @@ function CreateSpaceDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [color, setColor] = useState(SPACE_COLORS[0]);
-  const [icon, setIcon] = useState<string | null>(null);
   const setActiveSpace = useNavStore((s) => s.setActiveSpace);
   const toggleExpandedSpace = useNavStore((s) => s.toggleExpandedSpace);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  const emptySpace: SpaceValues = { name: "", color: SPACE_COLORS[0], icon: null };
+  const form = useForm({
+    defaultValues: emptySpace,
+    validators: { onChange: spaceSchema },
+    onSubmit: ({ value }) => {
+      if (createStatus === "idle" || createStatus === "error") create.mutate(value);
+    },
+  });
+
   useEffect(() => {
     if (open) nameInputRef.current?.focus();
-    else {
-      setName("");
-      setColor(SPACE_COLORS[0]);
-      setIcon(null);
-    }
-  }, [open]);
+    else form.reset();
+  }, [open, form]);
 
   const create = useMutation({
-    mutationFn: () => createSpace(name.trim(), icon, color),
+    mutationFn: ({ name, icon, color }: SpaceValues) => createSpace(name.trim(), icon, color),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
   });
   useCloseAfterSuccess(create, () => {
@@ -750,61 +762,89 @@ function CreateSpaceDialog({
         <DialogHeader>
           <DialogTitle>New Space</DialogTitle>
         </DialogHeader>
-        <div className="flex items-center gap-2">
-          <IconPicker
-            value={icon}
-            onChange={setIcon}
-            trigger={
-              <button
-                type="button"
-                aria-label="Choose Space icon"
-                className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
-              >
-                <span
-                  className="text-(--space-color)"
-                  // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
-                  // `CSSProperties` just doesn't model custom properties.
-                  style={{ "--space-color": color } as CSSProperties}
-                >
-                  {icon ? renderIconValue(icon, 15) : <IconFolder size={15} />}
-                </span>
-              </button>
-            }
-          />
-          <Input
-            ref={nameInputRef}
-            placeholder="Space name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="flex-1"
-          />
+        <div className="grid grid-cols-[auto_1fr] items-start gap-3">
+          <form.Field name="icon">
+            {(iconField) => (
+              <FormField label="Icon">
+                <form.Subscribe selector={(state) => state.values.color}>
+                  {(color) => (
+                    <IconPicker
+                      value={iconField.state.value}
+                      onChange={iconField.handleChange}
+                      trigger={
+                        <button
+                          type="button"
+                          aria-label="Choose Space icon"
+                          className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
+                        >
+                          <span
+                            className="text-(--space-color)"
+                            // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
+                            // `CSSProperties` just doesn't model custom properties.
+                            style={{ "--space-color": color } as CSSProperties}
+                          >
+                            {iconField.state.value ? (
+                              renderIconValue(iconField.state.value, 15)
+                            ) : (
+                              <IconFolder size={15} />
+                            )}
+                          </span>
+                        </button>
+                      }
+                    />
+                  )}
+                </form.Subscribe>
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="name">
+            {(field) => (
+              <FormField label="Name" required htmlFor="new-space-name" error={fieldMessage(field)}>
+                <Input
+                  id="new-space-name"
+                  ref={nameInputRef}
+                  placeholder="e.g. University"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
+            )}
+          </form.Field>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {SPACE_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-label={`Space color ${c}`}
-              onClick={() => setColor(c)}
-              className={`size-6 rounded-full bg-(--swatch-color) ${color === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
-              // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
-              // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
-              style={{ "--swatch-color": c } as CSSProperties}
-            />
-          ))}
-        </div>
+        <form.Field name="color">
+          {(field) => (
+            <FormField label="Color">
+              <div className="flex flex-wrap gap-2">
+                {SPACE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Space color ${c}`}
+                    onClick={() => field.handleChange(c)}
+                    className={`size-6 rounded-full bg-(--swatch-color) ${field.state.value === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
+                    // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
+                    // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
+                    style={{ "--swatch-color": c } as CSSProperties}
+                  />
+                ))}
+              </div>
+            </FormField>
+          )}
+        </form.Field>
         <DialogFooter>
-          <Button
-            disabled={!name.trim()}
-            onClick={() => (createStatus === "idle" || createStatus === "error") && create.mutate()}
-          >
-            <StatusButtonContent
-              status={createStatus}
-              label="Create"
-              successLabel="Space created"
-              errorLabel="Couldn't create, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button disabled={blocked} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={createStatus}
+                  label="Create"
+                  successLabel="Space created"
+                  errorLabel="Couldn't create, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -821,22 +861,27 @@ function SpaceSettingsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState(space.name);
-  const [color, setColor] = useState(space.color);
-  const [icon, setIcon] = useState<string | null>(space.icon);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const current: SpaceValues = { name: space.name, color: space.color, icon: space.icon };
+  const form = useForm({
+    defaultValues: current,
+    validators: { onChange: spaceSchema },
+    onSubmit: ({ value }) => {
+      if (saveStatus === "idle" || saveStatus === "error") save.mutate(value);
+    },
+  });
 
   useEffect(() => {
     if (open) {
-      setName(space.name);
-      setColor(space.color);
-      setIcon(space.icon);
+      form.reset({ name: space.name, color: space.color, icon: space.icon });
       nameInputRef.current?.focus();
     }
-  }, [open, space]);
+  }, [open, space, form]);
 
   const save = useMutation({
-    mutationFn: () => updateSpace(space.id, { name: name.trim(), icon: icon ?? "", color }),
+    mutationFn: ({ name, icon, color }: SpaceValues) =>
+      updateSpace(space.id, { name: name.trim(), icon: icon ?? "", color }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
   });
   useCloseAfterSuccess(save, () => onOpenChange(false));
@@ -852,61 +897,94 @@ function SpaceSettingsDialog({
         <DialogHeader>
           <DialogTitle>Space settings</DialogTitle>
         </DialogHeader>
-        <div className="flex items-center gap-2">
-          <IconPicker
-            value={icon}
-            onChange={setIcon}
-            trigger={
-              <button
-                type="button"
-                aria-label="Choose Space icon"
-                className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
+        <div className="grid grid-cols-[auto_1fr] items-start gap-3">
+          <form.Field name="icon">
+            {(iconField) => (
+              <FormField label="Icon">
+                <form.Subscribe selector={(state) => state.values.color}>
+                  {(color) => (
+                    <IconPicker
+                      value={iconField.state.value}
+                      onChange={iconField.handleChange}
+                      trigger={
+                        <button
+                          type="button"
+                          aria-label="Choose Space icon"
+                          className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
+                        >
+                          <span
+                            className="text-(--space-color)"
+                            // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
+                            // `CSSProperties` just doesn't model custom properties.
+                            style={{ "--space-color": color } as CSSProperties}
+                          >
+                            {iconField.state.value ? (
+                              renderIconValue(iconField.state.value, 15)
+                            ) : (
+                              <IconFolder size={15} />
+                            )}
+                          </span>
+                        </button>
+                      }
+                    />
+                  )}
+                </form.Subscribe>
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="name">
+            {(field) => (
+              <FormField
+                label="Name"
+                required
+                htmlFor="space-settings-name"
+                error={fieldMessage(field)}
               >
-                <span
-                  className="text-(--space-color)"
-                  // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
-                  // `CSSProperties` just doesn't model custom properties.
-                  style={{ "--space-color": color } as CSSProperties}
-                >
-                  {icon ? renderIconValue(icon, 15) : <IconFolder size={15} />}
-                </span>
-              </button>
-            }
-          />
-          <Input
-            ref={nameInputRef}
-            placeholder="Space name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="flex-1"
-          />
+                <Input
+                  id="space-settings-name"
+                  ref={nameInputRef}
+                  placeholder="e.g. University"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
+            )}
+          </form.Field>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {SPACE_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-label={`Space color ${c}`}
-              onClick={() => setColor(c)}
-              className={`size-6 rounded-full bg-(--swatch-color) ${color === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
-              // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
-              // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
-              style={{ "--swatch-color": c } as CSSProperties}
-            />
-          ))}
-        </div>
+        <form.Field name="color">
+          {(field) => (
+            <FormField label="Color">
+              <div className="flex flex-wrap gap-2">
+                {SPACE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Space color ${c}`}
+                    onClick={() => field.handleChange(c)}
+                    className={`size-6 rounded-full bg-(--swatch-color) ${field.state.value === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
+                    // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
+                    // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
+                    style={{ "--swatch-color": c } as CSSProperties}
+                  />
+                ))}
+              </div>
+            </FormField>
+          )}
+        </form.Field>
         <DialogFooter>
-          <Button
-            disabled={!name.trim()}
-            onClick={() => (saveStatus === "idle" || saveStatus === "error") && save.mutate()}
-          >
-            <StatusButtonContent
-              status={saveStatus}
-              label="Save"
-              successLabel="Saved"
-              errorLabel="Couldn't save, try again"
-            />
-          </Button>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button disabled={blocked} onClick={() => void form.handleSubmit()}>
+                <StatusButtonContent
+                  status={saveStatus}
+                  label="Save"
+                  successLabel="Saved"
+                  errorLabel="Couldn't save, try again"
+                />
+              </Button>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

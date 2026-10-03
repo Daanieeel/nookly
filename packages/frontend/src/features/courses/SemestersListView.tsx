@@ -22,6 +22,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { FeedbackMenuItem } from "#/components/feedback-menu-item.tsx";
@@ -197,7 +198,10 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
 /// cosmetic only (PLAN §1), never used for ordering or "current" detection.
 const dateRangeSchema = z
   .object({ start: z.string(), end: z.string() })
-  .refine((v) => v.start !== "" || v.end !== "");
+  .refine((v) => v.start !== "" || v.end !== "", {
+    path: ["start"],
+    message: "Pick a start or an end date",
+  });
 
 function DateRangeForm({
   startDate,
@@ -225,33 +229,33 @@ function DateRangeForm({
       }}
       className="flex flex-col gap-2 p-1"
     >
-      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Start (approximate)
+      <div className="grid grid-cols-2 gap-2">
         <form.Field name="start">
           {(field) => (
-            <DateInput
-              aria-label="Start (approximate)"
-              value={field.state.value || null}
-              onChange={(day) => field.handleChange(day ?? "")}
-            />
+            <FormField label="Start (approximate)" error={fieldMessage(field)}>
+              <DateInput
+                aria-label="Start (approximate)"
+                value={field.state.value || null}
+                onChange={(day) => field.handleChange(day ?? "")}
+              />
+            </FormField>
           )}
         </form.Field>
-      </div>
-      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-        End (approximate)
         <form.Field name="end">
           {(field) => (
-            <DateInput
-              aria-label="End (approximate)"
-              value={field.state.value || null}
-              onChange={(day) => field.handleChange(day ?? "")}
-            />
+            <FormField label="End (approximate)">
+              <DateInput
+                aria-label="End (approximate)"
+                value={field.state.value || null}
+                onChange={(day) => field.handleChange(day ?? "")}
+              />
+            </FormField>
           )}
         </form.Field>
       </div>
-      <form.Subscribe selector={(state) => dateRangeSchema.safeParse(state.values).success}>
-        {(ready) => (
-          <Button type="submit" size="sm" disabled={!ready}>
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <Button type="submit" size="sm" disabled={blocked}>
             <StatusButtonContent
               status={status}
               label="Save"
@@ -498,7 +502,7 @@ export function SemesterRow({
                 {dateRange ?? "Set dates"}
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
+            <PopoverContent className="w-96" align="end">
               <DateRangeForm
                 startDate={semester.startDate ?? ""}
                 endDate={semester.endDate ?? ""}
@@ -613,7 +617,7 @@ function CourseChips({ courses }: { courses: Entity[] }) {
 }
 
 const createSemesterSchema = z.object({
-  title: z.string().trim().min(1),
+  title: z.string().trim().min(1, "Give the semester a name"),
   termType: z.string(),
   year: z.number(),
 });
@@ -682,31 +686,36 @@ function CreateSemesterDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <Input
-                ref={inputRef}
-                placeholder="e.g. Winter 2026/27"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
+              <FormField label="Name" required htmlFor="semester-name" error={fieldMessage(field)}>
+                <Input
+                  id="semester-name"
+                  ref={inputRef}
+                  placeholder="e.g. Winter 2026/27"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
             )}
           </form.Field>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[1fr_auto] items-end gap-2">
             <form.Field name="termType">
               {(field) => (
-                <Select value={field.state.value} onValueChange={field.handleChange}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Term (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No term set</SelectItem>
-                    {termOptions.map((t) => (
-                      <SelectItem key={t.key} value={t.key}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormField label="Term">
+                  <Select value={field.state.value} onValueChange={field.handleChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Term (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No term set</SelectItem>
+                      {termOptions.map((t) => (
+                        <SelectItem key={t.key} value={t.key}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
               )}
             </form.Field>
             <form.Subscribe selector={(state) => state.values.termType !== "none"}>
@@ -714,12 +723,14 @@ function CreateSemesterDialog({
                 hasTerm && (
                   <form.Field name="year">
                     {(field) => (
-                      <NumberInput
-                        value={field.state.value}
-                        onChange={field.handleChange}
-                        min={2000}
-                        max={2100}
-                      />
+                      <FormField label="Year">
+                        <NumberInput
+                          value={field.state.value}
+                          onChange={field.handleChange}
+                          min={2000}
+                          max={2100}
+                        />
+                      </FormField>
                     )}
                   </form.Field>
                 )
@@ -728,11 +739,9 @@ function CreateSemesterDialog({
           </div>
         </form>
         <DialogFooter>
-          <form.Subscribe
-            selector={(state) => createSemesterSchema.safeParse(state.values).success}
-          >
-            {(ready) => (
-              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
                 <StatusButtonContent
                   status={statusOf(create)}
                   label="Create"

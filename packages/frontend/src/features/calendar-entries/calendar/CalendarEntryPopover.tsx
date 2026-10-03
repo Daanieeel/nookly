@@ -24,6 +24,7 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
 import {
   AlertDialog,
@@ -75,8 +76,8 @@ const SCOPES = [
 
 const entryEditSchema = z
   .object({
-    title: z.string().trim().min(1),
-    date: z.string().min(1),
+    title: z.string().trim().min(1, "Give the entry a title"),
+    date: z.string().min(1, "Pick a date"),
     endDate: z.string(),
     allDay: z.boolean(),
     startTime: z.string(),
@@ -361,7 +362,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
 
   return (
     <form
-      className="flex flex-col gap-2 p-3"
+      className="grid grid-cols-2 gap-2.5 p-3"
       onSubmit={(e) => {
         e.preventDefault();
         void form.handleSubmit();
@@ -369,7 +370,11 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
     >
       {templateId && (
         // SAFETY: Radix only emits the `SCOPES` trigger values below.
-        <Tabs value={scope} onValueChange={(next) => setScope(next as EditScope)}>
+        <Tabs
+          value={scope}
+          onValueChange={(next) => setScope(next as EditScope)}
+          className="col-span-2"
+        >
           <TabsList size="sm" className="w-full">
             {SCOPES.map((s) => (
               <TabsTrigger key={s.id} value={s.id} size="sm">
@@ -381,42 +386,54 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       )}
       <form.Field name="title">
         {(field) => (
-          <Input
-            aria-label="Title"
-            placeholder="Title"
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-          />
+          <FormField
+            label="Title"
+            required
+            htmlFor="calendar-entry-edit-title"
+            error={fieldMessage(field)}
+            className="col-span-2"
+          >
+            <Input
+              id="calendar-entry-edit-title"
+              placeholder="Title"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
         )}
       </form.Field>
       {scope === "this" && (
         <>
           <form.Field name="date">
             {(field) => (
-              <DateInput
-                aria-label="Date"
-                clearable={false}
-                value={field.state.value || null}
-                onChange={(day) => field.handleChange(day ?? "")}
-              />
+              <FormField label="Starts" required error={fieldMessage(field)}>
+                <DateInput
+                  aria-label="Date"
+                  clearable={false}
+                  value={field.state.value || null}
+                  onChange={(day) => field.handleChange(day ?? "")}
+                />
+              </FormField>
             )}
           </form.Field>
           <form.Field name="endDate">
             {(field) => (
-              <DateInput
-                aria-label="End date"
-                placeholder="Ends same day"
-                value={field.state.value || null}
-                onChange={(day) => field.handleChange(day ?? "")}
-              />
+              <FormField label="Ends" error={fieldMessage(field)}>
+                <DateInput
+                  aria-label="End date"
+                  placeholder="Same day"
+                  value={field.state.value || null}
+                  onChange={(day) => field.handleChange(day ?? "")}
+                />
+              </FormField>
             )}
           </form.Field>
         </>
       )}
       <form.Field name="allDay">
         {(field) => (
-          <div className="flex items-center gap-2">
+          <div className="col-span-2 flex items-center gap-2">
             <Checkbox
               id="calendar-entry-all-day"
               checked={field.state.value}
@@ -431,69 +448,66 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       <form.Subscribe selector={(state) => state.values.allDay}>
         {(allDay) =>
           !allDay && (
-            <div className="flex items-center gap-1.5">
+            <>
               <form.Field name="startTime">
                 {(field) => (
-                  <TimeInput
-                    aria-label="Start time"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={field.handleChange}
-                    className="flex-1"
-                  />
+                  <FormField label="Start time" required error={fieldMessage(field)}>
+                    <TimeInput
+                      aria-label="Start time"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={field.handleChange}
+                    />
+                  </FormField>
                 )}
               </form.Field>
-              <span className="text-xs text-muted-foreground">to</span>
               <form.Field name="endTime">
                 {(field) => (
-                  <TimeInput
-                    aria-label="End time"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={field.handleChange}
-                    className="flex-1"
-                  />
+                  <FormField label="End time" required error={fieldMessage(field)}>
+                    <TimeInput
+                      aria-label="End time"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={field.handleChange}
+                    />
+                  </FormField>
                 )}
               </form.Field>
-            </div>
+            </>
           )
         }
       </form.Subscribe>
       <form.Field name="location">
         {(field) => (
-          <Input
-            aria-label="Location"
-            placeholder="Location"
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-          />
+          <FormField label="Location" htmlFor="calendar-entry-edit-location" className="col-span-2">
+            <Input
+              id="calendar-entry-edit-location"
+              placeholder="Optional"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
         )}
       </form.Field>
       {scope !== "this" && (
-        <p className="text-xs text-muted-foreground">
+        <p className="col-span-2 text-xs text-muted-foreground">
           {scope === "following"
             ? "Changes this entry and every later one in the series."
             : "Changes every entry from today on."}{" "}
           Past entries and changes made to single ones stay as they are.
         </p>
       )}
-      <form.Subscribe
-        selector={(state) =>
-          state.fieldMeta.endTime?.errors[0] ?? state.fieldMeta.endDate?.errors[0]
-        }
-      >
-        {(fieldError) => (
-          <FieldError message={fieldError?.message || (save.isError && save.error.message)} />
-        )}
-      </form.Subscribe>
-      <div className="flex justify-end gap-1">
+      <div className="col-span-2 empty:hidden">
+        <FieldError message={save.isError && save.error.message} />
+      </div>
+      <div className="col-span-2 flex justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <form.Subscribe selector={(state) => entryEditSchema.safeParse(state.values).success}>
-          {(ready) => (
-            <Button type="submit" size="sm" disabled={!ready}>
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <Button type="submit" size="sm" disabled={blocked}>
               <StatusButtonContent
                 status={statusOf(save)}
                 label="Save"

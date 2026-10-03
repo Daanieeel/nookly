@@ -27,6 +27,7 @@ import {
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Badge } from "@nookly/ui/components/badge";
@@ -699,7 +700,7 @@ function RelatedChip({
   );
 }
 
-const createCourseSchema = z.object({ title: z.string().trim().min(1) });
+const createCourseSchema = z.object({ title: z.string().trim().min(1, "Give the course a name") });
 
 function CreateCourseDialog({
   open,
@@ -757,20 +758,23 @@ function CreateCourseDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <Input
-                ref={inputRef}
-                placeholder="Course name"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
+              <FormField label="Name" required htmlFor="course-name" error={fieldMessage(field)}>
+                <Input
+                  id="course-name"
+                  ref={inputRef}
+                  placeholder="e.g. Algorithms I"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
             )}
           </form.Field>
         </form>
         <DialogFooter>
-          <form.Subscribe selector={(state) => createCourseSchema.safeParse(state.values).success}>
-            {(ready) => (
-              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
                 <StatusButtonContent
                   status={statusOf(create)}
                   label="Create"

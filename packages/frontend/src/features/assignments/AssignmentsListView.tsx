@@ -9,7 +9,9 @@ import {
   IconSchool,
   IconStar,
 } from "@tabler/icons-react";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
@@ -49,6 +51,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { DueDatePicker, DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { Switch } from "@nookly/ui/components/switch";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
@@ -366,6 +369,14 @@ export function AssignmentsListView({
   );
 }
 
+const assignmentSchema = z.object({
+  title: z.string(),
+  course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
+  dueDate: z.string().nullable(),
+});
+type AssignmentValues = z.infer<typeof assignmentSchema>;
+const emptyAssignment: AssignmentValues = { title: "", course: null, dueDate: null };
+
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
 /// and property pills (Course, due date). The title is optional and defaults to
 /// "<Course> Assignment". Enter or Cmd+Enter creates; with "Create more" on the modal
@@ -386,32 +397,38 @@ export function CreateAssignmentDialog({
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [spaceId, setSpaceId] = useState(initialSpaceId);
-  const [title, setTitle] = useState("");
-  const [course, setCourse] = useState<Entity | null>(null);
-  const [dueDate, setDueDate] = useState<string | null>(null);
   const [createMore, setCreateMore] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const { data: allSpaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = allSpaces.find((s) => s.id === spaceId);
 
+  const form = useForm({
+    defaultValues: emptyAssignment,
+    validators: { onChange: assignmentSchema },
+    onSubmit: ({ value }) => {
+      if (createStatus === "idle" || createStatus === "error") create.mutate(value);
+    },
+  });
+  const course = useStore(form.store, (state) => state.values.course);
+
   const create = useMutation({
-    mutationFn: () => {
-      if (!course) throw new Error("pick a course");
+    mutationFn: ({ title, course: picked, dueDate }: AssignmentValues) => {
+      if (!picked) throw new Error("pick a course");
       return createAssignment(
         spaceId,
-        title.trim() || `${displayTitle(course)} Assignment`,
-        course.id,
+        title.trim() || `${displayTitle(picked)} Assignment`,
+        picked.id,
         dueDate,
       );
     },
-    onSuccess: async (created) => {
+    onSuccess: async (created, { course: picked }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: qk.assignments.bySpace(spaceId) }),
         queryClient.invalidateQueries({ queryKey: qk.assignments.all }),
-        course && queryClient.invalidateQueries({ queryKey: qk.relationships.of(course.id) }),
+        picked && queryClient.invalidateQueries({ queryKey: qk.relationships.of(picked.id) }),
       ]);
       if (createMore) {
-        setTitle("");
+        form.setFieldValue("title", "");
         requestAnimationFrame(() => titleRef.current?.focus());
       } else {
         handleOpenChange(false);
@@ -425,15 +442,13 @@ export function CreateAssignmentDialog({
     onOpenChange(next);
     if (next) setSpaceId(initialSpaceId);
     if (!next) {
-      setTitle("");
-      setCourse(null);
-      setDueDate(null);
+      form.reset();
       create.reset();
     }
   }
 
   function submit() {
-    if (course && (createStatus === "idle" || createStatus === "error")) create.mutate();
+    void form.handleSubmit();
   }
 
   return (
@@ -464,7 +479,7 @@ export function CreateAssignmentDialog({
                 onValueChange={(next) => {
                   setSpaceId(next);
                   // A Course belongs to one Space.
-                  setCourse(null);
+                  form.resetField("course");
                 }}
               >
                 <SelectTrigger size="sm" className="h-6 w-auto gap-1.5" aria-label="Space">
@@ -493,48 +508,74 @@ export function CreateAssignmentDialog({
             </DialogDescription>
           </div>
 
-          <input
-            ref={titleRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={course ? `${displayTitle(course)} Assignment` : "Assignment title"}
-            aria-label="Assignment title"
-            aria-invalid={create.isError || undefined}
-            className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
-          />
+          <form.Field name="title">
+            {(field) => (
+              <input
+                ref={titleRef}
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder={course ? `${displayTitle(course)} Assignment` : "Assignment title"}
+                aria-label="Assignment title"
+                aria-invalid={create.isError || undefined}
+                className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
+              />
+            )}
+          </form.Field>
 
           <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
-            <EntityPickerPopover
-              spaceId={spaceId}
-              typeFilter="course"
-              exclude={course?.id}
-              onSelect={setCourse}
-              trigger={
-                <button type="button" className={PROPERTY_PILL} aria-label="Change Course">
-                  <IconSchool size={14} className="shrink-0" />
-                  <span className={cn("truncate", course && "text-foreground")}>
-                    {course ? displayTitle(course) : "Course"}
-                  </span>
-                </button>
-              }
-            />
-            <DueDatePicker value={dueDate} onSelect={setDueDate}>
-              <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
-                {dueDate ? (
-                  <DueLabel day={dueDate} tone={null} />
-                ) : (
-                  <>
-                    <IconCalendarEvent size={14} className="shrink-0" />
-                    Due date
-                  </>
-                )}
-              </button>
-            </DueDatePicker>
+            <form.Field name="course">
+              {(field) => (
+                <EntityPickerPopover
+                  spaceId={spaceId}
+                  typeFilter="course"
+                  exclude={course?.id}
+                  onSelect={field.handleChange}
+                  trigger={
+                    <button
+                      type="button"
+                      className={cn(PROPERTY_PILL, fieldMessage(field) && "border-destructive")}
+                      aria-label="Change Course"
+                      aria-invalid={fieldMessage(field) ? true : undefined}
+                    >
+                      <IconSchool size={14} className="shrink-0" />
+                      <span className={cn("truncate", course && "text-foreground")}>
+                        {course ? displayTitle(course) : "Course"}
+                      </span>
+                    </button>
+                  }
+                />
+              )}
+            </form.Field>
+            <form.Field name="dueDate">
+              {(field) => (
+                <DueDatePicker value={field.state.value} onSelect={field.handleChange}>
+                  <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
+                    {field.state.value ? (
+                      <DueLabel day={field.state.value} tone={null} />
+                    ) : (
+                      <>
+                        <IconCalendarEvent size={14} className="shrink-0" />
+                        Due date
+                      </>
+                    )}
+                  </button>
+                </DueDatePicker>
+              )}
+            </form.Field>
           </div>
 
           <div className="flex items-center gap-3 border-t border-border px-4 py-3">
             <div className="mr-auto">
-              <FieldError message={create.isError && "Couldn't create the assignment, try again"} />
+              <form.Subscribe selector={(state) => state.fieldMeta.course}>
+                {(meta) => (
+                  <FieldError
+                    message={
+                      (meta?.isTouched && meta.errors.length > 0 && "Pick a course") ||
+                      (create.isError && "Couldn't create the assignment, try again")
+                    }
+                  />
+                )}
+              </form.Subscribe>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Switch
@@ -546,14 +587,18 @@ export function CreateAssignmentDialog({
                 Create more
               </label>
             </div>
-            <Button type="submit" size="sm" disabled={!course && createStatus === "idle"}>
-              <StatusButtonContent
-                status={createStatus}
-                label="Create assignment"
-                successLabel="Created"
-                errorLabel="Try again"
-              />
-            </Button>
+            <form.Subscribe selector={hasVisibleErrors}>
+              {(blocked) => (
+                <Button type="submit" size="sm" disabled={blocked}>
+                  <StatusButtonContent
+                    status={createStatus}
+                    label="Create assignment"
+                    successLabel="Created"
+                    errorLabel="Try again"
+                  />
+                </Button>
+              )}
+            </form.Subscribe>
           </div>
         </form>
       </DialogContent>

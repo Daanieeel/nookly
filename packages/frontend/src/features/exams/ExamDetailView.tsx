@@ -2,7 +2,10 @@ import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarTime, IconCards } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { FieldError } from "#/components/action-feedback.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
@@ -472,6 +475,8 @@ function TitleAddRow({
 }
 
 /// Picks a day for a new two hour evening study block.
+const studyBlockSchema = z.object({ date: z.string().min(1, "Pick a day") });
+
 function StudyBlockAddRow({
   onAdd,
   onDone,
@@ -479,27 +484,48 @@ function StudyBlockAddRow({
   onAdd: (date: string) => Promise<void>;
   onDone: () => void;
 }) {
-  const [date, setDate] = useState<string | null>(null);
+  const form = useForm({
+    defaultValues: { date: "" },
+    validators: { onChange: studyBlockSchema },
+    onSubmit: ({ value }) => {
+      if (!add.isPending) add.mutate(value.date);
+    },
+  });
   const add = useMutation({ mutationFn: onAdd, onSuccess: onDone });
   return (
     <div className="flex flex-col gap-1 border-b border-border/60 py-2 pl-1">
-      <div className="flex items-center gap-2">
-        <DateInput
-          aria-label="Study block date"
-          value={date}
-          onChange={setDate}
-          className="max-w-56"
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={!date}
-          onClick={() => date && !add.isPending && add.mutate(date)}
-        >
-          <PendingIcon pending={add.isPending} failed={add.isError} idle={null} />
-          Schedule 18:00 to 20:00
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onDone}>
+      <div className="flex items-start gap-2">
+        <form.Field name="date">
+          {(field) => (
+            <FormField
+              label="Study block date"
+              required
+              error={fieldMessage(field)}
+              className="max-w-56"
+            >
+              <DateInput
+                aria-label="Study block date"
+                value={field.state.value || null}
+                onChange={(day) => field.handleChange(day ?? "")}
+              />
+            </FormField>
+          )}
+        </form.Field>
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-5.5"
+              disabled={blocked}
+              onClick={() => void form.handleSubmit()}
+            >
+              <PendingIcon pending={add.isPending} failed={add.isError} idle={null} />
+              Schedule 18:00 to 20:00
+            </Button>
+          )}
+        </form.Subscribe>
+        <Button variant="ghost" size="sm" className="mt-5.5" onClick={onDone}>
           Cancel
         </Button>
       </div>

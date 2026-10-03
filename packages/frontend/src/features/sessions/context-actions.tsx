@@ -10,6 +10,7 @@ import {
 } from "#/components/action-feedback.tsx";
 import { registerActions, registerEntityType } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { DateInput } from "#/components/date-input.tsx";
 import { TimeInput } from "#/components/time-input.tsx";
 import { listSessions, overrideOccurrence } from "#/lib/api/sessions.ts";
@@ -43,9 +44,9 @@ function useOccurrenceRecord(entity: Entity): SessionOccurrence | undefined {
 /// same per occurrence override the calendar's cancel button writes.
 const rescheduleSchema = z
   .object({
-    date: z.string().min(1),
-    startTime: z.string().min(1),
-    endTime: z.string().min(1),
+    date: z.string().min(1, "Pick a date"),
+    startTime: z.string().min(1, "Set a start time"),
+    endTime: z.string().min(1, "Set an end time"),
   })
   .refine((v) => v.startTime < v.endTime, { path: ["endTime"], message: "End after it starts" });
 
@@ -90,45 +91,48 @@ function RescheduleForm({
     >
       <form.Field name="date">
         {(field) => (
-          <DateInput
-            aria-label="Date"
-            clearable={false}
-            value={field.state.value || null}
-            onChange={(day) => field.handleChange(day ?? "")}
-          />
+          <FormField label="Date" required error={fieldMessage(field)}>
+            <DateInput
+              aria-label="Date"
+              clearable={false}
+              value={field.state.value || null}
+              onChange={(day) => field.handleChange(day ?? "")}
+            />
+          </FormField>
         )}
       </form.Field>
-      <div className="flex items-center gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         <form.Field name="startTime">
           {(field) => (
-            <TimeInput
-              aria-label="Start time"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              className="h-8 flex-1"
-            />
+            <FormField label="Starts" required error={fieldMessage(field)}>
+              <TimeInput
+                aria-label="Start time"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={field.handleChange}
+                className="h-8"
+              />
+            </FormField>
           )}
         </form.Field>
-        <span className="text-xs text-muted-foreground">to</span>
         <form.Field name="endTime">
           {(field) => (
-            <TimeInput
-              aria-label="End time"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              className="h-8 flex-1"
-            />
+            <FormField label="Ends" required error={fieldMessage(field)}>
+              <TimeInput
+                aria-label="End time"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={field.handleChange}
+                className="h-8"
+              />
+            </FormField>
           )}
         </form.Field>
       </div>
-      <form.Subscribe selector={(state) => state.fieldMeta.endTime?.errors[0]}>
-        {(endError) => <FieldError message={endError?.message} />}
-      </form.Subscribe>
-      <form.Subscribe selector={(state) => rescheduleSchema.safeParse(state.values).success}>
-        {(ready) => (
-          <Button type="submit" size="sm" disabled={!ready}>
+      <FieldError message={move.isError && move.error.message} />
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <Button type="submit" size="sm" disabled={blocked}>
             <StatusButtonContent
               status={status}
               label="Move Occurrence"

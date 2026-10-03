@@ -8,6 +8,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
 import { useForm } from "@tanstack/react-form";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
@@ -259,7 +260,7 @@ function StatItem({
 /// tile, since it's an action rather than a Course — opening a small popover
 /// with the two ways to grow a Semester's Course grid: link an existing
 /// Course, or create a new one pre-linked to it.
-const addCourseSchema = z.object({ title: z.string().trim().min(1) });
+const addCourseSchema = z.object({ title: z.string().trim().min(1, "Give the course a name") });
 
 function AddCourseCard({
   spaceId,
@@ -334,19 +335,27 @@ function AddCourseCard({
         >
           <form.Field name="title">
             {(field) => (
-              <Input
-                ref={inputRef}
-                placeholder="New course name"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="h-8 text-sm"
-              />
+              <FormField
+                label="New course"
+                required
+                htmlFor="semester-new-course"
+                error={fieldMessage(field)}
+              >
+                <Input
+                  id="semester-new-course"
+                  ref={inputRef}
+                  placeholder="e.g. Algorithms I"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </FormField>
             )}
           </form.Field>
-          <form.Subscribe selector={(state) => addCourseSchema.safeParse(state.values).success}>
-            {(ready) => (
-              <Button type="submit" size="sm" disabled={!ready}>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button type="submit" size="sm" disabled={blocked}>
                 <StatusButtonContent
                   status={statusOf(create)}
                   label="Create & link"

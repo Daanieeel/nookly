@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { Input } from "@nookly/ui/components/input";
 import {
   type CalendarConnection,
@@ -270,8 +271,8 @@ function GoogleConnect({ available }: { available: boolean }) {
 }
 
 const icloudSchema = z.object({
-  appleId: z.string().trim().min(1),
-  password: z.string().trim().min(1),
+  appleId: z.string().trim().min(1, "Enter your Apple ID"),
+  password: z.string().trim().min(1, "Paste the app specific password"),
 });
 
 type IcloudValues = z.infer<typeof icloudSchema>;
@@ -322,39 +323,55 @@ function IcloudConnect() {
         <IconExternalLink size={12} />
         Open Apple Account
       </Button>
-      <form.Field name="appleId">
-        {(field) => (
-          <Input
-            type="email"
-            placeholder="Apple ID, e.g. you@icloud.com"
-            aria-label="Apple ID"
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-          />
-        )}
-      </form.Field>
-      <form.Field name="password">
-        {(field) => (
-          <Input
-            type="password"
-            placeholder="App specific password"
-            aria-label="App specific password"
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-          />
-        )}
-      </form.Field>
+      <div className="grid grid-cols-2 gap-2">
+        <form.Field name="appleId">
+          {(field) => (
+            <FormField
+              label="Apple ID"
+              required
+              htmlFor="icloud-apple-id"
+              error={fieldMessage(field)}
+            >
+              <Input
+                id="icloud-apple-id"
+                type="email"
+                placeholder="you@icloud.com"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            </FormField>
+          )}
+        </form.Field>
+        <form.Field name="password">
+          {(field) => (
+            <FormField
+              label="App specific password"
+              required
+              htmlFor="icloud-password"
+              error={fieldMessage(field)}
+            >
+              <Input
+                id="icloud-password"
+                type="password"
+                placeholder="xxxx-xxxx-xxxx-xxxx"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            </FormField>
+          )}
+        </form.Field>
+      </div>
       <FieldError message={connect.isError && connect.error.message} />
-      <form.Subscribe selector={(state) => icloudSchema.safeParse(state.values).success}>
-        {(ready) => (
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
           <Button
             type="submit"
             variant="secondary"
             size="sm"
             className="self-start"
-            disabled={!ready}
+            disabled={blocked}
           >
             <StatusButtonContent
               status={statusOf(connect)}

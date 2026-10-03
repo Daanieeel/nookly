@@ -1,4 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { IconStack2 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,7 +26,7 @@ import {
 import { Input } from "@nookly/ui/components/input";
 
 const viewSchema = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1, "Give the view a name"),
   icon: z.string().nullable(),
 });
 
@@ -115,7 +116,7 @@ export function ViewDialog({
           </DialogTitle>
         </DialogHeader>
         <form
-          className="flex items-center gap-2"
+          className="flex items-start gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             void form.handleSubmit();
@@ -123,43 +124,53 @@ export function ViewDialog({
         >
           <form.Field name="icon">
             {(field) => (
-              <IconPicker
-                value={field.state.value}
-                onChange={field.handleChange}
-                withColor
-                trigger={
-                  <button
-                    type="button"
-                    aria-label="Choose view icon"
-                    className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
-                  >
-                    {field.state.value ? (
-                      renderIconValue(field.state.value, 15)
-                    ) : (
-                      <IconStack2 size={15} />
-                    )}
-                  </button>
-                }
-              />
+              <FormField label="Icon" className="shrink-0">
+                <IconPicker
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  withColor
+                  trigger={
+                    <button
+                      type="button"
+                      aria-label="Choose view icon"
+                      className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
+                    >
+                      {field.state.value ? (
+                        renderIconValue(field.state.value, 15)
+                      ) : (
+                        <IconStack2 size={15} />
+                      )}
+                    </button>
+                  }
+                />
+              </FormField>
             )}
           </form.Field>
           <form.Field name="name">
             {(field) => (
-              <Input
-                ref={nameInputRef}
-                placeholder="View name"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+              <FormField
+                label="Name"
+                required
+                htmlFor="view-name"
+                error={fieldMessage(field)}
                 className="flex-1"
-              />
+              >
+                <Input
+                  id="view-name"
+                  ref={nameInputRef}
+                  placeholder="e.g. Due this week"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormField>
             )}
           </form.Field>
         </form>
         <DialogFooter>
-          <form.Subscribe selector={(state) => viewSchema.safeParse(state.values).success}>
-            {(ready) => (
-              <Button disabled={!ready} onClick={() => void form.handleSubmit()}>
+          <form.Subscribe selector={hasVisibleErrors}>
+            {(blocked) => (
+              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
                 <StatusButtonContent
                   status={status}
                   label={existing ? "Rename" : "Create view"}

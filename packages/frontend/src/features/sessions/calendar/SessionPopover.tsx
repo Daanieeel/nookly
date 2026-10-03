@@ -24,6 +24,7 @@ import {
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
+import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
 import {
@@ -80,10 +81,10 @@ const SCOPES = [
 
 const sessionEditSchema = z
   .object({
-    title: z.string().trim().min(1),
-    date: z.string().min(1),
-    startTime: z.string().min(1),
-    endTime: z.string().min(1, "End after it starts"),
+    title: z.string().trim().min(1, "Give the session a title"),
+    date: z.string().min(1, "Pick a date"),
+    startTime: z.string().min(1, "Set a start time"),
+    endTime: z.string().min(1, "Set an end time"),
     location: z.string(),
   })
   .refine((v) => v.startTime < v.endTime, {
@@ -413,63 +414,74 @@ export function SessionEditForm({
       )}
       <form.Field name="title">
         {(field) => (
-          <Input
-            aria-label="Title"
-            placeholder="Title"
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-          />
+          <FormField
+            label="Title"
+            required
+            htmlFor="session-edit-title"
+            error={fieldMessage(field)}
+          >
+            <Input
+              id="session-edit-title"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
         )}
       </form.Field>
-      {scope === "this" && (
-        <form.Field name="date">
-          {(field) => (
-            <DateInput
-              aria-label="Date"
-              clearable={false}
-              value={field.state.value || null}
-              onChange={(day) => field.handleChange(day ?? "")}
-            />
-          )}
-        </form.Field>
-      )}
-      <div className="flex items-center gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
+        {scope === "this" && (
+          <form.Field name="date">
+            {(field) => (
+              <FormField label="Date" required error={fieldMessage(field)} className="col-span-2">
+                <DateInput
+                  aria-label="Date"
+                  clearable={false}
+                  value={field.state.value || null}
+                  onChange={(day) => field.handleChange(day ?? "")}
+                />
+              </FormField>
+            )}
+          </form.Field>
+        )}
         <form.Field name="startTime">
           {(field) => (
-            <TimeInput
-              aria-label="Start time"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              className="flex-1"
-            />
+            <FormField label="Starts" required error={fieldMessage(field)}>
+              <TimeInput
+                aria-label="Start time"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={field.handleChange}
+              />
+            </FormField>
           )}
         </form.Field>
-        <span className="text-xs text-muted-foreground">to</span>
         <form.Field name="endTime">
           {(field) => (
-            <TimeInput
-              aria-label="End time"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              className="flex-1"
-            />
+            <FormField label="Ends" required error={fieldMessage(field)}>
+              <TimeInput
+                aria-label="End time"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={field.handleChange}
+              />
+            </FormField>
+          )}
+        </form.Field>
+        <form.Field name="location">
+          {(field) => (
+            <FormField label="Location" htmlFor="session-edit-location" className="col-span-2">
+              <Input
+                id="session-edit-location"
+                placeholder="Optional"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            </FormField>
           )}
         </form.Field>
       </div>
-      <form.Field name="location">
-        {(field) => (
-          <Input
-            aria-label="Location"
-            placeholder="Location"
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-          />
-        )}
-      </form.Field>
       {scope !== "this" && (
         <p className="text-xs text-muted-foreground">
           {scope === "following"
@@ -478,18 +490,14 @@ export function SessionEditForm({
           Past sessions and changes made to single sessions stay as they are.
         </p>
       )}
-      <form.Subscribe selector={(state) => state.fieldMeta.endTime?.errors[0]}>
-        {(endError) => (
-          <FieldError message={endError?.message || (save.isError && save.error.message)} />
-        )}
-      </form.Subscribe>
+      <FieldError message={save.isError && save.error.message} />
       <div className="flex justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
         </Button>
-        <form.Subscribe selector={(state) => sessionEditSchema.safeParse(state.values).success}>
-          {(ready) => (
-            <Button type="submit" size="sm" disabled={!ready}>
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <Button type="submit" size="sm" disabled={blocked}>
               <StatusButtonContent
                 status={statusOf(save)}
                 label="Save"

@@ -67,6 +67,17 @@ Use a toast only when no interacted component is left on screen to carry the res
 
 When a toast is used, say exactly what happened and, for errors, what the user can do next. Never show a toast and an in place state for the same event.
 
+## Forms
+
+- Every field has a small label above it (`FormField` with `FieldLabel`, `components/form-field.tsx`). Placeholders are examples, never the label.
+- Every mandatory field has a red star next to its label (`required` on `FormField`). Optional fields get no marker.
+- Arrange fields in a grid, not a single column: short related fields sit side by side (date and time, term and year), the title and long fields span the row.
+- The error for a field is a short, specific message directly below it (`FieldError`), and the control gets a destructive border. Pickers and custom triggers opt in with `data-field-control`.
+- Errors show after a field is touched or a submit is attempted, never on a pristine form.
+- The submit button (Create, Save, Add) is active whenever the form shows no error. It is disabled only while an error is visible, and is active again once the errors are fixed. A form that looks valid never has a disabled button. Clicking submit on an incomplete form shows the errors instead of doing nothing.
+- Every form uses TanStack Form (`useForm`) with a Zod schema, never `useState` fields. Use `fieldMessage` for the field error and `hasVisibleErrors` for the button.
+- Every validation rule has its own friendly message.
+
 ---
 
 # Redesign Directive

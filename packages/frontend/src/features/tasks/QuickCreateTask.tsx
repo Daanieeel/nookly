@@ -1,4 +1,5 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
+import { fieldMessage } from "#/components/form-field.tsx";
 import { IconCalendarEvent, IconChevronRight } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,7 +47,7 @@ export interface TaskDraft {
 }
 
 const taskSchema = z.object({
-  title: z.string().trim().min(1),
+  title: z.string().trim().min(1, "Give the task a title"),
   statusId: z.string().optional(),
   labelIds: z.array(z.string()),
   dueDate: z.string().nullable(),
@@ -191,9 +192,16 @@ export function QuickCreateTask({
                 onChange={(e) => field.handleChange(e.target.value)}
                 placeholder="Task title"
                 aria-label="Task title"
-                aria-invalid={create.isError || undefined}
+                aria-invalid={create.isError || !!fieldMessage(field) || undefined}
                 className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
               />
+            )}
+          </form.Field>
+          <form.Field name="title">
+            {(field) => (
+              <div className="px-4 pb-2 empty:hidden">
+                <FieldError message={fieldMessage(field)} />
+              </div>
             )}
           </form.Field>
 
@@ -285,18 +293,14 @@ export function QuickCreateTask({
                 Create more
               </label>
             </div>
-            <form.Subscribe selector={(state) => taskSchema.safeParse(state.values).success}>
-              {(ready) => (
-                <Button type="submit" size="sm" disabled={!ready && createStatus === "idle"}>
-                  <StatusButtonContent
-                    status={createStatus}
-                    label="Create task"
-                    successLabel="Created"
-                    errorLabel="Try again"
-                  />
-                </Button>
-              )}
-            </form.Subscribe>
+            <Button type="submit" size="sm">
+              <StatusButtonContent
+                status={createStatus}
+                label="Create task"
+                successLabel="Created"
+                errorLabel="Try again"
+              />
+            </Button>
           </div>
         </form>
       </DialogContent>
