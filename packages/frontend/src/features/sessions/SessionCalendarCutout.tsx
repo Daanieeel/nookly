@@ -51,7 +51,7 @@ export function SessionCalendarCutout({ occurrence }: { occurrence: SessionOccur
   const spaceColor = (spaceId: string) => spaces.find((s) => s.id === spaceId)?.color;
 
   return (
-    <section aria-label="Calendar" className="flex h-44 flex-col overflow-hidden rounded-lg border">
+    <section aria-label="Calendar" className="flex h-80 flex-col overflow-hidden rounded-lg border">
       <TimeGrid
         key={occurrence.entity.id}
         columns={columns}

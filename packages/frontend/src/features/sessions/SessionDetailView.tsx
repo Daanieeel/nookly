@@ -50,7 +50,7 @@ export function SessionDetailView({ entity }: { entity: Entity }) {
       sidebar={occurrence && <SessionSidebar entity={entity} occurrence={occurrence} />}
     >
       {occurrence && (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-24">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 pb-8">
           <SessionNotes occurrence={occurrence} />
           <SessionCalendarCutout occurrence={occurrence} />
           <SessionPageCards occurrence={occurrence} />
@@ -73,12 +73,13 @@ function SessionSidebar({ entity, occurrence }: { entity: Entity; occurrence: Se
         <SessionSummary
           occurrence={occurrence}
           showTitle={false}
+          compact
           onEdit={() => setEditing(true)}
           onDeleteSeries={() => setSeriesDeleteOpen(true)}
           close={() => setView(viewAfterTrash(entity))}
         />
       )}
-      <SessionPages spaceId={entity.spaceId} occurrence={occurrence} close={() => {}} />
+      <SessionPages spaceId={entity.spaceId} occurrence={occurrence} close={() => {}} compact />
       {occurrence.templateId && (
         <DeleteSeriesDialog
           spaceId={entity.spaceId}
@@ -106,6 +107,7 @@ function SessionNotes({ occurrence }: { occurrence: SessionOccurrence }) {
       value={occurrence.notes ?? ""}
       onSave={(markdown) => save.mutate(markdown)}
       placeholder="Notes for this session…"
+      className="min-h-10"
     />
   );
 }
