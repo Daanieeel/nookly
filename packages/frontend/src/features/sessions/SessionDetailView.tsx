@@ -50,7 +50,7 @@ export function SessionDetailView({ entity }: { entity: Entity }) {
       sidebar={occurrence && <SessionSidebar entity={entity} occurrence={occurrence} />}
     >
       {occurrence && (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-24">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 pb-8">
           <SessionNotes occurrence={occurrence} />
           <SessionCalendarCutout occurrence={occurrence} />
           <SessionPageCards occurrence={occurrence} />
@@ -107,6 +107,7 @@ function SessionNotes({ occurrence }: { occurrence: SessionOccurrence }) {
       value={occurrence.notes ?? ""}
       onSave={(markdown) => save.mutate(markdown)}
       placeholder="Notes for this session…"
+      className="min-h-10"
     />
   );
 }
