@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addWeeks, format, parse } from "date-fns";
+import { addMonths, addWeeks, format, parse } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 import {
@@ -12,6 +12,7 @@ import {
 import { DateInput } from "#/components/date-input.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { Checkbox } from "@nookly/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@nookly/ui/components/select";
+import { NumberInput } from "@nookly/ui/components/number-input";
 import { Input } from "@nookly/ui/components/input";
 import { Label } from "@nookly/ui/components/label";
 import {
@@ -39,7 +41,10 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { type SlotRange, minutesToTime } from "./calendar-model";
 import { qk } from "#/lib/query-keys.ts";
 
-const MAX_REPEAT_WEEKS = 52;
+const REPEAT_UNITS = {
+  weeks: { max: 52, advance: addWeeks },
+  months: { max: 12, advance: addMonths },
+};
 
 const sessionSchema = z
   .object({
@@ -49,7 +54,9 @@ const sessionSchema = z
     startTime: z.string().min(1),
     endTime: z.string().min(1),
     location: z.string(),
-    repeatWeeks: z.number().int().min(1).max(MAX_REPEAT_WEEKS),
+    repeatWeekly: z.boolean(),
+    repeatCount: z.number().int().min(1).max(52),
+    repeatUnit: z.enum(["weeks", "months"]),
   })
   .refine((v) => !v.startTime || !v.endTime || v.startTime < v.endTime, {
     path: ["endTime"],
@@ -65,7 +72,9 @@ const emptyValues: SessionValues = {
   startTime: "09:00",
   endTime: "10:00",
   location: "",
-  repeatWeeks: 1,
+  repeatWeekly: false,
+  repeatCount: 16,
+  repeatUnit: "weeks",
 };
 
 /// Opens on the range picked on the calendar: the title and Course come first,
@@ -112,12 +121,14 @@ export function QuickCreateSessionDialog({
       startTime,
       endTime,
       location,
-      repeatWeeks,
+      repeatWeekly,
+      repeatCount,
+      repeatUnit,
     }: SessionValues) => {
       if (!draft || !course) throw new Error("Pick a course first");
       const day = parse(date, "yyyy-MM-dd", new Date());
       const place = location.trim() || null;
-      if (repeatWeeks > 1) {
+      if (repeatWeekly) {
         const template = await createSessionTemplate(
           spaceId,
           title.trim(),
@@ -130,7 +141,7 @@ export function QuickCreateSessionDialog({
         );
         const occurrences = await generateOccurrences(
           template.id,
-          format(addWeeks(day, repeatWeeks), "yyyy-MM-dd"),
+          format(REPEAT_UNITS[repeatUnit].advance(day, repeatCount), "yyyy-MM-dd"),
         );
         return occurrences.map((o) => o.entity.id);
       }
@@ -251,31 +262,55 @@ export function QuickCreateSessionDialog({
               <FieldError message={endError?.message || (create.isError && create.error.message)} />
             )}
           </form.Subscribe>
-          <form.Field name="repeatWeeks">
-            {(field) => (
-              <div className="flex items-center gap-2">
-                <Label htmlFor="session-repeat-weeks" className="font-normal">
-                  Repeat weekly
-                </Label>
-                <Select
-                  value={String(field.state.value)}
-                  onValueChange={(v) => field.handleChange(Number(v))}
-                >
-                  <SelectTrigger id="session-repeat-weeks" size="sm" className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Does not repeat</SelectItem>
-                    {Array.from({ length: MAX_REPEAT_WEEKS - 1 }, (_, i) => i + 2).map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        {n} weeks
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </form.Field>
+          <div className="flex items-center gap-2">
+            <form.Field name="repeatWeekly">
+              {(field) => (
+                <>
+                  <Checkbox
+                    id="session-repeat-weekly"
+                    checked={field.state.value}
+                    onCheckedChange={(v) => field.handleChange(v === true)}
+                  />
+                  <Label htmlFor="session-repeat-weekly" className="font-normal">
+                    Repeat weekly for
+                  </Label>
+                </>
+              )}
+            </form.Field>
+            <form.Subscribe selector={(state) => state.values}>
+              {(values) =>
+                values.repeatWeekly && (
+                  <>
+                    <NumberInput
+                      value={values.repeatCount}
+                      onChange={(n) => form.setFieldValue("repeatCount", n)}
+                      min={1}
+                      max={REPEAT_UNITS[values.repeatUnit].max}
+                    />
+                    <Select
+                      value={values.repeatUnit}
+                      onValueChange={(unit) => {
+                        if (unit !== "weeks" && unit !== "months") return;
+                        form.setFieldValue("repeatUnit", unit);
+                        form.setFieldValue(
+                          "repeatCount",
+                          Math.min(values.repeatCount, REPEAT_UNITS[unit].max),
+                        );
+                      }}
+                    >
+                      <SelectTrigger size="sm" aria-label="Repeat interval">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weeks">weeks</SelectItem>
+                        <SelectItem value="months">months</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )
+              }
+            </form.Subscribe>
+          </div>
           {/* Lets Enter submit from any field. */}
           <button type="submit" hidden aria-label="Create session" />
         </form>
