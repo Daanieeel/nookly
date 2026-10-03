@@ -137,8 +137,8 @@ function TabItem({
       }}
       {...contextTarget("tab", { tabId: tab.id })}
       className={cn(
-        "group/tab flex h-7 min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs transition-colors select-none [&_svg]:size-3.5 [&_svg]:shrink-0",
-        tab.pinned ? "justify-center px-1.5" : "max-w-48",
+        "group/tab flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs transition-colors select-none [&_svg]:size-3.5 [&_svg]:shrink-0",
+        tab.pinned ? "shrink-0 justify-center px-1.5" : "min-w-24 flex-1 basis-0",
         active
           ? "border-input bg-accent text-foreground"
           : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
