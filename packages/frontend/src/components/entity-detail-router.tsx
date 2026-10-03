@@ -7,6 +7,7 @@ import { SemesterDetailView } from "#/features/courses/SemesterDetailView.tsx";
 import { DeckDetailView } from "#/features/exams/DeckDetailView.tsx";
 import { ExamDetailView } from "#/features/exams/ExamDetailView.tsx";
 import { FileDetailView } from "#/features/files/FileDetailView.tsx";
+import { SessionDetailView } from "#/features/sessions/SessionDetailView.tsx";
 import { PageDetailView } from "#/features/notes/PageDetailView.tsx";
 import { RecipeDetailView } from "#/features/recipes/RecipeDetailView.tsx";
 import { TaskDetailView } from "#/features/tasks/TaskDetailView.tsx";
@@ -36,6 +37,8 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <PageDetailView entity={entity} />;
     case "exam":
       return <ExamDetailView entity={entity} />;
+    case "session":
+      return <SessionDetailView entity={entity} />;
     case "calendar_entry":
       return <CalendarEntryDetailView entity={entity} />;
     case "index_card_deck":

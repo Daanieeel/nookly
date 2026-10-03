@@ -92,7 +92,13 @@ const sessionEditSchema = z
 
 type SessionEditValues = z.infer<typeof sessionEditSchema>;
 
-function refreshSessions(queryClient: QueryClient, entityId: string) {
+/// What a Jot or Note made for one occurrence is called until renamed.
+export function sessionPageTitle(occurrence: SessionOccurrence): string {
+  const course = occurrence.courseTitle ? `${occurrence.courseTitle} - ` : "";
+  return `${course}${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`;
+}
+
+export function refreshSessions(queryClient: QueryClient, entityId: string) {
   return Promise.all([
     // The root key (not a per Space key) so this also invalidates the
     // cross-Space qk.sessions.all cache the unified Calendar page reads.
@@ -158,17 +164,22 @@ export function SessionPopover({
   );
 }
 
-function SessionSummary({
+export function SessionSummary({
   occurrence,
   onEdit,
   onDeleteSeries,
   close,
+  showTitle = true,
 }: {
   occurrence: SessionOccurrence;
   onEdit: () => void;
   onDeleteSeries: () => void;
+  /// Called after the Session went to Trash.
   close: () => void;
+  /// False on the Session's own page, whose header already carries the title.
+  showTitle?: boolean;
 }) {
+  const openEntity = useNavStore((s) => s.openEntity);
   const queryClient = useQueryClient();
   const { entity } = occurrence;
   const toggleCancelled = useMutation({
@@ -204,7 +215,9 @@ function SessionSummary({
     <div className="flex flex-col gap-2.5 p-3">
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="font-semibold wrap-break-word">{displayTitle(entity)}</span>
+          {showTitle && (
+            <span className="font-semibold wrap-break-word">{displayTitle(entity)}</span>
+          )}
           {occurrence.courseTitle && (
             <span className="text-muted-foreground wrap-break-word">{occurrence.courseTitle}</span>
           )}
@@ -227,6 +240,24 @@ function SessionSummary({
             </TooltipTrigger>
             <TooltipContent>{toggleLabel}</TooltipContent>
           </Tooltip>
+          {showTitle && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Open Session"
+                  onClick={() => {
+                    close();
+                    openEntity(entity.id, entity.spaceId);
+                  }}
+                >
+                  <IconArrowUpRight />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open Session</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="iconSm" aria-label="Edit Session" onClick={onEdit}>
@@ -300,7 +331,7 @@ function SessionSummary({
   );
 }
 
-function SessionEditForm({
+export function SessionEditForm({
   occurrence,
   onDone,
 }: {
@@ -465,7 +496,7 @@ function SessionEditForm({
 
 /// The Jot typed during this occurrence and the Note that refines it later.
 /// Each button creates its page once, then opens it.
-function SessionPages({
+export function SessionPages({
   spaceId,
   occurrence,
   close,
@@ -533,12 +564,7 @@ function SessionPageButton({
   const Icon = MODULE_ICONS[kind === "jot" ? "jots" : "notes"];
   const noun = kind === "jot" ? "jot" : "note";
   const create = useMutation({
-    mutationFn: () =>
-      createSessionPage(
-        occurrence.entity.id,
-        kind,
-        `${occurrence.courseTitle ? `${occurrence.courseTitle} - ` : ""}${displayTitle(occurrence.entity)}, ${formatShortDate(occurrence.date)}`,
-      ),
+    mutationFn: () => createSessionPage(occurrence.entity.id, kind, sessionPageTitle(occurrence)),
     // Straight into the new page: landing there confirms it was created.
     onSuccess: async (page) => {
       await Promise.all([
@@ -581,7 +607,7 @@ function SessionPageButton({
   );
 }
 
-function DeleteSeriesDialog({
+export function DeleteSeriesDialog({
   spaceId,
   occurrence,
   templateId,
