@@ -243,7 +243,7 @@ export function FilterMenu({
 const MAX_CHIP_ICONS = 5;
 
 export const CHIP_SEGMENT =
-  "flex h-full cursor-pointer items-center gap-1 px-1.5 hover:bg-accent/60";
+  "flex h-full cursor-pointer items-center justify-center gap-1 bg-foreground/5 px-1.5 text-foreground hover:bg-foreground/10";
 
 function FilterChip({
   field,
@@ -283,13 +283,13 @@ function FilterChip({
 
   return (
     <div className="flex h-7 items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-xs">
-      <span className="flex h-full items-center gap-1 px-1.5 text-muted-foreground">
+      <span className="flex h-full items-center justify-center gap-1 px-1.5 text-muted-foreground">
         <field.icon size={14} />
         {field.label}
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" className={cn(CHIP_SEGMENT, "text-muted-foreground")}>
+          <button type="button" className={CHIP_SEGMENT}>
             {operatorLabel(filter.operator, filter.values.length)}
           </button>
         </DropdownMenuTrigger>
@@ -388,7 +388,7 @@ function FilterChip({
               onChange(null);
               onDone?.();
             }}
-            className={cn(CHIP_SEGMENT, "px-1 text-muted-foreground")}
+            className={cn(CHIP_SEGMENT, "px-1")}
           >
             <IconX size={14} />
           </button>

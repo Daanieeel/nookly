@@ -51,7 +51,7 @@ export function RepeatChip({
   const repeats = value.cadence !== "none";
   return (
     <div className="flex h-8 w-full items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-sm">
-      <span className="flex h-full items-center gap-1 px-1.5 text-muted-foreground">
+      <span className="flex h-full items-center justify-center gap-1 px-1.5 text-muted-foreground">
         <IconRepeat size={16} />
         Repeat
       </span>
@@ -83,7 +83,9 @@ export function RepeatChip({
       </DropdownMenu>
       {repeats && (
         <>
-          <span className="flex h-full items-center px-1.5 text-muted-foreground">for</span>
+          <span className="flex h-full items-center justify-center px-1.5 text-muted-foreground">
+            for
+          </span>
           <Popover>
             <PopoverTrigger asChild>
               <button
