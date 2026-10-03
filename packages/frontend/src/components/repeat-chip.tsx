@@ -1,5 +1,4 @@
 import { IconRepeat } from "@tabler/icons-react";
-import { addDays, addMonths, addWeeks, addYears } from "date-fns";
 import { z } from "zod";
 import { CHIP_SEGMENT } from "#/components/filter-menu.tsx";
 import {
@@ -18,14 +17,6 @@ export const durationUnitSchema = z.enum(["days", "weeks", "months", "years"]);
 export type Cadence = z.infer<typeof cadenceSchema>;
 export type DurationUnit = z.infer<typeof durationUnitSchema>;
 
-export const CADENCE_STEPS = { daily: addDays, weekly: addWeeks, monthly: addMonths };
-export const DURATION_UNITS = {
-  days: addDays,
-  weeks: addWeeks,
-  months: addMonths,
-  years: addYears,
-};
-
 const CADENCE_LABELS = {
   none: "Does not repeat",
   daily: "Daily",
@@ -39,7 +30,7 @@ export interface Repeat {
   durationUnit: DurationUnit;
 }
 
-/// How a session repeats, as a chip in the same style as the filter bar's:
+/// How an item repeats, as a chip in the same style as the filter bar's:
 /// `Repeat | Weekly | for | 4 | months`.
 export function RepeatChip({
   value,

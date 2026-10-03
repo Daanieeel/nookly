@@ -32,6 +32,10 @@ pub struct SessionOccurrence {
     pub notes: Option<String>,
     /// The linked Course's title, for the calendar. Only `list_sessions` joins it.
     pub course_title: Option<String>,
+    /// Which fields were overridden on this occurrence (`series::Field` bits).
+    /// Internal bookkeeping for series edits, never serialized.
+    #[serde(skip)]
+    pub overridden_fields: i64,
 }
 
 fn row_to_occurrence(row: &rusqlite::Row) -> rusqlite::Result<SessionOccurrence> {
@@ -46,7 +50,14 @@ fn row_to_occurrence(row: &rusqlite::Row) -> rusqlite::Result<SessionOccurrence>
         notes: row.get("notes")?,
         // Absent unless the query joined the Course.
         course_title: row.get("course_title").unwrap_or(None),
+        overridden_fields: row.get("overridden_fields")?,
     })
+}
+
+/// Rejects a session that doesn't end after it starts, with the one check
+/// calendar entries use too (`series::validate_times`). A session is never all day.
+fn validate_times(start_time: &str, end_time: &str) -> AppResult<()> {
+    crate::db::series::validate_times("a session", false, Some(start_time), Some(end_time))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -61,6 +72,7 @@ pub fn create_session_template(
     location: Option<String>,
     anchor_date: String,
 ) -> AppResult<Entity> {
+    validate_times(&start_time, &end_time)?;
     let entity =
         crate::db::entities::create_entity(conn, space_id, "session_template".into(), title, None)?;
     conn.execute(
@@ -80,7 +92,8 @@ pub fn create_session_template(
 }
 
 /// Generates weekly occurrences from the template's anchor date up to (and including)
-/// `until_date`, skipping any date that already has an occurrence for this template (§5.6).
+/// `until_date` (§5.6). Slots it already filled are never filled again, even when their
+/// occurrence was moved, cancelled or trashed (`series::slots_to_generate`).
 pub fn generate_occurrences(
     conn: &Connection,
     template_id: &str,
@@ -112,31 +125,29 @@ pub fn generate_occurrences(
             .expect("date overflow");
     }
 
-    let mut created = Vec::new();
+    let mut slots = Vec::new();
     while cursor <= until {
-        let date_str = cursor.format("%Y-%m-%d").to_string();
-        let exists: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM sessions WHERE template_id = ?1 AND date = ?2",
-            params![template_id, date_str],
-            |row| row.get(0),
-        )?;
-        if exists == 0 {
-            let occurrence = create_occurrence(
-                conn,
-                &template_entity.space_id,
-                &template_entity.title,
-                &course_id,
-                Some(template_id.to_string()),
-                date_str,
-                start_time.clone(),
-                end_time.clone(),
-                location.clone(),
-            )?;
-            created.push(occurrence);
-        }
+        slots.push(cursor.format("%Y-%m-%d").to_string());
         cursor = cursor
             .checked_add_days(Days::new(7))
             .expect("date overflow");
+    }
+
+    let mut created = Vec::new();
+    for date in crate::db::series::slots_to_generate::<SessionOccurrence>(conn, template_id, slots)?
+    {
+        let occurrence = create_occurrence(
+            conn,
+            &template_entity.space_id,
+            &template_entity.title,
+            &course_id,
+            Some(template_id.to_string()),
+            date,
+            start_time.clone(),
+            end_time.clone(),
+            location.clone(),
+        )?;
+        created.push(occurrence);
     }
     Ok(created)
 }
@@ -152,6 +163,7 @@ pub fn create_one_off_session(
     end_time: String,
     location: Option<String>,
 ) -> AppResult<SessionOccurrence> {
+    validate_times(&start_time, &end_time)?;
     create_occurrence(
         conn, &space_id, &title, &course_id, None, date, start_time, end_time, location,
     )
@@ -199,6 +211,7 @@ fn create_occurrence(
         location,
         notes: None,
         course_title: None,
+        overridden_fields: 0,
     })
 }
 
@@ -226,27 +239,54 @@ pub fn override_occurrence(
         .query_row(params![entity_id], row_to_occurrence)
         .map_err(|_| AppError::NotFound(format!("session {entity_id}")))?;
 
+    use crate::db::series::{mark_override, Field};
+    let mut overridden = occurrence.overridden_fields;
+    let times_changed = patch.start_time.is_some() || patch.end_time.is_some();
     if let Some(date) = patch.date {
         occurrence.date = date;
     }
     if let Some(start_time) = patch.start_time {
+        mark_override(
+            &mut overridden,
+            Field::StartTime,
+            &occurrence.start_time,
+            &start_time,
+        );
         occurrence.start_time = start_time;
     }
     if let Some(end_time) = patch.end_time {
+        mark_override(
+            &mut overridden,
+            Field::EndTime,
+            &occurrence.end_time,
+            &end_time,
+        );
         occurrence.end_time = end_time;
     }
     if let Some(cancelled) = patch.cancelled {
         occurrence.cancelled = cancelled;
     }
     if let Some(location) = patch.location {
+        mark_override(
+            &mut overridden,
+            Field::Location,
+            &occurrence.location,
+            &location,
+        );
         occurrence.location = location;
     }
+    occurrence.overridden_fields = overridden;
     if let Some(notes) = patch.notes {
         occurrence.notes = notes;
     }
+    // Only a change to the times is checked, so a session stored with odd times
+    // before this check existed can still be moved, cancelled or annotated.
+    if times_changed {
+        validate_times(&occurrence.start_time, &occurrence.end_time)?;
+    }
 
     conn.execute(
-        "UPDATE sessions SET date = ?1, start_time = ?2, end_time = ?3, cancelled = ?4, location = ?5, notes = ?6 WHERE entity_id = ?7",
+        "UPDATE sessions SET date = ?1, start_time = ?2, end_time = ?3, cancelled = ?4, location = ?5, notes = ?6, overridden_fields = ?7 WHERE entity_id = ?8",
         params![
             occurrence.date,
             occurrence.start_time,
@@ -254,6 +294,7 @@ pub fn override_occurrence(
             occurrence.cancelled as i64,
             occurrence.location,
             occurrence.notes,
+            occurrence.overridden_fields,
             entity_id
         ],
     )?;
@@ -412,8 +453,8 @@ pub struct SeriesPatch {
 }
 
 /// Edits a template and its occurrences from `from_date` on (§5.6: never
-/// earlier ones). An occurrence only takes a new value where it still carries
-/// the template's old one, so per occurrence overrides survive.
+/// earlier ones). A field the user overrode on one occurrence keeps that value
+/// (`series::series_value`); every other field follows the series.
 pub fn update_session_series(
     conn: &Connection,
     template_id: &str,
@@ -424,11 +465,7 @@ pub fn update_session_series(
     let start_time = patch.start_time.unwrap_or_else(|| old.start_time.clone());
     let end_time = patch.end_time.unwrap_or_else(|| old.end_time.clone());
     let location = patch.location.unwrap_or_else(|| old.location.clone());
-    if start_time >= end_time {
-        return Err(AppError::InvalidInput(
-            "a session has to end after it starts".into(),
-        ));
-    }
+    validate_times(&start_time, &end_time)?;
     conn.execute(
         "UPDATE session_templates SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
         params![start_time, end_time, location, template_id],
@@ -440,12 +477,20 @@ pub fn update_session_series(
         &old.entity.title,
         patch.title,
         |occurrence| {
-            use crate::db::series::keep_or;
-            let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
-            let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
-            let new_location = keep_or(&occurrence.location, &old.location, &location);
+            use crate::db::series::{series_value, Field};
+            let o = occurrence;
+            let new_start = series_value(
+                o,
+                Field::StartTime,
+                &o.start_time,
+                &old.start_time,
+                &start_time,
+            );
+            let new_end = series_value(o, Field::EndTime, &o.end_time, &old.end_time, &end_time);
+            let new_location =
+                series_value(o, Field::Location, &o.location, &old.location, &location);
             // An override that would end before it starts keeps its own times.
-            let (new_start, new_end) = if new_start < new_end {
+            let (new_start, new_end) = if validate_times(&new_start, &new_end).is_ok() {
                 (new_start, new_end)
             } else {
                 (occurrence.start_time.clone(), occurrence.end_time.clone())
@@ -469,6 +514,10 @@ impl crate::db::series::SeriesOccurrence for SessionOccurrence {
 
     fn entity(&self) -> &Entity {
         &self.entity
+    }
+
+    fn overridden_fields(&self) -> i64 {
+        self.overridden_fields
     }
 }
 
@@ -1718,16 +1767,21 @@ mod tests {
     }
 
     #[test]
-    fn generate_refills_a_date_vacated_by_a_moved_occurrence() {
+    fn generate_does_not_refill_a_date_vacated_by_a_moved_occurrence() {
         let conn = setup();
         let f = fixture(&conn);
         override_occurrence(&conn, &f.occ[1].entity.id, ov("2026-01-14")).unwrap();
         let created = generate_occurrences(&conn, &f.tid, "2026-01-26").unwrap();
-        // NOTE: possible bug: idempotency is keyed on date, so moving an occurrence
-        // off its slot makes the next generate create a fresh one on the old date.
-        assert_eq!(created.len(), 1);
-        assert_eq!(created[0].date, "2026-01-12");
-        assert_eq!(row_count(&conn, &f.tid), 5);
+        // Fixed: generate skips every slot it already filled, so the vacated
+        // 01-12 stays empty instead of getting a fresh occurrence.
+        assert!(created.is_empty());
+        assert_eq!(row_count(&conn, &f.tid), 4);
+        assert_eq!(
+            get_session_occurrence(&conn, &f.occ[1].entity.id)
+                .unwrap()
+                .date,
+            "2026-01-14"
+        );
     }
 
     #[test]
@@ -1868,46 +1922,92 @@ mod tests {
     // --- template creation and override ---
 
     #[test]
-    fn template_creation_has_no_validation_of_times() {
-        // DIFFERS: `calendar::create_calendar_entry_template` rejects end <= start.
-        // NOTE: possible bug: a session template can be created that ends before it starts.
+    fn template_creation_validates_times() {
+        // Fixed: a session template has to end after it starts, checked by the
+        // same `series::validate_times` calendar entries use.
         let conn = setup();
         let (space, course) = crate::db::test_space_with_course(&conn, "Study", "Algorithms");
-        let template = create_session_template(
-            &conn,
-            space.id.clone(),
-            "Backwards".into(),
-            course.id,
-            0,
-            "12:00".into(),
-            "10:00".into(),
-            None,
-            "2026-01-05".into(),
-        )
-        .unwrap();
-        let t = get_session_template(&conn, &template.id).unwrap();
-        assert_eq!(
-            (t.start_time.as_str(), t.end_time.as_str()),
-            ("12:00", "10:00")
-        );
+        let make = |start: &str, end: &str| {
+            create_session_template(
+                &conn,
+                space.id.clone(),
+                "T".into(),
+                course.id.clone(),
+                0,
+                start.into(),
+                end.into(),
+                None,
+                "2026-01-05".into(),
+            )
+        };
+        assert!(is_backwards(make("12:00", "10:00").unwrap_err()));
+        assert!(is_backwards(make("10:00", "10:00").unwrap_err()));
+        // Nothing half-created: no entity and no Course link for a rejected one.
+        assert!(list_session_templates(&conn, &space.id).unwrap().is_empty());
+        let ok = make("10:00", "10:01").unwrap();
         assert_eq!(list_session_templates(&conn, &space.id).unwrap().len(), 1);
-        // A series update, however, always validates the resulting times.
-        assert!(
-            update_session_series(&conn, &template.id, "2026-01-01", SeriesPatch::default())
-                .is_err()
+        assert_eq!(
+            get_session_template(&conn, &ok.id).unwrap().end_time,
+            "10:01"
         );
     }
 
     #[test]
-    fn override_does_not_validate_times() {
-        // DIFFERS: `calendar::override_occurrence` rejects invalid times and persists nothing.
-        // NOTE: possible bug: a session occurrence can be overridden to end before it starts.
+    fn override_validates_times_and_persists_nothing_on_error() {
+        // Fixed: like `calendar::override_occurrence`, an override that would end
+        // before (or when) it starts is rejected and nothing of it is stored.
+        // DIFFERS: only checked when the patch changes a time; see
+        // `legacy_sessions_with_odd_times_stay_usable`.
         let conn = setup();
         let f = fixture(&conn);
+        let before = snapshot(&conn, &f.tid);
+        let bad = |patch: OccurrenceOverride| {
+            is_backwards(override_occurrence(&conn, &f.occ[0].entity.id, patch).unwrap_err())
+        };
+        assert!(bad(OccurrenceOverride {
+            end_time: Some("09:00".into()),
+            ..Default::default()
+        }));
+        assert!(bad(OccurrenceOverride {
+            start_time: Some("12:00".into()),
+            ..Default::default()
+        }));
+        // Every other field of a rejected patch is dropped too.
+        assert!(bad(OccurrenceOverride {
+            date: Some("2026-01-06".into()),
+            start_time: Some("13:00".into()),
+            end_time: Some("11:00".into()),
+            cancelled: Some(true),
+            location: Some(None),
+            notes: Some(Some("lost".into())),
+        }));
+        assert_eq!(snapshot(&conn, &f.tid), before);
+        assert_eq!(
+            get_session_occurrence(&conn, &f.occ[0].entity.id)
+                .unwrap()
+                .notes,
+            None
+        );
+        assert!(matches!(
+            override_occurrence(&conn, "nope", OccurrenceOverride::default()).unwrap_err(),
+            AppError::NotFound(_)
+        ));
+    }
+
+    fn is_backwards(err: AppError) -> bool {
+        matches!(err, AppError::InvalidInput(m) if m == "a session has to end after it starts")
+    }
+
+    #[test]
+    fn override_accepts_valid_times_and_untimed_patches() {
+        let conn = setup();
+        let f = fixture(&conn);
+        let id = &f.occ[0].entity.id;
         let o = override_occurrence(
             &conn,
-            &f.occ[0].entity.id,
+            id,
             OccurrenceOverride {
+                start_time: Some("08:00".into()),
                 end_time: Some("09:00".into()),
                 ..Default::default()
             },
@@ -1915,14 +2015,288 @@ mod tests {
         .unwrap();
         assert_eq!(
             (o.start_time.as_str(), o.end_time.as_str()),
-            ("10:00", "09:00")
+            ("08:00", "09:00")
         );
-        let stored = get_session_occurrence(&conn, &f.occ[0].entity.id).unwrap();
-        assert_eq!(stored.end_time, "09:00");
-        assert!(matches!(
-            override_occurrence(&conn, "nope", OccurrenceOverride::default()).unwrap_err(),
-            AppError::NotFound(_)
+        // One side alone is fine while the result still ends after it starts.
+        let o = override_occurrence(
+            &conn,
+            id,
+            OccurrenceOverride {
+                end_time: Some("08:01".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(o.end_time, "08:01");
+        override_occurrence(&conn, id, OccurrenceOverride::default()).unwrap();
+        override_occurrence(&conn, id, ov("2026-01-07")).unwrap();
+        let stored = get_session_occurrence(&conn, id).unwrap();
+        assert_eq!(
+            (
+                stored.date.as_str(),
+                stored.start_time.as_str(),
+                stored.end_time.as_str()
+            ),
+            ("2026-01-07", "08:00", "08:01")
+        );
+    }
+
+    #[test]
+    fn one_off_creation_validates_times() {
+        let conn = setup();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Study", "Algorithms");
+        let make = |start: &str, end: &str| {
+            create_one_off_session(
+                &conn,
+                space.id.clone(),
+                "Office hour".into(),
+                course.id.clone(),
+                "2026-01-05".into(),
+                start.into(),
+                end.into(),
+                None,
+            )
+        };
+        assert!(is_backwards(make("12:00", "10:00").unwrap_err()));
+        assert!(is_backwards(make("10:00", "10:00").unwrap_err()));
+        assert!(list_sessions(&conn, Some(&space.id)).unwrap().is_empty());
+        make("10:00", "11:00").unwrap();
+        assert_eq!(list_sessions(&conn, Some(&space.id)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn legacy_sessions_with_odd_times_stay_usable() {
+        // A database from before the check can hold a template and occurrences
+        // that end before they start. They still load, list and take every
+        // change that doesn't touch their times, and nothing rewrites them.
+        let conn = setup();
+        let f = fixture(&conn);
+        conn.execute(
+            "UPDATE session_templates SET start_time = '12:00', end_time = '10:00' WHERE entity_id = ?1",
+            params![f.tid],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE sessions SET start_time = '12:00', end_time = '10:00' WHERE template_id = ?1",
+            params![f.tid],
+        )
+        .unwrap();
+        let id = &f.occ[0].entity.id;
+        assert_eq!(
+            get_session_template(&conn, &f.tid).unwrap().start_time,
+            "12:00"
+        );
+        assert_eq!(list_session_templates(&conn, &f.space).unwrap().len(), 1);
+        assert_eq!(list_sessions(&conn, Some(&f.space)).unwrap().len(), 4);
+        let o = override_occurrence(
+            &conn,
+            id,
+            OccurrenceOverride {
+                date: Some("2026-01-06".into()),
+                cancelled: Some(true),
+                location: Some(None),
+                notes: Some(Some("Moved".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            (o.start_time.as_str(), o.end_time.as_str()),
+            ("12:00", "10:00")
+        );
+        assert!(o.cancelled);
+        // Changing only one time to something still backwards is rejected...
+        assert!(is_backwards(
+            override_occurrence(
+                &conn,
+                id,
+                OccurrenceOverride {
+                    start_time: Some("11:00".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap_err()
         ));
+        // ...fixing both is accepted.
+        let fixed = override_occurrence(
+            &conn,
+            id,
+            OccurrenceOverride {
+                start_time: Some("10:00".into()),
+                end_time: Some("12:00".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(fixed.notes.as_deref(), Some("Moved"));
+        // A series update always checks the times it ends up with, as before.
+        assert!(is_backwards(
+            update_session_series(&conn, &f.tid, "2026-01-01", SeriesPatch::default()).unwrap_err()
+        ));
+        update_session_series(
+            &conn,
+            &f.tid,
+            "2026-01-01",
+            SeriesPatch {
+                start_time: Some("09:00".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn generate_does_not_refill_dates_vacated_by_trashing_or_cancelling() {
+        let conn = setup();
+        let f = fixture(&conn);
+        crate::db::entities::soft_delete_entity(&conn, &f.occ[1].entity.id).unwrap();
+        override_occurrence(
+            &conn,
+            &f.occ[2].entity.id,
+            OccurrenceOverride {
+                date: Some("2026-01-20".into()),
+                cancelled: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let before = snapshot(&conn, &f.tid);
+        let created = generate_occurrences(&conn, &f.tid, "2026-02-02").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02"]
+        );
+        assert_eq!(&snapshot(&conn, &f.tid)[..4], &before[..]);
+        assert!(trashed(&conn, &f.occ[1].entity.id));
+    }
+
+    #[test]
+    fn generate_after_moving_back_onto_the_original_date_adds_nothing() {
+        let conn = setup();
+        let f = fixture(&conn);
+        let id = &f.occ[1].entity.id;
+        override_occurrence(&conn, id, ov("2026-01-14")).unwrap();
+        assert!(generate_occurrences(&conn, &f.tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        override_occurrence(&conn, id, ov("2026-01-12")).unwrap();
+        assert!(generate_occurrences(&conn, &f.tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        assert_eq!(row_count(&conn, &f.tid), 4);
+        assert_eq!(
+            get_session_occurrence(&conn, id).unwrap().date,
+            "2026-01-12"
+        );
+    }
+
+    #[test]
+    fn generate_after_a_move_still_extends_the_series_forward() {
+        let conn = setup();
+        let f = fixture(&conn);
+        override_occurrence(&conn, &f.occ[1].entity.id, ov("2026-01-14")).unwrap();
+        let created = generate_occurrences(&conn, &f.tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02", "2026-02-09"]
+        );
+        assert_eq!(row_count(&conn, &f.tid), 6);
+        assert!(generate_occurrences(&conn, &f.tid, "2026-02-09")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn generate_gives_no_twin_to_an_occurrence_moved_onto_a_later_slot() {
+        let conn = setup();
+        let f = fixture(&conn);
+        override_occurrence(&conn, &f.occ[3].entity.id, ov("2026-02-02")).unwrap();
+        let created = generate_occurrences(&conn, &f.tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-09"]
+        );
+        assert!(generate_occurrences(&conn, &f.tid, "2026-02-09")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn generate_does_not_resurrect_dates_after_empty_trash() {
+        let conn = setup();
+        let f = fixture(&conn);
+        crate::db::entities::soft_delete_entity(&conn, &f.occ[1].entity.id).unwrap();
+        crate::db::entities::empty_trash(&conn).unwrap();
+        assert_eq!(row_count(&conn, &f.tid), 3);
+        assert!(generate_occurrences(&conn, &f.tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        let created = generate_occurrences(&conn, &f.tid, "2026-02-02").unwrap();
+        assert_eq!(created.len(), 1);
+        assert_eq!(created[0].date, "2026-02-02");
+    }
+
+    #[test]
+    fn generate_on_existing_moved_data_alters_nothing() {
+        // A released database: the series was generated once, then one
+        // occurrence moved and another trashed. Generating further only adds new
+        // slots and leaves every existing row exactly as it was.
+        let conn = setup();
+        let f = fixture(&conn);
+        override_occurrence(&conn, &f.occ[1].entity.id, ov("2026-01-14")).unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &f.occ[2].entity.id).unwrap();
+        let rows = |conn: &Connection| {
+            f.occ
+                .iter()
+                .map(|o| {
+                    let s = get_session_occurrence(conn, &o.entity.id).unwrap();
+                    (
+                        s.date,
+                        s.start_time,
+                        s.end_time,
+                        s.cancelled,
+                        s.entity.deleted_at,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let before = rows(&conn);
+        let created = generate_occurrences(&conn, &f.tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02", "2026-02-09"]
+        );
+        assert_eq!(rows(&conn), before);
+    }
+
+    #[test]
+    fn generate_on_data_the_old_refill_already_touched_alters_nothing() {
+        // The old date check could refill a vacated slot. No released build ever
+        // generated a series twice, but if such a twin exists it is kept as is,
+        // and as the count reads one slot ahead the next new slot is skipped.
+        let conn = setup();
+        let f = fixture(&conn);
+        override_occurrence(&conn, &f.occ[1].entity.id, ov("2026-01-14")).unwrap();
+        let twin = create_occurrence(
+            &conn,
+            &f.space,
+            "Lecture",
+            &f.course,
+            Some(f.tid.clone()),
+            "2026-01-12".into(),
+            "10:00".into(),
+            "12:00".into(),
+            Some("Room 1".into()),
+        )
+        .unwrap();
+        let before = snapshot(&conn, &f.tid);
+        let created = generate_occurrences(&conn, &f.tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-09"]
+        );
+        assert_eq!(&snapshot(&conn, &f.tid)[..5], &before[..]);
+        assert!(!trashed(&conn, &twin.entity.id));
     }
 
     #[test]
@@ -1968,5 +2342,149 @@ mod tests {
         assert!(after.cancelled);
         // Notes are never templated, so a series update leaves them alone.
         assert_eq!(after.notes.as_deref(), Some("Bring laptop"));
+    }
+
+    // --- Explicit overrides (`overridden_fields`) ---------------------------
+
+    fn times(start: &str, end: &str) -> SeriesPatch {
+        SeriesPatch {
+            start_time: Some(start.into()),
+            end_time: Some(end.into()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn edit_all_after_edit_following_reaches_every_occurrence() {
+        // The reported bug, mirrored from `calendar`: occurrences an earlier
+        // edit from a later date didn't reach were skipped by an edit of all.
+        let conn = setup();
+        let f = fixture(&conn);
+        update_session_series(&conn, &f.tid, &f.occ[2].date, times("11:00", "13:00")).unwrap();
+        let rows = snapshot(&conn, &f.tid);
+        assert_eq!((rows[1].2.as_str(), rows[2].2.as_str()), ("10:00", "11:00"));
+
+        update_session_series(&conn, &f.tid, &f.occ[0].date, times("08:00", "09:30")).unwrap();
+        for row in snapshot(&conn, &f.tid) {
+            assert_eq!((row.2.as_str(), row.3.as_str()), ("08:00", "09:30"));
+        }
+    }
+
+    #[test]
+    fn overridden_fields_keep_their_value_across_split_edits() {
+        let conn = setup();
+        let f = fixture(&conn);
+        override_occurrence(
+            &conn,
+            &f.occ[0].entity.id,
+            OccurrenceOverride {
+                start_time: Some("09:00".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        override_occurrence(
+            &conn,
+            &f.occ[3].entity.id,
+            OccurrenceOverride {
+                location: Some(Some("Lab".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_session_series(&conn, &f.tid, &f.occ[2].date, times("11:00", "13:00")).unwrap();
+        update_session_series(
+            &conn,
+            &f.tid,
+            &f.occ[0].date,
+            SeriesPatch {
+                location: Some(Some("Hall".into())),
+                ..times("08:00", "09:30")
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &f.tid);
+        assert_eq!(
+            (rows[0].2.as_str(), rows[0].3.as_str(), rows[0].4.as_deref()),
+            ("09:00", "09:30", Some("Hall"))
+        );
+        assert_eq!(
+            (rows[1].2.as_str(), rows[1].4.as_deref()),
+            ("08:00", Some("Hall"))
+        );
+        assert_eq!(
+            (rows[3].2.as_str(), rows[3].4.as_deref()),
+            ("08:00", Some("Lab"))
+        );
+    }
+
+    #[test]
+    fn edit_following_back_then_edit_all_reaches_every_occurrence() {
+        let conn = setup();
+        let f = fixture(&conn);
+        update_session_series(&conn, &f.tid, &f.occ[2].date, times("11:00", "13:00")).unwrap();
+        update_session_series(&conn, &f.tid, &f.occ[2].date, times("10:00", "12:00")).unwrap();
+        update_session_series(&conn, &f.tid, &f.occ[3].date, times("14:00", "15:00")).unwrap();
+        update_session_series(&conn, &f.tid, &f.occ[0].date, times("08:00", "09:00")).unwrap();
+        assert!(snapshot(&conn, &f.tid).iter().all(|r| r.2 == "08:00"));
+    }
+
+    #[test]
+    fn an_override_set_back_to_the_series_value_follows_again() {
+        let conn = setup();
+        let f = fixture(&conn);
+        let id = &f.occ[1].entity.id;
+        let start = |v: &str| OccurrenceOverride {
+            start_time: Some(v.into()),
+            ..Default::default()
+        };
+        override_occurrence(&conn, id, start("09:00")).unwrap();
+        override_occurrence(&conn, id, start("10:00")).unwrap();
+        update_session_series(&conn, &f.tid, &f.occ[0].date, times("08:00", "12:00")).unwrap();
+        assert_eq!(
+            get_session_occurrence(&conn, id).unwrap().start_time,
+            "08:00"
+        );
+    }
+
+    #[test]
+    fn resending_unchanged_values_is_not_an_override() {
+        let conn = setup();
+        let f = fixture(&conn);
+        let id = &f.occ[1].entity.id;
+        override_occurrence(
+            &conn,
+            id,
+            OccurrenceOverride {
+                date: Some(f.occ[1].date.clone()),
+                start_time: Some("10:00".into()),
+                end_time: Some("12:00".into()),
+                location: Some(Some("Room 1".into())),
+                cancelled: Some(true),
+                notes: Some(Some("Bring laptop".into())),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            get_session_occurrence(&conn, id).unwrap().overridden_fields,
+            0
+        );
+        update_session_series(&conn, &f.tid, &f.occ[2].date, times("11:00", "13:00")).unwrap();
+        update_session_series(&conn, &f.tid, &f.occ[0].date, times("08:00", "09:00")).unwrap();
+        let o = get_session_occurrence(&conn, id).unwrap();
+        assert_eq!(
+            (o.start_time.as_str(), o.end_time.as_str()),
+            ("08:00", "09:00")
+        );
+        assert_eq!(o.notes.as_deref(), Some("Bring laptop"));
+    }
+
+    #[test]
+    fn overridden_fields_stay_out_of_the_serialized_session() {
+        let conn = setup();
+        let f = fixture(&conn);
+        let json = cli_get_session(&conn, &f.occ[0].entity.id).unwrap();
+        assert!(json.get("overriddenFields").is_none());
+        assert!(json.get("overridden_fields").is_none());
     }
 }

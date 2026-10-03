@@ -582,6 +582,41 @@ fn all() -> Vec<M<'static>> {
         SET completed_at = (SELECT updated_at FROM entities WHERE entities.id = tasks.entity_id)
         WHERE status_id IN (SELECT id FROM task_statuses WHERE doneness >= 100);
         ",
+    ), M::up(
+        "
+        -- Which fields the user overrode on one occurrence of a recurring series,
+        -- as a bitmask (`series::Field`): 1 start_time, 2 end_time, 4 location,
+        -- 8 all_day, 16 description. A series edit used to treat any value that
+        -- differed from the template as an override, so occurrences an earlier
+        -- edit from a later date never reached stopped following the series.
+        -- The backfill marks exactly the fields that differ from the template
+        -- today, so every existing override is kept and the next series edit
+        -- behaves as it did before this migration. One-off occurrences and
+        -- those whose template row is gone stay 0.
+        ALTER TABLE calendar_entries ADD COLUMN overridden_fields INTEGER NOT NULL DEFAULT 0;
+        UPDATE calendar_entries SET overridden_fields = (
+            SELECT (CASE WHEN calendar_entries.start_time IS NOT t.start_time THEN 1 ELSE 0 END)
+                 | (CASE WHEN calendar_entries.end_time IS NOT t.end_time THEN 2 ELSE 0 END)
+                 | (CASE WHEN calendar_entries.location IS NOT t.location THEN 4 ELSE 0 END)
+                 | (CASE WHEN (calendar_entries.all_day != 0) IS NOT (t.all_day != 0) THEN 8 ELSE 0 END)
+                 | (CASE WHEN calendar_entries.description IS NOT t.description THEN 16 ELSE 0 END)
+            FROM calendar_entry_templates t WHERE t.entity_id = calendar_entries.template_id
+        )
+        WHERE template_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM calendar_entry_templates t WHERE t.entity_id = calendar_entries.template_id
+        );
+
+        ALTER TABLE sessions ADD COLUMN overridden_fields INTEGER NOT NULL DEFAULT 0;
+        UPDATE sessions SET overridden_fields = (
+            SELECT (CASE WHEN sessions.start_time IS NOT t.start_time THEN 1 ELSE 0 END)
+                 | (CASE WHEN sessions.end_time IS NOT t.end_time THEN 2 ELSE 0 END)
+                 | (CASE WHEN sessions.location IS NOT t.location THEN 4 ELSE 0 END)
+            FROM session_templates t WHERE t.entity_id = sessions.template_id
+        )
+        WHERE template_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM session_templates t WHERE t.entity_id = sessions.template_id
+        );
+        ",
     )]
 }
 
@@ -591,6 +626,294 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| Migratio
 /// whether it's about to change the schema (`current_version < MIGRATION_COUNT`).
 /// Used to snapshot the database right before an upgrade touches it.
 pub static MIGRATION_COUNT: LazyLock<usize> = LazyLock::new(|| all().len());
+
+#[cfg(test)]
+mod overridden_fields_backfill {
+    use super::{MIGRATIONS, MIGRATION_COUNT};
+    use rusqlite::types::Value;
+    use rusqlite::{params, Connection};
+
+    /// The schema version right before the `overridden_fields` migration.
+    const BEFORE: usize = 31;
+
+    fn entity(conn: &Connection, id: &str, kind: &str, title: &str, n: i64) {
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+             VALUES (?1, 'space', ?2, ?3, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'CAL', ?4)",
+            params![id, kind, title, n],
+        )
+        .unwrap();
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn calendar_entry(
+        conn: &Connection,
+        id: &str,
+        template_id: Option<&str>,
+        date: &str,
+        start: Option<&str>,
+        end: Option<&str>,
+        all_day: i64,
+        location: Option<&str>,
+        description: Option<&str>,
+        n: i64,
+    ) {
+        entity(conn, id, "calendar_entry", "Gym", n);
+        conn.execute(
+            "INSERT INTO calendar_entries (entity_id, template_id, date, end_date, start_time, end_time, all_day, cancelled, location, description)
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, 0, ?7, ?8)",
+            params![id, template_id, date, start, end, all_day, location, description],
+        )
+        .unwrap();
+    }
+
+    fn session(
+        conn: &Connection,
+        id: &str,
+        template_id: Option<&str>,
+        date: &str,
+        times: (&str, &str),
+        location: Option<&str>,
+        n: i64,
+    ) {
+        entity(conn, id, "session", "Lecture", n);
+        conn.execute(
+            "INSERT INTO sessions (entity_id, template_id, date, start_time, end_time, cancelled, location, notes)
+             VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, 'kept')",
+            params![id, template_id, date, times.0, times.1, location],
+        )
+        .unwrap();
+    }
+
+    /// Every row of `table`, every column but the new one, ordered by id.
+    fn rows(conn: &Connection, table: &str, columns: &str) -> Vec<Vec<Value>> {
+        let mut stmt = conn
+            .prepare(&format!("SELECT {columns} FROM {table} ORDER BY 1"))
+            .unwrap();
+        let n = stmt.column_count();
+        stmt.query_map([], |row| (0..n).map(|i| row.get(i)).collect())
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    fn flags(conn: &Connection, table: &str) -> Vec<(String, i64)> {
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT entity_id, overridden_fields FROM {table} ORDER BY entity_id"
+            ))
+            .unwrap();
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    const CALENDAR_COLUMNS: &str = "entity_id, template_id, date, end_date, start_time, end_time, \
+                                    all_day, cancelled, location, description";
+    const SESSION_COLUMNS: &str =
+        "entity_id, template_id, date, start_time, end_time, cancelled, location, notes";
+
+    #[test]
+    fn backfill_marks_exactly_the_fields_that_differ_from_the_template() {
+        assert!(*MIGRATION_COUNT > BEFORE);
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        conn.execute(
+            "INSERT INTO spaces (id, name, color, created_at, updated_at)
+             VALUES ('space', 'Life', '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        // A template entity whose template row is gone (`c6` below).
+        entity(&conn, "gone", "calendar_entry_template", "Old", 13);
+
+        // Calendar template: 07:00 to 08:00 at Room 1, "Towel", timed.
+        entity(&conn, "ct", "calendar_entry_template", "Gym", 1);
+        conn.execute(
+            "INSERT INTO calendar_entry_templates (entity_id, recurrence, start_time, end_time, all_day, location, description, anchor_date)
+             VALUES ('ct', 'daily', '07:00', '08:00', 0, 'Room 1', 'Towel', '2026-01-05')",
+            [],
+        )
+        .unwrap();
+        let t = Some("ct");
+        let (s, e) = (Some("07:00"), Some("08:00"));
+        let (room, towel) = (Some("Room 1"), Some("Towel"));
+        calendar_entry(&conn, "c1", t, "2026-01-05", s, e, 0, room, towel, 2);
+        calendar_entry(
+            &conn,
+            "c2",
+            t,
+            "2026-01-06",
+            Some("06:00"),
+            e,
+            0,
+            room,
+            towel,
+            3,
+        );
+        calendar_entry(
+            &conn,
+            "c3",
+            t,
+            "2026-01-07",
+            s,
+            Some("09:00"),
+            0,
+            None,
+            towel,
+            4,
+        );
+        calendar_entry(&conn, "c4", t, "2026-01-08", None, None, 1, room, None, 5);
+        calendar_entry(
+            &conn,
+            "c5",
+            None,
+            "2026-01-09",
+            Some("06:00"),
+            e,
+            0,
+            None,
+            None,
+            6,
+        );
+        calendar_entry(
+            &conn,
+            "c6",
+            Some("gone"),
+            "2026-01-10",
+            Some("06:00"),
+            e,
+            0,
+            None,
+            None,
+            7,
+        );
+
+        // Session template: 10:00 to 12:00, no location.
+        entity(&conn, "st", "session_template", "Lecture", 8);
+        conn.execute(
+            "INSERT INTO session_templates (entity_id, weekday, start_time, end_time, location, anchor_date)
+             VALUES ('st', 0, '10:00', '12:00', NULL, '2026-01-05')",
+            [],
+        )
+        .unwrap();
+        let t = Some("st");
+        session(&conn, "s1", t, "2026-01-05", ("10:00", "12:00"), None, 9);
+        session(
+            &conn,
+            "s2",
+            t,
+            "2026-01-12",
+            ("10:00", "12:00"),
+            Some("Hall"),
+            10,
+        );
+        session(&conn, "s3", t, "2026-01-19", ("09:00", "11:00"), None, 11);
+        session(
+            &conn,
+            "s4",
+            None,
+            "2026-01-20",
+            ("09:00", "11:00"),
+            Some("Hall"),
+            12,
+        );
+
+        let calendar_before = rows(&conn, "calendar_entries", CALENDAR_COLUMNS);
+        let sessions_before = rows(&conn, "sessions", SESSION_COLUMNS);
+        let entities_before = rows(&conn, "entities", "*");
+        let templates_before = (
+            rows(&conn, "calendar_entry_templates", "*"),
+            rows(&conn, "session_templates", "*"),
+        );
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        // Nothing lost and nothing else changed.
+        assert_eq!(
+            rows(&conn, "calendar_entries", CALENDAR_COLUMNS),
+            calendar_before
+        );
+        assert_eq!(rows(&conn, "sessions", SESSION_COLUMNS), sessions_before);
+        assert_eq!(rows(&conn, "entities", "*"), entities_before);
+        assert_eq!(
+            (
+                rows(&conn, "calendar_entry_templates", "*"),
+                rows(&conn, "session_templates", "*"),
+            ),
+            templates_before
+        );
+
+        // 1 start, 2 end, 4 location, 8 all day, 16 description.
+        assert_eq!(
+            flags(&conn, "calendar_entries"),
+            vec![
+                ("c1".into(), 0),
+                ("c2".into(), 1),
+                ("c3".into(), 2 | 4),
+                ("c4".into(), 1 | 2 | 8 | 16),
+                ("c5".into(), 0),
+                ("c6".into(), 0),
+            ]
+        );
+        assert_eq!(
+            flags(&conn, "sessions"),
+            vec![
+                ("s1".into(), 0),
+                ("s2".into(), 4),
+                ("s3".into(), 1 | 2),
+                ("s4".into(), 0),
+            ]
+        );
+
+        // The next series edit treats them exactly as before the migration:
+        // what differed from the template is kept, the rest follows.
+        crate::db::calendar::update_calendar_entry_series(
+            &conn,
+            "ct",
+            "2026-01-01",
+            crate::db::calendar::CalendarEntrySeriesPatch {
+                start_time: Some(Some("05:00".into())),
+                location: Some(Some("Studio".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let get = |id: &str| crate::db::calendar::get_calendar_entry(&conn, id).unwrap();
+        assert_eq!(get("c1").start_time.as_deref(), Some("05:00"));
+        assert_eq!(get("c1").location.as_deref(), Some("Studio"));
+        assert_eq!(get("c2").start_time.as_deref(), Some("06:00"));
+        assert_eq!(get("c2").location.as_deref(), Some("Studio"));
+        assert_eq!(get("c3").location, None);
+        assert!(get("c4").all_day && get("c4").start_time.is_none());
+
+        crate::db::sessions::update_session_series(
+            &conn,
+            "st",
+            "2026-01-01",
+            crate::db::sessions::SeriesPatch {
+                start_time: Some("08:00".into()),
+                location: Some(Some("Room 2".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let get = |id: &str| crate::db::sessions::get_session_occurrence(&conn, id).unwrap();
+        assert_eq!(
+            (get("s1").start_time.as_str(), get("s1").location.as_deref()),
+            ("08:00", Some("Room 2"))
+        );
+        assert_eq!(
+            (get("s2").start_time.as_str(), get("s2").location.as_deref()),
+            ("08:00", Some("Hall"))
+        );
+        assert_eq!(
+            (get("s3").start_time.as_str(), get("s3").location.as_deref()),
+            ("09:00", Some("Room 2"))
+        );
+    }
+}
 
 #[cfg(test)]
 mod history {
@@ -639,6 +962,7 @@ mod history {
         0xb9406e703532694b,
         0xba33a4192b4bbba9,
         0x7c721406412ca45b,
+        0xc08c803d15973069,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

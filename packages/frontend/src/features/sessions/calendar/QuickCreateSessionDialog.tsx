@@ -20,34 +20,10 @@ import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
 import { type SlotRange, minutesToTime } from "./calendar-model";
-import {
-  CADENCE_STEPS,
-  DURATION_UNITS,
-  RepeatChip,
-  cadenceSchema,
-  durationUnitSchema,
-} from "./RepeatChip";
+import { RepeatChip, cadenceSchema, durationUnitSchema } from "#/components/repeat-chip.tsx";
+import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates } from "#/lib/repeat.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
-
-const MAX_OCCURRENCES = 366;
-
-/// Every date the session lands on, from `start` up to but not including `start` plus the duration.
-function repeatDates(
-  start: Date,
-  v: Pick<SessionValues, "cadence" | "durationCount" | "durationUnit">,
-) {
-  if (v.cadence === "none") return [start];
-  const end = DURATION_UNITS[v.durationUnit](start, v.durationCount);
-  const step = CADENCE_STEPS[v.cadence];
-  const dates: Date[] = [];
-  for (let i = 0; dates.length <= MAX_OCCURRENCES; i++) {
-    const next = step(start, i);
-    if (next >= end) break;
-    dates.push(next);
-  }
-  return dates;
-}
 
 const sessionSchema = z
   .object({
@@ -75,9 +51,7 @@ const emptyValues: SessionValues = {
   startTime: "09:00",
   endTime: "10:00",
   location: "",
-  cadence: "none",
-  durationCount: 16,
-  durationUnit: "weeks",
+  ...DEFAULT_REPEAT,
 };
 
 /// Opens on the range picked on the calendar: the title and Course come first,

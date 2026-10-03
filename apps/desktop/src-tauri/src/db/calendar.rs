@@ -45,6 +45,10 @@ pub struct CalendarEntry {
     pub cancelled: bool,
     pub location: Option<String>,
     pub description: Option<String>,
+    /// Which fields were overridden on this occurrence (`series::Field` bits).
+    /// Internal bookkeeping for series edits, never serialized.
+    #[serde(skip)]
+    pub overridden_fields: i64,
 }
 
 fn row_to_calendar_entry(row: &rusqlite::Row) -> rusqlite::Result<CalendarEntry> {
@@ -59,6 +63,7 @@ fn row_to_calendar_entry(row: &rusqlite::Row) -> rusqlite::Result<CalendarEntry>
         cancelled: row.get::<_, i64>("cancelled")? != 0,
         location: row.get("location")?,
         description: row.get("description")?,
+        overridden_fields: row.get("overridden_fields")?,
     })
 }
 
@@ -79,18 +84,12 @@ fn validate_times(
     start_time: &Option<String>,
     end_time: &Option<String>,
 ) -> AppResult<()> {
-    if all_day {
-        return Ok(());
-    }
-    match (start_time, end_time) {
-        (Some(s), Some(e)) if s < e => Ok(()),
-        (Some(_), Some(_)) => Err(AppError::InvalidInput(
-            "a calendar entry has to end after it starts".into(),
-        )),
-        _ => Err(AppError::InvalidInput(
-            "startTime and endTime are required unless allDay is true".into(),
-        )),
-    }
+    crate::db::series::validate_times(
+        "a calendar entry",
+        all_day,
+        start_time.as_deref(),
+        end_time.as_deref(),
+    )
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -156,8 +155,9 @@ pub fn create_calendar_entry_template(
 
 /// Generates occurrences from the template's anchor date (its own first
 /// occurrence) up to (and including) `until_date` on the template's own
-/// cadence, skipping any date that already has one — same idempotency rule
-/// as `sessions::generate_occurrences`.
+/// cadence. Slots it already filled are never filled again, even when their
+/// occurrence was moved, cancelled or trashed (`series::slots_to_generate`,
+/// shared with `sessions::generate_occurrences`).
 pub fn generate_occurrences(
     conn: &Connection,
     template_id: &str,
@@ -169,34 +169,31 @@ pub fn generate_occurrences(
     let until = NaiveDate::parse_from_str(until_date, "%Y-%m-%d")
         .map_err(|e| AppError::Db(format!("invalid until_date: {e}")))?;
 
-    let mut created = Vec::new();
+    let mut slots = Vec::new();
     while cursor <= until {
-        let date_str = cursor.format("%Y-%m-%d").to_string();
-        let exists: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM calendar_entries WHERE template_id = ?1 AND date = ?2",
-            params![template_id, date_str],
-            |row| row.get(0),
-        )?;
-        if exists == 0 {
-            let occurrence = create_occurrence(
-                conn,
-                &template.entity.space_id,
-                &template.entity.title,
-                Some(template_id.to_string()),
-                date_str,
-                // A template always generates single-day occurrences — a
-                // multi-day span is only ever picked for one specific
-                // one-off entry, never a recurring cadence.
-                None,
-                template.start_time.clone(),
-                template.end_time.clone(),
-                template.all_day,
-                template.location.clone(),
-                template.description.clone(),
-            )?;
-            created.push(occurrence);
-        }
+        slots.push(cursor.format("%Y-%m-%d").to_string());
         cursor = advance(cursor, &template.recurrence);
+    }
+
+    let mut created = Vec::new();
+    for date in crate::db::series::slots_to_generate::<CalendarEntry>(conn, template_id, slots)? {
+        let occurrence = create_occurrence(
+            conn,
+            &template.entity.space_id,
+            &template.entity.title,
+            Some(template_id.to_string()),
+            date,
+            // A template always generates single-day occurrences — a
+            // multi-day span is only ever picked for one specific
+            // one-off entry, never a recurring cadence.
+            None,
+            template.start_time.clone(),
+            template.end_time.clone(),
+            template.all_day,
+            template.location.clone(),
+            template.description.clone(),
+        )?;
+        created.push(occurrence);
     }
     Ok(created)
 }
@@ -268,6 +265,7 @@ fn create_occurrence(
         cancelled: false,
         location,
         description,
+        overridden_fields: 0,
     })
 }
 
@@ -291,7 +289,9 @@ pub fn override_occurrence(
     entity_id: &str,
     patch: CalendarEntryOverride,
 ) -> AppResult<CalendarEntry> {
+    use crate::db::series::{mark_override, Field};
     let mut occurrence = get_calendar_entry(conn, entity_id)?;
+    let mut overridden = occurrence.overridden_fields;
 
     if let Some(date) = patch.date {
         occurrence.date = date;
@@ -300,23 +300,54 @@ pub fn override_occurrence(
         occurrence.end_date = end_date;
     }
     if let Some(start_time) = patch.start_time {
+        mark_override(
+            &mut overridden,
+            Field::StartTime,
+            &occurrence.start_time,
+            &start_time,
+        );
         occurrence.start_time = start_time;
     }
     if let Some(end_time) = patch.end_time {
+        mark_override(
+            &mut overridden,
+            Field::EndTime,
+            &occurrence.end_time,
+            &end_time,
+        );
         occurrence.end_time = end_time;
     }
     if let Some(all_day) = patch.all_day {
+        mark_override(
+            &mut overridden,
+            Field::AllDay,
+            &occurrence.all_day,
+            &all_day,
+        );
         occurrence.all_day = all_day;
     }
     if let Some(cancelled) = patch.cancelled {
         occurrence.cancelled = cancelled;
     }
     if let Some(location) = patch.location {
+        mark_override(
+            &mut overridden,
+            Field::Location,
+            &occurrence.location,
+            &location,
+        );
         occurrence.location = location;
     }
     if let Some(description) = patch.description {
+        mark_override(
+            &mut overridden,
+            Field::Description,
+            &occurrence.description,
+            &description,
+        );
         occurrence.description = description;
     }
+    occurrence.overridden_fields = overridden;
     validate_times(
         occurrence.all_day,
         &occurrence.start_time,
@@ -325,7 +356,7 @@ pub fn override_occurrence(
     validate_date_range(&occurrence.date, &occurrence.end_date)?;
 
     conn.execute(
-        "UPDATE calendar_entries SET date = ?1, end_date = ?2, start_time = ?3, end_time = ?4, all_day = ?5, cancelled = ?6, location = ?7, description = ?8 WHERE entity_id = ?9",
+        "UPDATE calendar_entries SET date = ?1, end_date = ?2, start_time = ?3, end_time = ?4, all_day = ?5, cancelled = ?6, location = ?7, description = ?8, overridden_fields = ?9 WHERE entity_id = ?10",
         params![
             occurrence.date,
             occurrence.end_date,
@@ -335,6 +366,7 @@ pub fn override_occurrence(
             occurrence.cancelled as i64,
             occurrence.location,
             occurrence.description,
+            occurrence.overridden_fields,
             entity_id
         ],
     )?;
@@ -414,10 +446,9 @@ pub struct CalendarEntrySeriesPatch {
     pub description: Option<Option<String>>,
 }
 
-/// Edits a template and its occurrences from `from_date` on. An occurrence
-/// only takes a new value where it still carries the template's old one, so
-/// per-occurrence overrides survive — the same `keep_or` rule as
-/// `sessions::update_session_series`.
+/// Edits a template and its occurrences from `from_date` on. A field the user
+/// overrode on one occurrence keeps that value (`series::series_value`, the
+/// same rule as `sessions::update_session_series`); every other field follows.
 pub fn update_calendar_entry_series(
     conn: &Connection,
     template_id: &str,
@@ -443,12 +474,26 @@ pub fn update_calendar_entry_series(
         &old.entity.title,
         patch.title,
         |occurrence| {
-            use crate::db::series::keep_or;
-            let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
-            let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
-            let new_all_day = keep_or(&occurrence.all_day, &old.all_day, &all_day);
-            let new_location = keep_or(&occurrence.location, &old.location, &location);
-            let new_description = keep_or(&occurrence.description, &old.description, &description);
+            use crate::db::series::{series_value, Field};
+            let o = occurrence;
+            let new_start = series_value(
+                o,
+                Field::StartTime,
+                &o.start_time,
+                &old.start_time,
+                &start_time,
+            );
+            let new_end = series_value(o, Field::EndTime, &o.end_time, &old.end_time, &end_time);
+            let new_all_day = series_value(o, Field::AllDay, &o.all_day, &old.all_day, &all_day);
+            let new_location =
+                series_value(o, Field::Location, &o.location, &old.location, &location);
+            let new_description = series_value(
+                o,
+                Field::Description,
+                &o.description,
+                &old.description,
+                &description,
+            );
             // An override that would end up invalid keeps its own times/all_day.
             let (new_start, new_end, new_all_day) =
                 if validate_times(new_all_day, &new_start, &new_end).is_ok() {
@@ -479,6 +524,10 @@ impl crate::db::series::SeriesOccurrence for CalendarEntry {
 
     fn entity(&self) -> &Entity {
         &self.entity
+    }
+
+    fn overridden_fields(&self) -> i64 {
+        self.overridden_fields
     }
 }
 
@@ -1987,16 +2036,218 @@ mod tests {
     }
 
     #[test]
-    fn generate_refills_a_date_vacated_by_a_moved_occurrence() {
+    fn generate_does_not_refill_a_date_vacated_by_a_moved_occurrence() {
         let conn = setup();
         let (_, tid, occ) = series(&conn);
         override_occurrence(&conn, &occ[1].entity.id, ov("2026-01-14")).unwrap();
         let created = generate_occurrences(&conn, &tid, "2026-01-26").unwrap();
-        // NOTE: possible bug: idempotency is keyed on date, so moving an occurrence
-        // off its slot makes the next generate create a fresh one on the old date.
+        // Fixed: generate skips every slot it already filled, so the vacated
+        // 01-12 stays empty instead of getting a fresh occurrence.
+        assert!(created.is_empty());
+        assert_eq!(row_count(&conn, &tid), 4);
+        assert_eq!(
+            get_calendar_entry(&conn, &occ[1].entity.id).unwrap().date,
+            "2026-01-14"
+        );
+    }
+
+    #[test]
+    fn generate_does_not_refill_dates_vacated_by_trashing_or_cancelling() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        crate::db::entities::soft_delete_entity(&conn, &occ[1].entity.id).unwrap();
+        override_occurrence(
+            &conn,
+            &occ[2].entity.id,
+            CalendarEntryOverride {
+                date: Some("2026-01-20".into()),
+                cancelled: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let before = snapshot(&conn, &tid);
+        let created = generate_occurrences(&conn, &tid, "2026-02-02").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02"]
+        );
+        assert_eq!(&snapshot(&conn, &tid)[..4], &before[..]);
+        assert!(trashed(&conn, &occ[1].entity.id));
+    }
+
+    #[test]
+    fn generate_after_moving_back_onto_the_original_date_adds_nothing() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        let id = &occ[1].entity.id;
+        override_occurrence(&conn, id, ov("2026-01-14")).unwrap();
+        assert!(generate_occurrences(&conn, &tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        override_occurrence(&conn, id, ov("2026-01-12")).unwrap();
+        assert!(generate_occurrences(&conn, &tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        assert_eq!(row_count(&conn, &tid), 4);
+        assert_eq!(get_calendar_entry(&conn, id).unwrap().date, "2026-01-12");
+    }
+
+    #[test]
+    fn generate_after_a_move_still_extends_the_series_forward() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(&conn, &occ[1].entity.id, ov("2026-01-14")).unwrap();
+        let created = generate_occurrences(&conn, &tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02", "2026-02-09"]
+        );
+        assert_eq!(row_count(&conn, &tid), 6);
+        assert!(generate_occurrences(&conn, &tid, "2026-02-09")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn generate_gives_no_twin_to_an_occurrence_moved_onto_a_later_slot() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(&conn, &occ[3].entity.id, ov("2026-02-02")).unwrap();
+        let created = generate_occurrences(&conn, &tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-09"]
+        );
+        assert!(generate_occurrences(&conn, &tid, "2026-02-09")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn generate_does_not_resurrect_dates_after_empty_trash() {
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        crate::db::entities::soft_delete_entity(&conn, &occ[1].entity.id).unwrap();
+        crate::db::entities::empty_trash(&conn).unwrap();
+        assert_eq!(row_count(&conn, &tid), 3);
+        assert!(generate_occurrences(&conn, &tid, "2026-01-26")
+            .unwrap()
+            .is_empty());
+        let created = generate_occurrences(&conn, &tid, "2026-02-02").unwrap();
         assert_eq!(created.len(), 1);
-        assert_eq!(created[0].date, "2026-01-12");
-        assert_eq!(row_count(&conn, &tid), 5);
+        assert_eq!(created[0].date, "2026-02-02");
+    }
+
+    #[test]
+    fn generate_on_existing_moved_data_alters_nothing() {
+        // A released database: the series was generated once, then one
+        // occurrence moved and another trashed. Generating further only adds new
+        // slots and leaves every existing row exactly as it was.
+        let conn = setup();
+        let (_, tid, occ) = series(&conn);
+        override_occurrence(&conn, &occ[1].entity.id, ov("2026-01-14")).unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &occ[2].entity.id).unwrap();
+        let rows = |conn: &Connection| {
+            occ.iter()
+                .map(|o| {
+                    let e = get_calendar_entry(conn, &o.entity.id).unwrap();
+                    (
+                        e.date,
+                        e.start_time,
+                        e.end_time,
+                        e.cancelled,
+                        e.entity.deleted_at,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let before = rows(&conn);
+        let created = generate_occurrences(&conn, &tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-02", "2026-02-09"]
+        );
+        assert_eq!(rows(&conn), before);
+    }
+
+    #[test]
+    fn generate_on_data_the_old_refill_already_touched_alters_nothing() {
+        // The old date check could refill a vacated slot. No released build ever
+        // generated a series twice, but if such a twin exists it is kept as is,
+        // and as the count reads one slot ahead the next new slot is skipped.
+        let conn = setup();
+        let (space, tid, occ) = series(&conn);
+        override_occurrence(&conn, &occ[1].entity.id, ov("2026-01-14")).unwrap();
+        let twin = create_occurrence(
+            &conn,
+            &space,
+            "Gym",
+            Some(tid.clone()),
+            "2026-01-12".into(),
+            None,
+            Some("07:00".into()),
+            Some("08:00".into()),
+            false,
+            Some("Room 1".into()),
+            Some("Bring towel".into()),
+        )
+        .unwrap();
+        let before = snapshot(&conn, &tid);
+        let created = generate_occurrences(&conn, &tid, "2026-02-09").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-02-09"]
+        );
+        assert_eq!(&snapshot(&conn, &tid)[..5], &before[..]);
+        assert!(!trashed(&conn, &twin.entity.id));
+    }
+
+    #[test]
+    fn generate_monthly_and_daily_skip_vacated_slots_too() {
+        let conn = setup();
+        let space = crate::db::test_space(&conn, "Life");
+        let monthly = create_calendar_entry_template(
+            &conn,
+            space.id.clone(),
+            "Rent".into(),
+            "monthly".into(),
+            None,
+            None,
+            true,
+            None,
+            None,
+            "2026-01-31".into(),
+        )
+        .unwrap();
+        let occ = generate_occurrences(&conn, &monthly.id, "2026-03-31").unwrap();
+        override_occurrence(&conn, &occ[1].entity.id, ov("2026-03-01")).unwrap();
+        let created = generate_occurrences(&conn, &monthly.id, "2026-04-30").unwrap();
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-04-28"]
+        );
+        let daily = create_calendar_entry_template(
+            &conn,
+            space.id,
+            "Walk".into(),
+            "daily".into(),
+            Some("07:00".into()),
+            Some("08:00".into()),
+            false,
+            None,
+            None,
+            "2026-01-05".into(),
+        )
+        .unwrap();
+        let occ = generate_occurrences(&conn, &daily.id, "2026-01-07").unwrap();
+        override_occurrence(&conn, &occ[0].entity.id, ov("2026-01-10")).unwrap();
+        let created = generate_occurrences(&conn, &daily.id, "2026-01-10").unwrap();
+        // 01-08 and 01-09 are new; 01-10 already holds the moved one; 01-05 stays empty.
+        assert_eq!(
+            created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
+            vec!["2026-01-08", "2026-01-09"]
+        );
     }
 
     #[test]
@@ -2141,7 +2392,6 @@ mod tests {
 
     #[test]
     fn template_creation_validates_recurrence_and_times() {
-        // DIFFERS: `sessions::create_session_template` performs no validation.
         let conn = setup();
         let space = crate::db::test_space(&conn, "Life");
         let make = |recurrence: &str, start: Option<&str>, end: Option<&str>, all_day: bool| {
@@ -2174,7 +2424,8 @@ mod tests {
 
     #[test]
     fn override_validates_and_persists_nothing_on_error() {
-        // DIFFERS: `sessions::override_occurrence` performs no validation.
+        // DIFFERS: `sessions::override_occurrence` only checks times when the
+        // patch changes them, so sessions stored before that check stay editable.
         let conn = setup();
         let (_, tid, occ) = series(&conn);
         let before = snapshot(&conn, &tid);
@@ -2243,5 +2494,206 @@ mod tests {
                 .unwrap()
                 .cancelled
         );
+    }
+
+    // --- Explicit overrides (`overridden_fields`) ---------------------------
+
+    /// Daily 07:00 to 08:00 standup at Room 1, ten occurrences 01-05 to 01-14.
+    fn daily_series(conn: &Connection) -> (String, Vec<CalendarEntry>) {
+        let space = crate::db::test_space(conn, "Life");
+        let template = create_calendar_entry_template(
+            conn,
+            space.id,
+            "Standup".into(),
+            "daily".into(),
+            Some("07:00".into()),
+            Some("08:00".into()),
+            false,
+            Some("Room 1".into()),
+            None,
+            "2026-01-05".into(),
+        )
+        .unwrap();
+        let occ = generate_occurrences(conn, &template.id, "2026-01-14").unwrap();
+        assert_eq!(occ.len(), 10);
+        (template.id, occ)
+    }
+
+    fn times(start: &str, end: &str) -> CalendarEntrySeriesPatch {
+        CalendarEntrySeriesPatch {
+            start_time: Some(Some(start.into())),
+            end_time: Some(Some(end.into())),
+            ..Default::default()
+        }
+    }
+
+    fn starts(conn: &Connection, tid: &str) -> Vec<Option<String>> {
+        snapshot(conn, tid).into_iter().map(|r| r.2).collect()
+    }
+
+    #[test]
+    fn edit_all_after_edit_following_reaches_every_occurrence() {
+        // The reported bug: an edit from a later occurrence left the earlier
+        // ones on the old time, and a later edit of the whole series skipped
+        // them as if they had been overridden.
+        let conn = setup();
+        let (tid, occ) = daily_series(&conn);
+        update_calendar_entry_series(&conn, &tid, &occ[5].date, times("08:00", "09:00")).unwrap();
+        let rows = snapshot(&conn, &tid);
+        assert!(rows[..5].iter().all(|r| r.2.as_deref() == Some("07:00")));
+        assert!(rows[5..].iter().all(|r| r.2.as_deref() == Some("08:00")));
+
+        update_calendar_entry_series(&conn, &tid, &occ[0].date, times("10:00", "11:00")).unwrap();
+        for row in snapshot(&conn, &tid) {
+            assert_eq!(
+                (row.2.as_deref(), row.3.as_deref()),
+                (Some("10:00"), Some("11:00"))
+            );
+        }
+    }
+
+    #[test]
+    fn overridden_fields_keep_their_value_across_split_edits() {
+        let conn = setup();
+        let (tid, occ) = daily_series(&conn);
+        // Before the split: own start time. After it: own location.
+        override_occurrence(
+            &conn,
+            &occ[2].entity.id,
+            CalendarEntryOverride {
+                start_time: Some(Some("06:00".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        override_occurrence(
+            &conn,
+            &occ[7].entity.id,
+            CalendarEntryOverride {
+                location: Some(Some("Hall".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        update_calendar_entry_series(&conn, &tid, &occ[5].date, times("08:00", "09:00")).unwrap();
+        update_calendar_entry_series(
+            &conn,
+            &tid,
+            &occ[0].date,
+            CalendarEntrySeriesPatch {
+                location: Some(Some("Studio".into())),
+                ..times("10:00", "11:00")
+            },
+        )
+        .unwrap();
+        let rows = snapshot(&conn, &tid);
+        // The overridden start stays; its end and location still follow.
+        assert_eq!(rows[2].2.as_deref(), Some("06:00"));
+        assert_eq!(rows[2].3.as_deref(), Some("11:00"));
+        assert_eq!(rows[2].5.as_deref(), Some("Studio"));
+        // The overridden location stays; its times follow.
+        assert_eq!(rows[7].5.as_deref(), Some("Hall"));
+        assert_eq!(rows[7].2.as_deref(), Some("10:00"));
+        for (i, row) in rows.iter().enumerate() {
+            if i != 2 {
+                assert_eq!(row.2.as_deref(), Some("10:00"), "occurrence {i}");
+            }
+            if i != 7 {
+                assert_eq!(row.5.as_deref(), Some("Studio"), "occurrence {i}");
+            }
+        }
+    }
+
+    #[test]
+    fn edit_following_back_then_edit_all_reaches_every_occurrence() {
+        let conn = setup();
+        let (tid, occ) = daily_series(&conn);
+        update_calendar_entry_series(&conn, &tid, &occ[5].date, times("08:00", "09:00")).unwrap();
+        // Back to the original time from the same occurrence on.
+        update_calendar_entry_series(&conn, &tid, &occ[5].date, times("07:00", "08:00")).unwrap();
+        assert!(starts(&conn, &tid)
+            .iter()
+            .all(|s| s.as_deref() == Some("07:00")));
+        // A later split, then the whole series again.
+        update_calendar_entry_series(&conn, &tid, &occ[8].date, times("09:00", "10:00")).unwrap();
+        update_calendar_entry_series(&conn, &tid, &occ[0].date, times("12:00", "13:00")).unwrap();
+        assert!(starts(&conn, &tid)
+            .iter()
+            .all(|s| s.as_deref() == Some("12:00")));
+    }
+
+    #[test]
+    fn an_override_set_back_to_the_series_value_follows_again() {
+        let conn = setup();
+        let (tid, occ) = daily_series(&conn);
+        let id = &occ[1].entity.id;
+        let start = |v: &str| CalendarEntryOverride {
+            start_time: Some(Some(v.into())),
+            ..Default::default()
+        };
+        override_occurrence(&conn, id, start("06:00")).unwrap();
+        override_occurrence(&conn, id, start("07:00")).unwrap();
+        update_calendar_entry_series(&conn, &tid, &occ[0].date, times("05:00", "08:00")).unwrap();
+        assert_eq!(
+            get_calendar_entry(&conn, id).unwrap().start_time.as_deref(),
+            Some("05:00")
+        );
+    }
+
+    #[test]
+    fn resending_unchanged_values_is_not_an_override() {
+        // The edit form sends every field; only what actually changed counts.
+        let conn = setup();
+        let (tid, occ) = daily_series(&conn);
+        let id = &occ[1].entity.id;
+        override_occurrence(
+            &conn,
+            id,
+            CalendarEntryOverride {
+                date: Some(occ[1].date.clone()),
+                end_date: Some(None),
+                start_time: Some(Some("07:00".into())),
+                end_time: Some(Some("08:00".into())),
+                all_day: Some(false),
+                location: Some(Some("Hall".into())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            get_calendar_entry(&conn, id).unwrap().overridden_fields,
+            crate::db::series::Field::Location as i64
+        );
+        update_calendar_entry_series(&conn, &tid, &occ[5].date, times("08:00", "09:00")).unwrap();
+        update_calendar_entry_series(&conn, &tid, &occ[0].date, times("10:00", "11:00")).unwrap();
+        let o = get_calendar_entry(&conn, id).unwrap();
+        assert_eq!(o.start_time.as_deref(), Some("10:00"));
+        assert_eq!(o.location.as_deref(), Some("Hall"));
+        // Moving or cancelling marks nothing, and a series edit clears nothing.
+        override_occurrence(
+            &conn,
+            &occ[3].entity.id,
+            CalendarEntryOverride {
+                date: Some("2026-01-20".into()),
+                cancelled: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let get = |i: usize| get_calendar_entry(&conn, &occ[i].entity.id).unwrap();
+        assert_eq!(get(3).overridden_fields, 0);
+        assert_eq!(
+            get(1).overridden_fields,
+            crate::db::series::Field::Location as i64
+        );
+    }
+
+    #[test]
+    fn overridden_fields_stay_out_of_the_serialized_entry() {
+        let conn = setup();
+        let (_, occ) = daily_series(&conn);
+        let json = cli_get_calendar_entry(&conn, &occ[0].entity.id).unwrap();
+        assert!(json.get("overriddenFields").is_none());
+        assert!(json.get("overridden_fields").is_none());
     }
 }

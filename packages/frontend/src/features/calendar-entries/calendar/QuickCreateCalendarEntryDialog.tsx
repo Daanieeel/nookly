@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { AllDayTimeFields, DateField } from "../../sessions/calendar/date-time-form-fields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDays, addMonths, addWeeks, format } from "date-fns";
+import { format, parse } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 import { FieldError, statusOf } from "#/components/action-feedback.tsx";
@@ -23,11 +23,9 @@ import {
 } from "@nookly/ui/components/select";
 import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
 import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
+import { RepeatChip, cadenceSchema, durationUnitSchema } from "#/components/repeat-chip.tsx";
+import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates } from "#/lib/repeat.ts";
 import { qk } from "#/lib/query-keys.ts";
-
-const recurrenceSchema = z.enum(["none", "daily", "weekly", "monthly"]);
-
-type Recurrence = z.infer<typeof recurrenceSchema>;
 
 const entrySchema = z
   .object({
@@ -39,7 +37,9 @@ const entrySchema = z
     startTime: z.string(),
     endTime: z.string(),
     location: z.string(),
-    recurrence: recurrenceSchema,
+    cadence: cadenceSchema,
+    durationCount: z.number().int().min(1).max(999),
+    durationUnit: durationUnitSchema,
   })
   .refine((v) => v.allDay || (Boolean(v.startTime && v.endTime) && v.startTime < v.endTime), {
     path: ["endTime"],
@@ -61,28 +61,12 @@ const emptyValues: EntryValues = {
   startTime: "09:00",
   endTime: "10:00",
   location: "",
-  recurrence: "none",
+  ...DEFAULT_REPEAT,
 };
-
-const RECURRENCE_OPTIONS = [
-  { value: "none", label: "Doesn't repeat" },
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-] satisfies { value: Recurrence; label: string }[];
-
-/// How far ahead occurrences are generated up front for each cadence, so a
-/// recurring calendar entry shows a useful run on the calendar right away.
-function horizonFor(recurrence: Recurrence, anchor: Date): Date {
-  if (recurrence === "daily") return addDays(anchor, 60);
-  if (recurrence === "monthly") return addMonths(anchor, 12);
-  return addWeeks(anchor, 16);
-}
 
 /// Opens on the range picked on the calendar, the same creation surface as
 /// `QuickCreateSessionDialog` — no Course picker (calendar entries have no
-/// required parent), and a recurrence cadence instead of a single "repeat
-/// weekly" checkbox. `spaceId` is fixed on a per-Space calendar; omitted (the
+/// required parent), and a repeat chip (cadence and duration) shared with the session dialog. `spaceId` is fixed on a per-Space calendar; omitted (the
 /// unified cross-Space Calendar page has no single "current" Space), the
 /// dialog adds its own required Space picker instead.
 export function QuickCreateCalendarEntryDialog({
@@ -124,7 +108,7 @@ export function QuickCreateCalendarEntryDialog({
       startTime: minutesToTime(draft.startMin),
       endTime: minutesToTime(draft.endMin),
       location: "",
-      recurrence: "none",
+      ...DEFAULT_REPEAT,
     });
     setTimeout(() => titleRef.current?.focus(), 0);
   }, [draft, spaceId, form]);
@@ -139,16 +123,27 @@ export function QuickCreateCalendarEntryDialog({
       startTime,
       endTime,
       location,
-      recurrence,
+      cadence,
+      durationCount,
+      durationUnit,
     }: EntryValues) => {
       if (!draft || !date) throw new Error("Pick a date first");
       if (!targetSpaceId) throw new Error("Pick a Space first");
       const nextLocation = location.trim() || null;
-      if (recurrence !== "none") {
+      const repeats = endDate ? "none" : cadence;
+      const dates = repeatDates(parse(date, "yyyy-MM-dd", new Date()), {
+        cadence: repeats,
+        durationCount,
+        durationUnit,
+      });
+      if (dates.length > MAX_OCCURRENCES) {
+        throw new Error(`Too many entries, ${MAX_OCCURRENCES} at most`);
+      }
+      if (repeats !== "none" && dates.length > 1) {
         const template = await createCalendarEntryTemplate(
           targetSpaceId,
           title.trim(),
-          recurrence,
+          repeats,
           allDay ? null : startTime,
           allDay ? null : endTime,
           allDay,
@@ -158,7 +153,7 @@ export function QuickCreateCalendarEntryDialog({
         );
         const occurrences = await generateCalendarEntryOccurrences(
           template.id,
-          format(horizonFor(recurrence, draft.date), "yyyy-MM-dd"),
+          format(dates[dates.length - 1], "yyyy-MM-dd"),
         );
         return occurrences.map((o) => o.entity.id);
       }
@@ -256,52 +251,38 @@ export function QuickCreateCalendarEntryDialog({
         )}
       </form.Field>
       <AllDayTimeFields form={form} idPrefix="calendar-entry-create" />
-      <form.Subscribe selector={(state) => Boolean(state.values.endDate)}>
-        {(spansDays) => (
-          <>
-            <form.Field name="location">
-              {(field) => (
-                <FormField
-                  label="Location"
-                  htmlFor="calendar-entry-create-location"
-                  className={spansDays ? "col-span-2" : undefined}
-                >
-                  <Input
-                    id="calendar-entry-create-location"
-                    placeholder="Optional"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            {!spansDays && (
-              <form.Field name="recurrence">
-                {(field) => (
-                  <FormField label="Repeat">
-                    <Select
-                      value={field.state.value}
-                      // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
-                      onValueChange={(v) => field.handleChange(v as Recurrence)}
-                    >
-                      <SelectTrigger className="w-full" aria-label="Repeat">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RECURRENCE_OPTIONS.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-                )}
-              </form.Field>
-            )}
-          </>
+      <form.Field name="location">
+        {(field) => (
+          <FormField
+            label="Location"
+            htmlFor="calendar-entry-create-location"
+            className="col-span-2"
+          >
+            <Input
+              id="calendar-entry-create-location"
+              placeholder="Optional"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
         )}
+      </form.Field>
+      <form.Subscribe selector={(state) => state.values}>
+        {(values) =>
+          !values.endDate && (
+            <FormField label="Repeat" className="col-span-2">
+              <RepeatChip
+                value={values}
+                onChange={(repeat) => {
+                  form.setFieldValue("cadence", repeat.cadence);
+                  form.setFieldValue("durationCount", repeat.durationCount);
+                  form.setFieldValue("durationUnit", repeat.durationUnit);
+                }}
+              />
+            </FormField>
+          )
+        }
       </form.Subscribe>
       <div className="col-span-2 empty:hidden">
         <FieldError message={create.isError && create.error.message} />
