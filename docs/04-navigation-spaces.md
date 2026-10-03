@@ -32,6 +32,21 @@ Icons work like Notion: each item can have its own user-chosen icon (an emoji or
 
 When no icon is chosen, the item falls back to its entity type's default icon, rendered in a **neutral, muted** color and never in the Space accent color. The one exception is a Space's own icon, which uses the Space accent color (see above).
 
+## Tabs
+
+A slim tab strip under the titlebar holds concurrent work. Each tab is one view with its own Back and Forward history, and several tabs can sit in different Spaces. Open tabs, their order, pins and history are remembered across restarts. Split view is out of scope.
+
+| Action                    | How                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| New tab (opens Dashboard) | `Cmd+T`, the `+` button                                                                       |
+| Open a link in a new tab  | `Cmd+click` or middle click on anything that navigates                                        |
+| Close                     | `Cmd+W`, the tab's `x`, middle click on the tab                                               |
+| Close other tabs          | `Cmd+Shift+W` (keeps the current and pinned tabs)                                             |
+| Switch                    | `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Cmd+Option+Left` and `Cmd+Option+Right`                        |
+| Pin, reorder              | Right click a tab to pin it, drag to reorder. Pinned tabs show only their icon and stay first |
+
+Closing the last tab leaves a fresh Dashboard tab.
+
 ## Cross-Space Exceptions
 
 There are exactly seven. Adding another requires a deliberate decision.

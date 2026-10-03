@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   activeSpace: "nookly:active-space",
   expandedSpaces: "nookly:expanded-spaces",
   recents: "nookly:recents",
+  tabs: "nookly:tabs",
   cliInstallCardDismissed: "nookly:cli-install-card-dismissed",
   theme: "nookly:theme",
   fileViewerTheme: "nookly:file-viewer-theme",
