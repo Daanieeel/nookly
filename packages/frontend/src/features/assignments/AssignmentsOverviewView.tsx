@@ -252,7 +252,6 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
         save={save}
         onDiscard={discard}
         spaceId={saveSpaceId}
-        spaces={spaces}
         module={ASSIGNMENTS_OVERVIEW}
         filters={filters}
         display={display}
