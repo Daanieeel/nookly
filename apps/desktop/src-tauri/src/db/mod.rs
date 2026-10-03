@@ -3,6 +3,7 @@ pub mod assignments;
 pub mod block_types;
 pub mod bookmarks;
 pub mod calendar;
+pub mod common_fields;
 pub mod courses;
 pub mod decks;
 pub mod entities;
@@ -51,6 +52,24 @@ pub fn test_conn() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
     migrations::MIGRATIONS.to_latest(&mut conn).unwrap();
     conn
+}
+
+/// A space for unit tests.
+#[cfg(test)]
+pub fn test_space(conn: &Connection, name: &str) -> spaces::Space {
+    spaces::create_space(conn, name.into(), None, "#000".into()).unwrap()
+}
+
+/// A space with one course in it, for unit tests.
+#[cfg(test)]
+pub fn test_space_with_course(
+    conn: &Connection,
+    space_name: &str,
+    course_title: &str,
+) -> (spaces::Space, entities::Entity) {
+    let space = test_space(conn, space_name);
+    let course = courses::create_course(conn, space.id.clone(), course_title.into()).unwrap();
+    (space, course)
 }
 
 /// How many migrations `conn` has run.

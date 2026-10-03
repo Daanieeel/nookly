@@ -232,7 +232,6 @@ inventory::submit! {
 mod tests {
     use super::*;
     use crate::db::courses::create_course;
-    use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
         crate::db::test_conn()
@@ -251,8 +250,7 @@ mod tests {
     #[test]
     fn set_assignment_course_moves_it() {
         let conn = setup();
-        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
-        let algo = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let (space, algo) = crate::db::test_space_with_course(&conn, "Uni", "Algorithms");
         let math = create_course(&conn, space.id.clone(), "Math".into()).unwrap();
         let a = create_assignment(&conn, space.id, "Sheet 1".into(), algo.id, None).unwrap();
 
@@ -263,8 +261,7 @@ mod tests {
     #[test]
     fn set_assignment_course_keeps_the_old_link_on_failure() {
         let conn = setup();
-        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
-        let algo = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let (space, algo) = crate::db::test_space_with_course(&conn, "Uni", "Algorithms");
         let a =
             create_assignment(&conn, space.id, "Sheet 1".into(), algo.id.clone(), None).unwrap();
 

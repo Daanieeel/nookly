@@ -1,3 +1,4 @@
+use crate::db::common_fields;
 use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
@@ -603,6 +604,22 @@ pub fn link_session_page(
 
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
 
+const FIELD_START_TIME: FieldDef = FieldDef {
+    name: "startTime",
+    kind: FieldKind::Text,
+    required_on_create: true,
+    writable_on_update: true,
+    description: "\"HH:MM\", 24-hour.",
+};
+
+const FIELD_END_TIME: FieldDef = FieldDef {
+    name: "endTime",
+    kind: FieldKind::Text,
+    required_on_create: true,
+    writable_on_update: true,
+    description: "\"HH:MM\", 24-hour.",
+};
+
 const SESSION_TEMPLATE_FIELDS: &[FieldDef] = &[
     FieldDef {
         name: "courseId",
@@ -618,27 +635,9 @@ const SESSION_TEMPLATE_FIELDS: &[FieldDef] = &[
         writable_on_update: false,
         description: "0 = Monday .. 6 = Sunday.",
     },
-    FieldDef {
-        name: "startTime",
-        kind: FieldKind::Text,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour.",
-    },
-    FieldDef {
-        name: "endTime",
-        kind: FieldKind::Text,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour.",
-    },
-    FieldDef {
-        name: "location",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Optional free-text location.",
-    },
+    FIELD_START_TIME,
+    FIELD_END_TIME,
+    common_fields::FIELD_LOCATION,
     FieldDef {
         name: "anchorDate",
         kind: FieldKind::Date,
@@ -747,41 +746,11 @@ const SESSION_FIELDS: &[FieldDef] = &[
         writable_on_update: false,
         description: "The Course this session belongs to (structural: exactly one).",
     },
-    FieldDef {
-        name: "date",
-        kind: FieldKind::Date,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "ISO date this occurrence falls on.",
-    },
-    FieldDef {
-        name: "startTime",
-        kind: FieldKind::Text,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour.",
-    },
-    FieldDef {
-        name: "endTime",
-        kind: FieldKind::Text,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour.",
-    },
-    FieldDef {
-        name: "location",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Optional free-text location.",
-    },
-    FieldDef {
-        name: "cancelled",
-        kind: FieldKind::Boolean,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Mark this occurrence cancelled without deleting it.",
-    },
+    common_fields::FIELD_DATE,
+    FIELD_START_TIME,
+    FIELD_END_TIME,
+    common_fields::FIELD_LOCATION,
+    common_fields::FIELD_CANCELLED,
     FieldDef {
         name: "notes",
         kind: FieldKind::LongText,
@@ -866,32 +835,33 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::courses::create_course;
-    use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
         crate::db::test_conn()
     }
 
-    #[test]
-    fn generate_occurrences_creates_weekly_sessions_on_correct_weekday() {
-        let conn = setup();
-        let space = create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
-
-        // 2026-01-05 is a Monday.
-        let template = create_session_template(
-            &conn,
-            space.id.clone(),
-            "Algorithms Lecture".into(),
-            course.id.clone(),
+    fn monday_lecture(conn: &Connection, space_id: &str, course_id: &str, title: &str) -> Entity {
+        create_session_template(
+            conn,
+            space_id.into(),
+            title.into(),
+            course_id.into(),
             0,
             "10:00".into(),
             "12:00".into(),
             None,
             "2026-01-05".into(),
         )
-        .unwrap();
+        .unwrap()
+    }
+
+    #[test]
+    fn generate_occurrences_creates_weekly_sessions_on_correct_weekday() {
+        let conn = setup();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Study", "Algorithms");
+
+        // 2026-01-05 is a Monday.
+        let template = monday_lecture(&conn, &space.id, &course.id, "Algorithms Lecture");
 
         let occurrences = generate_occurrences(&conn, &template.id, "2026-01-26").unwrap();
         assert_eq!(occurrences.len(), 4);
@@ -908,20 +878,8 @@ mod tests {
     #[test]
     fn override_does_not_affect_template() {
         let conn = setup();
-        let space = create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
-        let template = create_session_template(
-            &conn,
-            space.id.clone(),
-            "Algorithms Lecture".into(),
-            course.id.clone(),
-            0,
-            "10:00".into(),
-            "12:00".into(),
-            None,
-            "2026-01-05".into(),
-        )
-        .unwrap();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Study", "Algorithms");
+        let template = monday_lecture(&conn, &space.id, &course.id, "Algorithms Lecture");
         let occurrences = generate_occurrences(&conn, &template.id, "2026-01-05").unwrap();
         let occ = &occurrences[0];
 
@@ -946,20 +904,8 @@ mod tests {
     }
 
     fn weekly_series(conn: &Connection) -> (String, Vec<SessionOccurrence>) {
-        let space = create_space(conn, "Study".into(), None, "#000".into()).unwrap();
-        let course = create_course(conn, space.id.clone(), "Algorithms".into()).unwrap();
-        let template = create_session_template(
-            conn,
-            space.id,
-            "Lecture".into(),
-            course.id,
-            0,
-            "10:00".into(),
-            "12:00".into(),
-            None,
-            "2026-01-05".into(),
-        )
-        .unwrap();
+        let (space, course) = crate::db::test_space_with_course(conn, "Study", "Algorithms");
+        let template = monday_lecture(conn, &space.id, &course.id, "Lecture");
         let occurrences = generate_occurrences(conn, &template.id, "2026-01-26").unwrap();
         (template.id, occurrences)
     }

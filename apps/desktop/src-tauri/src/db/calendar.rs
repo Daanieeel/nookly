@@ -6,6 +6,7 @@
 //! `docs/03-modules/sessions-timetable.md` for the Session pattern this
 //! mirrors, and the calendar-module plan for why the two stay distinct.
 
+use crate::db::common_fields;
 use crate::db::entities::Entity;
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
@@ -542,6 +543,38 @@ pub fn delete_calendar_entry_series(
 
 // --- CLI schema registration ------------------------------------------------
 
+const FIELD_START_TIME: FieldDef = FieldDef {
+    name: "startTime",
+    kind: FieldKind::Text,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
+};
+
+const FIELD_END_TIME: FieldDef = FieldDef {
+    name: "endTime",
+    kind: FieldKind::Text,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
+};
+
+const FIELD_ALL_DAY: FieldDef = FieldDef {
+    name: "allDay",
+    kind: FieldKind::Boolean,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "An all-day entry with no start/end time. Defaults to false.",
+};
+
+const FIELD_DESCRIPTION: FieldDef = FieldDef {
+    name: "description",
+    kind: FieldKind::LongText,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "Optional free-text description.",
+};
+
 const CALENDAR_ENTRY_TEMPLATE_FIELDS: &[FieldDef] = &[
     FieldDef {
         name: "recurrence",
@@ -550,41 +583,11 @@ const CALENDAR_ENTRY_TEMPLATE_FIELDS: &[FieldDef] = &[
         writable_on_update: false,
         description: "How this calendar entry repeats.",
     },
-    FieldDef {
-        name: "startTime",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
-    },
-    FieldDef {
-        name: "endTime",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
-    },
-    FieldDef {
-        name: "allDay",
-        kind: FieldKind::Boolean,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "An all-day entry with no start/end time. Defaults to false.",
-    },
-    FieldDef {
-        name: "location",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Optional free-text location.",
-    },
-    FieldDef {
-        name: "description",
-        kind: FieldKind::LongText,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Optional free-text description.",
-    },
+    FIELD_START_TIME,
+    FIELD_END_TIME,
+    FIELD_ALL_DAY,
+    common_fields::FIELD_LOCATION,
+    FIELD_DESCRIPTION,
     FieldDef {
         name: "anchorDate",
         kind: FieldKind::Date,
@@ -701,13 +704,7 @@ inventory::submit! {
 }
 
 const CALENDAR_ENTRY_FIELDS: &[FieldDef] = &[
-    FieldDef {
-        name: "date",
-        kind: FieldKind::Date,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "ISO date this occurrence falls on.",
-    },
+    common_fields::FIELD_DATE,
     FieldDef {
         name: "endDate",
         kind: FieldKind::Date,
@@ -715,48 +712,12 @@ const CALENDAR_ENTRY_FIELDS: &[FieldDef] = &[
         writable_on_update: true,
         description: "Optional ISO end date (inclusive) for a multi-day entry. Omit for a single day, \"date\" alone.",
     },
-    FieldDef {
-        name: "startTime",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
-    },
-    FieldDef {
-        name: "endTime",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
-    },
-    FieldDef {
-        name: "allDay",
-        kind: FieldKind::Boolean,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "An all-day entry with no start/end time. Defaults to false.",
-    },
-    FieldDef {
-        name: "location",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Optional free-text location.",
-    },
-    FieldDef {
-        name: "description",
-        kind: FieldKind::LongText,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Optional free-text description.",
-    },
-    FieldDef {
-        name: "cancelled",
-        kind: FieldKind::Boolean,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Mark this occurrence cancelled without deleting it.",
-    },
+    FIELD_START_TIME,
+    FIELD_END_TIME,
+    FIELD_ALL_DAY,
+    common_fields::FIELD_LOCATION,
+    FIELD_DESCRIPTION,
+    common_fields::FIELD_CANCELLED,
 ];
 
 fn cli_create_calendar_entry(
@@ -851,16 +812,31 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
         crate::db::test_conn()
     }
 
+    fn weekly_gym(conn: &Connection, space_id: String) -> Entity {
+        create_calendar_entry_template(
+            conn,
+            space_id,
+            "Gym".into(),
+            "weekly".into(),
+            Some("07:00".into()),
+            Some("08:00".into()),
+            false,
+            None,
+            None,
+            "2026-01-05".into(),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn generate_occurrences_daily_and_monthly() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
+        let space = crate::db::test_space(&conn, "Life");
 
         let daily = create_calendar_entry_template(
             &conn,
@@ -908,20 +884,8 @@ mod tests {
     #[test]
     fn override_does_not_affect_template() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
-        let template = create_calendar_entry_template(
-            &conn,
-            space.id,
-            "Gym".into(),
-            "weekly".into(),
-            Some("07:00".into()),
-            Some("08:00".into()),
-            false,
-            None,
-            None,
-            "2026-01-05".into(),
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = weekly_gym(&conn, space.id);
         let occurrences = generate_occurrences(&conn, &template.id, "2026-01-05").unwrap();
         override_occurrence(
             &conn,
@@ -945,20 +909,8 @@ mod tests {
     #[test]
     fn series_update_skips_overridden_occurrences() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
-        let template = create_calendar_entry_template(
-            &conn,
-            space.id,
-            "Gym".into(),
-            "weekly".into(),
-            Some("07:00".into()),
-            Some("08:00".into()),
-            false,
-            None,
-            None,
-            "2026-01-05".into(),
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = weekly_gym(&conn, space.id);
         let occ = generate_occurrences(&conn, &template.id, "2026-01-19").unwrap();
         override_occurrence(
             &conn,
@@ -989,20 +941,8 @@ mod tests {
     #[test]
     fn series_delete_trashes_following_then_the_template() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
-        let template = create_calendar_entry_template(
-            &conn,
-            space.id,
-            "Gym".into(),
-            "weekly".into(),
-            Some("07:00".into()),
-            Some("08:00".into()),
-            false,
-            None,
-            None,
-            "2026-01-05".into(),
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Life");
+        let template = weekly_gym(&conn, space.id);
         let occ = generate_occurrences(&conn, &template.id, "2026-01-19").unwrap();
         assert_eq!(
             delete_calendar_entry_series(&conn, &template.id, &occ[1].date).unwrap(),
@@ -1027,7 +967,7 @@ mod tests {
     #[test]
     fn one_off_entry_has_no_template() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
+        let space = crate::db::test_space(&conn, "Life");
         let entry = create_one_off_calendar_entry(
             &conn,
             space.id,
@@ -1048,7 +988,7 @@ mod tests {
     #[test]
     fn all_day_requires_no_times_but_timed_does() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
+        let space = crate::db::test_space(&conn, "Life");
         assert!(create_one_off_calendar_entry(
             &conn,
             space.id.clone(),
@@ -1080,7 +1020,7 @@ mod tests {
     #[test]
     fn multi_day_entry_spans_end_date() {
         let conn = setup();
-        let space = create_space(&conn, "Life".into(), None, "#000".into()).unwrap();
+        let space = crate::db::test_space(&conn, "Life");
         let entry = create_one_off_calendar_entry(
             &conn,
             space.id.clone(),
