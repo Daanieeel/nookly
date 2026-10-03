@@ -1,7 +1,7 @@
 import { SubmitDialogFooter } from "#/components/submit-dialog-footer.tsx";
 import { NameFormField } from "#/components/name-form-field.tsx";
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryKey, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 import { statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
@@ -31,8 +31,8 @@ export function CreateNameDialog({
   placeholder: string;
   emptyMessage: string;
   create: (spaceId: string, title: string) => Promise<Entity>;
-  listKey: readonly unknown[];
-  entitiesKey: readonly unknown[];
+  listKey: QueryKey;
+  entitiesKey: QueryKey;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);

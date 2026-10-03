@@ -1,7 +1,6 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
-import type { ComponentType, ReactNode } from "react";
+import type { FunctionComponent, ReactNode } from "react";
 import { DateInput } from "#/components/date-input.tsx";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { type FieldLike, FormField, fieldMessage } from "#/components/form-field.tsx";
 import { TimeInput } from "#/components/time-input.tsx";
 import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Label } from "@nookly/ui/components/label";
@@ -9,16 +8,23 @@ import { Label } from "@nookly/ui/components/label";
 /// A form these fields only read by name: the Calendar and Session forms each
 /// have their own value shape, but share `startTime` and `endTime`, and the
 /// Calendar form also has `allDay`.
-interface TimeFieldsForm<Name extends string> {
-  Field: ComponentType<{
-    name: Name;
-    children: (field: AnyFieldApi) => ReactNode;
+interface TimeFieldsForm {
+  Field: FunctionComponent<{
+    name: "startTime" | "endTime";
+    children: (field: FieldLike) => ReactNode;
+  }>;
+}
+
+interface AllDayFieldForm {
+  Field: FunctionComponent<{
+    name: "allDay";
+    children: (field: FieldLike<boolean>) => ReactNode;
   }>;
 }
 
 /// The Calendar form's `Subscribe`, read for its `allDay` value.
 interface AllDaySubscribe {
-  Subscribe: ComponentType<{
+  Subscribe: FunctionComponent<{
     selector: (state: { values: { allDay: boolean } }) => boolean;
     children: (allDay: boolean) => ReactNode;
   }>;
@@ -34,7 +40,7 @@ export function DateField({
   optional,
   className,
 }: {
-  field: AnyFieldApi;
+  field: FieldLike;
   label: string;
   ariaLabel: string;
   placeholder?: string;
@@ -61,7 +67,7 @@ export function TimeField({
   ariaLabel,
   className,
 }: {
-  field: AnyFieldApi;
+  field: FieldLike;
   label: string;
   ariaLabel: string;
   className?: string;
@@ -84,7 +90,7 @@ export function TimeRangeFields({
   form,
   inputClassName,
 }: {
-  form: TimeFieldsForm<"startTime" | "endTime">;
+  form: TimeFieldsForm;
   inputClassName?: string;
 }) {
   return (
@@ -114,7 +120,7 @@ export function AllDayTimeFields({
   form,
   idPrefix,
 }: {
-  form: TimeFieldsForm<"startTime" | "endTime" | "allDay"> & AllDaySubscribe;
+  form: TimeFieldsForm & AllDayFieldForm & AllDaySubscribe;
   idPrefix: string;
 }) {
   return (

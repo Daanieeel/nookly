@@ -1,6 +1,5 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
 import type { RefObject } from "react";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { type FieldLike, FormField, fieldMessage } from "#/components/form-field.tsx";
 import { Input } from "@nookly/ui/components/input";
 
 /// The required Name field of a create or rename dialog.
@@ -11,7 +10,7 @@ export function NameFormField({
   placeholder,
   className,
 }: {
-  field: AnyFieldApi;
+  field: FieldLike;
   id: string;
   inputRef: RefObject<HTMLInputElement | null>;
   placeholder: string;

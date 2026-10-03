@@ -1,5 +1,4 @@
 import { IconStack2 } from "@tabler/icons-react";
-import type { UseMutationResult } from "@tanstack/react-query";
 import { useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
@@ -9,6 +8,15 @@ import { Button } from "@nookly/ui/components/button";
 import { ViewDialog } from "./ViewDialog";
 import { serializeViewConfig } from "./view-config";
 import { viewTarget } from "./view-target";
+
+/// The part of a mutation the save bar reads, so any mutation without variables fits.
+export interface SaveMutation {
+  isPending: boolean;
+  isSuccess: boolean;
+  isError: boolean;
+  reset: () => void;
+  mutate: () => void;
+}
 
 /// A bar floating at the bottom of the page while it has unsaved filters or display
 /// options, with Discard and Save. On a saved View, Save updates it; on the plain
@@ -27,7 +35,7 @@ export function ViewSaveBar<D>({
 }: {
   view: SavedView | undefined;
   dirty: boolean;
-  save: UseMutationResult<unknown, Error, void>;
+  save: SaveMutation;
   onDiscard: () => void;
   /// Where "Save as view" saves, and the page's own module, filters and display.
   spaceId: string;

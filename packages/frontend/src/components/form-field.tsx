@@ -1,4 +1,3 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { FieldError } from "#/components/action-feedback.tsx";
@@ -10,9 +9,24 @@ const errorSchema = z.union([
   z.object({ message: z.string() }).transform((e) => e.message),
 ]);
 
+interface FieldMeta {
+  isTouched: boolean;
+  errors: unknown[];
+}
+
+/// The part of a TanStack field the form controls read and write. A real field
+/// satisfies it, so controls take this instead of the library's `any` based types.
+/// `errors` is `unknown[]` because validators may return anything; `fieldMessage`
+/// parses it.
+export interface FieldLike<T = string> {
+  state: { value: T; meta: FieldMeta };
+  handleChange: (value: T) => void;
+  handleBlur: () => void;
+}
+
 /// The first validation message of a TanStack field, once the user has touched it or
 /// tried to submit (submitting touches every field). `undefined` until then.
-export function fieldMessage(field: AnyFieldApi): string | undefined {
+export function fieldMessage(field: { state: { meta: FieldMeta } }): string | undefined {
   if (!field.state.meta.isTouched) return undefined;
   const first = errorSchema.safeParse(field.state.meta.errors[0]);
   return first.success ? first.data : undefined;
@@ -22,7 +36,7 @@ export function fieldMessage(field: AnyFieldApi): string | undefined {
 /// then, so a form that looks valid never has a disabled button:
 /// `<form.Subscribe selector={hasVisibleErrors}>{(blocked) => <Button disabled={blocked} />}</form.Subscribe>`.
 export function hasVisibleErrors(state: {
-  fieldMeta: Record<string, { isTouched: boolean; errors: unknown[] } | undefined>;
+  fieldMeta: Record<string, { isTouched: boolean; errors: { length: number } } | undefined>;
 }): boolean {
   return Object.values(state.fieldMeta).some(
     (meta) => meta !== undefined && meta.isTouched && meta.errors.length > 0,

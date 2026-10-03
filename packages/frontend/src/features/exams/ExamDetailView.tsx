@@ -1,7 +1,7 @@
 import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarTime, IconCards } from "@tabler/icons-react";
 import { StatusPropertyRow } from "#/features/tasks/StatusPropertyRow.tsx";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
@@ -307,7 +307,7 @@ function useExamTabs(exam: Entity): ExtraTab[] {
     .filter((b) => blockIds.has(b.entity.id))
     .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
 
-  const refresh = (bySpace: (spaceId: string) => readonly unknown[]) =>
+  const refresh = (bySpace: (spaceId: string) => QueryKey) =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: bySpace(spaceId) }),
       queryClient.invalidateQueries({ queryKey: qk.relationships.of(exam.id) }),

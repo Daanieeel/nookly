@@ -1,5 +1,5 @@
 import { IconAlertTriangle, IconPlus, IconTag, IconTrash } from "@tabler/icons-react";
-import { type AnyFieldApi, useForm } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useState } from "react";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import {
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
-import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
+import { type FieldLike, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
 import {
   AlertDialog,
@@ -81,7 +81,7 @@ function NewLabelInput({
   create,
   placeholder,
 }: {
-  field: AnyFieldApi;
+  field: FieldLike;
   create: { isError: boolean; reset: () => void };
   placeholder: string;
 }) {

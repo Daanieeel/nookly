@@ -1,10 +1,9 @@
 import { type Icon as TablerIcon, IconPlus } from "@tabler/icons-react";
-import type { UseMutationResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
 import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
-import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { type SaveMutation, ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { Button } from "@nookly/ui/components/button";
@@ -45,7 +44,7 @@ export function ModuleViewHeader<D>({
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
   dirty: boolean;
-  save: UseMutationResult<unknown, Error, void>;
+  save: SaveMutation;
   onDiscard: () => void;
   /// Where "Save as view" saves.
   spaceId: string;

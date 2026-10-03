@@ -4,7 +4,7 @@ let mermaidModule: Promise<typeof import("mermaid")> | null = null;
 let renderCount = 0;
 /// Mermaid keeps one global config, so renders run one at a time, each with
 /// the theme it needs.
-let queue: Promise<unknown> = Promise.resolve();
+let queue: Promise<string | null> = Promise.resolve(null);
 
 export function renderDiagram(
   source: string,
