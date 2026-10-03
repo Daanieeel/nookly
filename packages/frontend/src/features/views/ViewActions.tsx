@@ -3,7 +3,6 @@ import type { UseMutationResult } from "@tanstack/react-query";
 import { useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
-import type { Space } from "#/lib/api/types.ts";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { Button } from "@nookly/ui/components/button";
@@ -22,7 +21,6 @@ export function ViewSaveBar<D>({
   save,
   onDiscard,
   spaceId,
-  spaces,
   module,
   filters,
   display,
@@ -33,8 +31,6 @@ export function ViewSaveBar<D>({
   onDiscard: () => void;
   /// Where "Save as view" saves, and the page's own module, filters and display.
   spaceId: string;
-  /// Set on a cross-Space page, whose Views each live in one Space.
-  spaces?: Space[];
   module: ViewModule;
   filters: ActiveFilter[];
   display: D;
@@ -95,7 +91,6 @@ export function ViewSaveBar<D>({
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           spaceId={spaceId}
-          spaces={spaces}
           module={module}
           config={serializeViewConfig(filters, display)}
           onSaved={(created) =>

@@ -309,7 +309,6 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
           save={save}
           onDiscard={discard}
           spaceId={saveSpaceId}
-          spaces={spaces}
           module={TASKS_OVERVIEW}
           filters={filters}
           display={display}

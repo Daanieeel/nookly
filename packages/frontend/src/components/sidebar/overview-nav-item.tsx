@@ -153,7 +153,6 @@ export function OverviewNavItem({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         spaceId={spaces.find((s) => s.id === activeSpaceId)?.id ?? spaces[0]?.id ?? ""}
-        spaces={spaces}
         module={module}
         // A new View starts from the page's own defaults; the page takes it from there.
         config={serializeViewConfig([], {})}
