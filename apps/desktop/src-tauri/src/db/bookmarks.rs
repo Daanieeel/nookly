@@ -40,17 +40,6 @@ fn row_to_bookmark(row: &rusqlite::Row) -> rusqlite::Result<Bookmark> {
     })
 }
 
-fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT el.label_id FROM entity_labels el
-         JOIN labels l ON l.id = el.label_id
-         WHERE el.entity_id = ?1
-         ORDER BY l.name ASC",
-    )?;
-    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
 /// Stored immediately as a placeholder (§5.10) — metadata is filled in later,
 /// opportunistically, once network is available (see `update_metadata`).
 pub fn create_bookmark(conn: &Connection, space_id: String, url: String) -> AppResult<Bookmark> {
@@ -215,7 +204,7 @@ pub fn get_bookmark(conn: &Connection, entity_id: &str) -> AppResult<Bookmark> {
         row_to_bookmark,
     )
     .map_err(|_| AppError::NotFound(format!("bookmark {entity_id}")))?;
-    bookmark.label_ids = label_ids_for(conn, entity_id)?;
+    bookmark.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     Ok(bookmark)
 }
 
@@ -305,10 +294,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     fn setup() -> (Connection, String) {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         (conn, space.id)
     }

@@ -1,27 +1,17 @@
-import { qk } from "#/lib/query-keys.ts";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { StatusAnnouncer, StatusIcon } from "#/components/action-feedback.tsx";
-import { updateEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
+import { useUpdateViewEntity } from "./use-update-view-entity.ts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 
 /// A View's name in its page header, edited in place like a page title: saved when
 /// the field loses focus, Enter commits, Escape puts the saved name back.
 export function EditableViewTitle({ entity }: { entity: Entity }) {
-  const queryClient = useQueryClient();
   const [title, setTitle] = useState(entity.title);
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
 
-  const rename = useMutation({
-    mutationFn: (newTitle: string) => updateEntity(entity.id, { title: newTitle }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) });
-      queryClient.invalidateQueries({ queryKey: qk.views.byId(entity.id) });
-      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(entity.spaceId) });
-    },
-  });
+  const rename = useUpdateViewEntity(entity, (newTitle: string) => ({ title: newTitle }));
 
   const placeholder = `Untitled ${labelForType(entity.type)}`;
 

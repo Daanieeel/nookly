@@ -7,6 +7,7 @@ import {
   IconRestore,
   IconTrash,
 } from "@tabler/icons-react";
+import { AllDayTimeFields, DateField } from "../../sessions/calendar/date-time-form-fields";
 import { useForm } from "@tanstack/react-form";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -17,40 +18,21 @@ import { z } from "zod";
 import {
   FieldError,
   StatusAnnouncer,
-  StatusButtonContent,
   StatusIcon,
   statusOf,
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
-import { EntityIcon } from "#/components/entity-icon.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
-import { EntityMention } from "#/components/entity-mention.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
-import { Checkbox } from "@nookly/ui/components/checkbox";
-import { DateInput } from "#/components/date-input.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { TimeInput } from "#/components/time-input.tsx";
 import { Input } from "@nookly/ui/components/input";
-import { Label } from "@nookly/ui/components/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
-import { Tabs, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   type CalendarEntrySeriesPatch,
@@ -64,15 +46,13 @@ import type { CalendarEntry } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
-
-/// Which occurrences an edit reaches, mirroring `SessionPopover`'s `EditScope`.
-type EditScope = "this" | "following" | "upcoming";
-
-const SCOPES = [
-  { id: "this", label: "This one" },
-  { id: "following", label: "This and following" },
-  { id: "upcoming", label: "All upcoming" },
-] satisfies { id: EditScope; label: string }[];
+import {
+  CalendarItemPopover,
+  EditFormActions,
+  EditScopeTabs,
+  type EditScope,
+  SeriesTrashDialog,
+} from "../../calendar/popover-parts";
 
 const entryEditSchema = z
   .object({
@@ -117,46 +97,38 @@ export function CalendarEntryPopover({
   entry: CalendarEntry;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [seriesDeleteOpen, setSeriesDeleteOpen] = useState(false);
+  const { templateId } = entry;
 
   return (
-    <>
-      <Popover
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setEditing(false);
-        }}
-      >
-        <PopoverTrigger asChild>{children}</PopoverTrigger>
-        <PopoverContent align="start" className="flex w-80 flex-col text-sm">
-          {editing ? (
-            <CalendarEntryEditForm entry={entry} onDone={() => setEditing(false)} />
-          ) : (
-            <CalendarEntrySummary
-              entry={entry}
-              onEdit={() => setEditing(true)}
-              onDeleteSeries={() => {
-                setOpen(false);
-                setSeriesDeleteOpen(true);
-              }}
-              close={() => setOpen(false)}
-            />
-          )}
-        </PopoverContent>
-      </Popover>
-      {entry.templateId && (
-        <DeleteSeriesDialog
-          spaceId={spaceId}
-          entry={entry}
-          templateId={entry.templateId}
-          open={seriesDeleteOpen}
-          onOpenChange={setSeriesDeleteOpen}
-        />
-      )}
-    </>
+    <CalendarItemPopover
+      body={({ editing, setEditing, close, openSeriesDelete }) =>
+        editing ? (
+          <CalendarEntryEditForm entry={entry} onDone={() => setEditing(false)} />
+        ) : (
+          <CalendarEntrySummary
+            entry={entry}
+            onEdit={() => setEditing(true)}
+            onDeleteSeries={openSeriesDelete}
+            close={close}
+          />
+        )
+      }
+      seriesDialog={
+        templateId
+          ? ({ open, onOpenChange }) => (
+              <DeleteSeriesDialog
+                spaceId={spaceId}
+                entry={entry}
+                templateId={templateId}
+                open={open}
+                onOpenChange={onOpenChange}
+              />
+            )
+          : null
+      }
+    >
+      {children}
+    </CalendarItemPopover>
   );
 }
 
@@ -369,20 +341,12 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       }}
     >
       {templateId && (
-        // SAFETY: Radix only emits the `SCOPES` trigger values below.
-        <Tabs
+        <EditScopeTabs
           value={scope}
-          onValueChange={(next) => setScope(next as EditScope)}
+          onChange={setScope}
+          thisLabel="This one"
           className="col-span-2"
-        >
-          <TabsList size="sm" className="w-full">
-            {SCOPES.map((s) => (
-              <TabsTrigger key={s.id} value={s.id} size="sm">
-                {s.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        />
       )}
       <form.Field name="title">
         {(field) => (
@@ -406,77 +370,22 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       {scope === "this" && (
         <>
           <form.Field name="date">
-            {(field) => (
-              <FormField label="Starts" required error={fieldMessage(field)}>
-                <DateInput
-                  aria-label="Date"
-                  clearable={false}
-                  value={field.state.value || null}
-                  onChange={(day) => field.handleChange(day ?? "")}
-                />
-              </FormField>
-            )}
+            {(field) => <DateField field={field} label="Starts" ariaLabel="Date" />}
           </form.Field>
           <form.Field name="endDate">
             {(field) => (
-              <FormField label="Ends" error={fieldMessage(field)}>
-                <DateInput
-                  aria-label="End date"
-                  placeholder="Same day"
-                  value={field.state.value || null}
-                  onChange={(day) => field.handleChange(day ?? "")}
-                />
-              </FormField>
+              <DateField
+                field={field}
+                label="Ends"
+                ariaLabel="End date"
+                optional
+                placeholder="Same day"
+              />
             )}
           </form.Field>
         </>
       )}
-      <form.Field name="allDay">
-        {(field) => (
-          <div className="col-span-2 flex items-center gap-2">
-            <Checkbox
-              id="calendar-entry-all-day"
-              checked={field.state.value}
-              onCheckedChange={(v) => field.handleChange(v === true)}
-            />
-            <Label htmlFor="calendar-entry-all-day" className="font-normal">
-              All day
-            </Label>
-          </div>
-        )}
-      </form.Field>
-      <form.Subscribe selector={(state) => state.values.allDay}>
-        {(allDay) =>
-          !allDay && (
-            <>
-              <form.Field name="startTime">
-                {(field) => (
-                  <FormField label="Start time" required error={fieldMessage(field)}>
-                    <TimeInput
-                      aria-label="Start time"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={field.handleChange}
-                    />
-                  </FormField>
-                )}
-              </form.Field>
-              <form.Field name="endTime">
-                {(field) => (
-                  <FormField label="End time" required error={fieldMessage(field)}>
-                    <TimeInput
-                      aria-label="End time"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={field.handleChange}
-                    />
-                  </FormField>
-                )}
-              </form.Field>
-            </>
-          )
-        }
-      </form.Subscribe>
+      <AllDayTimeFields form={form} idPrefix="calendar-entry-edit" />
       <form.Field name="location">
         {(field) => (
           <FormField label="Location" htmlFor="calendar-entry-edit-location" className="col-span-2">
@@ -501,22 +410,16 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       <div className="col-span-2 empty:hidden">
         <FieldError message={save.isError && save.error.message} />
       </div>
-      <div className="col-span-2 flex justify-end gap-1">
-        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-          Cancel
-        </Button>
-        <form.Subscribe selector={hasVisibleErrors}>
-          {(blocked) => (
-            <Button type="submit" size="sm" disabled={blocked}>
-              <StatusButtonContent
-                status={statusOf(save)}
-                label="Save"
-                errorLabel="Couldn't save, try again"
-              />
-            </Button>
-          )}
-        </form.Subscribe>
-      </div>
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <EditFormActions
+            blocked={blocked}
+            status={statusOf(save)}
+            onDone={onDone}
+            className="col-span-2 flex justify-end gap-1"
+          />
+        )}
+      </form.Subscribe>
     </form>
   );
 }
@@ -541,57 +444,21 @@ function DeleteSeriesDialog({
     enabled: open,
   });
   const count = entries.filter((a) => a.templateId === templateId && a.date >= entry.date).length;
-  const remove = useMutation({
-    mutationFn: () => deleteCalendarEntrySeries(templateId, entry.date),
-    onSuccess: () => refreshEntries(queryClient, entry.entity.id),
-  });
-  useCloseAfterSuccess(remove, () => {
-    onOpenChange(false);
-    remove.reset();
-  });
-  const status = statusOf(remove);
-  const noun = count === 1 ? "entry" : "entries";
 
   return (
-    <AlertDialog
+    <SeriesTrashDialog
+      entity={entry.entity}
+      count={count}
+      nouns={{ one: "entry", many: "entries" }}
+      description={`The entry on ${formatShortDate(entry.date)} and every later one in the series go to Trash. Earlier ones stay. Restore them from Trash any time.`}
       open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) remove.reset();
+      onOpenChange={onOpenChange}
+      deleteSeries={async () => {
+        await deleteCalendarEntrySeries(templateId, entry.date);
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
-            Move {count} {noun} of
-            <EntityMention
-              icon={<EntityIcon entity={entry.entity} size={13} />}
-              label={displayTitle(entry.entity)}
-            />
-            to Trash?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            The entry on {formatShortDate(entry.date)} and every later one in the series go to
-            Trash. Earlier ones stay. Restore them from Trash any time.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={(e) => {
-              e.preventDefault();
-              if (status === "idle" || status === "error") remove.mutate();
-            }}
-          >
-            <StatusButtonContent
-              status={status}
-              label={`Move ${count} to Trash`}
-              errorLabel="Couldn't move to Trash, try again"
-            />
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      onDeleted={async () => {
+        await refreshEntries(queryClient, entry.entity.id);
+      }}
+    />
   );
 }

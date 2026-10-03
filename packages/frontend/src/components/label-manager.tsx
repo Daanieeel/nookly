@@ -1,5 +1,5 @@
 import { IconAlertTriangle, IconPlus, IconTag, IconTrash } from "@tabler/icons-react";
-import { useForm } from "@tanstack/react-form";
+import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useState } from "react";
 import { z } from "zod";
@@ -75,6 +75,32 @@ export function useCreateLabel(spaceId: string) {
   });
 }
 
+/// The name input of a new label form: clears a failed create as soon as the name changes.
+function NewLabelInput({
+  field,
+  create,
+  placeholder,
+}: {
+  field: AnyFieldApi;
+  create: { isError: boolean; reset: () => void };
+  placeholder: string;
+}) {
+  return (
+    <Input
+      autoFocus
+      value={field.state.value}
+      onBlur={field.handleBlur}
+      onChange={(e) => {
+        field.handleChange(e.target.value);
+        if (create.isError) create.reset();
+      }}
+      placeholder={placeholder}
+      aria-label="New label name"
+      className="pl-8"
+    />
+  );
+}
+
 const nameSchema = z.object({ name: z.string().trim().min(1, "Name the label") });
 
 /// A name field that creates a label on Enter, for surfaces without a picker of
@@ -123,18 +149,7 @@ export function NewLabelForm({
         </span>
         <form.Field name="name">
           {(field) => (
-            <Input
-              autoFocus
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(e) => {
-                field.handleChange(e.target.value);
-                if (create.isError) create.reset();
-              }}
-              placeholder="New label, press Enter"
-              aria-label="New label name"
-              className="pl-8"
-            />
+            <NewLabelInput field={field} create={create} placeholder="New label, press Enter" />
           )}
         </form.Field>
       </div>
@@ -227,18 +242,7 @@ export function LabelsDialog({
                       />
                       <form.Field name="name">
                         {(field) => (
-                          <Input
-                            autoFocus
-                            value={field.state.value}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => {
-                              field.handleChange(e.target.value);
-                              if (create.isError) create.reset();
-                            }}
-                            placeholder="New label"
-                            aria-label="New label name"
-                            className="pl-8"
-                          />
+                          <NewLabelInput field={field} create={create} placeholder="New label" />
                         )}
                       </form.Field>
                     </div>

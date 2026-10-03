@@ -1,5 +1,4 @@
 import { IconClockEdit, IconClockPlus, IconCalendarEvent, IconTagOff } from "@tabler/icons-react";
-import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { LabelDot } from "#/components/label-chip.tsx";
 import type { Label, Space, Task, TaskStatus } from "#/lib/api/types.ts";
@@ -12,8 +11,8 @@ import {
   type StatusKind,
   dayBucket,
 } from "./task-model";
-import { SpaceDot } from "#/components/space-chip.tsx";
 import { TaskStatusIcon } from "./task-properties";
+import { ageGroupDefs, spaceGroupDefs } from "./shared-view-defs";
 
 /// The groups a grouping splits tasks into, each with its header glyph. `null`
 /// for no grouping.
@@ -53,24 +52,15 @@ export function taskGroupDefs(
         },
       ];
     case "space":
-      return spaces.map((space) => ({
-        id: space.id,
-        name: space.name,
-        icon: (
-          <span className="flex size-3.5 items-center justify-center">
-            <SpaceDot space={space} />
-          </span>
-        ),
-        match: (t: Task) => t.entity.spaceId === space.id,
-      }));
+      return spaceGroupDefs(spaces, (t: Task) => t.entity.spaceId);
     case "start":
       return dateGroupDefs(START_BUCKETS, (t) => t.startDate, false);
     case "due":
       return dateGroupDefs(DUE_BUCKETS, (t) => t.dueDate, true);
     case "created":
-      return ageGroupDefs((t) => t.entity.createdAt, IconClockPlus);
+      return ageGroupDefs((t: Task) => t.entity.createdAt, IconClockPlus);
     case "updated":
-      return ageGroupDefs((t) => t.entity.updatedAt, IconClockEdit);
+      return ageGroupDefs((t: Task) => t.entity.updatedAt, IconClockEdit);
     case "none":
       return null;
   }
@@ -97,18 +87,5 @@ function dateGroupDefs(
       />
     ),
     match: (t) => dayBucket(day(t)) === b.id,
-  }));
-}
-
-/// One group per age bucket of a timestamp: today, this week, last week, earlier.
-function ageGroupDefs(
-  timestamp: (task: Task) => string,
-  Icon: typeof IconClockPlus,
-): GroupDef<Task>[] {
-  return AGE_BUCKETS.map((b) => ({
-    id: b.id,
-    name: b.label,
-    icon: <Icon size={14} className="text-muted-foreground" />,
-    match: (t) => ageBucket(timestamp(t)) === b.id,
   }));
 }

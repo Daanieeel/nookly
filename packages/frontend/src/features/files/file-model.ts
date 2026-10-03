@@ -12,6 +12,7 @@ import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { normalizeCardDisplay } from "#/lib/display-options.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { FILE_KINDS, fileKind } from "./file-kind";
@@ -47,9 +48,7 @@ export function readDisplay(): DisplayOptions {
     // back to the defaults below.
     const stored = raw ? (JSON.parse(raw) as Partial<DisplayOptions>) : {};
     return {
-      layout: stored.layout === "list" ? "list" : "grid",
-      grouping: GROUPINGS.find((g) => g.id === stored.grouping)?.id ?? DEFAULT_DISPLAY.grouping,
-      ordering: ORDERINGS.find((o) => o.id === stored.ordering)?.id ?? DEFAULT_DISPLAY.ordering,
+      ...normalizeCardDisplay(stored, DEFAULT_DISPLAY, GROUPINGS, ORDERINGS),
     };
   } catch {
     return DEFAULT_DISPLAY;

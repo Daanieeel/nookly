@@ -196,10 +196,7 @@ mod tests {
 
     #[test]
     fn create_and_list_space() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(
             &conn,
@@ -217,10 +214,7 @@ mod tests {
 
     #[test]
     fn update_space_patches_only_given_fields() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(
             &conn,
@@ -248,10 +242,7 @@ mod tests {
 
     #[test]
     fn delete_space_cascades_entities_and_labels() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let other = create_space(&conn, "Personal".into(), None, "#111".into()).unwrap();
@@ -281,10 +272,7 @@ mod tests {
 
     #[test]
     fn delete_space_errors_on_unknown_id() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         assert!(delete_space(&conn, "does-not-exist").is_err());
     }
 }

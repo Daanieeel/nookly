@@ -1,29 +1,20 @@
-import { IconAdjustmentsHorizontal, IconLayoutKanban, IconList } from "@tabler/icons-react";
-import type { ReactNode } from "react";
-import { Button } from "@nookly/ui/components/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
-import { Switch } from "@nookly/ui/components/switch";
-import { cn } from "@nookly/ui/lib/utils";
+  type BoardMenuProps,
+  BoardOrderingRows,
+  boardGroupings,
+  DisplayPopover,
+  LayoutTiles,
+  LIST_BOARD_TILES,
+  SelectRow,
+  SubGroupingRow,
+} from "#/features/display-menu.tsx";
 import {
   type DisplayOptions,
   GROUPINGS,
   type Grouping,
-  type Layout,
   ORDERINGS,
   validSubGrouping,
 } from "./assignment-model";
-
-const LAYOUT_TILES: { id: Layout; label: string; icon: typeof IconList }[] = [
-  { id: "list", label: "List", icon: IconList },
-  { id: "board", label: "Board", icon: IconLayoutKanban },
-];
 
 /// The "Display" popover, as on the Tasks page: layout, grouping, sub-grouping
 /// and empty groups.
@@ -32,161 +23,45 @@ export function AssignmentDisplayMenu({
   onChange,
   columns,
   crossSpace = false,
-}: {
-  display: DisplayOptions;
-  onChange: (display: DisplayOptions) => void;
-  /// Every board column, so any of them can be hidden or brought back.
-  columns: { id: string; name: string }[];
-  /// The cross-Space overview can group by Space; a Space's own page can't.
-  crossSpace?: boolean;
-}) {
+}: BoardMenuProps<DisplayOptions>) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...display, ...patch });
   const available = GROUPINGS.filter((g) => crossSpace || g.id !== "space");
-  const groupings = available.filter((g) => display.layout === "list" || g.id !== "none");
-  const subGroupings = available.filter((g) => g.id !== display.grouping);
+  const { groupings, subGroupings } = boardGroupings(available, display);
   const setGrouping = (grouping: Grouping, layout = display.layout) =>
     set({ layout, grouping, subGrouping: validSubGrouping(grouping, display.subGrouping) });
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="secondary" size="sm" className="gap-1.5">
-          <IconAdjustmentsHorizontal />
-          Display
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
-        <div className="grid grid-cols-2 gap-2">
-          {LAYOUT_TILES.map((tile) => (
-            <button
-              key={tile.id}
-              type="button"
-              aria-pressed={display.layout === tile.id}
-              onClick={() =>
-                setGrouping(
-                  // A board opens on status columns, which cards can be dragged
-                  // between, unless it already groups by something draggable.
-                  tile.id === "board" && display.layout !== "board" && display.grouping !== "course"
-                    ? "status"
-                    : display.grouping,
-                  tile.id,
-                )
-              }
-              className={cn(
-                "flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
-                display.layout === tile.id && "border-foreground/20 bg-accent text-foreground",
-              )}
-            >
-              <tile.icon size={16} />
-              {tile.label}
-            </button>
-          ))}
-        </div>
-
-        <OptionRow label="Grouping">
-          <Select
-            value={display.grouping}
-            onValueChange={(v) => setGrouping(groupings.find((g) => g.id === v)?.id ?? "deadline")}
-          >
-            <SelectTrigger size="sm" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {groupings.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  <g.icon />
-                  {g.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </OptionRow>
-
-        {display.grouping !== "none" && (
-          <OptionRow label="Sub-grouping">
-            <Select
-              value={display.subGrouping}
-              onValueChange={(v) =>
-                set({ subGrouping: subGroupings.find((g) => g.id === v)?.id ?? "none" })
-              }
-            >
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {subGroupings.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    <g.icon />
-                    {g.id === "none" ? "No sub-grouping" : g.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </OptionRow>
-        )}
-
-        <OptionRow label="Ordering">
-          <Select
-            value={display.ordering}
-            onValueChange={(v) =>
-              set({ ordering: ORDERINGS.find((o) => o.id === v)?.id ?? "auto" })
-            }
-          >
-            <SelectTrigger size="sm" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ORDERINGS.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  <o.icon />
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </OptionRow>
-
-        {display.grouping !== "none" && (
-          <OptionRow label="Show empty groups">
-            <Switch
-              checked={display.showEmpty[display.layout]}
-              onCheckedChange={(checked) =>
-                set({ showEmpty: { ...display.showEmpty, [display.layout]: checked } })
-              }
-            />
-          </OptionRow>
-        )}
-
-        {display.layout === "board" && columns.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-xs text-muted-foreground">Columns</span>
-            {columns.map((column) => (
-              <OptionRow key={column.id} label={column.name}>
-                <Switch
-                  aria-label={`Show ${column.name} column`}
-                  checked={!display.hiddenColumns.includes(column.id)}
-                  onCheckedChange={(checked) =>
-                    set({
-                      hiddenColumns: checked
-                        ? display.hiddenColumns.filter((id) => id !== column.id)
-                        : [...display.hiddenColumns, column.id],
-                    })
-                  }
-                />
-              </OptionRow>
-            ))}
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function OptionRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      {children}
-    </div>
+    <DisplayPopover variant="secondary" wide>
+      <LayoutTiles
+        tiles={LIST_BOARD_TILES}
+        value={display.layout}
+        onSelect={(id) =>
+          setGrouping(
+            // A board opens on status columns, which cards can be dragged
+            // between, unless it already groups by something draggable.
+            id === "board" && display.layout !== "board" && display.grouping !== "course"
+              ? "status"
+              : display.grouping,
+            id,
+          )
+        }
+      />
+      <SelectRow
+        label="Grouping"
+        value={display.grouping}
+        options={groupings}
+        fallback="deadline"
+        wide
+        onChange={setGrouping}
+      />
+      <SubGroupingRow display={display} options={subGroupings} set={set} />
+      <BoardOrderingRows
+        display={display}
+        orderings={ORDERINGS}
+        fallback="auto"
+        columns={columns}
+        set={set}
+      />
+    </DisplayPopover>
   );
 }

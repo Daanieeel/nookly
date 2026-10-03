@@ -1,15 +1,10 @@
 import { useForm } from "@tanstack/react-form";
+import { AllDayTimeFields, DateField } from "../../sessions/calendar/date-time-form-fields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMonths, addWeeks, format } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
-import {
-  FieldError,
-  StatusButtonContent,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
-import { DateInput } from "#/components/date-input.tsx";
+import { FieldError, statusOf } from "#/components/action-feedback.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
 import {
@@ -18,18 +13,7 @@ import {
   generateCalendarEntryOccurrences,
 } from "#/lib/api/calendarEntries.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
-import { Button } from "@nookly/ui/components/button";
-import { Checkbox } from "@nookly/ui/components/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
-import { TimeInput } from "#/components/time-input.tsx";
 import { Input } from "@nookly/ui/components/input";
-import { Label } from "@nookly/ui/components/label";
 import {
   Select,
   SelectContent,
@@ -37,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@nookly/ui/components/select";
+import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
 import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -198,216 +183,129 @@ export function QuickCreateCalendarEntryDialog({
     },
   });
   const createStatus = statusOf(create);
-  useCloseAfterSuccess(create, () => {
-    onOpenChange(false);
-    create.reset();
-  });
 
   return (
-    <Dialog
+    <QuickCreateDialogShell
       open={draft !== null}
-      onOpenChange={(open) => {
-        onOpenChange(open);
-        if (!open) create.reset();
-      }}
+      onOpenChange={onOpenChange}
+      create={create}
+      title="New calendar entry"
+      submitLabel="Create calendar entry"
+      successLabel="Entry created"
+      onSubmit={() => void form.handleSubmit()}
+      renderSubmitBlocked={(render) => (
+        <form.Subscribe selector={hasVisibleErrors}>{render}</form.Subscribe>
+      )}
+      formClassName="grid grid-cols-2 gap-3"
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>New calendar entry</DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void form.handleSubmit();
-          }}
-          className="grid grid-cols-2 gap-3"
-        >
-          {spaceId === undefined && (
-            <form.Field name="targetSpaceId">
+      {spaceId === undefined && (
+        <form.Field name="targetSpaceId">
+          {(field) => (
+            <FormField label="Space" required error={fieldMessage(field)} className="col-span-2">
+              <Select value={field.state.value} onValueChange={field.handleChange}>
+                <SelectTrigger className="w-full" aria-label="Space">
+                  <SelectValue placeholder="Pick a Space…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {spaces.map((space) => (
+                    <SelectItem key={space.id} value={space.id}>
+                      <span className="flex items-center gap-2">
+                        <SpaceGlyph space={space} size={14} />
+                        {space.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
+        </form.Field>
+      )}
+      <form.Field name="title">
+        {(field) => (
+          <FormField
+            label="Title"
+            required
+            htmlFor="calendar-entry-create-title"
+            error={fieldMessage(field)}
+            className="col-span-2"
+          >
+            <Input
+              id="calendar-entry-create-title"
+              ref={titleRef}
+              placeholder="e.g. Dentist"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
+        )}
+      </form.Field>
+      <form.Field name="date">
+        {(field) => <DateField field={field} label="Starts" ariaLabel="Date" />}
+      </form.Field>
+      <form.Field name="endDate">
+        {(field) => (
+          <DateField
+            field={field}
+            label="Ends"
+            ariaLabel="End date"
+            optional
+            placeholder="Same day"
+          />
+        )}
+      </form.Field>
+      <AllDayTimeFields form={form} idPrefix="calendar-entry-create" />
+      <form.Subscribe selector={(state) => Boolean(state.values.endDate)}>
+        {(spansDays) => (
+          <>
+            <form.Field name="location">
               {(field) => (
                 <FormField
-                  label="Space"
-                  required
-                  error={fieldMessage(field)}
-                  className="col-span-2"
+                  label="Location"
+                  htmlFor="calendar-entry-create-location"
+                  className={spansDays ? "col-span-2" : undefined}
                 >
-                  <Select value={field.state.value} onValueChange={field.handleChange}>
-                    <SelectTrigger className="w-full" aria-label="Space">
-                      <SelectValue placeholder="Pick a Space…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {spaces.map((space) => (
-                        <SelectItem key={space.id} value={space.id}>
-                          <span className="flex items-center gap-2">
-                            <SpaceGlyph space={space} size={14} />
-                            {space.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="calendar-entry-create-location"
+                    placeholder="Optional"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
                 </FormField>
               )}
             </form.Field>
-          )}
-          <form.Field name="title">
-            {(field) => (
-              <FormField
-                label="Title"
-                required
-                htmlFor="calendar-entry-create-title"
-                error={fieldMessage(field)}
-                className="col-span-2"
-              >
-                <Input
-                  id="calendar-entry-create-title"
-                  ref={titleRef}
-                  placeholder="e.g. Dentist"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-          <form.Field name="date">
-            {(field) => (
-              <FormField label="Starts" required error={fieldMessage(field)}>
-                <DateInput
-                  aria-label="Date"
-                  clearable={false}
-                  value={field.state.value || null}
-                  onChange={(day) => field.handleChange(day ?? "")}
-                />
-              </FormField>
-            )}
-          </form.Field>
-          <form.Field name="endDate">
-            {(field) => (
-              <FormField label="Ends" error={fieldMessage(field)}>
-                <DateInput
-                  aria-label="End date"
-                  placeholder="Same day"
-                  value={field.state.value || null}
-                  onChange={(day) => field.handleChange(day ?? "")}
-                />
-              </FormField>
-            )}
-          </form.Field>
-          <form.Field name="allDay">
-            {(field) => (
-              <div className="col-span-2 flex items-center gap-2">
-                <Checkbox
-                  id="calendar-entry-create-all-day"
-                  checked={field.state.value}
-                  onCheckedChange={(v) => field.handleChange(v === true)}
-                />
-                <Label htmlFor="calendar-entry-create-all-day" className="font-normal">
-                  All day
-                </Label>
-              </div>
-            )}
-          </form.Field>
-          <form.Subscribe selector={(state) => state.values.allDay}>
-            {(allDay) =>
-              !allDay && (
-                <>
-                  <form.Field name="startTime">
-                    {(field) => (
-                      <FormField label="Start time" required error={fieldMessage(field)}>
-                        <TimeInput
-                          aria-label="Start time"
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={field.handleChange}
-                        />
-                      </FormField>
-                    )}
-                  </form.Field>
-                  <form.Field name="endTime">
-                    {(field) => (
-                      <FormField label="End time" required error={fieldMessage(field)}>
-                        <TimeInput
-                          aria-label="End time"
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={field.handleChange}
-                        />
-                      </FormField>
-                    )}
-                  </form.Field>
-                </>
-              )
-            }
-          </form.Subscribe>
-          <form.Subscribe selector={(state) => Boolean(state.values.endDate)}>
-            {(spansDays) => (
-              <>
-                <form.Field name="location">
-                  {(field) => (
-                    <FormField
-                      label="Location"
-                      htmlFor="calendar-entry-create-location"
-                      className={spansDays ? "col-span-2" : undefined}
+            {!spansDays && (
+              <form.Field name="recurrence">
+                {(field) => (
+                  <FormField label="Repeat">
+                    <Select
+                      value={field.state.value}
+                      // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
+                      onValueChange={(v) => field.handleChange(v as Recurrence)}
                     >
-                      <Input
-                        id="calendar-entry-create-location"
-                        placeholder="Optional"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                      />
-                    </FormField>
-                  )}
-                </form.Field>
-                {!spansDays && (
-                  <form.Field name="recurrence">
-                    {(field) => (
-                      <FormField label="Repeat">
-                        <Select
-                          value={field.state.value}
-                          // SAFETY: Radix only emits the `RECURRENCE_OPTIONS` values below.
-                          onValueChange={(v) => field.handleChange(v as Recurrence)}
-                        >
-                          <SelectTrigger className="w-full" aria-label="Repeat">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {RECURRENCE_OPTIONS.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormField>
-                    )}
-                  </form.Field>
+                      <SelectTrigger className="w-full" aria-label="Repeat">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RECURRENCE_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
                 )}
-              </>
+              </form.Field>
             )}
-          </form.Subscribe>
-          <div className="col-span-2 empty:hidden">
-            <FieldError message={create.isError && create.error.message} />
-          </div>
-          {/* Lets Enter submit from any field. */}
-          <button type="submit" hidden aria-label="Create calendar entry" />
-        </form>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
-                <StatusButtonContent
-                  status={createStatus}
-                  label="Create"
-                  successLabel="Entry created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </>
+        )}
+      </form.Subscribe>
+      <div className="col-span-2 empty:hidden">
+        <FieldError message={create.isError && create.error.message} />
+      </div>
+    </QuickCreateDialogShell>
   );
 }

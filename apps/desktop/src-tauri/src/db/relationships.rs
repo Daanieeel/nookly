@@ -231,11 +231,7 @@ mod tests {
     }
 
     fn setup() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
-        conn
+        crate::db::test_conn()
     }
 
     fn make_entity(conn: &Connection, space_id: &str) -> super::super::entities::Entity {

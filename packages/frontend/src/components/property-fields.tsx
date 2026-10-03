@@ -2,6 +2,7 @@ import { IconX } from "@tabler/icons-react";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { useEffect, useState } from "react";
 import { StatusIcon } from "#/components/action-feedback.tsx";
+import { useInPlaceInput } from "#/components/use-in-place-input.ts";
 import { PROPERTY_VALUE } from "#/components/property-row.tsx";
 import { NumberInput } from "@nookly/ui/components/number-input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -125,29 +126,18 @@ export function TextProperty({
   placeholder: string;
   label: string;
 }) {
-  const [draft, setDraft] = useState(value ?? "");
-  useEffect(() => setDraft(value ?? ""), [value]);
-
-  function save() {
-    const next = draft.trim() || null;
-    if (next !== value) onSave(next);
-  }
+  const input = useInPlaceInput({
+    value: value ?? "",
+    commit: (draft) => {
+      const next = draft.trim() || null;
+      if (next !== value) onSave(next);
+    },
+  });
 
   return (
     <div className="relative flex items-center">
       <input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") {
-            const input = e.currentTarget;
-            setDraft(value ?? "");
-            // After the reset renders, so the blur saves nothing.
-            requestAnimationFrame(() => input.blur());
-          }
-        }}
+        {...input}
         placeholder={placeholder}
         aria-label={failed ? `Couldn't save ${label}, try again` : label}
         aria-invalid={failed || undefined}

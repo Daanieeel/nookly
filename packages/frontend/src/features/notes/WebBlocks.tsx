@@ -23,13 +23,13 @@ import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { createBookmark, fetchBookmarkMetadata, getBookmark } from "#/lib/api/bookmarks.ts";
 import type { Bookmark, Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import { asString, type JSONAttrValue } from "./block-markdown";
+import { ToolbarButton } from "./ToolbarButton";
 import { embedTarget } from "./embed-providers";
 
 export interface WebBlockOptions {
@@ -47,33 +47,6 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
-}
-
-function ToolbarButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="secondary"
-          size="iconSm"
-          aria-label={label}
-          onClick={onClick}
-          className="size-7"
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
 }
 
 /// The empty state of both blocks: a URL field, plus whatever else `children` offers.

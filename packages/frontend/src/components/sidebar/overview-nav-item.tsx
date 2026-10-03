@@ -6,7 +6,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { IconChevronRight, IconPlus, type Icon as TablerIcon } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -31,6 +31,7 @@ import {
 import { qk } from "#/lib/query-keys.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
 import { ViewRow } from "./expandable-module-children";
+import { reorderedViews } from "./reorder-views.ts";
 
 /// A cross-Space page's sidebar row, collapsible like a module row inside a Space: a
 /// chevron reveals its saved Views (drag to reorder) and a "New view" row. The Views
@@ -84,18 +85,14 @@ export function OverviewNavItem({
     mutationFn: (ids: string[]) => reorderOverviewViews(module, ids),
     // Also puts the list back in the saved order when the reorder was refused.
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["views"] });
+      await queryClient.invalidateQueries({ queryKey: qk.views.root });
       setDropped(null);
     },
   });
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const ids = views.map((v) => v.entity.id);
-    const from = ids.indexOf(String(active.id));
-    const to = ids.indexOf(String(over.id));
-    if (from === -1 || to === -1) return;
-    const next = arrayMove(ids, from, to);
+  function handleDragEnd(event: DragEndEvent) {
+    const next = reorderedViews(views, event)?.map((v) => v.entity.id);
+    if (!next) return;
     setDropped(next);
     reorder.mutate(next);
   }

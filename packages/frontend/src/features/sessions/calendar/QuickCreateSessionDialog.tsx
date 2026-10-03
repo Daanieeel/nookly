@@ -1,28 +1,15 @@
 import { IconBook2, IconChevronDown } from "@tabler/icons-react";
+import { DateField, TimeRangeFields } from "./date-time-form-fields";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse } from "date-fns";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
-import {
-  FieldError,
-  StatusButtonContent,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
-import { DateInput } from "#/components/date-input.tsx";
+import { FieldError, statusOf } from "#/components/action-feedback.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
-import { TimeInput } from "#/components/time-input.tsx";
 import { Input } from "@nookly/ui/components/input";
 import {
   createOneOffSession,
@@ -31,6 +18,7 @@ import {
 } from "#/lib/api/sessions.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
 import { type SlotRange, minutesToTime } from "./calendar-model";
 import {
   CADENCE_STEPS,
@@ -197,160 +185,99 @@ export function QuickCreateSessionDialog({
     },
   });
   const createStatus = statusOf(create);
-  useCloseAfterSuccess(create, () => {
-    onOpenChange(false);
-    create.reset();
-  });
 
   return (
-    <Dialog
+    <QuickCreateDialogShell
       open={draft !== null}
-      onOpenChange={(open) => {
-        onOpenChange(open);
-        if (!open) create.reset();
-      }}
+      onOpenChange={onOpenChange}
+      create={create}
+      title="New session"
+      submitLabel="Create session"
+      successLabel="Session created"
+      onSubmit={() => void form.handleSubmit()}
+      renderSubmitBlocked={(render) => (
+        <form.Subscribe selector={hasVisibleErrors}>{render}</form.Subscribe>
+      )}
+      formClassName="flex flex-col gap-3"
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>New session</DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void form.handleSubmit();
-          }}
-          className="flex flex-col gap-3"
-        >
-          <form.Field name="title">
-            {(field) => (
-              <FormField label="Title" required htmlFor="session-title" error={fieldMessage(field)}>
-                <Input
-                  id="session-title"
-                  ref={titleRef}
-                  placeholder="e.g. Algorithms I"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-          <div className="grid grid-cols-2 gap-3">
-            <form.Field name="course">
-              {(field) => (
-                <FormField label="Course" required error={fieldMessage(field)}>
-                  <EntityPickerPopover
-                    spaceId={spaceId}
-                    typeFilter="course"
-                    trigger={
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        data-field-control
-                        className="h-8 justify-start px-3 font-normal"
-                      >
-                        {field.state.value ? (
-                          <EntityIcon entity={field.state.value} size={16} />
-                        ) : (
-                          <IconBook2 className="text-muted-foreground" />
-                        )}
-                        <span
-                          className={cn("truncate", !field.state.value && "text-muted-foreground")}
-                        >
-                          {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
-                        </span>
-                        <IconChevronDown className="ml-auto text-muted-foreground" />
-                      </Button>
-                    }
-                    onSelect={field.handleChange}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="date">
-              {(field) => (
-                <FormField label="Date" required error={fieldMessage(field)}>
-                  <DateInput
-                    aria-label="Date"
-                    clearable={false}
-                    value={field.state.value || null}
-                    onChange={(day) => field.handleChange(day ?? "")}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="startTime">
-              {(field) => (
-                <FormField label="Starts" required error={fieldMessage(field)}>
-                  <TimeInput
-                    aria-label="Start time"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={field.handleChange}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="endTime">
-              {(field) => (
-                <FormField label="Ends" required error={fieldMessage(field)}>
-                  <TimeInput
-                    aria-label="End time"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={field.handleChange}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-          </div>
-          <form.Field name="location">
-            {(field) => (
-              <FormField label="Location" htmlFor="session-location">
-                <Input
-                  id="session-location"
-                  placeholder="Room..."
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-          <FieldError message={create.isError && create.error.message} />
-          <form.Subscribe selector={(state) => state.values}>
-            {(values) => (
-              <FormField label="Repeat">
-                <RepeatChip
-                  value={values}
-                  onChange={(repeat) => {
-                    form.setFieldValue("cadence", repeat.cadence);
-                    form.setFieldValue("durationCount", repeat.durationCount);
-                    form.setFieldValue("durationUnit", repeat.durationUnit);
-                  }}
-                />
-              </FormField>
-            )}
-          </form.Subscribe>
-          {/* Lets Enter submit from any field. */}
-          <button type="submit" hidden aria-label="Create session" />
-        </form>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
-                <StatusButtonContent
-                  status={createStatus}
-                  label="Create"
-                  successLabel="Session created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <form.Field name="title">
+        {(field) => (
+          <FormField label="Title" required htmlFor="session-title" error={fieldMessage(field)}>
+            <Input
+              id="session-title"
+              ref={titleRef}
+              placeholder="e.g. Algorithms I"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
+        )}
+      </form.Field>
+      <div className="grid grid-cols-2 gap-3">
+        <form.Field name="course">
+          {(field) => (
+            <FormField label="Course" required error={fieldMessage(field)}>
+              <EntityPickerPopover
+                spaceId={spaceId}
+                typeFilter="course"
+                trigger={
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    data-field-control
+                    className="h-8 justify-start px-3 font-normal"
+                  >
+                    {field.state.value ? (
+                      <EntityIcon entity={field.state.value} size={16} />
+                    ) : (
+                      <IconBook2 className="text-muted-foreground" />
+                    )}
+                    <span className={cn("truncate", !field.state.value && "text-muted-foreground")}>
+                      {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
+                    </span>
+                    <IconChevronDown className="ml-auto text-muted-foreground" />
+                  </Button>
+                }
+                onSelect={field.handleChange}
+              />
+            </FormField>
+          )}
+        </form.Field>
+        <form.Field name="date">
+          {(field) => <DateField field={field} label="Date" ariaLabel="Date" />}
+        </form.Field>
+        <TimeRangeFields form={form} />
+      </div>
+      <form.Field name="location">
+        {(field) => (
+          <FormField label="Location" htmlFor="session-location">
+            <Input
+              id="session-location"
+              placeholder="Room..."
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
+        )}
+      </form.Field>
+      <FieldError message={create.isError && create.error.message} />
+      <form.Subscribe selector={(state) => state.values}>
+        {(values) => (
+          <FormField label="Repeat">
+            <RepeatChip
+              value={values}
+              onChange={(repeat) => {
+                form.setFieldValue("cadence", repeat.cadence);
+                form.setFieldValue("durationCount", repeat.durationCount);
+                form.setFieldValue("durationUnit", repeat.durationUnit);
+              }}
+            />
+          </FormField>
+        )}
+      </form.Subscribe>
+    </QuickCreateDialogShell>
   );
 }

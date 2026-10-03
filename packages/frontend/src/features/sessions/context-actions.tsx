@@ -1,4 +1,5 @@
 import { IconCalendarX, IconClockEdit, IconPlus, IconRestore } from "@tabler/icons-react";
+import { DateField, TimeRangeFields } from "./calendar/date-time-form-fields";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
@@ -10,9 +11,7 @@ import {
 } from "#/components/action-feedback.tsx";
 import { registerActions, registerEntityType } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
-import { DateInput } from "#/components/date-input.tsx";
-import { TimeInput } from "#/components/time-input.tsx";
+import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { listSessions, overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock } from "#/lib/datetime.ts";
@@ -90,44 +89,10 @@ function RescheduleForm({
       }}
     >
       <form.Field name="date">
-        {(field) => (
-          <FormField label="Date" required error={fieldMessage(field)}>
-            <DateInput
-              aria-label="Date"
-              clearable={false}
-              value={field.state.value || null}
-              onChange={(day) => field.handleChange(day ?? "")}
-            />
-          </FormField>
-        )}
+        {(field) => <DateField field={field} label="Date" ariaLabel="Date" />}
       </form.Field>
       <div className="grid grid-cols-2 gap-2">
-        <form.Field name="startTime">
-          {(field) => (
-            <FormField label="Starts" required error={fieldMessage(field)}>
-              <TimeInput
-                aria-label="Start time"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-                className="h-8"
-              />
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="endTime">
-          {(field) => (
-            <FormField label="Ends" required error={fieldMessage(field)}>
-              <TimeInput
-                aria-label="End time"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-                className="h-8"
-              />
-            </FormField>
-          )}
-        </form.Field>
+        <TimeRangeFields form={form} inputClassName="h-8" />
       </div>
       <FieldError message={move.isError && move.error.message} />
       <form.Subscribe selector={hasVisibleErrors}>

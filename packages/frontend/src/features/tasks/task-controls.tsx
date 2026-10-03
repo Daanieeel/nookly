@@ -16,11 +16,10 @@ import {
 import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import type { Label, Space, Task, TaskStatus } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { DuePill } from "./DuePill";
 import { type StatusKind, dueTone, sortStatuses, statusKind } from "./task-model";
 import {
   DueDateButton,
-  DueDatePicker,
-  DueLabel,
   EffortPicker,
   LabelsPicker,
   PendingIcon,
@@ -130,35 +129,30 @@ export function TaskStatusControl({ task, size = 14 }: { task: Task; size?: numb
   );
 }
 
-/// The due date pill, which opens the date picker. Hidden while the task has none.
-export function TaskDueControl({ task }: { task: Task }) {
-  const { kindOf } = useTasksData();
+/// Sets a task's due date, keeping its start date.
+function useSetTaskDueDate(task: Task) {
   const refresh = useRefreshTasks(task.entity.spaceId);
-  const change = useMutation({
+  return useMutation({
     mutationFn: (dueDate: string | null) =>
       updateTaskDates(task.entity.id, task.startDate, dueDate),
     onSuccess: refresh,
   });
+}
+
+/// The due date pill, which opens the date picker. Hidden while the task has none.
+export function TaskDueControl({ task }: { task: Task }) {
+  const { kindOf } = useTasksData();
+  const change = useSetTaskDueDate(task);
   if (!task.dueDate && !change.isError) return null;
   return (
-    <DueDatePicker value={task.dueDate} onSelect={(day) => change.mutate(day)}>
-      <button
-        type="button"
-        aria-label={change.isError ? "Couldn't set due date, try again" : "Change Due Date"}
-        className={cn(PROPERTY_PILL, "relative", change.isError && "border-destructive/60")}
-      >
-        {change.isPending || change.isError ? (
-          <>
-            <PendingIcon pending={change.isPending} failed={change.isError} idle={null} />
-            {task.dueDate ? "Due date" : "Set due date"}
-          </>
-        ) : (
-          task.dueDate && (
-            <DueLabel day={task.dueDate} tone={dueTone(task, kindOf(task.statusId))} />
-          )
-        )}
-      </button>
-    </DueDatePicker>
+    <DuePill
+      value={task.dueDate}
+      tone={dueTone(task, kindOf(task.statusId))}
+      pendingLabel={task.dueDate ? "Due date" : "Set due date"}
+      pending={change.isPending}
+      failed={change.isError}
+      onSelect={(day) => change.mutate(day)}
+    />
   );
 }
 
@@ -166,12 +160,7 @@ export function TaskDueControl({ task }: { task: Task }) {
 /// picker (also on rows without one), then how far away it is.
 export function TaskDueColumns({ task }: { task: Task }) {
   const { kindOf } = useTasksData();
-  const refresh = useRefreshTasks(task.entity.spaceId);
-  const change = useMutation({
-    mutationFn: (dueDate: string | null) =>
-      updateTaskDates(task.entity.id, task.startDate, dueDate),
-    onSuccess: refresh,
-  });
+  const change = useSetTaskDueDate(task);
   const kind = kindOf(task.statusId);
   return (
     <DueColumns
@@ -189,6 +178,17 @@ export function TaskDueColumns({ task }: { task: Task }) {
   );
 }
 
+/// Attaches or detaches a label of a task, then refreshes the tasks.
+export function useToggleTaskLabel(task: Task, refresh: ReturnType<typeof useRefreshTasks>) {
+  return useMutation({
+    mutationFn: async (labelId: string) => {
+      if (task.labelIds.includes(labelId)) await detachLabel(task.entity.id, labelId);
+      else await attachLabel(task.entity.id, labelId);
+      await refresh();
+    },
+  });
+}
+
 const MAX_CHIPS = 3;
 
 /// The task's labels as quiet chips; clicking them opens the labels picker.
@@ -201,13 +201,7 @@ export function TaskLabelsControl({
 }) {
   const { spaceId, labels, labelById } = useTasksData();
   const refresh = useRefreshTasks(spaceId);
-  const toggle = useMutation({
-    mutationFn: async (labelId: string) => {
-      if (task.labelIds.includes(labelId)) await detachLabel(task.entity.id, labelId);
-      else await attachLabel(task.entity.id, labelId);
-      await refresh();
-    },
-  });
+  const toggle = useToggleTaskLabel(task, refresh);
   const createLabel = useCreateLabel(spaceId);
   const attached = task.labelIds.flatMap((id) => labelById.get(id) ?? []);
   if (attached.length === 0) return null;

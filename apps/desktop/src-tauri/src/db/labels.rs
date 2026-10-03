@@ -162,6 +162,18 @@ pub fn list_entities_for_label(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Label ids on one entity, ordered by label name.
+pub fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT el.label_id FROM entity_labels el
+         JOIN labels l ON l.id = el.label_id
+         WHERE el.entity_id = ?1
+         ORDER BY l.name ASC",
+    )?;
+    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,10 +182,7 @@ mod tests {
 
     #[test]
     fn attach_and_list_labels_for_entity() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let entity = create_entity(
@@ -200,10 +209,7 @@ mod tests {
 
     #[test]
     fn list_entities_for_label_is_the_reverse_lookup() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let tagged = create_entity(

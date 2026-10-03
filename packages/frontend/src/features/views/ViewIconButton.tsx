@@ -1,22 +1,12 @@
-import { qk } from "#/lib/query-keys.ts";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatusAnnouncer, StatusIcon } from "#/components/action-feedback.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
-import { updateEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
+import { useUpdateViewEntity } from "./use-update-view-entity.ts";
 
 /// A View's icon in its page header; clicking it opens the icon and color picker.
 export function ViewIconButton({ entity }: { entity: Entity }) {
-  const queryClient = useQueryClient();
-  const setIcon = useMutation({
-    mutationFn: (icon: string | null) => updateEntity(entity.id, { icon: icon ?? "" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) });
-      queryClient.invalidateQueries({ queryKey: qk.views.byId(entity.id) });
-      queryClient.invalidateQueries({ queryKey: qk.views.bySpace(entity.spaceId) });
-    },
-  });
+  const setIcon = useUpdateViewEntity(entity, (icon: string | null) => ({ icon: icon ?? "" }));
   const failed = setIcon.isError;
 
   return (

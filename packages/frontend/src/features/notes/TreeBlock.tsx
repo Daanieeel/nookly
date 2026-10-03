@@ -3,14 +3,8 @@ import type { ReactNodeViewProps } from "@tiptap/react";
 import type { KeyboardEvent } from "react";
 import { cn } from "@nookly/ui/lib/utils";
 import { asString, type JSONAttrValue } from "./block-markdown";
-import { CustomBlockFrame, RemoveRowButton, useRowKeyboard } from "./CustomBlockFrame";
-import {
-  normalizeDepths,
-  parseTree,
-  serializeTree,
-  treeConnectors,
-  type TreeRow,
-} from "./custom-block-rows";
+import { CustomBlockFrame, RemoveRowButton, useRowEditor } from "./CustomBlockFrame";
+import { normalizeDepths, parseTree, serializeTree, treeConnectors } from "./custom-block-rows";
 
 /// One column of connector lines per level, as wide as this.
 const LEVEL_WIDTH = "w-5";
@@ -18,13 +12,21 @@ const LEVEL_WIDTH = "w-5";
 /// A nested outline drawn with branch lines: folders, a thesis outline, an org
 /// chart. Tab and Shift+Tab move a row and everything under it a level in or out.
 export function TreeBlock(props: ReactNodeViewProps) {
-  const { node, updateAttributes } = props;
+  const { node } = props;
   // SAFETY: the tree node only ever writes `rows` as a string.
   const rows = parseTree(asString(node.attrs.rows as JSONAttrValue | undefined) ?? "");
   const connectors = treeConnectors(rows);
-  const { containerRef, focus, onArrow, removeBlock } = useRowKeyboard(props);
-
-  const save = (next: TreeRow[]) => updateAttributes({ rows: serializeTree(next) });
+  const { containerRef, focus, onArrow, save, insertAfter, remove } = useRowEditor(props, {
+    rows,
+    serialize: serializeTree,
+    // A row with children gets its new row as the first child, like an outliner.
+    newRow: (index) => {
+      const row = rows[index];
+      const hasChildren = rows[index + 1] !== undefined && rows[index + 1].depth > row.depth;
+      return { depth: row.depth + (hasChildren ? 1 : 0), label: "" };
+    },
+    newRowField: "label",
+  });
 
   /// The row and the rows nested under it.
   const subtreeEnd = (index: number) => {
@@ -44,22 +46,6 @@ export function TreeBlock(props: ReactNodeViewProps) {
       ),
     );
     focus(index, "label");
-  };
-
-  /// A row with children gets its new row as the first child, like an outliner.
-  const insertAfter = (index: number) => {
-    const row = rows[index];
-    const hasChildren = rows[index + 1] !== undefined && rows[index + 1].depth > row.depth;
-    const next = [...rows];
-    next.splice(index + 1, 0, { depth: row.depth + (hasChildren ? 1 : 0), label: "" });
-    save(next);
-    focus(index + 1, "label");
-  };
-
-  const remove = (index: number) => {
-    if (rows.length === 1) return removeBlock();
-    save(rows.filter((_, i) => i !== index));
-    focus(Math.max(0, index - 1), "label");
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>, index: number) => {

@@ -1,5 +1,6 @@
 import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarTime, IconCards } from "@tabler/icons-react";
+import { StatusPropertyRow } from "#/features/tasks/StatusPropertyRow.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { useForm } from "@tanstack/react-form";
@@ -180,27 +181,15 @@ function PropertiesPanel({ exam }: { exam: Exam }) {
 
   return (
     <section aria-label="Properties" className="flex flex-col gap-0.5">
-      <PropertyRow label="Status">
-        <StatusPicker
-          statuses={EXAM_STATUSES}
-          kindOf={examStatusKind}
-          value={exam.status}
-          onSelect={(next) => setStatus.mutate(next)}
-        >
-          <button
-            type="button"
-            aria-label={setStatus.isError ? "Couldn't change status, try again" : "Change Status"}
-            className={PROPERTY_VALUE}
-          >
-            <PendingIcon
-              pending={setStatus.isPending}
-              failed={setStatus.isError}
-              idle={<TaskStatusIcon status={status} kind={examStatusKind(status.id)} />}
-            />
-            <span className="truncate">{status.name}</span>
-          </button>
-        </StatusPicker>
-      </PropertyRow>
+      <StatusPropertyRow
+        statuses={EXAM_STATUSES}
+        kindOf={examStatusKind}
+        value={exam.status}
+        status={status}
+        onSelect={(next) => setStatus.mutate(next)}
+        pending={setStatus.isPending}
+        failed={setStatus.isError}
+      />
 
       <PropertyRow label="Exam date">
         <DueDatePicker

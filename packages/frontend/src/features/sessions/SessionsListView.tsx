@@ -1,50 +1,23 @@
-import {
-  IconChalkboard,
-  IconChevronLeft,
-  IconChevronRight,
-  IconPlus,
-  IconX,
-} from "@tabler/icons-react";
+import { IconChalkboard, IconX } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { addDays, isToday } from "date-fns";
-import { useCallback, useEffect, useState } from "react";
-import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
+import { addDays } from "date-fns";
+import { useCallback } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { Badge } from "@nookly/ui/components/badge";
-import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listCalendarEntries } from "#/lib/api/calendarEntries.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { listExternalEvents } from "#/lib/api/externalCalendars.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
-import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { cn } from "@nookly/ui/lib/utils";
-import {
-  CALENDAR_VIEWS,
-  type CalendarView,
-  type SlotRange,
-  buildColumns,
-  dayKey,
-  rangeLabel,
-  readView,
-  stepAnchor,
-  stepLabel,
-  visibleDays,
-  weekNumber,
-  writeView,
-} from "./calendar/calendar-model";
+import { buildColumns, dayKey } from "./calendar/calendar-model";
+import { CalendarPageHeader, useCalendarPage } from "../calendar/calendar-page";
 import { MonthGrid } from "./calendar/MonthGrid";
 import { QuickCreateSessionDialog } from "./calendar/QuickCreateSessionDialog";
 import { TimeGrid } from "./calendar/TimeGrid";
 import { qk } from "#/lib/query-keys.ts";
-import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
-import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// The Sessions page is a full calendar, modeled on Outlook: Day, Work week,
 /// Week and Month views over the whole page. The calendar is the creation
@@ -58,17 +31,9 @@ export function SessionsListView({
   spaceId: string;
   filterCourseId?: string;
 }) {
-  const [view, setViewState] = useState<CalendarView>(readView);
-  const [anchor, setAnchor] = useState(() => new Date());
-  const [draft, setDraft] = useState<SlotRange | null>(null);
-  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
-  const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
+  const page = useCalendarPage();
+  const { view, anchor, days, draft, setDraft, highlightIds, setHighlightIds, pickDay } = page;
   const setNavView = useNavStore((s) => s.setView);
-
-  const setView = useCallback((next: CalendarView) => {
-    setViewState(next);
-    writeView(next);
-  }, []);
 
   const { data: allSessions = [] } = useQuery({
     queryKey: qk.sessions.bySpace(spaceId),
@@ -100,7 +65,6 @@ export function SessionsListView({
   const spaceAccent = spaces.find((s) => s.id === spaceId)?.color;
   const spaceColor = useCallback(() => spaceAccent, [spaceAccent]);
 
-  const days = visibleDays(view, anchor, weekStartsOn);
   // External calendars are a read only overlay, never Sessions. Hidden while the
   // view is narrowed to one Course, since they belong to none. Padded by a day
   // because the cache compares timed events by their UTC date.
@@ -128,142 +92,37 @@ export function SessionsListView({
     filterCourseId ? [] : calendarEntries,
   );
 
-  const step = useCallback(
-    (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction)),
-    [view],
-  );
-  const pickDay = useCallback(
-    (day: Date) => {
-      setAnchor(day);
-      setView("day");
-    },
-    [setView],
-  );
-  /// C and the New session button: the next full hour today when today is on
-  /// screen, otherwise 9:00 on the first day shown.
-  const startCreate = useCallback(() => {
-    const shown = visibleDays(view, anchor, weekStartsOn);
-    const today = shown.find((d) => isToday(d));
-    const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
-    setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
-  }, [view, anchor, weekStartsOn]);
-
-  const hotkeys: UseHotkeyDefinition[] = [
-    ...CALENDAR_VIEWS.map((v) => ({ hotkey: v.key, callback: () => setView(v.id) })),
-    { hotkey: HOTKEYS.today, callback: () => setAnchor(new Date()) },
-    { hotkey: HOTKEYS.previousPeriod, callback: () => step(-1) },
-    { hotkey: HOTKEYS.nextPeriod, callback: () => step(1) },
-    { hotkey: HOTKEYS.create, callback: () => startCreate() },
-    { hotkey: HOTKEYS.newItem, callback: () => startCreate() },
-  ];
-  useScreenHotkeys(hotkeys);
-
-  useEffect(() => {
-    if (highlightIds.size === 0) return;
-    const timer = setTimeout(() => setHighlightIds(new Set()), SUCCESS_REVERT_MS);
-    return () => clearTimeout(timer);
-  }, [highlightIds]);
-
   return (
     <div
       className="flex h-full min-h-0 flex-col"
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Session",
-        create: startCreate,
+        create: page.startCreate,
       })}
     >
-      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
-          <IconChalkboard size={16} className="text-muted-foreground" />
-          Sessions
-        </h1>
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" onClick={() => setAnchor(new Date())}>
-                Today
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              Go to today <Kbd>T</Kbd>
-            </TooltipContent>
-          </Tooltip>
-          {([-1, 1] as const).map((direction) => (
-            <Tooltip key={direction}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="iconSm"
-                  aria-label={stepLabel(view, direction)}
-                  onClick={() => step(direction)}
-                >
-                  {direction === -1 ? <IconChevronLeft /> : <IconChevronRight />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="flex items-center gap-2">
-                {stepLabel(view, direction)} <Kbd>{direction === -1 ? "←" : "→"}</Kbd>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-          <span className="pl-1 text-sm font-medium whitespace-nowrap">
-            {rangeLabel(view, days, anchor)}
-          </span>
-          {view !== "month" && (
-            <span className="pl-1.5 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
-              Week {weekNumber(days)}
-            </span>
-          )}
-        </div>
-        {filterCourseId && filterCourse && (
-          <Badge variant="secondary" className="gap-1 pr-1">
-            Filtered by {displayTitle(filterCourse)}
-            <button
-              type="button"
-              aria-label="Clear filter"
-              onClick={() => setNavView({ kind: "module", spaceId, module: "sessions" })}
-              className="rounded-full p-0.5 hover:bg-accent-foreground/10"
-            >
-              <IconX size={11} />
-            </button>
-          </Badge>
-        )}
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-          <nav aria-label="Calendar views" className="flex items-center gap-1">
-            {CALENDAR_VIEWS.map((v) => (
-              <Tooltip key={v.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-pressed={view === v.id}
-                    onClick={() => setView(v.id)}
-                    className={cn(
-                      "h-7 shrink-0 cursor-pointer rounded-md border border-transparent px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
-                      view === v.id && "border-border bg-accent text-foreground",
-                    )}
-                  >
-                    {v.label}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="flex items-center gap-2">
-                  {v.label} view <Kbd>{v.key}</Kbd>
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </nav>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
-                <IconPlus />
-                New session
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              Create a session <Kbd>C</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </header>
+      <CalendarPageHeader
+        page={page}
+        icon={IconChalkboard}
+        title="Sessions"
+        createLabel="New session"
+        createTooltip="Create a session"
+        afterNav={
+          filterCourseId && filterCourse ? (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              Filtered by {displayTitle(filterCourse)}
+              <button
+                type="button"
+                aria-label="Clear filter"
+                onClick={() => setNavView({ kind: "module", spaceId, module: "sessions" })}
+                className="rounded-full p-0.5 hover:bg-accent-foreground/10"
+              >
+                <IconX size={11} />
+              </button>
+            </Badge>
+          ) : null
+        }
+      />
 
       {view === "month" ? (
         <MonthGrid

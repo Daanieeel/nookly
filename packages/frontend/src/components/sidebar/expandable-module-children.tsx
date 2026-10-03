@@ -6,12 +6,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconGripVertical, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +21,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { type ModuleKey, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
+import { reorderedViews } from "./reorder-views.ts";
 
 /// Modules whose row expands to list their saved Views.
 export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments"]);
@@ -98,13 +94,9 @@ export function ExpandableModuleChildren({
 
   if (!open || !module) return null;
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const ids = views.map((v) => v.entity.id);
-    const from = ids.indexOf(String(active.id));
-    const to = ids.indexOf(String(over.id));
-    if (from === -1 || to === -1) return;
-    const next = arrayMove(views, from, to);
+  function handleDragEnd(event: DragEndEvent) {
+    const next = reorderedViews(views, event);
+    if (!next) return;
     queryClient.setQueryData(queryKey, next);
     reorder.mutate(next.map((v) => v.entity.id));
   }

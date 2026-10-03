@@ -1,32 +1,22 @@
 import { IconArrowUpRight, IconSchool } from "@tabler/icons-react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
+import { useCoursesRelationships, useSpaceCourses } from "#/features/courses/course-queries.ts";
 import { StatusIcon } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { PROPERTY_VALUE } from "#/components/property-row.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listCourses } from "#/lib/api/courses.ts";
-import { listRelationships } from "#/lib/api/relationships.ts";
-import type { Entity } from "#/lib/api/types.ts";
+import type { Entity, Relationship } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
-/// The Course each entity belongs to through `relationshipType` (like
-/// `assignment-course`), keyed by the entity's id. Shares the per Course
-/// `["relationships", id]` cache `CoursesListView` already fills.
-export function useCourseLookup(spaceId: string, relationshipType: string) {
-  const { data: courses = [] } = useQuery({
-    queryKey: qk.courses.bySpace(spaceId),
-    queryFn: () => listCourses(spaceId),
-  });
-  const relQueries = useQueries({
-    queries: courses.map((course) => ({
-      queryKey: qk.relationships.of(course.id),
-      queryFn: () => listRelationships(course.id, "both"),
-    })),
-  });
-
+function courseOfMap(
+  courses: Entity[],
+  relQueries: { data?: Relationship[] }[],
+  relationshipType: string,
+) {
   const courseOf = new Map<string, Entity>();
   courses.forEach((course, i) => {
     for (const r of relQueries[i]?.data ?? []) {
@@ -35,7 +25,17 @@ export function useCourseLookup(spaceId: string, relationshipType: string) {
       }
     }
   });
-  return { courses, courseOf };
+  return courseOf;
+}
+
+/// The Course each entity belongs to through `relationshipType` (like
+/// `assignment-course`), keyed by the entity's id. Shares the per Course
+/// `["relationships", id]` cache `CoursesListView` already fills.
+export function useCourseLookup(spaceId: string, relationshipType: string) {
+  const { data: courses = [] } = useSpaceCourses(spaceId);
+  const relQueries = useCoursesRelationships(courses);
+
+  return { courses, courseOf: courseOfMap(courses, relQueries, relationshipType) };
 }
 
 /// `useCourseLookup` over several Spaces, for the cross-Space pages.
@@ -47,22 +47,9 @@ export function useCourseLookupAcross(spaceIds: string[], relationshipType: stri
     })),
     combine: (results) => results.flatMap((r) => r.data ?? []),
   });
-  const relQueries = useQueries({
-    queries: courses.map((course) => ({
-      queryKey: qk.relationships.of(course.id),
-      queryFn: () => listRelationships(course.id, "both"),
-    })),
-  });
+  const relQueries = useCoursesRelationships(courses);
 
-  const courseOf = new Map<string, Entity>();
-  courses.forEach((course, i) => {
-    for (const r of relQueries[i]?.data ?? []) {
-      if (r.relationshipType === relationshipType && r.toEntityId === course.id) {
-        courseOf.set(r.fromEntityId, course);
-      }
-    }
-  });
-  return { courses, courseOf };
+  return { courses, courseOf: courseOfMap(courses, relQueries, relationshipType) };
 }
 
 /// A quiet, read only chip naming a Course.

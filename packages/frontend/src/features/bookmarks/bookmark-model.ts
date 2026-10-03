@@ -7,6 +7,7 @@ import { captureBookmarkScreenshot } from "#/lib/api/bookmarks.ts";
 import { attachLabel, createLabel, detachLabel, listLabels } from "#/lib/api/labels.ts";
 import type { Bookmark, Label } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { normalizeCardDisplay } from "#/lib/display-options.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 
@@ -60,9 +61,7 @@ export function readDisplay(): DisplayOptions {
     // back to the defaults below.
     const stored = raw ? (JSON.parse(raw) as Partial<DisplayOptions>) : {};
     return {
-      layout: stored.layout === "list" ? "list" : "grid",
-      grouping: GROUPINGS.find((g) => g.id === stored.grouping)?.id ?? DEFAULT_DISPLAY.grouping,
-      ordering: ORDERINGS.find((o) => o.id === stored.ordering)?.id ?? DEFAULT_DISPLAY.ordering,
+      ...normalizeCardDisplay(stored, DEFAULT_DISPLAY, GROUPINGS, ORDERINGS),
       showPreviews: stored.showPreviews ?? DEFAULT_DISPLAY.showPreviews,
       showDescriptions: stored.showDescriptions ?? DEFAULT_DISPLAY.showDescriptions,
     };

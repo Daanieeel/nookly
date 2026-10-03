@@ -2,21 +2,15 @@ import { IconGripVertical } from "@tabler/icons-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef } from "react";
 import { cn } from "@nookly/ui/lib/utils";
-import { keepIfEqual, perFrame } from "./pointer-frame";
-
-interface HandleRect {
-  top: number;
-  left: number;
-  height: number;
-}
-
-interface Indicator {
-  top: number;
-  left: number;
-  width: number;
-}
+import {
+  DragPreview,
+  DropIndicator,
+  trackDocumentMouse,
+  useDragHandleState,
+} from "./drag-overlays";
+import { keepIfEqual } from "./pointer-frame";
 
 interface ResolvedRow {
   start: number;
@@ -61,17 +55,18 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
   // (in Chromium, before the mouse-event rewrite: "element was detached from the DOM, retrying")
   // — which cuts the interaction off outright. A stable DOM node removes that failure mode
   // entirely rather than trying to make the show/hide heuristic perfectly precise.
-  const [handle, setHandle] = useState<HandleRect>({ top: -9999, left: -9999, height: 0 });
-  const [visible, setVisible] = useState(false);
-  const [indicator, setIndicator] = useState<Indicator | null>(null);
-  // Snapshot of the dragged `<tr>` (as markup, not a live node) shown next to the
-  // cursor during a drag — `html` is a clone of markup our own schema-controlled
-  // ProseMirror view already rendered, not external input.
-  const [dragPreview, setDragPreview] = useState<{ html: string; x: number; y: number } | null>(
-    null,
-  );
+  const {
+    handle,
+    setHandle,
+    visible,
+    setVisible,
+    indicator,
+    setIndicator,
+    dragPreview,
+    setDragPreview,
+    draggingRef,
+  } = useDragHandleState();
   const hoveredRowRef = useRef<HTMLTableRowElement | null>(null);
-  const draggingRef = useRef(false);
   const sourceRowRef = useRef<HTMLTableRowElement | null>(null);
   const gripRef = useRef<HTMLButtonElement>(null);
 
@@ -194,14 +189,7 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
       editor.view.focus();
     };
 
-    const onMouseMoveFrame = perFrame(onMouseMove);
-    document.addEventListener("mousemove", onMouseMoveFrame);
-    document.addEventListener("mouseup", onMouseUp);
-    return () => {
-      onMouseMoveFrame.cancel();
-      document.removeEventListener("mousemove", onMouseMoveFrame);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
+    return trackDocumentMouse(onMouseMove, onMouseUp);
   }, [editor]);
 
   if (!editor) return null;
@@ -245,32 +233,8 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
       >
         <IconGripVertical size={12} />
       </button>
-      {indicator && (
-        <div
-          className="pointer-events-none absolute top-(--indicator-top) left-(--indicator-left) z-10 h-0.5 w-(--indicator-width) rounded-full bg-primary"
-          // SAFETY: pixel lengths measured from the drop target row's DOM box.
-          style={
-            {
-              "--indicator-top": `${indicator.top - 1}px`,
-              "--indicator-left": `${indicator.left}px`,
-              "--indicator-width": `${indicator.width}px`,
-            } as CSSProperties
-          }
-        />
-      )}
-      {dragPreview && (
-        <div
-          className="tiptap-content pointer-events-none fixed top-(--preview-y) left-(--preview-x) z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
-          // SAFETY: pixel offsets from the cursor's client coordinates.
-          style={
-            {
-              "--preview-x": `${dragPreview.x + 14}px`,
-              "--preview-y": `${dragPreview.y + 14}px`,
-            } as CSSProperties
-          }
-          dangerouslySetInnerHTML={{ __html: dragPreview.html }}
-        />
-      )}
+      {indicator && <DropIndicator indicator={indicator} />}
+      {dragPreview && <DragPreview preview={dragPreview} />}
     </>
   );
 }

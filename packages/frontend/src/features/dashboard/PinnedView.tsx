@@ -1,6 +1,14 @@
 import { IconPin } from "@tabler/icons-react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type SortingState, useTable } from "@tanstack/react-table";
+import {
+  useCoursesRelationships,
+  useSpaceAssignments,
+  useSpaceCourses,
+  useSpaceExams,
+  useSpaceSemesters,
+  useSpaceSessions,
+} from "#/features/courses/course-queries.ts";
+import { type ColumnDef, type SortingState, useTable } from "@tanstack/react-table";
 import { type ReactNode, useMemo, useState } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { DataTable } from "#/components/data-table/data-table.tsx";
@@ -29,16 +37,11 @@ import { EntityRow } from "#/features/relationships/EntityRow.tsx";
 import { TasksDataContext, useTasksDataValue } from "#/features/tasks/task-controls.tsx";
 import { DISPLAY_PROPERTIES } from "#/features/tasks/task-model.ts";
 import { TaskRow } from "#/features/tasks/TaskList.tsx";
-import { listAssignments } from "#/lib/api/assignments.ts";
 import { listBookmarks } from "#/lib/api/bookmarks.ts";
-import { listCourses, listSemesters } from "#/lib/api/courses.ts";
 import { listEntities } from "#/lib/api/entities.ts";
-import { listExams } from "#/lib/api/exams.ts";
 import { listFiles } from "#/lib/api/files.ts";
 import { listLabels } from "#/lib/api/labels.ts";
 import { listJotSummaries, listNoteSummaries } from "#/lib/api/notes.ts";
-import { listRelationships } from "#/lib/api/relationships.ts";
-import { listSessions } from "#/lib/api/sessions.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { getTask, listTasks } from "#/lib/api/tasks.ts";
 import type { Entity, SessionOccurrence, Space } from "#/lib/api/types.ts";
@@ -46,7 +49,7 @@ import { formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { TYPE_GROUPS, typeGroupFor } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { dataTableFeatures } from "#/lib/table-features.ts";
+import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -246,9 +249,39 @@ function PinnedTasks({ spaceId, entities }: { spaceId: string; entities: Entity[
   );
 }
 
+/// The sortable table behind pinned notes and jots: the same rows, sorting and context
+/// menu as their module pages, newest edit first.
+function PinnedRowTable<TRow extends { summary: { entity: Entity } }>({
+  columns,
+  data,
+  onOpen,
+}: {
+  columns: ColumnDef<DataTableFeatures, TRow>[];
+  data: TRow[];
+  onOpen: (row: TRow) => void;
+}) {
+  const [sorting, setSorting] = useState<SortingState>([{ id: "edited", desc: true }]);
+  const table = useTable({
+    features: dataTableFeatures,
+    columns,
+    data,
+    getRowId: (row) => row.summary.entity.id,
+    state: { sorting },
+    onSortingChange: setSorting,
+    enableMultiSort: false,
+  });
+  if (data.length === 0) return null;
+  return (
+    <DataTable
+      table={table}
+      onRowClick={onOpen}
+      rowContextTarget={(row) => entityTarget(row.summary.entity)}
+    />
+  );
+}
+
 function PinnedNotes({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const open = useOpen(spaceId);
-  const [sorting, setSorting] = useState<SortingState>([{ id: "edited", desc: true }]);
   const { data: summaries = [] } = useQuery({
     queryKey: qk.entities.noteSummaries(spaceId),
     queryFn: () => listNoteSummaries(spaceId),
@@ -268,29 +301,14 @@ function PinnedNotes({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
         labels: summary.labelIds.flatMap((id) => labelsById.get(id) ?? []),
       }));
   }, [summaries, labels, ids]);
-  const table = useTable({
-    features: dataTableFeatures,
-    columns: noteColumns,
-    data,
-    getRowId: (row) => row.summary.entity.id,
-    state: { sorting },
-    onSortingChange: setSorting,
-    enableMultiSort: false,
-  });
-  if (data.length === 0) return null;
   return (
-    <DataTable
-      table={table}
-      onRowClick={(row) => open(row.summary.entity)}
-      rowContextTarget={(row) => entityTarget(row.summary.entity)}
-    />
+    <PinnedRowTable columns={noteColumns} data={data} onOpen={(row) => open(row.summary.entity)} />
   );
 }
 
 function PinnedJots({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [sorting, setSorting] = useState<SortingState>([{ id: "edited", desc: true }]);
   const { data: summaries = [] } = useQuery({
     queryKey: qk.entities.jotSummaries(spaceId),
     queryFn: () => listJotSummaries(spaceId),
@@ -308,21 +326,11 @@ function PinnedJots({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
     () => buildColumns({ spaceId, spaces, queryClient, openEntity }),
     [spaceId, spaces, queryClient, openEntity],
   );
-  const table = useTable({
-    features: dataTableFeatures,
-    columns,
-    data,
-    getRowId: (row) => row.summary.entity.id,
-    state: { sorting },
-    onSortingChange: setSorting,
-    enableMultiSort: false,
-  });
-  if (data.length === 0) return null;
   return (
-    <DataTable
-      table={table}
-      onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
-      rowContextTarget={(row) => entityTarget(row.summary.entity)}
+    <PinnedRowTable
+      columns={columns}
+      data={data}
+      onOpen={(row) => openEntity(row.summary.entity.id, spaceId)}
     />
   );
 }
@@ -330,18 +338,9 @@ function PinnedJots({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
 function PinnedCourses({ spaceId, entities }: { spaceId: string; entities: Entity[] }) {
   const open = useOpen(spaceId);
   // Same lists the Courses page hands its cards, so the caches are shared.
-  const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.bySpace(spaceId),
-    queryFn: () => listSessions(spaceId),
-  });
-  const { data: exams = [] } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
-  const { data: assignments = [] } = useQuery({
-    queryKey: qk.assignments.bySpace(spaceId),
-    queryFn: () => listAssignments(spaceId),
-  });
+  const { data: sessions = [] } = useSpaceSessions(spaceId);
+  const { data: exams = [] } = useSpaceExams(spaceId);
+  const { data: assignments = [] } = useSpaceAssignments(spaceId);
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {entities.map((course) => (
@@ -360,20 +359,9 @@ function PinnedCourses({ spaceId, entities }: { spaceId: string; entities: Entit
 }
 
 function PinnedSemesters({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
-  const { data: semesters = [] } = useQuery({
-    queryKey: qk.semesters.bySpace(spaceId),
-    queryFn: () => listSemesters(spaceId),
-  });
-  const { data: courses = [] } = useQuery({
-    queryKey: qk.courses.bySpace(spaceId),
-    queryFn: () => listCourses(spaceId),
-  });
-  const courseRels = useQueries({
-    queries: courses.map((course) => ({
-      queryKey: qk.relationships.of(course.id),
-      queryFn: () => listRelationships(course.id, "both"),
-    })),
-  });
+  const { data: semesters = [] } = useSpaceSemesters(spaceId);
+  const { data: courses = [] } = useSpaceCourses(spaceId);
+  const courseRels = useCoursesRelationships(courses);
   const coursesBySemester = new Map<string, Entity[]>();
   courses.forEach((course, i) => {
     const link = (courseRels[i]?.data ?? []).find(
@@ -413,10 +401,7 @@ function PinnedSemesters({ spaceId, ids }: { spaceId: string; ids: Set<string> }
 /// Timetable blocks, laid out as a row of cards instead of on the week grid.
 function PinnedSessions({ spaceId, entities }: { spaceId: string; entities: Entity[] }) {
   const open = useOpen(spaceId);
-  const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.bySpace(spaceId),
-    queryFn: () => listSessions(spaceId),
-  });
+  const { data: sessions = [] } = useSpaceSessions(spaceId);
   const occurrences = new Map<string, SessionOccurrence>();
   for (const s of sessions) if (!occurrences.has(s.entity.id)) occurrences.set(s.entity.id, s);
   const missing = entities.filter((e) => !occurrences.has(e.id));
@@ -465,10 +450,7 @@ function SessionCard({
 
 function PinnedExams({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const openEntity = useNavStore((s) => s.openEntity);
-  const { data: exams = [] } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
+  const { data: exams = [] } = useSpaceExams(spaceId);
   const { courseOf } = useCourseLookup(spaceId, "exam-course");
   const pinned = exams.filter((e) => ids.has(e.entity.id));
   if (pinned.length === 0) return null;
@@ -486,10 +468,7 @@ function PinnedExams({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
 
 function PinnedAssignments({ spaceId, ids }: { spaceId: string; ids: Set<string> }) {
   const open = useOpen(spaceId);
-  const { data: assignments = [] } = useQuery({
-    queryKey: qk.assignments.bySpace(spaceId),
-    queryFn: () => listAssignments(spaceId),
-  });
+  const { data: assignments = [] } = useSpaceAssignments(spaceId);
   const { courseOf } = useCourseLookup(spaceId, "assignment-course");
   const pinned = assignments.filter((a) => ids.has(a.entity.id));
   if (pinned.length === 0) return null;

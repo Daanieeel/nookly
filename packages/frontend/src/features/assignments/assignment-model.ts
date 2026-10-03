@@ -26,6 +26,7 @@ import type { Assignment, TaskStatus } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { normalizeBaseDisplay, readStoredDisplay } from "#/lib/display-options.ts";
 import type { StatusKind } from "#/features/tasks/task-model.ts";
 import { type DisplaySummary, type ViewPreset, is } from "#/features/views/view-presets.ts";
 
@@ -130,6 +131,8 @@ export const GRADE_FILTER: { id: string; label: string }[] = [
 
 // Display options
 
+export { validSubGrouping } from "#/lib/display-options.ts";
+
 export type Layout = "list" | "board";
 export type Grouping =
   | "deadline"
@@ -185,50 +188,16 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   hiddenColumns: [],
 };
 
-const LAYOUTS: { id: Layout }[] = [{ id: "list" }, { id: "board" }];
-
-function pick<T extends string>(value: string | undefined, allowed: { id: T }[], fallback: T): T {
-  return allowed.find((a) => a.id === value)?.id ?? fallback;
-}
-
-export function validSubGrouping(grouping: Grouping, subGrouping: Grouping): Grouping {
-  return grouping === "none" || subGrouping === grouping ? "none" : subGrouping;
-}
-
 /// Every field is checked again, so an outdated value falls back to its default.
 export function readDisplay(): DisplayOptions {
-  try {
-    const raw = preferences.get(STORAGE_KEYS.assignmentsDisplay);
-    if (!raw) return DEFAULT_DISPLAY;
-    // SAFETY: this key is only ever written by `writeDisplay` below, and every field
-    // is validated before use, so a stale shape only loses that field.
-    return normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>);
-  } catch {
-    return DEFAULT_DISPLAY;
-  }
+  return readStoredDisplay(STORAGE_KEYS.assignmentsDisplay, normalizeDisplay, DEFAULT_DISPLAY);
 }
 
 /// Checks every field of a stored `DisplayOptions` (the remembered page display or a
 /// saved View's), falling back to the default for any that is missing or invalid.
 export function normalizeDisplay(stored: Partial<DisplayOptions>): DisplayOptions {
   try {
-    const layout = pick(stored.layout, LAYOUTS, DEFAULT_DISPLAY.layout);
-    const rawGrouping = pick(stored.grouping, GROUPINGS, DEFAULT_DISPLAY.grouping);
-    // A board always needs columns to group by.
-    const grouping = layout === "board" && rawGrouping === "none" ? "status" : rawGrouping;
-    return {
-      layout,
-      grouping,
-      subGrouping: validSubGrouping(grouping, pick(stored.subGrouping, GROUPINGS, "none")),
-      ordering: pick(stored.ordering, ORDERINGS, DEFAULT_DISPLAY.ordering),
-      showEmpty: {
-        board: stored.showEmpty?.board !== false,
-        list: stored.showEmpty?.list === true,
-      },
-      hiddenColumns: Array.isArray(stored.hiddenColumns)
-        ? stored.hiddenColumns.filter((id): id is string => typeof id === "string")
-        : [],
-    };
+    return normalizeBaseDisplay(stored, DEFAULT_DISPLAY, GROUPINGS, ORDERINGS);
   } catch {
     return DEFAULT_DISPLAY;
   }
@@ -240,13 +209,7 @@ export function writeDisplay(display: DisplayOptions) {
 
 /// The cross-Space overview remembers its display apart from a Space's page.
 export function readOverviewDisplay(): DisplayOptions {
-  try {
-    const raw = preferences.get(STORAGE_KEYS.assignmentsOverview);
-    // SAFETY: only ever written by `writeOverviewDisplay`; every field is validated before use.
-    return raw ? normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>) : DEFAULT_DISPLAY;
-  } catch {
-    return DEFAULT_DISPLAY;
-  }
+  return readStoredDisplay(STORAGE_KEYS.assignmentsOverview, normalizeDisplay, DEFAULT_DISPLAY);
 }
 
 export function writeOverviewDisplay(display: DisplayOptions) {

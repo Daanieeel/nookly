@@ -1,3 +1,5 @@
+import { useDropTarget } from "#/lib/use-drop-target.ts";
+import { SubmitDialogFooter } from "#/components/submit-dialog-footer.tsx";
 import {
   IconArrowUpRight,
   IconCalendarWeek,
@@ -30,13 +32,7 @@ import { EntityKey } from "#/components/entity-key.tsx";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { DateInput } from "#/components/date-input.tsx";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@nookly/ui/components/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -296,7 +292,7 @@ export function SemesterRow({
   const [expanded, setExpanded] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(displayTitle(semester.entity));
-  const [dragOver, setDragOver] = useState(false);
+  const { dragOver, dropProps } = useDropTarget(onDropOn);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -345,16 +341,7 @@ export function SemesterRow({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        onDropOn();
-      }}
+      {...dropProps}
       className={cn(
         "group flex flex-col rounded-lg border bg-card transition-colors",
         active ? "border-primary/60 bg-primary/3" : "border-border",
@@ -738,20 +725,13 @@ function CreateSemesterDialog({
             </form.Subscribe>
           </div>
         </form>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
-                <StatusButtonContent
-                  status={statusOf(create)}
-                  label="Create"
-                  successLabel="Created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
+        <SubmitDialogFooter
+          form={form}
+          status={statusOf(create)}
+          label="Create"
+          successLabel="Created"
+          errorLabel="Couldn't create, try again"
+        />
       </DialogContent>
     </Dialog>
   );

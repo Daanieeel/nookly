@@ -150,3 +150,42 @@ export function useRowKeyboard({
 
   return { containerRef, focus, onArrow, removeBlock };
 }
+
+/// Row editing shared by the blocks whose rows are objects serialized into one `rows`
+/// attribute (timeline, progress, tree): `save`/`patch` write the rows back, `insertAfter`
+/// adds `newRow(index)` below a row and focuses its `field`, and `remove` drops a row,
+/// removing the block itself when it was the last one.
+export function useRowEditor<Row extends object>(
+  props: ReactNodeViewProps,
+  {
+    rows,
+    serialize,
+    newRow,
+    newRowField,
+  }: {
+    rows: Row[];
+    serialize: (rows: Row[]) => string;
+    newRow: (index: number) => Row;
+    newRowField: string;
+  },
+) {
+  const keyboard = useRowKeyboard(props);
+  const { focus, removeBlock } = keyboard;
+
+  const save = (next: Row[]) => props.updateAttributes({ rows: serialize(next) });
+  const patch = (index: number, change: Partial<Row>) =>
+    save(rows.map((row, i) => (i === index ? { ...row, ...change } : row)));
+  const insertAfter = (index: number) => {
+    const next = [...rows];
+    next.splice(index + 1, 0, newRow(index));
+    save(next);
+    focus(index + 1, newRowField);
+  };
+  const remove = (index: number) => {
+    if (rows.length === 1) return removeBlock();
+    save(rows.filter((_, i) => i !== index));
+    focus(Math.max(0, index - 1), "label");
+  };
+
+  return { ...keyboard, save, patch, insertAfter, remove };
+}

@@ -22,9 +22,11 @@ export function fieldMessage(field: AnyFieldApi): string | undefined {
 /// then, so a form that looks valid never has a disabled button:
 /// `<form.Subscribe selector={hasVisibleErrors}>{(blocked) => <Button disabled={blocked} />}</form.Subscribe>`.
 export function hasVisibleErrors(state: {
-  fieldMeta: Record<string, { isTouched: boolean; errors: unknown[] }>;
+  fieldMeta: Record<string, { isTouched: boolean; errors: unknown[] } | undefined>;
 }): boolean {
-  return Object.values(state.fieldMeta).some((meta) => meta.isTouched && meta.errors.length > 0);
+  return Object.values(state.fieldMeta).some(
+    (meta) => meta !== undefined && meta.isTouched && meta.errors.length > 0,
+  );
 }
 
 /// A form control with a small label above it and its error below. Pass the field's

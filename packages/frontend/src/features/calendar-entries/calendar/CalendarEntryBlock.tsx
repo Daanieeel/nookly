@@ -1,24 +1,20 @@
-import { IconX } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import type { CSSProperties } from "react";
-import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
+import { StatusAnnouncer, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideCalendarEntryOccurrence } from "#/lib/api/calendarEntries.ts";
 import type { CalendarEntry, CalendarEntryOverride } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../../sessions/external-calendars/overlay-layout";
+import { minutesToTime, timeToMinutes } from "../../sessions/calendar/calendar-model";
 import {
-  heightPxFor,
-  minutesToTime,
-  timeToMinutes,
-  topPxFor,
-} from "../../sessions/calendar/calendar-model";
-import { useItemDrag } from "../../sessions/calendar/item-drag";
+  BlockCancelButton,
+  BlockResizeHandles,
+  useBlockDrag,
+} from "../../sessions/calendar/item-block-controls";
 import { CalendarEntryPopover } from "./CalendarEntryPopover";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -72,25 +68,14 @@ export function CalendarEntryBlock({
 
   const startMin = timeToMinutes(entry.startTime ?? "00:00");
   const endMin = timeToMinutes(entry.endTime ?? "00:00");
-  const { previewRange, handleFor } = useItemDrag({
+  const { previewRange, handleFor, top, height } = useBlockDrag({
     startMin,
     endMin,
+    days,
     dayIndex,
-    dayCount: days.length,
-    onCommit: (result) => {
-      const patch: CalendarEntryOverride = {
-        startTime: minutesToTime(result.startMin),
-        endTime: minutesToTime(result.endMin),
-      };
-      const targetDay = result.dayDelta !== 0 ? days[dayIndex + result.dayDelta] : undefined;
-      if (targetDay) patch.date = format(targetDay, "yyyy-MM-dd");
-      reschedule.mutate(patch);
-    },
+    position,
+    onReschedule: reschedule.mutate,
   });
-  const top = previewRange ? topPxFor(previewRange.startMin) : position.top;
-  const height = previewRange
-    ? heightPxFor(previewRange.startMin, previewRange.endMin)
-    : position.height;
   const draggable = !entry.cancelled;
   const short = height < 36;
   return (
@@ -157,36 +142,14 @@ export function CalendarEntryBlock({
         </button>
       </CalendarEntryPopover>
       {draggable && (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--entry-color)/50 group-hover:opacity-100"
-            {...handleFor("resize-start")}
-          />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--entry-color)/50 group-hover:opacity-100"
-            {...handleFor("resize-end")}
-          />
-        </>
+        <BlockResizeHandles handleFor={handleFor} hoverClassName="hover:bg-(--entry-color)/50" />
       )}
       {!entry.cancelled && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={cancelLabel}
-              onClick={() => !cancel.isPending && cancel.mutate()}
-              className={cn(
-                "absolute top-0.5 right-0.5 z-20 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100",
-                cancelStatus === "idle" ? "opacity-0" : "opacity-100",
-              )}
-            >
-              <StatusIcon status={cancelStatus} idle={<IconX size={11} />} size={11} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{cancelLabel}</TooltipContent>
-        </Tooltip>
+        <BlockCancelButton
+          status={cancelStatus}
+          label={cancelLabel}
+          onCancel={() => !cancel.isPending && cancel.mutate()}
+        />
       )}
       <StatusAnnouncer message={cancelStatus === "error" ? "Couldn't cancel entry" : null} />
     </div>

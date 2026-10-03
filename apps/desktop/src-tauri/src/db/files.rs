@@ -57,17 +57,6 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
     })
 }
 
-fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT el.label_id FROM entity_labels el
-         JOIN labels l ON l.id = el.label_id
-         WHERE el.entity_id = ?1
-         ORDER BY l.name ASC",
-    )?;
-    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
 /// The exact text `search_index` holds for this File — empty until something's
 /// been indexed. Every entity gets a `search_index` row at creation (see
 /// `index_entity_title`), so a missing row is defensive, not expected.
@@ -661,7 +650,7 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
             row_to_file,
         )
         .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
-    file.label_ids = label_ids_for(conn, entity_id)?;
+    file.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
     Ok(file)
 }
@@ -980,10 +969,7 @@ mod tests {
 
     #[test]
     fn pasted_file_is_stored_under_a_safe_name() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-paste-{}", crate::db::new_id()));
@@ -1000,10 +986,7 @@ mod tests {
 
     #[test]
     fn deferred_indexing_returns_jobs_instead_of_extracting() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-files-test-{}", crate::db::new_id()));
@@ -1033,10 +1016,7 @@ mod tests {
 
     #[test]
     fn needs_reindex_reflects_whether_content_was_found() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1065,10 +1045,7 @@ mod tests {
 
     #[test]
     fn plain_text_files_are_indexed_by_extension_or_by_sniffing_content() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1122,10 +1099,7 @@ mod tests {
 
     #[test]
     fn reindex_missing_only_touches_files_without_content_and_reports_counts() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1162,10 +1136,7 @@ mod tests {
 
     #[test]
     fn reindex_content_field_reindexes_via_cli_update() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1244,10 +1215,7 @@ mod tests {
 
     #[test]
     fn a_file_from_a_link_converts_to_a_bookmark_in_place() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1279,10 +1247,7 @@ mod tests {
 
     #[test]
     fn replacing_keeps_the_entity_and_follows_an_untouched_title() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1301,10 +1266,7 @@ mod tests {
 
     #[test]
     fn a_referenced_file_copies_into_storage_later() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1341,10 +1303,7 @@ mod tests {
 
     #[test]
     fn list_and_get_carry_label_ids_sorted_by_name() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
@@ -1380,10 +1339,7 @@ mod tests {
 
     #[test]
     fn get_file_reads_indexed_content_but_list_files_does_not() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));

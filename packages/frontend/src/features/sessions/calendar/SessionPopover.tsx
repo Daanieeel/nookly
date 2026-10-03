@@ -8,6 +8,7 @@ import {
   IconRestore,
   IconTrash,
 } from "@tabler/icons-react";
+import { DateField, TimeRangeFields } from "./date-time-form-fields";
 import { useForm } from "@tanstack/react-form";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -25,31 +26,15 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
-import { EntityIcon } from "#/components/entity-icon.tsx";
-import { EntityMention } from "#/components/entity-mention.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
-import { DateInput } from "#/components/date-input.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { TimeInput } from "#/components/time-input.tsx";
 import { Input } from "@nookly/ui/components/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
-import { Tabs, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { restoreEntity, softDeleteEntity, updateEntity } from "#/lib/api/entities.ts";
 import {
@@ -68,16 +53,13 @@ import { MODULE_ICONS } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
-
-/// Which occurrences an edit reaches, as in any calendar. A series edit never
-/// rewrites past occurrences or fields an occurrence changed on its own.
-type EditScope = "this" | "following" | "upcoming";
-
-const SCOPES = [
-  { id: "this", label: "This session" },
-  { id: "following", label: "This and following" },
-  { id: "upcoming", label: "All upcoming" },
-] satisfies { id: EditScope; label: string }[];
+import {
+  CalendarItemPopover,
+  EditFormActions,
+  EditScopeTabs,
+  type EditScope,
+  SeriesTrashDialog,
+} from "../../calendar/popover-parts";
 
 const sessionEditSchema = z
   .object({
@@ -122,47 +104,41 @@ export function SessionPopover({
   /// The calendar block or month line that opens it.
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [seriesDeleteOpen, setSeriesDeleteOpen] = useState(false);
+  const { templateId } = occurrence;
 
   return (
-    <>
-      <Popover
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setEditing(false);
-        }}
-      >
-        <PopoverTrigger asChild>{children}</PopoverTrigger>
-        <PopoverContent align="start" className="flex w-80 flex-col text-sm">
+    <CalendarItemPopover
+      body={({ editing, setEditing, close, openSeriesDelete }) => (
+        <>
           {editing ? (
             <SessionEditForm occurrence={occurrence} onDone={() => setEditing(false)} />
           ) : (
             <SessionSummary
               occurrence={occurrence}
               onEdit={() => setEditing(true)}
-              onDeleteSeries={() => {
-                setOpen(false);
-                setSeriesDeleteOpen(true);
-              }}
-              close={() => setOpen(false)}
+              onDeleteSeries={openSeriesDelete}
+              close={close}
             />
           )}
-          <SessionPages spaceId={spaceId} occurrence={occurrence} close={() => setOpen(false)} />
-        </PopoverContent>
-      </Popover>
-      {occurrence.templateId && (
-        <DeleteSeriesDialog
-          spaceId={spaceId}
-          occurrence={occurrence}
-          templateId={occurrence.templateId}
-          open={seriesDeleteOpen}
-          onOpenChange={setSeriesDeleteOpen}
-        />
+          <SessionPages spaceId={spaceId} occurrence={occurrence} close={close} />
+        </>
       )}
-    </>
+      seriesDialog={
+        templateId
+          ? ({ open, onOpenChange }) => (
+              <DeleteSeriesDialog
+                spaceId={spaceId}
+                occurrence={occurrence}
+                templateId={templateId}
+                open={open}
+                onOpenChange={onOpenChange}
+              />
+            )
+          : null
+      }
+    >
+      {children}
+    </CalendarItemPopover>
   );
 }
 
@@ -400,18 +376,7 @@ export function SessionEditForm({
         void form.handleSubmit();
       }}
     >
-      {templateId && (
-        // SAFETY: Radix only emits the `SCOPES` trigger values below.
-        <Tabs value={scope} onValueChange={(next) => setScope(next as EditScope)}>
-          <TabsList size="sm" className="w-full">
-            {SCOPES.map((s) => (
-              <TabsTrigger key={s.id} value={s.id} size="sm">
-                {s.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      )}
+      {templateId && <EditScopeTabs value={scope} onChange={setScope} thisLabel="This session" />}
       <form.Field name="title">
         {(field) => (
           <FormField
@@ -433,41 +398,11 @@ export function SessionEditForm({
         {scope === "this" && (
           <form.Field name="date">
             {(field) => (
-              <FormField label="Date" required error={fieldMessage(field)} className="col-span-2">
-                <DateInput
-                  aria-label="Date"
-                  clearable={false}
-                  value={field.state.value || null}
-                  onChange={(day) => field.handleChange(day ?? "")}
-                />
-              </FormField>
+              <DateField field={field} label="Date" ariaLabel="Date" className="col-span-2" />
             )}
           </form.Field>
         )}
-        <form.Field name="startTime">
-          {(field) => (
-            <FormField label="Starts" required error={fieldMessage(field)}>
-              <TimeInput
-                aria-label="Start time"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="endTime">
-          {(field) => (
-            <FormField label="Ends" required error={fieldMessage(field)}>
-              <TimeInput
-                aria-label="End time"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-            </FormField>
-          )}
-        </form.Field>
+        <TimeRangeFields form={form} />
         <form.Field name="location">
           {(field) => (
             <FormField label="Location" htmlFor="session-edit-location" className="col-span-2">
@@ -491,22 +426,9 @@ export function SessionEditForm({
         </p>
       )}
       <FieldError message={save.isError && save.error.message} />
-      <div className="flex justify-end gap-1">
-        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-          Cancel
-        </Button>
-        <form.Subscribe selector={hasVisibleErrors}>
-          {(blocked) => (
-            <Button type="submit" size="sm" disabled={blocked}>
-              <StatusButtonContent
-                status={statusOf(save)}
-                label="Save"
-                errorLabel="Couldn't save, try again"
-              />
-            </Button>
-          )}
-        </form.Subscribe>
-      </div>
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => <EditFormActions blocked={blocked} status={statusOf(save)} onDone={onDone} />}
+      </form.Subscribe>
     </form>
   );
 }
@@ -661,57 +583,21 @@ export function DeleteSeriesDialog({
   const count = sessions.filter(
     (s) => s.templateId === templateId && s.date >= occurrence.date,
   ).length;
-  const remove = useMutation({
-    mutationFn: () => deleteSessionSeries(templateId, occurrence.date),
-    onSuccess: () => refreshSessions(queryClient, occurrence.entity.id),
-  });
-  useCloseAfterSuccess(remove, () => {
-    onOpenChange(false);
-    remove.reset();
-  });
-  const status = statusOf(remove);
-  const noun = count === 1 ? "session" : "sessions";
 
   return (
-    <AlertDialog
+    <SeriesTrashDialog
+      entity={occurrence.entity}
+      count={count}
+      nouns={{ one: "session", many: "sessions" }}
+      description={`The session on ${formatShortDate(occurrence.date)} and every later one in the series go to Trash. Earlier sessions stay. Restore them from Trash any time.`}
       open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) remove.reset();
+      onOpenChange={onOpenChange}
+      deleteSeries={async () => {
+        await deleteSessionSeries(templateId, occurrence.date);
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
-            Move {count} {noun} of
-            <EntityMention
-              icon={<EntityIcon entity={occurrence.entity} size={13} />}
-              label={displayTitle(occurrence.entity)}
-            />
-            to Trash?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            The session on {formatShortDate(occurrence.date)} and every later one in the series go
-            to Trash. Earlier sessions stay. Restore them from Trash any time.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={(e) => {
-              e.preventDefault();
-              if (status === "idle" || status === "error") remove.mutate();
-            }}
-          >
-            <StatusButtonContent
-              status={status}
-              label={`Move ${count} to Trash`}
-              errorLabel="Couldn't move to Trash, try again"
-            />
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      onDeleted={async () => {
+        await refreshSessions(queryClient, occurrence.entity.id);
+      }}
+    />
   );
 }

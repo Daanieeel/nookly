@@ -45,6 +45,14 @@ pub fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
+/// An in-memory database migrated to the latest schema, for unit tests.
+#[cfg(test)]
+pub fn test_conn() -> Connection {
+    let mut conn = Connection::open_in_memory().unwrap();
+    migrations::MIGRATIONS.to_latest(&mut conn).unwrap();
+    conn
+}
+
 /// How many migrations `conn` has run.
 pub fn schema_version(conn: &Connection) -> Result<usize, rusqlite::Error> {
     Ok(migrations::MIGRATIONS

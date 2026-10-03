@@ -15,18 +15,16 @@ import {
 } from "@tabler/icons-react";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
-import { SpaceDot } from "#/components/space-chip.tsx";
+import { ageGroupDefs, spaceGroupDefs } from "#/features/tasks/shared-view-defs.tsx";
 import type { Assignment, Entity, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import {
   ASSIGNMENT_STATUSES,
   type BucketDef,
-  AGE_BUCKETS,
   CREATED_BUCKETS,
   DEADLINE_BUCKETS,
   type Grouping,
   type Tone,
-  ageBucket,
   createdBucket,
   deadlineBucket,
   statusKindOf,
@@ -89,12 +87,7 @@ export function assignmentGroupDefs(
         (id) => (id === "today" || id === "week" ? IconClockPlus : IconHistory),
       );
     case "updated":
-      return AGE_BUCKETS.map((b) => ({
-        id: b.id,
-        name: b.label,
-        icon: <IconClockEdit size={14} className="text-muted-foreground" />,
-        match: (a: Assignment) => ageBucket(a.entity.updatedAt, now) === b.id,
-      }));
+      return ageGroupDefs((a: Assignment) => a.entity.updatedAt, IconClockEdit, now);
     case "grade":
       return [
         {
@@ -133,16 +126,7 @@ export function assignmentGroupDefs(
         },
       ];
     case "space":
-      return spaces.map((space) => ({
-        id: space.id,
-        name: space.name,
-        icon: (
-          <span className="flex size-3.5 items-center justify-center">
-            <SpaceDot space={space} />
-          </span>
-        ),
-        match: (a: Assignment) => a.entity.spaceId === space.id,
-      }));
+      return spaceGroupDefs(spaces, (a: Assignment) => a.entity.spaceId);
     case "none":
       return null;
   }

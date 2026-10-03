@@ -1,3 +1,4 @@
+import { useInvalidateRecipe } from "./use-invalidate-recipe.ts";
 import { qk } from "#/lib/query-keys.ts";
 import {
   closestCenter,
@@ -107,13 +108,7 @@ function RecipeBody({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
 /// sits in. `RecipeTitle` renders separately, inside that column, and
 /// overlaps this banner's bottom fade via its own negative top margin.
 function RecipeBanner({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
-  const queryClient = useQueryClient();
-  const invalidate = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: qk.recipes.byId(entity.id) }),
-      // The gallery cards show kind, duration, tags and banner too.
-      queryClient.invalidateQueries({ queryKey: qk.recipes.root }),
-    ]);
+  const invalidate = useInvalidateRecipe(entity.id);
 
   const setBanner = useMutation({
     mutationFn: (path: string) => setRecipeBanner(entity.id, path),
@@ -193,13 +188,7 @@ function RecipeTitle({ entity }: { entity: Entity }) {
 /// A Notion-style property row: a small muted label above each control,
 /// three fields side by side — Duration, Category, Tags.
 function RecipeProperties({ entity, recipe }: { entity: Entity; recipe: Recipe }) {
-  const queryClient = useQueryClient();
-  const invalidate = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: qk.recipes.byId(entity.id) }),
-      // The gallery cards show kind, duration, tags and banner too.
-      queryClient.invalidateQueries({ queryKey: qk.recipes.root }),
-    ]);
+  const invalidate = useInvalidateRecipe(entity.id);
 
   const { data: catalog = [] } = useQuery({
     queryKey: qk.recipes.tags,

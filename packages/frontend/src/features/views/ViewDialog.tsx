@@ -1,29 +1,19 @@
+import { SubmitDialogFooter } from "#/components/submit-dialog-footer.tsx";
+import { NameFormField } from "#/components/name-form-field.tsx";
 import { qk } from "#/lib/query-keys.ts";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
+import { FormField } from "#/components/form-field.tsx";
 import { IconStack2 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
-import {
-  StatusButtonContent,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
+import { statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { renderIconValue } from "#/components/entity-icon.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
 import { updateEntity } from "#/lib/api/entities.ts";
 import { createView, type SavedView, type ViewModule } from "#/lib/api/views.ts";
 import { MODULE_LABELS } from "#/lib/modules.ts";
-import { Button } from "@nookly/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
-import { Input } from "@nookly/ui/components/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@nookly/ui/components/dialog";
 
 const viewSchema = z.object({
   name: z.string().trim().min(1, "Give the view a name"),
@@ -148,39 +138,23 @@ export function ViewDialog({
           </form.Field>
           <form.Field name="name">
             {(field) => (
-              <FormField
-                label="Name"
-                required
-                htmlFor="view-name"
-                error={fieldMessage(field)}
+              <NameFormField
+                field={field}
+                id="view-name"
+                inputRef={nameInputRef}
+                placeholder="e.g. Due this week"
                 className="flex-1"
-              >
-                <Input
-                  id="view-name"
-                  ref={nameInputRef}
-                  placeholder="e.g. Due this week"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
+              />
             )}
           </form.Field>
         </form>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
-                <StatusButtonContent
-                  status={status}
-                  label={existing ? "Rename" : "Create view"}
-                  successLabel={existing ? "Renamed" : "View created"}
-                  errorLabel="Couldn't save, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
+        <SubmitDialogFooter
+          form={form}
+          status={status}
+          label={existing ? "Rename" : "Create view"}
+          successLabel={existing ? "Renamed" : "View created"}
+          errorLabel="Couldn't save, try again"
+        />
       </DialogContent>
     </Dialog>
   );

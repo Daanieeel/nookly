@@ -8,7 +8,15 @@ import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { type BlockRange, BlockRangeSelection } from "./block-selection";
-import { keepIfEqual, perFrame } from "./pointer-frame";
+import {
+  DragPreview,
+  DropIndicator,
+  trackDocumentMouse,
+  useDragHandleState,
+  useMeasureOnTransaction,
+  type HandleRect,
+} from "./drag-overlays";
+import { keepIfEqual } from "./pointer-frame";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList, type SuggestionListHandle } from "./suggestion-list";
 
@@ -18,18 +26,6 @@ const MENU_ITEMS = SLASH_ITEMS.map(toListItem);
 /// constant here instead of read from CSS because it also drives the
 /// elementFromPoint probe below; the two must stay in sync by hand.
 export const GUTTER_WIDTH = 52;
-
-interface HandleRect {
-  top: number;
-  left: number;
-  height: number;
-}
-
-interface Indicator {
-  top: number;
-  left: number;
-  width: number;
-}
 
 /// How far the pointer must travel after pressing a grip before it counts as a
 /// drag instead of a click.
@@ -120,17 +116,18 @@ export function findTopLevelBlock(view: EditorView, el: HTMLElement): ResolvedBl
 /// positions inside the gutter are re-probed at `document.elementFromPoint` just
 /// past its right edge, at the same Y, to find which block "owns" that stripe.
 export function BlockHandles({ editor }: { editor: Editor | null }) {
-  const [handle, setHandle] = useState<HandleRect>({ top: -9999, left: -9999, height: 0 });
-  const [visible, setVisible] = useState(false);
-  const [indicator, setIndicator] = useState<Indicator | null>(null);
-  // Snapshot of the dragged block (as markup, not a live node) shown next to the
-  // cursor during a drag — `html` is a clone of markup our own schema-controlled
-  // ProseMirror view already rendered, not external input.
-  const [dragPreview, setDragPreview] = useState<{ html: string; x: number; y: number } | null>(
-    null,
-  );
+  const {
+    handle,
+    setHandle,
+    visible,
+    setVisible,
+    indicator,
+    setIndicator,
+    dragPreview,
+    setDragPreview,
+    draggingRef,
+  } = useDragHandleState();
   const hoveredBlockRef = useRef<HTMLElement | null>(null);
-  const draggingRef = useRef(false);
   const sourceRef = useRef<DragSource | null>(null);
   const pendingGripRef = useRef<PendingGrip | null>(null);
   // Top of a multi-block selection, where its own batch drag handle sits.
@@ -268,41 +265,21 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
       editor.view.focus();
     };
 
-    const onMouseMoveFrame = perFrame(onMouseMove);
-    document.addEventListener("mousemove", onMouseMoveFrame);
-    document.addEventListener("mouseup", onMouseUp);
-    return () => {
-      onMouseMoveFrame.cancel();
-      document.removeEventListener("mousemove", onMouseMoveFrame);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
+    return trackDocumentMouse(onMouseMove, onMouseUp);
   }, [editor]);
 
   // Keeps the batch handle pinned to the first block of a multi-block selection.
-  useEffect(() => {
+  useMeasureOnTransaction(editor, () => {
     if (!editor) return;
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      const selection = multiBlockSelection(editor.view);
-      const first = selection && editor.view.nodeDOM(selection.from);
-      if (!(first instanceof HTMLElement)) {
-        setSelectionHandle(null);
-        return;
-      }
-      const next = measureBlock(editor.view.dom, first);
-      setSelectionHandle((prev) => keepIfEqual(prev, next));
-    };
-    const update = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
-    update();
-    editor.on("transaction", update);
-    return () => {
-      cancelAnimationFrame(frame);
-      editor.off("transaction", update);
-    };
-  }, [editor]);
+    const selection = multiBlockSelection(editor.view);
+    const first = selection && editor.view.nodeDOM(selection.from);
+    if (!(first instanceof HTMLElement)) {
+      setSelectionHandle(null);
+      return;
+    }
+    const next = measureBlock(editor.view.dom, first);
+    setSelectionHandle((prev) => keepIfEqual(prev, next));
+  });
 
   useEffect(() => {
     if (!menuBlock) return;
@@ -461,34 +438,8 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
           <SuggestionList ref={listRef} items={MENU_ITEMS} onSelect={insertBelow} searchable />
         </div>
       )}
-      {indicator && (
-        <div
-          className="pointer-events-none absolute top-(--indicator-top) left-(--indicator-left) z-10 h-0.5 w-(--indicator-width) rounded-full bg-primary"
-          // SAFETY: pixel lengths measured from the drop target's DOM box.
-          style={
-            {
-              "--indicator-top": `${indicator.top - 1}px`,
-              "--indicator-left": `${indicator.left}px`,
-              "--indicator-width": `${indicator.width}px`,
-            } as CSSProperties
-          }
-        />
-      )}
-      {dragPreview && (
-        <div
-          // `px-2` (utilities layer) also overrides `.tiptap-content`'s handle-gutter
-          // padding, which doesn't apply to this standalone snapshot.
-          className="tiptap-content pointer-events-none fixed top-(--preview-y) left-(--preview-x) z-50 max-h-40 max-w-xs overflow-hidden rounded-md border border-border bg-popover px-2 py-1 opacity-70 shadow-lg"
-          // SAFETY: pixel offsets from the cursor's client coordinates.
-          style={
-            {
-              "--preview-x": `${dragPreview.x + 14}px`,
-              "--preview-y": `${dragPreview.y + 14}px`,
-            } as CSSProperties
-          }
-          dangerouslySetInnerHTML={{ __html: dragPreview.html }}
-        />
-      )}
+      {indicator && <DropIndicator indicator={indicator} />}
+      {dragPreview && <DragPreview preview={dragPreview} />}
     </>
   );
 }

@@ -1,9 +1,10 @@
+import { useInPlaceInput } from "#/components/use-in-place-input.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { IconCheck, IconExternalLink, IconPhoto, IconRefresh, IconTag } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StatusAnnouncer, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityActions } from "#/components/entity-actions.tsx";
 import { EntityKeyCopy } from "#/components/entity-key.tsx";
@@ -368,31 +369,21 @@ function TitleField({
   pending: boolean;
   failed: boolean;
 }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-
-  function save() {
-    const next = draft.trim();
-    if (!next) setDraft(value);
-    else if (next !== value) onSave(next);
-  }
+  // Escape here only undoes the edit, so it keeps the sheet open.
+  const input = useInPlaceInput({
+    value,
+    stopEscape: true,
+    commit: (draft, reset) => {
+      const next = draft.trim();
+      if (!next) reset();
+      else if (next !== value) onSave(next);
+    },
+  });
 
   return (
     <div className="relative flex min-w-0 flex-1 items-center">
       <input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") {
-            // Keeps the sheet open: Escape here only undoes the edit.
-            e.stopPropagation();
-            const input = e.currentTarget;
-            setDraft(value);
-            requestAnimationFrame(() => input.blur());
-          }
-        }}
+        {...input}
         aria-label={failed ? "Couldn't rename, try again" : "Title"}
         aria-invalid={failed || undefined}
         className={cn(
