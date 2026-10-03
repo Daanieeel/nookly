@@ -1,27 +1,28 @@
-import type { AnyFieldApi, ReactFormExtendedApi } from "@tanstack/react-form";
+import type { AnyFieldApi } from "@tanstack/react-form";
+import type { ComponentType, ReactNode } from "react";
 import { DateInput } from "#/components/date-input.tsx";
 import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import { TimeInput } from "#/components/time-input.tsx";
 import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Label } from "@nookly/ui/components/label";
 
-/// A form whose values these fields only read by name: the Calendar and Session forms
-/// each have their own value shape, but share `date`, `startTime` and `endTime`.
-// oxlint-disable-next-line typescript/no-explicit-any
-type AnyReactForm = ReactFormExtendedApi<
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any
->;
+/// A form these fields only read by name: the Calendar and Session forms each
+/// have their own value shape, but share `startTime` and `endTime`, and the
+/// Calendar form also has `allDay`.
+interface TimeFieldsForm<Name extends string> {
+  Field: ComponentType<{
+    name: Name;
+    children: (field: AnyFieldApi) => ReactNode;
+  }>;
+}
+
+/// The Calendar form's `Subscribe`, read for its `allDay` value.
+interface AllDaySubscribe {
+  Subscribe: ComponentType<{
+    selector: (state: { values: { allDay: boolean } }) => boolean;
+    children: (allDay: boolean) => ReactNode;
+  }>;
+}
 
 /// A day field as the Calendar and Session forms draw it. It is required unless
 /// `optional` (an end date), in which case it can also be cleared.
@@ -83,7 +84,7 @@ export function TimeRangeFields({
   form,
   inputClassName,
 }: {
-  form: AnyReactForm;
+  form: TimeFieldsForm<"startTime" | "endTime">;
   inputClassName?: string;
 }) {
   return (
@@ -109,7 +110,13 @@ export function TimeRangeFields({
 
 /// The All day checkbox and, unless it is checked, the start and end time fields:
 /// the time part of a Calendar entry form.
-export function AllDayTimeFields({ form, idPrefix }: { form: AnyReactForm; idPrefix: string }) {
+export function AllDayTimeFields({
+  form,
+  idPrefix,
+}: {
+  form: TimeFieldsForm<"startTime" | "endTime" | "allDay"> & AllDaySubscribe;
+  idPrefix: string;
+}) {
   return (
     <>
       <form.Field name="allDay">

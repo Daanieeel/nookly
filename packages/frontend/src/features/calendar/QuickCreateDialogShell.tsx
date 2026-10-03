@@ -1,4 +1,3 @@
-import type { UseMutationResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import {
   StatusButtonContent,
@@ -17,6 +16,13 @@ import {
 /// The dialog chrome shared by the quick create dialogs: open and close
 /// handling around the create mutation, the form wrapper with its hidden
 /// Enter-to-submit button, and the Create footer button.
+interface CreateMutation {
+  isPending: boolean;
+  isSuccess: boolean;
+  isError: boolean;
+  reset: () => void;
+}
+
 export function QuickCreateDialogShell({
   open,
   onOpenChange,
@@ -31,8 +37,8 @@ export function QuickCreateDialogShell({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // oxlint-disable-next-line typescript/no-explicit-any
-  create: UseMutationResult<any, Error, any, any>;
+  /// Only the status of the create mutation is read, so any mutation fits.
+  create: CreateMutation;
   title: string;
   /// Accessible label of the hidden submit button.
   submitLabel: string;
