@@ -246,7 +246,7 @@ export function writeDisplay(display: DisplayOptions) {
   preferences.set(STORAGE_KEYS.tasksDisplay, JSON.stringify(display));
 }
 
-/// The cross-Space overview opens as a list grouped by due date, without finished tasks.
+/// The cross-Space overview opens as a list grouped by due date.
 export const OVERVIEW_DISPLAY: DisplayOptions = {
   ...DEFAULT_DISPLAY,
   layout: "list",
@@ -254,27 +254,18 @@ export const OVERVIEW_DISPLAY: DisplayOptions = {
   properties: DEFAULT_DISPLAY.properties.filter((p) => p !== "labels"),
 };
 
-export interface OverviewPrefs {
-  display: DisplayOptions;
-  showCompleted: boolean;
-}
-
-export function readOverviewPrefs(): OverviewPrefs {
+export function readOverviewDisplay(): DisplayOptions {
   try {
     const raw = preferences.get(STORAGE_KEYS.tasksOverview);
-    // SAFETY: only ever written by `writeOverviewPrefs`; every field is validated before use.
-    const stored = raw ? (JSON.parse(raw) as Partial<OverviewPrefs>) : {};
-    return {
-      display: stored.display ? normalizeDisplay(stored.display) : OVERVIEW_DISPLAY,
-      showCompleted: stored.showCompleted === true,
-    };
+    // SAFETY: only ever written by `writeOverviewDisplay`; every field is validated before use.
+    return raw ? normalizeDisplay(JSON.parse(raw) as Partial<DisplayOptions>) : OVERVIEW_DISPLAY;
   } catch {
-    return { display: OVERVIEW_DISPLAY, showCompleted: false };
+    return OVERVIEW_DISPLAY;
   }
 }
 
-export function writeOverviewPrefs(prefs: OverviewPrefs) {
-  preferences.set(STORAGE_KEYS.tasksOverview, JSON.stringify(prefs));
+export function writeOverviewDisplay(display: DisplayOptions) {
+  preferences.set(STORAGE_KEYS.tasksOverview, JSON.stringify(display));
 }
 
 // Grouping and ordering

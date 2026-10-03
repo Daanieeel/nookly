@@ -1,11 +1,4 @@
-import {
-  IconCalendarEvent,
-  IconChecklist,
-  IconCircleDot,
-  IconEye,
-  IconEyeOff,
-  IconFolder,
-} from "@tabler/icons-react";
+import { IconCalendarEvent, IconChecklist, IconCircleDot, IconFolder } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { EmptyState } from "#/components/empty-state.tsx";
@@ -26,17 +19,18 @@ import {
   DUE_BUCKETS,
   type DisplayOptions,
   type Grouping,
-  type OverviewPrefs,
   orderTasks,
   passesFilters,
-  readOverviewPrefs,
+  readOverviewDisplay,
   sortStatuses,
   statusKind,
-  writeOverviewPrefs,
+  writeOverviewDisplay,
 } from "./task-model";
+import { isNot } from "#/features/views/view-presets.ts";
 import { TaskStatusIcon } from "./task-properties";
 
-const NO_FILTERS: ActiveFilter[] = [];
+/// Finished tasks start filtered out; removing the chip brings them back.
+const DEFAULT_FILTERS: ActiveFilter[] = [isNot("status", "done", "cancelled")];
 const NO_CREATE = () => undefined;
 
 /// The sixth cross-Space exception (`docs/04-navigation-spaces.md`): every Space's
@@ -46,16 +40,13 @@ const NO_CREATE = () => undefined;
 export function TasksOverviewView() {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [prefs, setPrefs] = useState(readOverviewPrefs);
-  const [filters, setFilters] = useState(NO_FILTERS);
-  const { display, showCompleted } = prefs;
+  const [display, setDisplayState] = useState(readOverviewDisplay);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
-  const update = (patch: Partial<OverviewPrefs>) => {
-    const next = { ...prefs, ...patch };
-    writeOverviewPrefs(next);
-    setPrefs(next);
+  const setDisplay = (next: DisplayOptions) => {
+    writeOverviewDisplay(next);
+    setDisplayState(next);
   };
-  const setDisplay = (next: DisplayOptions) => update({ display: next });
 
   const { data: tasks = [], isPending } = useQuery({
     queryKey: qk.tasks.all,
@@ -122,14 +113,12 @@ export function TasksOverviewView() {
     () =>
       orderTasks(
         tasks.filter((t) => {
-          const kind = kindOf(t.statusId);
-          const finished = kind === "completed" || kind === "canceled";
-          return (showCompleted || !finished) && passesFilters(t, filters);
+          return passesFilters(t, filters);
         }),
         display.ordering,
         statuses,
       ),
-    [tasks, filters, showCompleted, display.ordering, statuses, kindOf],
+    [tasks, filters, display.ordering, statuses, kindOf],
   );
 
   const groups = useMemo(() => {
@@ -185,16 +174,6 @@ export function TasksOverviewView() {
               onFiltersChange={setFilters}
               part="button"
             />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-1.5"
-              aria-pressed={showCompleted}
-              onClick={() => update({ showCompleted: !showCompleted })}
-            >
-              {showCompleted ? <IconEye /> : <IconEyeOff />}
-              Completed
-            </Button>
             <TaskDisplayMenu display={display} onChange={setDisplay} columns={columns} crossSpace />
           </div>
           <FilterMenu
