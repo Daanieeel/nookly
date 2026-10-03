@@ -9,6 +9,7 @@ import {
   TaskDueControl,
   TaskEffortControl,
   TaskLabelsControl,
+  TaskSpaceChip,
   TaskStatusControl,
 } from "./task-controls";
 import type { DisplayProperty } from "./task-model";
@@ -160,6 +161,7 @@ function TaskCardBody({
           {displayTitle(task.entity)}
         </span>
       </div>
+      <TaskSpaceChip task={task} className="self-start" />
       {hasPills && (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 pt-0.5">
           {show("due") && <TaskDueControl task={task} />}

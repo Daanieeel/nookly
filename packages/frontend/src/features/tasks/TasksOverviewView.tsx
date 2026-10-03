@@ -1,5 +1,4 @@
 import {
-  IconBan,
   IconCalendarEvent,
   IconChecklist,
   IconCircleDot,
@@ -7,82 +6,56 @@ import {
   IconEyeOff,
   IconFolder,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { type CSSProperties, useMemo, useState } from "react";
-import { z } from "zod";
-import { entityTarget } from "#/components/context-menu/registry.ts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { EmptyState } from "#/components/empty-state.tsx";
-import { EntityKeyCopyInline } from "#/components/entity-key.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import { type GroupDef, buildGroups } from "#/components/grouped-view/grouping.ts";
-import { GroupedList } from "#/components/grouped-view/grouped-list.tsx";
+import { type ViewGroup, buildGroups } from "#/components/grouped-view/grouping.ts";
 import { Button } from "@nookly/ui/components/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
 import { listSpaces } from "#/lib/api/spaces.ts";
-import { listTaskStatuses, listTasksAll } from "#/lib/api/tasks.ts";
-import type { Space, Task } from "#/lib/api/types.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
-import { preferences } from "#/lib/preferences.ts";
+import { listTaskStatuses, listTasksAll, updateTaskStatus } from "#/lib/api/tasks.ts";
+import type { Task } from "#/lib/api/types.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import {
-  TaskDueColumns,
-  TaskStatusControl,
-  TasksDataContext,
-  type TasksData,
-} from "./task-controls";
+import { TaskBoard } from "./TaskBoard";
+import { SpaceDot, TasksDataContext, type TasksData } from "./task-controls";
+import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { taskGroupDefs } from "./task-groups";
-import { DUE_BUCKETS, orderTasks, passesFilters, sortStatuses, statusKind } from "./task-model";
+import { TaskList } from "./TaskList";
+import {
+  DUE_BUCKETS,
+  type DisplayOptions,
+  type Grouping,
+  type OverviewPrefs,
+  orderTasks,
+  passesFilters,
+  readOverviewPrefs,
+  sortStatuses,
+  statusKind,
+  writeOverviewPrefs,
+} from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
 
-const OVERVIEW_GROUPINGS = [
-  { id: "due", label: "Due date", icon: IconCalendarEvent },
-  { id: "status", label: "Status", icon: IconCircleDot },
-  { id: "space", label: "Space", icon: IconFolder },
-  { id: "none", label: "No grouping", icon: IconBan },
-] as const;
-
-const groupingSchema = z.enum(["due", "status", "space", "none"]).catch("due");
-
-const displaySchema = z.object({
-  grouping: groupingSchema,
-  showCompleted: z.boolean().catch(false),
-});
-
-type OverviewDisplay = z.infer<typeof displaySchema>;
-
-function readDisplay(): OverviewDisplay {
-  try {
-    const raw = preferences.get(STORAGE_KEYS.tasksOverview);
-    return displaySchema.parse(raw ? JSON.parse(raw) : {});
-  } catch {
-    return displaySchema.parse({});
-  }
-}
-
 const NO_FILTERS: ActiveFilter[] = [];
+const NO_CREATE = () => undefined;
 
 /// The sixth cross-Space exception (`docs/04-navigation-spaces.md`): every Space's
-/// tasks in one list, below Calendar in the sidebar. Each row carries its Space's
-/// color so it reads where the task lives. Open and edit work as in a Space's own
+/// tasks in one list or board, below Calendar in the sidebar. Each row and card carries
+/// its Space's color. It filters, groups, orders and edits in place like a Space's own
 /// Tasks page; creating a task still happens inside its Space.
 export function TasksOverviewView() {
+  const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const [display, setDisplay] = useState(readDisplay);
+  const [prefs, setPrefs] = useState(readOverviewPrefs);
   const [filters, setFilters] = useState(NO_FILTERS);
+  const { display, showCompleted } = prefs;
 
-  const update = (patch: Partial<OverviewDisplay>) => {
-    const next = { ...display, ...patch };
-    preferences.set(STORAGE_KEYS.tasksOverview, JSON.stringify(next));
-    setDisplay(next);
+  const update = (patch: Partial<OverviewPrefs>) => {
+    const next = { ...prefs, ...patch };
+    writeOverviewPrefs(next);
+    setPrefs(next);
   };
+  const setDisplay = (next: DisplayOptions) => update({ display: next });
 
   const { data: tasks = [], isPending } = useQuery({
     queryKey: qk.tasks.all,
@@ -93,9 +66,8 @@ export function TasksOverviewView() {
     queryFn: listTaskStatuses,
   });
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
-  const spaceById = useMemo(() => new Map(spaces.map((s) => [s.id, s])), [spaces]);
 
-  const base = useMemo<TasksData>(() => {
+  const data = useMemo<TasksData>(() => {
     const statuses = sortStatuses(rawStatuses);
     const statusById = new Map(statuses.map((s) => [s.id, s]));
     return {
@@ -109,9 +81,10 @@ export function TasksOverviewView() {
         const status = statusById.get(id);
         return status ? statusKind(status, statuses) : "unstarted";
       },
+      spaces: new Map(spaces.map((s) => [s.id, s])),
     };
-  }, [rawStatuses]);
-  const { statuses, kindOf } = base;
+  }, [rawStatuses, spaces]);
+  const { statuses, kindOf } = data;
 
   const filterFields = useMemo<FilterField[]>(
     () => [
@@ -151,182 +124,124 @@ export function TasksOverviewView() {
         tasks.filter((t) => {
           const kind = kindOf(t.statusId);
           const finished = kind === "completed" || kind === "canceled";
-          return (display.showCompleted || !finished) && passesFilters(t, filters);
+          return (showCompleted || !finished) && passesFilters(t, filters);
         }),
-        "due",
+        display.ordering,
         statuses,
       ),
-    [tasks, filters, display.showCompleted, statuses, kindOf],
+    [tasks, filters, showCompleted, display.ordering, statuses, kindOf],
   );
 
   const groups = useMemo(() => {
-    const defs =
-      display.grouping === "space"
-        ? spaceGroupDefs(spaces)
-        : taskGroupDefs(display.grouping, statuses, [], kindOf);
-    return buildGroups(
+    const defs = taskGroupDefs(display.grouping, statuses, [], kindOf, spaces);
+    const subDefs = taskGroupDefs(display.subGrouping, statuses, [], kindOf, spaces);
+    const all = buildGroups(
       visible,
       defs ?? [{ id: "all", name: "All tasks", match: () => true }],
-      null,
-    ).filter((g) => g.items.length > 0);
-  }, [visible, display.grouping, spaces, statuses, kindOf]);
+      subDefs,
+    );
+    const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
+    return all.filter((g) => showEmpty || g.items.length > 0);
+  }, [visible, display, statuses, kindOf, spaces]);
+
+  const move = useMutation({
+    mutationFn: ({ task, statusId }: { task: Task; statusId: string }) =>
+      updateTaskStatus(task.entity.id, statusId),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.tasks.root }),
+  });
+  const failedTaskId = move.isError ? move.variables?.task.entity.id : undefined;
+
+  /// Only status can change by dropping a card; a Space is where a task lives.
+  const dropKinds = new Set<Grouping>([display.grouping, display.subGrouping]);
+  const boardDraggable = dropKinds.has("status");
+  const onMove = (
+    task: Task,
+    columnId: string,
+    laneId: string | null,
+    from: { columnId: string; laneId: string | null },
+  ) => {
+    const target = display.grouping === "status" ? columnId : laneId;
+    const source = display.grouping === "status" ? from.columnId : from.laneId;
+    if (target && target !== source && target !== task.statusId) {
+      move.mutate({ task, statusId: target });
+    }
+  };
+  const openTask = (task: Task) => openEntity(task.entity.id, task.entity.spaceId);
+  const columns: ViewGroup<Task>[] = groups;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
-        <div className="flex min-w-0 items-center gap-1">
-          <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
-            <IconChecklist size={16} className="text-muted-foreground" />
-            Tasks
-          </h1>
-          <div className="flex-1" />
+    <TasksDataContext.Provider value={data}>
+      <div className="relative flex h-full min-h-0 flex-col">
+        <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
+          <div className="flex min-w-0 items-center gap-1">
+            <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
+              <IconChecklist size={16} className="text-muted-foreground" />
+              Tasks
+            </h1>
+            <div className="flex-1" />
+            <FilterMenu
+              fields={filterFields}
+              filters={filters}
+              onFiltersChange={setFilters}
+              part="button"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-1.5"
+              aria-pressed={showCompleted}
+              onClick={() => update({ showCompleted: !showCompleted })}
+            >
+              {showCompleted ? <IconEye /> : <IconEyeOff />}
+              Completed
+            </Button>
+            <TaskDisplayMenu display={display} onChange={setDisplay} columns={columns} crossSpace />
+          </div>
           <FilterMenu
             fields={filterFields}
             filters={filters}
             onFiltersChange={setFilters}
-            part="button"
+            part="chips"
           />
-          <Button
-            variant="secondary"
-            size="sm"
-            className="gap-1.5"
-            aria-pressed={display.showCompleted}
-            onClick={() => update({ showCompleted: !display.showCompleted })}
-          >
-            {display.showCompleted ? <IconEye /> : <IconEyeOff />}
-            Completed
-          </Button>
-          <Select
-            value={display.grouping}
-            onValueChange={(value) => update({ grouping: groupingSchema.parse(value) })}
-          >
-            <SelectTrigger size="sm" className="w-40" aria-label="Grouping">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {OVERVIEW_GROUPINGS.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  <g.icon />
-                  {g.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <FilterMenu
-          fields={filterFields}
-          filters={filters}
-          onFiltersChange={setFilters}
-          part="chips"
-        />
-      </header>
+        </header>
 
-      {!isPending && tasks.length === 0 ? (
-        <div className="p-6">
-          <EmptyState
-            icon={IconChecklist}
-            title="No tasks yet"
-            description="Tasks from every Space show up here. Create them inside a Space."
-          />
-        </div>
-      ) : groups.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No tasks match this view.</p>
-          {filters.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-              Clear filters
-            </Button>
-          )}
-        </div>
-      ) : (
-        <GroupedList
-          groups={groups}
-          showHeaders={display.grouping !== "none"}
-          getKey={(task) => task.entity.id}
-          renderRow={(task) => (
-            <OverviewTaskRow
-              task={task}
-              base={base}
-              space={spaceById.get(task.entity.spaceId)}
-              onOpen={() => openEntity(task.entity.id, task.entity.spaceId)}
+        {!isPending && tasks.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              icon={IconChecklist}
+              title="No tasks yet"
+              description="Tasks from every Space show up here. Create them inside a Space."
             />
-          )}
-        />
-      )}
-    </div>
-  );
-}
-
-/// A Space's color as a small dot.
-function SpaceDot({ space }: { space: Space }) {
-  return (
-    <span
-      className="size-2 shrink-0 rounded-full bg-(--space-color)"
-      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
-      style={{ "--space-color": space.color } as CSSProperties}
-    />
-  );
-}
-
-function spaceGroupDefs(spaces: Space[]): GroupDef<Task>[] {
-  return spaces.map((space) => ({
-    id: space.id,
-    name: space.name,
-    icon: (
-      <span className="flex size-3.5 items-center justify-center">
-        <SpaceDot space={space} />
-      </span>
-    ),
-    match: (t) => t.entity.spaceId === space.id,
-  }));
-}
-
-/// One task: status, due date, ID, title and its Space, color coded. The inline controls
-/// read the task's own Space from a context of their own, since the page spans all of them.
-function OverviewTaskRow({
-  task,
-  base,
-  space,
-  onOpen,
-}: {
-  task: Task;
-  base: TasksData;
-  space: Space | undefined;
-  onOpen: () => void;
-}) {
-  const data = useMemo(() => ({ ...base, spaceId: task.entity.spaceId }), [base, task]);
-  const title = displayTitle(task.entity);
-  return (
-    <TasksDataContext.Provider value={data}>
-      <div
-        className="relative flex h-11 items-center gap-2 border-b border-border/60 px-4 transition-colors focus-within:bg-accent/50 hover:bg-accent/40"
-        {...entityTarget(task.entity)}
-      >
-        <button
-          type="button"
-          data-task-row
-          aria-label={`Open ${title}`}
-          onClick={onOpen}
-          className="absolute inset-0 cursor-pointer outline-none"
-        />
-        <TaskStatusControl task={task} />
-        <TaskDueColumns task={task} />
-        <span className="relative hidden w-20 shrink-0 sm:flex">
-          <EntityKeyCopyInline entityKey={task.entity.key} className="-ml-1" />
-        </span>
-        <span className="pointer-events-none relative min-w-0 flex-1 truncate text-sm">
-          {title}
-        </span>
-        {space && (
-          <span
-            title={`Space: ${space.name}`}
-            className="pointer-events-none relative flex max-w-40 shrink-0 items-center gap-1.5 rounded-md border border-(--space-color)/40 bg-(--space-color)/10 px-1.5 py-0.5 text-xs text-foreground"
-            // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
-            style={{ "--space-color": space.color } as CSSProperties}
-          >
-            <SpaceDot space={space} />
-            <span className="truncate">{space.name}</span>
-          </span>
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <p className="text-sm text-muted-foreground">No tasks match this view.</p>
+            {filters.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        ) : display.layout === "board" ? (
+          <TaskBoard
+            groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
+            properties={display.properties}
+            highlightId={null}
+            failedTaskId={failedTaskId}
+            draggable={boardDraggable}
+            onOpen={openTask}
+            onMove={onMove}
+            onCreateIn={NO_CREATE}
+          />
+        ) : (
+          <TaskList
+            groups={groups}
+            showHeaders={display.grouping !== "none"}
+            properties={display.properties}
+            highlightId={null}
+            onOpen={openTask}
+            onCreateIn={NO_CREATE}
+          />
         )}
       </div>
     </TasksDataContext.Provider>

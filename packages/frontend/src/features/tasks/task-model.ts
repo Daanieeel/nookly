@@ -4,6 +4,7 @@ import {
   IconCalendarPlus,
   IconCircleDot,
   IconClockEdit,
+  IconFolder,
   IconClockPlus,
   IconLetterCase,
   IconTag,
@@ -118,13 +119,22 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
 // Display options
 
 export type Layout = "list" | "board";
-export type Grouping = "status" | "label" | "start" | "due" | "created" | "updated" | "none";
+export type Grouping =
+  | "status"
+  | "label"
+  | "space"
+  | "start"
+  | "due"
+  | "created"
+  | "updated"
+  | "none";
 export type Ordering = "due" | "start" | "created" | "updated" | "title" | "status";
 export type DisplayProperty = "key" | "status" | "labels" | "due" | "effort" | "created";
 
 export const GROUPINGS: { id: Grouping; label: string; icon: TablerIcon }[] = [
   { id: "status", label: "Status", icon: IconCircleDot },
   { id: "label", label: "Label", icon: IconTag },
+  { id: "space", label: "Space", icon: IconFolder },
   { id: "start", label: "Start date", icon: IconCalendarPlus },
   { id: "due", label: "Due date", icon: IconCalendarEvent },
   { id: "created", label: "Created", icon: IconClockPlus },
@@ -236,6 +246,37 @@ export function writeDisplay(display: DisplayOptions) {
   preferences.set(STORAGE_KEYS.tasksDisplay, JSON.stringify(display));
 }
 
+/// The cross-Space overview opens as a list grouped by due date, without finished tasks.
+export const OVERVIEW_DISPLAY: DisplayOptions = {
+  ...DEFAULT_DISPLAY,
+  layout: "list",
+  grouping: "due",
+  properties: DEFAULT_DISPLAY.properties.filter((p) => p !== "labels"),
+};
+
+export interface OverviewPrefs {
+  display: DisplayOptions;
+  showCompleted: boolean;
+}
+
+export function readOverviewPrefs(): OverviewPrefs {
+  try {
+    const raw = preferences.get(STORAGE_KEYS.tasksOverview);
+    // SAFETY: only ever written by `writeOverviewPrefs`; every field is validated before use.
+    const stored = raw ? (JSON.parse(raw) as Partial<OverviewPrefs>) : {};
+    return {
+      display: stored.display ? normalizeDisplay(stored.display) : OVERVIEW_DISPLAY,
+      showCompleted: stored.showCompleted === true,
+    };
+  } catch {
+    return { display: OVERVIEW_DISPLAY, showCompleted: false };
+  }
+}
+
+export function writeOverviewPrefs(prefs: OverviewPrefs) {
+  preferences.set(STORAGE_KEYS.tasksOverview, JSON.stringify(prefs));
+}
+
 // Grouping and ordering
 
 /// One list section or board column. At most one of `status`, `label` and `bucket`
@@ -256,6 +297,9 @@ export function groupTasks(
   labels: Label[],
 ): TaskGroup[] {
   switch (grouping) {
+    // Spaces only group on the cross-Space overview, through `taskGroupDefs`.
+    case "space":
+      return [{ id: "all", name: "All tasks", tasks }];
     case "status":
       return statuses.map((status) => ({
         id: status.id,

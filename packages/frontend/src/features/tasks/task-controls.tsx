@@ -1,7 +1,7 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBolt } from "@tabler/icons-react";
-import { createContext, useContext, useMemo } from "react";
+import { type CSSProperties, createContext, useContext, useMemo } from "react";
 import { DueColumns } from "#/components/due-columns.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -13,7 +13,7 @@ import {
   updateTaskStatus,
 } from "#/lib/api/tasks.ts";
 import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
-import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
+import type { Label, Space, Task, TaskStatus } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, dueTone, sortStatuses, statusKind } from "./task-model";
 import {
@@ -38,6 +38,8 @@ export interface TasksData {
   statusById: Map<string, TaskStatus>;
   labelById: Map<string, Label>;
   kindOf: (statusId: string) => StatusKind;
+  /// Set only on the cross-Space overview: rows and cards then show their Space.
+  spaces?: Map<string, Space>;
 }
 
 export const TasksDataContext = createContext<TasksData | null>(null);
@@ -95,8 +97,8 @@ export function useRefreshTasks(spaceId: string) {
 /// The status glyph, which opens the status picker. Swaps to a spinner while saving
 /// and a warning when the change failed.
 export function TaskStatusControl({ task, size = 14 }: { task: Task; size?: number }) {
-  const { spaceId, statuses, statusById, kindOf } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const { statuses, statusById, kindOf } = useTasksData();
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const status = statusById.get(task.statusId);
   const change = useMutation({
     mutationFn: (statusId: string) => updateTaskStatus(task.entity.id, statusId),
@@ -129,8 +131,8 @@ export function TaskStatusControl({ task, size = 14 }: { task: Task; size?: numb
 
 /// The due date pill, which opens the date picker. Hidden while the task has none.
 export function TaskDueControl({ task }: { task: Task }) {
-  const { spaceId, kindOf } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const { kindOf } = useTasksData();
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const change = useMutation({
     mutationFn: (dueDate: string | null) =>
       updateTaskDates(task.entity.id, task.startDate, dueDate),
@@ -162,8 +164,8 @@ export function TaskDueControl({ task }: { task: Task }) {
 /// A list row's due date columns, as on Assignments: the day opens the date
 /// picker (also on rows without one), then how far away it is.
 export function TaskDueColumns({ task }: { task: Task }) {
-  const { spaceId, kindOf } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const { kindOf } = useTasksData();
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const change = useMutation({
     mutationFn: (dueDate: string | null) =>
       updateTaskDates(task.entity.id, task.startDate, dueDate),
@@ -252,8 +254,7 @@ export function TaskLabelsControl({
 /// The effort estimate as a quiet pill, which opens the effort picker. Hidden
 /// while the task has none.
 export function TaskEffortControl({ task }: { task: Task }) {
-  const { spaceId } = useTasksData();
-  const refresh = useRefreshTasks(spaceId);
+  const refresh = useRefreshTasks(task.entity.spaceId);
   const scale = useEffortSettings((s) => s.scale);
   const change = useMutation({
     mutationFn: (effort: number | null) => updateTaskEffort(task.entity.id, effort),
@@ -275,5 +276,36 @@ export function TaskEffortControl({ task }: { task: Task }) {
         {task.effort == null ? "Set effort" : effortLabel(task.effort, scale)}
       </button>
     </EffortPicker>
+  );
+}
+
+/// A Space's color as a small dot.
+export function SpaceDot({ space }: { space: Space }) {
+  return (
+    <span
+      className="size-2 shrink-0 rounded-full bg-(--space-color)"
+      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
+      style={{ "--space-color": space.color } as CSSProperties}
+    />
+  );
+}
+
+/// The task's Space as a color coded chip; renders only on the cross-Space overview.
+export function TaskSpaceChip({ task, className }: { task: Task; className?: string }) {
+  const space = useTasksData().spaces?.get(task.entity.spaceId);
+  if (!space) return null;
+  return (
+    <span
+      title={`Space: ${space.name}`}
+      className={cn(
+        "pointer-events-none relative flex max-w-40 shrink-0 items-center gap-1.5 rounded-md border border-(--space-color)/40 bg-(--space-color)/10 px-1.5 py-0.5 text-xs text-foreground",
+        className,
+      )}
+      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
+      style={{ "--space-color": space.color } as CSSProperties}
+    >
+      <SpaceDot space={space} />
+      <span className="truncate">{space.name}</span>
+    </span>
   );
 }
