@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.15.0 (2026-10-03)
+
+### Changed
+
+- Main calendar arrow keys (#45)
+- 33 mention search entity keys (#44)
+- Paste files in markdown editor (#43)
+- Session detail page (#42)
+- Cross-space task and assignment overviews (#41)
+
 ## 0.12.2 (2026-10-02)
 
 ### Changed
