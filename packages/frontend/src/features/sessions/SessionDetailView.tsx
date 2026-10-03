@@ -73,12 +73,13 @@ function SessionSidebar({ entity, occurrence }: { entity: Entity; occurrence: Se
         <SessionSummary
           occurrence={occurrence}
           showTitle={false}
+          compact
           onEdit={() => setEditing(true)}
           onDeleteSeries={() => setSeriesDeleteOpen(true)}
           close={() => setView(viewAfterTrash(entity))}
         />
       )}
-      <SessionPages spaceId={entity.spaceId} occurrence={occurrence} close={() => {}} />
+      <SessionPages spaceId={entity.spaceId} occurrence={occurrence} close={() => {}} compact />
       {occurrence.templateId && (
         <DeleteSeriesDialog
           spaceId={entity.spaceId}

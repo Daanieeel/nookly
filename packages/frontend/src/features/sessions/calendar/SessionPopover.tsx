@@ -171,6 +171,7 @@ export function SessionSummary({
   onDeleteSeries,
   close,
   showTitle = true,
+  compact = false,
 }: {
   occurrence: SessionOccurrence;
   onEdit: () => void;
@@ -179,6 +180,8 @@ export function SessionSummary({
   close: () => void;
   /// False on the Session's own page, whose header already carries the title.
   showTitle?: boolean;
+  /// Tighter text, spacing and buttons, for the Session page's narrow sidebar.
+  compact?: boolean;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const queryClient = useQueryClient();
@@ -213,7 +216,7 @@ export function SessionSummary({
   });
 
   return (
-    <div className="flex flex-col gap-2.5 p-3">
+    <div className={cn("flex flex-col gap-2.5 p-3", compact && "gap-2 p-2.5 text-xs")}>
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
           {showTitle && (
@@ -227,8 +230,7 @@ export function SessionSummary({
         <div
           className={cn(
             "-mt-1 -mr-1 flex shrink-0 items-center",
-            // Smaller buttons in the Session page's narrow sidebar.
-            !showTitle && "[&_button]:size-6 [&_svg]:size-3.5",
+            compact && "[&_button]:size-6 [&_svg]:size-3.5",
           )}
         >
           <Tooltip>
@@ -315,19 +317,19 @@ export function SessionSummary({
 
       <div className="flex flex-col gap-1.5 text-muted-foreground">
         <span className="flex items-start gap-2">
-          <IconClock size={14} className="mt-0.5 shrink-0" />
+          <IconClock size={compact ? 12 : 14} className="mt-0.5 shrink-0" />
           {formatWeekday(occurrence.date)}, {formatShortDate(occurrence.date)},{" "}
           {formatClock(occurrence.startTime)} to {formatClock(occurrence.endTime)}
         </span>
         {occurrence.location && (
           <span className="flex items-start gap-2">
-            <IconMapPin size={14} className="mt-0.5 shrink-0" />
+            <IconMapPin size={compact ? 12 : 14} className="mt-0.5 shrink-0" />
             <span className="wrap-break-word">{occurrence.location}</span>
           </span>
         )}
         {occurrence.templateId && (
           <span className="flex items-center gap-2">
-            <IconRepeat size={14} className="shrink-0" />
+            <IconRepeat size={compact ? 12 : 14} className="shrink-0" />
             Repeats weekly
           </span>
         )}
@@ -507,10 +509,13 @@ export function SessionPages({
   spaceId,
   occurrence,
   close,
+  compact = false,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
   close: () => void;
+  /// Smaller buttons and spacing, for the Session page's narrow sidebar.
+  compact?: boolean;
 }) {
   const { data: pages } = useQuery({
     queryKey: qk.sessions.pages(occurrence.entity.id),
@@ -525,7 +530,12 @@ export function SessionPages({
         ? "note"
         : null;
   return (
-    <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-2 border-t border-border p-3",
+        compact && "gap-1.5 p-2.5",
+      )}
+    >
       <SessionPageButton
         kind="jot"
         spaceId={spaceId}
@@ -534,6 +544,7 @@ export function SessionPages({
         primary={next === "jot"}
         loading={!pages}
         close={close}
+        compact={compact}
       />
       <SessionPageButton
         kind="note"
@@ -543,6 +554,7 @@ export function SessionPages({
         primary={next === "note"}
         loading={!pages}
         close={close}
+        compact={compact}
       />
     </div>
   );
@@ -556,6 +568,7 @@ function SessionPageButton({
   primary,
   loading,
   close,
+  compact,
 }: {
   kind: "jot" | "note";
   spaceId: string;
@@ -565,9 +578,11 @@ function SessionPageButton({
   primary: boolean;
   loading: boolean;
   close: () => void;
+  compact: boolean;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const size = compact ? "sm" : "default";
   const Icon = MODULE_ICONS[kind === "jot" ? "jots" : "notes"];
   const noun = kind === "jot" ? "jot" : "note";
   const create = useMutation({
@@ -588,6 +603,7 @@ function SessionPageButton({
     return (
       <Button
         variant="secondary"
+        size={size}
         onClick={() => {
           close();
           openEntity(pageId, spaceId);
@@ -601,6 +617,7 @@ function SessionPageButton({
   return (
     <Button
       variant={primary ? "default" : "secondary"}
+      size={size}
       disabled={loading}
       onClick={() => !create.isPending && create.mutate()}
     >
