@@ -62,7 +62,7 @@ export function FormField({
         {label}
         {required && (
           <>
-            <span aria-hidden className="text-destructive">
+            <span aria-hidden className="-mx-0.5 text-destructive">
               *
             </span>
             <span className="sr-only">(required)</span>
