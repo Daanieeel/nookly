@@ -337,6 +337,7 @@ function AddCourseCard({
             {(field) => (
               <FormField
                 label="New course"
+                required
                 htmlFor="semester-new-course"
                 error={fieldMessage(field)}
               >

@@ -91,7 +91,7 @@ function RescheduleForm({
     >
       <form.Field name="date">
         {(field) => (
-          <FormField label="Date" error={fieldMessage(field)}>
+          <FormField label="Date" required error={fieldMessage(field)}>
             <DateInput
               aria-label="Date"
               clearable={false}
@@ -104,7 +104,7 @@ function RescheduleForm({
       <div className="grid grid-cols-2 gap-2">
         <form.Field name="startTime">
           {(field) => (
-            <FormField label="Starts" error={fieldMessage(field)}>
+            <FormField label="Starts" required error={fieldMessage(field)}>
               <TimeInput
                 aria-label="Start time"
                 value={field.state.value}
@@ -117,7 +117,7 @@ function RescheduleForm({
         </form.Field>
         <form.Field name="endTime">
           {(field) => (
-            <FormField label="Ends" error={fieldMessage(field)}>
+            <FormField label="Ends" required error={fieldMessage(field)}>
               <TimeInput
                 aria-label="End time"
                 value={field.state.value}

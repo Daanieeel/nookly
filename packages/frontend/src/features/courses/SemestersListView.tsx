@@ -686,7 +686,7 @@ function CreateSemesterDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <FormField label="Name" htmlFor="semester-name" error={fieldMessage(field)}>
+              <FormField label="Name" required htmlFor="semester-name" error={fieldMessage(field)}>
                 <Input
                   id="semester-name"
                   ref={inputRef}

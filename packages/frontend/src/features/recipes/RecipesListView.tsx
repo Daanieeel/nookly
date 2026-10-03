@@ -231,7 +231,7 @@ function CreateRecipeDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <FormField label="Name" htmlFor="recipe-name" error={fieldMessage(field)}>
+              <FormField label="Name" required htmlFor="recipe-name" error={fieldMessage(field)}>
                 <Input
                   id="recipe-name"
                   ref={inputRef}

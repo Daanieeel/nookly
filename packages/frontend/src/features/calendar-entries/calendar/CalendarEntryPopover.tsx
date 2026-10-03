@@ -388,6 +388,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         {(field) => (
           <FormField
             label="Title"
+            required
             htmlFor="calendar-entry-edit-title"
             error={fieldMessage(field)}
             className="col-span-2"
@@ -406,7 +407,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         <>
           <form.Field name="date">
             {(field) => (
-              <FormField label="Starts" error={fieldMessage(field)}>
+              <FormField label="Starts" required error={fieldMessage(field)}>
                 <DateInput
                   aria-label="Date"
                   clearable={false}
@@ -450,7 +451,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
             <>
               <form.Field name="startTime">
                 {(field) => (
-                  <FormField label="Start time" error={fieldMessage(field)}>
+                  <FormField label="Start time" required error={fieldMessage(field)}>
                     <TimeInput
                       aria-label="Start time"
                       value={field.state.value}
@@ -462,7 +463,7 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
               </form.Field>
               <form.Field name="endTime">
                 {(field) => (
-                  <FormField label="End time" error={fieldMessage(field)}>
+                  <FormField label="End time" required error={fieldMessage(field)}>
                     <TimeInput
                       aria-label="End time"
                       value={field.state.value}

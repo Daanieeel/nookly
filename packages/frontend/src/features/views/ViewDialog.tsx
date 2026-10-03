@@ -150,6 +150,7 @@ export function ViewDialog({
             {(field) => (
               <FormField
                 label="Name"
+                required
                 htmlFor="view-name"
                 error={fieldMessage(field)}
                 className="flex-1"

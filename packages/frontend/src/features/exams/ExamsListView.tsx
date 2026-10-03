@@ -534,6 +534,7 @@ function CreateExamDialog({
             {(field) => (
               <FormField
                 label="Course"
+                required
                 error={fieldMessage(field)}
                 className="col-span-2 sm:col-span-1"
               >

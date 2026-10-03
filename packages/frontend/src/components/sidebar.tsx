@@ -799,7 +799,7 @@ function CreateSpaceDialog({
           </form.Field>
           <form.Field name="name">
             {(field) => (
-              <FormField label="Name" htmlFor="new-space-name" error={fieldMessage(field)}>
+              <FormField label="Name" required htmlFor="new-space-name" error={fieldMessage(field)}>
                 <Input
                   id="new-space-name"
                   ref={nameInputRef}
@@ -934,7 +934,12 @@ function SpaceSettingsDialog({
           </form.Field>
           <form.Field name="name">
             {(field) => (
-              <FormField label="Name" htmlFor="space-settings-name" error={fieldMessage(field)}>
+              <FormField
+                label="Name"
+                required
+                htmlFor="space-settings-name"
+                error={fieldMessage(field)}
+              >
                 <Input
                   id="space-settings-name"
                   ref={nameInputRef}

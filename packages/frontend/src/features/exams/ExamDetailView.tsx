@@ -497,7 +497,12 @@ function StudyBlockAddRow({
       <div className="flex items-start gap-2">
         <form.Field name="date">
           {(field) => (
-            <FormField label="Study block date" error={fieldMessage(field)} className="max-w-56">
+            <FormField
+              label="Study block date"
+              required
+              error={fieldMessage(field)}
+              className="max-w-56"
+            >
               <DateInput
                 aria-label="Study block date"
                 value={field.state.value || null}

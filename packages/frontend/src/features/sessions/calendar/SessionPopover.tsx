@@ -414,7 +414,12 @@ export function SessionEditForm({
       )}
       <form.Field name="title">
         {(field) => (
-          <FormField label="Title" htmlFor="session-edit-title" error={fieldMessage(field)}>
+          <FormField
+            label="Title"
+            required
+            htmlFor="session-edit-title"
+            error={fieldMessage(field)}
+          >
             <Input
               id="session-edit-title"
               value={field.state.value}
@@ -428,7 +433,7 @@ export function SessionEditForm({
         {scope === "this" && (
           <form.Field name="date">
             {(field) => (
-              <FormField label="Date" error={fieldMessage(field)} className="col-span-2">
+              <FormField label="Date" required error={fieldMessage(field)} className="col-span-2">
                 <DateInput
                   aria-label="Date"
                   clearable={false}
@@ -441,7 +446,7 @@ export function SessionEditForm({
         )}
         <form.Field name="startTime">
           {(field) => (
-            <FormField label="Starts" error={fieldMessage(field)}>
+            <FormField label="Starts" required error={fieldMessage(field)}>
               <TimeInput
                 aria-label="Start time"
                 value={field.state.value}
@@ -453,7 +458,7 @@ export function SessionEditForm({
         </form.Field>
         <form.Field name="endTime">
           {(field) => (
-            <FormField label="Ends" error={fieldMessage(field)}>
+            <FormField label="Ends" required error={fieldMessage(field)}>
               <TimeInput
                 aria-label="End time"
                 value={field.state.value}

@@ -326,7 +326,12 @@ function IcloudConnect() {
       <div className="grid grid-cols-2 gap-2">
         <form.Field name="appleId">
           {(field) => (
-            <FormField label="Apple ID" htmlFor="icloud-apple-id" error={fieldMessage(field)}>
+            <FormField
+              label="Apple ID"
+              required
+              htmlFor="icloud-apple-id"
+              error={fieldMessage(field)}
+            >
               <Input
                 id="icloud-apple-id"
                 type="email"
@@ -342,6 +347,7 @@ function IcloudConnect() {
           {(field) => (
             <FormField
               label="App specific password"
+              required
               htmlFor="icloud-password"
               error={fieldMessage(field)}
             >

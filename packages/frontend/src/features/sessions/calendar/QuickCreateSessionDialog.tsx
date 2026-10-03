@@ -223,7 +223,7 @@ export function QuickCreateSessionDialog({
         >
           <form.Field name="title">
             {(field) => (
-              <FormField label="Title" htmlFor="session-title" error={fieldMessage(field)}>
+              <FormField label="Title" required htmlFor="session-title" error={fieldMessage(field)}>
                 <Input
                   id="session-title"
                   ref={titleRef}
@@ -238,7 +238,7 @@ export function QuickCreateSessionDialog({
           <div className="grid grid-cols-2 gap-3">
             <form.Field name="course">
               {(field) => (
-                <FormField label="Course" error={fieldMessage(field)}>
+                <FormField label="Course" required error={fieldMessage(field)}>
                   <EntityPickerPopover
                     spaceId={spaceId}
                     typeFilter="course"
@@ -270,7 +270,7 @@ export function QuickCreateSessionDialog({
             </form.Field>
             <form.Field name="date">
               {(field) => (
-                <FormField label="Date" error={fieldMessage(field)}>
+                <FormField label="Date" required error={fieldMessage(field)}>
                   <DateInput
                     aria-label="Date"
                     clearable={false}
@@ -282,7 +282,7 @@ export function QuickCreateSessionDialog({
             </form.Field>
             <form.Field name="startTime">
               {(field) => (
-                <FormField label="Starts" error={fieldMessage(field)}>
+                <FormField label="Starts" required error={fieldMessage(field)}>
                   <TimeInput
                     aria-label="Start time"
                     value={field.state.value}
@@ -294,7 +294,7 @@ export function QuickCreateSessionDialog({
             </form.Field>
             <form.Field name="endTime">
               {(field) => (
-                <FormField label="Ends" error={fieldMessage(field)}>
+                <FormField label="Ends" required error={fieldMessage(field)}>
                   <TimeInput
                     aria-label="End time"
                     value={field.state.value}

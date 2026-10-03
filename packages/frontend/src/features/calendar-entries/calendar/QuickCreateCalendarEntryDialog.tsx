@@ -225,7 +225,12 @@ export function QuickCreateCalendarEntryDialog({
           {spaceId === undefined && (
             <form.Field name="targetSpaceId">
               {(field) => (
-                <FormField label="Space" error={fieldMessage(field)} className="col-span-2">
+                <FormField
+                  label="Space"
+                  required
+                  error={fieldMessage(field)}
+                  className="col-span-2"
+                >
                   <Select value={field.state.value} onValueChange={field.handleChange}>
                     <SelectTrigger className="w-full" aria-label="Space">
                       <SelectValue placeholder="Pick a Space…" />
@@ -249,6 +254,7 @@ export function QuickCreateCalendarEntryDialog({
             {(field) => (
               <FormField
                 label="Title"
+                required
                 htmlFor="calendar-entry-create-title"
                 error={fieldMessage(field)}
                 className="col-span-2"
@@ -266,7 +272,7 @@ export function QuickCreateCalendarEntryDialog({
           </form.Field>
           <form.Field name="date">
             {(field) => (
-              <FormField label="Starts" error={fieldMessage(field)}>
+              <FormField label="Starts" required error={fieldMessage(field)}>
                 <DateInput
                   aria-label="Date"
                   clearable={false}
@@ -308,7 +314,7 @@ export function QuickCreateCalendarEntryDialog({
                 <>
                   <form.Field name="startTime">
                     {(field) => (
-                      <FormField label="Start time" error={fieldMessage(field)}>
+                      <FormField label="Start time" required error={fieldMessage(field)}>
                         <TimeInput
                           aria-label="Start time"
                           value={field.state.value}
@@ -320,7 +326,7 @@ export function QuickCreateCalendarEntryDialog({
                   </form.Field>
                   <form.Field name="endTime">
                     {(field) => (
-                      <FormField label="End time" error={fieldMessage(field)}>
+                      <FormField label="End time" required error={fieldMessage(field)}>
                         <TimeInput
                           aria-label="End time"
                           value={field.state.value}
