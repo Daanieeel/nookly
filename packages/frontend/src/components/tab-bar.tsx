@@ -9,7 +9,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { SpaceDot } from "#/components/space-chip.tsx";
@@ -25,6 +25,7 @@ import { type View, armNewTabIntent, currentTabs, useNavStore } from "#/lib/stor
 import type { Tab } from "#/lib/store/tab-model.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Separator } from "@nookly/ui/components/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 
@@ -252,15 +253,20 @@ export function TabBar() {
       className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-background px-3"
     >
       {shown.map((tab, index) => (
-        <TabItem
-          key={tab.id}
-          tab={tab}
-          active={tab.id === activeTabId}
-          index={index}
-          dragging={draggingTabId === tab.id}
-          onDragStart={() => useNavStore.getState().setDraggingTabId(tab.id)}
-          onDragEnd={() => useNavStore.getState().setDraggingTabId(null)}
-        />
+        <Fragment key={tab.id}>
+          {/* Pinned tabs sit first, so the first regular one follows the last pinned. */}
+          {!tab.pinned && index > 0 && shown[index - 1].pinned && (
+            <Separator orientation="vertical" className="mx-1 h-4 shrink-0" />
+          )}
+          <TabItem
+            tab={tab}
+            active={tab.id === activeTabId}
+            index={index}
+            dragging={draggingTabId === tab.id}
+            onDragStart={() => useNavStore.getState().setDraggingTabId(tab.id)}
+            onDragEnd={() => useNavStore.getState().setDraggingTabId(null)}
+          />
+        </Fragment>
       ))}
       <Tooltip>
         <TooltipTrigger asChild>
