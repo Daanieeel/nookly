@@ -18,6 +18,7 @@ pub mod recipes;
 pub mod relationships;
 pub mod schema;
 pub mod search;
+mod series;
 pub mod sessions;
 pub mod space_modules;
 pub mod spaces;

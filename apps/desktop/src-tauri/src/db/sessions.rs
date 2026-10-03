@@ -433,64 +433,43 @@ pub fn update_session_series(
         "UPDATE session_templates SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
         params![start_time, end_time, location, template_id],
     )?;
-    let title = patch.title.filter(|t| *t != old.entity.title);
-    if let Some(title) = &title {
-        crate::db::entities::update_entity(
-            conn,
-            template_id,
-            crate::db::entities::EntityPatch {
-                title: Some(title.clone()),
-                ..Default::default()
-            },
-        )?;
+    crate::db::series::update_series::<SessionOccurrence>(
+        conn,
+        template_id,
+        from_date,
+        &old.entity.title,
+        patch.title,
+        |occurrence| {
+            use crate::db::series::keep_or;
+            let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
+            let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
+            let new_location = keep_or(&occurrence.location, &old.location, &location);
+            // An override that would end before it starts keeps its own times.
+            let (new_start, new_end) = if new_start < new_end {
+                (new_start, new_end)
+            } else {
+                (occurrence.start_time.clone(), occurrence.end_time.clone())
+            };
+            conn.execute(
+                "UPDATE sessions SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
+                params![new_start, new_end, new_location, occurrence.entity.id],
+            )?;
+            Ok(())
+        },
+    )
+}
+
+impl crate::db::series::SeriesOccurrence for SessionOccurrence {
+    const TABLE: &'static str = "sessions";
+    const ALIAS: &'static str = "s";
+
+    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        row_to_occurrence(row)
     }
 
-    let mut stmt = conn.prepare(
-        "SELECT e.*, s.* FROM entities e JOIN sessions s ON s.entity_id = e.id
-         WHERE s.template_id = ?1 AND s.date >= ?2 AND e.deleted_at IS NULL",
-    )?;
-    let occurrences = stmt
-        .query_map(params![template_id, from_date], row_to_occurrence)?
-        .collect::<Result<Vec<_>, _>>()?;
-    for occurrence in occurrences {
-        let keep_or = |current: &String, previous: &String, next: &String| {
-            if current == previous {
-                next.clone()
-            } else {
-                current.clone()
-            }
-        };
-        let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
-        let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
-        let new_location = if occurrence.location == old.location {
-            location.clone()
-        } else {
-            occurrence.location.clone()
-        };
-        // An override that would end before it starts keeps its own times.
-        let (new_start, new_end) = if new_start < new_end {
-            (new_start, new_end)
-        } else {
-            (occurrence.start_time.clone(), occurrence.end_time.clone())
-        };
-        conn.execute(
-            "UPDATE sessions SET start_time = ?1, end_time = ?2, location = ?3 WHERE entity_id = ?4",
-            params![new_start, new_end, new_location, occurrence.entity.id],
-        )?;
-        if let Some(title) = &title {
-            if occurrence.entity.title == old.entity.title {
-                crate::db::entities::update_entity(
-                    conn,
-                    &occurrence.entity.id,
-                    crate::db::entities::EntityPatch {
-                        title: Some(title.clone()),
-                        ..Default::default()
-                    },
-                )?;
-            }
-        }
+    fn entity(&self) -> &Entity {
+        &self.entity
     }
-    Ok(())
 }
 
 /// Moves a series' occurrences from `from_date` on to Trash, and the template
@@ -500,26 +479,7 @@ pub fn delete_session_series(
     template_id: &str,
     from_date: &str,
 ) -> AppResult<usize> {
-    let ids: Vec<String> = conn
-        .prepare(
-            "SELECT e.id FROM entities e JOIN sessions s ON s.entity_id = e.id
-             WHERE s.template_id = ?1 AND s.date >= ?2 AND e.deleted_at IS NULL",
-        )?
-        .query_map(params![template_id, from_date], |row| row.get(0))?
-        .collect::<Result<Vec<_>, _>>()?;
-    for id in &ids {
-        crate::db::entities::soft_delete_entity(conn, id)?;
-    }
-    let remaining: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities e JOIN sessions s ON s.entity_id = e.id
-         WHERE s.template_id = ?1 AND e.deleted_at IS NULL",
-        params![template_id],
-        |row| row.get(0),
-    )?;
-    if remaining == 0 {
-        crate::db::entities::soft_delete_entity(conn, template_id)?;
-    }
-    Ok(ids.len())
+    crate::db::series::delete_series::<SessionOccurrence>(conn, template_id, from_date)
 }
 
 /// The Jot and Note of one occurrence, when they exist and aren't in Trash.

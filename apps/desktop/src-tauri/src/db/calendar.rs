@@ -436,80 +436,50 @@ pub fn update_calendar_entry_series(
         "UPDATE calendar_entry_templates SET start_time = ?1, end_time = ?2, all_day = ?3, location = ?4, description = ?5 WHERE entity_id = ?6",
         params![start_time, end_time, all_day as i64, location, description, template_id],
     )?;
-    let title = patch.title.filter(|t| *t != old.entity.title);
-    if let Some(title) = &title {
-        crate::db::entities::update_entity(
-            conn,
-            template_id,
-            crate::db::entities::EntityPatch {
-                title: Some(title.clone()),
-                ..Default::default()
-            },
-        )?;
+    crate::db::series::update_series::<CalendarEntry>(
+        conn,
+        template_id,
+        from_date,
+        &old.entity.title,
+        patch.title,
+        |occurrence| {
+            use crate::db::series::keep_or;
+            let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
+            let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
+            let new_all_day = keep_or(&occurrence.all_day, &old.all_day, &all_day);
+            let new_location = keep_or(&occurrence.location, &old.location, &location);
+            let new_description = keep_or(&occurrence.description, &old.description, &description);
+            // An override that would end up invalid keeps its own times/all_day.
+            let (new_start, new_end, new_all_day) =
+                if validate_times(new_all_day, &new_start, &new_end).is_ok() {
+                    (new_start, new_end, new_all_day)
+                } else {
+                    (
+                        occurrence.start_time.clone(),
+                        occurrence.end_time.clone(),
+                        occurrence.all_day,
+                    )
+                };
+            conn.execute(
+                "UPDATE calendar_entries SET start_time = ?1, end_time = ?2, all_day = ?3, location = ?4, description = ?5 WHERE entity_id = ?6",
+                params![new_start, new_end, new_all_day as i64, new_location, new_description, occurrence.entity.id],
+            )?;
+            Ok(())
+        },
+    )
+}
+
+impl crate::db::series::SeriesOccurrence for CalendarEntry {
+    const TABLE: &'static str = "calendar_entries";
+    const ALIAS: &'static str = "a";
+
+    fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        row_to_calendar_entry(row)
     }
 
-    let mut stmt = conn.prepare(
-        "SELECT e.*, a.* FROM entities e JOIN calendar_entries a ON a.entity_id = e.id
-         WHERE a.template_id = ?1 AND a.date >= ?2 AND e.deleted_at IS NULL",
-    )?;
-    let occurrences = stmt
-        .query_map(params![template_id, from_date], row_to_calendar_entry)?
-        .collect::<Result<Vec<_>, _>>()?;
-    for occurrence in occurrences {
-        let keep_or =
-            |current: &Option<String>, previous: &Option<String>, next: &Option<String>| {
-                if current == previous {
-                    next.clone()
-                } else {
-                    current.clone()
-                }
-            };
-        let new_start = keep_or(&occurrence.start_time, &old.start_time, &start_time);
-        let new_end = keep_or(&occurrence.end_time, &old.end_time, &end_time);
-        let new_all_day = if occurrence.all_day == old.all_day {
-            all_day
-        } else {
-            occurrence.all_day
-        };
-        let new_location = if occurrence.location == old.location {
-            location.clone()
-        } else {
-            occurrence.location.clone()
-        };
-        let new_description = if occurrence.description == old.description {
-            description.clone()
-        } else {
-            occurrence.description.clone()
-        };
-        // An override that would end up invalid keeps its own times/all_day.
-        let (new_start, new_end, new_all_day) =
-            if validate_times(new_all_day, &new_start, &new_end).is_ok() {
-                (new_start, new_end, new_all_day)
-            } else {
-                (
-                    occurrence.start_time.clone(),
-                    occurrence.end_time.clone(),
-                    occurrence.all_day,
-                )
-            };
-        conn.execute(
-            "UPDATE calendar_entries SET start_time = ?1, end_time = ?2, all_day = ?3, location = ?4, description = ?5 WHERE entity_id = ?6",
-            params![new_start, new_end, new_all_day as i64, new_location, new_description, occurrence.entity.id],
-        )?;
-        if let Some(title) = &title {
-            if occurrence.entity.title == old.entity.title {
-                crate::db::entities::update_entity(
-                    conn,
-                    &occurrence.entity.id,
-                    crate::db::entities::EntityPatch {
-                        title: Some(title.clone()),
-                        ..Default::default()
-                    },
-                )?;
-            }
-        }
+    fn entity(&self) -> &Entity {
+        &self.entity
     }
-    Ok(())
 }
 
 /// Moves a series' occurrences from `from_date` on to Trash, and the template
@@ -519,26 +489,7 @@ pub fn delete_calendar_entry_series(
     template_id: &str,
     from_date: &str,
 ) -> AppResult<usize> {
-    let ids: Vec<String> = conn
-        .prepare(
-            "SELECT e.id FROM entities e JOIN calendar_entries a ON a.entity_id = e.id
-             WHERE a.template_id = ?1 AND a.date >= ?2 AND e.deleted_at IS NULL",
-        )?
-        .query_map(params![template_id, from_date], |row| row.get(0))?
-        .collect::<Result<Vec<_>, _>>()?;
-    for id in &ids {
-        crate::db::entities::soft_delete_entity(conn, id)?;
-    }
-    let remaining: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities e JOIN calendar_entries a ON a.entity_id = e.id
-         WHERE a.template_id = ?1 AND e.deleted_at IS NULL",
-        params![template_id],
-        |row| row.get(0),
-    )?;
-    if remaining == 0 {
-        crate::db::entities::soft_delete_entity(conn, template_id)?;
-    }
-    Ok(ids.len())
+    crate::db::series::delete_series::<CalendarEntry>(conn, template_id, from_date)
 }
 
 // --- CLI schema registration ------------------------------------------------
