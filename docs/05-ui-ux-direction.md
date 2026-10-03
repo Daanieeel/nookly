@@ -70,6 +70,7 @@ When a toast is used, say exactly what happened and, for errors, what the user c
 ## Forms
 
 - Every field has a small label above it (`FormField` with `FieldLabel`, `components/form-field.tsx`). Placeholders are examples, never the label.
+- Every mandatory field has a red star next to its label (`required` on `FormField`). Optional fields get no marker.
 - Arrange fields in a grid, not a single column: short related fields sit side by side (date and time, term and year), the title and long fields span the row.
 - The error for a field is a short, specific message directly below it (`FieldError`), and the control gets a destructive border. Pickers and custom triggers opt in with `data-field-control`.
 - Errors show after a field is touched or a submit is attempted, never on a pristine form.

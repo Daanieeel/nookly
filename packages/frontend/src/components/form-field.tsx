@@ -32,6 +32,7 @@ export function hasVisibleErrors(state: {
 export function FormField({
   label,
   htmlFor,
+  required,
   error,
   hint,
   className,
@@ -40,6 +41,8 @@ export function FormField({
   label: string;
   /// The id of the control, so the label focuses it.
   htmlFor?: string;
+  /// Marks a mandatory field with a red star after its label.
+  required?: boolean;
   error?: string | false | null;
   /// A quiet note under the control while there is no error.
   hint?: string;
@@ -55,7 +58,17 @@ export function FormField({
         className,
       )}
     >
-      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+      <FieldLabel htmlFor={htmlFor}>
+        {label}
+        {required && (
+          <>
+            <span aria-hidden className="text-destructive">
+              *
+            </span>
+            <span className="sr-only">(required)</span>
+          </>
+        )}
+      </FieldLabel>
       {children}
       {error ? (
         <FieldError message={error} />
