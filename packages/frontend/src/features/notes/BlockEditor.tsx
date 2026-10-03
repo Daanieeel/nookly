@@ -24,6 +24,7 @@ import {
 } from "./block-markdown";
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { BlockSelection } from "./block-selection";
+import { usePasteFiles } from "./paste-files";
 import { CodeBlockWithHeader } from "./code-block-extension";
 import { CodeCompletion } from "./code-completion-extension";
 import {
@@ -272,6 +273,8 @@ function HydratedBlockEditor({
     reconcile.mutate(nodes);
   }
 
+  const pasteFiles = usePasteFiles(spaceId);
+
   const editor = useEditor({
     content: {
       type: "doc",
@@ -329,6 +332,7 @@ function HydratedBlockEditor({
       attributes: {
         class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
       },
+      handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement) || target.tagName !== "A") return false;
@@ -578,6 +582,7 @@ function HydratedBlockEditor({
       <TableRowHandles editor={editor} />
       <BlockHandles editor={editor} />
       <EditorContent editor={editor} />
+      {pasteFiles.popover}
     </div>
   );
 }

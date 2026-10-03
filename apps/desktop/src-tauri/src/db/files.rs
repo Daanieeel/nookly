@@ -114,6 +114,19 @@ pub fn store_file(
     register_stored(conn, space_id, filename, local_path, source_url)
 }
 
+/// Stores bytes the UI received without a path (a paste). `encoded_name` is the
+/// percent encoded filename the webview sent; anything unusable becomes "pasted-file".
+pub fn store_pasted_file(
+    conn: &Connection,
+    files_dir: &Path,
+    space_id: String,
+    encoded_name: &str,
+    bytes: &[u8],
+) -> AppResult<FileEntity> {
+    let filename = sanitize(&percent_decode(encoded_name)).unwrap_or_else(|| "pasted-file".into());
+    store_file(conn, files_dir, space_id, &filename, bytes, None)
+}
+
 /// Records a File whose bytes are already in storage at `local_path`.
 fn register_stored(
     conn: &Connection,
@@ -963,6 +976,26 @@ mod tests {
         )
         .unwrap();
         zip.finish().unwrap();
+    }
+
+    #[test]
+    fn pasted_file_is_stored_under_a_safe_name() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::MIGRATIONS
+            .to_latest(&mut conn)
+            .unwrap();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-paste-{}", crate::db::new_id()));
+        let file = store_pasted_file(&conn, &dir, space.id.clone(), "..%2F..%2Fa%20b.png", b"png")
+            .unwrap();
+        assert_eq!(file.original_filename.as_deref(), Some("a b.png"));
+        let path = file.local_path.unwrap();
+        assert!(Path::new(&path).starts_with(&dir));
+        assert_eq!(std::fs::read(&path).unwrap(), b"png");
+        let unnamed = store_pasted_file(&conn, &dir, space.id, "", b"x").unwrap();
+        assert_eq!(unnamed.original_filename.as_deref(), Some("pasted-file"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

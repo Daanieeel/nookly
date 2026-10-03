@@ -216,6 +216,7 @@ pub fn run() {
             commands::views::update_view_config,
             commands::files::import_file,
             commands::files::import_file_from_url,
+            commands::files::import_file_from_bytes,
             commands::files::download_linked_file,
             commands::files::replace_file,
             commands::files::set_file_added_at,

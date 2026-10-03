@@ -90,3 +90,15 @@ export function listOpenWithApps(entityId: string): Promise<OpenWithApp[]> {
 export function openFileWith(entityId: string, appPath: string): Promise<void> {
   return invoke("open_file_with", { entityId, appPath });
 }
+
+/// Stores bytes with no path on disk (a paste) as a File. The bytes go as the raw
+/// request body, so a large file is not blown up into a JSON number array.
+export function importFileFromBytes(
+  spaceId: string,
+  filename: string,
+  bytes: Uint8Array,
+): Promise<FileEntity> {
+  return invoke("import_file_from_bytes", bytes, {
+    headers: { "x-space-id": spaceId, "x-filename": encodeURIComponent(filename) },
+  });
+}
