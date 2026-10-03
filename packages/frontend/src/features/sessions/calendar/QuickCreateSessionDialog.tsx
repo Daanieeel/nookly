@@ -12,6 +12,7 @@ import {
 } from "#/components/action-feedback.tsx";
 import { DateInput } from "#/components/date-input.tsx";
 import { FormField, fieldMessage } from "#/components/form-field.tsx";
+import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -249,7 +250,11 @@ export function QuickCreateSessionDialog({
                         data-field-control
                         className="h-8 justify-start px-3 font-normal"
                       >
-                        <IconBook2 className="text-muted-foreground" />
+                        {field.state.value ? (
+                          <EntityIcon entity={field.state.value} size={16} />
+                        ) : (
+                          <IconBook2 className="text-muted-foreground" />
+                        )}
                         <span
                           className={cn("truncate", !field.state.value && "text-muted-foreground")}
                         >
