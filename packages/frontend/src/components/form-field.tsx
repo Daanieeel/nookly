@@ -19,7 +19,7 @@ export function fieldMessage(field: AnyFieldApi): string | undefined {
 }
 
 /// A form control with a small label above it and its error below. Pass the field's
-/// `error` (see `fieldMessage`) to outline the control in red and say what is missing.
+/// `error` (see `fieldMessage`) to outline the control in red and say what is missing. Custom triggers opt in with `data-field-control`.
 export function FormField({
   label,
   htmlFor,
@@ -42,7 +42,7 @@ export function FormField({
       data-invalid={error ? "true" : undefined}
       className={cn(
         "group/field flex min-w-0 flex-col gap-1",
-        "data-[invalid=true]:[&_input]:border-destructive data-[invalid=true]:**:[[role=combobox]]:border-destructive",
+        "data-[invalid=true]:[&_input]:border-destructive data-[invalid=true]:**:[[role=combobox]]:border-destructive data-[invalid=true]:**:data-field-control:border-destructive",
         className,
       )}
     >

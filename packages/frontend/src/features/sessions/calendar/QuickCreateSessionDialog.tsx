@@ -37,6 +37,7 @@ import {
   cadenceSchema,
   durationUnitSchema,
 } from "./RepeatChip";
+import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
 const MAX_OCCURRENCES = 366;
@@ -244,9 +245,12 @@ export function QuickCreateSessionDialog({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="h-8 justify-start"
+                        data-field-control
+                        className="h-8 justify-start px-3 font-normal"
                       >
-                        <span className="truncate">
+                        <span
+                          className={cn("truncate", !field.state.value && "text-muted-foreground")}
+                        >
                           {field.state.value ? displayTitle(field.state.value) : "Pick course…"}
                         </span>
                       </Button>
