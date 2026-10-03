@@ -342,6 +342,7 @@ export const NO_EFFORT = "none";
 
 export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "status") return [task.statusId];
+  if (fieldId === "space") return [task.entity.spaceId];
   if (fieldId === "labels") return task.labelIds;
   if (fieldId === "due") return [dueBucket(task.dueDate)];
   if (fieldId === "start") return [dayBucket(task.startDate)];

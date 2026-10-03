@@ -25,6 +25,7 @@ export type View =
   | { kind: "dashboard" }
   | { kind: "pinned" }
   | { kind: "calendar" }
+  | { kind: "tasks" }
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string; viewId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };

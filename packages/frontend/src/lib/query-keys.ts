@@ -48,6 +48,7 @@ export const qk = {
 
   tasks: {
     ...spaceList("tasks"),
+    all: ["tasks", "all"] as const,
     byIdRoot: ["task"] as const,
     byId: (id: string) => ["task", id] as const,
     statuses: ["task-statuses"] as const,

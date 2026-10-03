@@ -15,6 +15,8 @@ export const STORAGE_KEYS = {
   jotsSort: "nookly:jots-sort",
   jotsPreset: "nookly:jots-preset",
   tasksDisplay: "nookly:tasks-display",
+  tasksOverview: "nookly:tasks-overview",
+  sidebarItems: "nookly:sidebar-items",
   effortScale: "nookly:effort-scale",
   assignmentsDisplay: "nookly:assignments-display",
   filesDisplay: "nookly:files-display",

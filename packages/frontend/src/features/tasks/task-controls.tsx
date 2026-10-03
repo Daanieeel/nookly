@@ -83,6 +83,8 @@ export function useRefreshTasks(spaceId: string) {
     Promise.all(
       [
         qk.tasks.bySpace(spaceId),
+        // The cross-Space overview lists the same tasks.
+        qk.tasks.all,
         qk.tasks.byIdRoot,
         qk.tasks.subtasksRoot,
         qk.tasks.subtaskProgressRoot,

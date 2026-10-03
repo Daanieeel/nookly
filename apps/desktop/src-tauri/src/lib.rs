@@ -101,6 +101,7 @@ pub fn run() {
             commands::tasks::list_subtasks,
             commands::tasks::subtask_progress,
             commands::tasks::list_tasks,
+            commands::tasks::list_tasks_all,
             commands::tasks::get_task,
             commands::tasks::update_task_status,
             commands::tasks::update_task_dates,

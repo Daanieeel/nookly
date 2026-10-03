@@ -292,6 +292,16 @@ pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
     Ok(tasks)
 }
 
+/// Every Space's Tasks, for the cross-Space Tasks overview: each Space's own
+/// `list_tasks`, one after the other in Space order.
+pub fn list_tasks_all(conn: &Connection) -> AppResult<Vec<Task>> {
+    let mut tasks = Vec::new();
+    for space in crate::db::spaces::list_spaces(conn)? {
+        tasks.extend(list_tasks(conn, &space.id)?);
+    }
+    Ok(tasks)
+}
+
 /// Links a Space's Tasks to the Courses and Semesters they relate to. A Task counts
 /// as part of a Course through a `relates-to` link in either direction, and as part
 /// of that Course's Semester too, so a finished Semester can be filtered out at once.
@@ -683,6 +693,22 @@ mod tests {
             .to_latest(&mut conn)
             .unwrap();
         conn
+    }
+
+    #[test]
+    fn list_tasks_all_spans_every_space() {
+        let conn = setup();
+        let work = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let home = create_space(&conn, "Home".into(), None, "#111".into()).unwrap();
+        create_task(&conn, work.id.clone(), "Report".into(), None, None).unwrap();
+        create_task(&conn, home.id.clone(), "Laundry".into(), None, None).unwrap();
+
+        let all = list_tasks_all(&conn).unwrap();
+        let mut spaces: Vec<&str> = all.iter().map(|t| t.entity.space_id.as_str()).collect();
+        spaces.sort();
+        let mut expected = vec![work.id.as_str(), home.id.as_str()];
+        expected.sort();
+        assert_eq!(spaces, expected);
     }
 
     #[test]

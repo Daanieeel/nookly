@@ -56,6 +56,12 @@ pub fn list_tasks(state: State<DbState>, space_id: String) -> AppResult<Vec<Task
 }
 
 #[tauri::command]
+pub fn list_tasks_all(state: State<DbState>) -> AppResult<Vec<Task>> {
+    let conn = state.0.lock().unwrap();
+    tasks::list_tasks_all(&conn)
+}
+
+#[tauri::command]
 pub fn update_task_status(
     state: State<DbState>,
     entity_id: String,
