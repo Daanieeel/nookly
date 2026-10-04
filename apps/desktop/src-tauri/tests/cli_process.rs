@@ -5,14 +5,16 @@
 use std::process::{Command, Output};
 
 fn data_dir() -> std::path::PathBuf {
+    // Tests run in parallel threads of one process, and the clock is only as fine as
+    // the platform makes it (microseconds on macOS), so a counter keeps every
+    // directory, and so every database, to one test.
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
         "nookly-cli-process-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
+    std::fs::remove_dir_all(&dir).ok();
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -54,7 +56,12 @@ fn errors_exit_one_with_kind_and_message_on_stderr() {
     assert_eq!(out.status.code(), Some(1));
     assert!(out.stdout.is_empty());
     let err = json(&out.stderr);
-    assert_eq!(err["error"]["kind"], "NotFound");
+    assert_eq!(
+        err["error"]["kind"],
+        "NotFound",
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert!(err["error"]["message"]
         .as_str()
         .unwrap()
