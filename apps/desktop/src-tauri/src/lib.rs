@@ -287,6 +287,7 @@ pub fn run() {
             commands::files::open_file_with,
             commands::office::office_converter_available,
             commands::office::convert_office_to_pdf,
+            commands::office_thumbnail::office_thumbnail,
             commands::office_install::libreoffice_install_options,
             commands::office_install::install_libreoffice,
             commands::entities::convert_entity,

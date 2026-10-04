@@ -11,6 +11,12 @@ export function convertOfficeToPdf(entityId: string): Promise<string> {
   return invoke("convert_office_to_pdf", { entityId });
 }
 
+/// Quick Look thumbnail of an office File (cached per version); resolves to the
+/// PNG's path, or null where it can't be drawn (anything but macOS).
+export function officeThumbnail(entityId: string): Promise<string | null> {
+  return invoke("office_thumbnail", { entityId });
+}
+
 export interface LibreOfficeInstallOptions {
   /// Homebrew is installed, so `brew install --cask libreoffice` works.
   brew: boolean;

@@ -93,7 +93,7 @@ pub async fn convert_office_to_pdf(
 }
 
 /// Size and modification time: a replaced or edited file converts again.
-fn version_tag(path: &Path) -> AppResult<String> {
+pub(super) fn version_tag(path: &Path) -> AppResult<String> {
     let meta = std::fs::metadata(path)
         .map_err(|e| AppError::Io(format!("couldn't read {}: {e}", path.display())))?;
     let modified = meta

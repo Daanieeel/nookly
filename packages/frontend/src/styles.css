@@ -755,3 +755,25 @@
   transform: translateY(calc(var(--depth) * -3px)) rotate(var(--tilt));
   opacity: calc(1 - var(--depth) * 0.18);
 }
+
+/* Bottom right notch (--notch square, --notch-r rounded inner corner) cut out of a thumbnail. */
+@utility file-thumb-cutout {
+  --notch: 30px;
+  --notch-r: 15px;
+  mask-image:
+    linear-gradient(#000, #000), linear-gradient(#000, #000),
+    radial-gradient(
+      circle at 100% 100%,
+      transparent var(--notch-r),
+      #000 calc(var(--notch-r) + 0.5px)
+    );
+  mask-size:
+    100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,
+    var(--notch-r) var(--notch-r);
+  mask-position:
+    top left,
+    top left,
+    right calc(var(--notch) - var(--notch-r)) bottom calc(var(--notch) - var(--notch-r));
+  mask-repeat: no-repeat;
+}

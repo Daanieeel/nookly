@@ -127,6 +127,7 @@ export const qk = {
     openWithApps: (id: string, path: string | null) => ["open-with-apps", id, path] as const,
     officePdf: ["office-pdf"] as const,
     officePdfOf: (id: string, path: string | null) => ["office-pdf", id, path] as const,
+    officeThumbnailOf: (id: string, path: string | null) => ["office-thumbnail", id, path] as const,
     officeConverter: ["office-converter"] as const,
     libreofficeInstallOptions: ["libreoffice-install-options"] as const,
   },

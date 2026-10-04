@@ -17,7 +17,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GroupedList } from "#/features/group-section.tsx";
 import { z } from "zod";
 import {
@@ -50,6 +50,7 @@ import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { LabelDot } from "#/components/label-chip.tsx";
 import { createBookmark, fetchBookmarkMetadata } from "#/lib/api/bookmarks.ts";
 import { convertEntity } from "#/lib/api/entities.ts";
+import { officeThumbnail } from "#/lib/api/office.ts";
 import {
   importFile,
   importFileFromUrl,
@@ -66,6 +67,7 @@ import {
   FILE_KINDS,
   fileExtension,
   fileKind,
+  officeFormat,
   filePath,
   isReference,
   isViewable,
@@ -513,31 +515,116 @@ function fileMeta(file: FileEntity): string {
   return `${label} · ${formatShortDate(file.entity.createdAt)}${where}`;
 }
 
-function FilePreview({ file }: { file: FileEntity }) {
+const PdfThumb = lazy(() => import("./pdf-thumb.tsx"));
+
+function Thumbnail({
+  file,
+  path,
+  onError,
+}: {
+  file: FileEntity;
+  path: string;
+  onError: () => void;
+}) {
   const kind = fileKind(file);
-  const [broken, setBroken] = useState(false);
-  const ext = fileExtension(file);
-  const path = filePath(file);
-  if (kind.id === "image" && path && !broken) {
+  const src = convertFileSrc(path);
+  if (kind.id === "image") {
     return (
       <img
-        src={convertFileSrc(path)}
+        src={src}
         alt=""
         loading="lazy"
-        onError={() => setBroken(true)}
+        onError={() => onError()}
         className="size-full object-cover"
       />
     );
   }
+  if (officeFormat(file) !== null) {
+    return <OfficeThumb file={file} onError={onError} />;
+  }
+  if (kind.id === "video") {
+    return (
+      <video
+        src={`${src}#t=0.1`}
+        preload="metadata"
+        muted
+        onError={() => onError()}
+        className="size-full object-cover"
+      />
+    );
+  }
+  if (kind.id === "pdf") {
+    return (
+      <div className="size-full overflow-hidden bg-white">
+        <Suspense fallback={null}>
+          <PdfThumb src={src} width={240} onError={() => onError()} />
+        </Suspense>
+      </div>
+    );
+  }
+  return null;
+}
+
+/// Quick Look's rendering, which only exists on macOS: elsewhere the tile keeps its icon.
+function OfficeThumb({ file, onError }: { file: FileEntity; onError: () => void }) {
+  const { data, isError, isSuccess } = useQuery({
+    queryKey: qk.files.officeThumbnailOf(file.entity.id, filePath(file)),
+    queryFn: () => officeThumbnail(file.entity.id),
+    staleTime: Infinity,
+    retry: false,
+  });
+  const failed = isError || (isSuccess && !data);
+  useEffect(() => {
+    if (failed) onError();
+  }, [failed, onError]);
+  if (!data) return null;
   return (
-    <>
+    <img
+      src={convertFileSrc(data)}
+      alt=""
+      loading="lazy"
+      onError={onError}
+      className="size-full object-cover object-top"
+    />
+  );
+}
+
+function hasThumbnail(file: FileEntity): boolean {
+  return (
+    (["image", "video", "pdf"].includes(fileKind(file).id) || officeFormat(file) !== null) &&
+    filePath(file) !== null
+  );
+}
+
+function FilePreview({ file }: { file: FileEntity }) {
+  const kind = fileKind(file);
+  const ext = fileExtension(file);
+  const path = filePath(file);
+  const [broken, setBroken] = useState(false);
+  const onThumbError = useCallback(() => setBroken(true), []);
+  if (path && hasThumbnail(file) && !broken) {
+    return (
+      <>
+        <div className="file-thumb-cutout absolute inset-0 overflow-hidden rounded-md border border-border/60">
+          <Thumbnail file={file} path={path} onError={onThumbError} />
+        </div>
+        <kind.icon
+          size={20}
+          stroke={2.25}
+          className={cn("absolute right-0.5 bottom-0.5", kind.tone)}
+        />
+      </>
+    );
+  }
+  return (
+    <div className="absolute inset-0 flex items-center justify-center rounded-md border border-border/60 bg-muted/40">
       <kind.icon size={36} stroke={1.5} className={kind.tone} />
       {ext && (
         <Badge variant="secondary" className="absolute bottom-1.5 left-1.5 uppercase">
           {ext}
         </Badge>
       )}
-    </>
+    </div>
   );
 }
 
@@ -594,7 +681,7 @@ export function FileTile({
         onClick={onOpen}
         className="absolute inset-0 cursor-pointer rounded-lg outline-none"
       />
-      <div className="pointer-events-none relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/40">
+      <div className="pointer-events-none relative aspect-4/3 rounded-md">
         <FilePreview file={file} />
       </div>
       <div className="pointer-events-none relative flex min-w-0 flex-col gap-0.5 px-0.5">

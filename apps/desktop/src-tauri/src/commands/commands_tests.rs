@@ -254,6 +254,7 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "convert_office_to_pdf",
         "office_convert_has_no_link_only_source",
     ),
+    ("office_thumbnail", "office_convert_has_no_link_only_source"),
     (
         "install_libreoffice",
         "office_install_options_are_platform_facts",

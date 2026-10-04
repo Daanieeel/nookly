@@ -41,20 +41,12 @@ export function OfficeViewer({
   name: string;
   fallback: (hint?: string) => ReactNode;
 }) {
-  const isDark = useFileViewerIsDark();
-  return (
-    // The office-rendered content below (docx pages, the xlsx grid) draws with
-    // Tailwind's own tokens, so this scopes them to the file viewer's own
-    // theme instead of the app's — `file-viewer-theme.ts`.
-    <div className={cn("contents", fileViewerThemeClass(isDark))}>
-      {format === "docx" ? (
-        <DocxViewer file={file} src={src} name={name} fallback={fallback} />
-      ) : format === "xlsx" ? (
-        <SheetViewer file={file} src={src} name={name} fallback={fallback} />
-      ) : (
-        <ConvertedViewer file={file} name={name} fallback={fallback} />
-      )}
-    </div>
+  return format === "docx" ? (
+    <DocxViewer file={file} src={src} name={name} fallback={fallback} />
+  ) : format === "xlsx" ? (
+    <SheetViewer file={file} src={src} name={name} fallback={fallback} />
+  ) : (
+    <ConvertedViewer file={file} name={name} fallback={fallback} />
   );
 }
 
@@ -115,6 +107,7 @@ function DocxViewer({
     };
   }, [src]);
 
+  const isDark = useFileViewerIsDark();
   // A document docx-preview can't read may still convert through LibreOffice.
   if (state === "failed") return <ConvertedViewer file={file} name={name} fallback={fallback} />;
   return (
@@ -125,6 +118,9 @@ function DocxViewer({
           aria-label={name}
           className={cn(
             "docx-viewer -m-4 h-[calc(100%+2rem)] overflow-auto bg-muted/40",
+            // The document draws with Tailwind's tokens, so only it follows the
+            // file viewer's own theme (`file-viewer-theme.ts`), not the controls.
+            fileViewerThemeClass(isDark),
             pageClass && "docx-inverted",
           )}
         >
@@ -275,7 +271,7 @@ function SheetGrid({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className={cn("min-h-0 flex-1 overflow-auto", fileViewerThemeClass(isDark))}>
       <table className="border-separate border-spacing-0 text-xs tabular-nums">
         <colgroup>
           <col className="sheet-col" style={ROW_HEADER_COL} />
