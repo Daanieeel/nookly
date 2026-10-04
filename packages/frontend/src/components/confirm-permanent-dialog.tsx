@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@nookly/ui/components/alert-dialog";
 import { Input } from "@nookly/ui/components/input";
+import { cn } from "@nookly/ui/lib/utils";
 import { type ActionStatus, FieldError, StatusButtonContent } from "./action-feedback.tsx";
 
 export interface ConfirmStat {
@@ -86,7 +87,7 @@ export function ConfirmPermanentDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         {stats && stats.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className={cn("grid gap-2", stats.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
             {stats.map((stat) => (
               <div
                 key={stat.label}

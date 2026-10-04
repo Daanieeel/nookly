@@ -68,6 +68,26 @@ describe("ConfirmPermanentDialog", () => {
     expect(screen.getByText("Modules")).toBeInTheDocument();
   });
 
+  it("lets a single figure fill the whole row and several share it", () => {
+    const { unmount } = render(
+      <ConfirmPermanentDialog
+        open
+        onOpenChange={() => {}}
+        title="Delete?"
+        description="Gone."
+        stats={[{ value: 22, label: "Items" }]}
+        actionLabel="Delete"
+        errorLabel="Couldn't delete"
+        status="idle"
+        onConfirm={() => {}}
+      />,
+    );
+    expect(screen.getByText("22").closest(".grid")).toHaveClass("grid-cols-1");
+    unmount();
+    setup();
+    expect(screen.getByText("12").closest(".grid")).toHaveClass("grid-cols-2");
+  });
+
   it("confirms on one click when no phrase is asked for", async () => {
     const { user, onConfirm } = setup();
     await user.click(screen.getByRole("button", { name: "Delete Space" }));
