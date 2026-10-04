@@ -94,11 +94,13 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitest/coverage-v8": "^5",
+    "axe-core": "^4.13.0",
     "jsdom": "^30.1.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "vite": "^8.0.16",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "vitest-axe": "^0.1.0"
   },
   "peerDependencies": {
     "react": "^19",
