@@ -2,6 +2,8 @@ use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
+
+pub const ASSIGNMENT_STATUSES: &[&str] = &["not_started", "in_progress", "submitted", "graded"];
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
@@ -85,10 +87,12 @@ pub fn update_assignment_status(
     status: String,
     grade: Option<f64>,
 ) -> AppResult<()> {
-    conn.execute(
+    crate::db::require_one_of("status", &status, ASSIGNMENT_STATUSES)?;
+    let affected = conn.execute(
         "UPDATE assignments SET status = ?1, grade = ?2 WHERE entity_id = ?3",
         params![status, grade, entity_id],
     )?;
+    crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
 }
 
@@ -97,10 +101,11 @@ pub fn update_assignment_due_date(
     entity_id: &str,
     due_date: Option<String>,
 ) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE assignments SET due_date = ?1 WHERE entity_id = ?2",
         params![due_date, entity_id],
     )?;
+    crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
 }
 
@@ -111,21 +116,21 @@ pub fn set_assignment_course(
     entity_id: &str,
     course_id: String,
 ) -> AppResult<()> {
-    let tx = conn.unchecked_transaction()?;
-    tx.execute(
-        "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
-        params![entity_id],
-    )?;
-    crate::db::relationships::create_relationship(
-        &tx,
-        entity_id.to_string(),
-        course_id,
-        "assignment-course".into(),
-        None,
-        None,
-    )?;
-    tx.commit()?;
-    Ok(())
+    crate::db::atomically(conn, || {
+        conn.execute(
+            "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
+            params![entity_id],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity_id.to_string(),
+            course_id,
+            "assignment-course".into(),
+            None,
+            None,
+        )?;
+        Ok(())
+    })
 }
 
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
@@ -158,7 +163,7 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
     },
     FieldDef {
         name: "status",
-        kind: FieldKind::Enum(&["not_started", "in_progress", "submitted", "graded"]),
+        kind: FieldKind::Enum(ASSIGNMENT_STATUSES),
         required_on_create: false,
         writable_on_update: true,
         description: "Defaults to 'not_started' on creation.",

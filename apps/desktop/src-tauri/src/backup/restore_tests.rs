@@ -519,7 +519,7 @@ fn repeated_backups_each_restore_their_own_state() {
 }
 
 /// Two backups in the same second get `name.zip` and `name-2.zip`, and
-/// `-2` sorts before `.zip`.
+/// `-2` is the newer one even though it sorts before `.zip` as a string.
 #[test]
 fn backups_taken_in_the_same_second_are_listed_oldest_first() {
     let source = scratch("source");
@@ -533,13 +533,13 @@ fn backups_taken_in_the_same_second_are_listed_oldest_first() {
             cleanup([dest]);
             continue;
         }
-        // Intended: oldest first, so `prune` drops the older backups first.
+        // Newest first, even within one second: `-2` is newer than the plain name.
         let listed: Vec<String> = list_backups(&dest)
             .unwrap()
             .into_iter()
             .map(|b| b.name)
             .collect();
-        assert_eq!(listed, vec![first.name.clone(), second.name.clone()]);
+        assert_eq!(listed, vec![second.name.clone(), first.name.clone()]);
         // With keep = 1 only the newest backup survives.
         let third = back_up(&source, &dest, 1);
         if third.name.ends_with("-3.zip") {

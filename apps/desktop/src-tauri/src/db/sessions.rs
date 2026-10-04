@@ -138,7 +138,7 @@ pub fn generate_occurrences(
     let mut cursor = NaiveDate::parse_from_str(&anchor_date, "%Y-%m-%d")
         .map_err(|e| AppError::Db(format!("invalid anchor_date: {e}")))?;
     let until = NaiveDate::parse_from_str(until_date, "%Y-%m-%d")
-        .map_err(|e| AppError::Db(format!("invalid until_date: {e}")))?;
+        .map_err(|e| AppError::InvalidInput(format!("invalid until_date: {e}")))?;
     // A weekday stored before it was validated would never match below.
     validate_weekday(weekday)?;
     let target_weekday = weekday as u32;
@@ -599,6 +599,7 @@ pub fn update_session_series_anchored(
 
 impl crate::db::series::SeriesOccurrence for SessionOccurrence {
     const TABLE: &'static str = "sessions";
+    const TEMPLATE_TABLE: &'static str = "session_templates";
     const ALIAS: &'static str = "s";
 
     fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
@@ -926,7 +927,7 @@ inventory::submit! {
         supports_blocks: false,
         description: "A single, dated class/meeting occurrence — either one-off, or generated from a session_template.",
         fields: SESSION_FIELDS,
-        relationship_types: &["session-course"],
+        relationship_types: &["session-course", "session-jot", "session-note"],
         create: cli_create_session,
         update: cli_update_session,
         get: cli_get_session,
@@ -1945,7 +1946,7 @@ mod tests {
         ));
         assert!(matches!(
             generate_occurrences(&conn, &template.id, "garbage").unwrap_err(),
-            AppError::Db(_)
+            AppError::InvalidInput(_)
         ));
     }
 

@@ -167,6 +167,15 @@ fn add_tree(
             if skip_dir.is_some_and(|skip| fs::canonicalize(&path).is_ok_and(|p| p == skip)) {
                 continue;
             }
+            // An entry for the folder itself, so an empty one survives a restore.
+            let relative = path.strip_prefix(root).map_err(io_err)?;
+            let folder = relative
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/");
+            zip.add_directory(format!("{folder}/"), zip_options(CompressionMethod::Stored))
+                .map_err(io_err)?;
             add_tree(zip, root, &path, skip_dir, totals)?;
         } else if kind.is_file() {
             let relative = path.strip_prefix(root).map_err(io_err)?;
@@ -195,13 +204,18 @@ fn add_tree(
 /// returns the manifest. A backup that passes has been read back byte for byte.
 fn verify_archive(path: &Path) -> AppResult<Manifest> {
     let mut archive = ZipArchive::new(File::open(path).map_err(io_err)?).map_err(io_err)?;
+    let mut files = 0;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(io_err)?;
         io::copy(&mut entry, &mut io::sink()).map_err(io_err)?;
+        // Folder entries only keep empty folders alive, they are not counted files.
+        if !entry.is_dir() {
+            files += 1;
+        }
     }
     let manifest = read_manifest(&mut archive)?;
     // Database and manifest come on top of the counted files.
-    if archive.len() != manifest.file_count + 2 {
+    if files != manifest.file_count + 2 {
         return Err(AppError::Io(
             "the backup does not hold every file it should".into(),
         ));
@@ -225,6 +239,19 @@ fn backup_name(now: chrono::DateTime<chrono::Utc>) -> String {
 
 fn is_backup_name(name: &str) -> bool {
     name.starts_with(NAME_PREFIX) && name.ends_with(NAME_SUFFIX)
+}
+
+/// Orders backup names oldest first. Two backups in one second are `stamp.zip` and
+/// `stamp-2.zip`, and a plain string sort puts `-2` before `.zip`, so the stamp
+/// and the counter are compared separately (no counter means the first).
+fn age_order(name: &str) -> (String, u32) {
+    let stem = name.trim_end_matches(NAME_SUFFIX);
+    match stem.rsplit_once('-') {
+        Some((head, n)) if head.contains('-') && n.parse::<u32>().is_ok() => {
+            (head.to_string(), n.parse().unwrap_or(1))
+        }
+        _ => (stem.to_string(), 1),
+    }
 }
 
 /// Writes the backup zip into `dest`, verifies it, then prunes so at most
@@ -306,8 +333,7 @@ fn prune(dest: &Path, keep: usize, newest: &Path) {
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .filter(|n| is_backup_name(n))
         .collect();
-    // Timestamps in the names sort oldest first.
-    names.sort();
+    names.sort_by_key(|n| age_order(n));
     let excess = names.len().saturating_sub(keep);
     for name in names.into_iter().take(excess) {
         let path = dest.join(&name);
@@ -347,7 +373,7 @@ pub fn list_backups(folder: &Path) -> AppResult<Vec<BackupInfo>> {
         .filter(|e| is_backup_name(&e.file_name().to_string_lossy()))
         .map(|e| e.path())
         .collect();
-    paths.sort();
+    paths.sort_by_key(|p| age_order(&p.file_name().unwrap_or_default().to_string_lossy()));
     paths.reverse();
     paths.iter().map(|p| describe(p)).collect()
 }
@@ -464,10 +490,18 @@ pub fn apply_pending_restore(data_dir: &Path) -> AppResult<Option<PathBuf>> {
         return Ok(None);
     }
 
-    let safety = data_dir
-        .join(SAFETY_DIR)
-        .join(chrono::Utc::now().format("%Y%m%d-%H%M%S").to_string());
-    fs::create_dir_all(&safety).map_err(io_err)?;
+    // Each restore gets its own safety folder, so an earlier one is never replaced.
+    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S").to_string();
+    fs::create_dir_all(data_dir.join(SAFETY_DIR)).map_err(io_err)?;
+    let mut safety = data_dir.join(SAFETY_DIR).join(&stamp);
+    let mut n = 2;
+    while fs::create_dir(&safety).is_err() {
+        if !safety.exists() {
+            return Err(io_err("could not create the safety folder"));
+        }
+        safety = data_dir.join(SAFETY_DIR).join(format!("{stamp}-{n}"));
+        n += 1;
+    }
 
     let names = |dir: &Path, skip: &dyn Fn(&str) -> bool| -> AppResult<Vec<String>> {
         Ok(fs::read_dir(dir)

@@ -51,7 +51,7 @@ export function DateField({
     <FormField label={label} required={!optional} error={fieldMessage(field)} className={className}>
       <DateInput
         aria-label={ariaLabel}
-        clearable={optional}
+        clearable={Boolean(optional)}
         placeholder={placeholder}
         value={field.state.value || null}
         onChange={(day) => field.handleChange(day ?? "")}

@@ -14,7 +14,10 @@ inventory::submit! {
     RelationshipTypeDef { name: "course-semester", label: "Course in semester", description: "Puts a course in a semester.", from_type: Some("course"), to_type: Some("semester"), inverse_label: "has course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "course-notes", label: "Notes for course", description: "The notes page of a course.", from_type: Some("course"), to_type: Some("note"), inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+    RelationshipTypeDef { name: "course-note", label: "Notes page of course", description: "The notes page built into a course, one per course.", from_type: Some("course"), to_type: Some("course_notes"), inverse_label: "notes page for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+}
+inventory::submit! {
+    RelationshipTypeDef { name: "course-notes", label: "Notes for course", description: "Links regular notes to a course, any number of them.", from_type: Some("course"), to_type: Some("note"), inverse_label: "notes for course", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
     RelationshipTypeDef { name: "semester-notes", label: "Notes for semester", description: "The notes page of a semester.", from_type: Some("semester"), to_type: Some("note"), inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
@@ -272,7 +275,7 @@ pub fn get_or_create_course_notes(conn: &Connection, course_id: &str) -> AppResu
     let existing: Option<String> = conn
         .query_row(
             "SELECT to_entity_id FROM relationships
-             WHERE from_entity_id = ?1 AND relationship_type = 'course-notes'",
+             WHERE from_entity_id = ?1 AND relationship_type = 'course-note'",
             params![course_id],
             |row| row.get(0),
         )
@@ -292,7 +295,7 @@ pub fn get_or_create_course_notes(conn: &Connection, course_id: &str) -> AppResu
         conn,
         course_id.to_string(),
         note.id.clone(),
-        "course-notes".into(),
+        "course-note".into(),
         None,
         None,
     )?;
@@ -496,7 +499,16 @@ inventory::submit! {
         supports_blocks: false,
         description: "A course within a Space, optionally linked to a Semester.",
         fields: COURSE_FIELDS,
-        relationship_types: &["sequel-of", "course-semester", "course-notes", "relates-to"],
+        relationship_types: &[
+            "sequel-of",
+            "course-semester",
+            "course-note",
+            "course-notes",
+            "assignment-course",
+            "exam-course",
+            "session-course",
+            "relates-to",
+        ],
         create: cli_create_course,
         update: cli_update_course,
         get: cli_get_course,

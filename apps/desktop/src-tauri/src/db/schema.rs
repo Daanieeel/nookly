@@ -566,13 +566,25 @@ pub fn duplicate(conn: &Connection, id: &str) -> AppResult<Value> {
         conn,
         CreateInput {
             space_id: entity.space_id.clone(),
-            title,
+            title: title.clone(),
             fields,
         },
     )?;
     let new_id = payload_id(&created).ok_or_else(|| {
         crate::error::AppError::Db("internal: could not locate id in create result".into())
     })?;
+    // Some types derive their own title on create (a Bookmark takes its URL), so
+    // the copy is retitled afterwards to read like every other copy.
+    if crate::db::entities::get_entity(conn, &new_id)?.title != title {
+        crate::db::entities::update_entity(
+            conn,
+            &new_id,
+            crate::db::entities::EntityPatch {
+                title: Some(title),
+                ..Default::default()
+            },
+        )?;
+    }
 
     if entity.icon.is_some() {
         crate::db::entities::update_entity(

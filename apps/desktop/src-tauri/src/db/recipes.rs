@@ -173,10 +173,11 @@ pub fn set_recipe_kind(conn: &Connection, entity_id: &str, kind: String) -> AppR
             RECIPE_KINDS.join(", ")
         )));
     }
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE recipes SET kind = ?1 WHERE entity_id = ?2",
         params![kind, entity_id],
     )?;
+    crate::db::require_row(affected, "recipe", entity_id)?;
     Ok(())
 }
 
@@ -186,10 +187,11 @@ pub fn set_recipe_duration_minutes(
     entity_id: &str,
     minutes: Option<i64>,
 ) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE recipes SET duration_minutes = ?1 WHERE entity_id = ?2",
         params![minutes, entity_id],
     )?;
+    crate::db::require_row(affected, "recipe", entity_id)?;
     Ok(())
 }
 
@@ -334,13 +336,33 @@ pub fn delete_ingredient(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
-pub fn restore_ingredient(conn: &Connection, id: &str) -> AppResult<()> {
-    get_ingredient(conn, id)?;
+/// Un-trashes a recipe item. It keeps its old position when nothing live has
+/// taken it since; otherwise it goes to the end, so positions never collide.
+fn restore_keeping_order(
+    conn: &Connection,
+    table: &str,
+    id: &str,
+    recipe_id: &str,
+) -> AppResult<()> {
     conn.execute(
-        "UPDATE recipe_ingredients SET deleted_at = NULL WHERE id = ?1",
-        params![id],
+        &format!(
+            "UPDATE {table} SET deleted_at = NULL,
+             position = CASE WHEN EXISTS (SELECT 1 FROM {table} o
+                                          WHERE o.recipe_entity_id = ?2 AND o.deleted_at IS NULL
+                                            AND o.id != ?1 AND o.position = {table}.position)
+                THEN (SELECT COALESCE(MAX(position), -1) + 1 FROM {table}
+                      WHERE recipe_entity_id = ?2 AND deleted_at IS NULL AND id != ?1)
+                ELSE position END
+             WHERE id = ?1"
+        ),
+        params![id, recipe_id],
     )?;
     Ok(())
+}
+
+pub fn restore_ingredient(conn: &Connection, id: &str) -> AppResult<()> {
+    let ingredient = get_ingredient(conn, id)?;
+    restore_keeping_order(conn, "recipe_ingredients", id, &ingredient.recipe_entity_id)
 }
 
 // --- steps -------------------------------------------------------------------
@@ -477,12 +499,8 @@ pub fn delete_step(conn: &Connection, id: &str) -> AppResult<()> {
 }
 
 pub fn restore_step(conn: &Connection, id: &str) -> AppResult<()> {
-    get_step(conn, id)?;
-    conn.execute(
-        "UPDATE recipe_steps SET deleted_at = NULL WHERE id = ?1",
-        params![id],
-    )?;
-    Ok(())
+    let step = get_step(conn, id)?;
+    restore_keeping_order(conn, "recipe_steps", id, &step.recipe_entity_id)
 }
 
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------

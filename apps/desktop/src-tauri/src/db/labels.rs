@@ -31,12 +31,35 @@ fn row_to_label(row: &rusqlite::Row) -> rusqlite::Result<Label> {
     })
 }
 
+/// Label names are unique per Space, ignoring case, so the picker can always
+/// tell two labels apart. `except` is the label being renamed.
+fn require_unique_name(
+    conn: &Connection,
+    space_id: &str,
+    name: &str,
+    except: Option<&str>,
+) -> AppResult<()> {
+    let taken: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM labels WHERE space_id = ?1 AND name = ?2 COLLATE NOCASE
+                       AND (?3 IS NULL OR id != ?3))",
+        params![space_id, name, except],
+        |row| row.get(0),
+    )?;
+    if taken {
+        return Err(AppError::InvalidInput(format!(
+            "a label named '{name}' already exists in this space"
+        )));
+    }
+    Ok(())
+}
+
 pub fn create_label(
     conn: &Connection,
     space_id: String,
     name: String,
     color: String,
 ) -> AppResult<Label> {
+    require_unique_name(conn, &space_id, &name, None)?;
     let id = super::new_id();
     let now = super::now();
     conn.execute(
@@ -69,6 +92,17 @@ pub fn update_label(
     name: Option<String>,
     color: Option<String>,
 ) -> AppResult<Label> {
+    if let Some(name) = &name {
+        let space_id: String = conn
+            .query_row(
+                "SELECT space_id FROM labels WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| AppError::NotFound(format!("label {id}")))?;
+        require_unique_name(conn, &space_id, name, Some(id))?;
+    }
     let affected = conn.execute(
         "UPDATE labels SET name = COALESCE(?1, name), color = COALESCE(?2, color) WHERE id = ?3",
         params![name, color, id],

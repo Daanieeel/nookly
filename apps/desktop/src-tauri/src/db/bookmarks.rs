@@ -151,6 +151,11 @@ pub fn set_preferred_image(
     entity_id: &str,
     preference: Option<String>,
 ) -> AppResult<Bookmark> {
+    // An empty value clears the preference, like `None`.
+    let preference = preference.filter(|p| !p.is_empty());
+    if let Some(preference) = &preference {
+        crate::db::require_one_of("preferred image", preference, &["screenshot", "preview"])?;
+    }
     conn.execute(
         "UPDATE bookmarks SET preferred_image = ?1 WHERE entity_id = ?2",
         params![preference, entity_id],
@@ -229,7 +234,20 @@ const BOOKMARK_FIELDS: &[FieldDef] = &[
 
 fn cli_create_bookmark(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let url = crate::db::schema::require_str(&input.fields, "url")?;
-    let bookmark = create_bookmark(conn, input.space_id, url)?;
+    let mut bookmark = create_bookmark(conn, input.space_id, url)?;
+    // A bookmark is titled by its URL until metadata arrives; a title the caller
+    // typed wins over that placeholder.
+    if !input.title.trim().is_empty() && input.title != bookmark.url {
+        crate::db::entities::update_entity(
+            conn,
+            &bookmark.entity.id,
+            crate::db::entities::EntityPatch {
+                title: Some(input.title),
+                ..Default::default()
+            },
+        )?;
+        bookmark = get_bookmark(conn, &bookmark.entity.id)?;
+    }
     Ok(serde_json::to_value(bookmark).expect("Bookmark always serializes"))
 }
 

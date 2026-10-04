@@ -690,6 +690,7 @@ pub fn block_to_markdown(block: &Block) -> String {
 }
 
 pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    crate::db::entities::get_entity(conn, entity_id)?;
     let blocks = list_blocks(conn, entity_id)?;
     let markdown = blocks
         .iter()
@@ -776,10 +777,26 @@ pub fn list_pages(
 /// (so e.g. a `code` block created this way had no way to get a `--language`/`--filename`
 /// header). `blocks`/`add-block`/`update-block`/... (`cli::block_command`) are the only way
 /// to write page content from the CLI now.
-fn cli_get_page(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+pub(crate) fn cli_get_page(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     let entity = crate::db::entities::get_entity(conn, id)?;
     let body = render_page_markdown(conn, id)?;
     Ok(serde_json::json!({ "entity": entity, "body": body }))
+}
+
+fn cli_get_typed_page(
+    page_type: &'static str,
+) -> impl Fn(&Connection, &str) -> AppResult<serde_json::Value> {
+    move |conn, id| {
+        crate::db::entities::get_entity_of_type(conn, id, page_type)?;
+        cli_get_page(conn, id)
+    }
+}
+
+fn cli_get_note(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    cli_get_typed_page("note")(conn, id)
+}
+fn cli_get_jot(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    cli_get_typed_page("jot")(conn, id)
 }
 
 fn cli_create_page(
@@ -901,10 +918,16 @@ inventory::submit! {
         supports_blocks: true,
         description: "A free-form page of block content.",
         fields: &[],
-        relationship_types: &["relates-to", "attached-file"],
+        relationship_types: &[
+            "relates-to",
+            "attached-file",
+            "course-notes",
+            "semester-notes",
+            "session-note",
+        ],
         create: cli_create_note,
         update: cli_update_page,
-        get: cli_get_page,
+        get: cli_get_note,
         list: cli_list_notes,
     }
 }
@@ -915,10 +938,10 @@ inventory::submit! {
         supports_blocks: true,
         description: "A quick, unrefined capture. Link it to the `note` it was refined into via `relates-to`.",
         fields: &[],
-        relationship_types: &["relates-to"],
+        relationship_types: &["relates-to", "session-jot"],
         create: cli_create_jot,
         update: cli_update_page,
-        get: cli_get_page,
+        get: cli_get_jot,
         list: cli_list_jots,
     }
 }

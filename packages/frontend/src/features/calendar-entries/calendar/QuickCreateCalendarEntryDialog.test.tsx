@@ -127,8 +127,8 @@ describe("QuickCreateCalendarEntryDialog", () => {
 
   it("shows the repeat again once the end date is cleared", async () => {
     const { user } = setup({ ...DRAFT, endDate: new Date(2026, 2, 12) });
-    const [, clearEnd] = screen.getAllByRole("button", { name: "Clear Date" });
-    await user.click(clearEnd);
+    // Only the optional end date can be cleared, so it holds the one Clear button.
+    await user.click(screen.getByRole("button", { name: "Clear Date" }));
     expect(screen.getByRole("button", { name: "Repeat interval" })).toBeInTheDocument();
   });
 

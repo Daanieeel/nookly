@@ -93,7 +93,7 @@ struct Args {
     consumed: std::cell::RefCell<std::collections::HashSet<String>>,
 }
 
-fn parse_args(argv: &[String]) -> Args {
+fn parse_args(argv: &[String]) -> AppResult<Args> {
     let mut positional = Vec::new();
     let mut flags = HashMap::new();
     let mut bool_flags = std::collections::HashSet::new();
@@ -105,14 +105,19 @@ fn parse_args(argv: &[String]) -> Args {
         let arg = &argv[i];
         if let Some(rest) = arg.strip_prefix("--") {
             if rest == "field" {
-                if let Some(kv) = argv.get(i + 1) {
-                    if let Some((k, v)) = kv.split_once('=') {
-                        fields.insert(k.to_string(), parse_field_value(v));
-                    }
-                    i += 2;
-                    continue;
+                let (k, v) = argv
+                    .get(i + 1)
+                    .and_then(|kv| kv.split_once('='))
+                    .ok_or_else(|| {
+                        AppError::InvalidInput(
+                            "--field needs a name=value pair, like --field dueDate=2026-01-05"
+                                .into(),
+                        )
+                    })?;
+                if fields.insert(k.to_string(), parse_field_value(v)).is_some() {
+                    return Err(repeated(&format!("--field {k}")));
                 }
-                i += 1;
+                i += 2;
                 continue;
             }
             if rest == "attr" {
@@ -121,7 +126,9 @@ fn parse_args(argv: &[String]) -> Args {
                 continue;
             }
             if let Some((key, value)) = rest.split_once('=') {
-                flags.insert(key.to_string(), value.to_string());
+                if flags.insert(key.to_string(), value.to_string()).is_some() {
+                    return Err(repeated(&format!("--{key}")));
+                }
                 i += 1;
                 continue;
             }
@@ -131,7 +138,12 @@ fn parse_args(argv: &[String]) -> Args {
                     .map(|next| !next.starts_with("--"))
                     .unwrap_or(false);
             if takes_value {
-                flags.insert(rest.to_string(), argv[i + 1].clone());
+                if flags
+                    .insert(rest.to_string(), argv[i + 1].clone())
+                    .is_some()
+                {
+                    return Err(repeated(&format!("--{rest}")));
+                }
                 i += 2;
             } else {
                 bool_flags.insert(rest.to_string());
@@ -143,7 +155,7 @@ fn parse_args(argv: &[String]) -> Args {
         }
     }
 
-    Args {
+    Ok(Args {
         positional,
         flags,
         bool_flags,
@@ -154,7 +166,11 @@ fn parse_args(argv: &[String]) -> Args {
         // ever consumes it here — pre-consuming it keeps it from tripping
         // `check_no_unknown_flags` on every single command.
         consumed: std::cell::RefCell::new(std::collections::HashSet::from(["dry-run".to_string()])),
-    }
+    })
+}
+
+fn repeated(what: &str) -> AppError {
+    AppError::InvalidInput(format!("{what} was given more than once, pass it once"))
 }
 
 /// Parses `argv_tail`, runs `f` against it, and — only once `f` has succeeded —
@@ -165,7 +181,7 @@ fn run_command(
     argv_tail: &[String],
     f: impl FnOnce(&Args) -> AppResult<Value>,
 ) -> AppResult<Value> {
-    let args = parse_args(argv_tail);
+    let args = parse_args(argv_tail)?;
     let result = f(&args)?;
     args.check_no_unknown_flags()?;
     Ok(result)
@@ -923,6 +939,15 @@ fn validate_fields(
         }
     }
     if for_create {
+        for key in fields.keys() {
+            if let Some(f) = known.get(key.as_str()) {
+                if !f.required_on_create && !f.writable_on_update {
+                    return Err(AppError::InvalidInput(format!(
+                        "field '{key}' on '{entity_type}' is read only, it can't be set at creation"
+                    )));
+                }
+            }
+        }
         for f in def.fields {
             if f.required_on_create && !fields.contains_key(f.name) {
                 return Err(AppError::InvalidInput(format!(
@@ -943,6 +968,67 @@ fn validate_fields(
         }
     }
     Ok(())
+}
+
+/// Checks every `--field` value against its declared kind and converts what can be
+/// converted (a number given for a text field becomes its text), so a wrong value is
+/// refused up front instead of being silently dropped, stored as is, or clearing the
+/// stored value. `null` and an empty value still mean "clear" on the kinds that
+/// allow it.
+fn coerce_fields(def: &schema::EntitySchemaDef, fields: &JsonMap) -> AppResult<JsonMap> {
+    use schema::FieldKind;
+    let mut out = fields.clone();
+    for f in def.fields {
+        let Some(value) = fields.get(f.name) else {
+            continue;
+        };
+        let bad = |expected: &str| {
+            AppError::InvalidInput(format!("field '{}' takes {expected}, got {value}", f.name))
+        };
+        let clears = matches!(value, Value::Null) || value == &Value::String(String::new());
+        let coerced = match f.kind {
+            FieldKind::Text | FieldKind::LongText => match value {
+                Value::Number(n) => Value::String(n.to_string()),
+                Value::Bool(b) => Value::String(b.to_string()),
+                Value::Array(_) | Value::Object(_) => return Err(bad("text")),
+                other => other.clone(),
+            },
+            FieldKind::Integer => match value {
+                _ if clears => value.clone(),
+                Value::Number(n) if n.is_i64() || n.is_u64() => value.clone(),
+                _ => return Err(bad("a whole number")),
+            },
+            FieldKind::Float => match value {
+                _ if clears => value.clone(),
+                Value::Number(_) => value.clone(),
+                _ => return Err(bad("a number")),
+            },
+            FieldKind::Boolean => match value {
+                Value::Bool(_) | Value::Null => value.clone(),
+                _ => return Err(bad("true or false")),
+            },
+            FieldKind::Date => match value {
+                _ if clears => value.clone(),
+                Value::String(s) if chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok() => {
+                    value.clone()
+                }
+                _ => return Err(bad("a date like 2026-01-05")),
+            },
+            FieldKind::DateTime => match value {
+                _ if clears => value.clone(),
+                Value::String(s)
+                    if chrono::DateTime::parse_from_rfc3339(s).is_ok()
+                        || chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok() =>
+                {
+                    value.clone()
+                }
+                _ => return Err(bad("a date or an RFC 3339 timestamp")),
+            },
+            _ => value.clone(),
+        };
+        out.insert(f.name.to_string(), coerced);
+    }
+    Ok(out)
 }
 
 /// `--field` values of `EntityRef` fields may be keys (`courseId=CRS-2`); swaps them
@@ -991,10 +1077,11 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
         }
         "create" => {
             validate_fields(entity_type, def, &args.fields, true)?;
+            let coerced = coerce_fields(def, &args.fields)?;
             let space_id = args.require_flag("space")?;
             let title = args.require_flag("title")?;
             let icon = args.flag("icon");
-            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let fields = resolve_ref_fields(conn, def, &coerced)?;
             let input = schema::CreateInput {
                 space_id,
                 title,
@@ -1023,11 +1110,21 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
         "update" => {
             let id = args.require_entity(conn, 0, "id")?;
             validate_fields(entity_type, def, &args.fields, false)?;
+            let coerced = coerce_fields(def, &args.fields)?;
             let before = (def.get)(conn, &id)?;
             args.check_revision(&before)?;
             let title = args.flag("title");
             let icon = args.flag("icon");
-            let pinned = args.flag("pinned").map(|v| v == "true");
+            let pinned = match args.flag("pinned").as_deref() {
+                None => None,
+                Some("true") => Some(true),
+                Some("false") => Some(false),
+                Some(other) => {
+                    return Err(AppError::InvalidInput(format!(
+                        "--pinned takes true or false, got '{other}'"
+                    )))
+                }
+            };
             let space_id = args.flag("space");
             if title.is_some() || icon.is_some() || pinned.is_some() || space_id.is_some() {
                 crate::db::entities::update_entity(
@@ -1041,7 +1138,7 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
                     },
                 )?;
             }
-            let fields = resolve_ref_fields(conn, def, &args.fields)?;
+            let fields = resolve_ref_fields(conn, def, &coerced)?;
             (def.update)(conn, &id, &fields)?;
             let after = (def.get)(conn, &id)?;
             let changes = view::diff_values(&before, &after);
@@ -1306,11 +1403,20 @@ fn list_entities(
     def: &schema::EntitySchemaDef,
     args: &Args,
 ) -> AppResult<Value> {
-    let mut items = (def.list)(
-        conn,
-        args.flag("space").as_deref(),
-        args.has_bool("include-deleted"),
-    )?;
+    let include_deleted = args.has_bool("include-deleted");
+    let mut items = (def.list)(conn, args.flag("space").as_deref(), include_deleted)?;
+    if include_deleted {
+        // Not every type's own listing knows about Trash, so every type's trashed
+        // entities are added here, once, for all of them.
+        let listed: std::collections::HashSet<String> =
+            items.iter().filter_map(|i| extract_id(i).ok()).collect();
+        for e in crate::db::entities::list_entities(conn, args.flag("space").as_deref(), true)? {
+            if e.entity_type == def.entity_type && e.deleted_at.is_some() && !listed.contains(&e.id)
+            {
+                items.push((def.get)(conn, &e.id)?);
+            }
+        }
+    }
     if def.supports_blocks {
         for item in &mut items {
             let id = extract_id(item)?;
@@ -1469,7 +1575,7 @@ fn block_command(
     };
     let entity_type = embedded.map_or(def.entity_type, |e| e.page_type);
     let get_page = if embedded.is_some() {
-        schema::lookup("note").expect("note is registered").get
+        crate::db::notes::cli_get_page
     } else {
         def.get
     };

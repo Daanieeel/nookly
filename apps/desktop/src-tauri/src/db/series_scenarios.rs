@@ -1478,14 +1478,15 @@ fn edits_from_first_middle_last_and_before_first_in_sequence<K: Kind>() {
             "2026-01-26 13:00-14:00 Lecture II @Aula",
         ]
     );
-    // A rename only reaches occurrences carrying the template's old title.
+    // A rename reaches every occurrence whose title was not edited on its own,
+    // including ones that still carry an older series title.
     K::edit(&c, &t, "2025-12-01", edit().title("Lecture III")).unwrap();
     assert_eq!(
         view::<K>(&c, &t),
         [
-            "2026-01-05 13:00-14:00 Lecture @Aula",
-            "2026-01-12 13:00-14:00 Lecture @Aula",
-            "2026-01-19 13:00-14:00 Lecture @Aula",
+            "2026-01-05 13:00-14:00 Lecture III @Aula",
+            "2026-01-12 13:00-14:00 Lecture III @Aula",
+            "2026-01-19 13:00-14:00 Lecture III @Aula",
             "2026-01-26 13:00-14:00 Lecture III @Aula",
         ]
     );
@@ -1558,13 +1559,13 @@ fn interleaved_time_location_title_edits_from_different_dates<K: Kind>() {
         ]
     );
     K::edit(&c, &t, A, edit().title("Algorithms")).unwrap();
-    // Only the occurrence still carrying the old template title is renamed.
+    // Every occurrence whose title was not edited on its own is renamed.
     assert_eq!(
         view::<K>(&c, &t),
         [
-            "2026-01-05 09:00-11:30 Lecture @Hall",
-            "2026-01-12 09:00-11:30 Lecture @Hall",
-            "2026-01-19 09:00-11:30 Lecture @Hall",
+            "2026-01-05 09:00-11:30 Algorithms @Hall",
+            "2026-01-12 09:00-11:30 Algorithms @Hall",
+            "2026-01-19 09:00-11:30 Algorithms @Hall",
             "2026-01-26 09:00-11:30 Algorithms @Hall",
         ]
     );
@@ -1752,7 +1753,8 @@ fn move_onto_another_occurrence_date_then_edit_and_delete_from_there<K: Kind>() 
     );
     assert_eq!(K::delete(&c, &t, C).unwrap(), 3);
     assert!(!K::template(&c, &t).trashed);
-    assert_eq!(K::generate(&c, &t, "2026-02-02").unwrap(), ["2026-02-02"]);
+    // The series ended at 01-19, so extending the horizon adds nothing.
+    assert!(K::generate(&c, &t, "2026-02-02").unwrap().is_empty());
     assert_eq!(
         view::<K>(&c, &t),
         [
@@ -1760,7 +1762,6 @@ fn move_onto_another_occurrence_date_then_edit_and_delete_from_there<K: Kind>() 
             "2026-01-19 09:00-12:00 Lecture @Room 1 trashed",
             "2026-01-19 11:00-12:00 Lecture @Room 1 trashed",
             "2026-01-26 11:00-12:00 Lecture @Room 1 trashed",
-            "2026-02-02 11:00-12:00 Lecture @Room 1",
         ]
     );
 }
@@ -2624,7 +2625,8 @@ fn after_edit(o: &Occ, old: &Model, new: &Model) -> Row {
         start = o.row.start.clone();
         end = o.row.end.clone();
     }
-    let title = if new.title != old.title && o.row.title == old.title {
+    // Overrides never touch a title, so every occurrence follows a series rename.
+    let title = if new.title != old.title {
         new.title.clone()
     } else {
         o.row.title.clone()
@@ -2647,6 +2649,8 @@ fn run_random<K: Kind>(seed: u64) -> Vec<String> {
     let mut rng = Lcg::new(seed);
     let mut series: Vec<String> = Vec::new();
     let mut models: BTreeMap<String, Model> = BTreeMap::new();
+    // Where "delete this and following" ended each series (see `series::series_end`).
+    let mut series_ends: BTreeMap<String, String> = BTreeMap::new();
     let mut moved: BTreeSet<String> = BTreeSet::new();
     let steps = 30 + rng.below(31);
     for step in 0..steps {
@@ -2707,10 +2711,15 @@ fn run_random<K: Kind>(seed: u64) -> Vec<String> {
                 .filter(|o| o.template_id.as_deref() == Some(tid.as_str()))
                 .collect();
             let taken: BTreeSet<&str> = own.iter().map(|o| o.row.date.as_str()).collect();
+            // An end is ignored while a live occurrence sits on or after it.
+            let end = series_ends
+                .get(&tid)
+                .filter(|end| !own.iter().any(|o| !o.row.trashed && o.row.date >= **end));
             let expected: Vec<String> = model_slots(&tpls[&tid], &until)
                 .into_iter()
                 .skip(own.len())
                 .filter(|d| !taken.contains(d.as_str()))
+                .filter(|d| end.is_none_or(|end| d < end))
                 .collect();
             let created = K::generate(&c, &tid, &until).unwrap();
             assert_eq!(
@@ -2845,7 +2854,7 @@ fn run_random<K: Kind>(seed: u64) -> Vec<String> {
                 .collect();
             let remaining = live.len() - targets.len();
             let was_trashed = tpls[&tid].trashed;
-            if remaining == 0 && was_trashed {
+            if remaining == 0 && was_trashed && !targets.is_empty() {
                 // See `delete_after_restoring_into_a_trashed_template_errors_and_changes_nothing`.
                 let err = fails_cleanly(&c, || K::delete(&c, &tid, &from));
                 assert!(matches!(err, AppError::NotFound(_)));
@@ -2853,6 +2862,14 @@ fn run_random<K: Kind>(seed: u64) -> Vec<String> {
             }
             let result = K::delete(&c, &tid, &from);
             assert_eq!(result.unwrap(), targets.len(), "seed {seed} step {step}");
+            if remaining > 0 && !targets.is_empty() {
+                let end = series_ends
+                    .entry(tid.clone())
+                    .or_insert_with(|| from.clone());
+                if from < *end {
+                    *end = from.clone();
+                }
+            }
             for o in targets {
                 expected_rows.insert(
                     o.id.clone(),
@@ -3180,9 +3197,10 @@ fn calendar_daily_series_edits_and_moves_across_a_month_end() {
         .all(|r| r.contains("06:00-07:30")));
 }
 
-/// Monthly on the 31st: the dates drift to the 28th after February (already
-/// pinned in `calendar::tests::generate_all_day_and_monthly_end_of_month_drift`);
-/// edits and moves on top of that behave like any other cadence.
+/// Monthly on the 31st: short months clamp to their last day and the series is back
+/// on the 31st after them (pinned in
+/// `calendar::tests::generate_all_day_and_monthly_end_of_month_drift`); edits and
+/// moves on top of that behave like any other cadence.
 #[test]
 fn calendar_monthly_31st_series_with_edits_and_a_move() {
     let c = crate::db::test_conn();
@@ -3192,30 +3210,30 @@ fn calendar_monthly_31st_series_with_edits_and_a_move() {
         [
             "2026-01-31",
             "2026-02-28",
-            "2026-03-28",
-            "2026-04-28",
-            "2026-05-28",
-            "2026-06-28"
+            "2026-03-31",
+            "2026-04-30",
+            "2026-05-31",
+            "2026-06-30"
         ]
     );
-    Cal::edit(&c, &t, "2026-03-28", edit().times("10:00", "10:30")).unwrap();
+    Cal::edit(&c, &t, "2026-03-31", edit().times("10:00", "10:30")).unwrap();
     Cal::override_(
         &c,
-        &on::<Cal>(&c, &t, "2026-04-28"),
-        ov().date("2026-04-30"),
+        &on::<Cal>(&c, &t, "2026-04-30"),
+        ov().date("2026-04-29"),
     )
     .unwrap();
-    assert_eq!(Cal::generate(&c, &t, "2026-07-31").unwrap(), ["2026-07-28"]);
+    assert_eq!(Cal::generate(&c, &t, "2026-07-31").unwrap(), ["2026-07-31"]);
     assert_eq!(
         view::<Cal>(&c, &t),
         [
             "2026-01-31 09:00-09:30 Rent",
             "2026-02-28 09:00-09:30 Rent",
-            "2026-03-28 10:00-10:30 Rent",
-            "2026-04-30 10:00-10:30 Rent",
-            "2026-05-28 10:00-10:30 Rent",
-            "2026-06-28 10:00-10:30 Rent",
-            "2026-07-28 10:00-10:30 Rent",
+            "2026-03-31 10:00-10:30 Rent",
+            "2026-04-29 10:00-10:30 Rent",
+            "2026-05-31 10:00-10:30 Rent",
+            "2026-06-30 10:00-10:30 Rent",
+            "2026-07-31 10:00-10:30 Rent",
         ]
     );
 }
@@ -3237,7 +3255,7 @@ fn calendar_monthly_series_from_a_leap_day() {
     let jan30 = cal_series(&c, "Thirty", "monthly", "2028-01-30", ("09:00", "10:00"));
     assert_eq!(
         Cal::generate(&c, &jan30, "2028-04-30").unwrap(),
-        ["2028-01-30", "2028-02-29", "2028-03-29", "2028-04-29"]
+        ["2028-01-30", "2028-02-29", "2028-03-30", "2028-04-30"]
     );
 }
 
@@ -3716,6 +3734,7 @@ fn session_notes_survive_every_series_operation() {
     .unwrap();
     Ses::edit(&c, &t, B, edit().start("08:00")).unwrap();
     Ses::delete(&c, &t, D).unwrap();
+    // Deleting from 01-26 on ended the series, so nothing is generated past it.
     Ses::generate(&c, &t, "2026-02-02").unwrap();
     assert_eq!(
         view::<Ses>(&c, &t),
@@ -3724,7 +3743,6 @@ fn session_notes_survive_every_series_operation() {
             "2026-01-12 08:00-11:00 Lecture II #Bring laptop",
             "2026-01-19 08:00-11:00 Lecture II",
             "2026-01-26 08:00-11:00 Lecture II trashed",
-            "2026-02-02 08:00-11:00 Lecture II",
         ]
     );
 }

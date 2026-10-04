@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -159,6 +159,13 @@ pub fn create_relationship(
         return Err(AppError::NotFound(format!("entity {to_entity_id}")));
     }
 
+    // An entity can't link to itself (two different blocks of one page still can).
+    if from_entity_id == to_entity_id && from_block_id == to_block_id {
+        return Err(AppError::InvalidInput(format!(
+            "'{relationship_type}' cannot link {from_entity_id} to itself"
+        )));
+    }
+
     for (end_id, required) in [
         (&from_entity_id, def.from_type),
         (&to_entity_id, def.to_type),
@@ -185,6 +192,25 @@ pub fn create_relationship(
                 "{from_entity_id} has sub-tasks, so it cannot be a sub-task"
             )));
         }
+    }
+
+    // The same edge is stored once: asking for it again returns the existing one.
+    let existing = conn
+        .query_row(
+            "SELECT * FROM relationships WHERE from_entity_id = ?1 AND to_entity_id = ?2
+             AND relationship_type = ?3 AND from_block_id IS ?4 AND to_block_id IS ?5",
+            params![
+                from_entity_id,
+                to_entity_id,
+                relationship_type,
+                from_block_id,
+                to_block_id
+            ],
+            row_to_relationship,
+        )
+        .optional()?;
+    if let Some(existing) = existing {
+        return Ok(existing);
     }
 
     match def.cardinality {

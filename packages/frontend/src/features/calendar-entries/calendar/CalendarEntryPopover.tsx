@@ -321,8 +321,12 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
         const patch: CalendarEntrySeriesPatch = {};
         if (title.trim() !== entity.title) patch.title = title.trim();
         if (allDay !== entry.allDay) patch.allDay = allDay;
-        if (startTime !== entry.startTime) patch.startTime = allDay ? null : startTime;
-        if (endTime !== entry.endTime) patch.endTime = allDay ? null : endTime;
+        // An all day entry has no times, so the form's placeholder times are never
+        // written for one.
+        if (!allDay) {
+          if (startTime !== entry.startTime) patch.startTime = startTime;
+          if (endTime !== entry.endTime) patch.endTime = endTime;
+        }
         if (nextLocation !== entry.location) patch.location = nextLocation;
         const from = scope === "following" ? entry.date : format(new Date(), "yyyy-MM-dd");
         // The opened entry anchors the edit: it takes the change even where

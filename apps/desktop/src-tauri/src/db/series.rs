@@ -13,7 +13,7 @@
 
 use crate::db::entities::Entity;
 use crate::error::{AppError, AppResult};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashSet;
 
 /// An occurrence row of a recurring series, stored in `TABLE` with a
@@ -21,6 +21,8 @@ use std::collections::HashSet;
 pub(crate) trait SeriesOccurrence: Sized {
     /// The occurrence table, e.g. `calendar_entries`.
     const TABLE: &'static str;
+    /// The table holding the series' templates, e.g. `calendar_entry_templates`.
+    const TEMPLATE_TABLE: &'static str;
     /// The alias `TABLE` takes in queries, e.g. `a`.
     const ALIAS: &'static str;
 
@@ -29,6 +31,11 @@ pub(crate) trait SeriesOccurrence: Sized {
     /// The occurrence's `overridden_fields` bitmask (`Field` bits).
     fn overridden_fields(&self) -> i64;
 }
+
+/// Bit in `overridden_fields` for an occurrence whose title was edited on its own.
+/// A series rename reaches every occurrence without it, even one that still carries
+/// an older series title. Set by `entities::update_entity`, never by a series edit.
+pub(crate) const TITLE_OVERRIDE: i64 = 32;
 
 /// A field a series update writes to its occurrences, as its bit in an
 /// occurrence's `overridden_fields` column. The values are stored, so they
@@ -201,11 +208,46 @@ pub(crate) fn slots_to_generate<O: SeriesOccurrence>(
         .query_map(params![template_id], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
     let filled = usize::try_from(filled).unwrap_or(0);
+    let end = series_end::<O>(conn, template_id)?;
     Ok(slots
         .into_iter()
         .skip(filled)
         .filter(|date| !taken.contains(date))
+        .filter(|date| end.as_ref().is_none_or(|end| date < end))
         .collect())
+}
+
+/// Where "delete this and following" ended the series, if it did and nothing live
+/// has come back past it since. Dates from here on are never generated, whatever
+/// Empty Trash has removed. A live occurrence on or after it (a restore, a move)
+/// means the user wants the series to go on, so the end is ignored.
+fn series_end<O: SeriesOccurrence>(
+    conn: &Connection,
+    template_id: &str,
+) -> AppResult<Option<String>> {
+    let end: Option<String> = conn
+        .query_row(
+            &format!(
+                "SELECT series_end FROM {t} WHERE entity_id = ?1",
+                t = O::TEMPLATE_TABLE
+            ),
+            params![template_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten();
+    let Some(end) = end else { return Ok(None) };
+    let live_past_end: bool = conn.query_row(
+        &format!(
+            "SELECT EXISTS(SELECT 1 FROM entities e JOIN {t} {a} ON {a}.entity_id = e.id
+             WHERE {a}.template_id = ?1 AND {a}.date >= ?2 AND e.deleted_at IS NULL)",
+            t = O::TABLE,
+            a = O::ALIAS,
+        ),
+        params![template_id, end],
+        |row| row.get(0),
+    )?;
+    Ok((!live_past_end).then_some(end))
 }
 
 fn set_title(conn: &Connection, entity_id: &str, title: &str) -> AppResult<()> {
@@ -217,6 +259,8 @@ fn set_title(conn: &Connection, entity_id: &str, title: &str) -> AppResult<()> {
             ..Default::default()
         },
     )?;
+    // A series rename is not an edit of the occurrence's own title.
+    crate::db::entities::clear_title_override(conn, entity_id)?;
     Ok(())
 }
 
@@ -254,7 +298,11 @@ pub(crate) fn update_series<O: SeriesOccurrence>(
         let is_anchor = anchor_id == Some(occurrence.entity().id.as_str());
         update_occurrence(&occurrence, is_anchor)?;
         if let Some(title) = &title {
-            if occurrence.entity().title == old_title {
+            // Reaches every occurrence whose title was not edited on its own,
+            // including one that kept an older series title.
+            if occurrence.entity().title == old_title
+                || occurrence.overridden_fields() & TITLE_OVERRIDE == 0
+            {
                 set_title(conn, &occurrence.entity().id, title)?;
             }
         }
@@ -279,6 +327,8 @@ fn trash_series<O: SeriesOccurrence>(
     template_id: &str,
     from_date: &str,
 ) -> AppResult<usize> {
+    // An unknown template is `NotFound`.
+    let template = crate::db::entities::get_entity(conn, template_id)?;
     let ids: Vec<String> = conn
         .prepare(&format!(
             "SELECT e.id FROM entities e JOIN {t} {a} ON {a}.entity_id = e.id
@@ -301,8 +351,25 @@ fn trash_series<O: SeriesOccurrence>(
         params![template_id],
         |row| row.get(0),
     )?;
+    if remaining > 0 && !ids.is_empty() {
+        // The series now ends here; see `series_end`.
+        conn.execute(
+            &format!(
+                "UPDATE {t} SET series_end = MIN(COALESCE(series_end, ?1), ?1) WHERE entity_id = ?2",
+                t = O::TEMPLATE_TABLE
+            ),
+            params![from_date, template_id],
+        )?;
+    }
     if remaining == 0 {
-        crate::db::entities::soft_delete_entity(conn, template_id)?;
+        if template.deleted_at.is_none() {
+            crate::db::entities::soft_delete_entity(conn, template_id)?;
+        } else if !ids.is_empty() {
+            // Occurrences were restored under a template that is still in Trash.
+            // The caller's all or nothing rollback undoes what was trashed above.
+            return Err(AppError::NotFound(format!("series {template_id}")));
+        }
+        // Otherwise the series was already deleted: deleting again is a no-op.
     }
     Ok(ids.len())
 }

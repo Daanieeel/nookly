@@ -479,10 +479,11 @@ pub fn update_task_dates(
     start_date: Option<String>,
     due_date: Option<String>,
 ) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE tasks SET start_date = ?1, due_date = ?2 WHERE entity_id = ?3",
         params![start_date, due_date, entity_id],
     )?;
+    crate::db::require_row(affected, "task", entity_id)?;
     Ok(())
 }
 
@@ -623,15 +624,21 @@ fn cli_create_sub_task(conn: &Connection, input: CreateInput) -> AppResult<serde
 }
 
 fn cli_list_sub_tasks(
-    _conn: &Connection,
-    _space_id: Option<&str>,
+    conn: &Connection,
+    space_id: Option<&str>,
     _include_deleted: bool,
 ) -> AppResult<Vec<serde_json::Value>> {
-    Err(AppError::InvalidInput(
-        "sub_task has no space-wide listing; use `nookly cli task get <parent-id>` and follow its \
-         `sub-task-of` inverse relationships, or `nookly cli relate` to inspect links"
-            .into(),
-    ))
+    let space_id = space_id.ok_or_else(|| {
+        AppError::InvalidInput("sub_task list requires --space <space-id>".into())
+    })?;
+    let mut stmt = conn.prepare(
+        "SELECT id FROM entities WHERE type = 'sub_task' AND space_id = ?1 AND deleted_at IS NULL
+         ORDER BY created_at ASC",
+    )?;
+    let ids = stmt
+        .query_map(params![space_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    ids.iter().map(|id| cli_get_task(conn, id)).collect()
 }
 
 inventory::submit! {

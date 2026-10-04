@@ -1962,7 +1962,7 @@ fn exams_update_exam_null_grade_keeps_the_grade() {
     let id = h.exam(&space, &course);
     h.ok(
         "update_exam",
-        json!({ "entityId": id, "grade": 2.0, "status": "passed" }),
+        json!({ "entityId": id, "grade": 2.0, "status": "done" }),
     );
     h.ok(
         "update_exam",
@@ -1970,7 +1970,7 @@ fn exams_update_exam_null_grade_keeps_the_grade() {
     );
     let exam = h.db(|c| db::exams::list_exams(c, &space).unwrap().remove(0));
     assert_eq!(exam.grade, Some(2.0));
-    assert_eq!(exam.status, "passed");
+    assert_eq!(exam.status, "done");
 }
 
 #[test]
@@ -1978,7 +1978,7 @@ fn exams_update_unknown_exam_is_not_found() {
     let h = Harness::new();
     h.app_err(
         "update_exam",
-        json!({ "entityId": MISSING, "grade": 1.0, "status": "x" }),
+        json!({ "entityId": MISSING, "grade": 1.0, "status": "done" }),
         "NotFound",
     );
 }
@@ -2054,7 +2054,7 @@ fn assignments_create_list_and_update() {
     // A null grade on a status change clears the grade.
     h.ok(
         "update_assignment_status",
-        json!({ "entityId": id, "status": "open", "grade": null }),
+        json!({ "entityId": id, "status": "in_progress", "grade": null }),
     );
     let stored = h.db(|c| {
         db::assignments::list_assignments(c, &space)
@@ -2100,7 +2100,7 @@ fn assignments_update_unknown_is_not_found() {
     let h = Harness::new();
     h.app_err(
         "update_assignment_status",
-        json!({ "entityId": MISSING, "status": "done", "grade": null }),
+        json!({ "entityId": MISSING, "status": "graded", "grade": null }),
         "NotFound",
     );
 }

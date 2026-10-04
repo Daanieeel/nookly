@@ -739,6 +739,8 @@ inventory::submit! {
 /// user sees for the file — the detail view, the list and grid, sort and group
 /// order — agrees that it was really added on `day` (`YYYY-MM-DD`).
 pub fn set_added_at(conn: &Connection, entity_id: &str, day: &str) -> AppResult<FileEntity> {
+    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+        .map_err(|e| AppError::InvalidInput(format!("invalid date '{day}': {e}")))?;
     let created_at = format!("{day}T00:00:00+00:00");
     let affected = conn.execute(
         "UPDATE entities SET created_at = ?1, updated_at = ?2 WHERE id = ?3 AND type = 'file'",

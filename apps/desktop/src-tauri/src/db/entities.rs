@@ -90,6 +90,14 @@ pub fn create_entity(
     title: String,
     icon: Option<String>,
 ) -> AppResult<Entity> {
+    let space_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM spaces WHERE id = ?1)",
+        params![space_id],
+        |row| row.get(0),
+    )?;
+    if !space_exists {
+        return Err(AppError::NotFound(format!("space {space_id}")));
+    }
     let id = super::new_id();
     let now = super::now();
     let prefix = key_prefix(&entity_type);
@@ -164,6 +172,16 @@ pub fn get_entity(conn: &Connection, id: &str) -> AppResult<Entity> {
     .ok_or_else(|| AppError::NotFound(format!("entity {id}")))
 }
 
+/// Like `get_entity`, but an entity of another type is `NotFound` too, so a verb
+/// named for one type (`note get`, `note delete`) can never act on another.
+pub fn get_entity_of_type(conn: &Connection, id: &str, entity_type: &str) -> AppResult<Entity> {
+    let entity = get_entity(conn, id)?;
+    if entity.entity_type != entity_type {
+        return Err(AppError::NotFound(format!("{entity_type} {id}")));
+    }
+    Ok(entity)
+}
+
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EntityPatch {
@@ -177,10 +195,12 @@ pub struct EntityPatch {
 
 pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResult<Entity> {
     let mut entity = get_entity(conn, id)?;
+    let mut title_changed = false;
     if let Some(title) = patch.title {
         if title != entity.title && entity.entity_type == "file" {
             sync_media_block_names(conn, id, &title)?;
         }
+        title_changed = title != entity.title;
         entity.title = title;
     }
     if let Some(icon) = patch.icon {
@@ -200,7 +220,35 @@ pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResu
     )?;
     entity.updated_at = now;
     search::index_entity_title(conn, &entity.id, &entity.space_id, &entity.title)?;
+    if title_changed {
+        set_title_override(conn, id, true)?;
+    }
     Ok(entity)
+}
+
+/// Marks (or unmarks) a series occurrence's title as edited on its own, so a later
+/// series rename leaves it alone. A no-op for anything that isn't an occurrence.
+fn set_title_override(conn: &Connection, id: &str, on: bool) -> AppResult<()> {
+    let bit = super::series::TITLE_OVERRIDE;
+    for table in ["sessions", "calendar_entries"] {
+        let expr = if on {
+            "overridden_fields | ?2"
+        } else {
+            "overridden_fields & ~?2"
+        };
+        conn.execute(
+            &format!(
+                "UPDATE {table} SET overridden_fields = {expr}
+                 WHERE entity_id = ?1 AND template_id IS NOT NULL"
+            ),
+            params![id, bit],
+        )?;
+    }
+    Ok(())
+}
+
+pub(crate) fn clear_title_override(conn: &Connection, id: &str) -> AppResult<()> {
+    set_title_override(conn, id, false)
 }
 
 /// Media blocks (`/file`, image, video, audio) hold nothing but one mention of

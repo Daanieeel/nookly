@@ -58,7 +58,7 @@ pub struct SearchHit {
 /// Structural relationships whose target is a notes page rendered inline on
 /// the source entity's own page. Such notes are never a destination on their
 /// own: their blocks resolve to the owning entity.
-pub const EMBEDDED_NOTES_RELATIONSHIPS: &str = "'course-notes', 'semester-notes'";
+pub const EMBEDDED_NOTES_RELATIONSHIPS: &str = "'course-note', 'semester-notes'";
 
 /// Ids of every notes page embedded in another entity's page, for surfaces
 /// that list destinations (Cmd+P) and must skip them.

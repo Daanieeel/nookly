@@ -13,17 +13,11 @@ use std::collections::{BTreeMap, BTreeSet};
 // --- harness -----------------------------------------------------------------
 
 /// Types the generic generator can't create, and why. Everything else must create.
-/// (`view` is listed only until `view create` works inside the CLI savepoint, see
-/// view_create_works_through_the_cli_and_with_dry_run; then drop it and `seed`.)
 const NOT_GENERIC: &[(&str, &str)] = &[
     (
         "file",
         "needs a real file on disk (localPath, copied into the app data dir) or a network download (url); \
          the one-of rule is not expressible as required_on_create",
-    ),
-    (
-        "view",
-        "`view create` currently fails inside the CLI's own savepoint (nested transaction); seeded directly instead",
     ),
 ];
 
@@ -704,7 +698,7 @@ fn list_includes_the_created_entity() {
             }
         },
     );
-    assert_eq!(no_listing, BTreeSet::from(["sub_task"]));
+    assert!(no_listing.is_empty(), "{no_listing:?}");
 }
 
 #[test]
@@ -869,10 +863,6 @@ fn pinned_takes_only_true_or_false() {
 
 /// Writable fields whose generic sample does not read back unchanged, and why.
 const UPDATE_ROUND_TRIP_EXCEPTIONS: &[(&str, &str)] = &[
-    (
-        "calendar_entry.date",
-        "the generated later date falls after the entry's endDate",
-    ),
     (
         "calendar_entry_template.applyFromDate",
         "an update directive, never stored",
@@ -1674,8 +1664,7 @@ fn duplicate_copies_every_type_into_the_same_space() {
             }
         }
     });
-    // Views and Bookmarks have their own tests below.
-    failed.remove("view");
+    // Bookmarks have their own test below.
     assert!(failed.is_empty(), "{failed:?}");
     retitled.retain(|r| !r.starts_with("bookmark:"));
     assert!(retitled.is_empty(), "{retitled:?}");
@@ -2175,8 +2164,14 @@ fn every_relationship_type_named_in_describe_relates_two_generated_entities() {
     for def in schema::all() {
         for name in def.relationship_types {
             let rt = crate::db::relationships::lookup_relationship_type(name).unwrap();
-            let from = rt.from_type.and_then(schema::lookup).unwrap_or(def);
-            let to = rt.to_type.and_then(schema::lookup).unwrap_or(def);
+            // An end that is an embedded page (a Course's notes) can't be generated.
+            let end = |t: Option<&str>| match t {
+                None => Some(def),
+                Some(name) => schema::lookup(name),
+            };
+            let (Some(from), Some(to)) = (end(rt.from_type), end(rt.to_type)) else {
+                continue;
+            };
             let (Some(f), Some(t)) = (
                 make(&fx.conn, &fx.space, from),
                 make(&fx.conn, &fx.space, to),
@@ -2417,8 +2412,9 @@ fn listed_relationship_types_exist_and_are_unique() {
 fn typed_relationship_ends_are_registered_or_embedded_types() {
     for rt in inventory::iter::<crate::db::relationships::RelationshipTypeDef>() {
         for end in [rt.from_type, rt.to_type].into_iter().flatten() {
+            let embedded = inventory::iter::<schema::EmbeddedPageDef>().any(|d| d.page_type == end);
             assert!(
-                schema::lookup(end).is_some(),
+                schema::lookup(end).is_some() || embedded,
                 "{} names unregistered {end}",
                 rt.name
             );
@@ -2650,7 +2646,7 @@ fn describe_errors() {
 // --- argument layer --------------------------------------------------------------------------
 
 fn parse(line: &[&str]) -> Args {
-    parse_args(&line.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    parse_args(&line.iter().map(|s| s.to_string()).collect::<Vec<_>>()).unwrap()
 }
 
 #[test]

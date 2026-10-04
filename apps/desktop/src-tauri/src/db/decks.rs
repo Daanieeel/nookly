@@ -306,6 +306,13 @@ pub fn create_card(
     front: String,
     back: String,
 ) -> AppResult<IndexCard> {
+    let deck = crate::db::entities::get_entity(conn, &deck_entity_id)?;
+    if deck.entity_type != "index_card_deck" {
+        return Err(AppError::InvalidInput(format!(
+            "{deck_entity_id} is a '{}', not a deck",
+            deck.entity_type
+        )));
+    }
     let id = super::new_id();
     let now = super::now();
     conn.execute(
@@ -539,7 +546,10 @@ fn cli_update_deck(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
 }
 
 fn cli_get_deck(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    deck_payload(conn, crate::db::entities::get_entity(conn, id)?)
+    deck_payload(
+        conn,
+        crate::db::entities::get_entity_of_type(conn, id, "index_card_deck")?,
+    )
 }
 
 /// The Deck entity plus its `examId` and `stats` computed field.

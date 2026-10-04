@@ -16,14 +16,16 @@ use serde::Serialize;
 
 const RECURRENCES: &[&str] = &["daily", "weekly", "monthly"];
 
-/// The next cadence date after `cursor`, or `None` past the last date chrono
-/// can represent.
-fn advance(cursor: NaiveDate, recurrence: &str) -> Option<NaiveDate> {
+/// The `n`th cadence date counted from the `anchor` (0 is the anchor itself), or
+/// `None` past the last date chrono can represent. Every slot is computed from the
+/// anchor, never from the previous slot, so a month-end anchor clamps in a short
+/// month and comes back after it (Jan 31, Feb 28, Mar 31) instead of drifting.
+fn nth_slot(anchor: NaiveDate, n: u32, recurrence: &str) -> Option<NaiveDate> {
     match recurrence {
-        "daily" => cursor.checked_add_days(chrono::Days::new(1)),
-        "monthly" => cursor.checked_add_months(Months::new(1)),
+        "daily" => anchor.checked_add_days(chrono::Days::new(u64::from(n))),
+        "monthly" => anchor.checked_add_months(Months::new(n)),
         // "weekly", and any other value validation already rejected.
-        _ => cursor.checked_add_days(chrono::Days::new(7)),
+        _ => anchor.checked_add_days(chrono::Days::new(7 * u64::from(n))),
     }
 }
 
@@ -163,18 +165,17 @@ pub fn generate_occurrences(
     until_date: &str,
 ) -> AppResult<Vec<CalendarEntry>> {
     let template = get_calendar_entry_template(conn, template_id)?;
-    let mut cursor = NaiveDate::parse_from_str(&template.anchor_date, "%Y-%m-%d")
+    let anchor = NaiveDate::parse_from_str(&template.anchor_date, "%Y-%m-%d")
         .map_err(|e| AppError::Db(format!("invalid anchor_date: {e}")))?;
     let until = NaiveDate::parse_from_str(until_date, "%Y-%m-%d")
-        .map_err(|e| AppError::Db(format!("invalid until_date: {e}")))?;
+        .map_err(|e| AppError::InvalidInput(format!("invalid until_date: {e}")))?;
 
     let mut slots = Vec::new();
-    while cursor <= until {
-        slots.push(cursor.format("%Y-%m-%d").to_string());
-        let Some(next) = advance(cursor, &template.recurrence) else {
+    for n in 0.. {
+        let Some(date) = nth_slot(anchor, n, &template.recurrence).filter(|d| *d <= until) else {
             break;
         };
-        cursor = next;
+        slots.push(date.format("%Y-%m-%d").to_string());
     }
 
     let dates = crate::db::series::slots_to_generate::<CalendarEntry>(conn, template_id, slots)?;
@@ -622,6 +623,7 @@ pub fn update_calendar_entry_series_anchored(
 
 impl crate::db::series::SeriesOccurrence for CalendarEntry {
     const TABLE: &'static str = "calendar_entries";
+    const TEMPLATE_TABLE: &'static str = "calendar_entry_templates";
     const ALIAS: &'static str = "a";
 
     fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
@@ -654,7 +656,7 @@ const FIELD_START_TIME: FieldDef = FieldDef {
     kind: FieldKind::Text,
     required_on_create: false,
     writable_on_update: true,
-    description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
+    description: "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
 };
 
 const FIELD_END_TIME: FieldDef = FieldDef {
@@ -662,7 +664,7 @@ const FIELD_END_TIME: FieldDef = FieldDef {
     kind: FieldKind::Text,
     required_on_create: false,
     writable_on_update: true,
-    description: "\"HH:MM\", 24-hour. Required unless allDay is true.",
+    description: "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
 };
 
 const FIELD_ALL_DAY: FieldDef = FieldDef {
@@ -670,7 +672,7 @@ const FIELD_ALL_DAY: FieldDef = FieldDef {
     kind: FieldKind::Boolean,
     required_on_create: false,
     writable_on_update: true,
-    description: "An all-day entry with no start/end time. Defaults to false.",
+    description: "An all-day entry with no start/end time. Defaults to true when no times are given, otherwise false.",
 };
 
 const FIELD_DESCRIPTION: FieldDef = FieldDef {
@@ -719,7 +721,9 @@ fn cli_create_calendar_entry_template(
     let recurrence = crate::db::schema::require_str(&input.fields, "recurrence")?;
     let start_time = crate::db::schema::field_str(&input.fields, "startTime");
     let end_time = crate::db::schema::field_str(&input.fields, "endTime");
-    let all_day = crate::db::schema::field_bool(&input.fields, "allDay").unwrap_or(false);
+    // No times at all means an all-day entry, unless `allDay=false` says otherwise.
+    let all_day = crate::db::schema::field_bool(&input.fields, "allDay")
+        .unwrap_or(start_time.is_none() && end_time.is_none());
     let location = crate::db::schema::field_str(&input.fields, "location");
     let description = crate::db::schema::field_str(&input.fields, "description");
     let anchor_date = crate::db::schema::require_str(&input.fields, "anchorDate")?;
@@ -834,7 +838,9 @@ fn cli_create_calendar_entry(
     let end_date = crate::db::schema::field_str(&input.fields, "endDate");
     let start_time = crate::db::schema::field_str(&input.fields, "startTime");
     let end_time = crate::db::schema::field_str(&input.fields, "endTime");
-    let all_day = crate::db::schema::field_bool(&input.fields, "allDay").unwrap_or(false);
+    // No times at all means an all-day entry, unless `allDay=false` says otherwise.
+    let all_day = crate::db::schema::field_bool(&input.fields, "allDay")
+        .unwrap_or(start_time.is_none() && end_time.is_none());
     let location = crate::db::schema::field_str(&input.fields, "location");
     let description = crate::db::schema::field_str(&input.fields, "description");
     let occurrence = create_one_off_calendar_entry(
@@ -2329,7 +2335,7 @@ mod tests {
         let created = generate_occurrences(&conn, &monthly.id, "2026-04-30").unwrap();
         assert_eq!(
             created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
-            vec!["2026-04-28"]
+            vec!["2026-04-30"]
         );
         let daily = create_calendar_entry_template(
             &conn,
@@ -2419,7 +2425,7 @@ mod tests {
         ));
         assert!(matches!(
             generate_occurrences(&conn, &template.id, "garbage").unwrap_err(),
-            AppError::Db(_)
+            AppError::InvalidInput(_)
         ));
     }
 

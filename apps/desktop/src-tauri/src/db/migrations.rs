@@ -617,6 +617,38 @@ fn all() -> Vec<M<'static>> {
             SELECT 1 FROM session_templates t WHERE t.entity_id = sessions.template_id
         );
         ",
+    ),
+    M::up(
+        "
+        -- `course-notes` used to be the 1:1 link from a Course to its embedded notes
+        -- page. That link is now `course-note`, and `course-notes` is free to link
+        -- any number of regular notes to a Course. Only rows pointing at the
+        -- embedded page are retagged, so nothing else changes meaning.
+        UPDATE relationships SET relationship_type = 'course-note'
+        WHERE relationship_type = 'course-notes'
+          AND to_entity_id IN (SELECT id FROM entities WHERE type = 'course_notes');
+        ",
+    ), M::up(
+        "
+        -- 'Delete this and following' records where a series ends, so extending the
+        -- horizon later (or Empty Trash) never brings the deleted dates back. NULL
+        -- means the series has not been cut short, which is every existing one.
+        ALTER TABLE session_templates ADD COLUMN series_end TEXT;
+        ALTER TABLE calendar_entry_templates ADD COLUMN series_end TEXT;
+
+        -- Bit 32 of overridden_fields: the occurrence's title was edited on its own,
+        -- so a series rename leaves it alone. Backfilled for every occurrence whose
+        -- title already differs from its series', which keeps each custom title
+        -- exactly as protected as before.
+        UPDATE sessions SET overridden_fields = overridden_fields | 32
+        WHERE template_id IS NOT NULL
+          AND (SELECT title FROM entities WHERE id = sessions.entity_id)
+              IS NOT (SELECT title FROM entities WHERE id = sessions.template_id);
+        UPDATE calendar_entries SET overridden_fields = overridden_fields | 32
+        WHERE template_id IS NOT NULL
+          AND (SELECT title FROM entities WHERE id = calendar_entries.entity_id)
+              IS NOT (SELECT title FROM entities WHERE id = calendar_entries.template_id);
+        ",
     )]
 }
 
@@ -837,10 +869,17 @@ mod overridden_fields_backfill {
         );
         assert_eq!(rows(&conn, "sessions", SESSION_COLUMNS), sessions_before);
         assert_eq!(rows(&conn, "entities", "*"), entities_before);
+        // `series_end` was added after these columns, so it is the last one.
+        let without_series_end = |mut table: Vec<Vec<rusqlite::types::Value>>| {
+            for row in &mut table {
+                assert_eq!(row.pop(), Some(rusqlite::types::Value::Null));
+            }
+            table
+        };
         assert_eq!(
             (
-                rows(&conn, "calendar_entry_templates", "*"),
-                rows(&conn, "session_templates", "*"),
+                without_series_end(rows(&conn, "calendar_entry_templates", "*")),
+                without_series_end(rows(&conn, "session_templates", "*")),
             ),
             templates_before
         );
@@ -854,7 +893,8 @@ mod overridden_fields_backfill {
                 ("c3".into(), 2 | 4),
                 ("c4".into(), 1 | 2 | 8 | 16),
                 ("c5".into(), 0),
-                ("c6".into(), 0),
+                // 32, a later migration: its title differs from its series'.
+                ("c6".into(), 32),
             ]
         );
         assert_eq!(
@@ -963,6 +1003,8 @@ mod history {
         0xba33a4192b4bbba9,
         0x7c721406412ca45b,
         0xc08c803d15973069,
+        0x2c27db43ab1a6600,
+        0xf26762aee1e57139,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

@@ -17,6 +17,8 @@ pub mod exams;
 #[cfg(test)]
 mod exams_tests;
 pub mod files;
+#[cfg(test)]
+mod forward_compat_tests;
 pub mod labels;
 #[cfg(test)]
 mod labels_tests;
@@ -71,6 +73,30 @@ pub fn now() -> String {
 
 pub fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+/// `NotFound` unless an UPDATE touched a row, so a missing id is reported
+/// instead of silently succeeding.
+pub(crate) fn require_row(affected: usize, what: &str, id: &str) -> crate::error::AppResult<()> {
+    if affected == 0 {
+        return Err(crate::error::AppError::NotFound(format!("{what} {id}")));
+    }
+    Ok(())
+}
+
+/// `InvalidInput` unless `value` is one of the documented `allowed` values.
+pub(crate) fn require_one_of(
+    field: &str,
+    value: &str,
+    allowed: &[&str],
+) -> crate::error::AppResult<()> {
+    if !allowed.contains(&value) {
+        return Err(crate::error::AppError::InvalidInput(format!(
+            "{field} must be one of {}, got '{value}'",
+            allowed.join(", ")
+        )));
+    }
+    Ok(())
 }
 
 /// Runs `f` inside a SAVEPOINT, so a call that fails halfway leaves nothing
