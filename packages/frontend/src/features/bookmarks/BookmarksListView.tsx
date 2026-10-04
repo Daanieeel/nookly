@@ -2,8 +2,6 @@ import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
   IconBookmark,
-  IconCaretDownFilled,
-  IconCaretRightFilled,
   IconLayoutSidebarRightExpand,
   IconLink,
   IconTag,
@@ -12,7 +10,8 @@ import {
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GroupedList } from "#/features/group-section.tsx";
 import { z } from "zod";
 import { StatusIcon, useActionStatus } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
@@ -20,12 +19,6 @@ import { EmptyState } from "#/components/empty-state.tsx";
 import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import {
-  buildGroups,
-  isCollapsed,
-  moveRowFocus,
-  toggleId,
-} from "#/components/grouped-view/grouping.ts";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
@@ -201,11 +194,6 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
     display.ordering,
   );
   const defs = bookmarkGroupDefs(display.grouping, visible, labels);
-  const groups = buildGroups(
-    visible,
-    defs ?? [{ id: "all", name: "All bookmarks", match: () => true }],
-    null,
-  ).filter((g) => g.items.length > 0);
   const labelsOf = (b: Bookmark) => b.labelIds.flatMap((id) => labelById.get(id) ?? []);
 
   const renderItems = (items: Bookmark[], withPending: boolean) =>
@@ -283,22 +271,14 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
           </Button>
         </div>
       ) : (
-        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-        <div className="min-h-0 flex-1 overflow-y-auto pb-24" onKeyDown={moveRowFocus}>
-          {defs === null
-            ? renderItems(visible, true)
-            : groups.map((group, i) => (
-                <GroupSection
-                  key={group.id}
-                  name={group.name}
-                  count={group.items.length}
-                  collapsed={isCollapsed(collapsed, group.id, false)}
-                  onToggle={() => setCollapsed((prev) => toggleId(prev, group.id))}
-                >
-                  {renderItems(group.items, i === 0)}
-                </GroupSection>
-              ))}
-        </div>
+        <GroupedList
+          items={visible}
+          defs={defs}
+          allName="All bookmarks"
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          renderItems={renderItems}
+        />
       )}
 
       <FloatingBar
@@ -349,42 +329,6 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
         </form.Subscribe>
       </FloatingBar>
     </div>
-  );
-}
-
-function GroupSection({
-  name,
-  count,
-  collapsed,
-  onToggle,
-  children,
-}: {
-  name: string;
-  count: number;
-  collapsed: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <section aria-label={name}>
-      <div className="sticky top-0 z-30 flex h-9 items-center border-b border-border bg-card px-2">
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          onClick={onToggle}
-          className="flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-accent/60"
-        >
-          {collapsed ? (
-            <IconCaretRightFilled size={10} className="text-muted-foreground" />
-          ) : (
-            <IconCaretDownFilled size={10} className="text-muted-foreground" />
-          )}
-          <span className="truncate font-medium">{name}</span>
-          <span className="text-muted-foreground tabular-nums">{count}</span>
-        </button>
-      </div>
-      {!collapsed && children}
-    </section>
   );
 }
 

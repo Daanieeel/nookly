@@ -98,6 +98,15 @@ export function useItemDrag({
   onCommit: (result: ItemDragRange) => void;
 }): UseItemDragResult {
   const [drag, setDrag] = useState<DragState | null>(null);
+  // The drag in progress, readable from event handlers without going through a
+  // state updater: updaters must stay pure, and the side effects below (pointer
+  // capture, the click swallow) need the live event, which is gone by the time an
+  // updater runs.
+  const dragRef = useRef<DragState | null>(null);
+  const update = useCallback((next: DragState | null) => {
+    dragRef.current = next;
+    setDrag(next);
+  }, []);
   // Tracked outside React state so the click-swallow listener (below) always
   // reads the up to date value, even if it runs before this component's next
   // render commits.
@@ -108,10 +117,10 @@ export function useItemDrag({
 
   useEffect(() => {
     if (!drag) return;
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setDrag(null);
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && update(null);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [drag]);
+  }, [drag, update]);
 
   const handleFor = useCallback(
     (mode: ItemDragMode) => ({
@@ -129,7 +138,7 @@ export function useItemDrag({
         // engine Tauri embeds stops delivering `click` to the actual pressed
         // element once an ancestor (this one) holds pointer capture, even
         // when the pointer never moved.
-        setDrag({
+        update({
           mode,
           pointerId: e.pointerId,
           anchorX: e.clientX,
@@ -141,56 +150,55 @@ export function useItemDrag({
       },
       onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
         if (!isOwnEvent(e)) return;
-        setDrag((current) => {
-          if (!current || current.pointerId !== e.pointerId) return current;
-          const deltaX = e.clientX - current.anchorX;
-          const deltaY = e.clientY - current.anchorY;
-          if (
-            !movedRef.current &&
-            (Math.abs(deltaX) > CLICK_THRESHOLD_PX || Math.abs(deltaY) > CLICK_THRESHOLD_PX)
-          ) {
-            movedRef.current = true;
+        const current = dragRef.current;
+        if (!current || current.pointerId !== e.pointerId) return;
+        const deltaX = e.clientX - current.anchorX;
+        const deltaY = e.clientY - current.anchorY;
+        if (
+          !movedRef.current &&
+          (Math.abs(deltaX) > CLICK_THRESHOLD_PX || Math.abs(deltaY) > CLICK_THRESHOLD_PX)
+        ) {
+          movedRef.current = true;
+        }
+        if (movedRef.current && !capturedRef.current) {
+          capturedRef.current = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          if (current.mode === "move") {
+            // Swallows the click the browser fires right after pointerup on
+            // this same trigger, now that real movement happened, so a
+            // plain click (no capture ever grabbed) still opens the
+            // popover as normal.
+            const onClick = (clickEvent: MouseEvent) => {
+              if (movedRef.current) {
+                clickEvent.preventDefault();
+                clickEvent.stopPropagation();
+              }
+            };
+            window.addEventListener("click", onClick, { capture: true, once: true });
           }
-          if (movedRef.current && !capturedRef.current) {
-            capturedRef.current = true;
-            e.currentTarget.setPointerCapture(e.pointerId);
-            if (current.mode === "move") {
-              // Swallows the click the browser fires right after pointerup on
-              // this same trigger, now that real movement happened, so a
-              // plain click (no capture ever grabbed) still opens the
-              // popover as normal.
-              const onClick = (clickEvent: MouseEvent) => {
-                if (movedRef.current) {
-                  clickEvent.preventDefault();
-                  clickEvent.stopPropagation();
-                }
-              };
-              window.addEventListener("click", onClick, { capture: true, once: true });
-            }
-          }
-          const offsetMin = snap((deltaY / HOUR_PX) * 60);
-          const dayDelta =
-            current.mode === "move" && current.columnWidth > 0
-              ? Math.max(
-                  -dayIndex,
-                  Math.min(dayCount - 1 - dayIndex, Math.round(deltaX / current.columnWidth)),
-                )
-              : 0;
-          if (offsetMin === current.offsetMin && dayDelta === current.dayDelta) return current;
-          return { ...current, offsetMin, dayDelta };
-        });
+        }
+        const offsetMin = snap((deltaY / HOUR_PX) * 60);
+        const dayDelta =
+          current.mode === "move" && current.columnWidth > 0
+            ? Math.max(
+                -dayIndex,
+                Math.min(dayCount - 1 - dayIndex, Math.round(deltaX / current.columnWidth)),
+              )
+            : 0;
+        if (offsetMin === current.offsetMin && dayDelta === current.dayDelta) return;
+        update({ ...current, offsetMin, dayDelta });
       },
       onPointerUp: (e: ReactPointerEvent<HTMLElement>) => {
         if (!isOwnEvent(e)) return;
-        setDrag((current) => {
-          if (!current || current.pointerId !== e.pointerId) return null;
-          if (movedRef.current) onCommit(resolve(current, startMin, endMin));
-          return null;
-        });
+        const current = dragRef.current;
+        if (current && current.pointerId === e.pointerId && movedRef.current) {
+          onCommit(resolve(current, startMin, endMin));
+        }
+        update(null);
       },
-      onPointerCancel: () => setDrag(null),
+      onPointerCancel: () => update(null),
     }),
-    [dayIndex, dayCount, onCommit, startMin, endMin],
+    [dayIndex, dayCount, onCommit, startMin, endMin, update],
   );
 
   return {

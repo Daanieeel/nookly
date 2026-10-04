@@ -96,7 +96,7 @@ export function termSegments(text: string, query: string): TextSegment[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) return [{ text, match: false }];
   const lower = text.toLowerCase();
-  const marked = new Array<boolean>(text.length).fill(false);
+  const marked = Array.from({ length: text.length }, () => false);
   for (const term of terms) {
     let from = lower.indexOf(term);
     while (from !== -1) {
@@ -131,7 +131,7 @@ export function fuzzyMatch(title: string, query: string): FuzzyMatch | null {
   const needle = query.trim().toLowerCase();
   if (!needle) return { tier: 0, spread: 0, segments: [{ text: title, match: false }] };
   const lower = title.toLowerCase();
-  const marked = new Array<boolean>(title.length).fill(false);
+  const marked = Array.from({ length: title.length }, () => false);
 
   const at = lower.indexOf(needle);
   if (at !== -1) {

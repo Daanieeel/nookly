@@ -1,32 +1,17 @@
+import { CreateNameDialog } from "#/features/CreateNameDialog.tsx";
 import { qk } from "#/lib/query-keys.ts";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { useForm } from "@tanstack/react-form";
-import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import {
-  StatusButtonContent,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
+import { useState } from "react";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Button } from "@nookly/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
 import {
   GalleryCard,
   GalleryCardBody,
   GalleryCardImageBanner,
 } from "@nookly/ui/components/gallery-card";
-import { Input } from "@nookly/ui/components/input";
 import { createRecipe, listRecipes } from "#/lib/api/recipes.ts";
 import type { Recipe } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -173,8 +158,6 @@ function RecipePlaceholderCard({ titleWidth }: { titleWidth: string }) {
   );
 }
 
-const createRecipeSchema = z.object({ title: z.string().trim().min(1, "Give the recipe a name") });
-
 function CreateRecipeDialog({
   open,
   onOpenChange,
@@ -184,81 +167,18 @@ function CreateRecipeDialog({
   onOpenChange: (open: boolean) => void;
   spaceId: string;
 }) {
-  const queryClient = useQueryClient();
-  const openEntity = useNavStore((s) => s.openEntity);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const form = useForm({
-    defaultValues: { title: "" },
-    validators: { onChange: createRecipeSchema },
-    onSubmit: ({ value }) => {
-      if (!create.isPending && !create.isSuccess) create.mutate(value.title);
-    },
-  });
-
-  const create = useMutation({
-    mutationFn: (title: string) => createRecipe(spaceId, title.trim()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.recipes.bySpace(spaceId) });
-      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
-    },
-  });
-  const { reset } = create;
-  useCloseAfterSuccess(create, () => {
-    onOpenChange(false);
-    if (create.data) openEntity(create.data.id, spaceId);
-  });
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-    else {
-      form.reset();
-      reset();
-    }
-  }, [open, reset, form]);
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>New recipe</DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void form.handleSubmit();
-          }}
-        >
-          <form.Field name="title">
-            {(field) => (
-              <FormField label="Name" required htmlFor="recipe-name" error={fieldMessage(field)}>
-                <Input
-                  id="recipe-name"
-                  ref={inputRef}
-                  placeholder="e.g. Tomato soup"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-        </form>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
-                <StatusButtonContent
-                  status={statusOf(create)}
-                  label="Create"
-                  successLabel="Created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <CreateNameDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      spaceId={spaceId}
+      heading="New recipe"
+      fieldId="recipe-name"
+      placeholder="e.g. Tomato soup"
+      emptyMessage="Give the recipe a name"
+      create={createRecipe}
+      listKey={qk.recipes.bySpace(spaceId)}
+      entitiesKey={qk.entities.bySpace(spaceId)}
+    />
   );
 }

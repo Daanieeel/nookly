@@ -1,8 +1,6 @@
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
-  IconCaretDownFilled,
-  IconCaretRightFilled,
   IconCategory,
   IconExternalLink,
   IconFile,
@@ -19,7 +17,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { GroupedList } from "#/features/group-section.tsx";
 import { z } from "zod";
 import {
   type ActionStatus,
@@ -38,12 +37,6 @@ import {
 } from "#/components/filter-menu.tsx";
 import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
-import {
-  buildGroups,
-  isCollapsed,
-  moveRowFocus,
-  toggleId,
-} from "#/components/grouped-view/grouping.ts";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "@nookly/ui/components/kbd";
@@ -284,11 +277,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     display.ordering,
   );
   const defs = fileGroupDefs(display.grouping);
-  const groups = buildGroups(
-    visible,
-    defs ?? [{ id: "all", name: "All files", match: () => true }],
-    null,
-  ).filter((g) => g.items.length > 0);
   const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
 
   const renderItems = (items: FileEntity[]) =>
@@ -389,22 +377,14 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           </Button>
         </div>
       ) : (
-        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-        <div className="min-h-0 flex-1 overflow-y-auto pb-24" onKeyDown={moveRowFocus}>
-          {defs === null
-            ? renderItems(visible)
-            : groups.map((group) => (
-                <GroupSection
-                  key={group.id}
-                  name={group.name}
-                  count={group.items.length}
-                  collapsed={isCollapsed(collapsed, group.id, false)}
-                  onToggle={() => setCollapsed((prev) => toggleId(prev, group.id))}
-                >
-                  {renderItems(group.items)}
-                </GroupSection>
-              ))}
-        </div>
+        <GroupedList
+          items={visible}
+          defs={defs}
+          allName="All files"
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          renderItems={renderItems}
+        />
       )}
 
       {offer ? (
@@ -521,42 +501,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
         </FloatingBar>
       )}
     </div>
-  );
-}
-
-function GroupSection({
-  name,
-  count,
-  collapsed,
-  onToggle,
-  children,
-}: {
-  name: string;
-  count: number;
-  collapsed: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <section aria-label={name}>
-      <div className="sticky top-0 z-30 flex h-9 items-center border-b border-border bg-card px-2">
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          onClick={onToggle}
-          className="flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-accent/60"
-        >
-          {collapsed ? (
-            <IconCaretRightFilled size={10} className="text-muted-foreground" />
-          ) : (
-            <IconCaretDownFilled size={10} className="text-muted-foreground" />
-          )}
-          <span className="truncate font-medium">{name}</span>
-          <span className="text-muted-foreground tabular-nums">{count}</span>
-        </button>
-      </div>
-      {!collapsed && children}
-    </section>
   );
 }
 

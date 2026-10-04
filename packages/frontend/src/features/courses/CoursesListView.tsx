@@ -12,22 +12,28 @@ import {
   IconStack2,
   IconWriting,
 } from "@tabler/icons-react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useCourseRelationships,
+  useCoursesRelationships,
+  useSpaceAssignments,
+  useSpaceCourses,
+  useSpaceExams,
+  useSpaceSemesters,
+  useSpaceSessions,
+  courseLinkedItems,
+  semesterIdsByCourse,
+} from "#/features/courses/course-queries.ts";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
-import { useForm } from "@tanstack/react-form";
-import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
+import { useState } from "react";
 import {
   StatusAnnouncer,
-  StatusButtonContent,
   StatusIcon,
   statusOf,
   statusTextClass,
-  useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Badge } from "@nookly/ui/components/badge";
@@ -38,18 +44,10 @@ import {
   CollapsibleTrigger,
 } from "@nookly/ui/components/collapsible";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
-import {
   GalleryCard,
   GalleryCardBanner,
   GalleryCardBody,
 } from "@nookly/ui/components/gallery-card";
-import { Input } from "@nookly/ui/components/input";
 import { ProgressCircle } from "@nookly/ui/components/progress-circle";
 import {
   Select,
@@ -59,12 +57,8 @@ import {
   SelectValue,
 } from "@nookly/ui/components/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { listAssignments } from "#/lib/api/assignments.ts";
-import { createCourse, listCourses, listSemesters, setCourseSemester } from "#/lib/api/courses.ts";
+import { createCourse, setCourseSemester } from "#/lib/api/courses.ts";
 import { getEntity } from "#/lib/api/entities.ts";
-import { listExams } from "#/lib/api/exams.ts";
-import { listRelationships } from "#/lib/api/relationships.ts";
-import { listSessions } from "#/lib/api/sessions.ts";
 import type { Assignment, Entity, Exam, Semester, SessionOccurrence } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { gradientForName } from "#/lib/gallery-color.ts";
@@ -74,6 +68,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
+import { CreateNameDialog } from "#/features/CreateNameDialog.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
@@ -135,46 +130,20 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
     preferences.set(STORAGE_KEYS.coursesSort, next);
   };
 
-  const { data: courses = [] } = useQuery({
-    queryKey: qk.courses.bySpace(spaceId),
-    queryFn: () => listCourses(spaceId),
-  });
-  const { data: semesters = [] } = useQuery({
-    queryKey: qk.semesters.bySpace(spaceId),
-    queryFn: () => listSemesters(spaceId),
-  });
+  const { data: courses = [] } = useSpaceCourses(spaceId);
+  const { data: semesters = [] } = useSpaceSemesters(spaceId);
   // Fetched once here (not per-card) and cross-referenced against each
   // course's own relationships below, so the gallery's progress rings/next-
   // session stat don't cost N extra queries per course.
-  const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.bySpace(spaceId),
-    queryFn: () => listSessions(spaceId),
-  });
-  const { data: exams = [] } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
-  const { data: assignments = [] } = useQuery({
-    queryKey: qk.assignments.bySpace(spaceId),
-    queryFn: () => listAssignments(spaceId),
-  });
+  const { data: sessions = [] } = useSpaceSessions(spaceId);
+  const { data: exams = [] } = useSpaceExams(spaceId);
+  const { data: assignments = [] } = useSpaceAssignments(spaceId);
   // Same `queryKey` each `CourseCard` uses for its own relationships query —
   // react-query shares the cache, so grouping by semester here doesn't cost
   // extra network calls.
-  const courseRelQueries = useQueries({
-    queries: courses.map((course) => ({
-      queryKey: qk.relationships.of(course.id),
-      queryFn: () => listRelationships(course.id, "both"),
-    })),
-  });
+  const courseRelQueries = useCoursesRelationships(courses);
 
-  const semesterIdByCourse = new Map<string, string>();
-  courses.forEach((course, i) => {
-    const link = (courseRelQueries[i]?.data ?? []).find(
-      (r) => r.relationshipType === "course-semester" && r.fromEntityId === course.id,
-    );
-    if (link) semesterIdByCourse.set(course.id, link.toEntityId);
-  });
+  const semesterIdByCourse = semesterIdsByCourse(courses, courseRelQueries);
 
   const activeSemesterId = resolveActiveSemesterId(semesters);
   const activeSemester = semesters.find((s) => s.entity.id === activeSemesterId);
@@ -414,10 +383,7 @@ export function CourseCard({
   showSemester?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const { data: relationships = [] } = useQuery({
-    queryKey: qk.relationships.of(course.id),
-    queryFn: () => listRelationships(course.id, "both"),
-  });
+  const { data: relationships = [] } = useCourseRelationships(course.id);
 
   // At most one, enforced at the data layer — a Course belongs to at most
   // one Semester at a time.
@@ -427,19 +393,10 @@ export function CourseCard({
   const sequelLinks = relationships.filter(
     (r) => r.relationshipType === "sequel-of" || r.relationshipType === "prequel-of",
   );
-  // `session-course`/`exam-course`/`assignment-course` all point course-ward
-  // (the session/exam/assignment is `from`, the course is `to`) — the
-  // opposite direction from `course-semester` above.
-  const linkedIds = (relationshipType: string) =>
-    new Set(
-      relationships
-        .filter((r) => r.relationshipType === relationshipType && r.toEntityId === course.id)
-        .map((r) => r.fromEntityId),
-    );
-  const courseSessions = sessions.filter((s) => linkedIds("session-course").has(s.entity.id));
-  const courseExams = exams.filter((e) => linkedIds("exam-course").has(e.entity.id));
-  const courseAssignments = assignments.filter((a) =>
-    linkedIds("assignment-course").has(a.entity.id),
+  const { courseSessions, courseExams, courseAssignments } = courseLinkedItems(
+    relationships,
+    course.id,
+    { sessions, exams, assignments },
   );
 
   const assignSemester = useMutation({
@@ -700,8 +657,6 @@ function RelatedChip({
   );
 }
 
-const createCourseSchema = z.object({ title: z.string().trim().min(1, "Give the course a name") });
-
 function CreateCourseDialog({
   open,
   onOpenChange,
@@ -711,81 +666,18 @@ function CreateCourseDialog({
   onOpenChange: (open: boolean) => void;
   spaceId: string;
 }) {
-  const queryClient = useQueryClient();
-  const openEntity = useNavStore((s) => s.openEntity);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const form = useForm({
-    defaultValues: { title: "" },
-    validators: { onChange: createCourseSchema },
-    onSubmit: ({ value }) => {
-      if (!create.isPending && !create.isSuccess) create.mutate(value.title);
-    },
-  });
-
-  const create = useMutation({
-    mutationFn: (title: string) => createCourse(spaceId, title.trim()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.courses.bySpace(spaceId) });
-      queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
-    },
-  });
-  const { reset } = create;
-  useCloseAfterSuccess(create, () => {
-    onOpenChange(false);
-    if (create.data) openEntity(create.data.id, spaceId);
-  });
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-    else {
-      form.reset();
-      reset();
-    }
-  }, [open, reset, form]);
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>New course</DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void form.handleSubmit();
-          }}
-        >
-          <form.Field name="title">
-            {(field) => (
-              <FormField label="Name" required htmlFor="course-name" error={fieldMessage(field)}>
-                <Input
-                  id="course-name"
-                  ref={inputRef}
-                  placeholder="e.g. Algorithms I"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-        </form>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button onClick={() => void form.handleSubmit()} disabled={blocked}>
-                <StatusButtonContent
-                  status={statusOf(create)}
-                  label="Create"
-                  successLabel="Created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <CreateNameDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      spaceId={spaceId}
+      heading="New course"
+      fieldId="course-name"
+      placeholder="e.g. Algorithms I"
+      emptyMessage="Give the course a name"
+      create={createCourse}
+      listKey={qk.courses.bySpace(spaceId)}
+      entitiesKey={qk.entities.bySpace(spaceId)}
+    />
   );
 }

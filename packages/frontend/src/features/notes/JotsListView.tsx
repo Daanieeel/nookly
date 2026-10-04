@@ -10,7 +10,6 @@ import {
   IconLink,
   IconPlus,
   IconSchool,
-  IconSearch,
   IconTag,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -24,15 +23,14 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
-import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
-import { DataTable } from "#/components/data-table/data-table.tsx";
-import { DataTableColumnHeader } from "#/components/data-table/data-table-column-header.tsx";
+import { contextTarget } from "#/components/context-menu/registry.ts";
+import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
+import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
+import {} from "@nookly/ui/components/input";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listLabels } from "#/lib/api/labels.ts";
@@ -40,16 +38,26 @@ import { listJotSummaries } from "#/lib/api/notes.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import type { Entity, Label, PageSummary, SessionContext, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { formatEditedAt } from "#/lib/relative-time.ts";
-import { matchesKey } from "#/lib/entity-key.ts";
+import {} from "#/lib/relative-time.ts";
+import {} from "#/lib/entity-key.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import {
+  editedColumn,
+  labelsColumn,
+  ListSearchInput,
+  PageSummaryTable,
+  matchesQuery,
+  readStoredSorting,
+  titleColumn,
+  writeStoredSorting,
+} from "./list-table-shared";
 import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
 import { notePreviewText, previewLines } from "./note-preview";
-import { formatClock, formatDateTime, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
+import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
@@ -66,27 +74,9 @@ export interface JotRow {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-const SORTABLE_COLUMNS = new Set(["key", "title", "edited"]);
-const DEFAULT_SORTING: SortingState = [{ id: "edited", desc: true }];
-const MAX_ROW_LABELS = 3;
 
-/// Stored as `"<column>:<asc|desc>"`, e.g. `"edited:desc"`.
-function readStoredSorting(): SortingState {
-  const [id, dir] = (preferences.get(STORAGE_KEYS.jotsSort) ?? "").split(":");
-  if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
-    return [{ id, desc: dir === "desc" }];
-  }
-  return DEFAULT_SORTING;
-}
-
-function writeStoredSorting(sorting: SortingState) {
-  const [first] = sorting;
-  if (first) {
-    preferences.set(STORAGE_KEYS.jotsSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
-  } else {
-    preferences.remove(STORAGE_KEYS.jotsSort);
-  }
-}
+const readSorting = () => readStoredSorting(STORAGE_KEYS.jotsSort);
+const writeSorting = (sorting: SortingState) => writeStoredSorting(STORAGE_KEYS.jotsSort, sorting);
 
 const EDITED_WINDOWS = new Map([
   ["today", DAY],
@@ -222,7 +212,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>(readStoredPresetFilters);
-  const [sorting, setSorting] = useState<SortingState>(readStoredSorting);
+  const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
@@ -284,15 +274,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
 
   const needle = query.trim().toLowerCase();
   const data = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          (!needle ||
-            r.title.toLowerCase().includes(needle) ||
-            r.preview.toLowerCase().includes(needle) ||
-            matchesKey(r.summary.entity.key, query)) &&
-          passesFilters(r, filters, now),
-      ),
+    () => rows.filter((r) => matchesQuery(r, needle, query) && passesFilters(r, filters, now)),
     [rows, needle, filters, now],
   );
 
@@ -304,7 +286,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   const onSortingChange = (updater: Updater<SortingState>) => {
     const next = functionalUpdate(updater, sorting);
     setSorting(next);
-    writeStoredSorting(next);
+    writeSorting(next);
   };
 
   const table = useTable({
@@ -391,32 +373,19 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-64 max-w-full">
-          <IconSearch
-            size={14}
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && setQuery("")}
-            placeholder="Filter Jots"
-            aria-label="Filter Jots in this Space"
-            className="pl-8"
-          />
-        </div>
+        <ListSearchInput
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Filter Jots"
+          ariaLabel="Filter Jots in this Space"
+        />
         <div className="flex-1">
           <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
         </div>
       </div>
 
       {data.length > 0 ? (
-        <DataTable
-          table={table}
-          onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
-          onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
-          rowContextTarget={(row) => entityTarget(row.summary.entity)}
-        />
+        <PageSummaryTable table={table} spaceId={spaceId} />
       ) : (
         !isPending && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -462,15 +431,7 @@ export function buildColumns({
 
   return [
     keyColumn<JotRow>(),
-    {
-      id: "title",
-      accessorFn: (row) => row.title,
-      header: ({ column }) => <DataTableColumnHeader column={column} label="Title" />,
-      cell: ({ row }) => <TitleCell row={row.original} />,
-      sortFn: (a, b) =>
-        a.original.title.localeCompare(b.original.title, undefined, { sensitivity: "base" }),
-      meta: { label: "Title", width: "third" },
-    },
+    titleColumn<JotRow>(TitleCell),
     {
       id: "preview",
       accessorFn: (row) => row.preview,
@@ -551,33 +512,8 @@ export function buildColumns({
       enableSorting: false,
       meta: { label: "Session", width: "fit", hideBelow: "lg" },
     },
-    {
-      id: "labels",
-      header: "Labels",
-      cell: ({ row }) => <LabelsCell labels={row.original.labels} />,
-      enableSorting: false,
-      meta: { label: "Labels", width: "fit", hideBelow: "lg" },
-    },
-    {
-      id: "edited",
-      accessorFn: (row) => row.summary.lastEditedAt,
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} label="Last edited" className="ml-auto" />
-      ),
-      cell: ({ row }) => (
-        <time
-          dateTime={row.original.summary.lastEditedAt}
-          title={formatDateTime(row.original.summary.lastEditedAt)}
-          className="block text-right text-xs text-muted-foreground tabular-nums"
-        >
-          {formatEditedAt(row.original.summary.lastEditedAt)}
-        </time>
-      ),
-      sortFn: (a, b) =>
-        a.original.summary.lastEditedAt.localeCompare(b.original.summary.lastEditedAt),
-      sortDescFirst: true,
-      meta: { label: "Last edited", width: "fit", align: "end" },
-    },
+    labelsColumn<JotRow>(),
+    editedColumn<JotRow>(),
   ];
 }
 
@@ -597,20 +533,6 @@ function TitleCell({ row }: { row: JotRow }) {
           <span className="truncate text-xs text-muted-foreground md:hidden">{row.preview}</span>
         )}
       </div>
-    </div>
-  );
-}
-
-function LabelsCell({ labels }: { labels: Label[] }) {
-  if (labels.length === 0) return null;
-  const shown = labels.slice(0, MAX_ROW_LABELS);
-  const extra = labels.length - shown.length;
-  return (
-    <div className="flex items-center gap-1">
-      {shown.map((label) => (
-        <LabelChip key={label.id} label={label} />
-      ))}
-      {extra > 0 && <span className="text-xs text-muted-foreground">+{extra}</span>}
     </div>
   );
 }

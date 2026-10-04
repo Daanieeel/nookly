@@ -1,32 +1,16 @@
-import {
-  IconBolt,
-  IconCalendarCheck,
-  IconCalendarEvent,
-  IconCalendarPlus,
-  IconChecklist,
-  IconCircleDot,
-  IconClockEdit,
-  IconClockPlus,
-  IconFolder,
-  IconPlus,
-} from "@tabler/icons-react";
+import { IconChecklist } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
-import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
-import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
-import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
-import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import { type ViewGroup, buildGroups } from "#/components/grouped-view/grouping.ts";
-import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import type { ActiveFilter, FilterField } from "#/components/filter-menu.tsx";
+import type { ViewGroup } from "#/components/grouped-view/grouping.ts";
+import { buildVisibleGroups } from "#/components/grouped-view/visible-groups.ts";
+import { ModuleViewHeader, NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { TASKS_OVERVIEW } from "#/lib/api/views.ts";
-import { AGE_BUCKETS } from "#/features/assignments/assignment-model.ts";
-import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
+import { useEffortSettings } from "#/lib/effort.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { listTaskStatuses, listTasksAll, updateTaskStatus } from "#/lib/api/tasks.ts";
 import type { Task } from "#/lib/api/types.ts";
@@ -34,17 +18,14 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { TaskBoard } from "./TaskBoard";
-import { SpaceDot } from "#/components/space-chip.tsx";
 import { TasksDataContext, type TasksData, useTasksDataValue } from "./task-controls";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { taskGroupDefs } from "./task-groups";
+import { spaceFilterField } from "./shared-view-defs";
+import { taskFilterFields } from "./task-filter-fields";
 import { TaskList } from "./TaskList";
 import {
-  COMPLETED_BUCKETS,
-  DUE_BUCKETS,
-  NO_EFFORT,
-  START_BUCKETS,
   TASK_VIEW_PRESETS,
   describeDisplay,
   type Grouping,
@@ -56,7 +37,6 @@ import {
   statusKind,
   writeOverviewDisplay,
 } from "./task-model";
-import { TaskStatusIcon } from "./task-properties";
 
 const NO_FILTERS: ActiveFilter[] = [];
 const NO_CREATE = () => undefined;
@@ -133,70 +113,7 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
   const properties = display.properties.filter((p) => p !== "labels");
 
   const filterFields = useMemo<FilterField[]>(
-    () => [
-      {
-        id: "space",
-        label: "Space",
-        icon: IconFolder,
-        options: spaces.map((space) => ({
-          value: space.id,
-          label: space.name,
-          icon: <SpaceDot space={space} />,
-        })),
-      },
-      {
-        id: "status",
-        label: "Status",
-        icon: IconCircleDot,
-        options: statuses.map((s) => ({
-          value: s.id,
-          label: s.name,
-          icon: <TaskStatusIcon status={s} kind={kindOf(s.id)} />,
-        })),
-      },
-      {
-        id: "due",
-        label: "Due date",
-        icon: IconCalendarEvent,
-        options: DUE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "start",
-        label: "Start date",
-        icon: IconCalendarPlus,
-        options: START_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "created",
-        label: "Created",
-        icon: IconClockPlus,
-        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "updated",
-        label: "Updated",
-        icon: IconClockEdit,
-        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "completed",
-        label: "Completed",
-        icon: IconCalendarCheck,
-        options: COMPLETED_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "effort",
-        label: "Effort",
-        icon: IconBolt,
-        options: [
-          ...EFFORT_STEPS.map((step) => ({
-            value: String(step.value),
-            label: effortLabel(step.value, effortScale),
-          })),
-          { value: NO_EFFORT, label: "No estimate" },
-        ],
-      },
-    ],
+    () => [spaceFilterField(spaces), ...taskFilterFields(statuses, kindOf, effortScale)],
     [spaces, statuses, kindOf, effortScale],
   );
 
@@ -212,17 +129,17 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
     [tasks, filters, display.ordering, statuses, kindOf],
   );
 
-  const groups = useMemo(() => {
-    const defs = taskGroupDefs(display.grouping, statuses, [], kindOf, spaces);
-    const subDefs = taskGroupDefs(display.subGrouping, statuses, [], kindOf, spaces);
-    const all = buildGroups(
-      visible,
-      defs ?? [{ id: "all", name: "All tasks", match: () => true }],
-      subDefs,
-    );
-    const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
-    return all.filter((g) => showEmpty || g.items.length > 0);
-  }, [visible, display, statuses, kindOf, spaces]);
+  const groups = useMemo(
+    () =>
+      buildVisibleGroups(
+        visible,
+        taskGroupDefs(display.grouping, statuses, [], kindOf, spaces),
+        taskGroupDefs(display.subGrouping, statuses, [], kindOf, spaces),
+        "All tasks",
+        display.showEmpty[display.layout] && display.grouping !== "none",
+      ),
+    [visible, display, statuses, kindOf, spaces],
+  );
 
   const move = useMutation({
     mutationFn: ({ task, statusId }: { task: Task; statusId: string }) =>
@@ -252,17 +169,11 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
   return (
     <TasksDataContext.Provider value={data}>
       <div className="relative flex h-full min-h-0 flex-col">
-        <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
-          <div className="flex min-w-0 items-center gap-1">
-            <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
-              {view ? (
-                <ViewIconButton entity={view.entity} />
-              ) : (
-                <IconChecklist size={16} className="text-muted-foreground" />
-              )}
-              {view ? <EditableViewTitle entity={view.entity} /> : "Tasks"}
-            </h1>
-            <div className="flex-1" />
+        <ModuleViewHeader
+          icon={IconChecklist}
+          title="Tasks"
+          view={view}
+          presets={
             <ViewPresetsButton
               spaceId={saveSpaceId}
               spaces={spaces}
@@ -271,46 +182,24 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
               fields={filterFields}
               describeDisplay={describeDisplay}
             />
-            <FilterMenu
-              fields={filterFields}
-              filters={filters}
-              onFiltersChange={setFilters}
-              part="button"
-            />
+          }
+          displayMenu={
             <TaskDisplayMenu display={display} onChange={setDisplay} columns={columns} crossSpace />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="ml-1 gap-1.5"
-                  disabled={spaces.length === 0}
-                  onClick={startCreate}
-                >
-                  <IconPlus />
-                  New task
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="flex items-center gap-2">
-                Create a task <Kbd>C</Kbd>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <FilterMenu
-            fields={filterFields}
-            filters={filters}
-            onFiltersChange={setFilters}
-            part="chips"
-          />
-        </header>
-        <ViewSaveBar
-          view={view}
+          }
+          create={{
+            label: "New task",
+            tooltip: "Create a task",
+            onClick: startCreate,
+            disabled: spaces.length === 0,
+          }}
+          filterFields={filterFields}
+          filters={filters}
+          onFiltersChange={setFilters}
           dirty={dirty}
           save={save}
           onDiscard={discard}
           spaceId={saveSpaceId}
           module={TASKS_OVERVIEW}
-          filters={filters}
           display={display}
         />
 
@@ -323,14 +212,10 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
             />
           </div>
         ) : groups.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <p className="text-sm text-muted-foreground">No tasks match this view.</p>
-            {filters.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-                Clear filters
-              </Button>
-            )}
-          </div>
+          <NoMatchesNotice
+            text="No tasks match this view."
+            onClear={filters.length > 0 ? () => setFilters([]) : undefined}
+          />
         ) : display.layout === "board" ? (
           <TaskBoard
             groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}

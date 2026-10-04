@@ -115,9 +115,16 @@ pub fn update_calendar_entry_series(
     template_id: String,
     from_date: String,
     patch: CalendarEntrySeriesPatch,
+    anchor_id: Option<String>,
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
-    calendar::update_calendar_entry_series(&conn, &template_id, &from_date, patch)
+    calendar::update_calendar_entry_series_anchored(
+        &conn,
+        &template_id,
+        &from_date,
+        anchor_id.as_deref(),
+        patch,
+    )
 }
 
 #[tauri::command]

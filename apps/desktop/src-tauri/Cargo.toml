@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.17.0"
+version = "0.17.3"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
@@ -22,6 +22,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+# The message shown when an update of the data stops (db::upgrade). Already in the tree
+# through the dialog plugin; its platform features come from there.
+rfd = { version = "0.16", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -93,6 +96,14 @@ zip = "8"
 # pdf-inspector's own `ocr-oar` feature already depends on `image`; pinning the
 # same major version here keeps one copy in the dependency tree.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+# `tauri::test` (MockRuntime, `get_ipc_response`) for the IPC command tests in
+# `commands/commands_tests.rs`. The feature adds no dependencies and dev
+# dependency features never reach a release build.
+[dev-dependencies]
+# Property based tests: random inputs, shrunk to a minimal failing case.
+proptest = "1"
+tauri = { version = "2", features = ["protocol-asset", "test"] }
 
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the
 # "Open in" app list (`commands/files.rs`).

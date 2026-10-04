@@ -45,6 +45,16 @@ const ScrollProgress = ({
 }: ScrollProgressProps) => {
   const layoutId = React.useId();
   const reduceMotion = useReducedMotion();
+  // Staggered blur-in shared by each row's dot and label.
+  const itemEntrance = (i: number) => ({
+    initial: reduceMotion ? undefined : { opacity: 0, y: 4, filter: "blur(3px)" },
+    animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+    transition: {
+      duration: 0.3,
+      ease: EASE_IN_OUT,
+      delay: reduceMotion ? 0 : 0.04 + i * 0.03,
+    },
+  });
 
   const { scrollYProgress } = useScroll(containerRef ? { container: containerRef } : undefined);
   const progress = useSpring(scrollYProgress, {
@@ -253,28 +263,9 @@ const ScrollProgress = ({
                             "relative size-1.5 shrink-0 rounded-full",
                             isActive ? "bg-primary" : "bg-muted-foreground/50",
                           )}
-                          initial={
-                            reduceMotion ? undefined : { opacity: 0, y: 4, filter: "blur(3px)" }
-                          }
-                          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                          transition={{
-                            duration: 0.3,
-                            ease: EASE_IN_OUT,
-                            delay: reduceMotion ? 0 : 0.04 + i * 0.03,
-                          }}
+                          {...itemEntrance(i)}
                         />
-                        <motion.span
-                          className="relative whitespace-nowrap"
-                          initial={
-                            reduceMotion ? undefined : { opacity: 0, y: 4, filter: "blur(3px)" }
-                          }
-                          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                          transition={{
-                            duration: 0.3,
-                            ease: EASE_IN_OUT,
-                            delay: reduceMotion ? 0 : 0.04 + i * 0.03,
-                          }}
-                        >
+                        <motion.span className="relative whitespace-nowrap" {...itemEntrance(i)}>
                           {s.label}
                         </motion.span>
                       </button>

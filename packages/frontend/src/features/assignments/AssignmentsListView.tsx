@@ -1,60 +1,21 @@
-import {
-  IconCalendarEvent,
-  IconCircleDot,
-  IconClipboardCheck,
-  IconClockEdit,
-  IconChevronRight,
-  IconClockPlus,
-  IconPlus,
-  IconSchool,
-  IconStar,
-} from "@tabler/icons-react";
+import { IconCalendarEvent, IconClipboardCheck, IconSchool } from "@tabler/icons-react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
-import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
-import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
-import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
-import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
+import { contextTarget } from "#/components/context-menu/registry.ts";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
-import { SpaceDot } from "#/components/space-chip.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
-import {
-  type ActiveFilter,
-  type FilterField,
-  FilterMenu,
-  applyFilters,
-} from "#/components/filter-menu.tsx";
-import { GroupedBoard } from "#/components/grouped-view/grouped-board.tsx";
-import { GroupedList } from "#/components/grouped-view/grouped-list.tsx";
-import { buildGroups } from "#/components/grouped-view/grouping.ts";
+import { type ActiveFilter, type FilterField, applyFilters } from "#/components/filter-menu.tsx";
 import { Button } from "@nookly/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
-import { Kbd } from "@nookly/ui/components/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { DueDatePicker, DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
-import { Switch } from "@nookly/ui/components/switch";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
-import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import {
   createAssignment,
@@ -68,32 +29,28 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
 import { assignmentGroupDefs } from "./assignment-groups";
 import {
-  AGE_BUCKETS,
-  ASSIGNMENT_STATUSES,
-  DEADLINE_BUCKETS,
-  GRADE_FILTER,
-  ageBucket,
-  deadlineBucket,
   orderAssignments,
   normalizeDisplay,
   readDisplay,
-  statusKindOf,
   writeDisplay,
   ASSIGNMENT_VIEW_PRESETS,
   describeDisplay,
 } from "./assignment-model";
-import {
-  AssignmentCard,
-  AssignmentCardBody,
-  AssignmentColumnLabels,
-  AssignmentRow,
-} from "./assignment-views";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
+import { ModuleViewHeader, NoMatchesNotice } from "#/components/module-view-header.tsx";
+import { buildVisibleGroups } from "#/components/grouped-view/visible-groups.ts";
+import { AssignmentGroups } from "./AssignmentGroups";
+import { assignmentFilterFields, assignmentFilterValue } from "./assignment-filter-fields";
+import {
+  CreateMoreSwitch,
+  NewEntityBreadcrumb,
+  NewEntityDialog,
+} from "#/components/new-entity-dialog.tsx";
 
 /// An inbox to work through: a list bucketed by due date by default, or a board,
 /// either one groupable and sub-groupable by deadline, creation, status or Course.
@@ -156,68 +113,18 @@ export function AssignmentsListView({
     },
   });
 
-  const filterFields = useMemo<FilterField[]>(
-    () => [
-      {
-        id: "course",
-        label: "Course",
-        icon: IconSchool,
-        options: courses.map((c) => ({ value: c.id, label: displayTitle(c) })),
-      },
-      {
-        id: "status",
-        label: "Status",
-        icon: IconCircleDot,
-        options: ASSIGNMENT_STATUSES.map((s) => ({
-          value: s.id,
-          label: s.name,
-          icon: <TaskStatusIcon status={s} kind={statusKindOf(s.id)} />,
-        })),
-      },
-      {
-        id: "due",
-        label: "Due date",
-        icon: IconCalendarEvent,
-        options: DEADLINE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "grade",
-        label: "Grade",
-        icon: IconStar,
-        options: GRADE_FILTER.map((g) => ({ value: g.id, label: g.label })),
-      },
-      {
-        id: "created",
-        label: "Created",
-        icon: IconClockPlus,
-        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "updated",
-        label: "Updated",
-        icon: IconClockEdit,
-        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-    ],
-    [courses],
-  );
+  const filterFields = useMemo<FilterField[]>(() => assignmentFilterFields(courses), [courses]);
 
-  const visible = applyFilters(assignments, filters, (a, fieldId) => {
-    if (fieldId === "course") return courseOf.get(a.entity.id)?.id ?? "";
-    if (fieldId === "due") return deadlineBucket(a);
-    if (fieldId === "grade") return a.grade === null ? "none" : "graded";
-    if (fieldId === "created") return ageBucket(a.entity.createdAt);
-    if (fieldId === "updated") return ageBucket(a.entity.updatedAt);
-    return a.status;
-  });
-  const defs = assignmentGroupDefs(display.grouping, courses, courseOf);
-  const subDefs = assignmentGroupDefs(display.subGrouping, courses, courseOf);
-  const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
-  const groups = buildGroups(
+  const visible = applyFilters(assignments, filters, (a, fieldId) =>
+    assignmentFilterValue(a, fieldId, courseOf),
+  );
+  const groups = buildVisibleGroups(
     orderAssignments(visible, display.grouping, display.ordering),
-    defs ?? [{ id: "all", name: "All assignments", match: () => true }],
-    subDefs,
-  ).filter((g) => showEmpty || g.items.length > 0);
+    assignmentGroupDefs(display.grouping, courses, courseOf),
+    assignmentGroupDefs(display.subGrouping, courses, courseOf),
+    "All assignments",
+    display.showEmpty[display.layout] && display.grouping !== "none",
+  );
 
   const dropKinds = new Set([display.grouping, display.subGrouping]);
   const boardDraggable = dropKinds.has("status") || dropKinds.has("course");
@@ -248,20 +155,12 @@ export function AssignmentsListView({
         create: startCreate,
       })}
     >
-      <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
-        <div className="flex min-w-0 items-center gap-1">
-          <h1
-            className="flex h-8 items-center gap-2 text-sm font-medium"
-            {...(view && entityTarget(view.entity))}
-          >
-            {view ? (
-              <ViewIconButton entity={view.entity} />
-            ) : (
-              <IconClipboardCheck size={16} className="text-muted-foreground" />
-            )}
-            {view ? <EditableViewTitle entity={view.entity} /> : "Assignments"}
-          </h1>
-          <div className="flex-1" />
+      <ModuleViewHeader
+        icon={IconClipboardCheck}
+        title="Assignments"
+        view={view}
+        viewMenu
+        presets={
           <ViewPresetsButton
             spaceId={spaceId}
             module="assignments"
@@ -269,40 +168,19 @@ export function AssignmentsListView({
             fields={filterFields}
             describeDisplay={describeDisplay}
           />
-          <FilterMenu
-            fields={filterFields}
-            filters={filters}
-            onFiltersChange={setFilters}
-            part="button"
-          />
+        }
+        displayMenu={
           <AssignmentDisplayMenu display={display} onChange={setDisplay} columns={groups} />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="default" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
-                <IconPlus />
-                New assignment
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              Create an assignment <Kbd>C</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <FilterMenu
-          fields={filterFields}
-          filters={filters}
-          onFiltersChange={setFilters}
-          part="chips"
-        />
-      </header>
-      <ViewSaveBar
-        view={view}
+        }
+        create={{ label: "New assignment", tooltip: "Create an assignment", onClick: startCreate }}
+        filterFields={filterFields}
+        filters={filters}
+        onFiltersChange={setFilters}
         dirty={dirty}
         save={save}
         onDiscard={discard}
         spaceId={spaceId}
-        module="assignments"
-        filters={filters}
+        module={"assignments"}
         display={display}
       />
 
@@ -316,51 +194,19 @@ export function AssignmentsListView({
           />
         </div>
       ) : groups.every((g) => g.items.length === 0) ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No assignments match these filters.</p>
-          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-            Clear filters
-          </Button>
-        </div>
-      ) : display.layout === "board" ? (
-        <GroupedBoard
-          // Remount on regrouping so collapsed lanes start from their defaults.
-          key={`${display.grouping}:${display.subGrouping}`}
-          groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
-          getKey={(a) => a.entity.id}
-          draggable={boardDraggable}
-          onMove={onMove}
-          renderOverlay={(a) => (
-            <AssignmentCardBody
-              assignment={a}
-              course={courseOf.get(a.entity.id)}
-              className="rotate-2 shadow-lg"
-            />
-          )}
-          renderCard={(a, drag) => (
-            <AssignmentCard
-              assignment={a}
-              course={courseOf.get(a.entity.id)}
-              drag={drag}
-              failed={failedId === a.entity.id}
-              onOpen={() => open(a)}
-            />
-          )}
+        <NoMatchesNotice
+          text="No assignments match these filters."
+          onClear={() => setFilters([])}
         />
       ) : (
-        <GroupedList
-          key={`${display.grouping}:${display.subGrouping}`}
+        <AssignmentGroups
           groups={groups}
-          showHeaders={display.grouping !== "none"}
-          getKey={(a) => a.entity.id}
-          footer={<AssignmentColumnLabels />}
-          renderRow={(a) => (
-            <AssignmentRow
-              assignment={a}
-              course={courseOf.get(a.entity.id)}
-              onOpen={() => open(a)}
-            />
-          )}
+          display={display}
+          courseOf={courseOf}
+          boardDraggable={boardDraggable}
+          onMove={onMove}
+          failedId={failedId}
+          onOpen={open}
         />
       )}
 
@@ -452,156 +298,111 @@ export function CreateAssignmentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="max-w-2xl gap-0 p-0"
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          titleRef.current?.focus();
+    <NewEntityDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      titleRef={titleRef}
+      onSubmit={submit}
+    >
+      <NewEntityBreadcrumb
+        spaceId={spaceId}
+        spaceName={space?.name ?? "Assignments"}
+        spaces={spaces}
+        onSpaceChange={(next) => {
+          setSpaceId(next);
+          // A Course belongs to one Space.
+          form.resetField("course");
         }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            submit();
-          }
-        }}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-        >
-          <div className="flex items-center gap-1.5 px-4 pt-4 text-xs text-muted-foreground">
-            {spaces ? (
-              <Select
-                value={spaceId}
-                onValueChange={(next) => {
-                  setSpaceId(next);
-                  // A Course belongs to one Space.
-                  form.resetField("course");
-                }}
-              >
-                <SelectTrigger size="sm" className="h-6 w-auto gap-1.5" aria-label="Space">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {spaces.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      <SpaceDot space={option} />
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <span className="inline-flex h-6 items-center rounded-md border border-border px-2 font-medium text-foreground">
-                {space?.name ?? "Assignments"}
-              </span>
-            )}
-            <IconChevronRight size={12} />
-            <span className="text-foreground">
-              <DialogTitle className="text-xs font-normal">New assignment</DialogTitle>
-            </span>
-            <DialogDescription className="sr-only">
-              Give the assignment a title, then pick its course and due date.
-            </DialogDescription>
-          </div>
+        title="New assignment"
+        description="Give the assignment a title, then pick its course and due date."
+      />
 
-          <form.Field name="title">
-            {(field) => (
-              <input
-                ref={titleRef}
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder={course ? `${displayTitle(course)} Assignment` : "Assignment title"}
-                aria-label="Assignment title"
-                aria-invalid={create.isError || undefined}
-                className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
-              />
-            )}
-          </form.Field>
+      <form.Field name="title">
+        {(field) => (
+          <input
+            ref={titleRef}
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            placeholder={course ? `${displayTitle(course)} Assignment` : "Assignment title"}
+            aria-label="Assignment title"
+            aria-invalid={create.isError || undefined}
+            className="w-full bg-transparent px-4 pt-4 pb-3 text-lg font-medium outline-none placeholder:text-muted-foreground/60"
+          />
+        )}
+      </form.Field>
 
-          <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
-            <form.Field name="course">
-              {(field) => (
-                <EntityPickerPopover
-                  spaceId={spaceId}
-                  typeFilter="course"
-                  exclude={course?.id}
-                  onSelect={field.handleChange}
-                  trigger={
-                    <button
-                      type="button"
-                      className={cn(PROPERTY_PILL, fieldMessage(field) && "border-destructive")}
-                      aria-label="Change Course"
-                      aria-invalid={fieldMessage(field) ? true : undefined}
-                    >
-                      <IconSchool size={14} className="shrink-0" />
-                      <span className={cn("truncate", course && "text-foreground")}>
-                        {course ? displayTitle(course) : "Course"}
-                      </span>
-                    </button>
-                  }
-                />
-              )}
-            </form.Field>
-            <form.Field name="dueDate">
-              {(field) => (
-                <DueDatePicker value={field.state.value} onSelect={field.handleChange}>
-                  <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
-                    {field.state.value ? (
-                      <DueLabel day={field.state.value} tone={null} />
-                    ) : (
-                      <>
-                        <IconCalendarEvent size={14} className="shrink-0" />
-                        Due date
-                      </>
-                    )}
-                  </button>
-                </DueDatePicker>
-              )}
-            </form.Field>
-          </div>
-
-          <div className="flex items-center gap-3 border-t border-border px-4 py-3">
-            <div className="mr-auto">
-              <form.Subscribe selector={(state) => state.fieldMeta.course}>
-                {(meta) => (
-                  <FieldError
-                    message={
-                      (meta?.isTouched && meta.errors.length > 0 && "Pick a course") ||
-                      (create.isError && "Couldn't create the assignment, try again")
-                    }
-                  />
+      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
+        <form.Field name="course">
+          {(field) => (
+            <EntityPickerPopover
+              spaceId={spaceId}
+              typeFilter="course"
+              exclude={course?.id}
+              onSelect={field.handleChange}
+              trigger={
+                <button
+                  type="button"
+                  className={cn(PROPERTY_PILL, fieldMessage(field) && "border-destructive")}
+                  aria-label="Change Course"
+                >
+                  <IconSchool size={14} className="shrink-0" />
+                  <span className={cn("truncate", course && "text-foreground")}>
+                    {course ? displayTitle(course) : "Course"}
+                  </span>
+                </button>
+              }
+            />
+          )}
+        </form.Field>
+        <form.Field name="dueDate">
+          {(field) => (
+            <DueDatePicker value={field.state.value} onSelect={field.handleChange}>
+              <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
+                {field.state.value ? (
+                  <DueLabel day={field.state.value} tone={null} />
+                ) : (
+                  <>
+                    <IconCalendarEvent size={14} className="shrink-0" />
+                    Due date
+                  </>
                 )}
-              </form.Subscribe>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Switch
-                id="create-more-assignments"
-                checked={createMore}
-                onCheckedChange={setCreateMore}
+              </button>
+            </DueDatePicker>
+          )}
+        </form.Field>
+      </div>
+
+      <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+        <div className="mr-auto">
+          <form.Subscribe selector={(state) => state.fieldMeta.course}>
+            {(meta) => (
+              <FieldError
+                message={
+                  (meta?.isTouched && meta.errors.length > 0 && "Pick a course") ||
+                  (create.isError && "Couldn't create the assignment, try again")
+                }
               />
-              <label htmlFor="create-more-assignments" className="cursor-pointer">
-                Create more
-              </label>
-            </div>
-            <form.Subscribe selector={hasVisibleErrors}>
-              {(blocked) => (
-                <Button type="submit" size="sm" disabled={blocked}>
-                  <StatusButtonContent
-                    status={createStatus}
-                    label="Create assignment"
-                    successLabel="Created"
-                    errorLabel="Try again"
-                  />
-                </Button>
-              )}
-            </form.Subscribe>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+            )}
+          </form.Subscribe>
+        </div>
+        <CreateMoreSwitch
+          id="create-more-assignments"
+          checked={createMore}
+          onCheckedChange={setCreateMore}
+        />
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <Button type="submit" size="sm" disabled={blocked}>
+              <StatusButtonContent
+                status={createStatus}
+                label="Create assignment"
+                successLabel="Created"
+                errorLabel="Try again"
+              />
+            </Button>
+          )}
+        </form.Subscribe>
+      </div>
+    </NewEntityDialog>
   );
 }

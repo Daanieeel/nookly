@@ -20,7 +20,7 @@ function isJotSummaries(query: Query): boolean {
   return query.queryKey[2] === "jot-summaries";
 }
 
-/// `course-notes` is structural and points at an entity that must stay invisible
+/// `course-note` is structural and points at an entity that must stay invisible
 /// outside the Course page (§ course sub-dashboard) — never list it here, and
 /// never offer it as a linkable type from the "+" picker either.
 /// `semester-notes` is a real `note` entity but is already rendered inline at
@@ -32,7 +32,7 @@ function isJotSummaries(query: Query): boolean {
 export function hiddenRelationshipTypes(entity: Entity): Set<string> {
   return new Set([
     "attached-file",
-    "course-notes",
+    "course-note",
     "semester-notes",
     ...(entity.type === "course" ? ["course-semester"] : []),
   ]);

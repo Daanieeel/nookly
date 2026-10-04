@@ -1,5 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconNotes, IconPin, IconPlus, IconSearch, IconTag } from "@tabler/icons-react";
+import { IconNotes, IconPin, IconPlus, IconTag } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -10,29 +10,38 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
-import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
-import { DataTable, type DataTableGroup } from "#/components/data-table/data-table.tsx";
-import { DataTableColumnHeader } from "#/components/data-table/data-table-column-header.tsx";
+import { contextTarget } from "#/components/context-menu/registry.ts";
+import type { DataTableGroup } from "#/components/data-table/data-table.tsx";
+import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
+import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
+import {} from "@nookly/ui/components/input";
 import { listLabels } from "#/lib/api/labels.ts";
 import { createNote, listNoteSummaries } from "#/lib/api/notes.ts";
 import type { Label, PageSummary } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { formatEditedAt } from "#/lib/relative-time.ts";
-import { matchesKey } from "#/lib/entity-key.ts";
+import {} from "#/lib/relative-time.ts";
+import {} from "#/lib/entity-key.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
-import { prefetchBlocks } from "./blocks-query";
+import {
+  editedColumn,
+  labelsColumn,
+  ListSearchInput,
+  PageSummaryTable,
+  matchesQuery,
+  readStoredSorting,
+  titleColumn,
+  writeStoredSorting,
+} from "./list-table-shared";
 import { keyColumn } from "./key-column";
 import { notePreviewText } from "./note-preview";
-import { formatDateTime } from "#/lib/datetime.ts";
-import { preferences } from "#/lib/preferences.ts";
+import {} from "#/lib/datetime.ts";
+import {} from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 export interface NoteRow {
@@ -42,27 +51,8 @@ export interface NoteRow {
   labels: Label[];
 }
 
-const SORTABLE_COLUMNS = new Set(["key", "title", "edited"]);
-const DEFAULT_SORTING: SortingState = [{ id: "edited", desc: true }];
-const MAX_ROW_LABELS = 3;
-
-/// Stored as `"<column>:<asc|desc>"`, e.g. `"edited:desc"`.
-function readStoredSorting(): SortingState {
-  const [id, dir] = (preferences.get(STORAGE_KEYS.notesSort) ?? "").split(":");
-  if (SORTABLE_COLUMNS.has(id) && (dir === "asc" || dir === "desc")) {
-    return [{ id, desc: dir === "desc" }];
-  }
-  return DEFAULT_SORTING;
-}
-
-function writeStoredSorting(sorting: SortingState) {
-  const [first] = sorting;
-  if (first) {
-    preferences.set(STORAGE_KEYS.notesSort, `${first.id}:${first.desc ? "desc" : "asc"}`);
-  } else {
-    preferences.remove(STORAGE_KEYS.notesSort);
-  }
-}
+const readSorting = () => readStoredSorting(STORAGE_KEYS.notesSort);
+const writeSorting = (sorting: SortingState) => writeStoredSorting(STORAGE_KEYS.notesSort, sorting);
 
 /// A Note passes the label filter when "is" matches any chosen label and "is not"
 /// matches none of them.
@@ -75,15 +65,7 @@ function passesLabelFilters(row: NoteRow, filters: ActiveFilter[]): boolean {
 
 export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
   keyColumn<NoteRow>(),
-  {
-    id: "title",
-    accessorFn: (row) => row.title,
-    header: ({ column }) => <DataTableColumnHeader column={column} label="Title" />,
-    cell: ({ row }) => <TitleCell row={row.original} />,
-    sortFn: (a, b) =>
-      a.original.title.localeCompare(b.original.title, undefined, { sensitivity: "base" }),
-    meta: { label: "Title", width: "third" },
-  },
+  titleColumn<NoteRow>(TitleCell),
   {
     id: "preview",
     accessorFn: (row) => row.preview,
@@ -97,33 +79,8 @@ export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
     enableSorting: false,
     meta: { label: "Preview", width: "fill", hideBelow: "md" },
   },
-  {
-    id: "labels",
-    header: "Labels",
-    cell: ({ row }) => <LabelsCell labels={row.original.labels} />,
-    enableSorting: false,
-    meta: { label: "Labels", width: "fit", hideBelow: "lg" },
-  },
-  {
-    id: "edited",
-    accessorFn: (row) => row.summary.lastEditedAt,
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} label="Last edited" className="ml-auto" />
-    ),
-    cell: ({ row }) => (
-      <time
-        dateTime={row.original.summary.lastEditedAt}
-        title={formatDateTime(row.original.summary.lastEditedAt)}
-        className="block text-right text-xs text-muted-foreground tabular-nums"
-      >
-        {formatEditedAt(row.original.summary.lastEditedAt)}
-      </time>
-    ),
-    sortFn: (a, b) =>
-      a.original.summary.lastEditedAt.localeCompare(b.original.summary.lastEditedAt),
-    sortDescFirst: true,
-    meta: { label: "Last edited", width: "fit", align: "end" },
-  },
+  labelsColumn<NoteRow>(),
+  editedColumn<NoteRow>(),
 ];
 
 /// Notes as a data table (docs/skills/data-tables.md, client mode): every Note of this
@@ -134,7 +91,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
-  const [sorting, setSorting] = useState<SortingState>(readStoredSorting);
+  const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
@@ -184,22 +141,14 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
 
   const needle = query.trim().toLowerCase();
   const data = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          (!needle ||
-            r.title.toLowerCase().includes(needle) ||
-            r.preview.toLowerCase().includes(needle) ||
-            matchesKey(r.summary.entity.key, query)) &&
-          passesLabelFilters(r, filters),
-      ),
+    () => rows.filter((r) => matchesQuery(r, needle, query) && passesLabelFilters(r, filters)),
     [rows, needle, filters],
   );
 
   const onSortingChange = (updater: Updater<SortingState>) => {
     const next = functionalUpdate(updater, sorting);
     setSorting(next);
-    writeStoredSorting(next);
+    writeSorting(next);
   };
 
   const table = useTable({
@@ -277,20 +226,12 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-64 max-w-full">
-          <IconSearch
-            size={14}
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && setQuery("")}
-            placeholder="Filter notes"
-            aria-label="Filter notes in this Space"
-            className="pl-8"
-          />
-        </div>
+        <ListSearchInput
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Filter notes"
+          ariaLabel="Filter notes in this Space"
+        />
         {filterFields.length > 0 && (
           <div className="flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
@@ -299,13 +240,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
       </div>
 
       {data.length > 0 ? (
-        <DataTable
-          table={table}
-          groups={groups}
-          onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
-          onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
-          rowContextTarget={(row) => entityTarget(row.summary.entity)}
-        />
+        <PageSummaryTable table={table} spaceId={spaceId} groups={groups} />
       ) : (
         !isPending && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -342,20 +277,6 @@ function TitleCell({ row }: { row: NoteRow }) {
           <span className="truncate text-xs text-muted-foreground md:hidden">{row.preview}</span>
         )}
       </div>
-    </div>
-  );
-}
-
-function LabelsCell({ labels }: { labels: Label[] }) {
-  if (labels.length === 0) return null;
-  const shown = labels.slice(0, MAX_ROW_LABELS);
-  const extra = labels.length - shown.length;
-  return (
-    <div className="flex items-center gap-1">
-      {shown.map((label) => (
-        <LabelChip key={label.id} label={label} />
-      ))}
-      {extra > 0 && <span className="text-xs text-muted-foreground">+{extra}</span>}
     </div>
   );
 }

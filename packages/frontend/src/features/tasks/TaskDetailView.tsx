@@ -8,6 +8,7 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
+import { StatusPropertyRow } from "./StatusPropertyRow";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FieldError } from "#/components/action-feedback.tsx";
@@ -22,7 +23,6 @@ import { ProgressCircle } from "@nookly/ui/components/progress-circle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import { softDeleteEntity } from "#/lib/api/entities.ts";
-import { attachLabel, detachLabel } from "#/lib/api/labels.ts";
 import {
   createSubtask,
   getTask,
@@ -46,6 +46,7 @@ import {
   useRefreshTasks,
   useTasksData,
   useTasksDataValue,
+  useToggleTaskLabel,
 } from "./task-controls";
 import { dueTone, formatTimestamp, groupTasks, orderTasks, readDisplay } from "./task-model";
 import { useTaskParent } from "./task-parent";
@@ -55,7 +56,6 @@ import {
   DueLabel,
   LabelsPicker,
   PendingIcon,
-  StatusPicker,
   TaskStatusIcon,
 } from "./task-properties";
 import { qk } from "#/lib/query-keys.ts";
@@ -537,39 +537,21 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
       await refresh();
     },
   });
-  const toggleLabel = useMutation({
-    mutationFn: async (labelId: string) => {
-      if (task.labelIds.includes(labelId)) await detachLabel(task.entity.id, labelId);
-      else await attachLabel(task.entity.id, labelId);
-      await refresh();
-    },
-  });
+  const toggleLabel = useToggleTaskLabel(task, refresh);
   const createLabel = useCreateLabel(spaceId);
   const dateField = setDates.variables?.field;
 
   return (
     <section aria-label="Properties" className="flex flex-col gap-0.5">
-      <PropertyRow label="Status">
-        <StatusPicker
-          statuses={statuses}
-          kindOf={kindOf}
-          value={task.statusId}
-          onSelect={(id) => setStatus.mutate(id)}
-        >
-          <button
-            type="button"
-            aria-label={setStatus.isError ? "Couldn't change status, try again" : "Change Status"}
-            className={PROPERTY_VALUE}
-          >
-            <PendingIcon
-              pending={setStatus.isPending}
-              failed={setStatus.isError}
-              idle={status && <TaskStatusIcon status={status} kind={kindOf(status.id)} />}
-            />
-            <span className="truncate">{status?.name ?? "No status"}</span>
-          </button>
-        </StatusPicker>
-      </PropertyRow>
+      <StatusPropertyRow
+        statuses={statuses}
+        kindOf={kindOf}
+        value={task.statusId}
+        status={status}
+        onSelect={(id) => setStatus.mutate(id)}
+        pending={setStatus.isPending}
+        failed={setStatus.isError}
+      />
 
       <PropertyRow label="Labels">
         <LabelsPicker

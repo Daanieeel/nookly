@@ -69,24 +69,25 @@ pub fn create_view(
 ) -> AppResult<View> {
     check_module(&module)?;
     check_config(&config)?;
-    let tx = conn.unchecked_transaction()?;
-    let entity = crate::db::entities::create_entity(&tx, space_id, "view".into(), title, icon)?;
-    // Joins at the end, after every View that already has a position.
-    let position: i64 = tx.query_row(
-        "SELECT COALESCE(MAX(position), 0) + 1 FROM views",
-        [],
-        |row| row.get(0),
-    )?;
-    tx.execute(
-        "INSERT INTO views (entity_id, module, config, position) VALUES (?1, ?2, ?3, ?4)",
-        params![entity.id, module, config, position],
-    )?;
-    tx.commit()?;
-    Ok(View {
-        entity,
-        module,
-        config,
-        position,
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "view".into(), title, icon)?;
+        // Joins at the end, after every View that already has a position.
+        let position: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(position), 0) + 1 FROM views",
+            [],
+            |row| row.get(0),
+        )?;
+        conn.execute(
+            "INSERT INTO views (entity_id, module, config, position) VALUES (?1, ?2, ?3, ?4)",
+            params![entity.id, module, config, position],
+        )?;
+        Ok(View {
+            entity,
+            module,
+            config,
+            position,
+        })
     })
 }
 
@@ -167,15 +168,15 @@ pub fn reorder_views(
             "reorder must list every view of this module exactly once".into(),
         ));
     }
-    let tx = conn.unchecked_transaction()?;
-    for (position, id) in ids.iter().enumerate() {
-        tx.execute(
-            "UPDATE views SET position = ?1 WHERE entity_id = ?2",
-            params![position as i64, id],
-        )?;
-    }
-    tx.commit()?;
-    Ok(())
+    crate::db::atomically(conn, || {
+        for (position, id) in ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE views SET position = ?1 WHERE entity_id = ?2",
+                params![position as i64, id],
+            )?;
+        }
+        Ok(())
+    })
 }
 
 // --- CLI config validation --------------------------------------------------
@@ -493,11 +494,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
-        conn
+        crate::db::test_conn()
     }
 
     #[test]

@@ -2,6 +2,8 @@ use crate::db::entities::Entity;
 use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
+
+pub const EXAM_STATUSES: &[&str] = &["upcoming", "studying", "done"];
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
@@ -39,26 +41,29 @@ pub fn create_exam(
     exam_date: Option<String>,
     weight: Option<f64>,
 ) -> AppResult<Exam> {
-    let entity = crate::db::entities::create_entity(conn, space_id, "exam".into(), title, None)?;
-    conn.execute(
-        "INSERT INTO exams (entity_id, exam_date, weight, grade, status) VALUES (?1, ?2, ?3, NULL, 'upcoming')",
-        params![entity.id, exam_date, weight],
-    )?;
-    crate::db::relationships::create_relationship(
-        conn,
-        entity.id.clone(),
-        course_id,
-        "exam-course".into(),
-        None,
-        None,
-    )?;
-    Ok(Exam {
-        entity,
-        exam_date,
-        weight,
-        grade: None,
-        status: "upcoming".into(),
-        room: None,
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "exam".into(), title, None)?;
+        conn.execute(
+            "INSERT INTO exams (entity_id, exam_date, weight, grade, status) VALUES (?1, ?2, ?3, NULL, 'upcoming')",
+            params![entity.id, exam_date, weight],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity.id.clone(),
+            course_id,
+            "exam-course".into(),
+            None,
+            None,
+        )?;
+        Ok(Exam {
+            entity,
+            exam_date,
+            weight,
+            grade: None,
+            status: "upcoming".into(),
+            room: None,
+        })
     })
 }
 
@@ -89,17 +94,22 @@ pub fn update_exam(
     grade: Option<f64>,
     status: Option<String>,
 ) -> AppResult<()> {
+    if let Some(status) = &status {
+        crate::db::require_one_of("status", status, EXAM_STATUSES)?;
+    }
     if let Some(grade) = grade {
-        conn.execute(
+        let affected = conn.execute(
             "UPDATE exams SET grade = ?1 WHERE entity_id = ?2",
             params![grade, entity_id],
         )?;
+        crate::db::require_row(affected, "exam", entity_id)?;
     }
     if let Some(status) = status {
-        conn.execute(
+        let affected = conn.execute(
             "UPDATE exams SET status = ?1 WHERE entity_id = ?2",
             params![status, entity_id],
         )?;
+        crate::db::require_row(affected, "exam", entity_id)?;
     }
     Ok(())
 }
@@ -109,10 +119,11 @@ pub fn update_exam_date(
     entity_id: &str,
     exam_date: Option<String>,
 ) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE exams SET exam_date = ?1 WHERE entity_id = ?2",
         params![exam_date, entity_id],
     )?;
+    crate::db::require_row(affected, "exam", entity_id)?;
     Ok(())
 }
 
@@ -121,49 +132,52 @@ pub fn update_exam_weight(
     entity_id: &str,
     weight: Option<f64>,
 ) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE exams SET weight = ?1 WHERE entity_id = ?2",
         params![weight, entity_id],
     )?;
+    crate::db::require_row(affected, "exam", entity_id)?;
     Ok(())
 }
 
 /// Unlike `update_exam`, `None` clears the grade.
 pub fn update_exam_grade(conn: &Connection, entity_id: &str, grade: Option<f64>) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE exams SET grade = ?1 WHERE entity_id = ?2",
         params![grade, entity_id],
     )?;
+    crate::db::require_row(affected, "exam", entity_id)?;
     Ok(())
 }
 
 pub fn update_exam_room(conn: &Connection, entity_id: &str, room: Option<String>) -> AppResult<()> {
     let room = room.map(|r| r.trim().to_string()).filter(|r| !r.is_empty());
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE exams SET room = ?1 WHERE entity_id = ?2",
         params![room, entity_id],
     )?;
+    crate::db::require_row(affected, "exam", entity_id)?;
     Ok(())
 }
 
 /// Moves an exam to another Course, replacing its one `exam-course` link rather
 /// than erroring on the cardinality rule. The old link stays if the new one fails.
 pub fn set_exam_course(conn: &Connection, entity_id: &str, course_id: String) -> AppResult<()> {
-    let tx = conn.unchecked_transaction()?;
-    tx.execute(
-        "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'exam-course'",
-        params![entity_id],
-    )?;
-    crate::db::relationships::create_relationship(
-        &tx,
-        entity_id.to_string(),
-        course_id,
-        "exam-course".into(),
-        None,
-        None,
-    )?;
-    tx.commit()?;
-    Ok(())
+    crate::db::atomically(conn, || {
+        conn.execute(
+            "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'exam-course'",
+            params![entity_id],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity_id.to_string(),
+            course_id,
+            "exam-course".into(),
+            None,
+            None,
+        )?;
+        Ok(())
+    })
 }
 
 pub fn get_exam(conn: &Connection, entity_id: &str) -> AppResult<Exam> {
@@ -212,7 +226,7 @@ const EXAM_FIELDS: &[FieldDef] = &[
     },
     FieldDef {
         name: "status",
-        kind: FieldKind::Enum(&["upcoming", "studying", "done"]),
+        kind: FieldKind::Enum(EXAM_STATUSES),
         required_on_create: false,
         writable_on_update: true,
         description: "Defaults to 'upcoming' on creation.",
@@ -298,21 +312,15 @@ inventory::submit! {
 mod tests {
     use super::*;
     use crate::db::courses::create_course;
-    use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
-        conn
+        crate::db::test_conn()
     }
 
     #[test]
     fn exam_fields_update_and_clear() {
         let conn = setup();
-        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
-        let algo = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let (space, algo) = crate::db::test_space_with_course(&conn, "Uni", "Algorithms");
         let math = create_course(&conn, space.id.clone(), "Math".into()).unwrap();
         let exam = create_exam(&conn, space.id, "Final".into(), algo.id, None, None).unwrap();
         let id = exam.entity.id;

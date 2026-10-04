@@ -207,6 +207,21 @@ function withSpaceExpanded(ids: string[], spaceId: string): string[] {
   return ids.includes(spaceId) ? ids : [...ids, spaceId];
 }
 
+/// The active and expanded Spaces after showing `view`, persisting whichever changed.
+function spaceStateFor(
+  state: Pick<NavState, "activeSpaceId" | "expandedSpaceIds">,
+  view: View,
+): Pick<NavState, "activeSpaceId" | "expandedSpaceIds"> {
+  const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
+  if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
+  const expandedSpaceIds =
+    "spaceId" in view
+      ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
+      : state.expandedSpaceIds;
+  if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+  return { activeSpaceId, expandedSpaceIds };
+}
+
 function readStoredRecents(): RecentEntry[] {
   try {
     const raw = preferences.get(STORAGE_KEYS.recents);
@@ -291,13 +306,7 @@ function consumeNewTabIntent(): boolean {
 
 /// What switching to `tab` changes: its view and history become the live ones.
 function showTab(state: NavState, tab: Tab): Partial<NavState> {
-  const activeSpaceId = "spaceId" in tab.view ? tab.view.spaceId : state.activeSpaceId;
-  if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-  const expandedSpaceIds =
-    "spaceId" in tab.view
-      ? withSpaceExpanded(state.expandedSpaceIds, tab.view.spaceId)
-      : state.expandedSpaceIds;
-  if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+  const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, tab.view);
   return {
     activeTabId: tab.id,
     view: tab.view,
@@ -385,26 +394,14 @@ export const useNavStore = create<NavState>((set, get) => ({
       if (consumeNewTabIntent()) {
         return { tabs: [...currentTabs(state), makeTab(view)] };
       }
-      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
-      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-      const expandedSpaceIds =
-        "spaceId" in view
-          ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
-          : state.expandedSpaceIds;
-      if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+      const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
       return { view, activeSpaceId, expandedSpaceIds, ...pushHistory(state, view) };
     }),
   goBack: () =>
     set((state) => {
       const view = state.backStack.at(-1);
       if (!view) return {};
-      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
-      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-      const expandedSpaceIds =
-        "spaceId" in view
-          ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
-          : state.expandedSpaceIds;
-      if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+      const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
       return {
         view,
         activeSpaceId,
@@ -418,13 +415,7 @@ export const useNavStore = create<NavState>((set, get) => ({
     set((state) => {
       const view = state.forwardStack.at(-1);
       if (!view) return {};
-      const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
-      if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-      const expandedSpaceIds =
-        "spaceId" in view
-          ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
-          : state.expandedSpaceIds;
-      if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
+      const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
       return {
         view,
         activeSpaceId,

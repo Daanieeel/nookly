@@ -121,6 +121,10 @@ pub fn update_space(conn: &Connection, id: &str, patch: SpacePatch) -> AppResult
 /// `relationships::create_relationship`; every command already runs behind the
 /// single `DbState` mutex.
 pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
+    crate::db::atomically(conn, || sweep_space(conn, id))
+}
+
+fn sweep_space(conn: &Connection, id: &str) -> AppResult<()> {
     const IN_SPACE: &str = "SELECT id FROM entities WHERE space_id = ?1";
 
     conn.execute(
@@ -150,11 +154,14 @@ pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
         "semesters",
         "session_templates",
         "sessions",
+        "calendar_entry_templates",
+        "calendar_entries",
         "exams",
         "study_blocks",
         "assignments",
         "files",
         "bookmarks",
+        "views",
         "search_index",
     ] {
         conn.execute(
@@ -162,6 +169,21 @@ pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
             params![id],
         )?;
     }
+    conn.execute(
+        &format!("DELETE FROM series_slots WHERE template_id IN ({IN_SPACE})"),
+        params![id],
+    )?;
+    // Recipe collections key off the recipe's entity id, not their own.
+    for table in ["recipe_ingredients", "recipe_steps", "recipe_tag_links"] {
+        conn.execute(
+            &format!("DELETE FROM {table} WHERE recipe_entity_id IN ({IN_SPACE})"),
+            params![id],
+        )?;
+    }
+    conn.execute(
+        &format!("DELETE FROM recipes WHERE entity_id IN ({IN_SPACE})"),
+        params![id],
+    )?;
     // Cards key off the deck's entity id, and must go before the decks themselves;
     // their reviews before the cards.
     conn.execute(
@@ -196,10 +218,7 @@ mod tests {
 
     #[test]
     fn create_and_list_space() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(
             &conn,
@@ -217,10 +236,7 @@ mod tests {
 
     #[test]
     fn update_space_patches_only_given_fields() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(
             &conn,
@@ -248,10 +264,7 @@ mod tests {
 
     #[test]
     fn delete_space_cascades_entities_and_labels() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let other = create_space(&conn, "Personal".into(), None, "#111".into()).unwrap();
@@ -281,10 +294,7 @@ mod tests {
 
     #[test]
     fn delete_space_errors_on_unknown_id() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         assert!(delete_space(&conn, "does-not-exist").is_err());
     }
 }

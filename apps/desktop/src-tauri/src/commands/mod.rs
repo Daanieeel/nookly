@@ -22,3 +22,6 @@ pub mod spaces;
 pub mod study_blocks;
 pub mod tasks;
 pub mod views;
+
+#[cfg(test)]
+mod commands_tests;

@@ -1,6 +1,7 @@
 import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarStats, IconCards, IconPlayerPlayFilled, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSpaceExams } from "#/features/courses/course-queries.ts";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,7 +13,7 @@ import { Kbd } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { createDeck, listDeckSummaries } from "#/lib/api/decks.ts";
-import { listExams } from "#/lib/api/exams.ts";
+import {} from "#/lib/api/exams.ts";
 import type { DeckSummary, Exam } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -28,10 +29,7 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
     queryKey: qk.decks.summariesBySpace(spaceId),
     queryFn: () => listDeckSummaries(spaceId),
   });
-  const { data: exams = [] } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
+  const { data: exams = [] } = useSpaceExams(spaceId);
   const examOf = new Map(exams.map((e) => [e.entity.id, e]));
 
   const startCreate = useCallback(() => setCreating(true), []);

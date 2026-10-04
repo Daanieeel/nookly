@@ -1,29 +1,22 @@
-import { IconAdjustmentsHorizontal, IconLayoutKanban, IconList } from "@tabler/icons-react";
-import { Button } from "@nookly/ui/components/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
 import { Separator } from "@nookly/ui/components/separator";
-import { Switch } from "@nookly/ui/components/switch";
 import { cn } from "@nookly/ui/lib/utils";
+import {
+  type BoardMenuProps,
+  BoardOrderingRows,
+  boardGroupings,
+  DisplayPopover,
+  LayoutTiles,
+  LIST_BOARD_TILES,
+  SelectRow,
+  SubGroupingRow,
+} from "#/features/display-menu.tsx";
 import {
   DISPLAY_PROPERTIES,
   type DisplayOptions,
   GROUPINGS,
-  type Layout,
   ORDERINGS,
   validSubGrouping,
 } from "./task-model";
-
-const LAYOUT_TILES: { id: Layout; label: string; icon: typeof IconList }[] = [
-  { id: "list", label: "List", icon: IconList },
-  { id: "board", label: "Board", icon: IconLayoutKanban },
-];
 
 /// Linear's "Display" popover: layout tiles, grouping and ordering, empty groups,
 /// and which properties rows and cards show.
@@ -32,200 +25,85 @@ export function TaskDisplayMenu({
   onChange,
   columns,
   crossSpace = false,
-}: {
-  display: DisplayOptions;
-  onChange: (display: DisplayOptions) => void;
-  /// Every board column, so any of them can be hidden or brought back.
-  columns: { id: string; name: string }[];
-  /// The cross-Space overview groups by Space, and has no labels (they belong to a Space).
-  crossSpace?: boolean;
-}) {
+}: BoardMenuProps<DisplayOptions>) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...display, ...patch });
   const available = GROUPINGS.filter((g) => (crossSpace ? g.id !== "label" : g.id !== "space"));
-  const groupings = available.filter((g) => display.layout === "list" || g.id !== "none");
-  const subGroupings = available.filter((g) => g.id !== display.grouping);
+  const { groupings, subGroupings } = boardGroupings(available, display);
   const properties = DISPLAY_PROPERTIES.filter((p) => !crossSpace || p.id !== "labels");
   // Ordering by status inside status groups would change nothing.
   const orderings = ORDERINGS.filter((o) => display.grouping !== "status" || o.id !== "status");
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="secondary" size="sm" className="gap-1.5">
-          <IconAdjustmentsHorizontal />
-          Display
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
-        <div className="grid grid-cols-2 gap-2">
-          {LAYOUT_TILES.map((tile) => (
-            <button
-              key={tile.id}
-              type="button"
-              aria-pressed={display.layout === tile.id}
-              onClick={() => {
-                const grouping =
-                  tile.id === "board" && display.grouping === "none" ? "status" : display.grouping;
-                set({
-                  layout: tile.id,
-                  grouping,
-                  subGrouping: validSubGrouping(grouping, display.subGrouping),
-                });
-              }}
-              className={cn(
-                "flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
-                display.layout === tile.id && "border-foreground/20 bg-accent text-foreground",
-              )}
-            >
-              <tile.icon size={16} />
-              {tile.label}
-            </button>
-          ))}
+    <DisplayPopover variant="secondary" wide>
+      <LayoutTiles
+        tiles={LIST_BOARD_TILES}
+        value={display.layout}
+        onSelect={(id) => {
+          const grouping =
+            id === "board" && display.grouping === "none" ? "status" : display.grouping;
+          set({
+            layout: id,
+            grouping,
+            subGrouping: validSubGrouping(grouping, display.subGrouping),
+          });
+        }}
+      />
+      <SelectRow
+        label="Grouping"
+        value={display.grouping}
+        options={groupings}
+        fallback="status"
+        wide
+        onChange={(grouping) =>
+          set({
+            grouping,
+            subGrouping: validSubGrouping(grouping, display.subGrouping),
+            ordering:
+              grouping === "status" && display.ordering === "status" ? "due" : display.ordering,
+          })
+        }
+      />
+      <SubGroupingRow display={display} options={subGroupings} set={set} />
+      <BoardOrderingRows
+        display={display}
+        orderings={orderings}
+        fallback="due"
+        columns={columns}
+        set={set}
+      />
+
+      <Separator />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs text-muted-foreground">Display properties</span>
+        <div className="flex flex-wrap gap-1.5">
+          {properties.map((p) => {
+            const on = display.properties.includes(p.id);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  set({
+                    properties: on
+                      ? display.properties.filter((id) => id !== p.id)
+                      : properties
+                          .filter((d) => d.id === p.id || display.properties.includes(d.id))
+                          .map((d) => d.id),
+                  })
+                }
+                className={cn(
+                  "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
+                  on && "border-foreground/20 bg-accent text-foreground",
+                )}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </div>
-
-        <OptionRow label="Grouping">
-          <Select
-            value={display.grouping}
-            onValueChange={(v) => {
-              const grouping = groupings.find((g) => g.id === v)?.id ?? "status";
-              set({
-                grouping,
-                subGrouping: validSubGrouping(grouping, display.subGrouping),
-                ordering:
-                  grouping === "status" && display.ordering === "status" ? "due" : display.ordering,
-              });
-            }}
-          >
-            <SelectTrigger size="sm" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {groupings.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  <g.icon />
-                  {g.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </OptionRow>
-
-        {display.grouping !== "none" && (
-          <OptionRow label="Sub-grouping">
-            <Select
-              value={display.subGrouping}
-              onValueChange={(v) =>
-                set({ subGrouping: subGroupings.find((g) => g.id === v)?.id ?? "none" })
-              }
-            >
-              <SelectTrigger size="sm" className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {subGroupings.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    <g.icon />
-                    {g.id === "none" ? "No sub-grouping" : g.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </OptionRow>
-        )}
-
-        <OptionRow label="Ordering">
-          <Select
-            value={display.ordering}
-            onValueChange={(v) => set({ ordering: orderings.find((o) => o.id === v)?.id ?? "due" })}
-          >
-            <SelectTrigger size="sm" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {orderings.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  <o.icon />
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </OptionRow>
-
-        {display.grouping !== "none" && (
-          <OptionRow label="Show empty groups">
-            <Switch
-              checked={display.showEmpty[display.layout]}
-              onCheckedChange={(checked) =>
-                set({ showEmpty: { ...display.showEmpty, [display.layout]: checked } })
-              }
-            />
-          </OptionRow>
-        )}
-
-        {display.layout === "board" && columns.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-xs text-muted-foreground">Columns</span>
-            {columns.map((column) => (
-              <OptionRow key={column.id} label={column.name}>
-                <Switch
-                  aria-label={`Show ${column.name} column`}
-                  checked={!display.hiddenColumns.includes(column.id)}
-                  onCheckedChange={(checked) =>
-                    set({
-                      hiddenColumns: checked
-                        ? display.hiddenColumns.filter((id) => id !== column.id)
-                        : [...display.hiddenColumns, column.id],
-                    })
-                  }
-                />
-              </OptionRow>
-            ))}
-          </div>
-        )}
-
-        <Separator />
-
-        <div className="flex flex-col gap-2">
-          <span className="text-xs text-muted-foreground">Display properties</span>
-          <div className="flex flex-wrap gap-1.5">
-            {properties.map((p) => {
-              const on = display.properties.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() =>
-                    set({
-                      properties: on
-                        ? display.properties.filter((id) => id !== p.id)
-                        : properties
-                            .filter((d) => d.id === p.id || display.properties.includes(d.id))
-                            .map((d) => d.id),
-                    })
-                  }
-                  className={cn(
-                    "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
-                    on && "border-foreground/20 bg-accent text-foreground",
-                  )}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      {children}
-    </div>
+      </div>
+    </DisplayPopover>
   );
 }

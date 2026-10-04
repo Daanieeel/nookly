@@ -14,7 +14,10 @@ inventory::submit! {
     RelationshipTypeDef { name: "course-semester", label: "Course in semester", description: "Puts a course in a semester.", from_type: Some("course"), to_type: Some("semester"), inverse_label: "has course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
-    RelationshipTypeDef { name: "course-notes", label: "Notes for course", description: "The notes page of a course.", from_type: Some("course"), to_type: Some("note"), inverse_label: "notes for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+    RelationshipTypeDef { name: "course-note", label: "Notes page of course", description: "The notes page built into a course, one per course.", from_type: Some("course"), to_type: Some("course_notes"), inverse_label: "notes page for course", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
+}
+inventory::submit! {
+    RelationshipTypeDef { name: "course-notes", label: "Notes for course", description: "Links regular notes to a course, any number of them.", from_type: Some("course"), to_type: Some("note"), inverse_label: "notes for course", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
     RelationshipTypeDef { name: "semester-notes", label: "Notes for semester", description: "The notes page of a semester.", from_type: Some("semester"), to_type: Some("note"), inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
@@ -272,7 +275,7 @@ pub fn get_or_create_course_notes(conn: &Connection, course_id: &str) -> AppResu
     let existing: Option<String> = conn
         .query_row(
             "SELECT to_entity_id FROM relationships
-             WHERE from_entity_id = ?1 AND relationship_type = 'course-notes'",
+             WHERE from_entity_id = ?1 AND relationship_type = 'course-note'",
             params![course_id],
             |row| row.get(0),
         )
@@ -292,7 +295,7 @@ pub fn get_or_create_course_notes(conn: &Connection, course_id: &str) -> AppResu
         conn,
         course_id.to_string(),
         note.id.clone(),
-        "course-notes".into(),
+        "course-note".into(),
         None,
         None,
     )?;
@@ -496,7 +499,16 @@ inventory::submit! {
         supports_blocks: false,
         description: "A course within a Space, optionally linked to a Semester.",
         fields: COURSE_FIELDS,
-        relationship_types: &["sequel-of", "course-semester", "course-notes", "relates-to"],
+        relationship_types: &[
+            "sequel-of",
+            "course-semester",
+            "course-note",
+            "course-notes",
+            "assignment-course",
+            "exam-course",
+            "session-course",
+            "relates-to",
+        ],
         create: cli_create_course,
         update: cli_update_course,
         get: cli_get_course,
@@ -602,20 +614,19 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
-        conn
+        crate::db::test_conn()
+    }
+
+    fn bare_semester(conn: &Connection, space_id: &str, title: &str) -> Semester {
+        create_semester(conn, space_id.into(), title.into(), None, None, None, None).unwrap()
     }
 
     #[test]
     fn course_professor_round_trips() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let space = crate::db::test_space(&conn, "Work");
         let course = create_course(&conn, space.id, "Algorithms".into()).unwrap();
 
         let unset = get_course_details(&conn, &course.id).unwrap();
@@ -635,7 +646,7 @@ mod tests {
     #[test]
     fn create_semester_round_trips_dates() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let space = crate::db::test_space(&conn, "Work");
 
         let semester = create_semester(
             &conn,
@@ -664,17 +675,8 @@ mod tests {
     #[test]
     fn update_semester_sets_only_given_fields() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let semester = create_semester(
-            &conn,
-            space.id.clone(),
-            "WS 2026/27".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Work");
+        let semester = bare_semester(&conn, &space.id, "WS 2026/27");
 
         update_semester(
             &conn,
@@ -708,27 +710,9 @@ mod tests {
     #[test]
     fn set_current_semester_clears_other_semesters_in_space() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let a = create_semester(
-            &conn,
-            space.id.clone(),
-            "WS 2025/26".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-        let b = create_semester(
-            &conn,
-            space.id.clone(),
-            "WS 2026/27".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Work");
+        let a = bare_semester(&conn, &space.id, "WS 2025/26");
+        let b = bare_semester(&conn, &space.id, "WS 2026/27");
 
         set_current_semester(&conn, &space.id, &a.entity.id).unwrap();
         set_current_semester(&conn, &space.id, &b.entity.id).unwrap();
@@ -743,11 +727,9 @@ mod tests {
     #[test]
     fn reorder_semesters_sets_manual_position_by_index() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let a =
-            create_semester(&conn, space.id.clone(), "A".into(), None, None, None, None).unwrap();
-        let b =
-            create_semester(&conn, space.id.clone(), "B".into(), None, None, None, None).unwrap();
+        let space = crate::db::test_space(&conn, "Work");
+        let a = bare_semester(&conn, &space.id, "A");
+        let b = bare_semester(&conn, &space.id, "B");
 
         reorder_semesters(&conn, vec![b.entity.id.clone(), a.entity.id.clone()]).unwrap();
 
@@ -761,8 +743,7 @@ mod tests {
     #[test]
     fn course_notes_are_created_once_and_reused() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let (_space, course) = crate::db::test_space_with_course(&conn, "Work", "Algorithms");
 
         let notes = get_or_create_course_notes(&conn, &course.id).unwrap();
         assert_eq!(notes.entity_type, "course_notes");
@@ -775,8 +756,7 @@ mod tests {
     #[test]
     fn course_notes_are_not_listed_as_a_real_note() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Work", "Algorithms");
         get_or_create_course_notes(&conn, &course.id).unwrap();
 
         let recent_notes = crate::db::notes::list_recent_notes(&conn, &space.id, 10).unwrap();
@@ -786,17 +766,8 @@ mod tests {
     #[test]
     fn semester_notes_are_created_once_and_reused() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let semester = create_semester(
-            &conn,
-            space.id.clone(),
-            "WS 2026/27".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Work");
+        let semester = bare_semester(&conn, &space.id, "WS 2026/27");
 
         let notes = get_or_create_semester_notes(&conn, &semester.entity.id).unwrap();
         assert_eq!(notes.entity_type, "note");
@@ -809,17 +780,8 @@ mod tests {
     #[test]
     fn semester_notes_are_listed_as_a_real_note() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let semester = create_semester(
-            &conn,
-            space.id.clone(),
-            "WS 2026/27".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Work");
+        let semester = bare_semester(&conn, &space.id, "WS 2026/27");
         get_or_create_semester_notes(&conn, &semester.entity.id).unwrap();
 
         let recent_notes = crate::db::notes::list_recent_notes(&conn, &space.id, 10).unwrap();
@@ -829,28 +791,9 @@ mod tests {
     #[test]
     fn course_can_only_belong_to_one_semester_at_a_time() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
-        let fall = create_semester(
-            &conn,
-            space.id.clone(),
-            "Fall".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-        let spring = create_semester(
-            &conn,
-            space.id.clone(),
-            "Spring".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Work", "Algorithms");
+        let fall = bare_semester(&conn, &space.id, "Fall");
+        let spring = bare_semester(&conn, &space.id, "Spring");
 
         link_course_to_semester(&conn, course.id.clone(), fall.entity.id.clone()).unwrap();
         let second_link =
@@ -861,17 +804,8 @@ mod tests {
     #[test]
     fn semester_can_have_many_courses() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let semester = create_semester(
-            &conn,
-            space.id.clone(),
-            "Fall".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let space = crate::db::test_space(&conn, "Work");
+        let semester = bare_semester(&conn, &space.id, "Fall");
         let a = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
         let b = create_course(&conn, space.id.clone(), "Databases".into()).unwrap();
 
@@ -882,28 +816,9 @@ mod tests {
     #[test]
     fn set_course_semester_reassigns_instead_of_erroring() {
         let conn = setup();
-        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
-        let fall = create_semester(
-            &conn,
-            space.id.clone(),
-            "Fall".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-        let spring = create_semester(
-            &conn,
-            space.id.clone(),
-            "Spring".into(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Work", "Algorithms");
+        let fall = bare_semester(&conn, &space.id, "Fall");
+        let spring = bare_semester(&conn, &space.id, "Spring");
 
         link_course_to_semester(&conn, course.id.clone(), fall.entity.id.clone()).unwrap();
         set_course_semester(&conn, &course.id, spring.entity.id.clone()).unwrap();
@@ -949,8 +864,7 @@ mod tests {
     #[test]
     fn course_grades_read_linked_exams_and_assignments() {
         let conn = setup();
-        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
-        let course = create_course(&conn, space.id.clone(), "Algorithms".into()).unwrap();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Uni", "Algorithms");
         let other = create_course(&conn, space.id.clone(), "Other".into()).unwrap();
         let exam = crate::db::exams::create_exam(
             &conn,

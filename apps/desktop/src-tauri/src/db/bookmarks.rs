@@ -40,17 +40,6 @@ fn row_to_bookmark(row: &rusqlite::Row) -> rusqlite::Result<Bookmark> {
     })
 }
 
-fn label_ids_for(conn: &Connection, entity_id: &str) -> AppResult<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT el.label_id FROM entity_labels el
-         JOIN labels l ON l.id = el.label_id
-         WHERE el.entity_id = ?1
-         ORDER BY l.name ASC",
-    )?;
-    let rows = stmt.query_map(params![entity_id], |row| row.get(0))?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
 /// Stored immediately as a placeholder (§5.10) — metadata is filled in later,
 /// opportunistically, once network is available (see `update_metadata`).
 pub fn create_bookmark(conn: &Connection, space_id: String, url: String) -> AppResult<Bookmark> {
@@ -162,6 +151,11 @@ pub fn set_preferred_image(
     entity_id: &str,
     preference: Option<String>,
 ) -> AppResult<Bookmark> {
+    // An empty value clears the preference, like `None`.
+    let preference = preference.filter(|p| !p.is_empty());
+    if let Some(preference) = &preference {
+        crate::db::require_one_of("preferred image", preference, &["screenshot", "preview"])?;
+    }
     conn.execute(
         "UPDATE bookmarks SET preferred_image = ?1 WHERE entity_id = ?2",
         params![preference, entity_id],
@@ -215,7 +209,7 @@ pub fn get_bookmark(conn: &Connection, entity_id: &str) -> AppResult<Bookmark> {
         row_to_bookmark,
     )
     .map_err(|_| AppError::NotFound(format!("bookmark {entity_id}")))?;
-    bookmark.label_ids = label_ids_for(conn, entity_id)?;
+    bookmark.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     Ok(bookmark)
 }
 
@@ -240,7 +234,20 @@ const BOOKMARK_FIELDS: &[FieldDef] = &[
 
 fn cli_create_bookmark(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let url = crate::db::schema::require_str(&input.fields, "url")?;
-    let bookmark = create_bookmark(conn, input.space_id, url)?;
+    let mut bookmark = create_bookmark(conn, input.space_id, url)?;
+    // A bookmark is titled by its URL until metadata arrives; a title the caller
+    // typed wins over that placeholder.
+    if !input.title.trim().is_empty() && input.title != bookmark.url {
+        crate::db::entities::update_entity(
+            conn,
+            &bookmark.entity.id,
+            crate::db::entities::EntityPatch {
+                title: Some(input.title),
+                ..Default::default()
+            },
+        )?;
+        bookmark = get_bookmark(conn, &bookmark.entity.id)?;
+    }
     Ok(serde_json::to_value(bookmark).expect("Bookmark always serializes"))
 }
 
@@ -305,10 +312,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     fn setup() -> (Connection, String) {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         (conn, space.id)
     }

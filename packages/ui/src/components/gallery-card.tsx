@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { CSSProperties } from "react";
-import { Card, CardContent } from "@nookly/ui/components/card";
+import { CardContent } from "@nookly/ui/components/card";
+import { InteractiveCard } from "@nookly/ui/components/interactive-card";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// A gallery tile built on the `Card` primitive itself (never modified) —
@@ -34,32 +35,13 @@ function GalleryCard({
   className,
   variant,
   ghost,
-  onClick,
-  onKeyDown,
   ...props
-}: React.ComponentProps<typeof Card> & VariantProps<typeof galleryCardVariants>) {
-  // When the whole tile is clickable, it also needs to behave like one: a
-  // pointer cursor, keyboard focusability, and Enter/Space activating it —
-  // not just a mouse-only `onClick` on a `<div>`.
-  const clickable = Boolean(onClick);
+}: React.ComponentProps<typeof InteractiveCard> & VariantProps<typeof galleryCardVariants>) {
+  // Clickable behavior (button role, focus, Enter/Space) comes from `InteractiveCard`.
   return (
-    <Card
+    <InteractiveCard
       data-slot="gallery-card"
-      role={clickable ? "button" : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        onKeyDown?.(e);
-        if (clickable && (e.key === "Enter" || e.key === " ")) {
-          e.preventDefault();
-          e.currentTarget.click();
-        }
-      }}
-      className={cn(
-        galleryCardVariants({ variant, ghost }),
-        clickable && "cursor-pointer",
-        className,
-      )}
+      className={cn(galleryCardVariants({ variant, ghost }), className)}
       {...props}
     />
   );

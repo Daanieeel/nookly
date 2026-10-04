@@ -1,3 +1,4 @@
+import { useDropTarget } from "#/lib/use-drop-target.ts";
 import {
   IconCalendar,
   IconChecklist,
@@ -9,7 +10,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { SpaceDot } from "#/components/space-chip.tsx";
@@ -104,7 +105,10 @@ function TabItem({
   const { icon, label, spaceId } = useTabLabel(tab.view);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = spaceId ? spaces.find((s) => s.id === spaceId) : undefined;
-  const [dragOver, setDragOver] = useState(false);
+  const { dragOver, dropProps } = useDropTarget(() => {
+    const dragged = useNavStore.getState().draggingTabId;
+    if (dragged) useNavStore.getState().reorderTab(dragged, index);
+  });
 
   const content = (
     <div
@@ -115,17 +119,7 @@ function TabItem({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const dragged = useNavStore.getState().draggingTabId;
-        if (dragged) useNavStore.getState().reorderTab(dragged, index);
-      }}
+      {...dropProps}
       onClick={() => useNavStore.getState().switchTab(tab.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") useNavStore.getState().switchTab(tab.id);

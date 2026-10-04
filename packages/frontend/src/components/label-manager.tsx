@@ -1,4 +1,5 @@
-import { IconAlertTriangle, IconPlus, IconTag, IconTrash } from "@tabler/icons-react";
+import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
+import { IconPlus, IconTag, IconTrash } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useState } from "react";
@@ -11,18 +12,8 @@ import {
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
-import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
+import { type FieldLike, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import { Button } from "@nookly/ui/components/button";
 import {
   Dialog,
@@ -75,6 +66,33 @@ export function useCreateLabel(spaceId: string) {
   });
 }
 
+/// The name input of a new label form: clears a failed create as soon as the name changes.
+function NewLabelInput({
+  field,
+  create,
+  placeholder,
+}: {
+  field: FieldLike;
+  create: { isError: boolean; reset: () => void };
+  placeholder: string;
+}) {
+  return (
+    <Input
+      // oxlint-disable-next-line jsx-a11y/no-autofocus -- the field opens on an explicit click to add a label
+      autoFocus
+      value={field.state.value}
+      onBlur={field.handleBlur}
+      onChange={(e) => {
+        field.handleChange(e.target.value);
+        if (create.isError) create.reset();
+      }}
+      placeholder={placeholder}
+      aria-label="New label name"
+      className="pl-8"
+    />
+  );
+}
+
 const nameSchema = z.object({ name: z.string().trim().min(1, "Name the label") });
 
 /// A name field that creates a label on Enter, for surfaces without a picker of
@@ -123,18 +141,7 @@ export function NewLabelForm({
         </span>
         <form.Field name="name">
           {(field) => (
-            <Input
-              autoFocus
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(e) => {
-                field.handleChange(e.target.value);
-                if (create.isError) create.reset();
-              }}
-              placeholder="New label, press Enter"
-              aria-label="New label name"
-              className="pl-8"
-            />
+            <NewLabelInput field={field} create={create} placeholder="New label, press Enter" />
           )}
         </form.Field>
       </div>
@@ -227,18 +234,7 @@ export function LabelsDialog({
                       />
                       <form.Field name="name">
                         {(field) => (
-                          <Input
-                            autoFocus
-                            value={field.state.value}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => {
-                              field.handleChange(e.target.value);
-                              if (create.isError) create.reset();
-                            }}
-                            placeholder="New label"
-                            aria-label="New label name"
-                            className="pl-8"
-                          />
+                          <NewLabelInput field={field} create={create} placeholder="New label" />
                         )}
                       </form.Field>
                     </div>
@@ -392,45 +388,31 @@ function LabelRow({ label, labels }: { label: Label; labels: Label[] }) {
         <TooltipContent>Delete Label</TooltipContent>
       </Tooltip>
 
-      <AlertDialog
+      <ConfirmPermanentDialog
         open={confirmOpen}
         onOpenChange={(open) => {
           setConfirmOpen(open);
           if (!open && !del.isSuccess) del.reset();
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
-              <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-              Delete
-              <EntityMention icon={<Swatch color={label.color} />} label={label.name} />?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {label.usageCount === 0
-                ? "No item carries this label."
-                : `It comes off ${label.usageCount} ${label.usageCount === 1 ? "item" : "items"}; the items themselves stay.`}{" "}
-              This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={(e) => {
-                e.preventDefault();
-                if (!del.isPending) del.mutate();
-              }}
-            >
-              <StatusButtonContent
-                status={statusOf(del)}
-                label="Delete Label"
-                errorLabel="Couldn't delete, try again"
-              />
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={
+          <>
+            Delete
+            <EntityMention icon={<Swatch color={label.color} />} label={label.name} />?
+          </>
+        }
+        description="The label is removed from every item that carries it. The items themselves stay. This cannot be undone."
+        stats={[
+          {
+            value: label.usageCount,
+            label: label.usageCount === 1 ? "Item loses it" : "Items lose it",
+          },
+        ]}
+        actionLabel="Delete Label"
+        errorLabel="Couldn't delete, try again"
+        status={statusOf(del)}
+        error={del.isError && del.error.message}
+        onConfirm={() => del.mutate()}
+      />
     </li>
   );
 }

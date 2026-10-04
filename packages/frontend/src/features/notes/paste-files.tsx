@@ -132,6 +132,7 @@ export function usePasteFiles(spaceId: string) {
           }}
         >
           <Input
+            // oxlint-disable-next-line jsx-a11y/no-autofocus -- the dialog opens on an explicit paste, so focus belongs in the field
             autoFocus
             value={name}
             onChange={(event) => setName(event.target.value)}

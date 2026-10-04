@@ -22,7 +22,7 @@ jobs:
       - run: bun run version:check
 
   frontend:
-    name: Typecheck + lint + build (frontend)
+    name: Typecheck + lint + test + build (frontend)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,6 +30,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint:js
       - run: bun run format:check:js
+      - run: bun run test
       - run: bun run build
 
   rust:
@@ -73,3 +74,57 @@ jobs:
       - name: cargo fmt --check
         if: matrix.os == 'ubuntu-latest'
         run: bun run format:check:rust
+
+  # Report only: the findings are read, not enforced, so a new advisory in a
+  # dependency can't block an unrelated change.
+  audit:
+    name: Dependency audit (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+      - run: bun install --frozen-lockfile
+      - run: bun run deny:rust
+        continue-on-error: true
+      - run: bun run audit:rust
+        continue-on-error: true
+      - run: bun run audit:js
+        continue-on-error: true
+
+  # Report only, like the audit above: findings are read and fixed on purpose,
+  # they never block an unrelated change.
+  code-health:
+    name: Code health (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+      - run: bun install --frozen-lockfile
+      - name: Unused dependencies, exports and files (JS)
+        run: bun run unused:js
+        continue-on-error: true
+      - name: Unused dependencies (Rust)
+        run: bun run unused:rust
+        continue-on-error: true
+      - name: Panic budget and long functions (Rust, non-test code)
+        run: bun run lint:rust:strict
+        continue-on-error: true
+
+  # Enforced: duplication is 0.11% today, and the check fails above 1%, so the
+  # cleanup that removed duplicate code does not quietly come undone.
+  duplication:
+    name: Duplicate code (under 1%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run duplication

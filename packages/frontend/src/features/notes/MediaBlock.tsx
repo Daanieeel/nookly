@@ -22,7 +22,6 @@ import { StatusButtonContent, useActionStatus } from "#/components/action-feedba
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { getEntity } from "#/lib/api/entities.ts";
 import { getFile, importFile } from "#/lib/api/files.ts";
 import type { Entity } from "#/lib/api/types.ts";
@@ -30,6 +29,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import { asString, type JSONAttrValue } from "./block-markdown";
+import { ToolbarButton } from "./ToolbarButton";
 
 export type MediaKind = "image" | "video" | "audio" | "file";
 
@@ -175,7 +175,7 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
         ) : kind === "image" && source.src ? (
           <img src={source.src} alt={caption || source.name} className="media-image" />
         ) : kind === "video" && source.src ? (
-          // oxlint-disable-next-line jsx-a11y/media-has-caption: a user's own video, no captions to offer
+          // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own video, no captions to offer
           <video src={source.src} controls preload="metadata" className="media-video" />
         ) : (
           <div className="media-card flex flex-col gap-2">
@@ -192,7 +192,7 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
             </div>
             {kind === "audio" &&
               source.src && (
-                // oxlint-disable-next-line jsx-a11y/media-has-caption: a user's own recording, no captions to offer
+                // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
                 <audio src={source.src} controls preload="metadata" className="w-full" />
               )}
           </div>
@@ -235,33 +235,6 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
         />
       )}
     </NodeViewWrapper>
-  );
-}
-
-function ToolbarButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="secondary"
-          size="iconSm"
-          aria-label={label}
-          onClick={onClick}
-          className="size-7"
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -329,6 +302,7 @@ function MediaPicker({
           <form.Field name="url">
             {(field) => (
               <Input
+                // oxlint-disable-next-line jsx-a11y/no-autofocus -- opened by the user to type the value, so focus belongs in the field
                 autoFocus
                 value={field.state.value}
                 onBlur={field.handleBlur}

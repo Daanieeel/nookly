@@ -85,12 +85,20 @@ export interface SeriesPatch {
 
 /// Edits the template and its occurrences from `fromDate` on. Earlier ones are
 /// never rewritten, and fields an occurrence overrode on its own keep their value.
+/// `anchorId` is the occurrence the edit was opened on: when it is dated
+/// `fromDate` or later it takes every patched field, even one it overrode.
 export function updateSessionSeries(
   templateId: string,
   fromDate: string,
   patch: SeriesPatch,
+  anchorId?: string,
 ): Promise<void> {
-  return invoke("update_session_series", { templateId, fromDate, patch });
+  return invoke("update_session_series", {
+    templateId,
+    fromDate,
+    patch,
+    anchorId: anchorId ?? null,
+  });
 }
 
 /// Moves the series' occurrences from `fromDate` on to Trash; returns how many.

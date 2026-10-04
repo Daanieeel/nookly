@@ -107,16 +107,7 @@ pub fn list_unrefined_jots_all_spaces(
          LIMIT ?1"
     ))?;
     let mut summaries = stmt
-        .query_map(params![limit], |row| {
-            Ok(PageSummary {
-                entity: row_to_entity(row)?,
-                preview: String::new(),
-                last_edited_at: row.get("last_edited_at")?,
-                label_ids: Vec::new(),
-                linked: Vec::new(),
-                session: None,
-            })
-        })?
+        .query_map(params![limit], bare_page_summary)?
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut stmt = conn.prepare(&format!(
@@ -174,6 +165,19 @@ pub struct PageSummary {
     /// Jot rows only: the most recent Session occurrence this page is
     /// related to, in either direction.
     pub session: Option<SessionContext>,
+}
+
+/// Row mapper for the page list queries: a summary with the enrichment fields
+/// (preview, labels, links, session) still empty.
+fn bare_page_summary(row: &rusqlite::Row) -> rusqlite::Result<PageSummary> {
+    Ok(PageSummary {
+        entity: row_to_entity(row)?,
+        preview: String::new(),
+        last_edited_at: row.get("last_edited_at")?,
+        label_ids: Vec::new(),
+        linked: Vec::new(),
+        session: None,
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -295,16 +299,7 @@ fn list_page_summaries(
          ORDER BY last_edited_at DESC"
     ))?;
     let mut summaries = stmt
-        .query_map(params![space_id], |row| {
-            Ok(PageSummary {
-                entity: row_to_entity(row)?,
-                preview: String::new(),
-                last_edited_at: row.get("last_edited_at")?,
-                label_ids: Vec::new(),
-                linked: Vec::new(),
-                session: None,
-            })
-        })?
+        .query_map(params![space_id], bare_page_summary)?
         .collect::<Result<Vec<_>, _>>()?;
     let index = summary_index(&summaries);
 
@@ -695,6 +690,7 @@ pub fn block_to_markdown(block: &Block) -> String {
 }
 
 pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    crate::db::entities::get_entity(conn, entity_id)?;
     let blocks = list_blocks(conn, entity_id)?;
     let markdown = blocks
         .iter()
@@ -781,10 +777,26 @@ pub fn list_pages(
 /// (so e.g. a `code` block created this way had no way to get a `--language`/`--filename`
 /// header). `blocks`/`add-block`/`update-block`/... (`cli::block_command`) are the only way
 /// to write page content from the CLI now.
-fn cli_get_page(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+pub(crate) fn cli_get_page(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     let entity = crate::db::entities::get_entity(conn, id)?;
     let body = render_page_markdown(conn, id)?;
     Ok(serde_json::json!({ "entity": entity, "body": body }))
+}
+
+fn cli_get_typed_page(
+    page_type: &'static str,
+) -> impl Fn(&Connection, &str) -> AppResult<serde_json::Value> {
+    move |conn, id| {
+        crate::db::entities::get_entity_of_type(conn, id, page_type)?;
+        cli_get_page(conn, id)
+    }
+}
+
+fn cli_get_note(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    cli_get_typed_page("note")(conn, id)
+}
+fn cli_get_jot(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
+    cli_get_typed_page("jot")(conn, id)
 }
 
 fn cli_create_page(
@@ -906,10 +918,16 @@ inventory::submit! {
         supports_blocks: true,
         description: "A free-form page of block content.",
         fields: &[],
-        relationship_types: &["relates-to", "attached-file"],
+        relationship_types: &[
+            "relates-to",
+            "attached-file",
+            "course-notes",
+            "semester-notes",
+            "session-note",
+        ],
         create: cli_create_note,
         update: cli_update_page,
-        get: cli_get_page,
+        get: cli_get_note,
         list: cli_list_notes,
     }
 }
@@ -920,10 +938,10 @@ inventory::submit! {
         supports_blocks: true,
         description: "A quick, unrefined capture. Link it to the `note` it was refined into via `relates-to`.",
         fields: &[],
-        relationship_types: &["relates-to"],
+        relationship_types: &["relates-to", "session-jot"],
         create: cli_create_jot,
         update: cli_update_page,
-        get: cli_get_page,
+        get: cli_get_jot,
         list: cli_list_jots,
     }
 }
@@ -934,10 +952,7 @@ mod tests {
 
     #[test]
     fn refine_jot_creates_linked_note_and_leaves_jot_alone() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let jot = create_page(&conn, space.id.clone(), "jot", "Raw idea".into()).unwrap();
@@ -977,10 +992,7 @@ mod tests {
 
     #[test]
     fn note_summaries_carry_preview_recency_and_labels() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let empty = create_page(&conn, space.id.clone(), "note", "Empty".into()).unwrap();
@@ -1043,10 +1055,7 @@ mod tests {
 
     #[test]
     fn jot_summaries_carry_links_sessions_and_unrefined_count() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let jot = create_page(&conn, space.id.clone(), "jot", "".into()).unwrap();
@@ -1113,10 +1122,7 @@ mod tests {
 
     #[test]
     fn unrefined_jots_across_spaces_carry_previews() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let study =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let home =
@@ -1156,10 +1162,7 @@ mod tests {
 
     #[test]
     fn markdown_export_covers_every_block_type() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
@@ -1203,10 +1206,7 @@ mod tests {
 
     #[test]
     fn reorder_changes_export_order() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
@@ -1239,10 +1239,7 @@ mod tests {
 
     #[test]
     fn update_block_patches_only_given_fields() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Lecture 1".into()).unwrap();
@@ -1290,10 +1287,7 @@ mod tests {
 
     #[test]
     fn list_mentioning_entities_finds_backlinks_and_excludes_self_and_deleted() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let target = create_page(&conn, space.id.clone(), "note", "Target".into()).unwrap();
@@ -1341,10 +1335,7 @@ mod tests {
 
     #[test]
     fn mention_index_follows_block_edits_and_deletes() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let target = create_page(&conn, space.id.clone(), "note", "Target".into()).unwrap();
@@ -1398,10 +1389,7 @@ mod tests {
 
     #[test]
     fn export_points_file_mentions_at_the_file() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
@@ -1437,10 +1425,7 @@ mod tests {
 
     #[test]
     fn block_to_markdown_renders_a_table_block() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space =
             crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let page = create_page(&conn, space.id, "note", "Doc".into()).unwrap();

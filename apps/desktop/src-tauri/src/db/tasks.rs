@@ -479,10 +479,11 @@ pub fn update_task_dates(
     start_date: Option<String>,
     due_date: Option<String>,
 ) -> AppResult<()> {
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE tasks SET start_date = ?1, due_date = ?2 WHERE entity_id = ?3",
         params![start_date, due_date, entity_id],
     )?;
+    crate::db::require_row(affected, "task", entity_id)?;
     Ok(())
 }
 
@@ -493,6 +494,46 @@ pub fn update_task_dates(
 // structural sub-task-of relationship instead of a separate `relate` call —
 // matching how `create_subtask` already atomically creates that relationship.
 
+const FIELD_STATUS_ID: FieldDef = FieldDef {
+    name: "statusId",
+    kind: FieldKind::Text,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+};
+
+const FIELD_START_DATE: FieldDef = FieldDef {
+    name: "startDate",
+    kind: FieldKind::Date,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "ISO date",
+};
+
+const FIELD_DUE_DATE: FieldDef = FieldDef {
+    name: "dueDate",
+    kind: FieldKind::Date,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "ISO date",
+};
+
+const FIELD_EFFORT: FieldDef = FieldDef {
+    name: "effort",
+    kind: FieldKind::Integer,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+};
+
+const FIELD_COMPLETED_AT: FieldDef = FieldDef {
+    name: "completedAt",
+    kind: FieldKind::DateTime,
+    required_on_create: false,
+    writable_on_update: false,
+    description: "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+};
+
 const TASK_UPDATE_FIELDS: &[FieldDef] = &[
     FieldDef {
         name: "parentId",
@@ -501,41 +542,11 @@ const TASK_UPDATE_FIELDS: &[FieldDef] = &[
         writable_on_update: true,
         description: "Setting it turns this task into a sub-task of that task. Only a task without sub-tasks of its own can be converted, and it can't be undone through this field.",
     },
-    FieldDef {
-        name: "statusId",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
-    },
-    FieldDef {
-        name: "startDate",
-        kind: FieldKind::Date,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "ISO date",
-    },
-    FieldDef {
-        name: "dueDate",
-        kind: FieldKind::Date,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "ISO date",
-    },
-    FieldDef {
-        name: "effort",
-        kind: FieldKind::Integer,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
-    },
-    FieldDef {
-        name: "completedAt",
-        kind: FieldKind::DateTime,
-        required_on_create: false,
-        writable_on_update: false,
-        description: "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
-    },
+    FIELD_STATUS_ID,
+    FIELD_START_DATE,
+    FIELD_DUE_DATE,
+    FIELD_EFFORT,
+    FIELD_COMPLETED_AT,
 ];
 
 const SUB_TASK_FIELDS: &[FieldDef] = &[
@@ -546,41 +557,11 @@ const SUB_TASK_FIELDS: &[FieldDef] = &[
         writable_on_update: false,
         description: "Parent task id. Sub-tasks cannot themselves have sub-tasks (one level max).",
     },
-    FieldDef {
-        name: "statusId",
-        kind: FieldKind::Text,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
-    },
-    FieldDef {
-        name: "startDate",
-        kind: FieldKind::Date,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "ISO date",
-    },
-    FieldDef {
-        name: "dueDate",
-        kind: FieldKind::Date,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "ISO date",
-    },
-    FieldDef {
-        name: "effort",
-        kind: FieldKind::Integer,
-        required_on_create: false,
-        writable_on_update: true,
-        description: "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
-    },
-    FieldDef {
-        name: "completedAt",
-        kind: FieldKind::DateTime,
-        required_on_create: false,
-        writable_on_update: false,
-        description: "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
-    },
+    FIELD_STATUS_ID,
+    FIELD_START_DATE,
+    FIELD_DUE_DATE,
+    FIELD_EFFORT,
+    FIELD_COMPLETED_AT,
 ];
 
 fn apply_task_fields(conn: &Connection, entity_id: &str, fields: &JsonMap) -> AppResult<()> {
@@ -643,15 +624,21 @@ fn cli_create_sub_task(conn: &Connection, input: CreateInput) -> AppResult<serde
 }
 
 fn cli_list_sub_tasks(
-    _conn: &Connection,
-    _space_id: Option<&str>,
+    conn: &Connection,
+    space_id: Option<&str>,
     _include_deleted: bool,
 ) -> AppResult<Vec<serde_json::Value>> {
-    Err(AppError::InvalidInput(
-        "sub_task has no space-wide listing; use `nookly cli task get <parent-id>` and follow its \
-         `sub-task-of` inverse relationships, or `nookly cli relate` to inspect links"
-            .into(),
-    ))
+    let space_id = space_id.ok_or_else(|| {
+        AppError::InvalidInput("sub_task list requires --space <space-id>".into())
+    })?;
+    let mut stmt = conn.prepare(
+        "SELECT id FROM entities WHERE type = 'sub_task' AND space_id = ?1 AND deleted_at IS NULL
+         ORDER BY created_at ASC",
+    )?;
+    let ids = stmt
+        .query_map(params![space_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    ids.iter().map(|id| cli_get_task(conn, id)).collect()
 }
 
 inventory::submit! {
@@ -688,11 +675,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
-        conn
+        crate::db::test_conn()
     }
 
     #[test]

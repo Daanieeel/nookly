@@ -12,9 +12,9 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  IconAlertTriangle,
   IconChevronRight,
   IconDotsVertical,
   IconFolder,
@@ -27,52 +27,26 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "@tanstack/react-form";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import {
-  StatusButtonContent,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
+import { statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { AddModuleMenu } from "#/components/add-module-menu.tsx";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { renderIconValue } from "#/components/entity-icon.tsx";
 import { RemoveModuleDialog } from "#/components/sidebar/remove-module-dialog.tsx";
 import { EntityMention } from "#/components/entity-mention.tsx";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
-import { IconPicker } from "#/components/icon-picker.tsx";
+import { SpaceFormDialog, useSpaceForm, type SpaceValues } from "./sidebar/space-form-fields.tsx";
 import { LabelsDialog } from "#/components/label-manager.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
-import { Button } from "@nookly/ui/components/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@nookly/ui/components/collapsible";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { Input } from "@nookly/ui/components/input";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
@@ -128,10 +102,6 @@ import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const SPACE_COLORS = ACCENT_COLORS;
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
-}
 
 /// The floating preview a Space row shows while it follows the pointer during a drag.
 function SpaceDragPreview({ space }: { space: Space }) {
@@ -566,49 +536,32 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
         onOpenChange={setLabelsOpen}
       />
 
-      <AlertDialog
+      <ConfirmPermanentDialog
         open={deleteConfirmOpen}
         onOpenChange={(open) => {
           setDeleteConfirmOpen(open);
           if (!open && !del.isSuccess) del.reset();
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
-              <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-              Delete
-              <EntityMention
-                icon={space.icon ? renderIconValue(space.icon, 13) : <IconFolder size={13} />}
-                label={space.name}
-              />
-              ?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently deletes the Space and everything in it,{" "}
-              {plural(entities.length, "item")} across its modules. This cannot be undone; nothing
-              goes to Trash.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={(e) => {
-                e.preventDefault();
-                if (delStatus === "idle" || delStatus === "error") del.mutate();
-              }}
-            >
-              <StatusButtonContent
-                status={delStatus}
-                label="Delete Space"
-                successLabel="Space deleted"
-                errorLabel="Couldn't delete, try again"
-              />
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={
+          <>
+            Delete
+            <EntityMention
+              icon={space.icon ? renderIconValue(space.icon, 13) : <IconFolder size={13} />}
+              label={space.name}
+            />
+            ?
+          </>
+        }
+        description="This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash."
+        stats={[{ value: entities.length, label: entities.length === 1 ? "Item" : "Items" }]}
+        phrase={space.name}
+        actionLabel="Delete Space"
+        successLabel="Space deleted"
+        errorLabel="Couldn't delete, try again"
+        status={delStatus}
+        error={del.isError && del.error.message}
+        onConfirm={() => del.mutate()}
+      />
     </Collapsible>
   );
 }
@@ -706,13 +659,6 @@ function ModuleSubRow({
   );
 }
 
-const spaceSchema = z.object({
-  name: z.string().trim().min(1, "Give the space a name"),
-  color: z.string(),
-  icon: z.string().nullable(),
-});
-type SpaceValues = z.infer<typeof spaceSchema>;
-
 function CreateSpaceDialog({
   open,
   onOpenChange,
@@ -726,12 +672,8 @@ function CreateSpaceDialog({
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const emptySpace: SpaceValues = { name: "", color: SPACE_COLORS[0], icon: null };
-  const form = useForm({
-    defaultValues: emptySpace,
-    validators: { onChange: spaceSchema },
-    onSubmit: ({ value }) => {
-      if (createStatus === "idle" || createStatus === "error") create.mutate(value);
-    },
+  const form = useSpaceForm(emptySpace, (value) => {
+    if (createStatus === "idle" || createStatus === "error") create.mutate(value);
   });
 
   useEffect(() => {
@@ -757,97 +699,18 @@ function CreateSpaceDialog({
   }, [open, resetCreate]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>New Space</DialogTitle>
-        </DialogHeader>
-        <div className="grid grid-cols-[auto_1fr] items-start gap-3">
-          <form.Field name="icon">
-            {(iconField) => (
-              <FormField label="Icon">
-                <form.Subscribe selector={(state) => state.values.color}>
-                  {(color) => (
-                    <IconPicker
-                      value={iconField.state.value}
-                      onChange={iconField.handleChange}
-                      trigger={
-                        <button
-                          type="button"
-                          aria-label="Choose Space icon"
-                          className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
-                        >
-                          <span
-                            className="text-(--space-color)"
-                            // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
-                            // `CSSProperties` just doesn't model custom properties.
-                            style={{ "--space-color": color } as CSSProperties}
-                          >
-                            {iconField.state.value ? (
-                              renderIconValue(iconField.state.value, 15)
-                            ) : (
-                              <IconFolder size={15} />
-                            )}
-                          </span>
-                        </button>
-                      }
-                    />
-                  )}
-                </form.Subscribe>
-              </FormField>
-            )}
-          </form.Field>
-          <form.Field name="name">
-            {(field) => (
-              <FormField label="Name" required htmlFor="new-space-name" error={fieldMessage(field)}>
-                <Input
-                  id="new-space-name"
-                  ref={nameInputRef}
-                  placeholder="e.g. University"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-        </div>
-        <form.Field name="color">
-          {(field) => (
-            <FormField label="Color">
-              <div className="flex flex-wrap gap-2">
-                {SPACE_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`Space color ${c}`}
-                    onClick={() => field.handleChange(c)}
-                    className={`size-6 rounded-full bg-(--swatch-color) ${field.state.value === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
-                    // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
-                    // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
-                    style={{ "--swatch-color": c } as CSSProperties}
-                  />
-                ))}
-              </div>
-            </FormField>
-          )}
-        </form.Field>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button disabled={blocked} onClick={() => void form.handleSubmit()}>
-                <StatusButtonContent
-                  status={createStatus}
-                  label="Create"
-                  successLabel="Space created"
-                  errorLabel="Couldn't create, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SpaceFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="New Space"
+      form={form}
+      nameId="new-space-name"
+      nameInputRef={nameInputRef}
+      status={createStatus}
+      label="Create"
+      successLabel="Space created"
+      errorLabel="Couldn't create, try again"
+    />
   );
 }
 
@@ -864,12 +727,8 @@ function SpaceSettingsDialog({
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const current: SpaceValues = { name: space.name, color: space.color, icon: space.icon };
-  const form = useForm({
-    defaultValues: current,
-    validators: { onChange: spaceSchema },
-    onSubmit: ({ value }) => {
-      if (saveStatus === "idle" || saveStatus === "error") save.mutate(value);
-    },
+  const form = useSpaceForm(current, (value) => {
+    if (saveStatus === "idle" || saveStatus === "error") save.mutate(value);
   });
 
   useEffect(() => {
@@ -892,101 +751,17 @@ function SpaceSettingsDialog({
   }, [open, resetSave]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Space settings</DialogTitle>
-        </DialogHeader>
-        <div className="grid grid-cols-[auto_1fr] items-start gap-3">
-          <form.Field name="icon">
-            {(iconField) => (
-              <FormField label="Icon">
-                <form.Subscribe selector={(state) => state.values.color}>
-                  {(color) => (
-                    <IconPicker
-                      value={iconField.state.value}
-                      onChange={iconField.handleChange}
-                      trigger={
-                        <button
-                          type="button"
-                          aria-label="Choose Space icon"
-                          className="flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-accent text-base hover:bg-accent/80"
-                        >
-                          <span
-                            className="text-(--space-color)"
-                            // SAFETY: `--space-color` only ever receives `color`, a plain hex string —
-                            // `CSSProperties` just doesn't model custom properties.
-                            style={{ "--space-color": color } as CSSProperties}
-                          >
-                            {iconField.state.value ? (
-                              renderIconValue(iconField.state.value, 15)
-                            ) : (
-                              <IconFolder size={15} />
-                            )}
-                          </span>
-                        </button>
-                      }
-                    />
-                  )}
-                </form.Subscribe>
-              </FormField>
-            )}
-          </form.Field>
-          <form.Field name="name">
-            {(field) => (
-              <FormField
-                label="Name"
-                required
-                htmlFor="space-settings-name"
-                error={fieldMessage(field)}
-              >
-                <Input
-                  id="space-settings-name"
-                  ref={nameInputRef}
-                  placeholder="e.g. University"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormField>
-            )}
-          </form.Field>
-        </div>
-        <form.Field name="color">
-          {(field) => (
-            <FormField label="Color">
-              <div className="flex flex-wrap gap-2">
-                {SPACE_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`Space color ${c}`}
-                    onClick={() => field.handleChange(c)}
-                    className={`size-6 rounded-full bg-(--swatch-color) ${field.state.value === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
-                    // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
-                    // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
-                    style={{ "--swatch-color": c } as CSSProperties}
-                  />
-                ))}
-              </div>
-            </FormField>
-          )}
-        </form.Field>
-        <DialogFooter>
-          <form.Subscribe selector={hasVisibleErrors}>
-            {(blocked) => (
-              <Button disabled={blocked} onClick={() => void form.handleSubmit()}>
-                <StatusButtonContent
-                  status={saveStatus}
-                  label="Save"
-                  successLabel="Saved"
-                  errorLabel="Couldn't save, try again"
-                />
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SpaceFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Space settings"
+      form={form}
+      nameId="space-settings-name"
+      nameInputRef={nameInputRef}
+      status={saveStatus}
+      label="Save"
+      successLabel="Saved"
+      errorLabel="Couldn't save, try again"
+    />
   );
 }

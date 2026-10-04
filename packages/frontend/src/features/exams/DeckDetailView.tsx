@@ -9,6 +9,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSpaceExams } from "#/features/courses/course-queries.ts";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -28,7 +29,7 @@ import {
   restoreCard,
   setDeckExam,
 } from "#/lib/api/decks.ts";
-import { listExams } from "#/lib/api/exams.ts";
+import {} from "#/lib/api/exams.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { formatTimestamp } from "#/features/tasks/task-model.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -293,10 +294,7 @@ function DeckProperties({ entity, stats }: { entity: Entity; stats: DeckStats | 
     queryKey: qk.decks.summariesBySpace(spaceId),
     queryFn: () => listDeckSummaries(spaceId),
   });
-  const { data: exams = [] } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
+  const { data: exams = [] } = useSpaceExams(spaceId);
   const examId = summaries.find((s) => s.entity.id === entity.id)?.examId ?? null;
   const exam = exams.find((e) => e.entity.id === examId);
 

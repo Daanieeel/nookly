@@ -1,19 +1,16 @@
-import { IconX } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import type { CSSProperties } from "react";
-import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
+import { StatusAnnouncer, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { OccurrenceOverride, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../external-calendars/overlay-layout";
-import { heightPxFor, minutesToTime, timeToMinutes, topPxFor } from "./calendar-model";
-import { useItemDrag } from "./item-drag";
+import { minutesToTime, timeToMinutes } from "./calendar-model";
+import { BlockCancelButton, BlockResizeHandles, useBlockDrag } from "./item-block-controls";
 import { SessionPopover } from "./SessionPopover";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
@@ -55,9 +52,13 @@ export function SessionBlock({
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const invalidate = () =>
-    // The root key (not a per Space key) so this also invalidates the
-    // cross-Space qk.sessions.all cache the unified Calendar page reads.
-    queryClient.invalidateQueries({ queryKey: qk.sessions.root });
+    Promise.all([
+      // The root key (not a per Space key) so this also invalidates the
+      // cross-Space qk.sessions.all cache the unified Calendar page reads.
+      queryClient.invalidateQueries({ queryKey: qk.sessions.root }),
+      // The Dashboard's and the sidebar's sessions of today and this week.
+      queryClient.invalidateQueries({ queryKey: qk.sessions.today }),
+    ]);
   const cancel = useMutation({
     mutationFn: () => overrideOccurrence(occurrence.entity.id, { cancelled: true }),
     onSuccess: invalidate,
@@ -72,25 +73,14 @@ export function SessionBlock({
 
   const startMin = timeToMinutes(occurrence.startTime);
   const endMin = timeToMinutes(occurrence.endTime);
-  const { previewRange, handleFor } = useItemDrag({
+  const { previewRange, handleFor, top, height } = useBlockDrag({
     startMin,
     endMin,
+    days,
     dayIndex,
-    dayCount: days.length,
-    onCommit: (result) => {
-      const patch: OccurrenceOverride = {
-        startTime: minutesToTime(result.startMin),
-        endTime: minutesToTime(result.endMin),
-      };
-      const targetDay = result.dayDelta !== 0 ? days[dayIndex + result.dayDelta] : undefined;
-      if (targetDay) patch.date = format(targetDay, "yyyy-MM-dd");
-      reschedule.mutate(patch);
-    },
+    position,
+    onReschedule: reschedule.mutate,
   });
-  const top = previewRange ? topPxFor(previewRange.startMin) : position.top;
-  const height = previewRange
-    ? heightPxFor(previewRange.startMin, previewRange.endMin)
-    : position.height;
   const draggable = !occurrence.cancelled;
   const short = height < 36;
   return (
@@ -157,36 +147,14 @@ export function SessionBlock({
         </button>
       </SessionPopover>
       {draggable && (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--session-color)/50 group-hover:opacity-100"
-            {...handleFor("resize-start")}
-          />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 z-20 h-1.5 cursor-row-resize opacity-0 hover:bg-(--session-color)/50 group-hover:opacity-100"
-            {...handleFor("resize-end")}
-          />
-        </>
+        <BlockResizeHandles handleFor={handleFor} hoverClassName="hover:bg-(--session-color)/50" />
       )}
       {!occurrence.cancelled && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={cancelLabel}
-              onClick={() => !cancel.isPending && cancel.mutate()}
-              className={cn(
-                "absolute top-0.5 right-0.5 z-20 rounded-sm p-0.5 hover:bg-accent group-hover:opacity-100",
-                cancelStatus === "idle" ? "opacity-0" : "opacity-100",
-              )}
-            >
-              <StatusIcon status={cancelStatus} idle={<IconX size={11} />} size={11} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{cancelLabel}</TooltipContent>
-        </Tooltip>
+        <BlockCancelButton
+          status={cancelStatus}
+          label={cancelLabel}
+          onCancel={() => !cancel.isPending && cancel.mutate()}
+        />
       )}
       <StatusAnnouncer message={cancelStatus === "error" ? "Couldn't cancel occurrence" : null} />
     </div>

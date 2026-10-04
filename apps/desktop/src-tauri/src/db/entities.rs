@@ -90,6 +90,14 @@ pub fn create_entity(
     title: String,
     icon: Option<String>,
 ) -> AppResult<Entity> {
+    let space_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM spaces WHERE id = ?1)",
+        params![space_id],
+        |row| row.get(0),
+    )?;
+    if !space_exists {
+        return Err(AppError::NotFound(format!("space {space_id}")));
+    }
     let id = super::new_id();
     let now = super::now();
     let prefix = key_prefix(&entity_type);
@@ -164,6 +172,16 @@ pub fn get_entity(conn: &Connection, id: &str) -> AppResult<Entity> {
     .ok_or_else(|| AppError::NotFound(format!("entity {id}")))
 }
 
+/// Like `get_entity`, but an entity of another type is `NotFound` too, so a verb
+/// named for one type (`note get`, `note delete`) can never act on another.
+pub fn get_entity_of_type(conn: &Connection, id: &str, entity_type: &str) -> AppResult<Entity> {
+    let entity = get_entity(conn, id)?;
+    if entity.entity_type != entity_type {
+        return Err(AppError::NotFound(format!("{entity_type} {id}")));
+    }
+    Ok(entity)
+}
+
 #[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EntityPatch {
@@ -177,10 +195,12 @@ pub struct EntityPatch {
 
 pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResult<Entity> {
     let mut entity = get_entity(conn, id)?;
+    let mut title_changed = false;
     if let Some(title) = patch.title {
         if title != entity.title && entity.entity_type == "file" {
             sync_media_block_names(conn, id, &title)?;
         }
+        title_changed = title != entity.title;
         entity.title = title;
     }
     if let Some(icon) = patch.icon {
@@ -200,7 +220,35 @@ pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResu
     )?;
     entity.updated_at = now;
     search::index_entity_title(conn, &entity.id, &entity.space_id, &entity.title)?;
+    if title_changed {
+        set_title_override(conn, id, true)?;
+    }
     Ok(entity)
+}
+
+/// Marks (or unmarks) a series occurrence's title as edited on its own, so a later
+/// series rename leaves it alone. A no-op for anything that isn't an occurrence.
+fn set_title_override(conn: &Connection, id: &str, on: bool) -> AppResult<()> {
+    let bit = super::series::TITLE_OVERRIDE;
+    for table in ["sessions", "calendar_entries"] {
+        let expr = if on {
+            "overridden_fields | ?2"
+        } else {
+            "overridden_fields & ~?2"
+        };
+        conn.execute(
+            &format!(
+                "UPDATE {table} SET overridden_fields = {expr}
+                 WHERE entity_id = ?1 AND template_id IS NOT NULL"
+            ),
+            params![id, bit],
+        )?;
+    }
+    Ok(())
+}
+
+pub(crate) fn clear_title_override(conn: &Connection, id: &str) -> AppResult<()> {
+    set_title_override(conn, id, false)
 }
 
 /// Media blocks (`/file`, image, video, audio) hold nothing but one mention of
@@ -355,36 +403,71 @@ pub fn list_entities(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Trashes an entity. A Task takes its live Sub-tasks along, stamped with the same
+/// `deleted_at` so a restore can tell them from Sub-tasks trashed on their own.
 pub fn soft_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
-    let now = super::now();
-    let affected = conn.execute(
-        "UPDATE entities SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
-        params![now, id],
-    )?;
-    if affected == 0 {
-        return Err(AppError::NotFound(format!("entity {id}")));
-    }
-    Ok(())
+    super::atomically(conn, || {
+        let now = super::now();
+        let affected = conn.execute(
+            "UPDATE entities SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+            params![now, id],
+        )?;
+        if affected == 0 {
+            return Err(AppError::NotFound(format!("entity {id}")));
+        }
+        conn.execute(
+            "UPDATE entities SET deleted_at = ?1, updated_at = ?1
+             WHERE deleted_at IS NULL AND id IN
+               (SELECT from_entity_id FROM relationships
+                WHERE to_entity_id = ?2 AND relationship_type = 'sub-task-of')",
+            params![now, id],
+        )?;
+        Ok(())
+    })
 }
 
+/// Restores an entity, and the Sub-tasks that went to Trash with it. A Sub-task
+/// trashed separately (a different `deleted_at`) stays in Trash.
 pub fn restore_entity(conn: &Connection, id: &str) -> AppResult<()> {
-    let now = super::now();
-    let affected = conn.execute(
-        "UPDATE entities SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NOT NULL AND hidden_at IS NULL",
-        params![now, id],
-    )?;
-    if affected == 0 {
-        return Err(AppError::NotFound(format!("entity {id}")));
-    }
-    Ok(())
+    super::atomically(conn, || {
+        let now = super::now();
+        let trashed_at: Option<String> = conn
+            .query_row(
+                "SELECT deleted_at FROM entities WHERE id = ?1 AND deleted_at IS NOT NULL AND hidden_at IS NULL",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(trashed_at) = trashed_at else {
+            return Err(AppError::NotFound(format!("entity {id}")));
+        };
+        conn.execute(
+            "UPDATE entities SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        conn.execute(
+            "UPDATE entities SET deleted_at = NULL, updated_at = ?1
+             WHERE deleted_at = ?2 AND hidden_at IS NULL AND id IN
+               (SELECT from_entity_id FROM relationships
+                WHERE to_entity_id = ?3 AND relationship_type = 'sub-task-of')",
+            params![now, trashed_at, id],
+        )?;
+        Ok(())
+    })
 }
 
 /// Permanently removes a trashed entity and every row in another table keyed by
 /// its id — there is no `ON DELETE CASCADE` anywhere in this schema (SQLite FK
 /// enforcement is never turned on), so each subtype/child table has to be swept
 /// explicitly. Only ever allowed on an already soft-deleted entity — this is the
-/// Trash view's "Delete Forever", not a general hard-delete.
+/// Trash view's "Delete Forever", not a general hard-delete. All or nothing:
+/// a failure halfway (a series template whose occurrences still point at it)
+/// rolls back what was already swept.
 pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
+    super::atomically(conn, || sweep_entity(conn, id))
+}
+
+fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
     // Checked before anything is swept: an entity hidden with its module is kept
     // data, not trash, and must never be erased from here.
     let hidden: bool = conn
@@ -457,6 +540,10 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
         "DELETE FROM recipe_tag_links WHERE recipe_entity_id = ?1",
         params![id],
     )?;
+    conn.execute(
+        "DELETE FROM series_slots WHERE template_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM views WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM search_index WHERE entity_id = ?1", params![id])?;
 
@@ -472,23 +559,52 @@ pub fn hard_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
 
 /// Permanently removes every trashed entity in every Space, all or nothing.
 /// Returns how many were removed.
+///
+/// A series' occurrences point at their template (`template_id`), so they go
+/// first and the templates after them. A trashed template that a live
+/// occurrence still points at (one restored from Trash on its own) stays in
+/// Trash, since removing it would break that occurrence's series link.
 pub fn empty_trash(conn: &Connection) -> AppResult<usize> {
     let ids: Vec<String> = conn
         .prepare("SELECT id FROM entities WHERE deleted_at IS NOT NULL AND hidden_at IS NULL")?
         .query_map([], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
-    conn.execute_batch("SAVEPOINT empty_trash")?;
-    let result = ids.iter().try_for_each(|id| hard_delete_entity(conn, id));
-    match result {
-        Ok(()) => {
-            conn.execute_batch("RELEASE empty_trash")?;
-            Ok(ids.len())
-        }
-        Err(e) => {
-            conn.execute_batch("ROLLBACK TO empty_trash; RELEASE empty_trash")?;
-            Err(e)
+    let is_template = |id: &str| -> AppResult<bool> {
+        Ok(conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM session_templates WHERE entity_id = ?1)
+                 OR EXISTS(SELECT 1 FROM calendar_entry_templates WHERE entity_id = ?1)",
+            params![id],
+            |row| row.get(0),
+        )?)
+    };
+    let mut templates = Vec::new();
+    let mut others = Vec::new();
+    for id in ids {
+        if is_template(&id)? {
+            templates.push(id);
+        } else {
+            others.push(id);
         }
     }
+    super::atomically(conn, || {
+        for id in &others {
+            sweep_entity(conn, id)?;
+        }
+        let mut removed = others.len();
+        for id in &templates {
+            let still_used: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions WHERE template_id = ?1)
+                     OR EXISTS(SELECT 1 FROM calendar_entries WHERE template_id = ?1)",
+                params![id],
+                |row| row.get(0),
+            )?;
+            if !still_used {
+                sweep_entity(conn, id)?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    })
 }
 
 #[cfg(test)]
@@ -497,11 +613,7 @@ mod tests {
     use crate::db::spaces::create_space;
 
     fn setup() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
-        conn
+        crate::db::test_conn()
     }
 
     #[test]

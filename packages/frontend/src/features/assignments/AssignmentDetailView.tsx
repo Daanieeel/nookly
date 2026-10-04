@@ -1,3 +1,4 @@
+import { StatusPropertyRow } from "#/features/tasks/StatusPropertyRow.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { NumberProperty } from "#/components/property-fields.tsx";
@@ -7,13 +8,7 @@ import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import { RelatedItemsSection } from "#/features/relationships/RelatedItemsSection.tsx";
 import { TasksDataContext, useTasksDataValue } from "#/features/tasks/task-controls.tsx";
 import { formatTimestamp } from "#/features/tasks/task-model.ts";
-import {
-  DueDatePicker,
-  DueLabel,
-  PendingIcon,
-  StatusPicker,
-  TaskStatusIcon,
-} from "#/features/tasks/task-properties.tsx";
+import { DueDatePicker, DueLabel, PendingIcon } from "#/features/tasks/task-properties.tsx";
 import { listAssignments, updateAssignmentStatus } from "#/lib/api/assignments.ts";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -114,27 +109,15 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
   const setDue = useSetAssignmentDueDate(assignment);
   return (
     <section aria-label="Properties" className="flex flex-col gap-0.5">
-      <PropertyRow label="Status">
-        <StatusPicker
-          statuses={ASSIGNMENT_STATUSES}
-          kindOf={statusKindOf}
-          value={assignment.status}
-          onSelect={(next) => setStatus.mutate(next)}
-        >
-          <button
-            type="button"
-            aria-label={setStatus.isError ? "Couldn't change status, try again" : "Change Status"}
-            className={PROPERTY_VALUE}
-          >
-            <PendingIcon
-              pending={setStatus.isPending}
-              failed={setStatus.isError}
-              idle={<TaskStatusIcon status={status} kind={statusKindOf(status.id)} />}
-            />
-            <span className="truncate">{status.name}</span>
-          </button>
-        </StatusPicker>
-      </PropertyRow>
+      <StatusPropertyRow
+        statuses={ASSIGNMENT_STATUSES}
+        kindOf={statusKindOf}
+        value={assignment.status}
+        status={status}
+        onSelect={(next) => setStatus.mutate(next)}
+        pending={setStatus.isPending}
+        failed={setStatus.isError}
+      />
 
       <PropertyRow label="Due date">
         <DueDatePicker

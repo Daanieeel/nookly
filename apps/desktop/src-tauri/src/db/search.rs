@@ -58,7 +58,7 @@ pub struct SearchHit {
 /// Structural relationships whose target is a notes page rendered inline on
 /// the source entity's own page. Such notes are never a destination on their
 /// own: their blocks resolve to the owning entity.
-pub const EMBEDDED_NOTES_RELATIONSHIPS: &str = "'course-notes', 'semester-notes'";
+pub const EMBEDDED_NOTES_RELATIONSHIPS: &str = "'course-note', 'semester-notes'";
 
 /// Ids of every notes page embedded in another entity's page, for surfaces
 /// that list destinations (Cmd+P) and must skip them.
@@ -282,10 +282,7 @@ mod tests {
 
     #[test]
     fn search_finds_entities_by_key() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let first =
             create_entity(&conn, space.id.clone(), "note".into(), "A".into(), None).unwrap();
@@ -309,10 +306,7 @@ mod tests {
 
     #[test]
     fn search_finds_indexed_title() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let entity = create_entity(
@@ -348,10 +342,7 @@ mod tests {
 
     #[test]
     fn block_hits_follow_edits_deletes_and_trash() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let note =
@@ -401,10 +392,7 @@ mod tests {
 
     #[test]
     fn punctuation_in_queries_is_not_fts_syntax() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         create_entity(
@@ -422,10 +410,7 @@ mod tests {
 
     #[test]
     fn embedded_notes_resolve_to_their_owning_page() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
         let course =
@@ -487,10 +472,7 @@ mod tests {
 
     #[test]
     fn course_notes_never_appear_in_search_results() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let entity = create_entity(
@@ -518,10 +500,7 @@ mod tests {
 
     #[test]
     fn bookmark_and_file_content_are_searchable_but_stay_scoped() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::migrations::MIGRATIONS
-            .to_latest(&mut conn)
-            .unwrap();
+        let conn = crate::db::test_conn();
 
         let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
         let bookmark = crate::db::bookmarks::create_bookmark(

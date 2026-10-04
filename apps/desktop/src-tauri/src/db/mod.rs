@@ -1,27 +1,62 @@
 pub mod ascii_frame;
 pub mod assignments;
+#[cfg(test)]
+mod assignments_tests;
 pub mod block_types;
 pub mod bookmarks;
+#[cfg(test)]
+mod bookmarks_tests;
 pub mod calendar;
+pub mod common_fields;
 pub mod courses;
 pub mod decks;
+#[cfg(test)]
+mod decks_tests;
 pub mod entities;
 pub mod exams;
+#[cfg(test)]
+mod exams_tests;
 pub mod files;
+#[cfg(test)]
+mod forward_compat_tests;
+#[cfg(test)]
+mod golden_tests;
 pub mod labels;
+#[cfg(test)]
+mod labels_tests;
+#[cfg(test)]
+pub(crate) mod migration_upgrade_tests;
 mod migrations;
 pub mod notes;
 mod ocr;
 mod office_text;
 pub mod recipes;
+#[cfg(test)]
+mod recipes_tests;
 pub mod relationships;
+#[cfg(test)]
+mod relationships_tests;
 pub mod schema;
+#[cfg(test)]
+mod schema_tests;
 pub mod search;
+mod series;
+#[cfg(test)]
+mod series_scenarios;
 pub mod sessions;
 pub mod space_modules;
 pub mod spaces;
+#[cfg(test)]
+mod spaces_tests;
 pub mod study_blocks;
+#[cfg(test)]
+mod study_blocks_tests;
 pub mod tasks;
+#[cfg(test)]
+mod tasks_tests;
+pub mod upgrade;
+#[cfg(test)]
+mod upgrade_tests;
 pub mod views;
 
 use rusqlite::Connection;
@@ -43,6 +78,77 @@ pub fn now() -> String {
 
 pub fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+/// `NotFound` unless an UPDATE touched a row, so a missing id is reported
+/// instead of silently succeeding.
+pub(crate) fn require_row(affected: usize, what: &str, id: &str) -> crate::error::AppResult<()> {
+    if affected == 0 {
+        return Err(crate::error::AppError::NotFound(format!("{what} {id}")));
+    }
+    Ok(())
+}
+
+/// `InvalidInput` unless `value` is one of the documented `allowed` values.
+pub(crate) fn require_one_of(
+    field: &str,
+    value: &str,
+    allowed: &[&str],
+) -> crate::error::AppResult<()> {
+    if !allowed.contains(&value) {
+        return Err(crate::error::AppError::InvalidInput(format!(
+            "{field} must be one of {}, got '{value}'",
+            allowed.join(", ")
+        )));
+    }
+    Ok(())
+}
+
+/// Runs `f` inside a SAVEPOINT, so a call that fails halfway leaves nothing
+/// behind: everything it wrote is rolled back. Savepoints nest, so this is
+/// safe inside a caller's own transaction or savepoint (Empty Trash, the
+/// CLI's `--dry-run`).
+pub(crate) fn atomically<T>(
+    conn: &Connection,
+    f: impl FnOnce() -> crate::error::AppResult<T>,
+) -> crate::error::AppResult<T> {
+    conn.execute_batch("SAVEPOINT atomically")?;
+    match f() {
+        Ok(value) => {
+            conn.execute_batch("RELEASE atomically")?;
+            Ok(value)
+        }
+        Err(e) => {
+            conn.execute_batch("ROLLBACK TO atomically; RELEASE atomically")?;
+            Err(e)
+        }
+    }
+}
+
+/// An in-memory database migrated to the latest schema, for unit tests.
+#[cfg(test)]
+pub fn test_conn() -> Connection {
+    let mut conn = Connection::open_in_memory().unwrap();
+    migrations::MIGRATIONS.to_latest(&mut conn).unwrap();
+    conn
+}
+
+/// A space for unit tests.
+#[cfg(test)]
+pub fn test_space(conn: &Connection, name: &str) -> spaces::Space {
+    spaces::create_space(conn, name.into(), None, "#000".into()).unwrap()
+}
+
+/// A space with one course in it, for unit tests.
+#[cfg(test)]
+pub fn test_space_with_course(
+    conn: &Connection,
+    space_name: &str,
+    course_title: &str,
+) -> (spaces::Space, entities::Entity) {
+    let space = test_space(conn, space_name);
+    let course = courses::create_course(conn, space.id.clone(), course_title.into()).unwrap();
+    (space, course)
 }
 
 /// How many migrations `conn` has run.
@@ -71,7 +177,21 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // wherever files actually ended up, dev or production.
     app.asset_protocol_scope()
         .allow_directory(&app_data_dir, true)?;
-    let conn = connect(&app_data_dir)?;
+    let conn = match connect(&app_data_dir) {
+        Ok(conn) => conn,
+        Err(e) => {
+            // The upgrade did not pass its checks: the data was not changed. Say so
+            // plainly instead of failing to start without a word.
+            if let Some(stopped) = e.downcast_ref::<upgrade::UpgradeError>() {
+                rfd::MessageDialog::new()
+                    .set_level(rfd::MessageLevel::Error)
+                    .set_title("Nookly could not update your data")
+                    .set_description(stopped.to_string())
+                    .show();
+            }
+            return Err(e);
+        }
+    };
     app.manage(DbState(Mutex::new(conn)));
     watch_external_changes(app.handle().clone());
     Ok(())
@@ -137,6 +257,16 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
     let db_path = app_data_dir.join("nookly.db");
     let mut conn = Connection::open(&db_path)?;
     backup_before_migration(&conn, &db_path)?;
+    let current: usize = migrations::MIGRATIONS.current_version(&conn)?.into();
+    if current > 0 && current < *migrations::MIGRATION_COUNT {
+        // An existing database with migrations to run: they run on a copy that has
+        // to pass its checks before it replaces the original (see `upgrade`).
+        drop(conn);
+        upgrade::run(&db_path)?;
+        conn = Connection::open(&db_path)?;
+    }
+    // A new database migrates here. An upgraded one has nothing left, and a database
+    // from a newer version is refused.
     migrations::MIGRATIONS.to_latest(&mut conn)?;
     Ok(conn)
 }
@@ -254,5 +384,38 @@ mod tests {
         assert_eq!(backups(&dir).len(), 1);
 
         std::fs::remove_dir_all(dir).ok();
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// A value passes exactly when it is one of the allowed ones, and a refusal is
+        /// always `InvalidInput`.
+        #[test]
+        fn require_one_of_accepts_exactly_the_allowed_values(
+            allowed in prop::collection::vec("[a-z_]{1,8}", 1..6),
+            value in "[a-z_]{0,8}",
+        ) {
+            let refs: Vec<&str> = allowed.iter().map(String::as_str).collect();
+            let result = require_one_of("status", &value, &refs);
+            prop_assert_eq!(result.is_ok(), allowed.contains(&value));
+            if let Err(e) = result {
+                prop_assert!(matches!(e, crate::error::AppError::InvalidInput(_)));
+            }
+        }
+
+        /// `require_row` is `NotFound` for zero rows and `Ok` for any other count.
+        #[test]
+        fn require_row_fails_only_for_zero_rows(affected in 0usize..5, id in "[a-z0-9-]{1,12}") {
+            let result = require_row(affected, "thing", &id);
+            prop_assert_eq!(result.is_ok(), affected > 0);
+            if let Err(crate::error::AppError::NotFound(message)) = result {
+                prop_assert!(message.contains(&id));
+            }
+        }
     }
 }

@@ -6,13 +6,11 @@ import { DueColumnLabels, DueColumns } from "#/components/due-columns.tsx";
 import { CardKey, EntityKeyCopyInline } from "#/components/entity-key.tsx";
 import type { CardDrag } from "#/components/grouped-view/grouped-board.tsx";
 import { CourseChip, CourseChipLink } from "#/features/courses/course-lookup.tsx";
+import { DuePill } from "#/features/tasks/DuePill.tsx";
 import { daysUntil } from "#/features/tasks/task-model.ts";
 import {
   DueDateButton,
-  DueDatePicker,
-  DueLabel,
   PendingIcon,
-  PROPERTY_PILL,
   StatusPicker,
   TaskStatusIcon,
 } from "#/features/tasks/task-properties.tsx";
@@ -133,22 +131,14 @@ function AssignmentDueColumns({ assignment, done }: { assignment: Assignment; do
 export function AssignmentDueControl({ assignment }: { assignment: Assignment }) {
   const change = useSetAssignmentDueDate(assignment);
   return (
-    <DueDatePicker value={assignment.dueDate} onSelect={(day) => change.mutate(day)}>
-      <button
-        type="button"
-        aria-label={change.isError ? "Couldn't set due date, try again" : "Change Due Date"}
-        className={cn(PROPERTY_PILL, "relative", change.isError && "border-destructive/60")}
-      >
-        {change.isPending || change.isError ? (
-          <>
-            <PendingIcon pending={change.isPending} failed={change.isError} idle={null} />
-            Due date
-          </>
-        ) : (
-          assignment.dueDate && <DueLabel day={assignment.dueDate} tone={dueTone(assignment)} />
-        )}
-      </button>
-    </DueDatePicker>
+    <DuePill
+      value={assignment.dueDate}
+      tone={dueTone(assignment)}
+      pendingLabel="Due date"
+      pending={change.isPending}
+      failed={change.isError}
+      onSelect={(day) => change.mutate(day)}
+    />
   );
 }
 

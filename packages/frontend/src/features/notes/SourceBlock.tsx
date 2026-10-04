@@ -84,7 +84,7 @@ export function SourceBlock({
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{options.label}</span>
         </span>
-        <div role="group" aria-label="View" className="flex shrink-0 items-center gap-0.5">
+        <fieldset aria-label="View" className="flex min-w-0 shrink-0 items-center gap-0.5">
           {(["source", "rendered"] as const).map((view) => (
             <Button
               key={view}
@@ -97,7 +97,7 @@ export function SourceBlock({
               {view === "source" ? options.sourceLabel : "Preview"}
             </Button>
           ))}
-        </div>
+        </fieldset>
       </div>
       <pre className="code-block-body" hidden={rendered}>
         <NodeViewContent<"code"> as="code" />

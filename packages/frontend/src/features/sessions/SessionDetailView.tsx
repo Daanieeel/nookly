@@ -35,8 +35,8 @@ import { SessionCalendarCutout } from "./SessionCalendarCutout";
 
 /// A Session occurrence's own page: its notes, where it sits in the week, and the
 /// Jot and Note written for it. The sidebar carries the same controls as the
-/// calendar popover, including the edit scope (this session, this and following,
-/// all upcoming), with this occurrence selected by default.
+/// calendar popover, including the edit scope (only this, this and after,
+/// upcoming after today), with this occurrence selected by default.
 export function SessionDetailView({ entity }: { entity: Entity }) {
   const { data: sessions = [] } = useQuery({
     queryKey: qk.sessions.bySpace(entity.spaceId),

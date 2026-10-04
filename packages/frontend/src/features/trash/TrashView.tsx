@@ -1,6 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
 import {
-  IconAlertTriangle,
   IconArrowBackUp,
   IconCategory,
   IconFolder,
@@ -11,15 +10,11 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef, type SortingState, useTable } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import {
-  StatusButtonContent,
-  StatusIcon,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
+import { StatusIcon, statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { DataTable } from "#/components/data-table/data-table.tsx";
 import { DataTableColumnHeader } from "#/components/data-table/data-table-column-header.tsx";
+import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon, iconForType } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
@@ -31,20 +26,11 @@ import {
   applyFilters,
 } from "#/components/filter-menu.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { emptyTrash, hardDeleteEntity, listEntities, restoreEntity } from "#/lib/api/entities.ts";
+import { listRelationships } from "#/lib/api/relationships.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
 import { formatDateTime } from "#/lib/datetime.ts";
@@ -316,59 +302,31 @@ function EmptyTrashButton({ rows }: { rows: TrashRow[] }) {
   const spaceCount = new Set(rows.map((r) => r.entity.spaceId)).size;
 
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next && !empty.isSuccess) empty.reset();
-      }}
-    >
+    <>
       <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setOpen(true)}>
         <IconTrashX />
         Empty Trash
       </Button>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-1.5">
-            <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-            Empty the Trash?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            Everything in the Trash is erased for good, with its content and its links to other
-            items. This cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="grid grid-cols-2 gap-2">
-          <TrashStat value={rows.length} label={rows.length === 1 ? "Item" : "Items"} />
-          <TrashStat value={spaceCount} label={spaceCount === 1 ? "Space" : "Spaces"} />
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={(event) => {
-              event.preventDefault();
-              if (status === "idle" || status === "error") empty.mutate();
-            }}
-          >
-            <StatusButtonContent
-              status={status}
-              label={`Delete ${rows.length} Forever`}
-              errorLabel="Couldn't empty, try again"
-            />
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-function TrashStat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="flex flex-col rounded-md border border-border bg-muted/40 px-3 py-2">
-      <span className="text-lg font-semibold tabular-nums">{value}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </div>
+      <ConfirmPermanentDialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next && !empty.isSuccess) empty.reset();
+        }}
+        title="Empty the Trash?"
+        description="Everything in the Trash is erased for good, with its content and its links to other items. This cannot be undone."
+        stats={[
+          { value: rows.length, label: rows.length === 1 ? "Item" : "Items" },
+          { value: spaceCount, label: spaceCount === 1 ? "Space" : "Spaces" },
+        ]}
+        phrase="DELETE"
+        actionLabel={`Delete ${rows.length} Forever`}
+        errorLabel="Couldn't empty, try again"
+        status={status}
+        error={empty.isError && empty.error.message}
+        onConfirm={() => empty.mutate()}
+      />
+    </>
   );
 }
 
@@ -392,6 +350,12 @@ function RowActions({ entity, title }: { entity: Entity; title: string }) {
   });
   const restoreStatus = statusOf(restore);
   const deleteStatus = statusOf(deleteForever);
+  // What goes with it: shown in the confirmation once it is open.
+  const { data: links } = useQuery({
+    queryKey: qk.relationships.of(entity.id),
+    queryFn: () => listRelationships(entity.id, "both"),
+    enabled: confirmOpen,
+  });
 
   return (
     <div className="flex items-center justify-end gap-0.5">
@@ -424,44 +388,27 @@ function RowActions({ entity, title }: { entity: Entity; title: string }) {
         <TooltipContent>Delete Forever</TooltipContent>
       </Tooltip>
 
-      <AlertDialog
+      <ConfirmPermanentDialog
         open={confirmOpen}
         onOpenChange={(open) => {
           setConfirmOpen(open);
           if (!open && !deleteForever.isSuccess) deleteForever.reset();
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
-              <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-              Delete
-              <EntityMention icon={<EntityIcon entity={entity} size={13} />} label={title} />
-              forever?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently erases it and everything attached to it (content, links to other
-              items). This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={(event) => {
-                event.preventDefault();
-                if (deleteStatus === "idle" || deleteStatus === "error") deleteForever.mutate();
-              }}
-            >
-              <StatusButtonContent
-                status={deleteStatus}
-                label="Delete Forever"
-                errorLabel="Couldn't delete, try again"
-              />
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={
+          <>
+            Delete
+            <EntityMention icon={<EntityIcon entity={entity} size={13} />} label={title} />
+            forever?
+          </>
+        }
+        description="This permanently erases it and everything attached to it (content, links to other items). This cannot be undone."
+        stats={links ? [{ value: links.length, label: links.length === 1 ? "Link" : "Links" }] : []}
+        actionLabel="Delete Forever"
+        errorLabel="Couldn't delete, try again"
+        status={deleteStatus}
+        error={deleteForever.isError && deleteForever.error.message}
+        onConfirm={() => deleteForever.mutate()}
+      />
     </div>
   );
 }

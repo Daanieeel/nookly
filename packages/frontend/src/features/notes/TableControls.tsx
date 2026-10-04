@@ -7,9 +7,10 @@ import {
   IconTableRow,
 } from "@tabler/icons-react";
 import type { Editor } from "@tiptap/react";
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { useMeasureOnTransaction } from "./drag-overlays";
 import { keepIfEqual } from "./pointer-frame";
 
 interface TableRect {
@@ -25,41 +26,25 @@ interface TableRect {
 export function TableControls({ editor }: { editor: Editor | null }) {
   const [rect, setRect] = useState<TableRect | null>(null);
 
-  useEffect(() => {
+  // Measured at most once per frame, not synchronously on every keystroke; a
+  // selection change also dispatches a transaction, so one listener covers both.
+  useMeasureOnTransaction(editor, () => {
     if (!editor) return;
-    let frame = 0;
-
-    const measure = () => {
-      frame = 0;
-      const { $from } = editor.state.selection;
-      for (let depth = $from.depth; depth >= 0; depth--) {
-        if ($from.node(depth).type.name !== "table") continue;
-        const dom = editor.view.nodeDOM($from.before(depth));
-        const tableEl = dom instanceof HTMLElement ? dom.querySelector("table") : null;
-        if (tableEl) {
-          const tableBox = tableEl.getBoundingClientRect();
-          const editorBox = editor.view.dom.getBoundingClientRect();
-          const next = { top: tableBox.top - editorBox.top, left: tableBox.left - editorBox.left };
-          setRect((prev) => keepIfEqual(prev, next));
-        }
-        return;
+    const { $from } = editor.state.selection;
+    for (let depth = $from.depth; depth >= 0; depth--) {
+      if ($from.node(depth).type.name !== "table") continue;
+      const dom = editor.view.nodeDOM($from.before(depth));
+      const tableEl = dom instanceof HTMLElement ? dom.querySelector("table") : null;
+      if (tableEl) {
+        const tableBox = tableEl.getBoundingClientRect();
+        const editorBox = editor.view.dom.getBoundingClientRect();
+        const next = { top: tableBox.top - editorBox.top, left: tableBox.left - editorBox.left };
+        setRect((prev) => keepIfEqual(prev, next));
       }
-      setRect(null);
-    };
-
-    // Measured at most once per frame, not synchronously on every keystroke; a
-    // selection change also dispatches a transaction, so one listener covers both.
-    const update = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
-
-    update();
-    editor.on("transaction", update);
-    return () => {
-      cancelAnimationFrame(frame);
-      editor.off("transaction", update);
-    };
-  }, [editor]);
+      return;
+    }
+    setRect(null);
+  });
 
   if (!editor || !rect) return null;
 

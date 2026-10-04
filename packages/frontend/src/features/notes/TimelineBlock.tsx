@@ -4,7 +4,7 @@ import type { KeyboardEvent } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { asString, type JSONAttrValue } from "./block-markdown";
-import { CustomBlockFrame, RemoveRowButton, useRowKeyboard } from "./CustomBlockFrame";
+import { CustomBlockFrame, RemoveRowButton, useRowEditor } from "./CustomBlockFrame";
 import {
   parseTimeline,
   serializeTimeline,
@@ -25,25 +25,15 @@ const STATE_ACTION = {
 /// Dated events on a rail. The dot marks where the event stands: filled once
 /// done, ringed in the accent for now, hollow for what comes next.
 export function TimelineBlock(props: ReactNodeViewProps) {
-  const { node, updateAttributes } = props;
+  const { node } = props;
   // SAFETY: the timeline node only ever writes `rows` as a string.
   const rows = parseTimeline(asString(node.attrs.rows as JSONAttrValue | undefined) ?? "");
-  const { containerRef, focus, onArrow, removeBlock } = useRowKeyboard(props);
-
-  const save = (next: TimelineRow[]) => updateAttributes({ rows: serializeTimeline(next) });
-  const patch = (index: number, change: Partial<TimelineRow>) =>
-    save(rows.map((row, i) => (i === index ? { ...row, ...change } : row)));
-  const insertAfter = (index: number) => {
-    const next = [...rows];
-    next.splice(index + 1, 0, { date: "", label: "", state: "done" });
-    save(next);
-    focus(index + 1, "date");
-  };
-  const remove = (index: number) => {
-    if (rows.length === 1) return removeBlock();
-    save(rows.filter((_, i) => i !== index));
-    focus(Math.max(0, index - 1), "label");
-  };
+  const { containerRef, focus, onArrow, patch, insertAfter, remove } = useRowEditor(props, {
+    rows,
+    serialize: serializeTimeline,
+    newRow: (): TimelineRow => ({ date: "", label: "", state: "done" }),
+    newRowField: "date",
+  });
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>, index: number) => {
     if (onArrow(event, index, rows.length)) return;

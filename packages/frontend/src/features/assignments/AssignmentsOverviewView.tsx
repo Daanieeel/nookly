@@ -1,38 +1,16 @@
-import {
-  IconCalendarEvent,
-  IconCircleDot,
-  IconClipboardCheck,
-  IconClockEdit,
-  IconClockPlus,
-  IconFolder,
-  IconPlus,
-  IconSchool,
-  IconStar,
-} from "@tabler/icons-react";
+import { IconClipboardCheck } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { EmptyState } from "#/components/empty-state.tsx";
-import { type FilterField, FilterMenu, applyFilters } from "#/components/filter-menu.tsx";
-import { GroupedBoard } from "#/components/grouped-view/grouped-board.tsx";
-import { GroupedList } from "#/components/grouped-view/grouped-list.tsx";
-import { buildGroups } from "#/components/grouped-view/grouping.ts";
-import { SpaceDot } from "#/components/space-chip.tsx";
-import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { type FilterField, applyFilters } from "#/components/filter-menu.tsx";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { useCourseLookupAcross } from "#/features/courses/course-lookup.tsx";
-import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
-import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
-import { ViewSaveBar } from "#/features/views/ViewActions.tsx";
-import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { listAssignmentsAllSpaces, updateAssignmentStatus } from "#/lib/api/assignments.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import type { Assignment } from "#/lib/api/types.ts";
 import { ASSIGNMENTS_OVERVIEW } from "#/lib/api/views.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -40,27 +18,19 @@ import { CreateAssignmentDialog } from "./AssignmentsListView";
 import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
 import { assignmentGroupDefs } from "./assignment-groups";
 import {
-  AGE_BUCKETS,
-  ASSIGNMENT_STATUSES,
   ASSIGNMENT_VIEW_PRESETS,
-  DEADLINE_BUCKETS,
-  GRADE_FILTER,
-  ageBucket,
-  deadlineBucket,
   describeDisplay,
   normalizeDisplay,
   orderAssignments,
   readOverviewDisplay,
-  statusKindOf,
   writeOverviewDisplay,
 } from "./assignment-model";
-import {
-  AssignmentCard,
-  AssignmentCardBody,
-  AssignmentColumnLabels,
-  AssignmentRow,
-  refreshAssignments,
-} from "./assignment-views";
+import { refreshAssignments } from "./assignment-views";
+import { ModuleViewHeader, NoMatchesNotice } from "#/components/module-view-header.tsx";
+import { buildVisibleGroups } from "#/components/grouped-view/visible-groups.ts";
+import { spaceFilterField } from "#/features/tasks/shared-view-defs.tsx";
+import { AssignmentGroups } from "./AssignmentGroups";
+import { assignmentFilterFields, assignmentFilterValue } from "./assignment-filter-fields";
 
 /// The seventh cross-Space exception (`docs/04-navigation-spaces.md`): every Space's
 /// assignments in one list or board, below Tasks in the sidebar. Each row and card
@@ -99,78 +69,20 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
   useCreateShortcut(startCreate);
 
   const filterFields = useMemo<FilterField[]>(
-    () => [
-      {
-        id: "space",
-        label: "Space",
-        icon: IconFolder,
-        options: spaces.map((space) => ({
-          value: space.id,
-          label: space.name,
-          icon: <SpaceDot space={space} />,
-        })),
-      },
-      {
-        id: "course",
-        label: "Course",
-        icon: IconSchool,
-        options: courses.map((c) => ({ value: c.id, label: displayTitle(c) })),
-      },
-      {
-        id: "status",
-        label: "Status",
-        icon: IconCircleDot,
-        options: ASSIGNMENT_STATUSES.map((s) => ({
-          value: s.id,
-          label: s.name,
-          icon: <TaskStatusIcon status={s} kind={statusKindOf(s.id)} />,
-        })),
-      },
-      {
-        id: "due",
-        label: "Due date",
-        icon: IconCalendarEvent,
-        options: DEADLINE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "grade",
-        label: "Grade",
-        icon: IconStar,
-        options: GRADE_FILTER.map((g) => ({ value: g.id, label: g.label })),
-      },
-      {
-        id: "created",
-        label: "Created",
-        icon: IconClockPlus,
-        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-      {
-        id: "updated",
-        label: "Updated",
-        icon: IconClockEdit,
-        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
-      },
-    ],
+    () => [spaceFilterField(spaces), ...assignmentFilterFields(courses)],
     [spaces, courses],
   );
 
-  const visible = applyFilters(assignments, filters, (a, fieldId) => {
-    if (fieldId === "space") return a.entity.spaceId;
-    if (fieldId === "course") return courseOf.get(a.entity.id)?.id ?? "";
-    if (fieldId === "due") return deadlineBucket(a);
-    if (fieldId === "grade") return a.grade === null ? "none" : "graded";
-    if (fieldId === "created") return ageBucket(a.entity.createdAt);
-    if (fieldId === "updated") return ageBucket(a.entity.updatedAt);
-    return a.status;
-  });
-  const defs = assignmentGroupDefs(display.grouping, courses, courseOf, spaces);
-  const subDefs = assignmentGroupDefs(display.subGrouping, courses, courseOf, spaces);
-  const showEmpty = display.showEmpty[display.layout] && display.grouping !== "none";
-  const groups = buildGroups(
+  const visible = applyFilters(assignments, filters, (a, fieldId) =>
+    assignmentFilterValue(a, fieldId, courseOf),
+  );
+  const groups = buildVisibleGroups(
     orderAssignments(visible, display.grouping, display.ordering),
-    defs ?? [{ id: "all", name: "All assignments", match: () => true }],
-    subDefs,
-  ).filter((g) => showEmpty || g.items.length > 0);
+    assignmentGroupDefs(display.grouping, courses, courseOf, spaces),
+    assignmentGroupDefs(display.subGrouping, courses, courseOf, spaces),
+    "All assignments",
+    display.showEmpty[display.layout] && display.grouping !== "none",
+  );
 
   const move = useMutation({
     mutationFn: ({ assignment, status }: { assignment: Assignment; status: string }) =>
@@ -190,17 +102,12 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
-        <div className="flex min-w-0 items-center gap-1">
-          <h1 className="flex h-8 items-center gap-2 text-sm font-medium">
-            {view ? (
-              <ViewIconButton entity={view.entity} />
-            ) : (
-              <IconClipboardCheck size={16} className="text-muted-foreground" />
-            )}
-            {view ? <EditableViewTitle entity={view.entity} /> : "Assignments"}
-          </h1>
-          <div className="flex-1" />
+      <ModuleViewHeader
+        icon={IconClipboardCheck}
+        title="Assignments"
+        view={view}
+
+        presets={
           <ViewPresetsButton
             spaceId={saveSpaceId}
             spaces={spaces}
@@ -209,51 +116,29 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
             fields={filterFields}
             describeDisplay={describeDisplay}
           />
-          <FilterMenu
-            fields={filterFields}
-            filters={filters}
-            onFiltersChange={setFilters}
-            part="button"
-          />
+        }
+        displayMenu={
           <AssignmentDisplayMenu
             display={display}
             onChange={setDisplay}
             columns={groups}
             crossSpace
           />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="ml-1 gap-1.5"
-                disabled={spaces.length === 0}
-                onClick={startCreate}
-              >
-                <IconPlus />
-                New assignment
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              Create an assignment <Kbd>C</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <FilterMenu
-          fields={filterFields}
-          filters={filters}
-          onFiltersChange={setFilters}
-          part="chips"
-        />
-      </header>
-      <ViewSaveBar
-        view={view}
+        }
+        create={{
+          label: "New assignment",
+          tooltip: "Create an assignment",
+          onClick: startCreate,
+          disabled: spaces.length === 0,
+        }}
+        filterFields={filterFields}
+        filters={filters}
+        onFiltersChange={setFilters}
         dirty={dirty}
         save={save}
         onDiscard={discard}
         spaceId={saveSpaceId}
         module={ASSIGNMENTS_OVERVIEW}
-        filters={filters}
         display={display}
       />
 
@@ -266,51 +151,17 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
           />
         </div>
       ) : groups.every((g) => g.items.length === 0) ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No assignments match these filters.</p>
-        </div>
-      ) : display.layout === "board" ? (
-        <GroupedBoard
-          // Remount on regrouping so collapsed lanes start from their defaults.
-          key={`${display.grouping}:${display.subGrouping}`}
-          groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
-          getKey={(a) => a.entity.id}
-          draggable={boardDraggable}
-          onMove={onMove}
-          renderOverlay={(a) => (
-            <AssignmentCardBody
-              assignment={a}
-              course={courseOf.get(a.entity.id)}
-              space={spaceById.get(a.entity.spaceId)}
-              className="rotate-2 shadow-lg"
-            />
-          )}
-          renderCard={(a, drag) => (
-            <AssignmentCard
-              assignment={a}
-              course={courseOf.get(a.entity.id)}
-              space={spaceById.get(a.entity.spaceId)}
-              drag={drag}
-              failed={failedId === a.entity.id}
-              onOpen={() => open(a)}
-            />
-          )}
-        />
+        <NoMatchesNotice text="No assignments match these filters." />
       ) : (
-        <GroupedList
-          key={`${display.grouping}:${display.subGrouping}`}
+        <AssignmentGroups
           groups={groups}
-          showHeaders={display.grouping !== "none"}
-          getKey={(a) => a.entity.id}
-          footer={<AssignmentColumnLabels />}
-          renderRow={(a) => (
-            <AssignmentRow
-              assignment={a}
-              course={courseOf.get(a.entity.id)}
-              space={spaceById.get(a.entity.spaceId)}
-              onOpen={() => open(a)}
-            />
-          )}
+          display={display}
+          courseOf={courseOf}
+          spaceById={spaceById}
+          boardDraggable={boardDraggable}
+          onMove={onMove}
+          failedId={failedId}
+          onOpen={open}
         />
       )}
 

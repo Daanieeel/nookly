@@ -3,31 +3,21 @@ import type { ReactNodeViewProps } from "@tiptap/react";
 import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { cn } from "@nookly/ui/lib/utils";
 import { asString, type JSONAttrValue } from "./block-markdown";
-import { CustomBlockFrame, RemoveRowButton, useRowKeyboard } from "./CustomBlockFrame";
-import { parseProgress, type ProgressRow, serializeProgress } from "./custom-block-rows";
+import { CustomBlockFrame, RemoveRowButton, useRowEditor } from "./CustomBlockFrame";
+import { parseProgress, serializeProgress } from "./custom-block-rows";
 
 /// Goals tracked as a value against a target, each a filled track that turns
 /// positive once the goal is reached.
 export function ProgressBlock(props: ReactNodeViewProps) {
-  const { node, updateAttributes } = props;
+  const { node } = props;
   // SAFETY: the progress node only ever writes `rows` as a string.
   const rows = parseProgress(asString(node.attrs.rows as JSONAttrValue | undefined) ?? "");
-  const { containerRef, focus, onArrow, removeBlock } = useRowKeyboard(props);
-
-  const save = (next: ProgressRow[]) => updateAttributes({ rows: serializeProgress(next) });
-  const patch = (index: number, change: Partial<ProgressRow>) =>
-    save(rows.map((row, i) => (i === index ? { ...row, ...change } : row)));
-  const insertAfter = (index: number) => {
-    const next = [...rows];
-    next.splice(index + 1, 0, { label: "", value: 0, goal: rows[index]?.goal ?? 10 });
-    save(next);
-    focus(index + 1, "label");
-  };
-  const remove = (index: number) => {
-    if (rows.length === 1) return removeBlock();
-    save(rows.filter((_, i) => i !== index));
-    focus(Math.max(0, index - 1), "label");
-  };
+  const { containerRef, onArrow, patch, insertAfter, remove } = useRowEditor(props, {
+    rows,
+    serialize: serializeProgress,
+    newRow: (index) => ({ label: "", value: 0, goal: rows[index]?.goal ?? 10 }),
+    newRowField: "label",
+  });
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>, index: number) => {
     if (onArrow(event, index, rows.length)) return;

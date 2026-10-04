@@ -5,7 +5,16 @@ import {
   IconPlus,
   IconWriting,
 } from "@tabler/icons-react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useCoursesRelationships,
+  useSpaceAssignments,
+  useSpaceCourses,
+  useSpaceExams,
+  useSpaceSemesters,
+  useSpaceSessions,
+  semesterIdsByCourse,
+} from "#/features/courses/course-queries.ts";
 import { endOfWeek, startOfDay, startOfWeek } from "date-fns";
 import { useForm } from "@tanstack/react-form";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
@@ -27,17 +36,7 @@ import { Card, CardContent } from "@nookly/ui/components/card";
 import { Input } from "@nookly/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Separator } from "@nookly/ui/components/separator";
-import { listAssignments } from "#/lib/api/assignments.ts";
-import {
-  createCourse,
-  getSemesterNotes,
-  listCourses,
-  listSemesters,
-  setCourseSemester,
-} from "#/lib/api/courses.ts";
-import { listExams } from "#/lib/api/exams.ts";
-import { listRelationships } from "#/lib/api/relationships.ts";
-import { listSessions } from "#/lib/api/sessions.ts";
+import { createCourse, getSemesterNotes, setCourseSemester } from "#/lib/api/courses.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -61,10 +60,7 @@ const EXAM_LOOKAHEAD_DAYS = 7;
 /// same as every other entity type.
 export function SemesterDetailView({ entity }: { entity: Entity }) {
   const spaceId = entity.spaceId;
-  const { data: semesters = [] } = useQuery({
-    queryKey: qk.semesters.bySpace(spaceId),
-    queryFn: () => listSemesters(spaceId),
-  });
+  const { data: semesters = [] } = useSpaceSemesters(spaceId);
   const isCurrent = resolveActiveSemesterId(semesters) === entity.id;
 
   return (
@@ -85,40 +81,17 @@ function SemesterBody({ semester }: { semester: Entity }) {
     queryKey: qk.semesters.notes(semester.id),
     queryFn: () => getSemesterNotes(semester.id),
   });
-  const { data: allCourses = [] } = useQuery({
-    queryKey: qk.courses.bySpace(spaceId),
-    queryFn: () => listCourses(spaceId),
-  });
-  const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.bySpace(spaceId),
-    queryFn: () => listSessions(spaceId),
-  });
-  const { data: exams = [] } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
-  const { data: assignments = [] } = useQuery({
-    queryKey: qk.assignments.bySpace(spaceId),
-    queryFn: () => listAssignments(spaceId),
-  });
+  const { data: allCourses = [] } = useSpaceCourses(spaceId);
+  const { data: sessions = [] } = useSpaceSessions(spaceId);
+  const { data: exams = [] } = useSpaceExams(spaceId);
+  const { data: assignments = [] } = useSpaceAssignments(spaceId);
 
   // Same `queryKey` shape `CoursesListView` uses per-course — react-query
   // shares the cache. Fetched for every Course in the Space (not just this
   // Semester's) so the "Add course" picker (§4) can tell which Courses are
   // globally unassigned — a Course belongs to at most one Semester at a time.
-  const courseRelQueries = useQueries({
-    queries: allCourses.map((course) => ({
-      queryKey: qk.relationships.of(course.id),
-      queryFn: () => listRelationships(course.id, "both"),
-    })),
-  });
-  const semesterIdByCourse = new Map<string, string>();
-  allCourses.forEach((course, i) => {
-    const link = (courseRelQueries[i]?.data ?? []).find(
-      (r) => r.relationshipType === "course-semester" && r.fromEntityId === course.id,
-    );
-    if (link) semesterIdByCourse.set(course.id, link.toEntityId);
-  });
+  const courseRelQueries = useCoursesRelationships(allCourses);
+  const semesterIdByCourse = semesterIdsByCourse(allCourses, courseRelQueries);
   const courses = allCourses.filter((c) => semesterIdByCourse.get(c.id) === semester.id);
   const unassignedCourses = allCourses.filter((c) => !semesterIdByCourse.has(c.id));
   const courseIds = new Set(courses.map((c) => c.id));

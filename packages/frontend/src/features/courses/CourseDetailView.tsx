@@ -8,6 +8,13 @@ import {
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useCourseRelationships,
+  useSpaceAssignments,
+  useSpaceExams,
+  useSpaceSessions,
+  courseLinkedItems,
+} from "#/features/courses/course-queries.ts";
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { TextProperty } from "#/components/property-fields.tsx";
@@ -18,7 +25,6 @@ import { Button } from "@nookly/ui/components/button";
 import { CardContent, CardHeader, CardTitle } from "@nookly/ui/components/card";
 import { InteractiveCard } from "@nookly/ui/components/interactive-card";
 import { EmptyState } from "#/components/empty-state.tsx";
-import { listAssignments } from "#/lib/api/assignments.ts";
 import {
   getCourseDetails,
   getCourseGrades,
@@ -26,9 +32,7 @@ import {
   updateCourseProfessor,
 } from "#/lib/api/courses.ts";
 import { getDeckStats, listDecks } from "#/lib/api/decks.ts";
-import { listExams } from "#/lib/api/exams.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
-import { listSessions } from "#/lib/api/sessions.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
@@ -110,22 +114,12 @@ function CourseBody({ course }: { course: Entity }) {
     queryKey: qk.courses.notes(course.id),
     queryFn: () => getCourseNotes(course.id),
   });
-  const { data: relationships = [], dataUpdatedAt: relationshipsUpdatedAt } = useQuery({
-    queryKey: qk.relationships.of(course.id),
-    queryFn: () => listRelationships(course.id, "both"),
-  });
-  const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.bySpace(spaceId),
-    queryFn: () => listSessions(spaceId),
-  });
-  const { data: exams = [], dataUpdatedAt: examsUpdatedAt } = useQuery({
-    queryKey: qk.exams.bySpace(spaceId),
-    queryFn: () => listExams(spaceId),
-  });
-  const { data: assignments = [], dataUpdatedAt: assignmentsUpdatedAt } = useQuery({
-    queryKey: qk.assignments.bySpace(spaceId),
-    queryFn: () => listAssignments(spaceId),
-  });
+  const { data: relationships = [], dataUpdatedAt: relationshipsUpdatedAt } =
+    useCourseRelationships(course.id);
+  const { data: sessions = [] } = useSpaceSessions(spaceId);
+  const { data: exams = [], dataUpdatedAt: examsUpdatedAt } = useSpaceExams(spaceId);
+  const { data: assignments = [], dataUpdatedAt: assignmentsUpdatedAt } =
+    useSpaceAssignments(spaceId);
   // Keyed on when the lists it's computed from last loaded, so editing a grade,
   // weight or course link anywhere refreshes it without its own invalidation.
   const { data: grades } = useQuery({
@@ -143,19 +137,10 @@ function CourseBody({ course }: { course: Entity }) {
     queryFn: () => listDecks(spaceId),
   });
 
-  // `session-course`/`exam-course`/`assignment-course` all point course-ward
-  // (the session/exam/assignment is `from`, the course is `to`) — same
-  // direction convention `CoursesListView`'s `CourseCard` reads.
-  const linkedIds = (relationshipType: string) =>
-    new Set(
-      relationships
-        .filter((r) => r.relationshipType === relationshipType && r.toEntityId === course.id)
-        .map((r) => r.fromEntityId),
-    );
-  const courseSessions = sessions.filter((s) => linkedIds("session-course").has(s.entity.id));
-  const courseExams = exams.filter((e) => linkedIds("exam-course").has(e.entity.id));
-  const courseAssignments = assignments.filter((a) =>
-    linkedIds("assignment-course").has(a.entity.id),
+  const { courseSessions, courseExams, courseAssignments } = courseLinkedItems(
+    relationships,
+    course.id,
+    { sessions, exams, assignments },
   );
 
   // Decks are only indirectly scoped to a Course (Deck -> Exam -> Course), so
