@@ -94,3 +94,23 @@ jobs:
         continue-on-error: true
       - run: bun run audit:js
         continue-on-error: true
+
+  # Report only, like the audit above: findings are read and fixed on purpose,
+  # they never block an unrelated change.
+  code-health:
+    name: Code health (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+      - run: bun install --frozen-lockfile
+      - name: Unused dependencies, exports and files (JS)
+        run: bun run unused:js
+        continue-on-error: true
+      - name: Unused dependencies (Rust)
+        run: bun run unused:rust
+        continue-on-error: true
