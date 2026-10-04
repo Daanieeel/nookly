@@ -36,5 +36,3 @@ libappleai.dylib
 
 # Coverage and quality reports
 coverage
-mutants.out
-mutants.out.old
