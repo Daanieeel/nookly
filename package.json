@@ -39,6 +39,8 @@
     "unused:rust": "cargo machete apps/desktop/src-tauri",
     "unused": "bun run unused:js && bun run unused:rust",
     "changelog": "git-cliff --output CHANGELOG.md",
+    "bundle:check": "bun tools/check-bundle-size.ts",
+    "bundle:update": "bun tools/check-bundle-size.ts --update",
     "version:check": "bun tools/check-version.ts",
     "version:bump": "bun tools/bump-version.ts",
     "version:patch": "bun tools/bump-version.ts patch",
