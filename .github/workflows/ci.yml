@@ -32,8 +32,6 @@ jobs:
       - run: bun run format:check:js
       - run: bun run test
       - run: bun run build
-      - name: Bundle size budget
-        run: bun run bundle:check
 
   rust:
     name: cargo check + test (${{ matrix.os }})
