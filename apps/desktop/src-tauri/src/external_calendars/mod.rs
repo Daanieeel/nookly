@@ -9,6 +9,16 @@
 pub mod google;
 pub mod icloud;
 mod ics;
+
+/// What `cargo fuzz` calls, see `fuzz_support` in `lib.rs`.
+#[cfg(fuzzing)]
+pub(crate) fn expand_ics(
+    text: &str,
+    from: chrono::DateTime<chrono::Utc>,
+    to: chrono::DateTime<chrono::Utc>,
+) -> usize {
+    ics::expand(text, from, to).len()
+}
 mod secrets;
 
 use crate::error::{AppError, AppResult};

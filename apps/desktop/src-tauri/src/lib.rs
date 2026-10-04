@@ -1,5 +1,45 @@
 use tauri::Manager;
 
+/// Entry points for `cargo fuzz` (see `fuzz/`). `cargo fuzz` sets `--cfg fuzzing`, so
+/// none of this exists in a normal build.
+#[cfg(fuzzing)]
+#[doc(hidden)]
+pub mod fuzz_support {
+    use std::path::PathBuf;
+
+    fn scratch(bytes: &[u8], name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!("nookly-fuzz-{}-{name}", std::process::id()));
+        std::fs::write(&path, bytes).expect("write the fuzz input");
+        path
+    }
+
+    /// A backup file from anywhere: it may be refused, never panic.
+    pub fn inspect_backup(bytes: &[u8]) {
+        let path = scratch(bytes, "backup.zip");
+        let _ = crate::backup::inspect_backup(&path);
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// An office document from anywhere (the search indexer opens whatever a user imports).
+    pub fn extract_office_text(bytes: &[u8], ext: &str) {
+        let path = scratch(bytes, &format!("doc.{ext}"));
+        let _ = crate::db::fuzz_extract_office_text(&path);
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// A calendar feed from a server the user pointed the app at.
+    pub fn expand_ics(text: &str) {
+        let from = chrono::DateTime::<chrono::Utc>::from_timestamp(1_700_000_000, 0).unwrap();
+        let to = from + chrono::Duration::days(400);
+        let _ = crate::external_calendars::expand_ics(text, from, to);
+    }
+
+    /// The CLI's argument and field handling, over any argv.
+    pub fn cli_arguments(argv: &[String]) {
+        crate::cli::fuzz_arguments(argv);
+    }
+}
+
 mod backup;
 mod cli;
 mod commands;

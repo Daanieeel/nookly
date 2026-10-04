@@ -35,6 +35,7 @@
     "audit:js": "bun audit",
     "audit": "bun run deny:rust && bun run audit:rust && bun run audit:js",
     "duplication": "jscpd",
+    "fuzz:rust": "cd apps/desktop/src-tauri && cargo +nightly fuzz run",
     "unused:js": "knip",
     "unused:rust": "cargo machete apps/desktop/src-tauri",
     "unused": "bun run unused:js && bun run unused:rust",
