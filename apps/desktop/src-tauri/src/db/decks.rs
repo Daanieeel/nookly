@@ -26,16 +26,23 @@ pub fn create_deck(
     title: String,
     exam_id: Option<String>,
 ) -> AppResult<Entity> {
-    let entity =
-        crate::db::entities::create_entity(conn, space_id, "index_card_deck".into(), title, None)?;
-    conn.execute(
-        "INSERT INTO index_card_decks (entity_id) VALUES (?1)",
-        params![entity.id],
-    )?;
-    if let Some(exam_id) = exam_id {
-        set_deck_exam(conn, &entity.id, Some(exam_id))?;
-    }
-    Ok(entity)
+    crate::db::atomically(conn, || {
+        let entity = crate::db::entities::create_entity(
+            conn,
+            space_id,
+            "index_card_deck".into(),
+            title,
+            None,
+        )?;
+        conn.execute(
+            "INSERT INTO index_card_decks (entity_id) VALUES (?1)",
+            params![entity.id],
+        )?;
+        if let Some(exam_id) = exam_id {
+            set_deck_exam(conn, &entity.id, Some(exam_id))?;
+        }
+        Ok(entity)
+    })
 }
 
 /// The Exam a deck belongs to, if any.

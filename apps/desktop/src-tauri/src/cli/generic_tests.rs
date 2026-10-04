@@ -1255,9 +1255,9 @@ fn entity_ref_fields_refuse_a_missing_id_and_write_nothing() {
 }
 
 #[test]
-fn entity_ref_fields_given_an_entity_of_the_wrong_type() {
-    // NOTE: possible bug: assignment/exam/session/session_template/study_block accept
-    // any entity as their parent (a Note as courseId) and create a structural edge to it.
+fn entity_ref_fields_refuse_an_entity_of_the_wrong_type() {
+    // An entity-ref field takes only the entity type its relationship declares: a
+    // Note is refused as a courseId.
     let mut accepted = BTreeSet::new();
     for def in schema::all() {
         for f in def
@@ -1287,16 +1287,7 @@ fn entity_ref_fields_given_an_entity_of_the_wrong_type() {
             }
         }
     }
-    assert_eq!(
-        accepted,
-        set(&[
-            "assignment.courseId",
-            "exam.courseId",
-            "session.courseId",
-            "session_template.courseId",
-            "study_block.examId",
-        ])
-    );
+    assert_eq!(accepted, set(&[]));
 }
 
 #[test]
@@ -1904,35 +1895,26 @@ fn relate_several_targets_is_all_or_nothing() {
     ));
     assert_eq!(kind_of(&e), "NotFound");
     // Cardinality failure on the second target also rolls back the first.
-    let (task, _) = {
+    let make = |kind: &str, title: &str| {
         let r = cli(
             &fx.conn,
-            &["task", "create", "--space", &fx.space, "--title", "T"],
+            &[kind, "create", "--space", &fx.space, "--title", title],
         )
         .unwrap();
-        (extract_id(&r["data"]).unwrap(), ())
+        extract_id(&r["data"]).unwrap()
     };
-    let course = cli(
-        &fx.conn,
-        &["course", "create", "--space", &fx.space, "--title", "C"],
-    )
-    .unwrap();
-    let course_id = extract_id(&course["data"]).unwrap();
-    let course2 = cli(
-        &fx.conn,
-        &["course", "create", "--space", &fx.space, "--title", "D"],
-    )
-    .unwrap();
-    let course2_id = extract_id(&course2["data"]).unwrap();
+    let course = make("course", "C");
+    let semester = make("semester", "S1");
+    let semester2 = make("semester", "S2");
     let before = scalar(&fx.conn, "SELECT COUNT(*) FROM relationships");
     let e = err_of(cli(
         &fx.conn,
         &[
             "relate",
-            &task,
+            &course,
             "course-semester",
-            &course_id,
-            &course2_id,
+            &semester,
+            &semester2,
             "--yes",
         ],
     ));
@@ -2002,10 +1984,9 @@ fn one_to_per_from_relations_refuse_a_second_edge() {
 }
 
 #[test]
-fn typed_relations_accept_ends_of_any_type() {
-    // NOTE: possible bug: RelationshipTypeDef documents from_type/to_type as the types
-    // the ends "must be", but create_relationship never checks them, so `relate <note>
-    // exam-course <task>` succeeds and fakes a structural edge.
+fn typed_relations_reject_ends_of_the_wrong_type() {
+    // from_type/to_type are the types the ends must be: `relate <note> exam-course
+    // <task>` is refused rather than faking a structural edge.
     let mut accepted = BTreeSet::new();
     for rt in inventory::iter::<crate::db::relationships::RelationshipTypeDef>() {
         if rt.from_type.is_none() && rt.to_type.is_none() {
@@ -2026,7 +2007,11 @@ fn typed_relations_accept_ends_of_any_type() {
             .filter(|rt| rt.from_type.is_some() || rt.to_type.is_some())
             .map(|rt| rt.name.to_string())
             .collect();
-    assert_eq!(accepted, typed);
+    assert!(!typed.is_empty());
+    assert!(
+        accepted.is_empty(),
+        "typed relationships accepted the wrong end types: {accepted:?}"
+    );
 }
 
 #[test]

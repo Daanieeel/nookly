@@ -654,6 +654,27 @@ fn a_parent_on_trash_takes_its_sub_tasks_along_and_restore_brings_them_back() {
 }
 
 #[test]
+fn restoring_a_parent_leaves_separately_trashed_sub_tasks_in_trash() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let parent = task(&conn, &space.id, "P");
+    let kept = create_subtask(&conn, parent.entity.id.clone(), "kept".into()).unwrap();
+    let gone = create_subtask(&conn, parent.entity.id.clone(), "gone".into()).unwrap();
+
+    soft_delete_entity(&conn, &gone.entity.id).unwrap();
+    soft_delete_entity(&conn, &parent.entity.id).unwrap();
+    restore_entity(&conn, &parent.entity.id).unwrap();
+
+    let trashed = |id: &str| get_entity(&conn, id).unwrap().deleted_at.is_some();
+    assert!(!trashed(&parent.entity.id));
+    assert!(!trashed(&kept.entity.id), "cascaded sub-task not restored");
+    assert!(
+        trashed(&gone.entity.id),
+        "separately trashed sub-task came back"
+    );
+}
+
+#[test]
 fn trashing_and_restoring_a_parent_keeps_its_sub_task_links() {
     let conn = test_conn();
     let space = test_space(&conn, "S");

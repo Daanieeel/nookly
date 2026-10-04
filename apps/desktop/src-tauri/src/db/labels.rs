@@ -1,5 +1,5 @@
-use crate::error::AppResult;
-use rusqlite::{params, Connection};
+use crate::error::{AppError, AppResult};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -90,6 +90,21 @@ pub fn delete_label(conn: &Connection, id: &str) -> AppResult<()> {
 }
 
 pub fn attach_label(conn: &Connection, entity_id: &str, label_id: &str) -> AppResult<()> {
+    // Labels are siloed per Space: one from another Space can't be attached.
+    let entity = crate::db::entities::get_entity(conn, entity_id)?;
+    let label_space: String = conn
+        .query_row(
+            "SELECT space_id FROM labels WHERE id = ?1",
+            params![label_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| AppError::NotFound(format!("label {label_id}")))?;
+    if label_space != entity.space_id {
+        return Err(AppError::InvalidInput(format!(
+            "label {label_id} belongs to another space"
+        )));
+    }
     conn.execute(
         "INSERT OR IGNORE INTO entity_labels (entity_id, label_id) VALUES (?1, ?2)",
         params![entity_id, label_id],

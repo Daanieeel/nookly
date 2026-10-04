@@ -130,6 +130,17 @@ pub enum Direction {
 
 /// No internal transaction: every command runs behind the single `DbState` mutex,
 /// which already serializes all DB access, so there's no concurrent writer to race against.
+/// Whether an entity of type `actual` may sit at an end declared as `required`.
+/// A series template stands in for its occurrences, and a Course's notes page
+/// is a note with its own page type.
+fn end_accepts(required: &str, actual: &str) -> bool {
+    actual == required
+        || matches!(
+            (required, actual),
+            ("session", "session_template") | ("note", "course_notes")
+        )
+}
+
 pub fn create_relationship(
     conn: &Connection,
     from_entity_id: String,
@@ -146,6 +157,34 @@ pub fn create_relationship(
     }
     if !super::entities::entity_exists(conn, &to_entity_id)? {
         return Err(AppError::NotFound(format!("entity {to_entity_id}")));
+    }
+
+    for (end_id, required) in [
+        (&from_entity_id, def.from_type),
+        (&to_entity_id, def.to_type),
+    ] {
+        let Some(required) = required else { continue };
+        let actual = super::entities::get_entity(conn, end_id)?.entity_type;
+        let accepted = end_accepts(required, &actual);
+        if !accepted {
+            return Err(AppError::InvalidInput(format!(
+                "'{relationship_type}' needs a {required} at this end, but {end_id} is a {actual}"
+            )));
+        }
+    }
+    // Sub-tasks nest one level deep: a Task that already has Sub-tasks can't
+    // become one itself.
+    if relationship_type == "sub-task-of" {
+        let has_subtasks: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM relationships WHERE to_entity_id = ?1 AND relationship_type = 'sub-task-of')",
+            params![from_entity_id],
+            |row| row.get(0),
+        )?;
+        if has_subtasks {
+            return Err(AppError::CardinalityViolation(format!(
+                "{from_entity_id} has sub-tasks, so it cannot be a sub-task"
+            )));
+        }
     }
 
     match def.cardinality {

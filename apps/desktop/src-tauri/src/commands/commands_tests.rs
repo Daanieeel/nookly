@@ -1902,7 +1902,7 @@ fn exams_create_and_lists_match_the_db() {
 }
 
 #[test]
-fn exams_create_with_unknown_course_leaves_a_half_created_exam() {
+fn exams_create_with_unknown_course_leaves_nothing_behind() {
     let h = Harness::new();
     let space = h.space("S");
     h.call(
@@ -1910,12 +1910,10 @@ fn exams_create_with_unknown_course_leaves_a_half_created_exam() {
         json!({ "spaceId": space, "title": "x", "courseId": MISSING, "examDate": null, "weight": null }),
     )
     .unwrap_err();
-    // NOTE: possible bug: unlike `create_session_template`, `create_exam` is
-    // not atomic, so the failed call leaves an exam entity behind.
     let leftovers = h.db(|c| db::entities::list_entities(c, Some(&space), false).unwrap());
     assert_eq!(
         leftovers.iter().filter(|e| e.entity_type == "exam").count(),
-        1
+        0
     );
 }
 

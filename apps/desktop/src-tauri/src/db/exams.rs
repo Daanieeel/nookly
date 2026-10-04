@@ -39,26 +39,29 @@ pub fn create_exam(
     exam_date: Option<String>,
     weight: Option<f64>,
 ) -> AppResult<Exam> {
-    let entity = crate::db::entities::create_entity(conn, space_id, "exam".into(), title, None)?;
-    conn.execute(
-        "INSERT INTO exams (entity_id, exam_date, weight, grade, status) VALUES (?1, ?2, ?3, NULL, 'upcoming')",
-        params![entity.id, exam_date, weight],
-    )?;
-    crate::db::relationships::create_relationship(
-        conn,
-        entity.id.clone(),
-        course_id,
-        "exam-course".into(),
-        None,
-        None,
-    )?;
-    Ok(Exam {
-        entity,
-        exam_date,
-        weight,
-        grade: None,
-        status: "upcoming".into(),
-        room: None,
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "exam".into(), title, None)?;
+        conn.execute(
+            "INSERT INTO exams (entity_id, exam_date, weight, grade, status) VALUES (?1, ?2, ?3, NULL, 'upcoming')",
+            params![entity.id, exam_date, weight],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity.id.clone(),
+            course_id,
+            "exam-course".into(),
+            None,
+            None,
+        )?;
+        Ok(Exam {
+            entity,
+            exam_date,
+            weight,
+            grade: None,
+            status: "upcoming".into(),
+            room: None,
+        })
     })
 }
 

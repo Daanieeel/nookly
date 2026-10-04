@@ -34,25 +34,27 @@ pub fn create_assignment(
     course_id: String,
     due_date: Option<String>,
 ) -> AppResult<Assignment> {
-    let entity =
-        crate::db::entities::create_entity(conn, space_id, "assignment".into(), title, None)?;
-    conn.execute(
-        "INSERT INTO assignments (entity_id, due_date, status, grade) VALUES (?1, ?2, 'not_started', NULL)",
-        params![entity.id, due_date],
-    )?;
-    crate::db::relationships::create_relationship(
-        conn,
-        entity.id.clone(),
-        course_id,
-        "assignment-course".into(),
-        None,
-        None,
-    )?;
-    Ok(Assignment {
-        entity,
-        due_date,
-        status: "not_started".into(),
-        grade: None,
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "assignment".into(), title, None)?;
+        conn.execute(
+            "INSERT INTO assignments (entity_id, due_date, status, grade) VALUES (?1, ?2, 'not_started', NULL)",
+            params![entity.id, due_date],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity.id.clone(),
+            course_id,
+            "assignment-course".into(),
+            None,
+            None,
+        )?;
+        Ok(Assignment {
+            entity,
+            due_date,
+            status: "not_started".into(),
+            grade: None,
+        })
     })
 }
 

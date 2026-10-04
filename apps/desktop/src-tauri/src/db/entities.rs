@@ -355,28 +355,57 @@ pub fn list_entities(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Trashes an entity. A Task takes its live Sub-tasks along, stamped with the same
+/// `deleted_at` so a restore can tell them from Sub-tasks trashed on their own.
 pub fn soft_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
-    let now = super::now();
-    let affected = conn.execute(
-        "UPDATE entities SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
-        params![now, id],
-    )?;
-    if affected == 0 {
-        return Err(AppError::NotFound(format!("entity {id}")));
-    }
-    Ok(())
+    super::atomically(conn, || {
+        let now = super::now();
+        let affected = conn.execute(
+            "UPDATE entities SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+            params![now, id],
+        )?;
+        if affected == 0 {
+            return Err(AppError::NotFound(format!("entity {id}")));
+        }
+        conn.execute(
+            "UPDATE entities SET deleted_at = ?1, updated_at = ?1
+             WHERE deleted_at IS NULL AND id IN
+               (SELECT from_entity_id FROM relationships
+                WHERE to_entity_id = ?2 AND relationship_type = 'sub-task-of')",
+            params![now, id],
+        )?;
+        Ok(())
+    })
 }
 
+/// Restores an entity, and the Sub-tasks that went to Trash with it. A Sub-task
+/// trashed separately (a different `deleted_at`) stays in Trash.
 pub fn restore_entity(conn: &Connection, id: &str) -> AppResult<()> {
-    let now = super::now();
-    let affected = conn.execute(
-        "UPDATE entities SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NOT NULL AND hidden_at IS NULL",
-        params![now, id],
-    )?;
-    if affected == 0 {
-        return Err(AppError::NotFound(format!("entity {id}")));
-    }
-    Ok(())
+    super::atomically(conn, || {
+        let now = super::now();
+        let trashed_at: Option<String> = conn
+            .query_row(
+                "SELECT deleted_at FROM entities WHERE id = ?1 AND deleted_at IS NOT NULL AND hidden_at IS NULL",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(trashed_at) = trashed_at else {
+            return Err(AppError::NotFound(format!("entity {id}")));
+        };
+        conn.execute(
+            "UPDATE entities SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        conn.execute(
+            "UPDATE entities SET deleted_at = NULL, updated_at = ?1
+             WHERE deleted_at = ?2 AND hidden_at IS NULL AND id IN
+               (SELECT from_entity_id FROM relationships
+                WHERE to_entity_id = ?3 AND relationship_type = 'sub-task-of')",
+            params![now, trashed_at, id],
+        )?;
+        Ok(())
+    })
 }
 
 /// Permanently removes a trashed entity and every row in another table keyed by

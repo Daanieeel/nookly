@@ -37,25 +37,27 @@ pub fn create_study_block(
     start_time: String,
     end_time: String,
 ) -> AppResult<StudyBlock> {
-    let entity =
-        crate::db::entities::create_entity(conn, space_id, "study_block".into(), title, None)?;
-    conn.execute(
-        "INSERT INTO study_blocks (entity_id, date, start_time, end_time) VALUES (?1, ?2, ?3, ?4)",
-        params![entity.id, date, start_time, end_time],
-    )?;
-    crate::db::relationships::create_relationship(
-        conn,
-        entity.id.clone(),
-        exam_id,
-        "study-block-exam".into(),
-        None,
-        None,
-    )?;
-    Ok(StudyBlock {
-        entity,
-        date,
-        start_time,
-        end_time,
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "study_block".into(), title, None)?;
+        conn.execute(
+            "INSERT INTO study_blocks (entity_id, date, start_time, end_time) VALUES (?1, ?2, ?3, ?4)",
+            params![entity.id, date, start_time, end_time],
+        )?;
+        crate::db::relationships::create_relationship(
+            conn,
+            entity.id.clone(),
+            exam_id,
+            "study-block-exam".into(),
+            None,
+            None,
+        )?;
+        Ok(StudyBlock {
+            entity,
+            date,
+            start_time,
+            end_time,
+        })
     })
 }
 

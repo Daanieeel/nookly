@@ -121,6 +121,10 @@ pub fn update_space(conn: &Connection, id: &str, patch: SpacePatch) -> AppResult
 /// `relationships::create_relationship`; every command already runs behind the
 /// single `DbState` mutex.
 pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
+    crate::db::atomically(conn, || sweep_space(conn, id))
+}
+
+fn sweep_space(conn: &Connection, id: &str) -> AppResult<()> {
     const IN_SPACE: &str = "SELECT id FROM entities WHERE space_id = ?1";
 
     conn.execute(
@@ -150,11 +154,14 @@ pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
         "semesters",
         "session_templates",
         "sessions",
+        "calendar_entry_templates",
+        "calendar_entries",
         "exams",
         "study_blocks",
         "assignments",
         "files",
         "bookmarks",
+        "views",
         "search_index",
     ] {
         conn.execute(
@@ -162,6 +169,17 @@ pub fn delete_space(conn: &Connection, id: &str) -> AppResult<()> {
             params![id],
         )?;
     }
+    // Recipe collections key off the recipe's entity id, not their own.
+    for table in ["recipe_ingredients", "recipe_steps", "recipe_tag_links"] {
+        conn.execute(
+            &format!("DELETE FROM {table} WHERE recipe_entity_id IN ({IN_SPACE})"),
+            params![id],
+        )?;
+    }
+    conn.execute(
+        &format!("DELETE FROM recipes WHERE entity_id IN ({IN_SPACE})"),
+        params![id],
+    )?;
     // Cards key off the deck's entity id, and must go before the decks themselves;
     // their reviews before the cards.
     conn.execute(
