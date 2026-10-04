@@ -187,15 +187,59 @@ pub fn list_files(
     Ok(files)
 }
 
+pub const REINDEX_PROGRESS_EVENT: &str = "files-reindex-progress";
+
+#[derive(Clone, serde::Serialize)]
+struct ReindexProgress {
+    done: u32,
+    total: u32,
+}
+
 /// Backfills search content for every File in `space_id` missing an index —
 /// the Files page's "Reindex" button (§ Reindex feature).
+///
+/// Emits `REINDEX_PROGRESS_EVENT` after each File so the button can count along.
+///
+/// Runs on a worker thread and takes the database lock only to list the Files
+/// and to store each result: OCR of a big batch takes minutes, and doing it
+/// inside a plain command froze the whole window.
 #[tauri::command]
-pub fn reindex_missing_files(
-    state: State<DbState>,
+pub async fn reindex_missing_files(
+    app: AppHandle,
     space_id: String,
 ) -> AppResult<files::ReindexSummary> {
-    let conn = state.0.lock().unwrap();
-    files::reindex_missing(&conn, Some(&space_id))
+    let summary = tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DbState>();
+        let jobs = files::reindex_jobs(&state.0.lock().unwrap(), Some(&space_id))?;
+        let checked = jobs.len() as u32;
+        let mut reindexed = 0;
+        let _ = app.emit(
+            REINDEX_PROGRESS_EVENT,
+            ReindexProgress {
+                done: 0,
+                total: checked,
+            },
+        );
+        for (index, (entity_id, path)) in jobs.into_iter().enumerate() {
+            if let Some(text) = files::extract_file_text(&path) {
+                if files::store_extracted_text(&state.0.lock().unwrap(), &entity_id, &text) {
+                    reindexed += 1;
+                }
+            }
+            let done = index as u32 + 1;
+            let _ = app.emit(
+                REINDEX_PROGRESS_EVENT,
+                ReindexProgress {
+                    done,
+                    total: checked,
+                },
+            );
+        }
+        Ok::<_, AppError>(files::ReindexSummary { checked, reindexed })
+    })
+    .await
+    .map_err(|e| AppError::Io(e.to_string()))??;
+    Ok(summary)
 }
 
 #[tauri::command]

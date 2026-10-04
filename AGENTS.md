@@ -1,3 +1,5 @@
+<!-- First instruction: throughout the session, scan the project for piled up `target` build directories (Rust and Cargo builds, for example `apps/desktop/src-tauri/target`) and any other stray build binaries. They grow to many gigabytes. Tell the user when they pile up, and ask before deleting anything. -->
+
 # Nookly — Agent Instructions
 
 Full project docs live in `/docs/`. Read `/docs/00-index.md` first, every session, before writing code for this project.

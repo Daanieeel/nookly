@@ -12,7 +12,13 @@ import {
   isReference,
   officeFormat,
 } from "./file-kind.ts";
-import { fileGroupDefs, orderFiles, readDisplay, writeDisplay } from "./file-model.ts";
+import {
+  fileGroupDefs,
+  orderFiles,
+  readDisplay,
+  reindexLabel,
+  writeDisplay,
+} from "./file-model.ts";
 
 const DEFAULTS = { layout: "grid", grouping: "none", ordering: "newest" };
 const ids = (items: { entity: { id: string } }[]) => items.map((f) => f.entity.id);
@@ -190,5 +196,14 @@ describe("fileGroupDefs", () => {
     const european = buildGroups(files, fileGroupDefs("added") ?? [], null);
     expect(american.find((g) => g.items.length > 0)?.id).toBe("week");
     expect(european.find((g) => g.items.length > 0)?.id).toBe("month");
+  });
+});
+
+describe("reindexLabel", () => {
+  it("counts files while a reindex runs and rests as Reindex", () => {
+    expect(reindexLabel(null)).toBe("Reindex");
+    expect(reindexLabel({ done: 0, total: 0 })).toBe("Reindexing");
+    expect(reindexLabel({ done: 0, total: 12 })).toBe("Reindexing 0 of 12");
+    expect(reindexLabel({ done: 3, total: 12 })).toBe("Reindexing 3 of 12");
   });
 });

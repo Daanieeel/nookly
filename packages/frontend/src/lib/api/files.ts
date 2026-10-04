@@ -31,6 +31,14 @@ export interface ReindexSummary {
   reindexed: number;
 }
 
+export const REINDEX_PROGRESS_EVENT = "files-reindex-progress";
+
+/// Sent after each File while a reindex runs.
+export interface ReindexProgress {
+  done: number;
+  total: number;
+}
+
 /// Backfills search content for every File in this Space missing an index.
 export function reindexMissingFiles(spaceId: string): Promise<ReindexSummary> {
   return invoke("reindex_missing_files", { spaceId });

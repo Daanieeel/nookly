@@ -21,7 +21,49 @@ use pdf_inspector::vision::{
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
+/// The shared library's file name on this platform.
+#[cfg(target_os = "macos")]
+const ORT_LIBRARY: &str = "libonnxruntime.dylib";
+#[cfg(target_os = "windows")]
+const ORT_LIBRARY: &str = "onnxruntime.dll";
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const ORT_LIBRARY: &str = "libonnxruntime.so";
+
+/// Where a package manager puts ONNX Runtime. The loader only looks on the
+/// system search path, which has none of these, and an app opened from Finder
+/// or the Dock has no `ORT_DYLIB_PATH` either, so OCR would never find it.
+const ORT_DIRECTORIES: [&str; 5] = [
+    "/opt/homebrew/lib",
+    "/usr/local/lib",
+    "/usr/lib",
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib/aarch64-linux-gnu",
+];
+
+fn find_onnxruntime(directories: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
+    directories
+        .iter()
+        .map(|dir| dir.join(ORT_LIBRARY))
+        .find(|path| path.is_file())
+}
+
+/// Points the loader at an installed ONNX Runtime, once, unless the user
+/// already chose one with `ORT_DYLIB_PATH`.
+fn ensure_onnxruntime_path() {
+    static DONE: std::sync::Once = std::sync::Once::new();
+    DONE.call_once(|| {
+        if std::env::var_os("ORT_DYLIB_PATH").is_some() {
+            return;
+        }
+        let directories: Vec<_> = ORT_DIRECTORIES.map(std::path::PathBuf::from).into();
+        if let Some(path) = find_onnxruntime(&directories) {
+            std::env::set_var("ORT_DYLIB_PATH", path);
+        }
+    });
+}
+
 fn ocr_options() -> OcrOptions {
+    ensure_onnxruntime_path();
     OcrOptions::new()
         .mode(OcrMode::Auto)
         .model_downloads(ModelDownloadPolicy::IfMissing)
@@ -109,6 +151,18 @@ fn cached_image_ocr_engine() -> Option<Arc<OarOcrEngine>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_onnxruntime_in_the_first_directory_that_has_it() {
+        let root = std::env::temp_dir().join(format!("nookly-ort-{}", crate::db::new_id()));
+        let (empty, brew) = (root.join("empty"), root.join("brew"));
+        std::fs::create_dir_all(&empty).unwrap();
+        std::fs::create_dir_all(&brew).unwrap();
+        let lib = brew.join(ORT_LIBRARY);
+        std::fs::write(&lib, b"").unwrap();
+        assert_eq!(find_onnxruntime(&[empty.clone(), brew]), Some(lib));
+        assert_eq!(find_onnxruntime(&[empty]), None);
+    }
 
     /// Needs a real local OCR stack: `ORT_DYLIB_PATH` (or a system-installed
     /// ONNX Runtime) plus a first-run model download. Not run by default —

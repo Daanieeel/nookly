@@ -12,6 +12,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { homeDir, join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -56,6 +57,8 @@ import {
   importFileFromUrl,
   listFiles,
   referenceFile,
+  REINDEX_PROGRESS_EVENT,
+  type ReindexProgress,
   reindexMissingFiles,
 } from "#/lib/api/files.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
@@ -75,6 +78,7 @@ import {
 import {
   type DisplayOptions,
   fileGroupDefs,
+  reindexLabel,
   orderFiles,
   readDisplay,
   writeDisplay,
@@ -226,6 +230,15 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) }),
   });
   const reindexStatus = useActionStatus(reindexMissing);
+  const [reindexProgress, setReindexProgress] = useState<ReindexProgress | null>(null);
+  useEffect(() => {
+    const unlisten = listen<ReindexProgress>(REINDEX_PROGRESS_EVENT, (event) =>
+      setReindexProgress(event.payload),
+    );
+    return () => {
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
 
   const pickStatusRaw = useActionStatus(pickAndImport);
   // A cancelled native open dialog resolves `null`: back to rest, not success.
@@ -343,7 +356,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
                 <StatusButtonContent
                   status={reindexStatus}
                   icon={<IconRefresh />}
-                  label="Reindex"
+                  label={reindexLabel(reindexMissing.isPending ? reindexProgress : null)}
                   successLabel={
                     reindexMissing.data ? `${reindexMissing.data.reindexed} reindexed` : "Reindexed"
                   }

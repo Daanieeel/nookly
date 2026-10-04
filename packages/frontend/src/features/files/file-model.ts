@@ -10,6 +10,7 @@ import {
 } from "date-fns";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
+import type { ReindexProgress } from "#/lib/api/files.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { normalizeCardDisplay } from "#/lib/display-options.ts";
@@ -141,4 +142,10 @@ export function fileGroupDefs(grouping: Grouping): GroupDef<FileEntity>[] | null
     name: bucket.name,
     match: (f) => bucketOf(f) === bucket.id,
   }));
+}
+
+/// The reindex button's text: how far along it is while running.
+export function reindexLabel(progress: ReindexProgress | null): string {
+  if (!progress) return "Reindex";
+  return progress.total > 0 ? `Reindexing ${progress.done} of ${progress.total}` : "Reindexing";
 }

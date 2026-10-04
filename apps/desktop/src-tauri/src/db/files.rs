@@ -698,20 +698,25 @@ pub struct ReindexSummary {
 /// for Search"): every File missing search content gets one extraction pass.
 /// Scoped to one Space when given, every Space otherwise.
 pub fn reindex_missing(conn: &Connection, space_id: Option<&str>) -> AppResult<ReindexSummary> {
-    let candidates = files_needing_reindex(conn, space_id)?;
-    let mut reindexed = 0u32;
-    for file in &candidates {
-        let Some(path) = file.local_path.as_deref().or(file.source_path.as_deref()) else {
-            continue;
-        };
-        if index_file_content(conn, &file.entity.id, path) {
-            reindexed += 1;
-        }
-    }
-    Ok(ReindexSummary {
-        checked: candidates.len() as u32,
-        reindexed,
-    })
+    let jobs = reindex_jobs(conn, space_id)?;
+    let checked = jobs.len() as u32;
+    let reindexed = jobs
+        .iter()
+        .filter(|(id, path)| index_file_content(conn, id, path))
+        .count() as u32;
+    Ok(ReindexSummary { checked, reindexed })
+}
+
+/// What `reindex_missing` would extract: each File missing content that has
+/// bytes to read. The app runs these off the database lock, since OCR is slow.
+pub fn reindex_jobs(conn: &Connection, space_id: Option<&str>) -> AppResult<Vec<IndexJob>> {
+    Ok(files_needing_reindex(conn, space_id)?
+        .into_iter()
+        .filter_map(|file| {
+            let path = file.local_path.or(file.source_path)?;
+            Some((file.entity.id, path))
+        })
+        .collect())
 }
 
 fn reindex_missing_bulk_action(
@@ -1134,6 +1139,26 @@ mod tests {
         assert!(!get_file(&conn, &indexed.entity.id).unwrap().needs_reindex);
         assert!(!get_file(&conn, &stale.entity.id).unwrap().needs_reindex);
         assert!(get_file(&conn, &blank.entity.id).unwrap().needs_reindex);
+    }
+
+    #[test]
+    fn reindex_jobs_lists_only_files_missing_content() {
+        let conn = crate::db::test_conn();
+        let space =
+            crate::db::spaces::create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let indexed_source = dir.join("indexed.docx");
+        write_docx(&indexed_source, "Already searchable");
+        import_file(&conn, &dir, space.id.clone(), &indexed_source).unwrap();
+        let blank_source = dir.join("blank.docx");
+        write_docx(&blank_source, "");
+        let blank = import_file(&conn, &dir, space.id.clone(), &blank_source).unwrap();
+
+        let jobs = reindex_jobs(&conn, Some(&space.id)).unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].0, blank.entity.id);
+        assert_eq!(Some(jobs[0].1.as_str()), blank.local_path.as_deref());
     }
 
     #[test]

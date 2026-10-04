@@ -182,7 +182,6 @@ ipc_commands![
     views::reorder_overview_views,
     views::update_view_config,
     files::set_file_added_at,
-    files::reindex_missing_files,
     files::export_file,
     files::list_open_with_apps,
     office::office_converter_available,
@@ -248,6 +247,10 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "files_open_reveal_and_open_with_resolve_the_path",
     ),
     ("list_files", "files_list_and_get_underlying_db_calls"),
+    (
+        "reindex_missing_files",
+        "files_reindex_missing_matches_the_db_summary",
+    ),
     ("get_file", "files_list_and_get_underlying_db_calls"),
     ("set_recipe_banner", "recipes_set_banner_underlying_db_call"),
     (
@@ -3404,12 +3407,12 @@ fn files_reindex_missing_matches_the_db_summary() {
     let h = Harness::new();
     let space = h.space("S");
     h.stored_file(&space, "a.txt", b"searchable words");
-    let summary = h.ok("reindex_missing_files", json!({ "spaceId": space }));
-    assert!(summary["checked"].is_number(), "{summary}");
-    assert!(summary["reindexed"].is_number(), "{summary}");
-    // A second run finds nothing left to do.
-    let again = h.ok("reindex_missing_files", json!({ "spaceId": space }));
-    assert_eq!(again["reindexed"], 0);
+    // `reindex_missing_files` takes an `AppHandle`, so it can't run on the mock
+    // runtime; it lists `reindex_jobs` and stores what `extract_file_text` finds.
+    let jobs = h.db(|c| db::files::reindex_jobs(c, Some(&space)).unwrap());
+    assert_eq!(jobs.len(), 0, "a plain text file is indexed on import");
+    let summary = h.db(|c| db::files::reindex_missing(c, Some(&space)).unwrap());
+    assert_eq!(summary.reindexed, 0);
 }
 
 #[test]
