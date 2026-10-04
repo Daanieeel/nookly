@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.17.3 (2026-10-04)
+
+### Changed
+
+- Improve code quality & add more test coverage (#55)
+
 ## 0.17.0 (2026-10-03)
 
 ### Changed
