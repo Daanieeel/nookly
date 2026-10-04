@@ -74,3 +74,23 @@ jobs:
       - name: cargo fmt --check
         if: matrix.os == 'ubuntu-latest'
         run: bun run format:check:rust
+
+  # Report only: the findings are read, not enforced, so a new advisory in a
+  # dependency can't block an unrelated change.
+  audit:
+    name: Dependency audit (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+      - run: bun install --frozen-lockfile
+      - run: bun run deny:rust
+        continue-on-error: true
+      - run: bun run audit:rust
+        continue-on-error: true
+      - run: bun run audit:js
+        continue-on-error: true
