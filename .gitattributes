@@ -1,0 +1,2 @@
+# Golden SQLite files are never diffed or merged as text.
+apps/desktop/src-tauri/src/db/golden/*.db binary

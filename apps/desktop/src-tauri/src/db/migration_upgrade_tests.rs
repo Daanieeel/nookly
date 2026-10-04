@@ -866,7 +866,7 @@ const RENAMED: &[(&str, &str)] = &[
 /// Tables a migration may add rows to by backfill (never remove from).
 const BACKFILLED: &[&str] = &["space_modules", "mentions"];
 
-fn renamed(table: &str) -> &str {
+pub(crate) fn renamed(table: &str) -> &str {
     RENAMED
         .iter()
         .find(|(old, _)| *old == table)
@@ -907,7 +907,7 @@ fn user_tables(conn: &Connection) -> Vec<String> {
         .unwrap()
 }
 
-fn table_counts(conn: &Connection) -> BTreeMap<String, i64> {
+pub(crate) fn table_counts(conn: &Connection) -> BTreeMap<String, i64> {
     user_tables(conn)
         .into_iter()
         .filter(|name| !is_fts_shadow(name))
@@ -1029,7 +1029,7 @@ pub(crate) fn assert_healthy(conn: &Connection, context: &str) {
     );
 }
 
-fn assert_no_rows_lost(
+pub(crate) fn assert_no_rows_lost(
     before: &BTreeMap<String, i64>,
     after: &BTreeMap<String, i64>,
     context: &str,

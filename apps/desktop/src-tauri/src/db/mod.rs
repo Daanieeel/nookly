@@ -19,6 +19,8 @@ mod exams_tests;
 pub mod files;
 #[cfg(test)]
 mod forward_compat_tests;
+#[cfg(test)]
+mod golden_tests;
 pub mod labels;
 #[cfg(test)]
 mod labels_tests;
