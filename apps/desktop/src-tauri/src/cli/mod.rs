@@ -21,6 +21,8 @@
 mod generic_tests;
 #[cfg(test)]
 mod property_tests;
+#[cfg(test)]
+mod snapshot_tests;
 mod view;
 
 use crate::db::schema::{self, JsonMap};

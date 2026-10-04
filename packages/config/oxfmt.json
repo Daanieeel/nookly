@@ -5,6 +5,7 @@
     "**/target/**",
     "packages/config/oxlint/anti-slop/**",
     "CHANGELOG.md",
+    "**/snapshots/**",
     "**/*.icon/**"
   ]
 }

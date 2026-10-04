@@ -1,0 +1,3722 @@
+[
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli assignment add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli assignment add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli assignment add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli assignment delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli assignment blocks <id>",
+      "reorder": "nookly cli assignment reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli assignment update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A gradeable assignment belonging to exactly one Course.",
+    "entityActions": [],
+    "entityType": "assignment",
+    "fields": [
+      {
+        "description": "The Course this assignment belongs to (structural: exactly one). Updating it moves the assignment.",
+        "kind": {
+          "entityType": "course",
+          "type": "entity_ref"
+        },
+        "name": "courseId",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "ISO date. Pass null to clear it.",
+        "kind": "date",
+        "name": "dueDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Grade received.",
+        "kind": "float",
+        "name": "grade",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Defaults to 'not_started' on creation.",
+        "kind": {
+          "type": "enum",
+          "values": [
+            "graded",
+            "in_progress",
+            "not_started",
+            "submitted"
+          ]
+        },
+        "name": "status",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "assignment-course",
+      "relates-to"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A saved URL with auto-fetched preview metadata.",
+    "entityActions": [],
+    "entityType": "bookmark",
+    "fields": [
+      {
+        "description": "Which fetched image wins for the card's cover, overriding the default (the captured screenshot when present, else the site's og:image). Update only; pass \"\" to clear back to the default.",
+        "kind": {
+          "type": "enum",
+          "values": [
+            "preview",
+            "screenshot"
+          ]
+        },
+        "name": "preferredImage",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "The bookmarked URL. Metadata (favicon, preview, description) is fetched asynchronously by the GUI; changing the URL clears it until the next fetch.",
+        "kind": "text",
+        "name": "url",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "relates-to"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A single, dated personal calendar occurrence — either one-off, or generated from a calendar_entry_template. Has no required parent, unlike a Session (which must have a Course).",
+    "entityActions": [],
+    "entityType": "calendar_entry",
+    "fields": [
+      {
+        "description": "An all-day entry with no start/end time. Defaults to true when no times are given, otherwise false.",
+        "kind": "boolean",
+        "name": "allDay",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Mark this occurrence cancelled without deleting it.",
+        "kind": "boolean",
+        "name": "cancelled",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "ISO date this occurrence falls on.",
+        "kind": "date",
+        "name": "date",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional free-text description.",
+        "kind": "long_text",
+        "name": "description",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional ISO end date (inclusive) for a multi-day entry. Omit for a single day, \"date\" alone.",
+        "kind": "date",
+        "name": "endDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+        "kind": "text",
+        "name": "endTime",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional free-text location.",
+        "kind": "text",
+        "name": "location",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+        "kind": "text",
+        "name": "startTime",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "relates-to"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A recurring personal calendar entry (daily/weekly/monthly). Use `calendar_entry` to create one-off occurrences (generating occurrences from a template is GUI-only for now). Updating startTime, endTime, allDay, location or description edits the series from applyFromDate on.",
+    "entityActions": [],
+    "entityType": "calendar_entry_template",
+    "fields": [
+      {
+        "description": "An all-day entry with no start/end time. Defaults to true when no times are given, otherwise false.",
+        "kind": "boolean",
+        "name": "allDay",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "This template's own first occurrence date; later ones follow from it on the chosen cadence.",
+        "kind": "date",
+        "name": "anchorDate",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "On update only: the first occurrence date a startTime, endTime, allDay, location or description change reaches (default today). Earlier occurrences are never rewritten, and occurrences overridden on their own keep their override.",
+        "kind": "date",
+        "name": "applyFromDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional free-text description.",
+        "kind": "long_text",
+        "name": "description",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+        "kind": "text",
+        "name": "endTime",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional free-text location.",
+        "kind": "text",
+        "name": "location",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "How this calendar entry repeats.",
+        "kind": {
+          "type": "enum",
+          "values": [
+            "daily",
+            "monthly",
+            "weekly"
+          ]
+        },
+        "name": "recurrence",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+        "kind": "text",
+        "name": "startTime",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "relates-to"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli course add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli course add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli course add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli course delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli course blocks <id>",
+      "reorder": "nookly cli course reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli course update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": {
+      "note": "The block commands take a course id or key and edit its own notes page (course_notes), the page the app shows on it. Passing that page's id or key works too.",
+      "pageType": "course_notes"
+    },
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [
+      {
+        "description": "Read only rollup of the course's Exam and Assignment grades: { grade, gradedWeight, gradedCount, itemCount }. `grade` is the weighted mean of graded items (null until one is graded). Exams with a weight count for that share, Assignments and unweighted Exams split the remaining weight evenly. `gradedWeight` is the graded share of total weight, 0 to 1.",
+        "kind": "object",
+        "name": "grades"
+      }
+    ],
+    "convertsTo": [],
+    "description": "A course within a Space, optionally linked to a Semester.",
+    "entityActions": [],
+    "entityType": "course",
+    "fields": [
+      {
+        "description": "Who teaches the course. Pass null to clear it.",
+        "kind": "text",
+        "name": "professor",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "assignment-course",
+      "course-note",
+      "course-notes",
+      "course-semester",
+      "exam-course",
+      "relates-to",
+      "sequel-of",
+      "session-course"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli exam add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli exam add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli exam add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli exam delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli exam blocks <id>",
+      "reorder": "nookly cli exam reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli exam update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A graded exam belonging to exactly one Course.",
+    "entityActions": [],
+    "entityType": "exam",
+    "fields": [
+      {
+        "description": "The Course this exam belongs to (structural: exactly one). Updating it moves the exam.",
+        "kind": {
+          "entityType": "course",
+          "type": "entity_ref"
+        },
+        "name": "courseId",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "ISO date. Pass null to clear it.",
+        "kind": "date",
+        "name": "examDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Grade received. Pass null to clear it.",
+        "kind": "float",
+        "name": "grade",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Where the exam takes place, like \"H 0104\". Pass null to clear it.",
+        "kind": "text",
+        "name": "room",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Defaults to 'upcoming' on creation.",
+        "kind": {
+          "type": "enum",
+          "values": [
+            "done",
+            "studying",
+            "upcoming"
+          ]
+        },
+        "name": "status",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Weight toward the course grade, as a fraction like 0.2. Pass null to clear it.",
+        "kind": "float",
+        "name": "weight",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "deck-exam",
+      "exam-course",
+      "relates-to",
+      "study-block-exam"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [
+      {
+        "command": "nookly cli file reindex [--space <space-id>]",
+        "description": "Runs content extraction for every File missing search content (never indexed, or an earlier attempt found nothing) — the backfill for Files imported before this File type became indexable. Safe to run repeatedly; an already-indexed File is left untouched.",
+        "name": "reindex"
+      }
+    ],
+    "childCollections": [],
+    "computedFields": [
+      {
+        "description": "Read only. The full text last extracted/OCR'd for this File — the exact content `search` matches against. Only populated by `get` (a single File by id); `list` always returns `null` here to keep listing many Files cheap regardless of their extracted text size.",
+        "kind": "long_text",
+        "name": "indexedContent"
+      },
+      {
+        "description": "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain text files) with no search content yet — never indexed, or the last attempt found nothing. See the `reindex` bulk action.",
+        "kind": "boolean",
+        "name": "needsReindex"
+      }
+    ],
+    "convertsTo": [
+      {
+        "command": "nookly cli file convert <id> --to bookmark",
+        "description": "A File that came from a link and is really a webpage. Keeps id, relationships, labels and pin; gets a BMK key.",
+        "type": "bookmark"
+      }
+    ],
+    "description": "A file stored in Nookly: imported from disk or downloaded from a link.",
+    "entityActions": [],
+    "entityType": "file",
+    "fields": [
+      {
+        "description": "When the file was added. Defaults to the day it was imported or downloaded; editable to correct it, e.g. for files brought in from another tool. Replaces the file's created date outright, so the detail view, lists and sort/group order all agree on it.",
+        "kind": "date",
+        "name": "added",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+        "kind": "boolean",
+        "name": "copyIntoStorage",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Path to a local file to copy in and attach. Exactly one of localPath/url is required on create. On update it replaces the stored copy with a newer version (same entity, labels and relationships; the previous copy stays on disk).",
+        "kind": "text",
+        "name": "localPath",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Update only: true re-runs content extraction for this File, even if it already has search content. For every File missing an index at once, use the `reindex` bulk action instead: nookly cli file reindex [--space <space-id>].",
+        "kind": "boolean",
+        "name": "reindexContent",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Path to a local file to reference where it is, without copying it. It follows edits to the original but breaks if that is moved; set copyIntoStorage=true to copy it in.",
+        "kind": "text",
+        "name": "sourcePath",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "URL of a file to download and store, e.g. a PDF or a Google Drive, Dropbox or iCloud share link (the provider is detected). A URL that is a webpage is refused: make it a bookmark instead. Exactly one of localPath/url is required.",
+        "kind": "text",
+        "name": "url",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
+      }
+    ],
+    "relationshipTypes": [
+      "attached-file",
+      "relates-to"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [
+      {
+        "actions": [
+          {
+            "command": "nookly cli index_card_deck review-card <card-id> [--field name=value ...]",
+            "description": "Records one review and reschedules the card with FSRS.",
+            "fields": [
+              {
+                "description": "How well the answer was recalled. 1 to 4 work too.",
+                "kind": {
+                  "type": "enum",
+                  "values": [
+                    "again",
+                    "easy",
+                    "good",
+                    "hard"
+                  ]
+                },
+                "name": "rating",
+                "requiredOnCreate": true,
+                "writableOnUpdate": false
+              }
+            ],
+            "name": "review"
+          },
+          {
+            "command": "nookly cli index_card_deck undo-review-card <card-id> [--field name=value ...]",
+            "description": "Reverts the card's latest review.",
+            "fields": [],
+            "name": "undo-review"
+          }
+        ],
+        "commands": {
+          "add": "nookly cli index_card_deck add-card <id> --field name=value ...",
+          "delete": "nookly cli index_card_deck delete-card <card-id> --yes  (soft delete, undo with restore-card)",
+          "get": "nookly cli index_card_deck get-card <card-id>",
+          "list": "nookly cli index_card_deck cards <id> [--include-deleted]",
+          "restore": "nookly cli index_card_deck restore-card <card-id>",
+          "update": "nookly cli index_card_deck update-card <card-id> --field name=value ..."
+        },
+        "computedFields": [
+          {
+            "description": "FSRS difficulty, 1 to 10.",
+            "kind": "float",
+            "name": "difficulty",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          },
+          {
+            "description": "When the card is next due. New cards are due from creation.",
+            "kind": "datetime",
+            "name": "dueAt",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          },
+          {
+            "description": "Times forgotten after being learned.",
+            "kind": "integer",
+            "name": "lapses",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          },
+          {
+            "description": "{ again, hard, good, easy }: when the card would be due after each rating, as timestamps.",
+            "kind": "object",
+            "name": "next",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          },
+          {
+            "description": "Times reviewed.",
+            "kind": "integer",
+            "name": "reps",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          },
+          {
+            "description": "FSRS memory stability in days.",
+            "kind": "float",
+            "name": "stability",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          },
+          {
+            "description": "FSRS learning state.",
+            "kind": {
+              "type": "enum",
+              "values": [
+                "learning",
+                "new",
+                "relearning",
+                "review"
+              ]
+            },
+            "name": "state",
+            "requiredOnCreate": false,
+            "writableOnUpdate": false
+          }
+        ],
+        "description": "The deck's index cards, each a front and a back scheduled with FSRS.",
+        "fields": [
+          {
+            "description": "The answer side, same inline markdown as front.",
+            "kind": "long_text",
+            "name": "back",
+            "requiredOnCreate": true,
+            "writableOnUpdate": true
+          },
+          {
+            "description": "The prompt side. Inline markdown: **bold**, *italic*, `code`, $math$.",
+            "kind": "long_text",
+            "name": "front",
+            "requiredOnCreate": true,
+            "writableOnUpdate": true
+          }
+        ],
+        "name": "cards"
+      }
+    ],
+    "computedFields": [
+      {
+        "description": "Read only card counts: { total, new, learning, due, nextDueAt, reviewedToday }. `learning` and `due` count cards due now; `nextDueAt` is when the next not yet due card comes back.",
+        "kind": "object",
+        "name": "stats"
+      }
+    ],
+    "convertsTo": [],
+    "description": "A deck of index cards studied with FSRS spaced repetition, optionally filed under one Exam. Its cards are the `cards` child collection.",
+    "entityActions": [],
+    "entityType": "index_card_deck",
+    "fields": [
+      {
+        "description": "The Exam this deck prepares for, at most one. Optional; pass an empty value on update to unfile it.",
+        "kind": {
+          "entityType": "exam",
+          "type": "entity_ref"
+        },
+        "name": "examId",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "deck-exam"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli jot add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli jot add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli jot add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli jot delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli jot blocks <id>",
+      "reorder": "nookly cli jot reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli jot update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A quick, unrefined capture. Link it to the `note` it was refined into via `relates-to`.",
+    "entityActions": [
+      {
+        "command": "nookly cli jot refine <id> [--title <title>]",
+        "description": "Creates a new `note` in the jot's Space (titled like the jot unless --title is given) and links the jot to it with `relates-to`, in one step. The jot is not changed.",
+        "fields": [],
+        "name": "refine"
+      }
+    ],
+    "entityType": "jot",
+    "fields": [],
+    "relationshipTypes": [
+      "relates-to",
+      "session-jot"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli note add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli note add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli note add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli note delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli note blocks <id>",
+      "reorder": "nookly cli note reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli note update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A free-form page of block content.",
+    "entityActions": [],
+    "entityType": "note",
+    "fields": [],
+    "relationshipTypes": [
+      "attached-file",
+      "course-notes",
+      "relates-to",
+      "semester-notes",
+      "session-note"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [
+      {
+        "actions": [],
+        "commands": {
+          "add": "nookly cli recipe add-ingredient <id> --field name=value ...",
+          "delete": "nookly cli recipe delete-ingredient <ingredient-id> --yes  (soft delete, undo with restore-ingredient)",
+          "get": "nookly cli recipe get-ingredient <ingredient-id>",
+          "list": "nookly cli recipe ingredients <id> [--include-deleted]",
+          "restore": "nookly cli recipe restore-ingredient <ingredient-id>",
+          "update": "nookly cli recipe update-ingredient <ingredient-id> --field name=value ..."
+        },
+        "computedFields": [],
+        "description": "The recipe's ingredient list, one line per ingredient, in order.",
+        "fields": [
+          {
+            "description": "Order within the recipe, 0 based. Setting it moves the ingredient there and shifts the others; a value past the end puts it last.",
+            "kind": "integer",
+            "name": "position",
+            "requiredOnCreate": false,
+            "writableOnUpdate": true
+          },
+          {
+            "description": "The ingredient line, e.g. '2 cups flour'.",
+            "kind": "text",
+            "name": "text",
+            "requiredOnCreate": true,
+            "writableOnUpdate": true
+          }
+        ],
+        "name": "ingredients"
+      },
+      {
+        "actions": [],
+        "commands": {
+          "add": "nookly cli recipe add-step <id> --field name=value ...",
+          "delete": "nookly cli recipe delete-step <step-id> --yes  (soft delete, undo with restore-step)",
+          "get": "nookly cli recipe get-step <step-id>",
+          "list": "nookly cli recipe steps <id> [--include-deleted]",
+          "restore": "nookly cli recipe restore-step <step-id>",
+          "update": "nookly cli recipe update-step <step-id> --field name=value ..."
+        },
+        "computedFields": [],
+        "description": "The recipe's numbered step list, in order.",
+        "fields": [
+          {
+            "description": "How long this step takes, in minutes. Counts toward the recipe's totalDurationMinutes when the recipe has no manual durationMinutes of its own. Pass an empty value on update to clear it.",
+            "kind": "integer",
+            "name": "durationMinutes",
+            "requiredOnCreate": false,
+            "writableOnUpdate": true
+          },
+          {
+            "description": "Order within the recipe, 0 based. Setting it moves the step there and shifts the others; a value past the end puts it last.",
+            "kind": "integer",
+            "name": "position",
+            "requiredOnCreate": false,
+            "writableOnUpdate": true
+          },
+          {
+            "description": "The step's instructions.",
+            "kind": "long_text",
+            "name": "text",
+            "requiredOnCreate": true,
+            "writableOnUpdate": true
+          }
+        ],
+        "name": "steps"
+      }
+    ],
+    "computedFields": [
+      {
+        "description": "Read only. Full detail (id, name, icon, color) for each id set via tagIds, ordered by the recipe_tags catalog's own position.",
+        "kind": "object",
+        "name": "tags"
+      },
+      {
+        "description": "Read only. durationMinutes if set, else the sum of the steps' own durationMinutes (null if neither is set).",
+        "kind": "integer",
+        "name": "totalDurationMinutes"
+      }
+    ],
+    "convertsTo": [],
+    "description": "A recipe: banner image, meal kind, an ingredient list and a step list. Duration is a manual override, or (when unset) the sum of the steps' own durationMinutes.",
+    "entityActions": [],
+    "entityType": "recipe",
+    "fields": [
+      {
+        "description": "Path to a local image to copy in as the banner, replacing any existing one.",
+        "kind": "text",
+        "name": "bannerPath",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Manual override, in minutes. Unset falls back to summing the steps' own durationMinutes — see the read only totalDurationMinutes. Pass an empty value on update to clear it back to automatic.",
+        "kind": "integer",
+        "name": "durationMinutes",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Meal kind. Defaults to other.",
+        "kind": {
+          "type": "enum",
+          "values": [
+            "breakfast",
+            "dessert",
+            "dinner",
+            "lunch",
+            "other",
+            "snack"
+          ]
+        },
+        "name": "kind",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Comma-separated ids from the recipe_tags catalog (a fixed, curated set — see the read only tags field for the full list with name/icon/color; not the generic per-Space Labels). Replaces the recipe's whole tag set; pass an empty value to clear it.",
+        "kind": "text",
+        "name": "tagIds",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "attached-file",
+      "relates-to"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A Semester groups Courses within a Space.",
+    "entityActions": [],
+    "entityType": "semester",
+    "fields": [
+      {
+        "description": "Cosmetic only.",
+        "kind": "date",
+        "name": "endDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Cosmetic only — never used for sorting or 'current' detection (see termType/year).",
+        "kind": "date",
+        "name": "startDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Typically one of: winter, spring, summer, fall. Source of truth for ordering.",
+        "kind": "text",
+        "name": "termType",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Source of truth for ordering, alongside termType.",
+        "kind": "integer",
+        "name": "year",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "course-semester",
+      "relates-to",
+      "semester-notes"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A single, dated class/meeting occurrence — either one-off, or generated from a session_template.",
+    "entityActions": [],
+    "entityType": "session",
+    "fields": [
+      {
+        "description": "Mark this occurrence cancelled without deleting it.",
+        "kind": "boolean",
+        "name": "cancelled",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "The Course this session belongs to (structural: exactly one).",
+        "kind": {
+          "entityType": "course",
+          "type": "entity_ref"
+        },
+        "name": "courseId",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "ISO date this occurrence falls on.",
+        "kind": "date",
+        "name": "date",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "\"HH:MM\", 24-hour.",
+        "kind": "text",
+        "name": "endTime",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional free-text location.",
+        "kind": "text",
+        "name": "location",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Notes on this occurrence, as markdown. Edited in the Session page.",
+        "kind": "long_text",
+        "name": "notes",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "\"HH:MM\", 24-hour.",
+        "kind": "text",
+        "name": "startTime",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "session-course",
+      "session-jot",
+      "session-note"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A recurring weekly class/meeting slot. Use `session` to create one-off occurrences (generating occurrences from a template is GUI-only for now). Updating startTime, endTime or location edits the series from applyFromDate on.",
+    "entityActions": [],
+    "entityType": "session_template",
+    "fields": [
+      {
+        "description": "First date this weekly template is valid from.",
+        "kind": "date",
+        "name": "anchorDate",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "On update only: the first occurrence date a startTime, endTime or location change reaches (default today). Earlier occurrences are never rewritten, and occurrences overridden on their own keep their override.",
+        "kind": "date",
+        "name": "applyFromDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "The Course this weekly session belongs to (structural: exactly one).",
+        "kind": {
+          "entityType": "course",
+          "type": "entity_ref"
+        },
+        "name": "courseId",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "\"HH:MM\", 24-hour.",
+        "kind": "text",
+        "name": "endTime",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Optional free-text location.",
+        "kind": "text",
+        "name": "location",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "\"HH:MM\", 24-hour.",
+        "kind": "text",
+        "name": "startTime",
+        "requiredOnCreate": true,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "0 = Monday .. 6 = Sunday.",
+        "kind": "integer",
+        "name": "weekday",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      }
+    ],
+    "relationshipTypes": [
+      "session-course"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A scheduled block of study time for an Exam.",
+    "entityActions": [],
+    "entityType": "study_block",
+    "fields": [
+      {
+        "description": "ISO date. Set at creation only.",
+        "kind": "date",
+        "name": "date",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "\"HH:MM\", 24-hour. Set at creation only.",
+        "kind": "text",
+        "name": "endTime",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "The Exam this study block belongs to (structural: exactly one).",
+        "kind": {
+          "entityType": "exam",
+          "type": "entity_ref"
+        },
+        "name": "examId",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "\"HH:MM\", 24-hour. Set at creation only.",
+        "kind": "text",
+        "name": "startTime",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      }
+    ],
+    "relationshipTypes": [
+      "study-block-exam"
+    ],
+    "supportsBlocks": false
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli sub_task add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli sub_task add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli sub_task add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli sub_task delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli sub_task blocks <id>",
+      "reorder": "nookly cli sub_task reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli sub_task update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A one-level-deep child of a Task. Cannot itself have sub-tasks.",
+    "entityActions": [],
+    "entityType": "sub_task",
+    "fields": [
+      {
+        "description": "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+        "kind": "datetime",
+        "name": "completedAt",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "ISO date",
+        "kind": "date",
+        "name": "dueDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+        "kind": "integer",
+        "name": "effort",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Parent task id. Sub-tasks cannot themselves have sub-tasks (one level max).",
+        "kind": {
+          "entityType": "task",
+          "type": "entity_ref"
+        },
+        "name": "parentId",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "ISO date",
+        "kind": "date",
+        "name": "startDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+        "kind": "text",
+        "name": "statusId",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "blocks",
+      "relates-to",
+      "sub-task-of"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": {
+      "add": "nookly cli task add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
+      "blockAttrs": {
+        "byType": {
+          "audio": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "bookmark": [],
+          "callout": [
+            {
+              "description": "Tone and icon of the callout. Defaults to note.",
+              "kind": "enum",
+              "name": "variant",
+              "values": [
+                "danger",
+                "note",
+                "tip",
+                "warning"
+              ]
+            }
+          ],
+          "checklist": [],
+          "details": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "diagram": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "divider": [],
+          "embed": [],
+          "entity_card": [],
+          "equation": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "file": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "heading1 to heading6": [
+            {
+              "description": "Makes the heading a toggle heading: 'closed' hides the blocks below it up to the next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "image": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ],
+          "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "progress": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "stats": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "steps": [
+            {
+              "description": "Number of the step you're on, counting from 1. Steps before it show as done. Omit when nothing has started.",
+              "kind": "integer",
+              "min": 1,
+              "name": "current"
+            },
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "timeline": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "toggle": [
+            {
+              "description": "Whether the body shows. Defaults to closed.",
+              "kind": "enum",
+              "name": "toggle",
+              "values": [
+                "closed",
+                "open"
+              ]
+            }
+          ],
+          "tree": [
+            {
+              "description": "Optional heading shown above the block, and as the frame title in markdown.",
+              "kind": "text",
+              "name": "title"
+            }
+          ],
+          "video": [
+            {
+              "description": "Optional caption shown under the media, and its text in markdown.",
+              "kind": "text",
+              "name": "caption"
+            }
+          ]
+        },
+        "description": "Settings of a custom block, set with --attr <name>=<value> (repeatable) on add-block and update-block. An empty value clears the attr. Only the attrs listed for a block type are accepted.",
+        "example": "nookly cli task add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning"
+      },
+      "codeBlockHeader": {
+        "description": "A `code` block's header row in the editor UI shows a filename and a language (used for syntax highlighting). Set both when adding or updating a code block.",
+        "example": "nookly cli task add-block <id> --type code --content 'console.log(1)' --language javascript --filename app.js",
+        "filename": "Display filename shown in the header row, e.g. app.js. Purely cosmetic — omit (or pass \"\" on update) to clear it.",
+        "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
+      },
+      "contentFormats": {
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
+        "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+        "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
+        "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "code": "The raw code. Set --language/--filename for the header row.",
+        "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
+        "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
+        "divider": "Always empty (--content ''). A horizontal rule between sections.",
+        "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
+        "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
+        "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "heading1 to heading6": "The heading text, no leading '#'.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
+        "quote": "The quote text, no leading '>'.",
+        "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
+        "steps": "One step per line: <step>[\\t<detail>], cells separated by a literal tab (\"Register\\tBefore Oct 1\\nPay the fee\"). For a procedure: install, apply, move.",
+        "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
+        "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
+        "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
+        "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+      },
+      "delete": "nookly cli task delete-block <block-id> --yes",
+      "knownBlockTypes": [
+        "audio",
+        "bookmark",
+        "bulleted_list",
+        "callout",
+        "checklist",
+        "code",
+        "details",
+        "diagram",
+        "divider",
+        "embed",
+        "entity_card",
+        "equation",
+        "file",
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "heading6",
+        "image",
+        "math",
+        "numbered_list",
+        "paragraph",
+        "progress",
+        "quote",
+        "stats",
+        "steps",
+        "table",
+        "timeline",
+        "toggle",
+        "tree",
+        "video"
+      ],
+      "list": "nookly cli task blocks <id>",
+      "reorder": "nookly cli task reorder-blocks <id> <block-id> <block-id> ...",
+      "update": "nookly cli task update-block <block-id> [--content <text>] [--type <blockType>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]"
+    },
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A to-do item. Progress rolls up from sub-tasks when any exist.",
+    "entityActions": [],
+    "entityType": "task",
+    "fields": [
+      {
+        "description": "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+        "kind": "datetime",
+        "name": "completedAt",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "ISO date",
+        "kind": "date",
+        "name": "dueDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+        "kind": "integer",
+        "name": "effort",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Setting it turns this task into a sub-task of that task. Only a task without sub-tasks of its own can be converted, and it can't be undone through this field.",
+        "kind": {
+          "entityType": "task",
+          "type": "entity_ref"
+        },
+        "name": "parentId",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "ISO date",
+        "kind": "date",
+        "name": "startDate",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+        "kind": "text",
+        "name": "statusId",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "blocks",
+      "relates-to",
+      "sub-task-of"
+    ],
+    "supportsBlocks": true
+  },
+  {
+    "baseFields": [
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "createdAt"
+      },
+      {
+        "description": "Read-only; set by delete, cleared by restore",
+        "kind": "datetime",
+        "name": "deletedAt"
+      },
+      {
+        "description": "Optional emoji/icon, set via --icon",
+        "kind": "text",
+        "name": "icon"
+      },
+      {
+        "description": "Stable unique id (UUID), generated",
+        "kind": "text",
+        "name": "id"
+      },
+      {
+        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
+        "kind": "text",
+        "name": "key"
+      },
+      {
+        "description": "Read-only; set whenever the entity is opened in the app, null if never",
+        "kind": "datetime",
+        "name": "lastOpenedAt"
+      },
+      {
+        "description": "Set via --pinned true|false",
+        "kind": "boolean",
+        "name": "pinned"
+      },
+      {
+        "description": "Space this entity belongs to",
+        "kind": "entity_ref(space)",
+        "name": "spaceId"
+      },
+      {
+        "description": "User-editable title, set via --title",
+        "kind": "text",
+        "name": "title"
+      },
+      {
+        "description": "Read-only",
+        "kind": "datetime",
+        "name": "updatedAt"
+      }
+    ],
+    "blockCommands": null,
+    "blockPage": null,
+    "bulkActions": [],
+    "childCollections": [],
+    "computedFields": [],
+    "convertsTo": [],
+    "description": "A saved View of a module page (Tasks or Assignments): a name plus the filters and display options to reopen it with.",
+    "entityActions": [],
+    "entityType": "view",
+    "fields": [
+      {
+        "description": "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        "kind": "long_text",
+        "name": "config",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "The module page this View belongs to. Fixed once created.",
+        "kind": {
+          "type": "enum",
+          "values": [
+            "assignments",
+            "assignments-overview",
+            "tasks",
+            "tasks-overview"
+          ]
+        },
+        "name": "module",
+        "requiredOnCreate": true,
+        "writableOnUpdate": false
+      },
+      {
+        "description": "Sidebar order among the Space's Views of this module, lowest first. New Views go last.",
+        "kind": "integer",
+        "name": "position",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      }
+    ],
+    "relationshipTypes": [
+      "relates-to"
+    ],
+    "supportsBlocks": false
+  }
+]
