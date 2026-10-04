@@ -246,11 +246,15 @@ fn is_backup_name(name: &str) -> bool {
 /// and the counter are compared separately (no counter means the first).
 fn age_order(name: &str) -> (String, u32) {
     let stem = name.trim_end_matches(NAME_SUFFIX);
-    match stem.rsplit_once('-') {
-        Some((head, n)) if head.contains('-') && n.parse::<u32>().is_ok() => {
-            (head.to_string(), n.parse().unwrap_or(1))
+    let stamp = stem.strip_prefix(NAME_PREFIX).unwrap_or(stem);
+    // `<date>-<time>` or `<date>-<time>-<counter>`; the time is six digits too, so
+    // only a third part counts as a counter.
+    let mut parts = stamp.splitn(3, '-');
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(date), Some(time), Some(n)) if n.parse::<u32>().is_ok() => {
+            (format!("{date}-{time}"), n.parse().unwrap_or(1))
         }
-        _ => (stem.to_string(), 1),
+        _ => (stamp.to_string(), 1),
     }
 }
 
