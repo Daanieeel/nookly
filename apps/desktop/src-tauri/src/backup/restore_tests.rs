@@ -444,9 +444,9 @@ fn a_restore_failing_midway_leaves_the_live_install_as_it_was() {
 }
 
 /// The safety folder is named by the second. Two restores applied within the
-/// same second (or after the clock went back) share it.
+/// same second (or after the clock went back) must not share it.
 #[test]
-fn a_safety_folder_from_the_same_second_is_overwritten() {
+fn a_safety_folder_from_the_same_second_gets_a_unique_name() {
     let source = scratch("source");
     data_dir_at(&source, latest());
     let dest = scratch("dest");
@@ -470,10 +470,16 @@ fn a_safety_folder_from_the_same_second_is_overwritten() {
     }
 
     let safety = apply_pending_restore(&target).unwrap().unwrap();
-    assert!(stamps.iter().any(|s| safety.ends_with(s)));
-    // NOTE: possible bug: `apply_pending_restore` renames the live database
-    // into an existing `restore-safety/<second>/`, silently replacing the copy
-    // an earlier restore kept there. Unique folder names would avoid it.
+    // Intended: the safety folder gets a unique name, so an earlier restore's
+    // safety copy is never replaced.
+    for stamp in &stamps {
+        assert_ne!(safety, target.join(SAFETY_DIR).join(stamp));
+        assert_eq!(
+            fs::read(target.join(SAFETY_DIR).join(stamp).join(DB_FILE)).unwrap(),
+            b"EARLIER SAFETY COPY",
+            "earlier safety copy {stamp} must survive"
+        );
+    }
     assert_ne!(
         fs::read(safety.join(DB_FILE)).unwrap(),
         b"EARLIER SAFETY COPY"
@@ -527,19 +533,22 @@ fn backups_taken_in_the_same_second_are_listed_oldest_first() {
             cleanup([dest]);
             continue;
         }
-        // NOTE: possible bug: the newer backup (`-2`) sorts before the older
-        // one, so `list_backups` shows the older one as newest and `prune`
-        // would delete the newer one first (it only spares the one just made).
+        // Intended: oldest first, so `prune` drops the older backups first.
         let listed: Vec<String> = list_backups(&dest)
             .unwrap()
             .into_iter()
             .map(|b| b.name)
             .collect();
         assert_eq!(listed, vec![first.name.clone(), second.name.clone()]);
-        // With keep = 1 a third backup in the same second keeps more than one.
+        // With keep = 1 only the newest backup survives.
         let third = back_up(&source, &dest, 1);
         if third.name.ends_with("-3.zip") {
-            assert!(list_backups(&dest).unwrap().len() > 1);
+            let left: Vec<String> = list_backups(&dest)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.name)
+                .collect();
+            assert_eq!(left, vec![third.name.clone()]);
         }
         cleanup([dest]);
         break;
@@ -601,9 +610,8 @@ fn stored_files_round_trip_byte_for_byte() {
         "symlink not followed"
     );
     assert!(!after.values().any(|b| b == b"outside"));
-    // NOTE: possible bug: empty folders are not part of a backup (only files
-    // are zipped), so they don't come back. No data is lost, only the folder.
-    assert!(!target.join("files/empty-folder").exists());
+    // Empty folders are part of a backup and must come back.
+    assert!(target.join("files/empty-folder").is_dir());
     let mut expected = before.clone();
     expected.remove("files/link.txt");
     assert_eq!(after, expected);

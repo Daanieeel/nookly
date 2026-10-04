@@ -4,9 +4,7 @@
 //! `EntityRef` field gets its target created first through the same generic
 //! `create`, so no test hand-writes a fixture per module.
 //!
-//! Tests that pin behavior which looks wrong carry a `// NOTE: possible bug:`
-//! comment. They assert what the code does today, so a fix shows up as a
-//! failing test that should then be flipped to the intended behavior.
+//! Tests assert the intended behavior; some are red until src is fixed.
 
 use super::*;
 use crate::db::schema::{EntitySchemaDef, FieldDef, FieldKind};
@@ -15,6 +13,8 @@ use std::collections::{BTreeMap, BTreeSet};
 // --- harness -----------------------------------------------------------------
 
 /// Types the generic generator can't create, and why. Everything else must create.
+/// (`view` is listed only until `view create` works inside the CLI savepoint, see
+/// view_create_works_through_the_cli_and_with_dry_run; then drop it and `seed`.)
 const NOT_GENERIC: &[(&str, &str)] = &[
     (
         "file",
@@ -23,8 +23,7 @@ const NOT_GENERIC: &[(&str, &str)] = &[
     ),
     (
         "view",
-        "`view create` fails inside the CLI's own savepoint (nested transaction), see \
-         view_create_through_the_cli_fails_on_a_nested_transaction; seeded directly instead",
+        "`view create` currently fails inside the CLI's own savepoint (nested transaction); seeded directly instead",
     ),
 ];
 
@@ -270,20 +269,42 @@ fn only_the_listed_types_cannot_be_created_generically() {
 }
 
 #[test]
-fn only_calendar_types_need_more_than_their_required_fields() {
-    // NOTE: possible bug: startTime/endTime are "required unless allDay is true" but
-    // describe reports them as optional, so an agent following `requiredOnCreate`
-    // alone gets an InvalidInput on create.
+fn every_type_creates_from_its_required_on_create_fields_alone() {
+    // Intended: startTime/endTime are required unless allDay is true, and that is
+    // enforced where agents see it: following `requiredOnCreate` alone is enough
+    // to create any entity, calendar types included.
     let mut full = BTreeSet::new();
     each_type(|_, def, c| {
         if c.full {
             full.insert(def.entity_type);
         }
     });
-    assert_eq!(
-        full,
-        BTreeSet::from(["calendar_entry", "calendar_entry_template"])
+    assert!(
+        full.is_empty(),
+        "needed more than requiredOnCreate: {full:?}"
     );
+}
+
+#[test]
+fn all_day_calendar_entries_need_no_times() {
+    let fx = fx();
+    let res = cli(
+        &fx.conn,
+        &[
+            "calendar_entry",
+            "create",
+            "--space",
+            &fx.space,
+            "--title",
+            "Trip",
+            "--field",
+            "date=2026-10-05",
+            "--field",
+            "allDay=true",
+        ],
+    )
+    .unwrap();
+    assert_eq!(read(&res["data"], "allDay"), json!(true));
 }
 
 #[test]
@@ -497,10 +518,10 @@ fn body_field_points_block_types_at_the_block_commands() {
 }
 
 #[test]
-fn read_only_fields_are_accepted_on_create_and_ignored() {
-    // NOTE: possible bug: a field that is neither required_on_create nor
-    // writable_on_update (a Task's read only `completedAt`) passes create
-    // validation and is silently dropped, instead of being refused like on update.
+fn read_only_fields_are_refused_on_create() {
+    // Intended: a field that is neither required_on_create nor writable_on_update
+    // (a Task's read only `completedAt`) is refused on create, like on update, and
+    // nothing is written.
     let mut accepted = BTreeSet::new();
     for def in schema::all() {
         for f in def
@@ -508,25 +529,34 @@ fn read_only_fields_are_accepted_on_create_and_ignored() {
             .iter()
             .filter(|f| !f.writable_on_update && !f.required_on_create)
         {
+            if NOT_GENERIC.iter().any(|(t, _)| *t == def.entity_type) {
+                continue;
+            }
             let fx = fx();
             let Some(v) = sample(f, 0) else { continue };
             let Ok(mut args) = create_args(&fx.conn, &fx.space, def, false, 0) else {
                 continue;
             };
             args.extend(["--field".into(), format!("{}={}", f.name, arg_text(&v))]);
-            if let Ok(res) = cli_owned(&fx.conn, &args) {
-                assert!(read(&res["data"], f.name).is_null());
-                accepted.insert(format!("{}.{}", def.entity_type, f.name));
+            let before = fingerprint(&fx.conn);
+            match cli_owned(&fx.conn, &args) {
+                Ok(_) => {
+                    accepted.insert(format!("{}.{}", def.entity_type, f.name));
+                }
+                Err(e) => {
+                    assert_eq!(
+                        kind_of(&e),
+                        "InvalidInput",
+                        "{}.{}",
+                        def.entity_type,
+                        f.name
+                    );
+                    assert_eq!(before, fingerprint(&fx.conn));
+                }
             }
         }
     }
-    assert_eq!(
-        accepted,
-        BTreeSet::from([
-            "sub_task.completedAt".to_string(),
-            "task.completedAt".to_string()
-        ])
-    );
+    assert!(accepted.is_empty(), "accepted silently: {accepted:?}");
 }
 
 #[test]
@@ -813,23 +843,25 @@ fn update_with_nothing_to_change_reports_no_field_changes() {
 }
 
 #[test]
-fn pinned_takes_only_the_word_true() {
-    // NOTE: possible bug: `--pinned yes` (or 1) silently unpins instead of being
-    // refused, and a bare `--pinned` is silently ignored.
+fn pinned_takes_only_true_or_false() {
+    // Intended: `--pinned yes` and `--pinned 1` are refused (InvalidInput) and the
+    // pinned state is left alone, instead of silently unpinning.
     each_type(|fx, def, c| {
         let t = def.entity_type;
         cli(&fx.conn, &[t, "update", &c.id, "--pinned", "true"]).unwrap();
-        cli(&fx.conn, &[t, "update", &c.id, "--pinned", "yes"]).unwrap();
+        for bad in ["yes", "1"] {
+            let e = err_of(cli(&fx.conn, &[t, "update", &c.id, "--pinned", bad]));
+            assert_eq!(kind_of(&e), "InvalidInput", "{t} --pinned {bad}: {e}");
+            assert_eq!(
+                read(&get_data(&fx.conn, t, &c.id), "pinned"),
+                json!(true),
+                "{t} --pinned {bad}"
+            );
+        }
+        cli(&fx.conn, &[t, "update", &c.id, "--pinned", "false"]).unwrap();
         assert_eq!(
             read(&get_data(&fx.conn, t, &c.id), "pinned"),
             json!(false),
-            "{t}"
-        );
-        cli(&fx.conn, &[t, "update", &c.id, "--pinned", "true"]).unwrap();
-        cli(&fx.conn, &[t, "update", &c.id, "--pinned"]).unwrap();
-        assert_eq!(
-            read(&get_data(&fx.conn, t, &c.id), "pinned"),
-            json!(true),
             "{t}"
         );
     });
@@ -999,7 +1031,8 @@ fn update_space_moves_the_entity_or_names_its_owner() {
 }
 
 /// Sets each field of the matching kinds to a good value, then sends `bad`, and
-/// reports what happened: refused, left alone, cleared or stored as sent.
+/// reports what happened: refused (InvalidInput, stored value untouched), refused
+/// badly, left alone, cleared or stored as sent.
 fn bad_value_outcomes(kinds: fn(&FieldKind) -> bool, bad: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     each_type(|fx, def, c| {
@@ -1029,7 +1062,16 @@ fn bad_value_outcomes(kinds: fn(&FieldKind) -> bool, bad: &str) -> BTreeSet<Stri
                 &fx.conn,
                 &[t, "update", &c.id, "--field", &format!("{}={bad}", f.name)],
             ) {
-                Err(_) => "refused",
+                Err(e) => {
+                    let now = read(&get_data(&fx.conn, t, &c.id), f.name);
+                    if now != good {
+                        "refused-but-changed"
+                    } else if kind_of(&e) != "InvalidInput" {
+                        "refused-wrong-kind"
+                    } else {
+                        "refused"
+                    }
+                }
                 Ok(_) => {
                     let now = read(&get_data(&fx.conn, t, &c.id), f.name);
                     if now == good {
@@ -1051,133 +1093,100 @@ fn set(items: &[&str]) -> BTreeSet<String> {
     items.iter().map(|s| s.to_string()).collect()
 }
 
+/// Every outcome must be a clean refusal: InvalidInput with the stored value untouched.
+fn assert_all_refused(got: BTreeSet<String>) {
+    let bad: Vec<_> = got.iter().filter(|o| !o.ends_with(":refused")).collect();
+    assert!(bad.is_empty(), "not cleanly refused: {bad:?}");
+}
+
 #[test]
-fn numeric_fields_given_a_non_number() {
-    // NOTE: possible bug: a typo in a number silently CLEARS the stored value (data
-    // loss) instead of being refused.
-    let got = bad_value_outcomes(
+fn numeric_fields_given_a_non_number_are_refused() {
+    // Intended: a typo in a number is InvalidInput and never clears the stored value.
+    assert_all_refused(bad_value_outcomes(
         |k| matches!(k, FieldKind::Integer | FieldKind::Float),
         "abc",
-    );
-    assert_eq!(
-        got,
-        set(&[
-            "assignment.grade:unchanged",
-            "exam.grade:cleared",
-            "exam.weight:cleared",
-            "recipe.durationMinutes:cleared",
-            "semester.year:unchanged",
-            "sub_task.effort:cleared",
-            "task.effort:cleared",
-            "view.position:unchanged",
-        ])
-    );
+    ));
 }
 
 #[test]
-fn integer_fields_given_a_fraction() {
-    // NOTE: possible bug: 1.5 for an integer clears the stored value.
-    let got = bad_value_outcomes(|k| matches!(k, FieldKind::Integer), "1.5");
-    assert_eq!(
-        got,
-        set(&[
-            "recipe.durationMinutes:cleared",
-            "semester.year:unchanged",
-            "sub_task.effort:cleared",
-            "task.effort:cleared",
-            "view.position:unchanged",
-        ])
-    );
+fn integer_fields_given_a_fraction_are_refused() {
+    // Intended: 1.5 for an integer is InvalidInput, the stored value stays.
+    assert_all_refused(bad_value_outcomes(
+        |k| matches!(k, FieldKind::Integer),
+        "1.5",
+    ));
 }
 
 #[test]
-fn date_fields_given_garbage() {
-    // NOTE: possible bug: dates are not validated on update; garbage is stored and
-    // later breaks sorting and calendar placement.
-    let got = bad_value_outcomes(|k| matches!(k, FieldKind::Date), "not-a-date");
-    assert_eq!(
-        got,
-        set(&[
-            "assignment.dueDate:stored",
-            "calendar_entry.date:refused",
-            "calendar_entry.endDate:stored",
-            "calendar_entry_template.applyFromDate:unchanged",
-            "exam.examDate:stored",
-            "semester.endDate:stored",
-            "semester.startDate:stored",
-            "session.date:stored",
-            "session_template.applyFromDate:unchanged",
-            "sub_task.dueDate:stored",
-            "sub_task.startDate:stored",
-            "task.dueDate:stored",
-            "task.startDate:stored",
-        ])
-    );
+fn date_fields_given_garbage_are_refused() {
+    // Intended: dates are validated on update; garbage is InvalidInput.
+    assert_all_refused(bad_value_outcomes(
+        |k| matches!(k, FieldKind::Date),
+        "not-a-date",
+    ));
 }
 
 #[test]
-fn enum_fields_given_an_unknown_value() {
-    // NOTE: possible bug: an Exam's or Assignment's status takes any string on update,
-    // although describe lists the allowed values.
-    let got = bad_value_outcomes(|k| matches!(k, FieldKind::Enum(_)), "bogus");
-    assert_eq!(
-        got,
-        set(&[
-            "assignment.status:stored",
-            "bookmark.preferredImage:refused",
-            "exam.status:stored",
-            "recipe.kind:refused",
-        ])
-    );
+fn enum_fields_given_an_unknown_value_are_refused() {
+    // Intended: status (and every other enum) accepts only the values describe lists.
+    assert_all_refused(bad_value_outcomes(
+        |k| matches!(k, FieldKind::Enum(_)),
+        "bogus",
+    ));
 }
 
 #[test]
-fn boolean_fields_given_a_non_boolean() {
-    // NOTE: possible bug: `maybe` is neither refused nor applied, the old value stays.
-    let got = bad_value_outcomes(|k| matches!(k, FieldKind::Boolean), "maybe");
-    assert_eq!(
-        got,
-        set(&[
-            "calendar_entry.allDay:unchanged",
-            "calendar_entry.cancelled:unchanged",
-            "calendar_entry_template.allDay:unchanged",
-            "session.cancelled:unchanged",
-        ])
-    );
+fn boolean_fields_given_a_non_boolean_are_refused() {
+    // Intended: `maybe` is InvalidInput, neither applied nor silently ignored.
+    assert_all_refused(bad_value_outcomes(
+        |k| matches!(k, FieldKind::Boolean),
+        "maybe",
+    ));
 }
 
 #[test]
-fn text_fields_given_a_numeric_looking_value() {
-    // NOTE: possible bug: `--field room=123` parses as a JSON number, the adapters
-    // read text fields as strings only, and so the stored text is CLEARED (data loss)
-    // or the write is silently dropped. Quoting (`room="123"`) is the workaround.
+fn text_fields_given_a_numeric_looking_value_are_converted_to_strings() {
+    // Intended: `--field room=123` is accepted and stored as the text "123", never
+    // cleared or dropped. Fields with their own format (times, urls, enums) may
+    // refuse "123" cleanly, but must not clear or ignore it.
     let got = bad_value_outcomes(
         |k| matches!(k, FieldKind::Text | FieldKind::LongText),
         "123",
     );
+    let bad: Vec<_> = got
+        .iter()
+        .filter(|o| !(o.ends_with(":stored") || o.ends_with(":refused")))
+        .collect();
+    assert!(bad.is_empty(), "cleared or ignored: {bad:?}");
+    for free in [
+        "calendar_entry.description",
+        "calendar_entry.location",
+        "course.professor",
+        "exam.room",
+        "session.location",
+        "session.notes",
+    ] {
+        assert!(got.contains(&format!("{free}:stored")), "{free}: {got:?}");
+    }
+}
+
+#[test]
+fn a_numeric_text_value_is_stored_as_the_string() {
+    let fx = fx();
+    let course = cli(
+        &fx.conn,
+        &["course", "create", "--space", &fx.space, "--title", "C"],
+    )
+    .unwrap();
+    let id = extract_id(&course["data"]).unwrap();
+    cli(
+        &fx.conn,
+        &["course", "update", &id, "--field", "professor=123"],
+    )
+    .unwrap();
     assert_eq!(
-        got,
-        set(&[
-            "bookmark.url:unchanged",
-            "calendar_entry.description:cleared",
-            "calendar_entry.endTime:cleared",
-            "calendar_entry.location:cleared",
-            "calendar_entry.startTime:cleared",
-            "calendar_entry_template.description:cleared",
-            "calendar_entry_template.endTime:cleared",
-            "calendar_entry_template.location:cleared",
-            "calendar_entry_template.startTime:cleared",
-            "course.professor:cleared",
-            "exam.room:cleared",
-            "semester.termType:unchanged",
-            "session.endTime:unchanged",
-            "session.location:cleared",
-            "session.notes:cleared",
-            "session.startTime:unchanged",
-            "session_template.endTime:unchanged",
-            "session_template.location:cleared",
-            "session_template.startTime:unchanged",
-        ])
+        read(&get_data(&fx.conn, "course", &id), "professor"),
+        json!("123")
     );
 }
 
@@ -1292,10 +1301,8 @@ fn entity_ref_fields_refuse_an_entity_of_the_wrong_type() {
 
 #[test]
 fn writable_entity_ref_fields_move_the_entity_to_a_new_target() {
-    // NOTE: possible bug: `exam update --field courseId=...` and the same on an
-    // assignment always fail through the CLI: `set_exam_course`/`set_assignment_course`
-    // open a transaction inside the CLI's own savepoint ("cannot start a transaction
-    // within a transaction"), so these documented writable fields can't be changed.
+    // Intended: documented writable entity-ref fields (exam/assignment courseId, ...)
+    // can be changed through the CLI, even inside its savepoint.
     let mut outcome = BTreeSet::new();
     each_type(|fx, def, c| {
         let t = def.entity_type;
@@ -1334,12 +1341,56 @@ fn writable_entity_ref_fields_move_the_entity_to_a_new_target() {
     assert_eq!(
         outcome,
         set(&[
-            "assignment.courseId:nested-transaction",
-            "exam.courseId:nested-transaction",
+            "assignment.courseId:ok",
+            "exam.courseId:ok",
             "index_card_deck.examId:ok",
             "task.parentId:ok",
         ])
     );
+}
+
+#[test]
+fn updating_an_entity_ref_field_validates_the_target_type() {
+    // Intended: update refuses an entity of the wrong type for a writable ref field
+    // (a Note as a courseId) and leaves the stored value untouched.
+    let mut accepted = BTreeSet::new();
+    each_type(|fx, def, c| {
+        let t = def.entity_type;
+        for f in def.fields.iter().filter(|f| f.writable_on_update) {
+            if !matches!(f.kind, FieldKind::EntityRef(_)) {
+                continue;
+            }
+            let note = cli(
+                &fx.conn,
+                &["note", "create", "--space", &fx.space, "--title", "N"],
+            )
+            .unwrap();
+            let note_id = extract_id(&note["data"]).unwrap();
+            let before = get_data(&fx.conn, t, &c.id);
+            let rels = scalar(&fx.conn, "SELECT COUNT(*) FROM relationships");
+            let res = cli(
+                &fx.conn,
+                &[
+                    t,
+                    "update",
+                    &c.id,
+                    "--field",
+                    &format!("{}={note_id}", f.name),
+                ],
+            );
+            if res.is_ok() {
+                accepted.insert(format!("{t}.{}", f.name));
+            }
+            assert_eq!(before, get_data(&fx.conn, t, &c.id), "{t}.{}", f.name);
+            assert_eq!(
+                rels,
+                scalar(&fx.conn, "SELECT COUNT(*) FROM relationships"),
+                "{t}.{}",
+                f.name
+            );
+        }
+    });
+    assert!(accepted.is_empty(), "{accepted:?}");
 }
 
 #[test]
@@ -1417,24 +1468,28 @@ fn deleted_entities_leave_the_default_list() {
 }
 
 #[test]
-fn include_deleted_is_honored_by_few_types() {
-    // NOTE: possible bug: `list --include-deleted` is advertised for every type but
-    // only Notes and Jots honor it; every other adapter ignores the flag, so an
-    // agent can't find a trashed entity to restore it.
-    let mut honored = BTreeSet::new();
+fn include_deleted_is_honored_by_every_type() {
+    // Intended: `list --include-deleted` is advertised for every type, so it works
+    // for all of them and a trashed entity can be found to restore it.
+    let mut missing = BTreeSet::new();
     each_type(|fx, def, c| {
         let t = def.entity_type;
         cli(&fx.conn, &[t, "delete", &c.id, "--yes"]).unwrap();
-        if let Ok(res) = cli(
+        let res = cli(
             &fx.conn,
             &[t, "list", "--space", &fx.space, "--include-deleted"],
-        ) {
-            if listed_ids(&res).contains(&c.id) {
-                honored.insert(t);
+        );
+        match res {
+            Ok(res) if listed_ids(&res).contains(&c.id) => {}
+            _ => {
+                missing.insert(t);
             }
         }
     });
-    assert_eq!(honored, BTreeSet::from(["jot", "note"]));
+    assert!(
+        missing.is_empty(),
+        "no trashed entity listed for {missing:?}"
+    );
 }
 
 #[test]
@@ -1525,11 +1580,9 @@ fn malformed_keys_pass_through_as_ids() {
 }
 
 #[test]
-fn get_through_another_types_verb() {
-    // NOTE: possible bug: `note get`, `jot get` and `index_card_deck get` return any
-    // entity whatever its type (their adapters only read the base entity), so an agent
-    // that guessed the wrong type gets a payload that looks valid. Task and sub_task
-    // share one adapter and read each other on purpose.
+fn get_refuses_an_entity_of_another_type() {
+    // Intended: `<type> get <id>` never returns an entity of a different type.
+    // Task and sub_task share one adapter and read each other on purpose.
     let mut lenient = BTreeSet::new();
     each_type(|fx, def, c| {
         for other in schema::all() {
@@ -1541,24 +1594,17 @@ fn get_through_another_types_verb() {
                 continue;
             }
             if cli(&fx.conn, &[other.entity_type, "get", &c.id]).is_ok() {
-                lenient.insert(other.entity_type);
-            } else {
-                assert!(
-                    !["note", "jot", "index_card_deck"].contains(&other.entity_type),
-                    "{} get {} refused",
-                    other.entity_type,
-                    def.entity_type
-                );
+                lenient.insert(format!("{} get {}", other.entity_type, def.entity_type));
             }
         }
     });
-    assert_eq!(lenient, BTreeSet::from(["index_card_deck", "jot", "note"]));
+    assert!(lenient.is_empty(), "{lenient:?}");
 }
 
 #[test]
-fn delete_through_another_types_verb() {
-    // NOTE: possible bug: `note delete <course-id> --yes` trashes the Course: delete
-    // never checks the entity is of the type the command names.
+fn delete_refuses_an_entity_of_another_type() {
+    // Intended: `note delete <course-id> --yes` is refused and the Course stays live;
+    // delete checks the entity is of the type the verb names.
     let fx = fx();
     let course = cli(
         &fx.conn,
@@ -1582,9 +1628,9 @@ fn delete_through_another_types_verb() {
             );
         }
     }
-    assert_eq!(
-        deleted_by,
-        BTreeSet::from(["index_card_deck", "jot", "note"])
+    assert!(
+        deleted_by.is_empty(),
+        "wrong type verbs deleted a Course: {deleted_by:?}"
     );
 }
 
@@ -1628,12 +1674,32 @@ fn duplicate_copies_every_type_into_the_same_space() {
             }
         }
     });
-    // NOTE: possible bug: a View can't be duplicated through the CLI, its create runs
-    // the same nested transaction as `view create`.
-    assert_eq!(failed, BTreeSet::from(["view"]));
-    // NOTE: possible bug: a duplicated Bookmark is titled with its URL, not
-    // "<title> (copy)" like every other type.
-    assert_eq!(retitled, set(&["bookmark:\"https://example.com/a\""]));
+    // Views and Bookmarks have their own tests below.
+    failed.remove("view");
+    assert!(failed.is_empty(), "{failed:?}");
+    retitled.retain(|r| !r.starts_with("bookmark:"));
+    assert!(retitled.is_empty(), "{retitled:?}");
+}
+
+#[test]
+fn a_view_can_be_duplicated_through_the_cli() {
+    // Intended: every advertised verb works for every type, including `view duplicate`.
+    let fx = fx();
+    let c = seed(&fx.conn, &fx.space, "view").unwrap();
+    let res = cli(&fx.conn, &["view", "duplicate", &c.key]).unwrap();
+    assert_ne!(read(&res["data"], "id"), json!(c.id));
+    assert_eq!(read(&res["data"], "type"), json!("view"));
+    assert_eq!(read(&res["data"], "title"), json!("Gen view (copy)"));
+}
+
+#[test]
+fn a_duplicated_bookmark_is_titled_like_other_duplicates() {
+    // Intended: the copy is "<title> (copy)" like every other type, not its URL.
+    let fx = fx();
+    let def = schema::lookup("bookmark").unwrap();
+    let c = create_generic(&fx.conn, &fx.space, def, 0).unwrap();
+    let res = cli(&fx.conn, &["bookmark", "duplicate", &c.key]).unwrap();
+    assert_eq!(read(&res["data"], "title"), json!("Gen bookmark (copy)"));
 }
 
 #[test]
@@ -1780,29 +1846,35 @@ fn cli_commands_nest_inside_an_outer_savepoint() {
 }
 
 #[test]
-fn view_create_through_the_cli_fails_on_a_nested_transaction() {
-    // NOTE: possible bug: `create_view` opens its own transaction, which SQLite refuses
-    // inside the savepoint `dispatch_atomic` wraps every command in. Saved Views can't
-    // be created from the CLI at all.
+fn view_create_works_through_the_cli_and_with_dry_run() {
+    // Intended: `view create` works inside the CLI's own savepoint, and under
+    // --dry-run (which wraps it in another one) it writes nothing.
     let fx = fx();
-    let e = err_of(cli(
-        &fx.conn,
-        &[
-            "view",
-            "create",
-            "--space",
-            &fx.space,
-            "--title",
-            "Mine",
-            "--field",
-            "module=tasks",
-        ],
-    ));
-    assert!(
-        e.to_string().contains("transaction within a transaction"),
-        "{e}"
+    let args = [
+        "view",
+        "create",
+        "--space",
+        fx.space.as_str(),
+        "--title",
+        "Mine",
+        "--field",
+        "module=tasks",
+    ];
+    let before = fingerprint(&fx.conn);
+    let mut dry: Vec<&str> = args.to_vec();
+    dry.push("--dry-run");
+    let res = cli(&fx.conn, &dry).unwrap();
+    assert_eq!(res["dryRun"], true);
+    assert_eq!(before, fingerprint(&fx.conn));
+    let res = cli(&fx.conn, &args).unwrap();
+    assert_eq!(read(&res["data"], "title"), json!("Mine"));
+    assert_eq!(
+        scalar(
+            &fx.conn,
+            "SELECT COUNT(*) FROM entities WHERE type = 'view'"
+        ),
+        1
     );
-    assert_eq!(scalar(&fx.conn, "SELECT COUNT(*) FROM entities"), 0);
     assert!(fx.conn.is_autocommit());
 }
 
@@ -1926,24 +1998,44 @@ fn relate_several_targets_is_all_or_nothing() {
 }
 
 #[test]
-fn duplicate_unrestricted_relations_are_stored_twice() {
-    // NOTE: possible bug: relating the same pair twice with `relates-to` creates a
-    // second, identical edge instead of refusing or returning the existing one.
+fn relating_the_same_pair_twice_returns_the_existing_relationship() {
+    // Intended: a repeat `relate` of the same pair and type is not refused and
+    // creates no duplicate edge; it returns the existing relationship.
     let fx = fx();
     let (a, _) = new_note(&fx, "A");
     let (b, _) = new_note(&fx, "B");
-    cli(&fx.conn, &["relate", &a, "relates-to", &b, "--yes"]).unwrap();
-    cli(&fx.conn, &["relate", &a, "relates-to", &b, "--yes"]).unwrap();
-    assert_eq!(scalar(&fx.conn, "SELECT COUNT(*) FROM relationships"), 2);
+    let first = cli(&fx.conn, &["relate", &a, "relates-to", &b, "--yes"]).unwrap();
+    let second = cli(&fx.conn, &["relate", &a, "relates-to", &b, "--yes"]).unwrap();
+    assert_eq!(second["id"], first["id"]);
+    assert_eq!(scalar(&fx.conn, "SELECT COUNT(*) FROM relationships"), 1);
 }
 
 #[test]
-fn self_relations_are_accepted() {
-    // NOTE: possible bug: an entity can be related to (and block) itself.
-    let fx = fx();
-    let (a, _) = new_note(&fx, "A");
-    cli(&fx.conn, &["relate", &a, "blocks", &a, "--yes"]).unwrap();
-    assert_eq!(scalar(&fx.conn, "SELECT COUNT(*) FROM relationships"), 1);
+fn self_relations_are_refused_for_every_type() {
+    // Intended: an entity can never be related to, or block, itself.
+    let first = fx();
+    let (a, _) = new_note(&first, "A");
+    for rt in ["blocks", "relates-to"] {
+        let e = err_of(cli(&first.conn, &["relate", &a, rt, &a, "--yes"]));
+        assert_eq!(kind_of(&e), "InvalidInput", "{rt}: {e}");
+    }
+    assert_eq!(scalar(&first.conn, "SELECT COUNT(*) FROM relationships"), 0);
+    // Same on every other entity type.
+    for def in schema::all() {
+        let fx = fx();
+        let Some(c) = make(&fx.conn, &fx.space, def) else {
+            continue;
+        };
+        let before = scalar(&fx.conn, "SELECT COUNT(*) FROM relationships");
+        let e = err_of(cli(&fx.conn, &["relate", &c.id, "blocks", &c.id, "--yes"]));
+        assert_eq!(kind_of(&e), "InvalidInput", "{}: {e}", def.entity_type);
+        assert_eq!(
+            before,
+            scalar(&fx.conn, "SELECT COUNT(*) FROM relationships"),
+            "{}",
+            def.entity_type
+        );
+    }
 }
 
 #[test]
@@ -2335,9 +2427,9 @@ fn typed_relationship_ends_are_registered_or_embedded_types() {
 }
 
 #[test]
-fn typed_relationship_types_missing_from_describe() {
-    // NOTE: possible bug: these typed relationship types are not listed in their own
-    // ends' `relationshipTypes`, so `describe` hides them from agents.
+fn typed_relationship_types_are_listed_in_their_own_describe_output() {
+    // Intended: every typed relationship type is listed by both of its ends, so
+    // `describe` never hides a feature from agents.
     let mut missing = BTreeSet::new();
     for rt in inventory::iter::<crate::db::relationships::RelationshipTypeDef>() {
         for end in [rt.from_type, rt.to_type].into_iter().flatten() {
@@ -2348,26 +2440,38 @@ fn typed_relationship_types_missing_from_describe() {
             }
         }
     }
-    assert_eq!(
-        missing,
-        set(&[
-            "course:assignment-course",
-            "course:exam-course",
-            "course:session-course",
-            "jot:session-jot",
-            "note:course-notes",
-            "note:semester-notes",
-            "note:session-note",
-            "session:session-jot",
-            "session:session-note",
-        ])
-    );
+    assert!(missing.is_empty(), "hidden from describe: {missing:?}");
 }
 
 #[test]
-fn course_notes_relationship_points_at_a_course_notes_page_not_a_note() {
-    // NOTE: possible bug: `course-notes` declares to_type "note" but the page it links
-    // is a `course_notes` entity, so the declared type is wrong.
+fn course_note_is_the_one_to_one_embedded_page_relationship() {
+    // Intended: `course-note` is the 1:1 link from a course to its embedded
+    // `course_notes` page.
+    let rt = crate::db::relationships::lookup_relationship_type("course-note")
+        .expect("course-note relationship type is registered");
+    assert_eq!(rt.from_type, Some("course"));
+    assert_eq!(rt.to_type, Some("course_notes"));
+    assert!(matches!(
+        rt.cardinality,
+        crate::db::relationships::Cardinality::OneToPerFrom
+    ));
+}
+
+#[test]
+fn course_notes_links_regular_notes_to_a_course_many() {
+    // Intended: `course-notes` links any number of regular notes to a course.
+    let rt = crate::db::relationships::lookup_relationship_type("course-notes")
+        .expect("course-notes relationship type is registered");
+    assert_eq!(rt.from_type, Some("course"));
+    assert_eq!(rt.to_type, Some("note"));
+    assert!(matches!(
+        rt.cardinality,
+        crate::db::relationships::Cardinality::Unrestricted
+    ));
+}
+
+#[test]
+fn course_notes_page_is_created_through_the_course_note_relationship() {
     let fx = fx();
     let course = cli(
         &fx.conn,
@@ -2396,12 +2500,14 @@ fn course_notes_relationship_points_at_a_course_notes_page_not_a_note() {
     .unwrap();
     let edge = rels
         .iter()
-        .find(|r| r.relationship_type == "course-notes")
-        .unwrap();
+        .find(|r| r.relationship_type == "course-note")
+        .expect("the notes page hangs off a course-note relationship");
     let page = crate::db::entities::get_entity(&fx.conn, &edge.to_entity_id).unwrap();
     assert_eq!(page.entity_type, "course_notes");
-    let declared = crate::db::relationships::lookup_relationship_type("course-notes").unwrap();
-    assert_eq!(declared.to_type, Some("note"));
+    assert!(
+        !rels.iter().any(|r| r.relationship_type == "course-notes"),
+        "course-notes is reserved for regular notes"
+    );
 }
 
 #[test]
@@ -2589,10 +2695,18 @@ fn parse_keeps_dash_leading_values() {
 }
 
 #[test]
-fn parse_last_duplicate_flag_wins() {
-    // NOTE: possible bug: a repeated flag silently keeps only the last value.
-    let a = parse(&["--title", "First", "--title", "Second"]);
-    assert_eq!(a.flags["title"], "Second");
+fn a_repeated_flag_is_refused() {
+    // Intended: a flag given twice is InvalidInput, not silently last-wins.
+    let fx = fx();
+    let before = fingerprint(&fx.conn);
+    let e = err_of(cli(
+        &fx.conn,
+        &[
+            "task", "create", "--space", &fx.space, "--title", "First", "--title", "Second",
+        ],
+    ));
+    assert_eq!(kind_of(&e), "InvalidInput", "{e}");
+    assert_eq!(fingerprint(&fx.conn), before);
 }
 
 #[test]
@@ -2629,13 +2743,25 @@ fn parse_field_values_as_json_when_they_parse() {
 }
 
 #[test]
-fn parse_drops_a_field_without_equals() {
-    // NOTE: possible bug: `--field professor` (no `=`) is silently discarded instead of
-    // being reported, so the command succeeds without the intended change.
-    let a = parse(&["--field", "professor", "--field"]);
-    assert!(a.fields.is_empty());
-    assert!(a.positional.is_empty());
-    assert!(a.flags.is_empty() && a.bool_flags.is_empty());
+fn a_field_without_equals_is_refused() {
+    // Intended: `--field professor` (no `=`) and a trailing bare `--field` are
+    // InvalidInput, never silently dropped while the command succeeds.
+    let fx = fx();
+    let before = fingerprint(&fx.conn);
+    for tail in [vec!["--field", "description"], vec!["--field"]] {
+        let mut args = vec![
+            "task",
+            "create",
+            "--space",
+            fx.space.as_str(),
+            "--title",
+            "T",
+        ];
+        args.extend(tail.iter().copied());
+        let e = err_of(cli(&fx.conn, &args));
+        assert_eq!(kind_of(&e), "InvalidInput", "{tail:?}: {e}");
+    }
+    assert_eq!(fingerprint(&fx.conn), before);
 }
 
 #[test]

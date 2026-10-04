@@ -239,15 +239,35 @@ fn the_same_name_in_two_spaces_is_two_labels() {
 }
 
 #[test]
-fn duplicate_names_within_one_space() {
+fn duplicate_names_within_one_space_are_refused() {
     let conn = test_conn();
     let space = test_space(&conn, "S");
     label(&conn, &space.id, "Dup");
-    // NOTE: possible bug: nothing stops two labels with the same name in one
-    // Space, which the picker cannot tell apart. The docs do not specify it.
-    let second = create_label(&conn, space.id.clone(), "Dup".into(), "#000".into());
-    assert!(second.is_ok());
+    // Names are unique per Space, compared ignoring case (chosen reading).
+    for name in ["Dup", "dup", "DUP"] {
+        let second = create_label(&conn, space.id.clone(), name.into(), "#000".into());
+        assert!(second.is_err(), "duplicate {name:?} was created");
+    }
+    assert_eq!(list_labels(&conn, &space.id).unwrap().len(), 1);
+    // The same name in another Space stays allowed.
+    let other = test_space(&conn, "T");
+    assert!(create_label(&conn, other.id.clone(), "Dup".into(), "#000".into()).is_ok());
+}
+
+#[test]
+fn renaming_a_label_to_an_existing_name_is_refused() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    label(&conn, &space.id, "Taken");
+    let other = label(&conn, &space.id, "Other");
+    assert!(update_label(&conn, &other.id, Some("taken".into()), None).is_err());
     assert_eq!(list_labels(&conn, &space.id).unwrap().len(), 2);
+    assert!(list_labels(&conn, &space.id)
+        .unwrap()
+        .iter()
+        .any(|l| l.id == other.id && l.name == "Other"));
+    // Keeping its own name (or only recoloring) is still fine.
+    assert!(update_label(&conn, &other.id, Some("Other".into()), Some("#111".into())).is_ok());
 }
 
 #[test]

@@ -170,11 +170,8 @@ describe("CalendarEntryPopover editing", () => {
     expect(screen.queryByRole("button", { name: "End date" })).not.toBeInTheDocument();
   });
 
-  it("sends the times of an all day series even when only the title changed", async () => {
-    // NOTE: possible bug: an all day entry has no times, so the form starts on the
-    // 09:00 and 10:00 placeholders, which differ from `null` and land in the patch as
-    // `null`. A title only series edit then also writes the times, which the anchor
-    // takes even where it set its own times before.
+  it("leaves the times out of an all day series patch when only the title changed", async () => {
+    // Intended: an all day entry has no times, so untouched times must not be written.
     const { user } = setup(
       makeCalendarEntry({ templateId: "tpl-1", allDay: true, startTime: null, endTime: null }),
     );
@@ -183,9 +180,10 @@ describe("CalendarEntryPopover editing", () => {
     await rename(user, "Holiday");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(callsOf("update_calendar_entry_series")).toHaveLength(1));
-    expect(callsOf("update_calendar_entry_series")[0]).toMatchObject({
-      patch: { title: "Holiday", startTime: null, endTime: null },
-    });
+    const call = callsOf("update_calendar_entry_series")[0];
+    expect(call).toMatchObject({ patch: { title: "Holiday" } });
+    expect(call).not.toHaveProperty("patch.startTime");
+    expect(call).not.toHaveProperty("patch.endTime");
   });
 
   it("has no scope for a one off entry", async () => {

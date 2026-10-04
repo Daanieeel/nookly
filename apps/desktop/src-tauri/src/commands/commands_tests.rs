@@ -726,16 +726,15 @@ fn entities_create_takes_the_type_key() {
 }
 
 #[test]
-fn entities_create_in_unknown_space_is_a_db_error() {
+fn entities_create_in_unknown_space_is_not_found() {
     let h = Harness::new();
-    // NOTE: possible bug: an unknown Space surfaces as the raw SQLite
-    // constraint message (kind "Db"), not a NotFound naming the Space.
+    // An unknown Space is a NotFound naming the Space, not a raw SQLite error.
     let message = h.app_err(
         "create_entity",
         json!({ "spaceId": MISSING, "type": "note", "title": "x", "icon": null }),
-        "Db",
+        "NotFound",
     );
-    assert_eq!(message, "FOREIGN KEY constraint failed");
+    assert!(message.starts_with("space"), "{message}");
     assert!(h
         .db(|c| db::entities::list_entities(c, None, true).unwrap())
         .is_empty());
@@ -1679,13 +1678,14 @@ fn notes_export_to_an_unwritable_path_is_an_io_error() {
 }
 
 #[test]
-fn notes_render_unknown_page_is_empty() {
+fn notes_render_unknown_page_is_not_found() {
     let h = Harness::new();
-    // NOTE: possible bug: an unknown page renders as "" instead of NotFound,
-    // so `export_page_markdown` writes an empty file for it.
-    assert_eq!(
-        h.ok("render_page_markdown", json!({ "entityId": MISSING })),
-        json!("")
+    // An unknown page is NotFound, so `export_page_markdown` never writes an
+    // empty file for it.
+    h.app_err(
+        "render_page_markdown",
+        json!({ "entityId": MISSING }),
+        "NotFound",
     );
 }
 
@@ -1974,16 +1974,12 @@ fn exams_update_exam_null_grade_keeps_the_grade() {
 }
 
 #[test]
-fn exams_update_unknown_exam_is_silently_ok() {
+fn exams_update_unknown_exam_is_not_found() {
     let h = Harness::new();
-    // NOTE: possible bug: no NotFound for an unknown exam, the UPDATE just
-    // matches no row and the command reports success.
-    assert_eq!(
-        h.ok(
-            "update_exam",
-            json!({ "entityId": MISSING, "grade": 1.0, "status": "x" })
-        ),
-        Value::Null
+    h.app_err(
+        "update_exam",
+        json!({ "entityId": MISSING, "grade": 1.0, "status": "x" }),
+        "NotFound",
     );
 }
 
@@ -2100,12 +2096,12 @@ fn assignments_status_is_required() {
 }
 
 #[test]
-fn assignments_update_unknown_is_silently_ok() {
+fn assignments_update_unknown_is_not_found() {
     let h = Harness::new();
-    // NOTE: possible bug: no NotFound for an unknown assignment.
-    h.ok(
+    h.app_err(
         "update_assignment_status",
         json!({ "entityId": MISSING, "status": "done", "grade": null }),
+        "NotFound",
     );
 }
 
@@ -2440,12 +2436,11 @@ fn sessions_generate_unknown_template_and_bad_until_date() {
         "NotFound",
     );
     let (_, _, template, _) = lecture_series(&h);
-    // NOTE: possible bug: a malformed untilDate is reported as a "Db" error,
-    // not InvalidInput like the other date checks.
+    // A malformed untilDate is InvalidInput, like the other date checks.
     h.app_err(
         "generate_occurrences",
         json!({ "templateId": template, "untilDate": "soon" }),
-        "Db",
+        "InvalidInput",
     );
 }
 
@@ -3383,17 +3378,24 @@ fn files_set_added_at() {
 }
 
 #[test]
-fn files_set_added_at_does_not_validate_the_date() {
+fn files_set_added_at_rejects_invalid_dates() {
     let h = Harness::new();
     let space = h.space("S");
     let file = h.stored_file(&space, "a.txt", b"a");
-    // NOTE: possible bug: any string is accepted and stored as created_at,
-    // e.g. "tomorrow" becomes "tomorrowT00:00:00+00:00".
-    let updated = h.ok(
-        "set_file_added_at",
-        json!({ "entityId": file.entity.id, "addedAt": "tomorrow" }),
+    let before = h.ok("get_entity", json!({ "id": file.entity.id }));
+    // Anything that is not a valid date or RFC 3339 timestamp is InvalidInput
+    // and leaves created_at untouched.
+    for bad in ["tomorrow", "2020-13-45", "2020-02-30", ""] {
+        h.app_err(
+            "set_file_added_at",
+            json!({ "entityId": file.entity.id, "addedAt": bad }),
+            "InvalidInput",
+        );
+    }
+    assert_eq!(
+        h.ok("get_entity", json!({ "id": file.entity.id }))["createdAt"],
+        before["createdAt"]
     );
-    assert_eq!(updated["entity"]["createdAt"], "tomorrowT00:00:00+00:00");
 }
 
 #[test]
@@ -3508,20 +3510,29 @@ fn bookmarks_preferred_image_set_and_clear() {
 }
 
 #[test]
-fn bookmarks_preferred_image_is_not_validated_over_ipc() {
+fn bookmarks_preferred_image_is_validated_over_ipc() {
     let h = Harness::new();
     let space = h.space("S");
     let id = id_of(&h.ok(
         "create_bookmark",
         json!({ "spaceId": space, "url": "https://example.com" }),
     ));
-    // NOTE: possible bug: the CLI only accepts "screenshot" or "preview", the
-    // IPC command stores any string.
-    let set = h.ok(
+    // The command and the CLI agree: only "screenshot", "preview" or null
+    // (clear) are accepted; anything else is InvalidInput and changes nothing.
+    h.app_err(
         "set_bookmark_preferred_image",
         json!({ "entityId": id, "preferredImage": "banana" }),
+        "InvalidInput",
     );
-    assert_eq!(set["preferredImage"], "banana");
+    let unchanged = h.db(|c| db::bookmarks::get_bookmark(c, &id).unwrap());
+    assert_eq!(unchanged.preferred_image, None);
+    for ok in ["screenshot", "preview"] {
+        let set = h.ok(
+            "set_bookmark_preferred_image",
+            json!({ "entityId": id, "preferredImage": ok }),
+        );
+        assert_eq!(set["preferredImage"], ok);
+    }
 }
 
 #[test]

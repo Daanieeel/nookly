@@ -1466,11 +1466,11 @@ fn the_oldest_released_version_with_lots_of_data_upgrades_to_latest() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// Migration 15 replaced Leitner boxes with FSRS: the old `box_level` is
-/// dropped and the card restarts as `new`. Pinned so the loss is a known,
-/// deliberate one rather than an accident.
+/// Migration 15 replaced Leitner boxes with FSRS. A card's review progress
+/// (its Leitner box) must survive the upgrade: a card the user had advanced
+/// to box 3 must not restart as a brand new, never reviewed card.
 #[test]
-fn fsrs_migration_drops_leitner_progress() {
+fn fsrs_migration_preserves_leitner_progress() {
     let mut conn = Connection::open_in_memory().unwrap();
     migrate_to(&mut conn, 14);
     let fixture = populate(&conn);
@@ -1479,13 +1479,17 @@ fn fsrs_migration_drops_leitner_progress() {
         .iter()
         .any(|r| r.table == "index_cards" && r.get("box_level") == Some(&i(3))));
     migrate_to_latest(&mut conn);
-    // NOTE: possible bug: a card's Leitner box (review progress) is discarded,
-    // not mapped into FSRS state; every pre FSRS card starts over as 'new'.
-    assert!(!columns(&conn, "index_cards")
-        .iter()
-        .any(|c| c == "box_level"));
-    assert_eq!(
+    // Progress is mapped into FSRS state instead of being discarded.
+    assert_ne!(
         scalar(&conn, "SELECT state FROM index_cards WHERE id = 'card-1'"),
         t("new")
     );
+    let reps: i64 = conn
+        .query_row(
+            "SELECT reps FROM index_cards WHERE id = 'card-1'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(reps > 0, "review progress was reset");
 }

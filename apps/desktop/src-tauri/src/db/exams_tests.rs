@@ -246,14 +246,16 @@ fn every_documented_status_round_trips() {
 }
 
 #[test]
-fn an_undocumented_status_is_stored_as_is() {
+fn an_undocumented_status_is_refused() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let x = exam(&conn, &space.id, &c.id, "Final", None);
-    // NOTE: possible bug: status is documented as upcoming|studying|done but the
-    // data layer (and the CLI, whose Enum kind is descriptive only) stores anything.
-    update_exam(&conn, &x.entity.id, None, Some("bogus".into())).unwrap();
-    assert_eq!(get_exam(&conn, &x.entity.id).unwrap().status, "bogus");
+    // Status must be one of upcoming|studying|done.
+    assert!(matches!(
+        update_exam(&conn, &x.entity.id, None, Some("bogus".into())),
+        Err(AppError::InvalidInput(_))
+    ));
+    assert_ne!(get_exam(&conn, &x.entity.id).unwrap().status, "bogus");
 }
 
 #[test]
@@ -275,15 +277,19 @@ fn date_weight_and_room_clear_with_none() {
 }
 
 #[test]
-fn updates_on_an_unknown_exam_report_nothing() {
+fn updates_on_an_unknown_exam_report_not_found() {
     let conn = test_conn();
-    // NOTE: possible bug: every exam setter silently succeeds for a missing id
-    // instead of reporting NotFound.
-    assert!(update_exam(&conn, "ghost", Some(1.0), Some("done".into())).is_ok());
-    assert!(update_exam_date(&conn, "ghost", Some("2026-01-01".into())).is_ok());
-    assert!(update_exam_weight(&conn, "ghost", Some(0.5)).is_ok());
-    assert!(update_exam_grade(&conn, "ghost", Some(1.0)).is_ok());
-    assert!(update_exam_room(&conn, "ghost", Some("R".into())).is_ok());
+    // Every exam setter must report NotFound for a missing id.
+    let results = [
+        update_exam(&conn, "ghost", Some(1.0), Some("done".into())),
+        update_exam_date(&conn, "ghost", Some("2026-01-01".into())),
+        update_exam_weight(&conn, "ghost", Some(0.5)),
+        update_exam_grade(&conn, "ghost", Some(1.0)),
+        update_exam_room(&conn, "ghost", Some("R".into())),
+    ];
+    for r in results {
+        assert!(matches!(r, Err(AppError::NotFound(_))), "{r:?}");
+    }
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM exams"), 0);
 }
 

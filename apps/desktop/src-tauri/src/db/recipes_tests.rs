@@ -66,11 +66,17 @@ fn every_kind_is_accepted() {
 }
 
 #[test]
-fn setters_on_an_unknown_recipe_report_nothing() {
+fn setters_on_an_unknown_recipe_report_not_found() {
     let conn = test_conn();
-    // NOTE: possible bug: these silently succeed for a missing recipe id.
-    assert!(set_recipe_kind(&conn, "ghost", "lunch".into()).is_ok());
-    assert!(set_recipe_duration_minutes(&conn, "ghost", Some(5)).is_ok());
+    // Setters must report NotFound for a missing recipe id.
+    assert!(matches!(
+        set_recipe_kind(&conn, "ghost", "lunch".into()),
+        Err(AppError::NotFound(_))
+    ));
+    assert!(matches!(
+        set_recipe_duration_minutes(&conn, "ghost", Some(5)),
+        Err(AppError::NotFound(_))
+    ));
     assert!(matches!(
         get_recipe(&conn, "ghost"),
         Err(AppError::NotFound(_))
@@ -272,9 +278,8 @@ fn a_restored_ingredient_does_not_collide_with_reordered_ones() {
         .map(|(_, p)| p)
         .collect();
     positions.sort();
-    // NOTE: possible bug: restore keeps the stale position, so "a" and "c"
-    // both sit at 0 and their order is undefined.
-    assert_eq!(positions, vec![0, 0, 1]);
+    // A restored item gets a unique place: positions stay unique and contiguous.
+    assert_eq!(positions, vec![0, 1, 2]);
 }
 
 #[test]

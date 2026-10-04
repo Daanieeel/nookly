@@ -118,14 +118,16 @@ fn every_documented_status_round_trips_with_a_grade() {
 }
 
 #[test]
-fn an_undocumented_status_is_stored_as_is() {
+fn an_undocumented_status_is_refused() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
-    // NOTE: possible bug: status is documented as not_started|in_progress|
-    // submitted|graded but anything is stored.
-    update_assignment_status(&conn, &a.entity.id, "lost".into(), None).unwrap();
-    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().status, "lost");
+    // Status must be one of not_started|in_progress|submitted|graded.
+    assert!(matches!(
+        update_assignment_status(&conn, &a.entity.id, "lost".into(), None),
+        Err(AppError::InvalidInput(_))
+    ));
+    assert_ne!(get_assignment(&conn, &a.entity.id).unwrap().status, "lost");
 }
 
 #[test]
@@ -265,11 +267,17 @@ fn matching_todos_are_generic_task_links() {
 }
 
 #[test]
-fn updates_on_an_unknown_assignment_report_nothing() {
+fn updates_on_an_unknown_assignment_report_not_found() {
     let conn = test_conn();
-    // NOTE: possible bug: setters silently succeed for a missing id.
-    assert!(update_assignment_status(&conn, "ghost", "graded".into(), Some(1.0)).is_ok());
-    assert!(update_assignment_due_date(&conn, "ghost", None).is_ok());
+    // Setters must report NotFound naming the missing id.
+    match update_assignment_status(&conn, "ghost", "graded".into(), Some(1.0)) {
+        Err(AppError::NotFound(m)) => assert!(m.contains("ghost"), "{m}"),
+        other => panic!("expected NotFound, got {other:?}"),
+    }
+    match update_assignment_due_date(&conn, "ghost", None) {
+        Err(AppError::NotFound(m)) => assert!(m.contains("ghost"), "{m}"),
+        other => panic!("expected NotFound, got {other:?}"),
+    }
     assert!(matches!(
         get_assignment(&conn, "ghost"),
         Err(AppError::NotFound(_))

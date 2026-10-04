@@ -1776,14 +1776,24 @@ fn move_onto_a_future_slot_generate_then_move_back_leaves_a_hole<K: Kind>() {
         ["2026-02-02", "2026-02-16"]
     );
     K::override_(&c, &b, ov().date(B)).unwrap();
-    assert!(K::generate(&c, &t, "2026-02-16").unwrap().is_empty());
+    // Intended: a slot only counts as filled while an occurrence actually sits on
+    // it, so once the moved one is home again 02-09 is generated for the series.
+    assert_eq!(K::generate(&c, &t, "2026-02-16").unwrap(), ["2026-02-09"]);
     assert_eq!(K::generate(&c, &t, "2026-02-23").unwrap(), ["2026-02-23"]);
-    // NOTE: possible bug: the 02-09 week never gets its occurrence: the slot
-    // counts as filled (by the moved one) although nothing sits on it now.
-    let dates: Vec<String> = rows::<K>(&c, &t).into_iter().map(|o| o.row.date).collect();
+    let mut dates: Vec<String> = rows::<K>(&c, &t).into_iter().map(|o| o.row.date).collect();
+    dates.sort();
     assert_eq!(
         dates,
-        [A, B, C, D, "2026-02-02", "2026-02-16", "2026-02-23"]
+        [
+            A,
+            B,
+            C,
+            D,
+            "2026-02-02",
+            "2026-02-09",
+            "2026-02-16",
+            "2026-02-23"
+        ]
     );
 }
 
@@ -1871,12 +1881,9 @@ fn delete_following_then_edit_remaining_leaves_trashed_rows_frozen<K: Kind>() {
 fn delete_following_then_extending_the_horizon_brings_the_series_back<K: Kind>() {
     let (c, _, t) = setup::<K>();
     assert_eq!(K::delete(&c, &t, C).unwrap(), 2);
-    // NOTE: possible bug: a series deleted from 01-19 on comes back past its
-    // last generated date, as nothing records where the user ended it.
-    assert_eq!(
-        K::generate(&c, &t, "2026-02-09").unwrap(),
-        ["2026-02-02", "2026-02-09"]
-    );
+    // Intended: "delete this and following" ends the series, so extending the
+    // horizon must not bring it back (the end of the series has to be recorded).
+    assert!(K::generate(&c, &t, "2026-02-09").unwrap().is_empty());
     assert_eq!(
         view::<K>(&c, &t),
         [
@@ -1884,8 +1891,6 @@ fn delete_following_then_extending_the_horizon_brings_the_series_back<K: Kind>()
             "2026-01-12 10:00-12:00 Lecture @Room 1",
             "2026-01-19 10:00-12:00 Lecture @Room 1 trashed",
             "2026-01-26 10:00-12:00 Lecture @Room 1 trashed",
-            "2026-02-02 10:00-12:00 Lecture @Room 1",
-            "2026-02-09 10:00-12:00 Lecture @Room 1",
         ]
     );
 }
@@ -1959,16 +1964,13 @@ fn empty_trash_after_delete_following_then_generate_recreates_the_dates<K: Kind>
     assert_eq!(K::delete(&c, &t, C).unwrap(), 2);
     assert_eq!(entities::empty_trash(&c).unwrap(), 2);
     assert_eq!(rows::<K>(&c, &t).len(), 2);
-    // NOTE: possible bug: deleted for good, yet regenerated on the next
-    // generate up to 01-26 (the row count, not the dates, records slots).
-    assert_eq!(K::generate(&c, &t, D).unwrap(), [C, D]);
+    // Intended: deleted for good means gone for good, generate must not recreate them.
+    assert!(K::generate(&c, &t, D).unwrap().is_empty());
     assert_eq!(
         view::<K>(&c, &t),
         [
             "2026-01-05 10:00-12:00 Lecture @Room 1",
             "2026-01-12 10:00-12:00 Lecture @Room 1",
-            "2026-01-19 10:00-12:00 Lecture @Room 1",
-            "2026-01-26 10:00-12:00 Lecture @Room 1",
         ]
     );
 }
@@ -3226,11 +3228,11 @@ fn calendar_monthly_series_from_a_leap_day() {
     let dates = Cal::generate(&c, &leap, "2029-04-30").unwrap();
     assert_eq!(dates.len(), 15);
     assert_eq!(&dates[..2], ["2028-02-29", "2028-03-29"]);
-    // NOTE: possible bug: the same end-of-month drift: after February 2029
-    // (28 days) the series stays on the 28th instead of returning to the 29th.
+    // Intended: no end-of-month drift: after February 2029 (28 days) the series
+    // returns to the 29th, as each month is derived from the anchor day.
     assert_eq!(
         &dates[11..],
-        ["2029-01-29", "2029-02-28", "2029-03-28", "2029-04-28"]
+        ["2029-01-29", "2029-02-28", "2029-03-29", "2029-04-29"]
     );
     let jan30 = cal_series(&c, "Thirty", "monthly", "2028-01-30", ("09:00", "10:00"));
     assert_eq!(

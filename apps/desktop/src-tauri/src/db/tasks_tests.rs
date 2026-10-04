@@ -263,9 +263,24 @@ fn start_and_due_dates_round_trip_and_clear() {
 #[test]
 fn updating_dates_of_an_unknown_task_reports_it() {
     let conn = test_conn();
-    // NOTE: possible bug: unlike update_task_status/effort this silently
-    // succeeds for an id that is not a task.
-    assert!(update_task_dates(&conn, "ghost", None, Some("2026-01-01".into())).is_ok());
+    // Like update_task_status/effort, an id that is not a task is refused.
+    assert!(update_task_dates(&conn, "ghost", None, Some("2026-01-01".into())).is_err());
+}
+
+#[test]
+fn updating_dates_of_a_non_task_entity_is_refused() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let note = crate::db::notes::create_page(&conn, space.id.clone(), "note", "N".into()).unwrap();
+    assert!(update_task_dates(&conn, &note.id, None, Some("2026-01-01".into())).is_err());
+    let n: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE entity_id = ?1",
+            [&note.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 0);
 }
 
 #[test]

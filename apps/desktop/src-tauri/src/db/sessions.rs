@@ -1289,11 +1289,11 @@ mod tests {
         )
         .unwrap();
         let titles: Vec<String> = snapshot(&conn, &f.tid).into_iter().map(|r| r.1).collect();
-        // NOTE: possible bug: occ[0] still carries "Lecture" (the pre-from_date title) so
-        // it no longer matches the template's old title "Lecture II" and never follows.
+        // Intended: occ[0] was never individually edited (it only kept the older series
+        // title "Lecture"), so a rename starting at occ[0] must reach it too.
         assert_eq!(
             titles,
-            vec!["Lecture", "Lecture III", "Guest lecture", "Lecture III"]
+            vec!["Lecture III", "Lecture III", "Guest lecture", "Lecture III"]
         );
     }
 
@@ -1795,13 +1795,11 @@ mod tests {
         assert!(matches!(err, AppError::NotFound(_)));
         let f = fixture(&conn);
         delete_session_series(&conn, &f.tid, &f.occ[0].date).unwrap();
-        // NOTE: possible bug: deleting again after the template is trashed errors
-        // (NotFound) instead of returning Ok(0), because with no live occurrence
-        // left it tries to trash the already trashed template.
-        assert!(matches!(
-            delete_session_series(&conn, &f.tid, &f.occ[0].date).unwrap_err(),
-            AppError::NotFound(_)
-        ));
+        // Intended: deleting again is idempotent and removes nothing (Ok(0)).
+        assert_eq!(
+            delete_session_series(&conn, &f.tid, &f.occ[0].date).unwrap(),
+            0
+        );
     }
 
     #[test]

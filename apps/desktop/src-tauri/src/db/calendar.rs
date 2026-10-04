@@ -1335,9 +1335,9 @@ mod tests {
         )
         .unwrap();
         let titles: Vec<String> = snapshot(&conn, &tid).into_iter().map(|r| r.1).collect();
-        // NOTE: possible bug: occ[0] still carries "Gym" (the pre-from_date title) so
-        // it no longer matches the template's old title "Gym II" and never follows.
-        assert_eq!(titles, vec!["Gym", "Gym III", "Leg day", "Gym III"]);
+        // Intended: occ[0] was never individually edited (it only kept the older series
+        // title "Gym"), so a rename starting at occ[0] must reach it too.
+        assert_eq!(titles, vec!["Gym III", "Gym III", "Leg day", "Gym III"]);
     }
 
     #[test]
@@ -2077,13 +2077,11 @@ mod tests {
         assert!(matches!(err, AppError::NotFound(_)));
         let (_, tid, occ) = series(&conn);
         delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap();
-        // NOTE: possible bug: deleting again after the template is trashed errors
-        // (NotFound) instead of returning Ok(0), because with no live occurrence
-        // left it tries to trash the already trashed template.
-        assert!(matches!(
-            delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap_err(),
-            AppError::NotFound(_)
-        ));
+        // Intended: deleting again is idempotent and removes nothing (Ok(0)).
+        assert_eq!(
+            delete_calendar_entry_series(&conn, &tid, &occ[0].date).unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -2460,11 +2458,11 @@ mod tests {
         assert!(created
             .iter()
             .all(|o| o.all_day && o.start_time.is_none() && o.end_time.is_none()));
-        // NOTE: possible bug: advancing from the previous cursor (not the anchor)
-        // clamps Jan 31 to Feb 28 and then stays on the 28th.
+        // Intended: each month is computed from the anchor day (31st) and clamped to
+        // the month length, so a short month does not drag later months down.
         assert_eq!(
             created.iter().map(|o| o.date.as_str()).collect::<Vec<_>>(),
-            vec!["2026-01-31", "2026-02-28", "2026-03-28", "2026-04-28"]
+            vec!["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"]
         );
     }
 

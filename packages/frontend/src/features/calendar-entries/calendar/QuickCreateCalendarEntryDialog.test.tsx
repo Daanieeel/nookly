@@ -132,18 +132,10 @@ describe("QuickCreateCalendarEntryDialog", () => {
     expect(screen.getByRole("button", { name: "Repeat interval" })).toBeInTheDocument();
   });
 
-  it("lets the required start date be cleared, then asks for one", async () => {
-    // NOTE: possible bug: `DateField` passes `clearable={optional}`, which is undefined
-    // for a required date, so `DateInput` falls back to its default and shows a Clear
-    // button on the required Starts date too.
-    const { user } = setup();
-    expect(screen.getAllByRole("button", { name: "Clear Date" })).toHaveLength(1);
-    await user.type(screen.getByRole("textbox", { name: /Title/ }), "Dentist");
-    await user.click(screen.getByRole("button", { name: "Clear Date" }));
-    expect(screen.getByRole("button", { name: "Date" })).toHaveTextContent("Pick a date");
-    await user.click(screen.getByRole("button", { name: "Create" }));
-    expect(await screen.findByText("Pick a date")).toBeInTheDocument();
-    expect(calledCommands()).toEqual([]);
+  it("does not let the required start date be cleared", () => {
+    // Intended: only optional dates are clearable, so the required Starts date has no Clear button.
+    setup();
+    expect(screen.queryByRole("button", { name: "Clear Date" })).not.toBeInTheDocument();
   });
 
   it("blocks an end time before the start", async () => {

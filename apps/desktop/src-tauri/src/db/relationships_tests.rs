@@ -110,14 +110,47 @@ fn listing_is_ordered_by_creation() {
 }
 
 #[test]
-fn a_self_link_lists_once_in_both_direction() {
+fn an_entity_cannot_relate_to_itself() {
     let conn = test_conn();
     let space = test_space(&conn, "S");
     let a = note(&conn, &space.id, "A");
-    // NOTE: possible bug: nothing forbids an entity relating to itself.
-    let rel = link(&conn, &a.id, &a.id, "relates-to");
-    let both = list_relationships(&conn, &a.id, Direction::Both).unwrap();
-    assert_eq!(ids(&both), vec![rel.id]);
+    // Self relations are forbidden for every relationship type.
+    let r = create_relationship(
+        &conn,
+        a.id.clone(),
+        a.id.clone(),
+        "relates-to".into(),
+        None,
+        None,
+    );
+    assert!(r.is_err(), "a self link was stored");
+    assert_eq!(relationship_rows(&conn), 0);
+}
+
+#[test]
+fn no_relationship_type_allows_a_self_link() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    for info in list_relationship_types() {
+        // Only types whose two ends accept the same entity type can be tried.
+        if info.from_type != info.to_type {
+            continue;
+        }
+        let kind = info.from_type.clone().unwrap_or_else(|| "note".into());
+        let Ok(e) = create_entity(&conn, space.id.clone(), kind, "E".into(), None) else {
+            continue;
+        };
+        let r = create_relationship(
+            &conn,
+            e.id.clone(),
+            e.id.clone(),
+            info.name.clone(),
+            None,
+            None,
+        );
+        assert!(r.is_err(), "'{}' allowed a self link", info.name);
+    }
+    assert_eq!(relationship_rows(&conn), 0);
 }
 
 #[test]
@@ -164,14 +197,14 @@ fn unlinking_twice_is_not_found_the_second_time() {
 }
 
 #[test]
-fn identical_unrestricted_links_are_both_stored() {
+fn identical_unrestricted_links_are_stored_once() {
     let conn = test_conn();
     let space = test_space(&conn, "S");
     let a = note(&conn, &space.id, "A");
     let b = note(&conn, &space.id, "B");
-    link(&conn, &a.id, &b.id, "relates-to");
-    // NOTE: possible bug: the exact same (from, to, type) edge can be stored
-    // twice, so the Relationships section would show the same link twice.
+    let first = link(&conn, &a.id, &b.id, "relates-to");
+    // The same (from, to, type) edge never exists twice: creating it again
+    // returns the existing relationship.
     let dup = create_relationship(
         &conn,
         a.id.clone(),
@@ -179,9 +212,10 @@ fn identical_unrestricted_links_are_both_stored() {
         "relates-to".into(),
         None,
         None,
-    );
-    assert!(dup.is_ok());
-    assert_eq!(relationship_rows(&conn), 2);
+    )
+    .unwrap();
+    assert_eq!(dup.id, first.id);
+    assert_eq!(relationship_rows(&conn), 1);
 }
 
 #[test]

@@ -51,13 +51,9 @@ function drag(block: HTMLElement, dx: number, dy: number) {
   fireEvent.pointerUp(block, { pointerId: 1, clientX: dx, clientY: dy });
 }
 
-// NOTE: possible bug: `onPointerMove` reads `e.currentTarget` inside the `setDrag`
-// updater. React runs an updater lazily during render when it can't compute it eagerly
-// (as for the first update after a render), and by then React has cleared the event's
-// `currentTarget`, so `setPointerCapture` throws. React recovers by rendering again,
-// but `capturedRef` was already set, so pointer capture is never taken and the
-// click swallowing listener after a move is never added. These tests pin that: React
-// reports it as a recoverable error, collected here and asserted below.
+// Intended: once movement confirms a drag, pointer capture is taken and (for a move) the
+// click right after pointerup is swallowed. React reports any error thrown while
+// capturing as a recoverable error, collected here so tests can assert there are none.
 const captureErrors: string[] = [];
 
 beforeEach(() => {
@@ -208,12 +204,22 @@ describe("useItemDrag", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  it("never takes pointer capture during a drag (pinned, see the note above)", () => {
+  it("takes pointer capture once movement confirms a drag, without errors", () => {
     const capture = vi.spyOn(HTMLElement.prototype, "setPointerCapture");
     const { block, onCommit } = setup("move");
     drag(block, 0, 48);
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(capture).not.toHaveBeenCalled();
-    expect(captureErrors.length).toBeGreaterThan(0);
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(1);
+    expect(captureErrors).toEqual([]);
+  });
+
+  it("swallows the click that follows a move drag", () => {
+    const { block } = setup("move");
+    const onClick = vi.fn();
+    block.addEventListener("click", onClick);
+    drag(block, 0, 48);
+    fireEvent.click(block);
+    expect(onClick).not.toHaveBeenCalled();
   });
 });

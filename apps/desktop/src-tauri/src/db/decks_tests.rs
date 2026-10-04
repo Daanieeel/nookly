@@ -326,9 +326,9 @@ fn cards_on_a_missing_deck_are_refused() {
     let note = crate::db::notes::create_page(&conn, space.id.clone(), "note", "N".into()).unwrap();
     assert!(create_card(&conn, "ghost".into(), "Q".into(), "A".into()).is_err());
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM index_cards"), 0);
-    // NOTE: possible bug: a card can be written for an entity that is not a
-    // deck (only the foreign key on the entity id is checked).
-    assert!(create_card(&conn, note.id, "Q".into(), "A".into()).is_ok());
+    // Cards may only exist on decks: an entity of another type is refused.
+    assert!(create_card(&conn, note.id, "Q".into(), "A".into()).is_err());
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM index_cards"), 0);
 }
 
 #[test]
