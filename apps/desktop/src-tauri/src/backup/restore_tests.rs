@@ -74,11 +74,12 @@ fn stored_files(dir: &Path) -> BTreeMap<String, Vec<u8>> {
             if kind.is_dir() {
                 walk(root, &path, out);
             } else if kind.is_file() {
+                // Backups name files with `/`, whatever the platform's separator is.
                 let rel = path
                     .strip_prefix(root)
                     .unwrap()
                     .to_string_lossy()
-                    .into_owned();
+                    .replace('\\', "/");
                 out.insert(rel, fs::read(&path).unwrap());
             }
         }

@@ -53,7 +53,10 @@ fn check(name: &str, value: &Value) {
         std::fs::write(&path, &actual).unwrap();
         return;
     }
-    let expected = std::fs::read_to_string(&path).unwrap_or_default();
+    // Git on Windows may check the file out with CRLF line endings.
+    let expected = std::fs::read_to_string(&path)
+        .unwrap_or_default()
+        .replace("\r\n", "\n");
     assert!(
         expected == actual,
         "{name} changed. If that is intended, run\n  NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib cli::snapshot_tests\nand commit the diff of src/cli/snapshots/{name}."

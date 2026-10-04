@@ -1,2 +1,4 @@
 # Golden SQLite files are never diffed or merged as text.
 apps/desktop/src-tauri/src/db/golden/*.db binary
+# Snapshots are compared as text, so they are always checked out with LF.
+apps/desktop/src-tauri/src/cli/snapshots/*.json text eol=lf
