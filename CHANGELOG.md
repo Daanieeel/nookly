@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.17.5 (2026-10-04)
+
+### Added
+
+- Add file preview thumbnails
+
+### Changed
+
+- Image ocr returning no content & reindexing blocking the main thread
+
 ## 0.17.3 (2026-10-04)
 
 ### Changed
