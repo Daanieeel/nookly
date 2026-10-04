@@ -114,3 +114,6 @@ jobs:
       - name: Unused dependencies (Rust)
         run: bun run unused:rust
         continue-on-error: true
+      - name: Panic budget and long functions (Rust, non-test code)
+        run: bun run lint:rust:strict
+        continue-on-error: true

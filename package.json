@@ -21,6 +21,7 @@
     "lint:js": "NODE_OPTIONS=--experimental-strip-types oxlint",
     "lint:keys": "bun tools/check-query-keys.ts",
     "lint:rust": "turbo run lint:rust",
+    "lint:rust:strict": "cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --bins -- -W clippy::unwrap_used -W clippy::expect_used -W clippy::too_many_lines",
     "lint": "bun run lint:js && bun run lint:keys && bun run lint:rust",
     "format:js": "oxfmt",
     "format:rust": "turbo run format:rust",

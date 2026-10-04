@@ -1,0 +1,5 @@
+# Thresholds for the opt-in lints in `bun run lint:rust:strict`. The regular
+# `bun run lint:rust` (clippy with -D warnings) does not enable those lints, so
+# these only shape the report.
+too-many-lines-threshold = 120
+too-many-arguments-threshold = 7
