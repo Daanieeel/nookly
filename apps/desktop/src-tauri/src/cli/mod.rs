@@ -19,6 +19,8 @@
 
 #[cfg(test)]
 mod generic_tests;
+#[cfg(test)]
+mod property_tests;
 mod view;
 
 use crate::db::schema::{self, JsonMap};

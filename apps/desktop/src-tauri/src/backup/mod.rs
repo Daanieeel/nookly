@@ -770,3 +770,38 @@ mod tests {
         fs::remove_dir_all(target).ok();
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Backups sort by time first and by their same-second counter second, so the
+        /// order a listing shows is the order they were made in, however many were
+        /// taken in one second.
+        #[test]
+        fn names_sort_in_the_order_the_backups_were_made(
+            stamps in prop::collection::btree_set(0u32..86_400, 1..6),
+            counters in prop::collection::vec(1u32..30, 1..6),
+        ) {
+            // Made order: by stamp, then by counter within a stamp.
+            let mut made: Vec<String> = Vec::new();
+            for (i, stamp) in stamps.iter().enumerate() {
+                let base = format!(
+                    "{NAME_PREFIX}20260105-{:02}{:02}{:02}",
+                    stamp / 3600, stamp / 60 % 60, stamp % 60
+                );
+                let count = counters[i % counters.len()];
+                made.push(format!("{base}{NAME_SUFFIX}"));
+                for n in 2..=count {
+                    made.push(format!("{base}-{n}{NAME_SUFFIX}"));
+                }
+            }
+            let mut shuffled = made.clone();
+            shuffled.reverse();
+            shuffled.sort_by_key(|n| age_order(n));
+            prop_assert_eq!(shuffled, made);
+        }
+    }
+}

@@ -357,3 +357,36 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// A value passes exactly when it is one of the allowed ones, and a refusal is
+        /// always `InvalidInput`.
+        #[test]
+        fn require_one_of_accepts_exactly_the_allowed_values(
+            allowed in prop::collection::vec("[a-z_]{1,8}", 1..6),
+            value in "[a-z_]{0,8}",
+        ) {
+            let refs: Vec<&str> = allowed.iter().map(String::as_str).collect();
+            let result = require_one_of("status", &value, &refs);
+            prop_assert_eq!(result.is_ok(), allowed.contains(&value));
+            if let Err(e) = result {
+                prop_assert!(matches!(e, crate::error::AppError::InvalidInput(_)));
+            }
+        }
+
+        /// `require_row` is `NotFound` for zero rows and `Ok` for any other count.
+        #[test]
+        fn require_row_fails_only_for_zero_rows(affected in 0usize..5, id in "[a-z0-9-]{1,12}") {
+            let result = require_row(affected, "thing", &id);
+            prop_assert_eq!(result.is_ok(), affected > 0);
+            if let Err(crate::error::AppError::NotFound(message)) = result {
+                prop_assert!(message.contains(&id));
+            }
+        }
+    }
+}

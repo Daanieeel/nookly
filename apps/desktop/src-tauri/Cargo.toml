@@ -98,6 +98,8 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 # `commands/commands_tests.rs`. The feature adds no dependencies and dev
 # dependency features never reach a release build.
 [dev-dependencies]
+# Property based tests: random inputs, shrunk to a minimal failing case.
+proptest = "1"
 tauri = { version = "2", features = ["protocol-asset", "test"] }
 
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the

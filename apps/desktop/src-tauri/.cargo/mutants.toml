@@ -10,22 +10,22 @@
 examine_globs = ["src/db/**/*.rs"]
 
 # Tests are not mutated, and neither are the scenario fixtures.
-exclude_globs = [
-  "src/**/*_tests.rs",
-  "src/db/series_scenarios.rs",
-  "src/db/migrations.rs",
-]
+exclude_globs = ["src/**/*_tests.rs", "src/db/series_scenarios.rs", "src/db/migrations.rs"]
 
 # Library tests only: the process tests start the real binary.
 #
-# cargo-mutants needs a green baseline. These three tests are red on purpose, they
+# cargo-mutants needs a green baseline. These tests are red on purpose, they
 # pin bugs still open (see POSSIBLE_BUG_LIST.md and the review notes), so they are
 # skipped here. Remove each skip once its bug is fixed.
 additional_cargo_test_args = [
   "--lib",
   "--",
-  "--skip", "fsrs_migration_preserves_leitner_progress",
-  "--skip", "move_onto_a_future_slot_generate_then_move_back_leaves_a_hole",
+  "--skip",
+  "fsrs_migration_preserves_leitner_progress",
+  "--skip",
+  "move_onto_a_future_slot_generate_then_move_back_leaves_a_hole",
+  "--skip",
+  "names_sort_in_the_order_the_backups_were_made",
 ]
 
 # A mutant that makes a loop run forever counts as caught.
