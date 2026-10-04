@@ -12,5 +12,13 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test/setup.ts"],
     restoreMocks: true,
+    // `bun run coverage:js`. A report to read, not a gate: no thresholds.
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**"],
+      reporter: ["text-summary", "html"],
+      reportsDirectory: "coverage",
+    },
   },
 });

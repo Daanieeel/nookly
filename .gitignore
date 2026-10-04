@@ -33,3 +33,6 @@ dist-ssr
 apps/desktop/src-tauri/.dev-data/
 
 libappleai.dylib
+
+# Coverage and quality reports
+coverage
