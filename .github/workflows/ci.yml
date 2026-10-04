@@ -117,3 +117,14 @@ jobs:
       - name: Panic budget and long functions (Rust, non-test code)
         run: bun run lint:rust:strict
         continue-on-error: true
+
+  # Enforced: duplication is 0.11% today, and the check fails above 1%, so the
+  # cleanup that removed duplicate code does not quietly come undone.
+  duplication:
+    name: Duplicate code (under 1%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run duplication

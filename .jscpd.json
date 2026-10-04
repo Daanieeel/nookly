@@ -1,0 +1,17 @@
+{
+  "path": ["packages/frontend/src", "packages/ui/src", "apps/desktop/src-tauri/src"],
+  "format": ["typescript", "tsx", "rust"],
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*_tests.rs",
+    "**/series_scenarios.rs",
+    "**/node_modules/**",
+    "**/target/**"
+  ],
+  "minLines": 12,
+  "minTokens": 90,
+  "reporters": ["console"],
+  "gitignore": true,
+  "threshold": 1
+}

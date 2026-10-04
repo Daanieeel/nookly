@@ -34,6 +34,7 @@
     "audit:rust": "cd apps/desktop/src-tauri && cargo audit",
     "audit:js": "bun audit",
     "audit": "bun run deny:rust && bun run audit:rust && bun run audit:js",
+    "duplication": "jscpd",
     "unused:js": "knip",
     "unused:rust": "cargo machete apps/desktop/src-tauri",
     "unused": "bun run unused:js && bun run unused:rust",
@@ -51,6 +52,7 @@
   "devDependencies": {
     "@nookly/config": "workspace:*",
     "git-cliff": "^2.14.2",
+    "jscpd": "^5.4.0",
     "knip": "^6.39.0",
     "oxfmt": "0.65.0",
     "oxlint": "1.83.0",
