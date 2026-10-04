@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import { describe, it } from "vitest";
+import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { RepeatChip } from "#/components/repeat-chip.tsx";
 import { TaskDisplayMenu } from "#/features/tasks/TaskDisplayMenu.tsx";
 import { DEFAULT_DISPLAY } from "#/features/tasks/task-model.ts";
@@ -50,6 +51,27 @@ describe("dialogs and menus have no axe violations", () => {
       />,
     );
     await expectNoA11yViolations();
+  });
+
+  it("ConfirmPermanentDialog, with and without a phrase to type", async () => {
+    for (const phrase of [undefined, "DELETE"]) {
+      const { unmount } = renderWithProviders(
+        <ConfirmPermanentDialog
+          open
+          onOpenChange={() => {}}
+          title="Empty the Trash?"
+          description="Everything in the Trash is erased for good. This cannot be undone."
+          stats={[{ value: 4, label: "Items" }]}
+          phrase={phrase}
+          actionLabel="Delete 4 Forever"
+          errorLabel="Couldn't empty, try again"
+          status="idle"
+          onConfirm={() => {}}
+        />,
+      );
+      await expectNoA11yViolations();
+      unmount();
+    }
   });
 
   it("RepeatChip", async () => {

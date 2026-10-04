@@ -29,6 +29,7 @@ _Examples: permanently delete, empty Trash._
 - Use a clear label like "Delete," never "OK."
 - Separate the destructive button from the safe ones.
 - Never fall back on a vague "Are you sure?"
+- When it reaches many things at once (empty Trash, delete a Space, replace everything from a backup), make the user type a word before the button works. Use `ConfirmPermanentDialog` with `phrase`, which every permanent action goes through.
 
 ---
 

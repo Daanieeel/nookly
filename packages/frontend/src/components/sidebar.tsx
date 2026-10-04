@@ -12,9 +12,9 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  IconAlertTriangle,
   IconChevronRight,
   IconDotsVertical,
   IconFolder,
@@ -28,11 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import {
-  StatusButtonContent,
-  statusOf,
-  useCloseAfterSuccess,
-} from "#/components/action-feedback.tsx";
+import { statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { AddModuleMenu } from "#/components/add-module-menu.tsx";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { renderIconValue } from "#/components/entity-icon.tsx";
@@ -40,16 +36,6 @@ import { RemoveModuleDialog } from "#/components/sidebar/remove-module-dialog.ts
 import { EntityMention } from "#/components/entity-mention.tsx";
 import { SpaceFormDialog, useSpaceForm, type SpaceValues } from "./sidebar/space-form-fields.tsx";
 import { LabelsDialog } from "#/components/label-manager.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import {
   Collapsible,
   CollapsibleContent,
@@ -116,10 +102,6 @@ import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const SPACE_COLORS = ACCENT_COLORS;
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
-}
 
 /// The floating preview a Space row shows while it follows the pointer during a drag.
 function SpaceDragPreview({ space }: { space: Space }) {
@@ -554,49 +536,32 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
         onOpenChange={setLabelsOpen}
       />
 
-      <AlertDialog
+      <ConfirmPermanentDialog
         open={deleteConfirmOpen}
         onOpenChange={(open) => {
           setDeleteConfirmOpen(open);
           if (!open && !del.isSuccess) del.reset();
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex flex-wrap items-center gap-1.5">
-              <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-              Delete
-              <EntityMention
-                icon={space.icon ? renderIconValue(space.icon, 13) : <IconFolder size={13} />}
-                label={space.name}
-              />
-              ?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently deletes the Space and everything in it,{" "}
-              {plural(entities.length, "item")} across its modules. This cannot be undone; nothing
-              goes to Trash.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={(e) => {
-                e.preventDefault();
-                if (delStatus === "idle" || delStatus === "error") del.mutate();
-              }}
-            >
-              <StatusButtonContent
-                status={delStatus}
-                label="Delete Space"
-                successLabel="Space deleted"
-                errorLabel="Couldn't delete, try again"
-              />
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={
+          <>
+            Delete
+            <EntityMention
+              icon={space.icon ? renderIconValue(space.icon, 13) : <IconFolder size={13} />}
+              label={space.name}
+            />
+            ?
+          </>
+        }
+        description="This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash."
+        stats={[{ value: entities.length, label: entities.length === 1 ? "Item" : "Items" }]}
+        phrase={space.name}
+        actionLabel="Delete Space"
+        successLabel="Space deleted"
+        errorLabel="Couldn't delete, try again"
+        status={delStatus}
+        error={del.isError && del.error.message}
+        onConfirm={() => del.mutate()}
+      />
     </Collapsible>
   );
 }

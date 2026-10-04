@@ -1,20 +1,11 @@
+import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { qk } from "#/lib/query-keys.ts";
-import { IconAlertTriangle, IconArchive, IconFolder, IconRestore } from "@tabler/icons-react";
+import { IconArchive, IconFolder, IconRestore } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { open as pickPath } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useState } from "react";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import { Button } from "@nookly/ui/components/button";
 import {
   Dialog,
@@ -265,15 +256,6 @@ function BackupList({
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex flex-col rounded-md border border-border bg-muted/40 px-3 py-2">
-      <span className="text-lg font-semibold tabular-nums">{value}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </div>
-  );
-}
-
 /// Confirms replacing everything in Nookly with a backup, then restarts to install it.
 function RestoreDialog({ target, onClose }: { target: RestoreTarget | null; onClose: () => void }) {
   const restore = useMutation({
@@ -286,67 +268,50 @@ function RestoreDialog({ target, onClose }: { target: RestoreTarget | null; onCl
   const manifest = target?.manifest;
 
   return (
-    <AlertDialog
+    <ConfirmPermanentDialog
       open={target !== null}
       onOpenChange={(next) => {
         if (next || restore.isPending) return;
         restore.reset();
         onClose();
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-1.5">
-            <IconAlertTriangle className="size-4 shrink-0 text-destructive" />
-            Replace everything with this backup?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {manifest && (
-              <>
-                Nookly goes back to the backup from{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono">
-                  {formatDateTime(manifest.createdAt)}
-                </code>
-                . Everything you added or changed since then is replaced. Your current data is set
-                aside in a restore-safety folder inside the Nookly data folder, so nothing is
-                deleted. Nookly restarts to finish.
-              </>
+      title="Replace everything with this backup?"
+      description={
+        manifest && (
+          <>
+            Nookly goes back to the backup from{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">
+              {formatDateTime(manifest.createdAt)}
+            </code>
+            . Everything you added or changed since then is replaced. Your current data is set aside
+            in a restore-safety folder inside the Nookly data folder, so nothing is deleted. Nookly
+            restarts to finish.
+            {manifest.referencedFiles > 0 && (
+              <span className="mt-2 block text-xs">
+                {manifest.referencedFiles === 1
+                  ? "1 file added by reference is not in the backup. It stays where it is."
+                  : `${manifest.referencedFiles} files added by reference are not in the backup. They stay where they are.`}
+              </span>
             )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {manifest && (
-          <div className="grid grid-cols-2 gap-2">
-            <Stat value={String(manifest.fileCount)} label="Stored files" />
-            <Stat value={formatSize(manifest.bytes)} label="Total size" />
-          </div>
-        )}
-        {manifest && manifest.referencedFiles > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {manifest.referencedFiles === 1
-              ? "1 file added by reference is not in the backup. It stays where it is."
-              : `${manifest.referencedFiles} files added by reference are not in the backup. They stay where they are.`}
-          </p>
-        )}
-        <FieldError message={restore.isError && restore.error.message} />
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={(event) => {
-              event.preventDefault();
-              if (target && (status === "idle" || status === "error")) {
-                restore.mutate(target.path);
-              }
-            }}
-          >
-            <StatusButtonContent
-              status={status}
-              label="Replace and Restart"
-              errorLabel="Couldn't restore, try again"
-            />
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </>
+        )
+      }
+      stats={
+        manifest
+          ? [
+              { value: manifest.fileCount, label: "Stored files" },
+              { value: formatSize(manifest.bytes), label: "Total size" },
+            ]
+          : []
+      }
+      phrase="RESTORE"
+      actionLabel="Replace and Restart"
+      errorLabel="Couldn't restore, try again"
+      status={status}
+      error={restore.isError && restore.error.message}
+      onConfirm={() => {
+        if (target) restore.mutate(target.path);
+      }}
+    />
   );
 }
