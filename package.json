@@ -13,6 +13,7 @@
     "tauri": "bun run --cwd apps/desktop tauri",
     "typecheck": "turbo run typecheck",
     "check": "turbo run typecheck check:rust",
+    "test": "turbo run test",
     "lint:js": "NODE_OPTIONS=--experimental-strip-types oxlint",
     "lint:keys": "bun tools/check-query-keys.ts",
     "lint:rust": "turbo run lint:rust",

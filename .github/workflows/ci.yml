@@ -22,7 +22,7 @@ jobs:
       - run: bun run version:check
 
   frontend:
-    name: Typecheck + lint + build (frontend)
+    name: Typecheck + lint + test + build (frontend)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,6 +30,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint:js
       - run: bun run format:check:js
+      - run: bun run test
       - run: bun run build
 
   rust:

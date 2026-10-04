@@ -17,6 +17,8 @@
 //!   the whole data model (entity types, their fields, relationship types);
 //!   `nookly cli describe <entity-type>` dumps just one.
 
+#[cfg(test)]
+mod generic_tests;
 mod view;
 
 use crate::db::schema::{self, JsonMap};

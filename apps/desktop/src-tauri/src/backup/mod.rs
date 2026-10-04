@@ -530,6 +530,9 @@ pub fn log_restore_error(data_dir: &Path, error: &AppError) {
 }
 
 #[cfg(test)]
+mod restore_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::db;

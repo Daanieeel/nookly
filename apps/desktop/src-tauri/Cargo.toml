@@ -94,6 +94,12 @@ zip = "8"
 # same major version here keeps one copy in the dependency tree.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
+# `tauri::test` (MockRuntime, `get_ipc_response`) for the IPC command tests in
+# `commands/commands_tests.rs`. The feature adds no dependencies and dev
+# dependency features never reach a release build.
+[dev-dependencies]
+tauri = { version = "2", features = ["protocol-asset", "test"] }
+
 # Native page snapshots for bookmark previews (`commands/bookmark_screenshot.rs`) and the
 # "Open in" app list (`commands/files.rs`).
 [target.'cfg(target_os = "macos")'.dependencies]

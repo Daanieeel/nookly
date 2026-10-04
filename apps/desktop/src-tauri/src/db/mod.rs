@@ -1,22 +1,40 @@
 pub mod ascii_frame;
 pub mod assignments;
+#[cfg(test)]
+mod assignments_tests;
 pub mod block_types;
 pub mod bookmarks;
+#[cfg(test)]
+mod bookmarks_tests;
 pub mod calendar;
 pub mod common_fields;
 pub mod courses;
 pub mod decks;
+#[cfg(test)]
+mod decks_tests;
 pub mod entities;
 pub mod exams;
+#[cfg(test)]
+mod exams_tests;
 pub mod files;
 pub mod labels;
+#[cfg(test)]
+mod labels_tests;
+#[cfg(test)]
+pub(crate) mod migration_upgrade_tests;
 mod migrations;
 pub mod notes;
 mod ocr;
 mod office_text;
 pub mod recipes;
+#[cfg(test)]
+mod recipes_tests;
 pub mod relationships;
+#[cfg(test)]
+mod relationships_tests;
 pub mod schema;
+#[cfg(test)]
+mod schema_tests;
 pub mod search;
 mod series;
 #[cfg(test)]
@@ -24,8 +42,14 @@ mod series_scenarios;
 pub mod sessions;
 pub mod space_modules;
 pub mod spaces;
+#[cfg(test)]
+mod spaces_tests;
 pub mod study_blocks;
+#[cfg(test)]
+mod study_blocks_tests;
 pub mod tasks;
+#[cfg(test)]
+mod tasks_tests;
 pub mod views;
 
 use rusqlite::Connection;
