@@ -48,8 +48,7 @@ export function ViewSaveBar<D>({
   if (!dirty && status === "idle") return null;
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
-      <div
-        role="region"
+      <section
         aria-label="Unsaved changes"
         className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border bg-popover py-1.5 pr-1.5 pl-3 shadow-lg"
       >
@@ -93,7 +92,7 @@ export function ViewSaveBar<D>({
             />
           </Button>
         </div>
-      </div>
+      </section>
       {!view && (
         <ViewDialog
           open={dialogOpen}

@@ -57,9 +57,35 @@ const EXTENSIONS: [KindId, string[]][] = [
   [
     "code",
     [
-      ...["js", "mjs", "cjs", "jsx", "ts", "tsx", "py", "rs", "go", "java", "c", "h", "cpp", "hpp"],
-      ...["cs", "php", "rb", "json", "html", "htm", "css", "sql", "toml", "yaml", "yml", "ini"],
-      ...["sh", "bash", "zsh"],
+      "js",
+      "mjs",
+      "cjs",
+      "jsx",
+      "ts",
+      "tsx",
+      "py",
+      "rs",
+      "go",
+      "java",
+      "c",
+      "h",
+      "cpp",
+      "hpp",
+      "cs",
+      "php",
+      "rb",
+      "json",
+      "html",
+      "htm",
+      "css",
+      "sql",
+      "toml",
+      "yaml",
+      "yml",
+      "ini",
+      "sh",
+      "bash",
+      "zsh",
     ],
   ],
 ];
@@ -99,7 +125,10 @@ export function fileKind(file: FileEntity): FileKind {
 
 /// Plain text formats the viewer shows as text.
 export const TEXT_EXTENSIONS = new Set([
-  ...["txt", "md", "csv", "log"],
+  "txt",
+  "md",
+  "csv",
+  "log",
   ...(EXTENSIONS.find(([kind]) => kind === "code")?.[1] ?? []),
 ]);
 

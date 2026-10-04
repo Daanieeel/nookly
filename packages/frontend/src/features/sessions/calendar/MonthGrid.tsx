@@ -115,6 +115,7 @@ export function MonthGrid({
                 }),
               ];
               return (
+                // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a pointer shortcut on the empty part of a day; the day button inside is the keyboard route
                 <div
                   key={key}
                   className={cn(

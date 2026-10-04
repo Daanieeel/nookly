@@ -344,7 +344,6 @@ export function CreateAssignmentDialog({
                   type="button"
                   className={cn(PROPERTY_PILL, fieldMessage(field) && "border-destructive")}
                   aria-label="Change Course"
-                  aria-invalid={fieldMessage(field) ? true : undefined}
                 >
                   <IconSchool size={14} className="shrink-0" />
                   <span className={cn("truncate", course && "text-foreground")}>

@@ -175,7 +175,7 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
         ) : kind === "image" && source.src ? (
           <img src={source.src} alt={caption || source.name} className="media-image" />
         ) : kind === "video" && source.src ? (
-          // oxlint-disable-next-line jsx-a11y/media-has-caption: a user's own video, no captions to offer
+          // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own video, no captions to offer
           <video src={source.src} controls preload="metadata" className="media-video" />
         ) : (
           <div className="media-card flex flex-col gap-2">
@@ -192,7 +192,7 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
             </div>
             {kind === "audio" &&
               source.src && (
-                // oxlint-disable-next-line jsx-a11y/media-has-caption: a user's own recording, no captions to offer
+                // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
                 <audio src={source.src} controls preload="metadata" className="w-full" />
               )}
           </div>
@@ -302,6 +302,7 @@ function MediaPicker({
           <form.Field name="url">
             {(field) => (
               <Input
+                // oxlint-disable-next-line jsx-a11y/no-autofocus -- opened by the user to type the value, so focus belongs in the field
                 autoFocus
                 value={field.state.value}
                 onBlur={field.handleBlur}

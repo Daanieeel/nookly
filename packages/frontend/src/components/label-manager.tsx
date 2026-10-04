@@ -87,6 +87,7 @@ function NewLabelInput({
 }) {
   return (
     <Input
+      // oxlint-disable-next-line jsx-a11y/no-autofocus -- the field opens on an explicit click to add a label
       autoFocus
       value={field.state.value}
       onBlur={field.handleBlur}

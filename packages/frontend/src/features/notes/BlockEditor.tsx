@@ -179,7 +179,7 @@ function HydratedBlockEditor({
       const previous = persisted;
       const currentIds = new Set(inputs.map((i) => i.blockId));
 
-      for (const clientId of [...previous.keys()]) {
+      for (const clientId of Array.from(previous.keys())) {
         if (currentIds.has(clientId)) continue;
         const serverId = idMap.get(clientId);
         if (serverId) await deleteBlock(serverId);

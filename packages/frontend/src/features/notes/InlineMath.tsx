@@ -95,7 +95,9 @@ function InlineMathView({
     <NodeViewWrapper as="span">
       <Popover open={editing} onOpenChange={(open) => (open ? setEditing(true) : commit())}>
         <PopoverAnchor asChild>
+          {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- an inline node inside editor text, so the editor's own keys reach it */}
           <span
+            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an inline node inside editor text, which a native <button> can't be
             role="button"
             tabIndex={-1}
             aria-label={`Formula ${latex}, click to edit`}
@@ -116,6 +118,7 @@ function InlineMathView({
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Textarea
+            // oxlint-disable-next-line jsx-a11y/no-autofocus -- the popover opens on an explicit click to edit the formula
             autoFocus
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
