@@ -3847,6 +3847,7 @@ dependencies = [
  "quick-xml 0.42.0",
  "regex",
  "reqwest 0.12.28",
+ "rfd",
  "rs-fsrs",
  "rusqlite",
  "rusqlite_migration",

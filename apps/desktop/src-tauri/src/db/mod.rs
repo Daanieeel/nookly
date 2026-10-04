@@ -54,6 +54,9 @@ mod study_blocks_tests;
 pub mod tasks;
 #[cfg(test)]
 mod tasks_tests;
+pub mod upgrade;
+#[cfg(test)]
+mod upgrade_tests;
 pub mod views;
 
 use rusqlite::Connection;
@@ -174,7 +177,21 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // wherever files actually ended up, dev or production.
     app.asset_protocol_scope()
         .allow_directory(&app_data_dir, true)?;
-    let conn = connect(&app_data_dir)?;
+    let conn = match connect(&app_data_dir) {
+        Ok(conn) => conn,
+        Err(e) => {
+            // The upgrade did not pass its checks: the data was not changed. Say so
+            // plainly instead of failing to start without a word.
+            if let Some(stopped) = e.downcast_ref::<upgrade::UpgradeError>() {
+                rfd::MessageDialog::new()
+                    .set_level(rfd::MessageLevel::Error)
+                    .set_title("Nookly could not update your data")
+                    .set_description(stopped.to_string())
+                    .show();
+            }
+            return Err(e);
+        }
+    };
     app.manage(DbState(Mutex::new(conn)));
     watch_external_changes(app.handle().clone());
     Ok(())
@@ -240,6 +257,16 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
     let db_path = app_data_dir.join("nookly.db");
     let mut conn = Connection::open(&db_path)?;
     backup_before_migration(&conn, &db_path)?;
+    let current: usize = migrations::MIGRATIONS.current_version(&conn)?.into();
+    if current > 0 && current < *migrations::MIGRATION_COUNT {
+        // An existing database with migrations to run: they run on a copy that has
+        // to pass its checks before it replaces the original (see `upgrade`).
+        drop(conn);
+        upgrade::run(&db_path)?;
+        conn = Connection::open(&db_path)?;
+    }
+    // A new database migrates here. An upgraded one has nothing left, and a database
+    // from a newer version is refused.
     migrations::MIGRATIONS.to_latest(&mut conn)?;
     Ok(conn)
 }
