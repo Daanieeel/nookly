@@ -28,6 +28,7 @@
     "format:check:js": "oxfmt --check",
     "format:check:rust": "turbo run format:check:rust",
     "format:check": "bun run format:check:js && bun run format:check:rust",
+    "mutants:rust": "cd apps/desktop/src-tauri && cargo mutants",
     "changelog": "git-cliff --output CHANGELOG.md",
     "version:check": "bun tools/check-version.ts",
     "version:bump": "bun tools/bump-version.ts",
