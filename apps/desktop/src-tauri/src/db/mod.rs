@@ -30,8 +30,6 @@ mod migrations;
 pub mod notes;
 mod ocr;
 mod office_text;
-#[cfg(fuzzing)]
-pub(crate) use office_text::extract_office_text as fuzz_extract_office_text;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;

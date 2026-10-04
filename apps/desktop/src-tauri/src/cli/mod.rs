@@ -173,16 +173,6 @@ fn parse_args(argv: &[String]) -> AppResult<Args> {
     })
 }
 
-/// What `cargo fuzz` calls: parse the arguments and run every `--field` through
-/// coercion for every entity type, which must never panic.
-#[cfg(fuzzing)]
-pub(crate) fn fuzz_arguments(argv: &[String]) {
-    let Ok(args) = parse_args(argv) else { return };
-    for def in schema::all() {
-        let _ = coerce_fields(def, &args.fields);
-    }
-}
-
 fn repeated(what: &str) -> AppError {
     AppError::InvalidInput(format!("{what} was given more than once, pass it once"))
 }
