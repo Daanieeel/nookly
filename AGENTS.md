@@ -29,4 +29,18 @@ When writing any form of copy, never use em or en dashes or use any form of hyph
 
 Every new entity type, field, or relationship type MUST be exposed through the CLI automatically via its schema/relationship registration — never add a feature without also registering it in the schema layer the CLI generates from, and never hand-write a one-off CLI command for a specific module. If the generic list/get/create/update/delete/relate/describe pattern can't express a new feature, extend that generic pattern itself rather than bypassing i or ask the user about it.
 
+Before you finish, run and fix: `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test` and `cargo test` in `apps/desktop/src-tauri`. CI runs the same, plus a duplicate code limit (`bun run duplication`, under 1%).
+
+Write the test first for every bug fix and behavior change, watch it fail, then change the code. A test that pins a known bug must say so, and a fixed bug flips its test to the intended behavior.
+
+Changing persisted state also means:
+
+- A new migration, hashed in `EXPECTED_HASHES`, plus a declaration in `db/upgrade.rs` (`DECLARED`) for any existing column it changes. Without it the upgrade check refuses to run.
+- Run `cargo test db::upgrade_tests`. It upgrades every schema version through the real check.
+- A change to the CLI schema or help text updates the snapshots: `NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib cli::snapshot_tests`, then review the diff.
+
+UI work: dialogs and menus get an axe test (`vitest-axe`, see `src/test/axe.ts`), and every permanent action uses `ConfirmPermanentDialog`.
+
+Report only checks, read them and do not silence them: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
+
 More specific skills are in `/docs/skills/`
