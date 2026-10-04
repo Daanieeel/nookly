@@ -174,6 +174,7 @@ pub fn generate_occurrences(
                 end_time.clone(),
                 location.clone(),
             )?;
+            crate::db::series::record_slot(conn, template_id, &occurrence.date)?;
             created.push(occurrence);
         }
         Ok(created)
@@ -2381,6 +2382,7 @@ mod tests {
             Some("Room 1".into()),
         )
         .unwrap();
+        crate::db::series::make_legacy::<SessionOccurrence>(&conn, &f.tid);
         let before = snapshot(&conn, &f.tid);
         let created = generate_occurrences(&conn, &f.tid, "2026-02-09").unwrap();
         assert_eq!(

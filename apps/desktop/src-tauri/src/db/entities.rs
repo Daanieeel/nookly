@@ -540,6 +540,10 @@ fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
         "DELETE FROM recipe_tag_links WHERE recipe_entity_id = ?1",
         params![id],
     )?;
+    conn.execute(
+        "DELETE FROM series_slots WHERE template_id = ?1",
+        params![id],
+    )?;
     conn.execute("DELETE FROM views WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM search_index WHERE entity_id = ?1", params![id])?;
 

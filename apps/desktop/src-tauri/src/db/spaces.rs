@@ -169,6 +169,10 @@ fn sweep_space(conn: &Connection, id: &str) -> AppResult<()> {
             params![id],
         )?;
     }
+    conn.execute(
+        &format!("DELETE FROM series_slots WHERE template_id IN ({IN_SPACE})"),
+        params![id],
+    )?;
     // Recipe collections key off the recipe's entity id, not their own.
     for table in ["recipe_ingredients", "recipe_steps", "recipe_tag_links"] {
         conn.execute(

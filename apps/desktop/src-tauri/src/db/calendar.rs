@@ -198,6 +198,7 @@ pub fn generate_occurrences(
                 template.location.clone(),
                 template.description.clone(),
             )?;
+            crate::db::series::record_slot(conn, template_id, &occurrence.date)?;
             created.push(occurrence);
         }
         Ok(created)
@@ -2303,6 +2304,7 @@ mod tests {
             Some("Bring towel".into()),
         )
         .unwrap();
+        crate::db::series::make_legacy::<CalendarEntry>(&conn, &tid);
         let before = snapshot(&conn, &tid);
         let created = generate_occurrences(&conn, &tid, "2026-02-09").unwrap();
         assert_eq!(

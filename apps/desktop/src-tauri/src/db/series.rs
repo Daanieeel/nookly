@@ -179,27 +179,48 @@ pub(crate) fn validate_times(
 /// Which of `slots` (every cadence date from the anchor up to the requested
 /// end, in order) generating still has to create.
 ///
-/// A series' occurrences are only ever created by generating, slot by slot
-/// from the anchor, so its row count (trashed, cancelled and moved rows
-/// included) is how many leading slots it has already filled. Those are never
-/// filled again: a date vacated by moving, cancelling or trashing an
-/// occurrence stays the way the user left it. A later slot is created unless
-/// an occurrence of the series already sits on its date, so a moved one never
-/// gets a twin. Once Empty Trash has removed rows the count runs low, and the
-/// last slots fall back to that date check alone, as before.
+/// Records that `slot` of a series has been filled. Kept in its own table, so it
+/// outlives the occurrence: moving, cancelling, trashing or even emptying the
+/// trash never opens the slot again.
+pub(crate) fn record_slot(conn: &Connection, template_id: &str, slot: &str) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO series_slots (template_id, slot_date) VALUES (?1, ?2)",
+        params![template_id, slot],
+    )?;
+    Ok(())
+}
+
+/// A series' occurrences are only ever created by generating, slot by slot from the
+/// anchor. Every slot it fills is recorded (`record_slot`), and a recorded slot is
+/// never filled again, whatever became of its occurrence: a date vacated by moving,
+/// cancelling or trashing stays the way the user left it. A slot that was only
+/// skipped (something of the series sat on its date) is not recorded, so it opens
+/// again once that moves away, and a moved occurrence never gets a twin while it is
+/// there.
+///
+/// A series generated before slots were recorded has `legacy_filled`: how many
+/// leading slots its rows covered when the migration ran. Those are skipped, as the
+/// old rule did.
 pub(crate) fn slots_to_generate<O: SeriesOccurrence>(
     conn: &Connection,
     template_id: &str,
     slots: Vec<String>,
 ) -> AppResult<Vec<String>> {
-    let filled: i64 = conn.query_row(
-        &format!(
-            "SELECT COUNT(*) FROM {t} WHERE template_id = ?1",
-            t = O::TABLE
-        ),
-        params![template_id],
-        |row| row.get(0),
-    )?;
+    let legacy: i64 = conn
+        .query_row(
+            &format!(
+                "SELECT legacy_filled FROM {t} WHERE entity_id = ?1",
+                t = O::TEMPLATE_TABLE
+            ),
+            params![template_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .unwrap_or(0);
+    let filled: HashSet<String> = conn
+        .prepare("SELECT slot_date FROM series_slots WHERE template_id = ?1")?
+        .query_map(params![template_id], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
     let taken: HashSet<String> = conn
         .prepare(&format!(
             "SELECT date FROM {t} WHERE template_id = ?1",
@@ -207,14 +228,35 @@ pub(crate) fn slots_to_generate<O: SeriesOccurrence>(
         ))?
         .query_map(params![template_id], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
-    let filled = usize::try_from(filled).unwrap_or(0);
+    let legacy = usize::try_from(legacy).unwrap_or(0);
     let end = series_end::<O>(conn, template_id)?;
     Ok(slots
         .into_iter()
-        .skip(filled)
-        .filter(|date| !taken.contains(date))
+        .skip(legacy)
+        .filter(|date| !taken.contains(date) && !filled.contains(date))
         .filter(|date| end.as_ref().is_none_or(|end| date < end))
         .collect())
+}
+
+/// Makes a series look like one generated before slots were recorded, for tests of
+/// that data: no recorded slots, and its rows are the leading slots it filled.
+#[cfg(test)]
+pub(crate) fn make_legacy<O: SeriesOccurrence>(conn: &Connection, template_id: &str) {
+    conn.execute(
+        "DELETE FROM series_slots WHERE template_id = ?1",
+        params![template_id],
+    )
+    .unwrap();
+    conn.execute(
+        &format!(
+            "UPDATE {tt} SET legacy_filled =
+             (SELECT COUNT(*) FROM {t} WHERE template_id = ?1) WHERE entity_id = ?1",
+            tt = O::TEMPLATE_TABLE,
+            t = O::TABLE
+        ),
+        params![template_id],
+    )
+    .unwrap();
 }
 
 /// Where "delete this and following" ended the series, if it did and nothing live

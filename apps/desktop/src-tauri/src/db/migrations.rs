@@ -649,6 +649,28 @@ fn all() -> Vec<M<'static>> {
           AND (SELECT title FROM entities WHERE id = calendar_entries.entity_id)
               IS NOT (SELECT title FROM entities WHERE id = calendar_entries.template_id);
         ",
+    ), M::up(
+        "
+        -- The slots a series has filled, kept apart from its occurrences so moving,
+        -- trashing or emptying the trash never opens one again. A slot that was only
+        -- skipped (something sat on its date) is not recorded and opens again once
+        -- that moves away.
+        CREATE TABLE series_slots (
+            template_id TEXT NOT NULL,
+            slot_date TEXT NOT NULL,
+            PRIMARY KEY (template_id, slot_date)
+        );
+        -- Series generated before this know their slots only by their rows: the row
+        -- count is how many leading slots they filled. Frozen here, so existing
+        -- series behave exactly as they did.
+        ALTER TABLE session_templates ADD COLUMN legacy_filled INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE calendar_entry_templates ADD COLUMN legacy_filled INTEGER NOT NULL DEFAULT 0;
+        UPDATE session_templates SET legacy_filled =
+            (SELECT COUNT(*) FROM sessions s WHERE s.template_id = session_templates.entity_id);
+        UPDATE calendar_entry_templates SET legacy_filled =
+            (SELECT COUNT(*) FROM calendar_entries c
+             WHERE c.template_id = calendar_entry_templates.entity_id);
+        ",
     )]
 }
 
@@ -869,20 +891,43 @@ mod overridden_fields_backfill {
         );
         assert_eq!(rows(&conn, "sessions", SESSION_COLUMNS), sessions_before);
         assert_eq!(rows(&conn, "entities", "*"), entities_before);
-        // `series_end` was added after these columns, so it is the last one.
-        let without_series_end = |mut table: Vec<Vec<rusqlite::types::Value>>| {
+        // `series_end` and `legacy_filled` were added after these columns, in that
+        // order, so they are the last two. Neither has a series to describe here.
+        let without_new_columns = |mut table: Vec<Vec<rusqlite::types::Value>>| {
             for row in &mut table {
+                assert!(matches!(
+                    row.pop(),
+                    Some(rusqlite::types::Value::Integer(_))
+                ));
                 assert_eq!(row.pop(), Some(rusqlite::types::Value::Null));
             }
             table
         };
         assert_eq!(
             (
-                without_series_end(rows(&conn, "calendar_entry_templates", "*")),
-                without_series_end(rows(&conn, "session_templates", "*")),
+                without_new_columns(rows(&conn, "calendar_entry_templates", "*")),
+                without_new_columns(rows(&conn, "session_templates", "*")),
             ),
             templates_before
         );
+
+        // Each series remembers how many leading slots its rows covered.
+        for (templates, occurrences) in [
+            ("calendar_entry_templates", "calendar_entries"),
+            ("session_templates", "sessions"),
+        ] {
+            let mismatched: i64 = conn
+                .query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM {templates} t WHERE t.legacy_filled !=
+                         (SELECT COUNT(*) FROM {occurrences} o WHERE o.template_id = t.entity_id)"
+                    ),
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(mismatched, 0, "{templates}.legacy_filled");
+        }
 
         // 1 start, 2 end, 4 location, 8 all day, 16 description.
         assert_eq!(
@@ -1005,6 +1050,7 @@ mod history {
         0xc08c803d15973069,
         0x2c27db43ab1a6600,
         0xf26762aee1e57139,
+        0x92f77bf6cda3ea8c,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {
