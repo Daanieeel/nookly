@@ -158,6 +158,7 @@ ipc_commands![
     assignments::list_assignments_all_spaces,
     assignments::update_assignment_status,
     assignments::update_assignment_due_date,
+    assignments::update_assignment_due_before_session,
     assignments::set_assignment_course,
     recipes::create_recipe,
     recipes::list_recipes,
@@ -2062,6 +2063,13 @@ fn assignments_create_list_and_update() {
     assert_eq!(stored.status, "graded");
     assert_eq!(stored.grade, Some(1.3));
     assert_eq!(stored.due_date.as_deref(), Some("2026-05-05"));
+
+    h.ok(
+        "update_assignment_due_before_session",
+        json!({ "entityId": id, "offsetDays": 2 }),
+    );
+    let stored = h.db(|c| db::assignments::get_assignment(c, &id).unwrap());
+    assert_eq!(stored.due_session_offset_days, Some(2));
 
     // A null grade on a status change clears the grade.
     h.ok(

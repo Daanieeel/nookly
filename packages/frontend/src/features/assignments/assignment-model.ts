@@ -296,3 +296,12 @@ export function describeDisplay(display: DisplayOptions): DisplaySummary {
     ordering: label(ORDERINGS, display.ordering),
   };
 }
+
+/// What an assignment's due date is set to: a fixed day (`null` removes it), or so
+/// many days before the Course's next session (0 is the day of it).
+export type AssignmentDue =
+  | { kind: "date"; day: string | null }
+  | { kind: "session"; offsetDays: number };
+
+/// Largest offset the backend takes.
+export const MAX_DUE_OFFSET_DAYS = 365;

@@ -28,7 +28,7 @@ const CADENCE_LABELS = {
   monthly: "Monthly",
 } satisfies Record<Cadence, string>;
 
-export type EndMode = z.infer<typeof endModeSchema>;
+type EndMode = z.infer<typeof endModeSchema>;
 
 export interface Repeat {
   cadence: Cadence;

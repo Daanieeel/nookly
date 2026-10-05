@@ -677,6 +677,12 @@ fn all() -> Vec<M<'static>> {
         -- event on the calendar, so existing exams need no backfill.
         ALTER TABLE exams ADD COLUMN exam_time TEXT;
         ",
+    ), M::up(
+        "
+        -- An assignment due before the course's next session: how many days before it.
+        -- NULL keeps the fixed due_date, so existing assignments need no backfill.
+        ALTER TABLE assignments ADD COLUMN due_session_offset_days INTEGER;
+        ",
     )]
 }
 
@@ -1058,6 +1064,7 @@ mod history {
         0xf26762aee1e57139,
         0x92f77bf6cda3ea8c,
         0x7070e02fbefb5df4,
+        0xea6ca357124886f,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

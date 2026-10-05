@@ -16,6 +16,7 @@ import {
 } from "#/features/tasks/task-properties.tsx";
 import {
   setAssignmentCourse,
+  updateAssignmentDueBeforeSession,
   updateAssignmentDueDate,
   updateAssignmentStatus,
 } from "#/lib/api/assignments.ts";
@@ -24,7 +25,14 @@ import type { Assignment, Entity, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { ASSIGNMENT_STATUSES, assignmentStatus, isDone, statusKindOf } from "./assignment-model";
+import { AssignmentDuePicker } from "./AssignmentDuePicker";
+import {
+  ASSIGNMENT_STATUSES,
+  type AssignmentDue,
+  assignmentStatus,
+  isDone,
+  statusKindOf,
+} from "./assignment-model";
 import { qk } from "#/lib/query-keys.ts";
 
 /// A Space's list and the cross-Space overview both show the same assignments.
@@ -69,11 +77,15 @@ export function AssignmentStatusControl({ assignment }: { assignment: Assignment
   );
 }
 
-/// Changes an assignment's due date; `null` clears it.
-export function useSetAssignmentDueDate(assignment: Assignment) {
+/// Changes an assignment's due date, to a day (`null` clears it) or to so many days
+/// before the Course's next session.
+export function useSetAssignmentDue(assignment: Assignment) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dueDate: string | null) => updateAssignmentDueDate(assignment.entity.id, dueDate),
+    mutationFn: (due: AssignmentDue) =>
+      due.kind === "date"
+        ? updateAssignmentDueDate(assignment.entity.id, due.day)
+        : updateAssignmentDueBeforeSession(assignment.entity.id, due.offsetDays),
     onSuccess: () => refreshAssignments(queryClient, assignment.entity.spaceId),
   });
 }
@@ -110,7 +122,7 @@ export function dueTone(assignment: Assignment): "overdue" | "soon" | null {
 
 /// A list row's due date columns, as on Tasks: the day opens the date picker.
 function AssignmentDueColumns({ assignment, done }: { assignment: Assignment; done: boolean }) {
-  const change = useSetAssignmentDueDate(assignment);
+  const change = useSetAssignmentDue(assignment);
   return (
     <DueColumns
       dueDate={assignment.dueDate}
@@ -118,7 +130,11 @@ function AssignmentDueColumns({ assignment, done }: { assignment: Assignment; do
       date={
         <DueDateButton
           value={assignment.dueDate}
-          onSelect={(day) => change.mutate(day)}
+          renderPicker={(trigger) => (
+            <AssignmentDuePicker assignment={assignment} onSelect={(due) => change.mutate(due)}>
+              {trigger}
+            </AssignmentDuePicker>
+          )}
           pending={change.isPending}
           failed={change.isError}
         />
@@ -129,7 +145,7 @@ function AssignmentDueColumns({ assignment, done }: { assignment: Assignment; do
 
 /// The due date pill on a card, which opens the date picker.
 export function AssignmentDueControl({ assignment }: { assignment: Assignment }) {
-  const change = useSetAssignmentDueDate(assignment);
+  const change = useSetAssignmentDue(assignment);
   return (
     <DuePill
       value={assignment.dueDate}
@@ -137,7 +153,11 @@ export function AssignmentDueControl({ assignment }: { assignment: Assignment })
       pendingLabel="Due date"
       pending={change.isPending}
       failed={change.isError}
-      onSelect={(day) => change.mutate(day)}
+      renderPicker={(trigger) => (
+        <AssignmentDuePicker assignment={assignment} onSelect={(due) => change.mutate(due)}>
+          {trigger}
+        </AssignmentDuePicker>
+      )}
     />
   );
 }

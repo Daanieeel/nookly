@@ -8,18 +8,19 @@ import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import { RelatedItemsSection } from "#/features/relationships/RelatedItemsSection.tsx";
 import { TasksDataContext, useTasksDataValue } from "#/features/tasks/task-controls.tsx";
 import { formatTimestamp } from "#/features/tasks/task-model.ts";
-import { DueDatePicker, DueLabel, PendingIcon } from "#/features/tasks/task-properties.tsx";
+import { DueLabel, PendingIcon } from "#/features/tasks/task-properties.tsx";
 import { listAssignments, updateAssignmentStatus } from "#/lib/api/assignments.ts";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { AssignmentDuePicker } from "./AssignmentDuePicker";
 import { ASSIGNMENT_STATUSES, assignmentStatus, statusKindOf } from "./assignment-model";
 import {
   AssignmentDueControl,
   AssignmentStatusControl,
   dueTone,
   useSetAssignmentCourse,
-  useSetAssignmentDueDate,
+  useSetAssignmentDue,
 } from "./assignment-views";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -76,9 +77,9 @@ function AssignmentPage({ entity }: { entity: Entity }) {
 }
 
 function SetDueDate({ assignment }: { assignment: Assignment }) {
-  const change = useSetAssignmentDueDate(assignment);
+  const change = useSetAssignmentDue(assignment);
   return (
-    <DueDatePicker value={null} onSelect={(day) => change.mutate(day)}>
+    <AssignmentDuePicker assignment={assignment} onSelect={(due) => change.mutate(due)}>
       <button
         type="button"
         aria-label={change.isError ? "Couldn't set due date, try again" : "Set Due Date"}
@@ -87,7 +88,7 @@ function SetDueDate({ assignment }: { assignment: Assignment }) {
         <PendingIcon pending={change.isPending} failed={change.isError} idle={null} />
         Set due date
       </button>
-    </DueDatePicker>
+    </AssignmentDuePicker>
   );
 }
 
@@ -106,7 +107,7 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
       updateAssignmentStatus(assignment.entity.id, next, assignment.grade),
     onSuccess: invalidate,
   });
-  const setDue = useSetAssignmentDueDate(assignment);
+  const setDue = useSetAssignmentDue(assignment);
   return (
     <section aria-label="Properties" className="flex flex-col gap-0.5">
       <StatusPropertyRow
@@ -120,10 +121,10 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
       />
 
       <PropertyRow label="Due date">
-        <DueDatePicker
-          value={assignment.dueDate}
+        <AssignmentDuePicker
+          assignment={assignment}
           align="end"
-          onSelect={(day) => setDue.mutate(day)}
+          onSelect={(due) => setDue.mutate(due)}
         >
           <button
             type="button"
@@ -138,8 +139,15 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
             ) : (
               <span className="text-muted-foreground">Set due date</span>
             )}
+            {assignment.dueSessionOffsetDays !== null && (
+              <span className="truncate text-xs text-muted-foreground">
+                {assignment.dueSessionOffsetDays === 0
+                  ? "day of session"
+                  : `${assignment.dueSessionOffsetDays}d before session`}
+              </span>
+            )}
           </button>
-        </DueDatePicker>
+        </AssignmentDuePicker>
       </PropertyRow>
 
       <PropertyRow label="Grade">

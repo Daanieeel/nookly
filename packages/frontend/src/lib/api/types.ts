@@ -410,7 +410,10 @@ export interface CourseGrades {
 
 export interface Assignment {
   entity: Entity;
+  /// For one due before a session this is the resolved day, worked out when read.
   dueDate: string | null;
+  /// Due this many days before the Course's next session; null for a fixed date.
+  dueSessionOffsetDays: number | null;
   status: string;
   grade: number | null;
 }

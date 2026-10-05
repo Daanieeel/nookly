@@ -15,7 +15,11 @@ inventory::submit! {
 #[serde(rename_all = "camelCase")]
 pub struct Assignment {
     pub entity: Entity,
+    /// The day it is due. When `due_session_offset_days` is set this is worked out
+    /// from the course's sessions each time it is read, never stored.
     pub due_date: Option<String>,
+    /// Due this many days before the course's next session; `None` for a fixed date.
+    pub due_session_offset_days: Option<i64>,
     pub status: String,
     pub grade: Option<f64>,
 }
@@ -24,6 +28,7 @@ fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
     Ok(Assignment {
         entity: crate::db::entities::row_to_entity(row)?,
         due_date: row.get("due_date")?,
+        due_session_offset_days: row.get("due_session_offset_days")?,
         status: row.get("status")?,
         grade: row.get("grade")?,
     })
@@ -54,6 +59,7 @@ pub fn create_assignment(
         Ok(Assignment {
             entity,
             due_date,
+            due_session_offset_days: None,
             status: "not_started".into(),
             grade: None,
         })
@@ -62,23 +68,23 @@ pub fn create_assignment(
 
 pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.status, a.grade FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.status, a.grade FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
     let rows = stmt.query_map(params![space_id], row_to_assignment)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    resolve_all(conn, rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 /// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
 pub fn list_assignments_all_spaces(conn: &Connection) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.status, a.grade FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.status, a.grade FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
     let rows = stmt.query_map([], row_to_assignment)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    resolve_all(conn, rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 pub fn update_assignment_status(
@@ -102,11 +108,106 @@ pub fn update_assignment_due_date(
     due_date: Option<String>,
 ) -> AppResult<()> {
     let affected = conn.execute(
-        "UPDATE assignments SET due_date = ?1 WHERE entity_id = ?2",
+        "UPDATE assignments SET due_date = ?1, due_session_offset_days = NULL WHERE entity_id = ?2",
         params![due_date, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
+}
+
+/// Makes the assignment due this many days before its course's next session, or, with
+/// `None`, back to its fixed due date. The due day itself is worked out when read, so
+/// it follows sessions that move, get cancelled or trashed.
+pub fn update_assignment_due_before_session(
+    conn: &Connection,
+    entity_id: &str,
+    offset_days: Option<i64>,
+) -> AppResult<()> {
+    if offset_days.is_some_and(|days| !(0..=365).contains(&days)) {
+        return Err(crate::error::AppError::InvalidInput(
+            "dueSessionOffsetDays must be between 0 and 365".into(),
+        ));
+    }
+    let affected = conn.execute(
+        "UPDATE assignments SET due_session_offset_days = ?1 WHERE entity_id = ?2",
+        params![offset_days, entity_id],
+    )?;
+    crate::db::require_row(affected, "assignment", entity_id)?;
+    Ok(())
+}
+
+fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+
+/// The day an assignment due `offset_days` before the course's next session is due: that
+/// session is the first one, not cancelled or trashed, on or after `today`. The day itself
+/// may already be past (a week before a session three days away), which makes it overdue.
+/// With none left, it stays on the course's last session that still exists, cancelled or
+/// past, so cancelling the only session doesn't wipe the due date. `None` only for a
+/// course without sessions.
+pub fn next_session_due(
+    conn: &Connection,
+    course_id: &str,
+    offset_days: i64,
+    today: &str,
+) -> AppResult<Option<String>> {
+    let shift = format!("-{offset_days} days");
+    let from_course = "FROM sessions s
+         JOIN entities e ON e.id = s.entity_id
+         JOIN relationships r ON r.from_entity_id = s.entity_id
+           AND r.relationship_type = 'session-course' AND r.to_entity_id = ?1
+         WHERE e.deleted_at IS NULL";
+    let upcoming: Option<String> = conn
+        .query_row(
+            &format!(
+                "SELECT date(s.date, ?2) {from_course} AND s.cancelled = 0 AND s.date >= ?3
+                 ORDER BY s.date ASC LIMIT 1"
+            ),
+            params![course_id, shift, today],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if upcoming.is_some() {
+        return Ok(upcoming);
+    }
+    Ok(conn
+        .query_row(
+            &format!("SELECT date(s.date, ?2) {from_course} ORDER BY s.date DESC LIMIT 1"),
+            params![course_id, shift],
+            |row| row.get(0),
+        )
+        .optional()?)
+}
+
+fn resolve_due_date(conn: &Connection, assignment: &mut Assignment, today: &str) -> AppResult<()> {
+    let Some(offset) = assignment.due_session_offset_days else {
+        return Ok(());
+    };
+    let course_id: Option<String> = conn
+        .query_row(
+            "SELECT to_entity_id FROM relationships
+             WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
+            params![assignment.entity.id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    assignment.due_date = match course_id {
+        Some(course_id) => next_session_due(conn, &course_id, offset, today)?,
+        None => None,
+    };
+    Ok(())
+}
+
+/// Resolves every session relative due day, then puts the list back in due order
+/// (undated first, like the stored column sorts).
+fn resolve_all(conn: &Connection, mut assignments: Vec<Assignment>) -> AppResult<Vec<Assignment>> {
+    let today = today();
+    for assignment in &mut assignments {
+        resolve_due_date(conn, assignment, &today)?;
+    }
+    assignments.sort_by(|a, b| a.due_date.cmp(&b.due_date));
+    Ok(assignments)
 }
 
 /// Moves an assignment to another Course, replacing its one `assignment-course`
@@ -134,14 +235,17 @@ pub fn set_assignment_course(
 }
 
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
-    conn.query_row(
-        "SELECT e.*, a.due_date, a.status, a.grade FROM entities e
+    let mut assignment = conn
+        .query_row(
+            "SELECT e.*, a.due_date, a.due_session_offset_days, a.status, a.grade FROM entities e
          JOIN assignments a ON a.entity_id = e.id WHERE e.id = ?1",
-        params![entity_id],
-        row_to_assignment,
-    )
-    .optional()?
-    .ok_or_else(|| crate::error::AppError::NotFound(format!("assignment {entity_id}")))
+            params![entity_id],
+            row_to_assignment,
+        )
+        .optional()?
+        .ok_or_else(|| crate::error::AppError::NotFound(format!("assignment {entity_id}")))?;
+    resolve_due_date(conn, &mut assignment, &today())?;
+    Ok(assignment)
 }
 
 // --- CLI schema registration (PLAN.md §1/§3) -------------------------------
@@ -160,6 +264,13 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         required_on_create: false,
         writable_on_update: true,
         description: "ISO date. Pass null to clear it.",
+    },
+    FieldDef {
+        name: "dueSessionOffsetDays",
+        kind: FieldKind::Integer,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
     },
     FieldDef {
         name: "status",
@@ -181,6 +292,10 @@ fn cli_create_assignment(conn: &Connection, input: CreateInput) -> AppResult<ser
     let course_id = crate::db::schema::require_str(&input.fields, "courseId")?;
     let due_date = crate::db::schema::field_str(&input.fields, "dueDate");
     let assignment = create_assignment(conn, input.space_id, input.title, course_id, due_date)?;
+    if let Some(days) = crate::db::schema::field_i64(&input.fields, "dueSessionOffsetDays") {
+        update_assignment_due_before_session(conn, &assignment.entity.id, Some(days))?;
+        return cli_get_assignment(conn, &assignment.entity.id);
+    }
     Ok(serde_json::to_value(assignment).expect("Assignment always serializes"))
 }
 
@@ -199,6 +314,10 @@ fn cli_update_assignment(
     if fields.contains_key("dueDate") {
         let due_date = crate::db::schema::field_str(fields, "dueDate");
         update_assignment_due_date(conn, id, due_date)?;
+    }
+    if fields.contains_key("dueSessionOffsetDays") {
+        let days = crate::db::schema::field_i64(fields, "dueSessionOffsetDays");
+        update_assignment_due_before_session(conn, id, days)?;
     }
     cli_get_assignment(conn, id)
 }
