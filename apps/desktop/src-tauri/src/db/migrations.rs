@@ -671,6 +671,12 @@ fn all() -> Vec<M<'static>> {
             (SELECT COUNT(*) FROM calendar_entries c
              WHERE c.template_id = calendar_entry_templates.entity_id);
         ",
+    ), M::up(
+        "
+        -- When an exam starts, as HH:MM. Optional: without it the exam is an all day
+        -- event on the calendar, so existing exams need no backfill.
+        ALTER TABLE exams ADD COLUMN exam_time TEXT;
+        ",
     )]
 }
 
@@ -1051,6 +1057,7 @@ mod history {
         0x2c27db43ab1a6600,
         0xf26762aee1e57139,
         0x92f77bf6cda3ea8c,
+        0x7070e02fbefb5df4,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

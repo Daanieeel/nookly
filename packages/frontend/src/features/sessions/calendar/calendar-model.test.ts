@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { makeCalendarEntry, makeSession } from "#/test/fixtures.ts";
+import { makeCalendarEntry, makeExam, makeSession } from "#/test/fixtures.ts";
 import { setDateTimeSettings } from "#/test/time.ts";
 import {
   DAY_MINUTES,
@@ -223,6 +223,38 @@ describe("buildColumns", () => {
     expect(tuesday.allDayCalendarEntries.map((e) => e.entity.id)).toEqual(["multi"]);
     expect(wednesday.allDayCalendarEntries.map((e) => e.entity.id)).toEqual(["allday", "multi"]);
     expect(wednesday.items).toEqual([]);
+  });
+
+  it("shows an exam without a time in the all day strip", () => {
+    const exams = [makeExam({ examDate: "2026-03-11", examTime: null }, { id: "untimed" })];
+    const [tuesday, wednesday] = buildColumns(days, [], [], [], exams);
+    expect(tuesday.allDayExams).toEqual([]);
+    expect(wednesday.allDayExams.map((e) => e.entity.id)).toEqual(["untimed"]);
+    expect(wednesday.items).toEqual([]);
+  });
+
+  it("puts an exam with a time on the grid for an hour from its start", () => {
+    const exams = [makeExam({ examDate: "2026-03-11", examTime: "09:30" }, { id: "timed" })];
+    const [, wednesday] = buildColumns(days, [], [], [], exams);
+    expect(wednesday.allDayExams).toEqual([]);
+    expect(wednesday.items.map((i) => [i.kind, i.startMin, i.endMin])).toEqual([
+      ["exam", 570, 630],
+    ]);
+  });
+
+  it("ends a late exam at the end of its day", () => {
+    const exams = [makeExam({ examDate: "2026-03-11", examTime: "23:30" })];
+    const [, wednesday] = buildColumns(days, [], [], [], exams);
+    expect(wednesday.items.map((i) => [i.startMin, i.endMin])).toEqual([[1410, 1439]]);
+  });
+
+  it("leaves out exams without a date and trashed ones", () => {
+    const exams = [
+      makeExam({ examDate: null }, { id: "undated" }),
+      makeExam({ examDate: "2026-03-11" }, { id: "trashed", deletedAt: "2026-03-01T00:00:00Z" }),
+    ];
+    const [tuesday, wednesday] = buildColumns(days, [], [], [], exams);
+    expect([...tuesday.allDayExams, ...wednesday.allDayExams]).toEqual([]);
   });
 
   it("gives a timed entry without times the whole day", () => {

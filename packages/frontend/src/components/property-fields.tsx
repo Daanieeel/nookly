@@ -2,6 +2,7 @@ import { IconX } from "@tabler/icons-react";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { useEffect, useState } from "react";
 import { StatusIcon } from "#/components/action-feedback.tsx";
+import { TimeInput } from "#/components/time-input.tsx";
 import { useInPlaceInput } from "#/components/use-in-place-input.ts";
 import { PROPERTY_VALUE } from "#/components/property-row.tsx";
 import { NumberInput } from "@nookly/ui/components/number-input";
@@ -91,6 +92,73 @@ export function NumberProperty({
         className="h-7 w-28 shrink-0"
       />
       {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={failed ? "Couldn't save, try again" : clearLabel}
+            onClick={() => change(null)}
+            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <IconX size={12} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{clearLabel}</TooltipContent>
+      </Tooltip>
+      <span className="flex size-3.5 shrink-0 items-center">
+        <SaveIcon pending={pending} failed={failed} />
+      </span>
+    </div>
+  );
+}
+
+/// A clock time property (`HH:mm`), saved a moment after the last change. Unset, it
+/// offers `addLabel`; the × clears it again.
+export function TimeProperty({
+  value,
+  onSave,
+  addLabel,
+  clearLabel,
+  startAt = "09:00",
+  pending,
+  failed,
+}: SaveState & {
+  value: string | null;
+  onSave: (next: string | null) => void;
+  addLabel: string;
+  /// Names the × button, like "Remove Time".
+  clearLabel: string;
+  /// The time "Add" starts from.
+  startAt?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(value);
+  const saver = useDebouncer(
+    (next: string | null) => {
+      if (next !== value) onSave(next);
+    },
+    { wait: 500, onUnmount: (debouncer) => debouncer.flush() },
+  );
+
+  function change(next: string | null) {
+    setDraft(next);
+    saver.maybeExecute(next);
+  }
+
+  if (draft === null) {
+    return (
+      <div className="relative flex items-center">
+        <button type="button" onClick={() => change(startAt)} className={PROPERTY_VALUE}>
+          <span className="text-muted-foreground">{addLabel}</span>
+        </button>
+        <span className="pointer-events-none absolute right-2">
+          <SaveIcon pending={pending} failed={failed} />
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1 px-1">
+      <TimeInput value={draft} onChange={change} aria-label="Exam time" className="h-7" />
       <Tooltip>
         <TooltipTrigger asChild>
           <button

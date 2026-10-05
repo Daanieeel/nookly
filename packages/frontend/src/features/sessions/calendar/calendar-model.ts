@@ -11,7 +11,7 @@ import {
 } from "date-fns";
 import type { Key } from "@tanstack/hotkeys";
 import type { ExternalEvent } from "#/lib/api/externalCalendars.ts";
-import type { CalendarEntry, SessionOccurrence } from "#/lib/api/types.ts";
+import type { CalendarEntry, Exam, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatMonth, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
@@ -52,6 +52,8 @@ export const SNAP_MINUTES = 15;
 export const SCROLL_TO_HOUR = 7;
 export const DAY_MINUTES = 24 * 60;
 const MIN_BLOCK_PX = 18;
+/// How long an exam block is drawn, as exams have a start time but no end.
+const EXAM_MINUTES = 60;
 /// The shortest span a block renders at, in minutes, for laying out columns.
 const MIN_BLOCK_MINUTES = (MIN_BLOCK_PX / HOUR_PX) * 60;
 
@@ -175,6 +177,7 @@ export function daySpanFor(entry: CalendarEntry, day: Date): "start" | "middle" 
 export type DayItem =
   | { kind: "session"; occurrence: SessionOccurrence; startMin: number; endMin: number }
   | { kind: "calendarEntry"; entry: CalendarEntry; startMin: number; endMin: number }
+  | { kind: "exam"; exam: Exam; startMin: number; endMin: number }
   | ({ kind: "external" } & EventSegment);
 
 export interface DayColumn {
@@ -186,6 +189,8 @@ export interface DayColumn {
   /// All-day calendar entries (no start/end time) on this day, shown in the
   /// same all-day strip as external all-day events.
   allDayCalendarEntries: CalendarEntry[];
+  /// Exams on this day without a time, shown in the all day strip too.
+  allDayExams: Exam[];
 }
 
 /// Sessions, calendar entries and external events per visible day, with
@@ -198,6 +203,7 @@ export function buildColumns(
   sessions: SessionOccurrence[],
   externalEvents: ExternalEvent[],
   calendarEntries: CalendarEntry[] = [],
+  exams: Exam[] = [],
 ): DayColumn[] {
   return days.map((day) => {
     const key = dayKey(day);
@@ -211,6 +217,10 @@ export function buildColumns(
     const allDayCalendarEntries = dayEntries.filter(
       (a) => a.allDay || (a.endDate ?? a.date) !== a.date,
     );
+    const dayExams = exams.filter(
+      (x) => x.entity.deletedAt == null && x.examDate?.slice(0, 10) === key,
+    );
+    const allDayExams = dayExams.filter((x) => !x.examTime);
     const items: DayItem[] = [
       ...sessions
         .filter((s) => s.date === key)
@@ -226,6 +236,17 @@ export function buildColumns(
         startMin: timeToMinutes(entry.startTime ?? "00:00"),
         endMin: timeToMinutes(entry.endTime ?? "23:59"),
       })),
+      ...dayExams
+        .filter((x) => x.examTime)
+        .map((exam) => {
+          const startMin = timeToMinutes(exam.examTime ?? "00:00");
+          return {
+            kind: "exam" as const,
+            exam,
+            startMin,
+            endMin: Math.min(startMin + EXAM_MINUTES, DAY_MINUTES - 1),
+          };
+        }),
       ...timed.map((segment) => ({ kind: "external" as const, ...segment })),
     ];
     items.sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
@@ -236,6 +257,7 @@ export function buildColumns(
       lanes: layoutLanes(items, MIN_BLOCK_MINUTES),
       allDay,
       allDayCalendarEntries,
+      allDayExams,
     };
   });
 }

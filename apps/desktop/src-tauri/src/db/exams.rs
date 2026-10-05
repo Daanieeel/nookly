@@ -20,6 +20,7 @@ pub struct Exam {
     pub grade: Option<f64>,
     pub status: String,
     pub room: Option<String>,
+    pub exam_time: Option<String>,
 }
 
 fn row_to_exam(row: &rusqlite::Row) -> rusqlite::Result<Exam> {
@@ -30,6 +31,7 @@ fn row_to_exam(row: &rusqlite::Row) -> rusqlite::Result<Exam> {
         grade: row.get("grade")?,
         status: row.get("status")?,
         room: row.get("room")?,
+        exam_time: row.get("exam_time")?,
     })
 }
 
@@ -63,13 +65,14 @@ pub fn create_exam(
             grade: None,
             status: "upcoming".into(),
             room: None,
+            exam_time: None,
         })
     })
 }
 
 pub fn list_exams(conn: &Connection, space_id: &str) -> AppResult<Vec<Exam>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status, x.room FROM entities e
+        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status, x.room, x.exam_time FROM entities e
          JOIN exams x ON x.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY x.exam_date ASC",
     )?;
@@ -80,7 +83,7 @@ pub fn list_exams(conn: &Connection, space_id: &str) -> AppResult<Vec<Exam>> {
 /// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
 pub fn list_exams_all_spaces(conn: &Connection) -> AppResult<Vec<Exam>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status, x.room FROM entities e
+        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status, x.room, x.exam_time FROM entities e
          JOIN exams x ON x.entity_id = e.id
          WHERE e.deleted_at IS NULL ORDER BY x.exam_date ASC",
     )?;
@@ -160,6 +163,27 @@ pub fn update_exam_room(conn: &Connection, entity_id: &str, room: Option<String>
     Ok(())
 }
 
+/// `None` clears the time, which makes the exam an all day event on the calendar.
+pub fn update_exam_time(
+    conn: &Connection,
+    entity_id: &str,
+    exam_time: Option<String>,
+) -> AppResult<()> {
+    if let Some(time) = &exam_time {
+        if !crate::db::series::is_clock_time(time) {
+            return Err(crate::error::AppError::InvalidInput(format!(
+                "times must be HH:MM, 24-hour (got \"{time}\")"
+            )));
+        }
+    }
+    let affected = conn.execute(
+        "UPDATE exams SET exam_time = ?1 WHERE entity_id = ?2",
+        params![exam_time, entity_id],
+    )?;
+    crate::db::require_row(affected, "exam", entity_id)?;
+    Ok(())
+}
+
 /// Moves an exam to another Course, replacing its one `exam-course` link rather
 /// than erroring on the cardinality rule. The old link stays if the new one fails.
 pub fn set_exam_course(conn: &Connection, entity_id: &str, course_id: String) -> AppResult<()> {
@@ -182,7 +206,7 @@ pub fn set_exam_course(conn: &Connection, entity_id: &str, course_id: String) ->
 
 pub fn get_exam(conn: &Connection, entity_id: &str) -> AppResult<Exam> {
     conn.query_row(
-        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status, x.room FROM entities e
+        "SELECT e.*, x.exam_date, x.weight, x.grade, x.status, x.room, x.exam_time FROM entities e
          JOIN exams x ON x.entity_id = e.id WHERE e.id = ?1",
         params![entity_id],
         row_to_exam,
@@ -238,6 +262,14 @@ const EXAM_FIELDS: &[FieldDef] = &[
         writable_on_update: true,
         description: "Where the exam takes place, like \"H 0104\". Pass null to clear it.",
     },
+    FieldDef {
+        name: "examTime",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: true,
+        description:
+            "Start time as 24-hour HH:MM. Without it the exam shows as an all day event on the calendar. Pass null to clear it.",
+    },
 ];
 
 fn cli_create_exam(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
@@ -269,6 +301,9 @@ fn cli_update_exam(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
     }
     if fields.contains_key("room") {
         update_exam_room(conn, id, field_str(fields, "room"))?;
+    }
+    if fields.contains_key("examTime") {
+        update_exam_time(conn, id, field_str(fields, "examTime"))?;
     }
     if let Some(course_id) = field_str(fields, "courseId") {
         set_exam_course(conn, id, course_id)?;

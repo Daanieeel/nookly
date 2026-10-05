@@ -136,6 +136,7 @@ ipc_commands![
     exams::update_exam_weight,
     exams::update_exam_grade,
     exams::update_exam_room,
+    exams::update_exam_time,
     exams::set_exam_course,
     decks::create_deck,
     decks::list_decks,
@@ -1937,17 +1938,23 @@ fn exams_field_setters_update_the_row() {
     );
     h.ok("update_exam_grade", json!({ "entityId": id, "grade": 1.7 }));
     h.ok("update_exam_room", json!({ "entityId": id, "room": "H1" }));
+    h.ok(
+        "update_exam_time",
+        json!({ "entityId": id, "examTime": "09:30" }),
+    );
     let exam = h.db(|c| db::exams::list_exams(c, &space).unwrap().remove(0));
     assert_eq!(exam.exam_date.as_deref(), Some("2026-08-01"));
     assert_eq!(exam.weight, Some(0.25));
     assert_eq!(exam.grade, Some(1.7));
     assert_eq!(exam.room.as_deref(), Some("H1"));
+    assert_eq!(exam.exam_time.as_deref(), Some("09:30"));
 
     for (cmd, key) in [
         ("update_exam_date", "examDate"),
         ("update_exam_weight", "weight"),
         ("update_exam_grade", "grade"),
         ("update_exam_room", "room"),
+        ("update_exam_time", "examTime"),
     ] {
         h.ok(cmd, json!({ "entityId": id, key: null }));
     }
@@ -1956,6 +1963,7 @@ fn exams_field_setters_update_the_row() {
     assert_eq!(exam.weight, None);
     assert_eq!(exam.grade, None);
     assert_eq!(exam.room, None);
+    assert_eq!(exam.exam_time, None);
 }
 
 #[test]

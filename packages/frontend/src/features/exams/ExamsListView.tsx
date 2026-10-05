@@ -499,6 +499,7 @@ function CreateExamDialog({
     },
     onSuccess: (_exam, { course }) => {
       queryClient.invalidateQueries({ queryKey: qk.exams.bySpace(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.exams.all });
       if (course)
         queryClient.invalidateQueries({
           queryKey: qk.relationships.of(course.id),

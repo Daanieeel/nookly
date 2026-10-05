@@ -3,6 +3,7 @@ import type {
   Bookmark,
   CalendarEntry,
   Entity,
+  Exam,
   FileEntity,
   Label,
   SessionOccurrence,
@@ -175,6 +176,19 @@ export function makeCalendarEntry(
     cancelled: false,
     location: null,
     description: null,
+    ...patch,
+  };
+}
+
+export function makeExam(patch: Partial<Exam> = {}, entity: Partial<Entity> = {}): Exam {
+  return {
+    entity: makeEntity({ id: "exam-1", type: "exam", title: "Final", key: "EXM-1", ...entity }),
+    examDate: "2026-03-11",
+    weight: null,
+    grade: null,
+    status: "upcoming",
+    room: null,
+    examTime: null,
     ...patch,
   };
 }

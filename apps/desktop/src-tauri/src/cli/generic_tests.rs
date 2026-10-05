@@ -83,6 +83,7 @@ fn sample(f: &FieldDef, variant: usize) -> Option<Value> {
     match f.kind {
         FieldKind::Text if f.name.ends_with("Path") => None,
         FieldKind::Text if f.name == "startTime" => pick(json!("09:00"), json!("09:30")),
+        FieldKind::Text if f.name == "examTime" => pick(json!("09:00"), json!("14:30")),
         FieldKind::Text if f.name == "endTime" => pick(json!("10:00"), json!("11:30")),
         FieldKind::Text if f.name.to_lowercase().contains("url") => pick(
             json!("https://example.com/a"),

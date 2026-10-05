@@ -8,6 +8,7 @@ import {
   CalendarEntryBlock,
   CalendarEntryChip,
 } from "../../calendar-entries/calendar/CalendarEntryBlock";
+import { ExamBlock, ExamChip } from "../../exams/calendar/ExamCalendarItems";
 import { ExternalEventBlock, ExternalEventChip } from "../external-calendars/ExternalEventBlock";
 import { lanePosition } from "../external-calendars/overlay-layout";
 import {
@@ -143,7 +144,12 @@ export function TimeGrid({
   const days = columns.map((c) => c.day);
   const allDayRows = Math.min(
     MAX_ALL_DAY_ROWS,
-    Math.max(0, ...columns.map((c) => c.allDay.length + c.allDayCalendarEntries.length)),
+    Math.max(
+      0,
+      ...columns.map(
+        (c) => c.allDay.length + c.allDayCalendarEntries.length + c.allDayExams.length,
+      ),
+    ),
   );
   const allDayHeightPx = allDayRows * ALL_DAY_ROW_PX + 4;
 
@@ -221,7 +227,7 @@ export function TimeGrid({
             <div className="w-14 shrink-0 px-1.5 pt-1 text-right text-xs text-muted-foreground">
               All day
             </div>
-            {columns.map(({ day, key, allDay, allDayCalendarEntries }) => (
+            {columns.map(({ day, key, allDay, allDayCalendarEntries, allDayExams }) => (
               <div
                 key={key}
                 className={cn(
@@ -231,6 +237,14 @@ export function TimeGrid({
               >
                 {allDay.map((event) => (
                   <ExternalEventChip key={event.id} event={event} />
+                ))}
+                {allDayExams.map((exam) => (
+                  <ExamChip
+                    key={exam.entity.id}
+                    exam={exam}
+                    highlighted={highlightIds.has(exam.entity.id)}
+                    accentColor={spaceColor?.(exam.entity.spaceId)}
+                  />
                 ))}
                 {allDayCalendarEntries.map((entry) => (
                   <CalendarEntryChip
@@ -390,6 +404,17 @@ export function TimeGrid({
                       secondary={secondaryKind === "calendarEntry"}
                       days={days}
                       dayIndex={dayIndex}
+                    />
+                  );
+                }
+                if (item.kind === "exam") {
+                  return (
+                    <ExamBlock
+                      key={item.exam.entity.id}
+                      exam={item.exam}
+                      position={position}
+                      highlighted={highlightIds.has(item.exam.entity.id)}
+                      accentColor={spaceColor?.(item.exam.entity.spaceId)}
                     />
                   );
                 }

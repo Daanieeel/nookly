@@ -2,6 +2,7 @@ import { format, isSameMonth, isToday, isWeekend } from "date-fns";
 import { formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { CalendarEntryChip } from "../../calendar-entries/calendar/CalendarEntryBlock";
+import { ExamChip } from "../../exams/calendar/ExamCalendarItems";
 import { ExternalEventChip } from "../external-calendars/ExternalEventBlock";
 import {
   type DayColumn,
@@ -60,11 +61,21 @@ export function MonthGrid({
       {weeks.map((week) => (
         <div key={week[0].key} className="flex shrink-0 grow basis-32">
           <div className="grid min-w-0 flex-1 grid-cols-7">
-            {week.map(({ day, key, items, allDay, allDayCalendarEntries }, index) => {
+            {week.map(({ day, key, items, allDay, allDayCalendarEntries, allDayExams }, index) => {
               const entries = [
                 ...allDay.map((event) => ({
                   id: event.id,
                   node: <ExternalEventChip event={event} />,
+                })),
+                ...allDayExams.map((exam) => ({
+                  id: exam.entity.id,
+                  node: (
+                    <ExamChip
+                      exam={exam}
+                      highlighted={highlightIds.has(exam.entity.id)}
+                      accentColor={spaceColor?.(exam.entity.spaceId)}
+                    />
+                  ),
                 })),
                 ...allDayCalendarEntries.map((calEntry) => ({
                   id: calEntry.entity.id,
@@ -104,6 +115,19 @@ export function MonthGrid({
                           showTime
                           accentColor={spaceColor?.(item.entry.entity.spaceId)}
                           secondary={secondaryKind === "calendarEntry"}
+                        />
+                      ),
+                    };
+                  }
+                  if (item.kind === "exam") {
+                    return {
+                      id: item.exam.entity.id,
+                      node: (
+                        <ExamChip
+                          exam={item.exam}
+                          highlighted={highlightIds.has(item.exam.entity.id)}
+                          showTime
+                          accentColor={spaceColor?.(item.exam.entity.spaceId)}
                         />
                       ),
                     };

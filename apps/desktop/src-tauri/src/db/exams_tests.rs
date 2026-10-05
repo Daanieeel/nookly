@@ -277,6 +277,49 @@ fn date_weight_and_room_clear_with_none() {
 }
 
 #[test]
+fn a_new_exam_has_no_time_and_the_time_sets_and_clears() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let x = exam(&conn, &space.id, &c.id, "Final", Some("2026-01-01"));
+    assert_eq!(x.exam_time, None);
+    update_exam_time(&conn, &x.entity.id, Some("09:30".into())).unwrap();
+    assert_eq!(
+        get_exam(&conn, &x.entity.id).unwrap().exam_time.as_deref(),
+        Some("09:30")
+    );
+    update_exam_time(&conn, &x.entity.id, None).unwrap();
+    assert_eq!(get_exam(&conn, &x.entity.id).unwrap().exam_time, None);
+}
+
+#[test]
+fn a_time_that_is_not_a_clock_time_is_refused() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let x = exam(&conn, &space.id, &c.id, "Final", None);
+    for bad in ["9:30", "25:00", "noon", ""] {
+        let r = update_exam_time(&conn, &x.entity.id, Some(bad.into()));
+        assert!(matches!(r, Err(AppError::InvalidInput(_))), "{bad}: {r:?}");
+    }
+    assert_eq!(get_exam(&conn, &x.entity.id).unwrap().exam_time, None);
+}
+
+#[test]
+fn cli_update_sets_and_clears_the_time() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let x = exam(&conn, &space.id, &c.id, "Final", Some("2026-01-01"));
+    let def = crate::db::schema::lookup("exam").unwrap();
+    let set: crate::db::schema::JsonMap =
+        serde_json::from_value(serde_json::json!({ "examTime": "14:00" })).unwrap();
+    let out = (def.update)(&conn, &x.entity.id, &set).unwrap();
+    assert_eq!(out["examTime"], "14:00");
+    let clear: crate::db::schema::JsonMap =
+        serde_json::from_value(serde_json::json!({ "examTime": null })).unwrap();
+    let out = (def.update)(&conn, &x.entity.id, &clear).unwrap();
+    assert!(out["examTime"].is_null());
+}
+
+#[test]
 fn updates_on_an_unknown_exam_report_not_found() {
     let conn = test_conn();
     // Every exam setter must report NotFound for a missing id.
@@ -286,6 +329,7 @@ fn updates_on_an_unknown_exam_report_not_found() {
         update_exam_weight(&conn, "ghost", Some(0.5)),
         update_exam_grade(&conn, "ghost", Some(1.0)),
         update_exam_room(&conn, "ghost", Some("R".into())),
+        update_exam_time(&conn, "ghost", Some("09:00".into())),
     ];
     for r in results {
         assert!(matches!(r, Err(AppError::NotFound(_))), "{r:?}");

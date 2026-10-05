@@ -547,6 +547,7 @@ pub(crate) fn populate(conn: &Connection) -> Fixture {
             ("grade", r(1.7)),
             ("status", t("planned")),
             ("room", t("Audimax")),
+            ("exam_time", t("09:30")),
         ],
     );
     b.insert("index_card_decks", &[("entity_id", t("e-deck"))]);

@@ -70,6 +70,16 @@ pub fn update_exam_grade(
 }
 
 #[tauri::command]
+pub fn update_exam_time(
+    state: State<DbState>,
+    entity_id: String,
+    exam_time: Option<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    exams::update_exam_time(&conn, &entity_id, exam_time)
+}
+
+#[tauri::command]
 pub fn update_exam_room(
     state: State<DbState>,
     entity_id: String,

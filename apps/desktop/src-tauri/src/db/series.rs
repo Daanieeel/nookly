@@ -123,7 +123,7 @@ where
 }
 
 /// Whether `time` is a zero padded 24-hour `HH:MM` (00:00 to 23:59).
-fn is_clock_time(time: &str) -> bool {
+pub(crate) fn is_clock_time(time: &str) -> bool {
     let b = time.as_bytes();
     b.len() == 5
         && b[2] == b':'

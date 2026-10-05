@@ -10,7 +10,7 @@ import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-fie
 import { FieldError } from "#/components/action-feedback.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { NumberProperty, TextProperty } from "#/components/property-fields.tsx";
+import { NumberProperty, TextProperty, TimeProperty } from "#/components/property-fields.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { DateInput } from "#/components/date-input.tsx";
@@ -39,6 +39,7 @@ import {
   updateExamDate,
   updateExamGrade,
   updateExamRoom,
+  updateExamTime,
   updateExamWeight,
 } from "#/lib/api/exams.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
@@ -100,7 +101,11 @@ function useExamSave<T>(exam: Exam, save: (id: string, value: T) => Promise<void
   return useMutation({
     mutationFn: (value: T) => save(exam.entity.id, value),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: qk.exams.bySpace(exam.entity.spaceId) }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.exams.bySpace(exam.entity.spaceId) }),
+        // The cross-Space copy the Calendar and Dashboard read.
+        queryClient.invalidateQueries({ queryKey: qk.exams.all }),
+      ]),
   });
 }
 
@@ -165,6 +170,7 @@ function PropertiesPanel({ exam }: { exam: Exam }) {
   const setStatus = useExamSave(exam, (id, next: string) => updateExam(id, null, next));
   const setDate = useExamSave(exam, updateExamDate);
   const setRoom = useExamSave(exam, updateExamRoom);
+  const setTime = useExamSave(exam, updateExamTime);
   const setWeight = useExamSave(exam, updateExamWeight);
   const setGrade = useExamSave(exam, updateExamGrade);
   const setCourse = useMutation({
@@ -215,6 +221,17 @@ function PropertiesPanel({ exam }: { exam: Exam }) {
             )}
           </button>
         </DueDatePicker>
+      </PropertyRow>
+
+      <PropertyRow label="Time">
+        <TimeProperty
+          value={exam.examTime}
+          onSave={(time) => setTime.mutate(time)}
+          addLabel="Add time"
+          clearLabel="Remove Time"
+          pending={setTime.isPending}
+          failed={setTime.isError}
+        />
       </PropertyRow>
 
       <PropertyRow label="Room">

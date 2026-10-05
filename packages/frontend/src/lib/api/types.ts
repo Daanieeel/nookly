@@ -343,6 +343,8 @@ export interface Exam {
   grade: number | null;
   status: string;
   room: string | null;
+  /// Start time as `HH:mm`; unset, the exam is an all day event on the calendar.
+  examTime: string | null;
 }
 
 export type CardState = "new" | "learning" | "review" | "relearning";

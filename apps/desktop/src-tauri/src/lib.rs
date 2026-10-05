@@ -227,6 +227,7 @@ pub fn run() {
             commands::exams::update_exam_weight,
             commands::exams::update_exam_grade,
             commands::exams::update_exam_room,
+            commands::exams::update_exam_time,
             commands::exams::set_exam_course,
             commands::decks::create_deck,
             commands::decks::list_decks,

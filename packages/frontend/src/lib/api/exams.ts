@@ -45,6 +45,10 @@ export function updateExamRoom(entityId: string, room: string | null): Promise<v
   return invoke("update_exam_room", { entityId, room });
 }
 
+export function updateExamTime(entityId: string, examTime: string | null): Promise<void> {
+  return invoke("update_exam_time", { entityId, examTime });
+}
+
 /// Moves an exam to another Course, replacing its Course link.
 export function setExamCourse(entityId: string, courseId: string): Promise<void> {
   return invoke("set_exam_course", { entityId, courseId });

@@ -1315,6 +1315,13 @@
           "writableOnUpdate": true
         },
         {
+          "description": "Start time as 24-hour HH:MM. Without it the exam shows as an all day event on the calendar. Pass null to clear it.",
+          "kind": "text",
+          "name": "examTime",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
           "description": "Grade received. Pass null to clear it.",
           "kind": "float",
           "name": "grade",
