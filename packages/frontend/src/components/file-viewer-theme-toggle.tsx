@@ -4,7 +4,7 @@ import { ThemeTabs } from "./theme-tabs.tsx";
 const LABELS = {
   light: "Light",
   dark: "Dark",
-  system: "Follow App Theme",
+  defaults: "Use Defaults",
 } satisfies Record<FileViewerTheme, string>;
 
 export function FileViewerThemeToggle() {
