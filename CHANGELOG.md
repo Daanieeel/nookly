@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.17.7 (2026-10-05)
+
+### Changed
+
+- Math, equation and diagram blocks pasting back as code blocks
+- Turn any block into every block it can hold
+
 ## 0.17.6 (2026-10-05)
 
 ### Changed
