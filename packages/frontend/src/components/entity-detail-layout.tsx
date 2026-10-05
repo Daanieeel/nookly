@@ -1,6 +1,7 @@
 import { IconRestore, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useRememberedScroll } from "#/hooks/use-remembered-scroll.ts";
 import {
   StatusAnnouncer,
   StatusIcon,
@@ -29,6 +30,8 @@ export function EntityDetailLayout({
   exportable = false,
   bodyOverlay,
   sidebar,
+  scrollKey,
+  scrollReady = true,
   children,
 }: {
   entity: Entity;
@@ -42,6 +45,10 @@ export function EntityDetailLayout({
   bodyOverlay?: (scrollContainer: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
   /// Type specific sections at the top of the right sidebar, e.g. a Task's properties.
   sidebar?: React.ReactNode;
+  /// Keeps the body's scroll position across tabs, under this key. Off when unset.
+  scrollKey?: string;
+  /// Holds the restore back until the body is tall enough to scroll to it.
+  scrollReady?: boolean;
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -51,6 +58,7 @@ export function EntityDetailLayout({
   const bodyRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
+  useRememberedScroll(bodyRef, scrollKey ?? "", scrollKey !== undefined && scrollReady);
 
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
   // A fresh page opens with an empty title, so land the cursor there to type. Only on

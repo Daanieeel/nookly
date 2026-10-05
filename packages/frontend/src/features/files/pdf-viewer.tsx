@@ -29,6 +29,7 @@ import { Input } from "@nookly/ui/components/input";
 import { Separator } from "@nookly/ui/components/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { useRememberedScroll } from "#/hooks/use-remembered-scroll.ts";
 import { InvertibleDocument } from "./document-frame";
 
 // Vite bundles the worker as its own asset; pdf.js can't run without one.
@@ -129,6 +130,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  useRememberedScroll(scrollRef, `pdf:${src}`, numPages > 0);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
   const thumbnailRefs = useRef(new Map<number, HTMLDivElement>());
   const thumbnailsRef = useRef<HTMLDivElement>(null);
