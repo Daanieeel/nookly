@@ -20,8 +20,13 @@ import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
 import { type SlotRange, minutesToTime } from "./calendar-model";
-import { RepeatChip, cadenceSchema, durationUnitSchema } from "#/components/repeat-chip.tsx";
-import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates } from "#/lib/repeat.ts";
+import {
+  RepeatChip,
+  cadenceSchema,
+  durationUnitSchema,
+  endModeSchema,
+} from "#/components/repeat-chip.tsx";
+import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates, repeatProblem } from "#/lib/repeat.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -34,8 +39,10 @@ const sessionSchema = z
     endTime: z.string().min(1, "Set an end time"),
     location: z.string(),
     cadence: cadenceSchema,
+    endMode: endModeSchema,
     durationCount: z.number().int().min(1).max(999),
     durationUnit: durationUnitSchema,
+    until: z.string(),
   })
   .refine((v) => !v.startTime || !v.endTime || v.startTime < v.endTime, {
     path: ["endTime"],
@@ -99,13 +106,18 @@ export function QuickCreateSessionDialog({
       endTime,
       location,
       cadence,
+      endMode,
       durationCount,
       durationUnit,
+      until,
     }: SessionValues) => {
       if (!draft || !course) throw new Error("Pick a course first");
       const day = parse(date, "yyyy-MM-dd", new Date());
       const place = location.trim() || null;
-      const dates = repeatDates(day, { cadence, durationCount, durationUnit });
+      const repeat = { cadence, endMode, durationCount, durationUnit, until };
+      const problem = repeatProblem(date, repeat);
+      if (problem) throw new Error(problem);
+      const dates = repeatDates(day, repeat);
       if (dates.length > MAX_OCCURRENCES) {
         throw new Error(`Too many sessions, ${MAX_OCCURRENCES} at most`);
       }
@@ -249,8 +261,10 @@ export function QuickCreateSessionDialog({
               value={values}
               onChange={(repeat) => {
                 form.setFieldValue("cadence", repeat.cadence);
+                form.setFieldValue("endMode", repeat.endMode);
                 form.setFieldValue("durationCount", repeat.durationCount);
                 form.setFieldValue("durationUnit", repeat.durationUnit);
+                form.setFieldValue("until", repeat.until);
               }}
             />
           </FormField>

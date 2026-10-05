@@ -23,8 +23,13 @@ import {
 } from "@nookly/ui/components/select";
 import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
 import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
-import { RepeatChip, cadenceSchema, durationUnitSchema } from "#/components/repeat-chip.tsx";
-import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates } from "#/lib/repeat.ts";
+import {
+  RepeatChip,
+  cadenceSchema,
+  durationUnitSchema,
+  endModeSchema,
+} from "#/components/repeat-chip.tsx";
+import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates, repeatProblem } from "#/lib/repeat.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 const entrySchema = z
@@ -38,8 +43,10 @@ const entrySchema = z
     endTime: z.string(),
     location: z.string(),
     cadence: cadenceSchema,
+    endMode: endModeSchema,
     durationCount: z.number().int().min(1).max(999),
     durationUnit: durationUnitSchema,
+    until: z.string(),
   })
   .refine((v) => v.allDay || (Boolean(v.startTime && v.endTime) && v.startTime < v.endTime), {
     path: ["endTime"],
@@ -124,18 +131,19 @@ export function QuickCreateCalendarEntryDialog({
       endTime,
       location,
       cadence,
+      endMode,
       durationCount,
       durationUnit,
+      until,
     }: EntryValues) => {
       if (!draft || !date) throw new Error("Pick a date first");
       if (!targetSpaceId) throw new Error("Pick a Space first");
       const nextLocation = location.trim() || null;
       const repeats = endDate ? "none" : cadence;
-      const dates = repeatDates(parse(date, "yyyy-MM-dd", new Date()), {
-        cadence: repeats,
-        durationCount,
-        durationUnit,
-      });
+      const repeat = { cadence: repeats, endMode, durationCount, durationUnit, until };
+      const problem = repeatProblem(date, repeat);
+      if (problem) throw new Error(problem);
+      const dates = repeatDates(parse(date, "yyyy-MM-dd", new Date()), repeat);
       if (dates.length > MAX_OCCURRENCES) {
         throw new Error(`Too many entries, ${MAX_OCCURRENCES} at most`);
       }
@@ -276,8 +284,10 @@ export function QuickCreateCalendarEntryDialog({
                 value={values}
                 onChange={(repeat) => {
                   form.setFieldValue("cadence", repeat.cadence);
+                  form.setFieldValue("endMode", repeat.endMode);
                   form.setFieldValue("durationCount", repeat.durationCount);
                   form.setFieldValue("durationUnit", repeat.durationUnit);
+                  form.setFieldValue("until", repeat.until);
                 }}
               />
             </FormField>
