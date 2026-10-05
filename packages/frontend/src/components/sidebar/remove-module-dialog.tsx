@@ -6,7 +6,12 @@ import {
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
 import { removeSpaceModule } from "#/lib/api/spaces.ts";
-import { MODULE_LABELS, MODULE_PASSENGERS, type ModuleKey } from "#/lib/modules.ts";
+import {
+  MODULE_ENTITY_TYPES,
+  MODULE_LABELS,
+  MODULE_PASSENGERS,
+  type ModuleKey,
+} from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import {
   AlertDialog,
@@ -55,6 +60,8 @@ export function RemoveModuleDialog({
   const status = statusOf(remove);
   const busy = status === "pending" || status === "success";
   const deleting = remove.variables === true;
+  // A module that is only a report has no content to send to Trash.
+  const hasContent = MODULE_ENTITY_TYPES[module].length > 0;
 
   return (
     <AlertDialog
@@ -71,8 +78,9 @@ export function RemoveModuleDialog({
             Remove {label} from this Space?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Hide keeps everything saved and brings it back when you add {label} again. Move to Trash
-            sends all {label} content in this Space to Trash, where you can still restore it.
+            {hasContent
+              ? `Hide keeps everything saved and brings it back when you add ${label} again. Move to Trash sends all ${label} content in this Space to Trash, where you can still restore it.`
+              : `${label} holds no data of its own, so hiding it loses nothing. Add it again any time.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -87,26 +95,28 @@ export function RemoveModuleDialog({
           >
             <StatusButtonContent
               status={deleting ? "idle" : status}
-              label="Hide and Keep Data"
+              label={hasContent ? "Hide and Keep Data" : "Hide"}
               successLabel="Module hidden"
               errorLabel="Couldn't remove, try again"
             />
           </AlertDialogAction>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={busy}
-            onClick={(e) => {
-              e.preventDefault();
-              if (!busy) remove.mutate(true);
-            }}
-          >
-            <StatusButtonContent
-              status={deleting ? status : "idle"}
-              label="Move to Trash"
-              successLabel="Moved to Trash"
-              errorLabel="Couldn't remove, try again"
-            />
-          </AlertDialogAction>
+          {hasContent && (
+            <AlertDialogAction
+              variant="destructive"
+              disabled={busy}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!busy) remove.mutate(true);
+              }}
+            >
+              <StatusButtonContent
+                status={deleting ? status : "idle"}
+                label="Move to Trash"
+                successLabel="Moved to Trash"
+                errorLabel="Couldn't remove, try again"
+              />
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

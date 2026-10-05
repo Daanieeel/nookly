@@ -21,6 +21,7 @@ export const MODULE_KEYS = [
   "files",
   "bookmarks",
   "recipes",
+  "grades",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];

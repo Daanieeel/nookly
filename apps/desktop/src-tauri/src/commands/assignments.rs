@@ -67,3 +67,13 @@ pub fn update_assignment_due_before_session(
     let conn = state.0.lock().unwrap();
     assignments::update_assignment_due_before_session(&conn, &entity_id, offset_days)
 }
+
+#[tauri::command]
+pub fn update_assignment_weight(
+    state: State<DbState>,
+    entity_id: String,
+    weight: Option<f64>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    assignments::update_assignment_weight(&conn, &entity_id, weight)
+}

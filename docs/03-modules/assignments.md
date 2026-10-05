@@ -6,7 +6,7 @@
 
 ## Native Fields
 
-`due_date`, `status` (not started, in progress, submitted, graded), and an optional `grade`.
+`due_date`, `status` (not started, in progress, submitted, graded), an optional `grade` and an optional `weight` (its share of the course grade).
 
 Assignments do not get Index Cards or Study Blocks. Those stay specific to Exams.
 

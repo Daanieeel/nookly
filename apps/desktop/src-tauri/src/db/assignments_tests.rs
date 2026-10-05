@@ -511,3 +511,65 @@ fn due_before_a_session_can_be_switched_off_and_refuses_a_negative_offset() {
         Err(AppError::NotFound(_))
     ));
 }
+
+// --- Weight --------------------------------------------------------------------
+
+#[test]
+fn an_assignment_has_no_weight_until_one_is_set_and_it_can_be_cleared() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    assert_eq!(a.weight, None);
+    update_assignment_weight(&conn, &a.entity.id, Some(0.3)).unwrap();
+    assert_eq!(
+        get_assignment(&conn, &a.entity.id).unwrap().weight,
+        Some(0.3)
+    );
+    assert_eq!(
+        list_assignments(&conn, &space.id).unwrap()[0].weight,
+        Some(0.3)
+    );
+    update_assignment_weight(&conn, &a.entity.id, None).unwrap();
+    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().weight, None);
+}
+
+#[test]
+fn an_assignment_weight_refuses_a_negative_number_and_an_unknown_assignment() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    assert!(matches!(
+        update_assignment_weight(&conn, &a.entity.id, Some(-0.1)),
+        Err(AppError::InvalidInput(_))
+    ));
+    assert!(matches!(
+        update_assignment_weight(&conn, "ghost", Some(0.1)),
+        Err(AppError::NotFound(_))
+    ));
+    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().weight, None);
+}
+
+#[test]
+fn a_weighted_assignment_counts_for_its_share_of_the_course_grade() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let exam = crate::db::exams::create_exam(
+        &conn,
+        space.id.clone(),
+        "Final".into(),
+        course.id.clone(),
+        None,
+        None,
+    )
+    .unwrap();
+    crate::db::exams::update_exam_grade(&conn, &exam.entity.id, Some(1.0)).unwrap();
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(3.0)).unwrap();
+    // Without a weight both split the grade evenly.
+    let even = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
+    assert_eq!(even.grade, Some(2.0));
+    // With 25% on the assignment, the unweighted exam takes the other 75%.
+    update_assignment_weight(&conn, &a.entity.id, Some(0.25)).unwrap();
+    let weighted = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
+    assert!((weighted.grade.unwrap() - 1.5).abs() < 1e-9);
+}
