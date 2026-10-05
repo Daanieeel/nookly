@@ -133,6 +133,17 @@ export function heightPxFor(startMin: number, endMin: number): number {
   return Math.max(MIN_BLOCK_PX, ((endMin - startMin) / 60) * HOUR_PX);
 }
 
+/// Height of one line of a block's text (`text-xs`), and the vertical border and
+/// padding around the lines.
+const BLOCK_LINE_PX = 16;
+const BLOCK_CHROME_PX = 8;
+
+/// How many lines of text fit in a block this tall, at least the title. A 60 minute
+/// block is 48px: a title and a time, nothing more.
+export function blockLinesFor(heightPx: number): number {
+  return Math.max(1, Math.floor((heightPx - BLOCK_CHROME_PX) / BLOCK_LINE_PX));
+}
+
 /// Minutes after midnight, end exclusive.
 export interface MinuteRange {
   startMin: number;

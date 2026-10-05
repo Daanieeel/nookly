@@ -9,7 +9,7 @@ import { formatClock } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../external-calendars/overlay-layout";
-import { minutesToTime, timeToMinutes } from "./calendar-model";
+import { blockLinesFor, minutesToTime, timeToMinutes } from "./calendar-model";
 import { BlockCancelButton, BlockResizeHandles, useBlockDrag } from "./item-block-controls";
 import { SessionPopover } from "./SessionPopover";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -83,6 +83,7 @@ export function SessionBlock({
   });
   const draggable = !occurrence.cancelled;
   const short = height < 36;
+  const lines = blockLinesFor(height);
   return (
     <div
       data-calendar-item
@@ -128,7 +129,7 @@ export function SessionBlock({
             short && "flex-row items-baseline gap-1.5",
           )}
         >
-          <span className="flex min-w-0 items-center gap-1 font-medium">
+          <span className="flex min-w-0 shrink-0 items-center gap-1 font-medium">
             <EntityIcon
               entity={occurrence.entity}
               size={11}
@@ -136,14 +137,16 @@ export function SessionBlock({
             />
             <span className="truncate">{displayTitle(occurrence.entity)}</span>
           </span>
-          {occurrence.courseTitle && (
-            <span className="min-w-0 truncate">{occurrence.courseTitle}</span>
+          {occurrence.courseTitle && (short || lines >= 3) && (
+            <span className="min-w-0 shrink-0 truncate">{occurrence.courseTitle}</span>
           )}
           <span className="shrink-0 truncate">
             {formatClock(minutesToTime(previewRange?.startMin ?? startMin))}
             {short ? "" : ` to ${formatClock(minutesToTime(previewRange?.endMin ?? endMin))}`}
           </span>
-          {!short && occurrence.location && <span className="truncate">{occurrence.location}</span>}
+          {!short && lines >= 4 && occurrence.location && (
+            <span className="shrink-0 truncate">{occurrence.location}</span>
+          )}
         </button>
       </SessionPopover>
       {draggable && (

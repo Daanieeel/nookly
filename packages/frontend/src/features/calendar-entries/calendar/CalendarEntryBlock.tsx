@@ -9,7 +9,11 @@ import { formatClock, formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../../sessions/external-calendars/overlay-layout";
-import { minutesToTime, timeToMinutes } from "../../sessions/calendar/calendar-model";
+import {
+  blockLinesFor,
+  minutesToTime,
+  timeToMinutes,
+} from "../../sessions/calendar/calendar-model";
 import {
   BlockCancelButton,
   BlockResizeHandles,
@@ -78,6 +82,7 @@ export function CalendarEntryBlock({
   });
   const draggable = !entry.cancelled;
   const short = height < 36;
+  const lines = blockLinesFor(height);
   return (
     <div
       data-calendar-item
@@ -125,7 +130,7 @@ export function CalendarEntryBlock({
             short && "flex-row items-baseline gap-1.5",
           )}
         >
-          <span className="flex min-w-0 items-center gap-1 font-semibold">
+          <span className="flex min-w-0 shrink-0 items-center gap-1 font-semibold">
             <EntityIcon entity={entry.entity} size={14} className="shrink-0 text-(--entry-color)" />
             <span className="truncate">{displayTitle(entry.entity)}</span>
           </span>
@@ -136,8 +141,8 @@ export function CalendarEntryBlock({
                   short ? "" : ` to ${formatClock(minutesToTime(previewRange?.endMin ?? endMin))}`
                 }`}
           </span>
-          {!short && entry.location && (
-            <span className="truncate opacity-70">{entry.location}</span>
+          {!short && lines >= 3 && entry.location && (
+            <span className="shrink-0 truncate opacity-70">{entry.location}</span>
           )}
         </button>
       </CalendarEntryPopover>
