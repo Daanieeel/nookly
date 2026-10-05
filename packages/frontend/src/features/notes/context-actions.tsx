@@ -16,6 +16,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Selection } from "@tiptap/pm/state";
 import type { ChainedCommands, Editor } from "@tiptap/react";
 import { labelsAction } from "#/components/context-menu/entity-actions.tsx";
 import {
@@ -28,6 +29,7 @@ import { getEntity } from "#/lib/api/entities.ts";
 import { renderPageMarkdown } from "#/lib/api/notes.ts";
 import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
 import { useState } from "react";
+import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./block-conversion";
 import { savePageMarkdownFile } from "./PageExportMenu";
 import { refineJotIntoNote } from "./refine-jot";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
@@ -67,92 +69,10 @@ function locateBlock(editor: Editor, blockId: string): LocatedBlock | null {
   return found;
 }
 
-/// A block type existing text can turn into. `title` names its entry in
-/// `SLASH_ITEMS`, whose icon and description the picker shows, so it reads
-/// exactly like the "/" and gutter "+" menus.
-interface BlockKind {
-  title: string;
-  matches: (node: ProseMirrorNode) => boolean;
-  apply: (chain: ChainedCommands) => ChainedCommands;
-}
-
-const isHeading = (level: number) => (node: ProseMirrorNode) =>
-  node.type.name === "heading" && node.attrs.level === level;
-
-/// Same set and order as the slash menu, minus Table, Timeline, Progress and Tree:
-/// those aren't something existing text turns into.
-const BLOCK_KINDS: BlockKind[] = [
-  {
-    title: "Text",
-    matches: (node) => node.type.name === "paragraph",
-    apply: (chain) => chain.setParagraph(),
-  },
-  {
-    title: "Heading 1",
-    matches: isHeading(1),
-    apply: (chain) => chain.setNode("heading", { level: 1 }),
-  },
-  {
-    title: "Heading 2",
-    matches: isHeading(2),
-    apply: (chain) => chain.setNode("heading", { level: 2 }),
-  },
-  {
-    title: "Heading 3",
-    matches: isHeading(3),
-    apply: (chain) => chain.setNode("heading", { level: 3 }),
-  },
-  {
-    title: "Heading 4",
-    matches: isHeading(4),
-    apply: (chain) => chain.setNode("heading", { level: 4 }),
-  },
-  {
-    title: "Heading 5",
-    matches: isHeading(5),
-    apply: (chain) => chain.setNode("heading", { level: 5 }),
-  },
-  {
-    title: "Heading 6",
-    matches: isHeading(6),
-    apply: (chain) => chain.setNode("heading", { level: 6 }),
-  },
-  {
-    title: "Quote",
-    matches: (node) => node.type.name === "blockquote",
-    apply: (chain) => chain.toggleBlockquote(),
-  },
-  {
-    title: "Callout",
-    matches: (node) => node.type.name === "callout",
-    apply: (chain) => chain.setNode("callout", { variant: "note" }),
-  },
-  {
-    title: "Code block",
-    matches: (node) => node.type.name === "codeBlock",
-    apply: (chain) => chain.toggleCodeBlock(),
-  },
-  {
-    title: "Bulleted list",
-    matches: (node) => node.type.name === "bulletList",
-    apply: (chain) => chain.toggleBulletList(),
-  },
-  {
-    title: "Numbered list",
-    matches: (node) => node.type.name === "orderedList",
-    apply: (chain) => chain.toggleOrderedList(),
-  },
-  {
-    title: "Checklist",
-    matches: (node) => node.type.name === "taskList",
-    apply: (chain) => chain.toggleTaskList(),
-  },
-];
-
-/// Every kind with its slash menu entry; the block's current kind is left out,
-/// since turning a block into what it already is does nothing.
+/// Every kind the block can turn into with its slash menu entry, so the picker
+/// reads like the "/" and gutter "+" menus.
 function turnIntoOptions(node: ProseMirrorNode | undefined) {
-  return BLOCK_KINDS.filter((kind) => !node || !kind.matches(node)).flatMap((kind) => {
+  return (node ? turnIntoKinds(node) : []).flatMap((kind) => {
     const slash = SLASH_ITEMS.find((item) => item.title === kind.title);
     return slash ? [{ kind, item: toListItem(slash) }] : [];
   });
@@ -178,24 +98,44 @@ function TurnIntoPicker({ target, close }: { target: NoteBlockTarget; close: () 
   );
 }
 
-/// Unwraps the block to plain paragraphs first, so every kind converts from
-/// every other one, lists and quotes included, with all their lines. The result
-/// keeps the block's id, so links to the block still land on it.
-function turnInto(editor: Editor, blockId: string, kind: BlockKind) {
+/// Text kinds convert in place, unwrapping the block to plain paragraphs first so
+/// every kind converts from every other one with all its lines and formatting.
+/// Everything else is rebuilt from the block's content (`block-conversion.ts`).
+/// Either way the result keeps the block's id, so links to the block still land on it.
+export function turnInto(editor: Editor, blockId: string, kind: BlockKind) {
   const block = locateBlock(editor, blockId);
   if (!block) return;
-  const chain = editor
+  if (kind.flow && isFlowBlock(block.node)) {
+    const chain = editor
+      .chain()
+      .focus()
+      .setTextSelection({ from: block.pos + 1, to: block.pos + block.node.nodeSize - 1 })
+      .clearNodes();
+    kind
+      .flow(chain)
+      .command(({ tr }) => {
+        const converted = tr.doc.nodeAt(block.pos);
+        if (converted && "blockId" in converted.attrs) {
+          tr.setNodeMarkup(block.pos, undefined, { ...converted.attrs, blockId });
+        }
+        return true;
+      })
+      .run();
+    return;
+  }
+  const converted = convertedBlocks(block.node, kind, editor.schema);
+  if (!converted) return;
+  editor
     .chain()
     .focus()
-    .setTextSelection({ from: block.pos + 1, to: block.pos + block.node.nodeSize - 1 })
-    .clearNodes();
-  kind
-    .apply(chain)
     .command(({ tr }) => {
-      const converted = tr.doc.nodeAt(block.pos);
-      if (converted && "blockId" in converted.attrs) {
-        tr.setNodeMarkup(block.pos, undefined, { ...converted.attrs, blockId });
-      }
+      const [first, ...rest] = converted;
+      const head =
+        "blockId" in first.attrs
+          ? first.type.create({ ...first.attrs, blockId }, first.content, first.marks)
+          : first;
+      tr.replaceWith(block.pos, block.pos + block.node.nodeSize, [head, ...rest]);
+      tr.setSelection(Selection.near(tr.doc.resolve(block.pos + 1)));
       return true;
     })
     .run();
@@ -259,9 +199,8 @@ registerActions("note.block", [
     label: "Turn Into…",
     icon: IconTransform,
     when: ({ editor, blockId }) => {
-      // Tables and the row based custom blocks hold no text to convert.
-      const type = locateBlock(editor, blockId)?.node.type;
-      return editor.isEditable && type !== undefined && type.name !== "table" && !type.isAtom;
+      const node = locateBlock(editor, blockId)?.node;
+      return editor.isEditable && node !== undefined && turnIntoKinds(node).length > 0;
     },
     run: (target, helpers) =>
       helpers.openPopover((close) => <TurnIntoPicker target={target} close={close} />),
