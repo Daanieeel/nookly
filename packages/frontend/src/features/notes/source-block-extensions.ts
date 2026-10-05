@@ -29,7 +29,9 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
       };
     },
     parseHTML() {
-      return [{ tag: `pre[data-${name}]`, preserveWhitespace: "full" }];
+      // Above the code block's plain `pre` rule, which would otherwise claim a pasted
+      // copy of this block and turn it into code.
+      return [{ tag: `pre[data-${name}]`, preserveWhitespace: "full", priority: 60 }];
     },
     renderHTML({ HTMLAttributes }) {
       return ["pre", mergeAttributes(HTMLAttributes, { [`data-${name}`]: "" }), ["code", 0]];

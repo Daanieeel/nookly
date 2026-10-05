@@ -1,10 +1,6 @@
 import { qk } from "#/lib/query-keys.ts";
-import Placeholder from "@tiptap/extension-placeholder";
-import { TableKit } from "@tiptap/extension-table";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { TaskItem, TaskList } from "@tiptap/extension-list";
-import StarterKit from "@tiptap/starter-kit";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,38 +19,12 @@ import {
   nodeToBlockInput,
 } from "./block-markdown";
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
-import { BlockSelection } from "./block-selection";
 import { usePasteFiles } from "./paste-files";
-import { CodeBlockWithHeader } from "./code-block-extension";
-import { CodeCompletion } from "./code-completion-extension";
-import {
-  Callout,
-  Details,
-  Divider,
-  Audio,
-  Embed,
-  EntityCard,
-  FileBlock,
-  Image,
-  Progress,
-  Stats,
-  Steps,
-  Timeline,
-  Tree,
-  Video,
-  WebBookmark,
-} from "./custom-block-extensions";
-import { Mention } from "./mention-extension";
-import { SlashCommand } from "./slash-command-extension";
-import { Toggle, ToggleHeading } from "./toggle-extension";
-import { InlineMath } from "./InlineMath";
-import { Diagram, Equation, MathBlock } from "./source-block-extensions";
+import { editorExtensions } from "./editor-extensions";
 import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
-import { UniqueBlockId } from "./unique-block-id";
-import { ArrowLigatures } from "./arrow-ligatures";
-import { HeadingAnchors, type PageSection, pageSections } from "./heading-anchors";
+import { type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
 const MENTION_HREF_PREFIX = "mention:";
@@ -280,54 +250,11 @@ function HydratedBlockEditor({
       type: "doc",
       content: initialBlocks.length > 0 ? initialBlocks.map(blockToNode) : [{ type: "paragraph" }],
     },
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4, 5, 6] },
-        link: {
-          openOnClick: false,
-          autolink: false,
-          protocols: [{ scheme: "mention", optionalSlashes: true }],
-        },
-        // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
-        codeBlock: false,
-        // Replaced by `Divider`, the same rule saved as a `divider` block.
-        horizontalRule: false,
-      }),
-      CodeBlockWithHeader.configure({ defaultLanguage: "plaintext" }),
-      Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
-      TableKit.configure({ table: { resizable: true } }),
-      UniqueBlockId,
-      HeadingAnchors,
-      ArrowLigatures,
-      BlockSelection,
-      SlashCommand.configure({ getEntities: () => entitiesRef.current }),
-      CodeCompletion,
-      Mention.configure({ getEntities: () => entitiesRef.current }),
-      Callout,
-      Timeline,
-      Progress,
-      Tree,
-      Steps,
-      Stats,
-      Details,
-      Divider,
-      TaskList,
-      // One level only: a checklist block stores one item per line.
-      TaskItem.configure({ nested: false }),
-      Toggle,
-      ToggleHeading,
-      InlineMath,
-      Equation,
-      MathBlock,
-      Diagram,
-      EntityCard.configure({ spaceId, pageId: entityId }),
-      Image.configure({ spaceId }),
-      Video.configure({ spaceId }),
-      Audio.configure({ spaceId }),
-      FileBlock.configure({ spaceId }),
-      Embed,
-      WebBookmark.configure({ spaceId }),
-    ],
+    extensions: editorExtensions({
+      spaceId,
+      pageId: entityId,
+      getEntities: () => entitiesRef.current,
+    }),
     editorProps: {
       attributes: {
         class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
