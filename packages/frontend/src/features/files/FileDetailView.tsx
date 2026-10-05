@@ -73,7 +73,12 @@ export function FileDetailView({ entity }: { entity: Entity }) {
   });
 
   return (
-    <EntityDetailLayout entity={entity} sidebar={file && <FileProperties file={file} />}>
+    <EntityDetailLayout
+      entity={entity}
+      sidebar={file && <FileProperties file={file} />}
+      scrollKey={`file:${entity.id}`}
+      scrollReady={!!file}
+    >
       {file ? (
         <FileViewer file={file} />
       ) : (

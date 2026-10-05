@@ -19,6 +19,7 @@ import {
 } from "#/lib/api/office.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
+import { useRememberedScroll } from "#/hooks/use-remembered-scroll.ts";
 import { InvertibleDocument } from "./document-frame";
 import { PdfViewer } from "./pdf-viewer";
 import { type OfficeFormat, filePath } from "./file-kind";
@@ -80,7 +81,9 @@ function DocxViewer({
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const styleRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+  useRememberedScroll(scrollRef, `docx:${src}`, state === "ready");
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +117,7 @@ function DocxViewer({
     <InvertibleDocument>
       {(pageClass) => (
         <div
+          ref={scrollRef}
           role="document"
           aria-label={name}
           className={cn(
