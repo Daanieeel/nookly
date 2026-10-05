@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.17.6 (2026-10-05)
+
+### Changed
+
+- Accept time and room on exams
+
 ## 0.17.5 (2026-10-04)
 
 ### Added
