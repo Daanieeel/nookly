@@ -25,6 +25,7 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "equation",
   "math",
   "diagram",
+  "circuit",
   "entity_card",
   "image",
   "video",

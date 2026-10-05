@@ -55,6 +55,11 @@ const SAMPLES = {
   equation: { type: "equation", attrs: { view: "rendered" }, content: [text("E = mc^2")] },
   math: { type: "math", attrs: { view: "rendered" }, content: [text("a &= b \\\\\nc &= d")] },
   diagram: { type: "diagram", attrs: { view: "source" }, content: [text("graph TD; A-->B")] },
+  circuit: {
+    type: "circuit",
+    attrs: { view: "interactive", drawing: '{"v":1,"parts":[],"wires":[]}' },
+    content: [text("Y = A & B")],
+  },
   divider: { type: "divider" },
   timeline: atom("timeline", "2026\tStart\tnow", { title: "Plan" }),
   progress: atom("progress", "Reading\t3\t10", { title: "Goals" }),

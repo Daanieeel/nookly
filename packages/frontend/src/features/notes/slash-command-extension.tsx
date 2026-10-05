@@ -12,6 +12,7 @@ import {
   IconLink,
   IconMathFunction,
   IconMathXDivideY2,
+  IconCpu,
   IconSchema,
   IconSum,
   IconSeparatorHorizontal,
@@ -289,6 +290,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Flowcharts and more with Mermaid",
     icon: <IconSchema size={15} />,
     run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("diagram").run(),
+  },
+  {
+    title: "Circuit",
+    group: "Math and diagrams",
+    description: "Logic gates from a boolean expression, or drawn by hand",
+    icon: <IconCpu size={15} />,
+    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("circuit").run(),
   },
   {
     title: "Image",

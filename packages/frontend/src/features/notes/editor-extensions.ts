@@ -29,7 +29,7 @@ import { HeadingAnchors } from "./heading-anchors";
 import { InlineMath } from "./InlineMath";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
-import { Diagram, Equation, MathBlock } from "./source-block-extensions";
+import { CircuitBlock, Diagram, Equation, MathBlock } from "./source-block-extensions";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { UniqueBlockId } from "./unique-block-id";
 
@@ -87,6 +87,7 @@ export function editorExtensions({
     Equation,
     MathBlock,
     Diagram,
+    CircuitBlock,
     EntityCard.configure({ spaceId, pageId }),
     Image.configure({ spaceId }),
     Video.configure({ spaceId }),

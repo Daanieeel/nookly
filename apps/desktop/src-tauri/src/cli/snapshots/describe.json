@@ -78,6 +78,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -221,6 +238,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -250,6 +268,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
@@ -762,6 +781,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -905,6 +941,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -934,6 +971,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
@@ -1083,6 +1121,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -1226,6 +1281,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -1255,6 +1311,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
@@ -1781,6 +1838,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -1924,6 +1998,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -1953,6 +2028,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
@@ -2086,6 +2162,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -2229,6 +2322,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -2258,6 +2352,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
@@ -3017,6 +3112,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -3160,6 +3272,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -3189,6 +3302,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
@@ -3362,6 +3476,23 @@
             }
           ],
           "checklist": [],
+          "circuit": [
+            {
+              "description": "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. Independent of the code. Leave it alone unless copying a block.",
+              "kind": "text",
+              "name": "drawing"
+            },
+            {
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "interactive",
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "details": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -3505,6 +3636,7 @@
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
         "checklist": "The WHOLE checklist in one block, one item per line, each starting with '[ ] ' (open) or '[x] ' (done): \"[x] Buy notebook\\n[ ] Print slides\". Item text is inline markdown.",
+        "circuit": "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \"name = expression\" labels an output with its name, a bare expression with its formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an input, a name no other line uses is an output, any other assigned name is a wire between gates. A chain of one operator is one gate with many inputs. A negated input is drawn as a bubble on the gate, other negations as NOT gates.",
         "code": "The raw code. Set --language/--filename for the header row.",
         "details": "Label and value pairs, one per line: <label>\\t<value>, separated by a literal tab (\"Room\\tB 204\\nOffice hours\\tTue 14:00\"). For facts at a glance: a course, a contact, a trip.",
         "diagram": "Mermaid source (\"flowchart LR\\n  A --> B\"): flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, mindmap, timeline and the rest of Mermaid.",
@@ -3534,6 +3666,7 @@
         "bulleted_list",
         "callout",
         "checklist",
+        "circuit",
         "code",
         "details",
         "diagram",
