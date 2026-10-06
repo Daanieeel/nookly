@@ -28,7 +28,14 @@ export function EntityPickerPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="start">
+      <PopoverContent
+        className="w-72 p-0"
+        align="start"
+        // Inside a dialog, its scroll lock swallows wheel and touch moves from this
+        // portaled popover, so the list wouldn't scroll. Keep them here.
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
         <EntityPickerList
           spaceId={spaceId}
           exclude={exclude}

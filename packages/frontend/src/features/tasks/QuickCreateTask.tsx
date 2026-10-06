@@ -18,6 +18,7 @@ import { listSpaces } from "#/lib/api/spaces.ts";
 import { createTask, updateTaskStatus } from "#/lib/api/tasks.ts";
 import type { Entity, Space, Task } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { sortStatuses } from "./task-model";
 import { useTasksData } from "./task-controls";
 import {
   DueDatePicker,
@@ -102,12 +103,15 @@ export function QuickCreateTask({
     if (!open) return;
     form.reset({
       title: "",
-      statusId: draft.statusId ?? statuses[0]?.id,
+      // Backlog unless whatever opened it says otherwise; without one, the first status.
+      statusId:
+        draft.statusId ??
+        (statuses.find((s) => kindOf(s.id) === "backlog") ?? sortStatuses(statuses)[0])?.id,
       labelIds: draft.labelIds ?? [],
       dueDate: null,
       related: draft.related ?? null,
     });
-  }, [open, draft, statuses, form]);
+  }, [open, draft, statuses, kindOf, form]);
 
   const create = useMutation({
     mutationFn: async (vars: NewTask) => {
