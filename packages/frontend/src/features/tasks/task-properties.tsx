@@ -442,23 +442,32 @@ export function DueDateChooser({
           <CommandEmpty>No match.</CommandEmpty>
           <CommandGroup className="p-0">
             {presets.map((p) => (
-              <CommandItem key={p.label} value={p.label} onSelect={() => onSelect(p.day)}>
+              <CommandItem
+                key={p.label}
+                value={p.label}
+                className="py-1"
+                onSelect={() => onSelect(p.day)}
+              >
                 <IconCalendarEvent />
                 <span className="truncate">{p.label}</span>
                 <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
               </CommandItem>
             ))}
-            {value && (
-              <CommandItem value={`Remove ${noun}`} onSelect={() => onSelect(null)}>
-                <IconX />
-                Remove {noun}
-              </CommandItem>
-            )}
+            {/* Always there, so the list doesn't change height: disabled with nothing to remove. */}
+            <CommandItem
+              value={`Remove ${noun}`}
+              className="py-1"
+              disabled={!value}
+              onSelect={() => onSelect(null)}
+            >
+              <IconX />
+              Remove {noun}
+            </CommandItem>
           </CommandGroup>
         </CommandList>
       </Command>
       <div className="w-1/2 border-l border-border">
-        <Calendar value={value} onSelect={onSelect} className="w-full p-2" />
+        <Calendar value={value} onSelect={onSelect} className="w-full p-2" compact />
       </div>
     </div>
   );

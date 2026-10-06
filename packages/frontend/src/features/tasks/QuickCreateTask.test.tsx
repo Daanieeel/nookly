@@ -103,6 +103,32 @@ describe("QuickCreateTask related picker", () => {
     expect(callsOf("create_task")[0]).toMatchObject({ dueDate: day });
   });
 
+  it("always shows Remove due date, disabled until there is a date to remove", async () => {
+    freezeTime("2026-03-11T12:00:00");
+    const { user } = setup();
+    await user.click(screen.getByRole("button", { name: "Change Due Date" }));
+    expect(await screen.findByRole("option", { name: /Remove due date/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await user.click(screen.getByText("Tomorrow"));
+    await user.click(screen.getByRole("button", { name: "Change Due Date" }));
+    expect(await screen.findByRole("option", { name: /Remove due date/ })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+  });
+
+  it("uses a compact calendar and tighter presets so the popover is shorter", async () => {
+    // jsdom has no layout: this pins the compact sizes (days 28px instead of 32px, tighter
+    // rows) that take about 30px off the popover.
+    const { user } = setup();
+    await user.click(screen.getByRole("button", { name: "Change Due Date" }));
+    await screen.findByText("Tomorrow");
+    expect(screen.getAllByRole("gridcell")[0].className).toContain("h-7");
+    expect(screen.getByRole("option", { name: /Tomorrow/ }).className).toContain("py-1");
+  });
+
   it.each([
     ["In two weeks", "2026-03-25"],
     ["In one month", "2026-04-11"],

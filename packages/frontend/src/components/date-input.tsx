@@ -42,10 +42,14 @@ export function Calendar({
   value,
   onSelect,
   className,
+  compact = false,
 }: {
   value: string | null;
   onSelect: (day: string) => void;
   className?: string;
+  /// Shorter rows (28px days, tighter gaps), about 32px less in all, for a popover
+  /// with little room.
+  compact?: boolean;
 }) {
   const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
   const [focused, setFocused] = useState(() => (value ? fromDay(value) : new Date()));
@@ -92,7 +96,7 @@ export function Calendar({
   }
 
   return (
-    <div className={cn("flex w-64 flex-col gap-2", className)}>
+    <div className={cn("flex w-64 flex-col", compact ? "gap-1.5" : "gap-2", className)}>
       <div className="flex items-center justify-between">
         <span className="pl-1 text-sm font-medium">{formatMonth(month)}</span>
         <div className="flex items-center">
@@ -126,7 +130,7 @@ export function Calendar({
       </div>
       <div className="grid grid-cols-7 text-center text-xs text-muted-foreground">
         {days.slice(0, 7).map((day) => (
-          <span key={day.getDay()} className="py-1">
+          <span key={day.getDay()} className={compact ? "py-0.5" : "py-1"}>
             {formatWeekday(day, "short")}
           </span>
         ))}
@@ -153,7 +157,8 @@ export function Calendar({
               tabIndex={isSameDay(day, focused) ? 0 : -1}
               onClick={() => onSelect(toDay(day))}
               className={cn(
-                "relative flex h-8 cursor-pointer items-center justify-center rounded-md text-xs tabular-nums transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                compact ? "h-7" : "h-8",
+                "relative flex cursor-pointer items-center justify-center rounded-md text-xs tabular-nums transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
                 !isSameMonth(day, month) && "text-muted-foreground/50",
                 isToday && !isSelected && "font-semibold text-primary",
                 isSelected && "bg-primary font-medium text-primary-foreground hover:bg-primary/90",
