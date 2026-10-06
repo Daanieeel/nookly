@@ -145,7 +145,7 @@ export function RightSidebar({
         className="absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2 before:transition-colors hover:before:bg-primary/50 focus-visible:before:bg-primary/50 active:before:bg-primary"
       />
       {/* Full height for the border and resize handle; sections stay anchored at the top. */}
-      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto border-l border-border p-3 [&>*:not(:first-child)]:border-b [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pb-5">
+      <div className="relative flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto border-l border-border p-3 [&>*:not(:first-child)]:border-b [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pb-5">
         <div className="flex items-center justify-between gap-2">
           <Tooltip>
             <TooltipTrigger asChild>

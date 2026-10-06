@@ -69,4 +69,21 @@ describe("detail page width", () => {
       expect(editor.style.paddingBottom).toBe("");
     },
   );
+
+  it("keeps the right sidebar's own scroll area the containing block of its screen reader text", async () => {
+    // Absolutely positioned `sr-only` status text inside the sidebar would otherwise
+    // escape its scrolling and stretch the whole page's scroll height (checked in
+    // Chrome: 744px of content in a 389px page). The scroll area must be positioned.
+    const { container } = renderWithProviders(
+      <AssignmentDetailView entity={makeEntity({ type: "assignment" })} />,
+    );
+    const separator = await waitFor(() => {
+      const found = container.querySelector("[role='separator'][aria-label='Resize sidebar']");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    const scrollArea = separator.nextElementSibling!;
+    expect(scrollArea.className).toContain("overflow-y-auto");
+    expect(scrollArea.className).toContain("relative");
+  });
 });
