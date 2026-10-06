@@ -7,6 +7,8 @@ import { Input } from "@nookly/ui/components/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@nookly/ui/components/popover";
 import { updateEntity } from "#/lib/api/entities.ts";
 import { importFileFromBytes } from "#/lib/api/files.ts";
+import { attachLabel, createLabel, listLabels } from "#/lib/api/labels.ts";
+import { labelColorFor } from "#/components/label-manager.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import type { MediaKind } from "./MediaBlock";
@@ -18,6 +20,16 @@ interface Naming {
   /// Viewport position of the caret the file was pasted at.
   x: number;
   y: number;
+}
+
+const PASTED_LABEL = "Pasted";
+
+/// Puts the Space's "Pasted" label on a File, creating the label the first time.
+async function labelPasted(spaceId: string, entityId: string) {
+  const labels = await listLabels(spaceId);
+  const existing = labels.find((l) => l.name.toLowerCase() === PASTED_LABEL.toLowerCase());
+  const label = existing ?? (await createLabel(spaceId, PASTED_LABEL, labelColorFor(PASTED_LABEL)));
+  await attachLabel(entityId, label.id);
 }
 
 function kindOf(mime: string): MediaKind {
@@ -56,6 +68,11 @@ export function usePasteFiles(spaceId: string) {
         filename,
         new Uint8Array(await file.arrayBuffer()),
       );
+      // A label that fails to apply must not lose the pasted file.
+      await labelPasted(spaceId, stored.entity.id).catch(() => {
+        toast.error(`Couldn't label ${filename} as ${PASTED_LABEL}`);
+      });
+      void queryClient.invalidateQueries({ queryKey: qk.labels.bySpace(spaceId) });
       const node = view.state.schema.nodes[kind]?.create({
         rows: mentionMarkdown(filename, stored.entity.id),
       });
