@@ -2,6 +2,19 @@
 
 All notable changes to Nookly are listed here.
 
+## Unreleased
+
+### Changed
+
+- Upgrade from 0.17.7 with rows of a deleted space
+
+## 0.18.6 (2026-10-06)
+
+### Changed
+
+- Grade report upgrade skips spaces that no longer exist
+- Filter notes by course, pinned, last edited and created
+
 ## 0.18.3 (2026-10-06)
 
 ### Changed
