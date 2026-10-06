@@ -2,6 +2,21 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.18.3 (2026-10-06)
+
+### Changed
+
+- Grade report (#61)
+
+## 0.17.11 (2026-10-05)
+
+### Changed
+
+- File viewer keeps its scroll position across tabs
+- Repeat until a date as well as for a duration
+- Assignments due before a course's next session
+- Calendar blocks only show the lines that fit
+
 ## 0.17.7 (2026-10-05)
 
 ### Changed
