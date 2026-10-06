@@ -25,6 +25,7 @@ import {
   Video,
   WebBookmark,
 } from "./custom-block-extensions";
+import { LetterOrderedList } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
 import { InlineMath } from "./InlineMath";
 import { Mention } from "./mention-extension";
@@ -59,7 +60,10 @@ export function editorExtensions({
       codeBlock: false,
       // Replaced by `Divider`, the same rule saved as a `divider` block.
       horizontalRule: false,
+      // Replaced by `LetterOrderedList`, which also starts from `a.` and `a)`.
+      orderedList: false,
     }),
+    LetterOrderedList,
     CodeBlockWithHeader.configure({ defaultLanguage: "plaintext" }),
     Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
     TableKit.configure({ table: { resizable: true } }),
