@@ -57,6 +57,7 @@ export function BlockEditor({
   entityId,
   spaceId,
   compact = false,
+  scrollPastEnd = false,
   onSectionsChange,
 }: {
   entityId: string;
@@ -68,6 +69,10 @@ export function BlockEditor({
   /// inside another entity's page (e.g. Course Notes) rather than owning
   /// the whole view.
   compact?: boolean;
+  /// A screen of room below the last block, so the end of a page can scroll up to
+  /// the top like in a code editor. For the full-page canvas of notes and jots only:
+  /// elsewhere the content below the editor would sit a screen away.
+  scrollPastEnd?: boolean;
 }) {
   const { data: blocks } = useQuery(blocksQueryOptions(entityId));
   // A save still landing from the last time this page was open (flushed on
@@ -90,6 +95,7 @@ export function BlockEditor({
       entityId={entityId}
       spaceId={spaceId}
       compact={compact}
+      scrollPastEnd={scrollPastEnd}
       initialBlocks={blocks}
       onSectionsChange={onSectionsChange}
     />
@@ -100,12 +106,14 @@ function HydratedBlockEditor({
   entityId,
   spaceId,
   compact,
+  scrollPastEnd,
   initialBlocks,
   onSectionsChange,
 }: {
   entityId: string;
   spaceId: string;
   compact: boolean;
+  scrollPastEnd: boolean;
   initialBlocks: Block[];
   onSectionsChange?: (sections: PageSection[]) => void;
 }) {
@@ -257,10 +265,8 @@ function HydratedBlockEditor({
     }),
     editorProps: {
       attributes: {
-        // A screen of room below the last block, so the end of the page can scroll up
-        // to the top like in a code editor.
         class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
-        ...(!compact && { style: "padding-bottom: 100vh" }),
+        ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
       },
       handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {

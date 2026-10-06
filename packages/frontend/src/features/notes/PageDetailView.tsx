@@ -32,7 +32,12 @@ export function PageDetailView({ entity }: { entity: Entity }) {
     >
       {/* Room below the last line, so it can scroll clear of the navigator. */}
       <div className={cn("mx-auto flex w-full max-w-3xl flex-col", showSections && "pb-16")}>
-        <BlockEditor entityId={entity.id} spaceId={entity.spaceId} onSectionsChange={setSections} />
+        <BlockEditor
+          entityId={entity.id}
+          spaceId={entity.spaceId}
+          scrollPastEnd
+          onSectionsChange={setSections}
+        />
       </div>
     </EntityDetailLayout>
   );

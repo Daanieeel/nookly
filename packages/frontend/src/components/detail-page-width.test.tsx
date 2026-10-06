@@ -29,6 +29,7 @@ describe("detail page width", () => {
   beforeEach(() => {
     installTauriMock();
     mockCommand("list_sessions", [makeSession()]);
+    mockCommand("list_blocks", []);
   });
   afterEach(uninstallTauriMock);
 
@@ -43,4 +44,29 @@ describe("detail page width", () => {
     expect(column?.className).not.toContain("max-w-3xl");
     expect(column?.className).not.toContain("mx-auto");
   });
+
+  it.each(["note", "jot"])("leaves a screen of room under the last block of a %s", async (type) => {
+    const { container } = renderWithProviders(<PageDetailView entity={makeEntity({ type })} />);
+    const editor = await waitFor(() => {
+      const found = container.querySelector<HTMLElement>(".tiptap-content");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    expect(editor.style.paddingBottom).toBe("100vh");
+  });
+
+  // A calendar entry has no description editor.
+  it.each(PAGES.filter(([name]) => name !== "a calendar entry"))(
+    "adds no empty room under the editor on %s",
+    async (_name, page) => {
+      const { container } = renderWithProviders(page);
+      const editor = await waitFor(() => {
+        const found = container.querySelector<HTMLElement>(".tiptap-content");
+        expect(found).not.toBeNull();
+        return found!;
+      });
+      // The content below the editor (related items) sits right under it.
+      expect(editor.style.paddingBottom).toBe("");
+    },
+  );
 });
