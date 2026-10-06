@@ -57,15 +57,30 @@ fn connect() -> Result<Connection, Box<dyn std::error::Error>> {
 
 fn fail(err: &AppError) -> ! {
     let value = json!({ "error": err });
-    eprintln!("{}", serde_json::to_string_pretty(&value).unwrap());
+    write_line(
+        &mut std::io::stderr(),
+        &serde_json::to_string_pretty(&value).unwrap(),
+    );
     std::process::exit(1);
+}
+
+/// Writes one line, ignoring failures. `println!` panics when the reader has
+/// gone away (`| head`), and release builds abort on panic.
+fn write_line(out: &mut impl std::io::Write, line: &str) {
+    let _ = writeln!(out, "{line}");
 }
 
 fn print_json(value: &Value) {
     if std::io::stdout().is_terminal() {
-        println!("{}", serde_json::to_string_pretty(value).unwrap());
+        write_line(
+            &mut std::io::stdout(),
+            &serde_json::to_string_pretty(value).unwrap(),
+        );
     } else {
-        println!("{}", serde_json::to_string(value).unwrap());
+        write_line(
+            &mut std::io::stdout(),
+            &serde_json::to_string(value).unwrap(),
+        );
     }
 }
 
@@ -2115,6 +2130,30 @@ mod tests {
 
     fn run(conn: &Connection, line: &str) -> AppResult<Value> {
         dispatch(conn, line.split_whitespace().map(str::to_string).collect())
+    }
+
+    struct ClosedPipe;
+    impl std::io::Write for ClosedPipe {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+    }
+
+    #[test]
+    fn closed_stdout_pipe_does_not_panic() {
+        // `println!` panics on EPIPE, and release builds abort on panic, which
+        // crashed the app when an agent ran `nookly cli ... | head`.
+        write_line(&mut ClosedPipe, "{}");
+    }
+
+    #[test]
+    fn write_line_still_writes_when_the_pipe_is_open() {
+        let mut out = Vec::new();
+        write_line(&mut out, "{\"ok\":true}");
+        assert_eq!(String::from_utf8(out).unwrap(), "{\"ok\":true}\n");
     }
 
     #[test]
