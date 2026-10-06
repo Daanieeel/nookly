@@ -328,6 +328,16 @@
         "writableOnUpdate": true
       },
       {
+        "description": "A session of the Course the due day follows, instead of its next session, shifted by dueSessionOffsetDays (0 when not given). dueDate reads the resolved day, which follows that session when it moves. Pass null to follow the next session again; setting dueDate drops it too.",
+        "kind": {
+          "entityType": "session",
+          "type": "entity_ref"
+        },
+        "name": "dueSessionId",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
         "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
         "kind": "integer",
         "name": "dueSessionOffsetDays",
@@ -366,6 +376,7 @@
     ],
     "relationshipTypes": [
       "assignment-course",
+      "assignment-due-session",
       "relates-to"
     ],
     "supportsBlocks": true
@@ -2826,6 +2837,7 @@
       }
     ],
     "relationshipTypes": [
+      "assignment-due-session",
       "session-course",
       "session-jot",
       "session-note"

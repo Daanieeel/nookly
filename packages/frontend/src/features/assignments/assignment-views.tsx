@@ -78,14 +78,18 @@ export function AssignmentStatusControl({ assignment }: { assignment: Assignment
 }
 
 /// Changes an assignment's due date, to a day (`null` clears it) or to so many days
-/// before the Course's next session.
+/// before the Course's next session, or before one picked session it then follows.
 export function useSetAssignmentDue(assignment: Assignment) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (due: AssignmentDue) =>
       due.kind === "date"
         ? updateAssignmentDueDate(assignment.entity.id, due.day)
-        : updateAssignmentDueBeforeSession(assignment.entity.id, due.offsetDays),
+        : updateAssignmentDueBeforeSession(
+            assignment.entity.id,
+            due.offsetDays,
+            due.sessionId ?? null,
+          ),
     onSuccess: () => refreshAssignments(queryClient, assignment.entity.spaceId),
   });
 }

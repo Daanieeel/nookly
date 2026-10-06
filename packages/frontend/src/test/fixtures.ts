@@ -89,6 +89,7 @@ export function makeAssignment(
     entity: makeEntity({ type: "assignment", key: "ASG-1", ...entity }),
     dueDate: null,
     dueSessionOffsetDays: null,
+    dueSessionId: null,
     weight: null,
     status: "not_started",
     grade: null,

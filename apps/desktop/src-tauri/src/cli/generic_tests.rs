@@ -1333,6 +1333,8 @@ fn writable_entity_ref_fields_move_the_entity_to_a_new_target() {
         outcome,
         set(&[
             "assignment.courseId:ok",
+            // A session outside the assignment's Course is refused.
+            "assignment.dueSessionId:refused",
             "exam.courseId:ok",
             "index_card_deck.examId:ok",
             "task.parentId:ok",

@@ -22,7 +22,7 @@ import {
   startOfWeek,
   subWeeks,
 } from "date-fns";
-import type { Assignment, TaskStatus } from "#/lib/api/types.ts";
+import type { Assignment, SessionOccurrence, TaskStatus } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
@@ -298,10 +298,33 @@ export function describeDisplay(display: DisplayOptions): DisplaySummary {
 }
 
 /// What an assignment's due date is set to: a fixed day (`null` removes it), or so
-/// many days before the Course's next session (0 is the day of it).
+/// many days before the Course's next session, or before one picked session
+/// (`sessionId`) that it then follows (0 is the day of it).
 export type AssignmentDue =
   | { kind: "date"; day: string | null }
-  | { kind: "session"; offsetDays: number };
+  | { kind: "session"; offsetDays: number; sessionId?: string };
 
 /// Largest offset the backend takes.
 export const MAX_DUE_OFFSET_DAYS = 365;
+
+/// A Course's sessions that can still be due dates: not cancelled and on or after
+/// `today`, earliest first. `courseOf` maps a session id to its Course id.
+export function upcomingSessions(
+  sessions: SessionOccurrence[],
+  courseId: string,
+  courseOf: ReadonlyMap<string, string>,
+  today: string,
+): SessionOccurrence[] {
+  return sessions
+    .filter((s) => courseOf.get(s.entity.id) === courseId && !s.cancelled && s.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+}
+
+/// What a due date is, as the picker reads it: a fixed day, or so many days before the
+/// Course's next session (then the day is the one resolved from its sessions).
+export type DueValue = Pick<Assignment, "dueDate" | "dueSessionOffsetDays" | "dueSessionId">;
+
+/// "day of session" or "3d before session".
+export function offsetLabel(days: number): string {
+  return days === 0 ? "day of session" : `${days}d before session`;
+}

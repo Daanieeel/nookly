@@ -1,23 +1,21 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { TooltipProvider } from "@nookly/ui/components/tooltip";
 import { formatDate } from "#/lib/datetime.ts";
-import { makeAssignment } from "#/test/fixtures.ts";
+import { makeAssignment, makeEntity, makeSession } from "#/test/fixtures.ts";
+import { renderWithProviders } from "#/test/render.tsx";
+import { freezeTime } from "#/test/time.ts";
+import { mockCommand } from "#/test/tauri.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import type { Assignment } from "#/lib/api/types.ts";
-import { AssignmentDuePicker } from "./AssignmentDuePicker.tsx";
+import { AssignmentDuePicker, DuePicker } from "./AssignmentDuePicker.tsx";
 import type { AssignmentDue } from "./assignment-model";
 
 async function open(assignment: Assignment = makeAssignment()) {
   const onSelect = vi.fn<(due: AssignmentDue) => void>();
-  const user = userEvent.setup();
-  render(
-    <TooltipProvider>
-      <AssignmentDuePicker assignment={assignment} onSelect={onSelect}>
-        <button type="button">Due</button>
-      </AssignmentDuePicker>
-    </TooltipProvider>,
+  const { user } = renderWithProviders(
+    <AssignmentDuePicker assignment={assignment} onSelect={onSelect}>
+      <button type="button">Due</button>
+    </AssignmentDuePicker>,
   );
   await user.click(screen.getByRole("button", { name: "Due" }));
   return { onSelect, user };
@@ -28,6 +26,7 @@ describe("AssignmentDuePicker", () => {
     await open();
     expect(screen.getByRole("button", { name: /^Specific date/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Before session/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Specific session/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear due date" })).not.toBeInTheDocument();
     await expectNoA11yViolations();
   });
@@ -102,5 +101,117 @@ describe("AssignmentDuePicker", () => {
     );
     await user.click(screen.getByRole("button", { name: "Clear due date" }));
     expect(onSelect).toHaveBeenCalledWith({ kind: "date", day: null });
+  });
+
+  describe("specific session", () => {
+    const course = makeEntity({ id: "course-1", type: "course", title: "Algo" });
+    const rel = (from: string) => ({
+      id: `rel-${from}`,
+      fromEntityId: from,
+      toEntityId: course.id,
+      relationshipType: from.startsWith("s") ? "session-course" : "assignment-course",
+      fromBlockId: null,
+      toBlockId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    function backend() {
+      freezeTime("2026-03-10T12:00:00");
+      mockCommand("list_courses", [course]);
+      mockCommand("list_relationships", [
+        rel("entity-1"),
+        rel("s-past"),
+        rel("s-next"),
+        rel("s-later"),
+        rel("s-off"),
+      ]);
+      mockCommand("list_sessions", [
+        makeSession({ date: "2026-03-03" }, { id: "s-past" }),
+        makeSession({ date: "2026-03-12", startTime: "09:00" }, { id: "s-next" }),
+        makeSession({ date: "2026-03-19", startTime: "14:00" }, { id: "s-later" }),
+        makeSession({ date: "2026-03-26", cancelled: true }, { id: "s-off" }),
+      ]);
+    }
+
+    it("lists only the course's upcoming sessions and follows the one picked", async () => {
+      backend();
+      const { onSelect, user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      const list = await screen.findByRole("list", { name: "Upcoming sessions" });
+      expect(list.querySelectorAll("li")).toHaveLength(2);
+      await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
+      await user.click(screen.getByRole("button", { name: "Day of" }));
+      expect(onSelect).toHaveBeenCalledWith({
+        kind: "session",
+        offsetDays: 0,
+        sessionId: "s-later",
+      });
+    });
+
+    it("offers the same spans as the next session, one click for a common one", async () => {
+      backend();
+      const { onSelect, user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      await user.click(await screen.findByRole("button", { name: /Mar 12/ }));
+      await user.click(screen.getByRole("button", { name: "1 week" }));
+      expect(onSelect).toHaveBeenCalledWith({
+        kind: "session",
+        offsetDays: 7,
+        sessionId: "s-next",
+      });
+    });
+
+    it("can set any number of days before the picked session", async () => {
+      backend();
+      const { onSelect, user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      await user.click(await screen.findByRole("button", { name: /Mar 12/ }));
+      const days = screen.getByRole("spinbutton");
+      await user.clear(days);
+      await user.type(days, "2");
+      await user.click(screen.getByRole("button", { name: "Set" }));
+      expect(onSelect).toHaveBeenCalledWith({
+        kind: "session",
+        offsetDays: 2,
+        sessionId: "s-next",
+      });
+    });
+
+    it("needs a session picked before a span can be chosen", async () => {
+      backend();
+      const { onSelect, user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      await screen.findByRole("list", { name: "Upcoming sessions" });
+      expect(screen.getByRole("button", { name: "1 week" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Set" })).toBeDisabled();
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it("says so when the course has no upcoming sessions", async () => {
+      mockCommand("list_courses", [course]);
+      mockCommand("list_relationships", [rel("entity-1"), rel("s-past")]);
+      mockCommand("list_sessions", [makeSession({ date: "2000-01-01" }, { id: "s-past" })]);
+      const { user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      expect(await screen.findByText("This course has no upcoming sessions.")).toBeInTheDocument();
+    });
+
+    it("asks for a course first when a new assignment has none", async () => {
+      mockCommand("list_courses", []);
+      mockCommand("list_sessions", []);
+      const onSelect = vi.fn<(due: AssignmentDue) => void>();
+      const { user } = renderWithProviders(
+        <DuePicker
+          value={{ dueDate: null, dueSessionOffsetDays: null, dueSessionId: null }}
+          spaceId="space-1"
+          onSelect={onSelect}
+        >
+          <button type="button">Due</button>
+        </DuePicker>,
+      );
+      await user.click(screen.getByRole("button", { name: "Due" }));
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      expect(await screen.findByText("Pick a course first.")).toBeInTheDocument();
+    });
   });
 });

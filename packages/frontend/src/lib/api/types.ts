@@ -454,6 +454,8 @@ export interface Assignment {
   dueDate: string | null;
   /// Due this many days before the Course's next session; null for a fixed date.
   dueSessionOffsetDays: number | null;
+  /// The one session the due day follows instead of the next one; null otherwise.
+  dueSessionId: string | null;
   /// Its share of the course's grade: a fraction, or a whole percentage in older data.
   weight: number | null;
   status: string;

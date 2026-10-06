@@ -11,6 +11,10 @@ inventory::submit! {
     RelationshipTypeDef { name: "assignment-course", label: "Assignment for course", description: "Ties an assignment to its course.", from_type: Some("assignment"), to_type: Some("course"), inverse_label: "has assignment", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
 }
 
+inventory::submit! {
+    RelationshipTypeDef { name: "assignment-due-session", label: "Due before session", description: "Ties an assignment to the one session its due day follows.", from_type: Some("assignment"), to_type: Some("session"), inverse_label: "is the due session of", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::Independent }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Assignment {
@@ -20,6 +24,9 @@ pub struct Assignment {
     pub due_date: Option<String>,
     /// Due this many days before the course's next session; `None` for a fixed date.
     pub due_session_offset_days: Option<i64>,
+    /// The one session the due day follows, instead of the next one. Read from the
+    /// `assignment-due-session` link; `None` while it follows the next session.
+    pub due_session_id: Option<String>,
     /// Its share of the course's grade, like an exam's: a fraction, or a whole
     /// percentage. `None` splits what the weighted work leaves evenly.
     pub weight: Option<f64>,
@@ -32,6 +39,7 @@ fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
         entity: crate::db::entities::row_to_entity(row)?,
         due_date: row.get("due_date")?,
         due_session_offset_days: row.get("due_session_offset_days")?,
+        due_session_id: None,
         weight: row.get("weight")?,
         status: row.get("status")?,
         grade: row.get("grade")?,
@@ -64,10 +72,34 @@ pub fn create_assignment(
             entity,
             due_date,
             due_session_offset_days: None,
+            due_session_id: None,
             weight: None,
             status: "not_started".into(),
             grade: None,
         })
+    })
+}
+
+/// Creates an assignment already due this many days before its course's next session
+/// (or before `session_id`, when given), all or nothing, so a bad offset or session
+/// leaves no assignment behind.
+pub fn create_assignment_due_before_session(
+    conn: &Connection,
+    space_id: String,
+    title: String,
+    course_id: String,
+    offset_days: i64,
+    session_id: Option<String>,
+) -> AppResult<Assignment> {
+    crate::db::atomically(conn, || {
+        let created = create_assignment(conn, space_id, title, course_id, None)?;
+        update_assignment_due_before_session(
+            conn,
+            &created.entity.id,
+            Some(offset_days),
+            session_id,
+        )?;
+        get_assignment(conn, &created.entity.id)
     })
 }
 
@@ -117,6 +149,7 @@ pub fn update_assignment_due_date(
         params![due_date, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
+    clear_due_session(conn, entity_id)?;
     Ok(())
 }
 
@@ -140,24 +173,74 @@ pub fn update_assignment_weight(
 }
 
 /// Makes the assignment due this many days before its course's next session, or, with
-/// `None`, back to its fixed due date. The due day itself is worked out when read, so
-/// it follows sessions that move, get cancelled or trashed.
+/// `session_id`, before that one session of its course, or, with `None` as the offset,
+/// back to its fixed due date. The due day itself is worked out when read, so it follows
+/// sessions that move, get cancelled or trashed.
 pub fn update_assignment_due_before_session(
     conn: &Connection,
     entity_id: &str,
     offset_days: Option<i64>,
+    session_id: Option<String>,
 ) -> AppResult<()> {
     if offset_days.is_some_and(|days| !(0..=365).contains(&days)) {
         return Err(crate::error::AppError::InvalidInput(
             "dueSessionOffsetDays must be between 0 and 365".into(),
         ));
     }
-    let affected = conn.execute(
-        "UPDATE assignments SET due_session_offset_days = ?1 WHERE entity_id = ?2",
-        params![offset_days, entity_id],
+    if offset_days.is_none() && session_id.is_some() {
+        return Err(crate::error::AppError::InvalidInput(
+            "dueSessionId needs dueSessionOffsetDays".into(),
+        ));
+    }
+    crate::db::atomically(conn, || {
+        let affected = conn.execute(
+            "UPDATE assignments SET due_session_offset_days = ?1 WHERE entity_id = ?2",
+            params![offset_days, entity_id],
+        )?;
+        crate::db::require_row(affected, "assignment", entity_id)?;
+        clear_due_session(conn, entity_id)?;
+        let Some(session_id) = session_id else {
+            return Ok(());
+        };
+        let course_id = course_of(conn, "assignment-course", entity_id)?;
+        if course_id.is_none() || course_id != course_of(conn, "session-course", &session_id)? {
+            return Err(crate::error::AppError::InvalidInput(
+                "dueSessionId must be a session of the assignment's course".into(),
+            ));
+        }
+        crate::db::relationships::create_relationship(
+            conn,
+            entity_id.to_string(),
+            session_id,
+            "assignment-due-session".into(),
+            None,
+            None,
+        )?;
+        Ok(())
+    })
+}
+
+fn clear_due_session(conn: &Connection, entity_id: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'assignment-due-session'",
+        params![entity_id],
     )?;
-    crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
+}
+
+/// The one entity `from_id` points at with `relationship_type` (its Course).
+fn course_of(
+    conn: &Connection,
+    relationship_type: &str,
+    from_id: &str,
+) -> AppResult<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT to_entity_id FROM relationships WHERE from_entity_id = ?1 AND relationship_type = ?2",
+            params![from_id, relationship_type],
+            |row| row.get(0),
+        )
+        .optional()?)
 }
 
 fn today() -> String {
@@ -221,14 +304,52 @@ fn resolve_due_date(
     let Some(offset) = assignment.due_session_offset_days else {
         return Ok(());
     };
-    let course_id: Option<String> = conn
-        .query_row(
-            "SELECT to_entity_id FROM relationships
-             WHERE from_entity_id = ?1 AND relationship_type = 'assignment-course'",
-            params![assignment.entity.id],
-            |row| row.get(0),
-        )
-        .optional()?;
+    // A picked session wins over the next one. Cancelled or trashed, the day moves on
+    // to the first live session after it; with none, it stays on the pick's own day,
+    // so cancelling the last session doesn't wipe the due date. The link stays on the
+    // pick, so un-cancelling or restoring it brings its day back.
+    if let Some(session_id) = course_of(conn, "assignment-due-session", &assignment.entity.id)? {
+        let shift = format!("-{offset} days");
+        let picked: Option<(String, String, bool)> = conn
+            .query_row(
+                "SELECT s.date, s.start_time, s.cancelled = 0 AND e.deleted_at IS NULL
+                 FROM sessions s JOIN entities e ON e.id = s.entity_id WHERE s.entity_id = ?1",
+                params![session_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()?;
+        if let Some((date, start_time, live)) = picked {
+            let day: Option<String> = if live {
+                conn.query_row("SELECT date(?1, ?2)", params![date, shift], |row| {
+                    row.get(0)
+                })?
+            } else {
+                conn.query_row(
+                    "SELECT date(s.date, ?5) FROM sessions s
+                     JOIN entities e ON e.id = s.entity_id
+                     JOIN relationships r ON r.from_entity_id = s.entity_id
+                       AND r.relationship_type = 'session-course'
+                       AND r.to_entity_id = (SELECT to_entity_id FROM relationships
+                         WHERE from_entity_id = ?1 AND relationship_type = 'session-course')
+                     WHERE e.deleted_at IS NULL AND s.cancelled = 0
+                       AND (s.date > ?2 OR (s.date = ?2 AND s.start_time > ?3))
+                     ORDER BY s.date ASC, s.start_time ASC LIMIT 1",
+                    params![session_id, date, start_time, "", shift],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .or(conn.query_row(
+                    "SELECT date(?1, ?2)",
+                    params![date, shift],
+                    |row| row.get(0),
+                )?)
+            };
+            assignment.due_date = day;
+            assignment.due_session_id = Some(session_id);
+            return Ok(());
+        }
+    }
+    let course_id = course_of(conn, "assignment-course", &assignment.entity.id)?;
     assignment.due_date = match course_id {
         Some(course_id) => next_session_due(conn, &course_id, offset, today, now)?,
         None => None,
@@ -310,6 +431,13 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         description: "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
     },
     FieldDef {
+        name: "dueSessionId",
+        kind: FieldKind::EntityRef("session"),
+        required_on_create: false,
+        writable_on_update: true,
+        description: "A session of the Course the due day follows, instead of its next session, shifted by dueSessionOffsetDays (0 when not given). dueDate reads the resolved day, which follows that session when it moves. Pass null to follow the next session again; setting dueDate drops it too.",
+    },
+    FieldDef {
         name: "weight",
         kind: FieldKind::Float,
         required_on_create: false,
@@ -340,8 +468,11 @@ fn cli_create_assignment(conn: &Connection, input: CreateInput) -> AppResult<ser
         let weight = crate::db::schema::field_f64(&input.fields, "weight");
         update_assignment_weight(conn, &assignment.entity.id, weight)?;
     }
-    if let Some(days) = crate::db::schema::field_i64(&input.fields, "dueSessionOffsetDays") {
-        update_assignment_due_before_session(conn, &assignment.entity.id, Some(days))?;
+    let session_id = crate::db::schema::field_str(&input.fields, "dueSessionId");
+    let days = crate::db::schema::field_i64(&input.fields, "dueSessionOffsetDays")
+        .or(session_id.as_ref().map(|_| 0));
+    if days.is_some() {
+        update_assignment_due_before_session(conn, &assignment.entity.id, days, session_id)?;
         return cli_get_assignment(conn, &assignment.entity.id);
     }
     Ok(serde_json::to_value(assignment).expect("Assignment always serializes"))
@@ -366,9 +497,21 @@ fn cli_update_assignment(
     if fields.contains_key("weight") {
         update_assignment_weight(conn, id, crate::db::schema::field_f64(fields, "weight"))?;
     }
-    if fields.contains_key("dueSessionOffsetDays") {
-        let days = crate::db::schema::field_i64(fields, "dueSessionOffsetDays");
-        update_assignment_due_before_session(conn, id, days)?;
+    if fields.contains_key("dueSessionOffsetDays") || fields.contains_key("dueSessionId") {
+        let session_id = if fields.contains_key("dueSessionId") {
+            crate::db::schema::field_str(fields, "dueSessionId")
+        } else if fields.contains_key("dueSessionOffsetDays") {
+            None
+        } else {
+            current.due_session_id
+        };
+        let days = if fields.contains_key("dueSessionOffsetDays") {
+            crate::db::schema::field_i64(fields, "dueSessionOffsetDays")
+        } else {
+            current.due_session_offset_days
+        }
+        .or(session_id.as_ref().map(|_| 0));
+        update_assignment_due_before_session(conn, id, days, session_id)?;
     }
     cli_get_assignment(conn, id)
 }
@@ -397,7 +540,7 @@ inventory::submit! {
         supports_blocks: true,
         description: "A gradeable assignment belonging to exactly one Course.",
         fields: ASSIGNMENT_FIELDS,
-        relationship_types: &["assignment-course", "relates-to"],
+        relationship_types: &["assignment-course", "assignment-due-session", "relates-to"],
         create: cli_create_assignment,
         update: cli_update_assignment,
         get: cli_get_assignment,
