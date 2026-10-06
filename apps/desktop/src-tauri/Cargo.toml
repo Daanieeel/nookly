@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.18.11"
+version = "0.18.12"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
