@@ -2,9 +2,18 @@ import katex from "katex";
 import "katex/contrib/mhchem";
 import "katex/dist/katex.min.css";
 
+/// Logic gate operators, which LaTeX has no commands for: `A \nand B`. The negated
+/// gates are the plain symbol with a bar over it.
+const GATE_MACROS = {
+  "\\xor": "\\mathbin{\\oplus}",
+  "\\nand": "\\mathbin{\\overline{\\wedge}}",
+  "\\nor": "\\mathbin{\\overline{\\vee}}",
+  "\\xnor": "\\mathbin{\\overline{\\oplus}}",
+};
+
 /// LaTeX rendering for the math blocks and inline math, through KaTeX with the
-/// mhchem extension (`\ce{H2O}`). Errors come back as a message instead of a
-/// throw, so a half typed formula shows what's wrong rather than nothing.
+/// mhchem extension (`\ce{H2O}`) and the gate operators above. Errors come back as a
+/// message instead of a throw, so a half typed formula shows what's wrong rather than nothing.
 export function renderMath(
   latex: string,
   element: HTMLElement,
@@ -16,6 +25,8 @@ export function renderMath(
       throwOnError: true,
       strict: "ignore",
       trust: false,
+      // KaTeX writes a macro's definitions into this object, so each call gets a copy.
+      macros: { ...GATE_MACROS },
       output: "htmlAndMathml",
     });
     return null;
