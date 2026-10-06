@@ -6,6 +6,7 @@ import { EntityKey } from "#/components/entity-key.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { listEntities } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
@@ -28,14 +29,7 @@ export function EntityPickerPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        className="w-72 p-0"
-        align="start"
-        // Inside a dialog, its scroll lock swallows wheel and touch moves from this
-        // portaled popover, so the list wouldn't scroll. Keep them here.
-        onWheel={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-      >
+      <PopoverContent {...dialogPopover("w-72 p-0")} align="start">
         <EntityPickerList
           spaceId={spaceId}
           exclude={exclude}

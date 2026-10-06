@@ -24,6 +24,7 @@ import { Calendar } from "#/components/date-input.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import type { Label, TaskStatus } from "#/lib/api/types.ts";
 import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, formatDay, toDay } from "./task-model";
 
@@ -146,7 +147,7 @@ export function StatusPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-56" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput
             value={search}
@@ -227,7 +228,7 @@ export function LabelsPicker({
       }}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-56" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput
             placeholder={onCreate ? "Find or create labels…" : "Add labels…"}
@@ -307,7 +308,7 @@ export function EffortPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-48" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-48")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput placeholder="Set effort…" />
           <CommandList className="p-1">
@@ -374,7 +375,7 @@ export function DueDatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-68" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-68")} align={align} onKeyDown={stopKeys}>
         <DueDateChooser value={value} onSelect={choose} noun={noun} />
       </PopoverContent>
     </Popover>

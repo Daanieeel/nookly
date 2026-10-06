@@ -58,21 +58,29 @@ describe("QuickCreateTask related picker", () => {
     expect(screen.getByRole("button", { name: "Change Status" })).toHaveTextContent("Backlog");
   });
 
-  it("lets the picker list scroll inside the dialog", async () => {
-    // The dialog's scroll lock listens on the document and swallows wheel and touch
-    // moves from anything outside the dialog, such as this popover. They must stop
-    // at the picker so the list scrolls.
-    const { user } = setup();
-    await user.click(screen.getByRole("button", { name: "Change Related" }));
-    const list = await screen.findByRole("listbox");
-    for (const type of ["wheel", "touchmove"]) {
-      const reachedDocument = vi.fn();
-      document.addEventListener(type, reachedDocument);
-      list.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
-      document.removeEventListener(type, reachedDocument);
-      expect(reachedDocument, type).not.toHaveBeenCalled();
-    }
-  });
+  it.each(["Change Status", "Change Labels", "Change Due Date", "Change Related"])(
+    "lets the %s popover scroll inside the dialog",
+    async (trigger) => {
+      // The dialog's scroll lock listens on the document and swallows wheel and touch
+      // moves from anything outside the dialog, such as these popovers. They must stop
+      // inside the popover so its list scrolls.
+      const { user } = setup();
+      await user.click(screen.getByRole("button", { name: trigger }));
+      await waitFor(() =>
+        expect(document.querySelector("[data-radix-popper-content-wrapper] > *")).toBeTruthy(),
+      );
+      const inner = document.querySelector("[data-radix-popper-content-wrapper] > *")!;
+      // In a small window it must shrink to the room it has instead of running off.
+      expect(inner.className).toContain("--radix-popover-content-available-height");
+      for (const type of ["wheel", "touchmove"]) {
+        const reachedDocument = vi.fn();
+        document.addEventListener(type, reachedDocument);
+        inner.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+        document.removeEventListener(type, reachedDocument);
+        expect(reachedDocument, `${trigger} ${type}`).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it("relates the new task to the picked entity", async () => {
     const { user, onCreated } = setup();
