@@ -107,7 +107,7 @@ function TaskPage({ entity }: { entity: Entity }) {
       }
       sidebar={task && <PropertiesPanel task={task} progress={progress ?? null} />}
     >
-      <div className="mx-auto flex w-full max-w-3xl flex-col pb-24">
+      <div className="flex w-full flex-col pb-24">
         {/* Properties live in the sidebar; without it they sit above the description.
             Indented by the editor's handle gutter (`.tiptap-content`) to line up with
             its text. */}

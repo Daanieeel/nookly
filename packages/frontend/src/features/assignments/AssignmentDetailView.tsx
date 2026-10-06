@@ -56,7 +56,7 @@ function AssignmentPage({ entity }: { entity: Entity }) {
       entity={entity}
       sidebar={assignment && <PropertiesPanel assignment={assignment} />}
     >
-      <div className="mx-auto flex w-full max-w-3xl flex-col pb-24">
+      <div className="flex w-full flex-col pb-24">
         {/* Properties live in the sidebar; without it they sit above the description,
             indented by the editor's handle gutter to line up with its text. */}
         {assignment && (
