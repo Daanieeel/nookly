@@ -154,6 +154,7 @@ export function QuickCreateTask({
       <NewEntityBreadcrumb
         spaceId={spaceId}
         spaceName={space?.name ?? "Tasks"}
+        space={space}
         spaces={spaces}
         onSpaceChange={onSpaceChange}
         title="New task"

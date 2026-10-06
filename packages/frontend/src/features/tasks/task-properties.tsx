@@ -16,7 +16,6 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList,
   CommandSeparator,
   CommandShortcut,
 } from "@nookly/ui/components/command";
@@ -24,6 +23,7 @@ import { Calendar } from "#/components/date-input.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import type { Label, TaskStatus } from "#/lib/api/types.ts";
 import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
+import { DialogCommandList } from "#/components/dialog-command-list.tsx";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, formatDay, toDay } from "./task-model";
@@ -162,7 +162,7 @@ export function StatusPicker({
               }
             }}
           />
-          <CommandList className="p-1">
+          <DialogCommandList>
             <CommandEmpty>No status found.</CommandEmpty>
             {statuses.map((status, i) => (
               <CommandItem key={status.id} value={status.name} onSelect={() => choose(status.id)}>
@@ -172,7 +172,7 @@ export function StatusPicker({
                 {i < 9 && <CommandShortcut className="w-3 text-center">{i + 1}</CommandShortcut>}
               </CommandItem>
             ))}
-          </CommandList>
+          </DialogCommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -235,7 +235,18 @@ export function LabelsPicker({
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList className="p-1">
+          {selected.length > 0 && (
+            // Outside the scrolling list, so it stays put like the search box.
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 border-b border-border px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => selected.forEach(onToggle)}
+            >
+              <IconX size={14} />
+              Clear all
+            </button>
+          )}
+          <DialogCommandList>
             {!(onCreate && name) && (
               <CommandEmpty>
                 {labels.length === 0 ? "No labels in this Space yet." : "No label found."}
@@ -278,7 +289,7 @@ export function LabelsPicker({
                 </CommandItem>
               );
             })}
-          </CommandList>
+          </DialogCommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -311,7 +322,7 @@ export function EffortPicker({
       <PopoverContent {...dialogPopover("w-48")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput placeholder="Set effort…" />
-          <CommandList className="p-1">
+          <DialogCommandList>
             <CommandEmpty>No size found.</CommandEmpty>
             {EFFORT_STEPS.map((step) => (
               <CommandItem
@@ -332,7 +343,7 @@ export function EffortPicker({
                 </CommandItem>
               </>
             )}
-          </CommandList>
+          </DialogCommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -345,9 +356,9 @@ function addDays(days: number): string {
   return toDay(date);
 }
 
-/// Days until the coming Friday, or a week on when today already is one.
-function daysToFriday(): number {
-  const diff = (5 - new Date().getDay() + 7) % 7;
+/// Days until the coming `weekday` (0 is Sunday), or a week on when today already is one.
+function daysTo(weekday: number): number {
+  const diff = (weekday - new Date().getDay() + 7) % 7;
   return diff === 0 ? 7 : diff;
 }
 
@@ -360,7 +371,7 @@ export function DueDatePicker({
 }: {
   value: string | null;
   onSelect: (day: string | null) => void;
-  /// Names the date in the search placeholder and the remove item.
+  /// Names the date in the remove item.
   noun?: string;
   align?: "start" | "end";
   children: ReactNode;
@@ -375,58 +386,68 @@ export function DueDatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent {...dialogPopover("w-68")} align={align} onKeyDown={stopKeys}>
+      <PopoverContent
+        {...dialogPopover(
+          // Capped to the room it has, so a short window scrolls it instead of letting
+          // it run off the window.
+          "max-h-(--radix-popover-content-available-height) w-120 overflow-y-auto",
+        )}
+        align={align}
+        onKeyDown={stopKeys}
+      >
         <DueDateChooser value={value} onSelect={choose} noun={noun} />
       </PopoverContent>
     </Popover>
   );
 }
 
-/// The date picker's content: a search over presets, the remove item and a calendar.
+/// The date picker's content: the presets and the remove item beside a calendar, half
+/// the width each (30rem in all).
 /// Also used inside other popovers, e.g. an assignment's due date step.
 export function DueDateChooser({
   value,
   onSelect,
   noun = "due date",
-  searchable = true,
 }: {
   value: string | null;
   onSelect: (day: string | null) => void;
-  /// Names the date in the search placeholder and the remove item.
+  /// Names the date in the remove item.
   noun?: string;
-  /// Shows the search box above the presets.
-  searchable?: boolean;
 }) {
   const presets = [
     { label: "Today", day: addDays(0) },
     { label: "Tomorrow", day: addDays(1) },
-    { label: "End of this week", day: addDays(daysToFriday()) },
+    { label: "End of this week", day: addDays(daysTo(5)) },
+    { label: "Next Monday", day: addDays(daysTo(1)) },
     { label: "In one week", day: addDays(7) },
+    { label: "In two weeks", day: addDays(14) },
   ];
   return (
-    <Command loop onKeyDown={stopKeys}>
-      {searchable && <CommandInput placeholder={`Set ${noun}…`} />}
-      <CommandList className="p-1">
-        <CommandEmpty>No match.</CommandEmpty>
-        <CommandGroup className="p-0">
-          {presets.map((p) => (
-            <CommandItem key={p.label} value={p.label} onSelect={() => onSelect(p.day)}>
-              <IconCalendarEvent />
-              <span className="truncate">{p.label}</span>
-              <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
-            </CommandItem>
-          ))}
-          {value && (
-            <CommandItem value={`Remove ${noun}`} onSelect={() => onSelect(null)}>
-              <IconX />
-              Remove {noun}
-            </CommandItem>
-          )}
-        </CommandGroup>
-      </CommandList>
-      <CommandSeparator />
-      <Calendar value={value} onSelect={onSelect} className="w-auto p-2" />
-    </Command>
+    <div className="flex" onKeyDown={stopKeys}>
+      <Command loop className="w-1/2">
+        <DialogCommandList>
+          <CommandEmpty>No match.</CommandEmpty>
+          <CommandGroup className="p-0">
+            {presets.map((p) => (
+              <CommandItem key={p.label} value={p.label} onSelect={() => onSelect(p.day)}>
+                <IconCalendarEvent />
+                <span className="truncate">{p.label}</span>
+                <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
+              </CommandItem>
+            ))}
+            {value && (
+              <CommandItem value={`Remove ${noun}`} onSelect={() => onSelect(null)}>
+                <IconX />
+                Remove {noun}
+              </CommandItem>
+            )}
+          </CommandGroup>
+        </DialogCommandList>
+      </Command>
+      <div className="w-1/2 border-l border-border">
+        <Calendar value={value} onSelect={onSelect} className="w-full p-2" />
+      </div>
+    </div>
   );
 }
 

@@ -72,7 +72,7 @@ export function EntityPickerList({
         placeholder="Search this Space…"
         className="h-9 border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
       />
-      <Command.List className="max-h-64 overflow-y-auto p-1">
+      <Command.List className="max-h-[min(16rem,calc(var(--radix-popover-content-available-height,100vh)-3rem))] overflow-y-auto p-1">
         <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
           No matches.
         </Command.Empty>

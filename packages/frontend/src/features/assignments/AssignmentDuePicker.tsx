@@ -98,7 +98,7 @@ export function DuePicker({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className="w-80 p-2"
+        className={cn("p-2", step === "date" ? "w-120" : "w-80")}
         align={align}
         aria-label="Due date"
         ref={contentRef}
@@ -152,7 +152,6 @@ export function DuePicker({
           <div className="flex flex-col gap-1">
             <BackButton onClick={() => setStep("choose")} />
             <DueDateChooser
-              searchable={false}
               value={offset === null ? assignment.dueDate : null}
               onSelect={(day) => choose({ kind: "date", day })}
             />

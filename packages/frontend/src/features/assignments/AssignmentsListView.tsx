@@ -316,6 +316,7 @@ export function CreateAssignmentDialog({
       <NewEntityBreadcrumb
         spaceId={spaceId}
         spaceName={space?.name ?? "Assignments"}
+        space={space}
         spaces={spaces}
         onSpaceChange={(next) => {
           setSpaceId(next);

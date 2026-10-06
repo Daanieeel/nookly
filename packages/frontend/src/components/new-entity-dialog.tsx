@@ -15,7 +15,7 @@ import {
 } from "@nookly/ui/components/select";
 import { Switch } from "@nookly/ui/components/switch";
 import type { Space } from "#/lib/api/types.ts";
-import { SpaceDot } from "./space-chip.tsx";
+import { SpaceIcon } from "./space-chip.tsx";
 
 /// The shell of a quick create modal (new task, new assignment): focuses the title on
 /// open, and Enter in the form or Cmd+Enter anywhere submits.
@@ -65,6 +65,7 @@ export function NewEntityDialog({
 export function NewEntityBreadcrumb({
   spaceId,
   spaceName,
+  space,
   spaces,
   onSpaceChange,
   title,
@@ -73,6 +74,8 @@ export function NewEntityBreadcrumb({
   spaceId: string;
   /// Shown when the Space is not a picker.
   spaceName: string;
+  /// The current Space, for its icon and color beside the name.
+  space?: Space;
   spaces?: Space[];
   onSpaceChange?: (spaceId: string) => void;
   title: string;
@@ -88,15 +91,16 @@ export function NewEntityBreadcrumb({
           <SelectContent>
             {spaces.map((option) => (
               <SelectItem key={option.id} value={option.id}>
-                <SpaceDot space={option} />
+                <SpaceIcon space={option} />
                 {option.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       ) : (
-        <span className="inline-flex h-6 items-center rounded-md border border-border px-2 font-medium text-foreground">
-          {spaceName}
+        <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border px-2 font-medium text-foreground">
+          {space && <SpaceIcon space={space} />}
+          <span>{spaceName}</span>
         </span>
       )}
       <IconChevronRight size={12} />

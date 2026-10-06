@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Space } from "#/lib/api/types.ts";
+import { IconFolder } from "@tabler/icons-react";
+import { renderIconValue } from "#/components/entity-icon.tsx";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// A Space's color as a small dot.
@@ -10,6 +12,19 @@ export function SpaceDot({ space }: { space: Space }) {
       // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
       style={{ "--space-color": space.color } as CSSProperties}
     />
+  );
+}
+
+/// A Space's own icon (a folder without one) in its color.
+export function SpaceIcon({ space, size = 14 }: { space: Space; size?: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center text-(--space-color)"
+      // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
+      style={{ "--space-color": space.color } as CSSProperties}
+    >
+      {space.icon ? renderIconValue(space.icon, size) : <IconFolder size={size} />}
+    </span>
   );
 }
 
