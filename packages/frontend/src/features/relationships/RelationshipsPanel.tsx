@@ -10,6 +10,7 @@ import {
   listRelationshipTypes,
 } from "#/lib/api/relationships.ts";
 import type { Entity } from "#/lib/api/types.ts";
+import { TypeGroups } from "./EntityGroups";
 import { EntityRow } from "./EntityRow";
 import { RelatePickerPopover } from "./RelatePickerPopover";
 import { RemoveLinkButton } from "./RemoveLinkButton";
@@ -70,6 +71,14 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
 
   const hidden = hiddenRelationshipTypes(entity);
   const visible = relationships.filter((r) => !hidden.has(r.relationshipType));
+  const rows = visible.map((r) => {
+    const isFrom = r.fromEntityId === entity.id;
+    const def = types.find((t) => t.name === r.relationshipType);
+    const label = isFrom
+      ? (def?.label ?? r.relationshipType)
+      : (def?.inverseLabel ?? r.relationshipType);
+    return { key: r.id, entityId: isFrom ? r.toEntityId : r.fromEntityId, label };
+  });
   const pickableTypes = types.filter((t) => !hidden.has(t.name));
 
   return (
@@ -98,39 +107,28 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
         }
       />
 
-      <div className="flex flex-col gap-0.5">
-        {visible.map((r) => {
-          const isFrom = r.fromEntityId === entity.id;
-          const otherId = isFrom ? r.toEntityId : r.fromEntityId;
-          const def = types.find((t) => t.name === r.relationshipType);
-          const label = isFrom
-            ? (def?.label ?? r.relationshipType)
-            : (def?.inverseLabel ?? r.relationshipType);
-          return (
-            <div key={r.id} className="group flex items-center gap-1">
-              <div className="min-w-0 flex-1">
-                <EntityRow entityId={otherId} currentSpaceId={entity.spaceId} label={label} />
-              </div>
-              <RemoveLinkButton
-                label="Remove relationship"
-                errorLabel="Couldn't remove relationship, try again"
-                onRemove={async () => {
-                  await deleteRelationship(r.id);
-                  await Promise.all([
-                    queryClient.invalidateQueries({
-                      queryKey: qk.relationships.of(entity.id),
-                    }),
-                    queryClient.invalidateQueries({
-                      queryKey: qk.jots.unrefined,
-                    }),
-                    queryClient.invalidateQueries({ predicate: isJotSummaries }),
-                  ]);
-                }}
-              />
+      <TypeGroups
+        items={rows}
+        renderRow={(r) => (
+          <div className="group flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <EntityRow entityId={r.entityId} currentSpaceId={entity.spaceId} label={r.label} />
             </div>
-          );
-        })}
-      </div>
+            <RemoveLinkButton
+              label="Remove relationship"
+              errorLabel="Couldn't remove relationship, try again"
+              onRemove={async () => {
+                await deleteRelationship(r.key);
+                await Promise.all([
+                  queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
+                  queryClient.invalidateQueries({ queryKey: qk.jots.unrefined }),
+                  queryClient.invalidateQueries({ predicate: isJotSummaries }),
+                ]);
+              }}
+            />
+          </div>
+        )}
+      />
     </SidebarSection>
   );
 }
