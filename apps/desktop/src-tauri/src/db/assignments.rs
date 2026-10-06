@@ -164,8 +164,14 @@ fn today() -> String {
     chrono::Local::now().format("%Y-%m-%d").to_string()
 }
 
+/// Local `HH:MM`, the shape of a session's `start_time`.
+fn clock_now() -> String {
+    chrono::Local::now().format("%H:%M").to_string()
+}
+
 /// The day an assignment due `offset_days` before the course's next session is due: that
-/// session is the first one, not cancelled or trashed, on or after `today`. The day itself
+/// session is the first one, not cancelled or trashed, that has not started at `today`
+/// and `now` (`HH:MM`); one today that has started or finished is skipped. The day itself
 /// may already be past (a week before a session three days away), which makes it overdue.
 /// With none left, it stays on the course's last session that still exists, cancelled or
 /// past, so cancelling the only session doesn't wipe the due date. `None` only for a
@@ -175,6 +181,7 @@ pub fn next_session_due(
     course_id: &str,
     offset_days: i64,
     today: &str,
+    now: &str,
 ) -> AppResult<Option<String>> {
     let shift = format!("-{offset_days} days");
     let from_course = "FROM sessions s
@@ -185,10 +192,11 @@ pub fn next_session_due(
     let upcoming: Option<String> = conn
         .query_row(
             &format!(
-                "SELECT date(s.date, ?2) {from_course} AND s.cancelled = 0 AND s.date >= ?3
-                 ORDER BY s.date ASC LIMIT 1"
+                "SELECT date(s.date, ?2) {from_course} AND s.cancelled = 0
+                 AND (s.date > ?3 OR (s.date = ?3 AND s.start_time > ?4))
+                 ORDER BY s.date ASC, s.start_time ASC LIMIT 1"
             ),
-            params![course_id, shift, today],
+            params![course_id, shift, today, now],
             |row| row.get(0),
         )
         .optional()?;
@@ -204,7 +212,12 @@ pub fn next_session_due(
         .optional()?)
 }
 
-fn resolve_due_date(conn: &Connection, assignment: &mut Assignment, today: &str) -> AppResult<()> {
+fn resolve_due_date(
+    conn: &Connection,
+    assignment: &mut Assignment,
+    today: &str,
+    now: &str,
+) -> AppResult<()> {
     let Some(offset) = assignment.due_session_offset_days else {
         return Ok(());
     };
@@ -217,7 +230,7 @@ fn resolve_due_date(conn: &Connection, assignment: &mut Assignment, today: &str)
         )
         .optional()?;
     assignment.due_date = match course_id {
-        Some(course_id) => next_session_due(conn, &course_id, offset, today)?,
+        Some(course_id) => next_session_due(conn, &course_id, offset, today, now)?,
         None => None,
     };
     Ok(())
@@ -226,9 +239,9 @@ fn resolve_due_date(conn: &Connection, assignment: &mut Assignment, today: &str)
 /// Resolves every session relative due day, then puts the list back in due order
 /// (undated first, like the stored column sorts).
 fn resolve_all(conn: &Connection, mut assignments: Vec<Assignment>) -> AppResult<Vec<Assignment>> {
-    let today = today();
+    let (today, now) = (today(), clock_now());
     for assignment in &mut assignments {
-        resolve_due_date(conn, assignment, &today)?;
+        resolve_due_date(conn, assignment, &today, &now)?;
     }
     assignments.sort_by(|a, b| a.due_date.cmp(&b.due_date));
     Ok(assignments)
@@ -268,7 +281,7 @@ pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignmen
         )
         .optional()?
         .ok_or_else(|| crate::error::AppError::NotFound(format!("assignment {entity_id}")))?;
-    resolve_due_date(conn, &mut assignment, &today())?;
+    resolve_due_date(conn, &mut assignment, &today(), &clock_now())?;
     Ok(assignment)
 }
 

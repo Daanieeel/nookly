@@ -1,3 +1,4 @@
+import { findNextSession } from "#/features/sessions/next-session.ts";
 import {
   IconArrowRight,
   IconCalendarStats,
@@ -15,7 +16,7 @@ import {
   useSpaceSessions,
   courseLinkedItems,
 } from "#/features/courses/course-queries.ts";
-import { differenceInCalendarDays, startOfDay } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { TextProperty } from "#/components/property-fields.tsx";
 import { PropertyRow } from "#/components/property-row.tsx";
@@ -169,10 +170,7 @@ function CourseBody({ course }: { course: Entity }) {
     0,
   );
 
-  const today = startOfDay(new Date());
-  const nextSession = [...courseSessions]
-    .filter((s) => !s.cancelled && startOfDay(new Date(s.date)) >= today)
-    .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime))[0];
+  const nextSession = findNextSession(courseSessions, new Date());
   const nextExam = [...courseExams]
     .filter((e) => e.status !== "done" && e.examDate)
     .sort((a, b) => (a.examDate ?? "").localeCompare(b.examDate ?? ""))[0];

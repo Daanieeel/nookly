@@ -335,7 +335,7 @@ fn due_before_a_session_is_the_next_sessions_day_minus_the_offset() {
     let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
     session(&conn, &space.id, &course.id, "2026-04-06");
     session(&conn, &space.id, &course.id, "2026-04-13");
-    let due = |offset, today| next_session_due(&conn, &course.id, offset, today).unwrap();
+    let due = |offset, today| next_session_due(&conn, &course.id, offset, today, "00:00").unwrap();
     assert_eq!(due(0, "2026-04-01").as_deref(), Some("2026-04-06"));
     assert_eq!(due(2, "2026-04-01").as_deref(), Some("2026-04-04"));
     // The session day itself still counts: it is due today.
@@ -348,10 +348,28 @@ fn due_before_a_session_jumps_to_the_next_one_once_the_session_has_passed() {
     let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
     session(&conn, &space.id, &course.id, "2026-04-06");
     session(&conn, &space.id, &course.id, "2026-04-13");
-    let due = |offset, today| next_session_due(&conn, &course.id, offset, today).unwrap();
+    let due = |offset, today| next_session_due(&conn, &course.id, offset, today, "00:00").unwrap();
     assert_eq!(due(0, "2026-04-07").as_deref(), Some("2026-04-13"));
     // Past the last one, it stays on that session, and so is overdue.
     assert_eq!(due(0, "2026-04-14").as_deref(), Some("2026-04-13"));
+}
+
+// Issue #65: a session later today is the next one only until it starts. Sessions in
+// these tests run 10:00 to 12:00.
+#[test]
+fn due_before_a_session_skips_a_session_today_that_has_already_started() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    session(&conn, &space.id, &course.id, "2026-04-06");
+    session(&conn, &space.id, &course.id, "2026-04-13");
+    let due = |clock| {
+        next_session_due(&conn, &course.id, 0, "2026-04-06", clock)
+            .unwrap()
+            .unwrap()
+    };
+    assert_eq!(due("09:59"), "2026-04-06");
+    assert_eq!(due("10:00"), "2026-04-13");
+    assert_eq!(due("13:00"), "2026-04-13");
 }
 
 // A bug found by hand: "1 week before" a session less than a week away showed no due
@@ -362,7 +380,7 @@ fn due_before_a_session_stays_on_the_next_session_even_when_that_day_is_past() {
     let conn = test_conn();
     let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
     session(&conn, &space.id, &course.id, "2026-04-06");
-    let due = |offset, today| next_session_due(&conn, &course.id, offset, today).unwrap();
+    let due = |offset, today| next_session_due(&conn, &course.id, offset, today, "00:00").unwrap();
     assert_eq!(due(7, "2026-04-04").as_deref(), Some("2026-03-30"));
     assert_eq!(due(3, "2026-04-06").as_deref(), Some("2026-04-03"));
 }
@@ -381,7 +399,7 @@ fn due_before_a_session_skips_cancelled_and_trashed_sessions() {
     .unwrap();
     soft_delete_entity(&conn, &trashed).unwrap();
     assert_eq!(
-        next_session_due(&conn, &course.id, 0, "2026-04-01")
+        next_session_due(&conn, &course.id, 0, "2026-04-01", "00:00")
             .unwrap()
             .as_deref(),
         Some("2026-04-13")
@@ -396,7 +414,7 @@ fn due_before_a_session_only_looks_at_its_own_course() {
     session(&conn, &space.id, &other.id, "2026-04-02");
     session(&conn, &space.id, &algo.id, "2026-04-09");
     assert_eq!(
-        next_session_due(&conn, &algo.id, 0, "2026-04-01")
+        next_session_due(&conn, &algo.id, 0, "2026-04-01", "00:00")
             .unwrap()
             .as_deref(),
         Some("2026-04-09")
