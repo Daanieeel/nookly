@@ -140,6 +140,7 @@ describe("AssignmentDuePicker", () => {
       const list = await screen.findByRole("list", { name: "Upcoming sessions" });
       expect(list.querySelectorAll("li")).toHaveLength(2);
       await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
+      await user.click(screen.getByRole("button", { name: "Day of" }));
       expect(onSelect).toHaveBeenCalledWith({
         kind: "session",
         offsetDays: 0,
@@ -147,20 +148,43 @@ describe("AssignmentDuePicker", () => {
       });
     });
 
-    it("can set the due date some days before the picked session", async () => {
+    it("offers the same spans as the next session, one click for a common one", async () => {
       backend();
       const { onSelect, user } = await open();
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
-      await screen.findByRole("list", { name: "Upcoming sessions" });
+      await user.click(await screen.findByRole("button", { name: /Mar 12/ }));
+      await user.click(screen.getByRole("button", { name: "1 week" }));
+      expect(onSelect).toHaveBeenCalledWith({
+        kind: "session",
+        offsetDays: 7,
+        sessionId: "s-next",
+      });
+    });
+
+    it("can set any number of days before the picked session", async () => {
+      backend();
+      const { onSelect, user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      await user.click(await screen.findByRole("button", { name: /Mar 12/ }));
       const days = screen.getByRole("spinbutton");
       await user.clear(days);
       await user.type(days, "2");
-      await user.click(screen.getByRole("button", { name: /Mar 12/ }));
+      await user.click(screen.getByRole("button", { name: "Set" }));
       expect(onSelect).toHaveBeenCalledWith({
         kind: "session",
         offsetDays: 2,
         sessionId: "s-next",
       });
+    });
+
+    it("needs a session picked before a span can be chosen", async () => {
+      backend();
+      const { onSelect, user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      await screen.findByRole("list", { name: "Upcoming sessions" });
+      expect(screen.getByRole("button", { name: "1 week" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Set" })).toBeDisabled();
+      expect(onSelect).not.toHaveBeenCalled();
     });
 
     it("says so when the course has no upcoming sessions", async () => {

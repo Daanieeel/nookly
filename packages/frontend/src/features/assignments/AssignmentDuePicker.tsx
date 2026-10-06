@@ -165,6 +165,8 @@ export function DuePicker({
               spaceId={spaceId}
               courseId={courseId}
               assignmentId={assignmentId}
+              initialSessionId={assignment.dueSessionId}
+              initialDays={offset ?? 0}
               onPick={(sessionId, offsetDays) => choose({ kind: "session", offsetDays, sessionId })}
             />
           </div>
@@ -172,25 +174,11 @@ export function DuePicker({
         {step === "session" && (
           <div className="flex flex-col gap-2">
             <BackButton onClick={() => setStep("choose")} />
-            <div className="grid grid-cols-4 gap-1">
-              {SESSION_PRESETS.map((preset) => (
-                <Button
-                  key={preset.days}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => choose({ kind: "session", offsetDays: preset.days })}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 border-t border-border pt-2">
-              <NumberInput value={days} onChange={setDays} min={0} max={MAX_DUE_OFFSET_DAYS} />
-              <span className="flex-1 text-xs text-muted-foreground">days before</span>
-              <Button size="sm" onClick={() => choose({ kind: "session", offsetDays: days })}>
-                Set
-              </Button>
-            </div>
+            <OffsetChooser
+              days={days}
+              onDaysChange={setDays}
+              onChoose={(offsetDays) => choose({ kind: "session", offsetDays })}
+            />
           </div>
         )}
       </PopoverContent>
@@ -198,20 +186,64 @@ export function DuePicker({
   );
 }
 
-/// The Course's upcoming sessions, each one a click away from being the due date, a
-/// chosen number of days before it. The assignment follows the picked session.
+/// How long before a session it is due: common spans in one click, a stepper for the
+/// rest. Shared by "Before session" and "Specific session".
+function OffsetChooser({
+  days,
+  onDaysChange,
+  onChoose,
+  disabled = false,
+}: {
+  days: number;
+  onDaysChange: (days: number) => void;
+  onChoose: (days: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-4 gap-1">
+        {SESSION_PRESETS.map((preset) => (
+          <Button
+            key={preset.days}
+            variant="secondary"
+            size="sm"
+            disabled={disabled}
+            onClick={() => onChoose(preset.days)}
+          >
+            {preset.label}
+          </Button>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 border-t border-border pt-2">
+        <NumberInput value={days} onChange={onDaysChange} min={0} max={MAX_DUE_OFFSET_DAYS} />
+        <span className="flex-1 text-xs text-muted-foreground">days before</span>
+        <Button size="sm" disabled={disabled} onClick={() => onChoose(days)}>
+          Set
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/// The Course's upcoming sessions: pick one, then how long before it the assignment is
+/// due. The assignment follows the picked session.
 function SessionChoices({
   spaceId,
   courseId,
   assignmentId,
+  initialSessionId,
+  initialDays,
   onPick,
 }: {
   spaceId: string;
   courseId?: string | null;
   assignmentId?: string;
+  initialSessionId: string | null;
+  initialDays: number;
   onPick: (sessionId: string, offsetDays: number) => void;
 }) {
-  const [days, setDays] = useState(0);
+  const [days, setDays] = useState(initialDays);
+  const [picked, setPicked] = useState<string | null>(initialSessionId);
   const { data: sessions = [], isPending } = useSpaceSessions(spaceId);
   const { courseOf: sessionCourse } = useCourseLookup(spaceId, "session-course");
   const { courseOf: assignmentCourse } = useCourseLookup(spaceId, "assignment-course");
@@ -220,6 +252,7 @@ function SessionChoices({
   const upcoming = course
     ? upcomingSessions(sessions, course, courseOfSession, toDay(new Date()))
     : [];
+  const selected = upcoming.some((s) => s.entity.id === picked) ? picked : null;
 
   return (
     <>
@@ -239,10 +272,11 @@ function SessionChoices({
           {upcoming.map((session) => (
             <li key={session.entity.id}>
               <Button
-                variant="ghost"
+                variant={session.entity.id === selected ? "secondary" : "ghost"}
                 size="sm"
                 className="w-full justify-between gap-2"
-                onClick={() => onPick(session.entity.id, days)}
+                aria-pressed={session.entity.id === selected}
+                onClick={() => setPicked(session.entity.id)}
               >
                 <span>{formatDate(parseDay(session.date))}</span>
                 <span className="text-muted-foreground">{formatClock(session.startTime)}</span>
@@ -251,10 +285,12 @@ function SessionChoices({
           ))}
         </ul>
       )}
-      <div className="flex items-center gap-2 border-t border-border pt-2">
-        <NumberInput value={days} onChange={setDays} min={0} max={MAX_DUE_OFFSET_DAYS} />
-        <span className="flex-1 text-xs text-muted-foreground">days before the session</span>
-      </div>
+      <OffsetChooser
+        days={days}
+        onDaysChange={setDays}
+        disabled={selected === null}
+        onChoose={(offsetDays) => selected && onPick(selected, offsetDays)}
+      />
     </>
   );
 }

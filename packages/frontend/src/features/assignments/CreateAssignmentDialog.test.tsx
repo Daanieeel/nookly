@@ -68,11 +68,12 @@ describe("CreateAssignmentDialog due date", () => {
     await user.click(screen.getByRole("button", { name: "Change Due Date" }));
     await user.click(await screen.findByRole("button", { name: /^Specific session/ }));
     await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
+    await user.click(screen.getByRole("button", { name: "2 days" }));
     await user.click(screen.getByRole("button", { name: /Create assignment/ }));
     await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
     expect(callsOf("create_assignment")[0]).toMatchObject({
       dueDate: null,
-      dueSessionOffsetDays: 0,
+      dueSessionOffsetDays: 2,
       dueSessionId: "s-1",
     });
   });
