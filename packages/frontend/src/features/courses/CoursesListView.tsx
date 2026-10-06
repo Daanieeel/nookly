@@ -24,7 +24,7 @@ import {
   courseLinkedItems,
   semesterIdsByCourse,
 } from "#/features/courses/course-queries.ts";
-import { differenceInCalendarDays, startOfDay } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { useState } from "react";
 import {
   StatusAnnouncer,
@@ -67,6 +67,7 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { resolveActiveSemesterId } from "./current-semester";
+import { findNextSession } from "#/features/sessions/next-session.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { CreateNameDialog } from "#/features/CreateNameDialog.tsx";
 import { qk } from "#/lib/query-keys.ts";
@@ -512,10 +513,7 @@ function CourseStats({
   exams: Exam[];
   assignments: Assignment[];
 }) {
-  const today = startOfDay(new Date());
-  const nextSession = sessions
-    .filter((s) => !s.cancelled && startOfDay(new Date(s.date)) >= today)
-    .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime))[0];
+  const nextSession = findNextSession(sessions, new Date());
 
   const doneAssignments = assignments.filter((a) => DONE_ASSIGNMENT_STATUSES.has(a.status));
   const nextAssignmentDue = assignments

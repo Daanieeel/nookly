@@ -8,6 +8,7 @@ import { listSessionsBetween } from "#/lib/api/sessions.ts";
 import { listOpenTasksDueOrOverdue, listTaskStatuses } from "#/lib/api/tasks.ts";
 import type { BriefingSession, Entity, PageSummary, Task, TaskStatus } from "#/lib/api/types.ts";
 import { isDone } from "#/features/assignments/assignment-model.ts";
+import { findNextSession } from "#/features/sessions/next-session.ts";
 import { parseDay, toDay } from "#/features/tasks/task-model.ts";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -92,11 +93,8 @@ export function useDashboardData(): DashboardData {
     queryFn: countUnrefinedJotsAllSpaces,
   });
 
-  const clock = now.toTimeString().slice(0, 5);
   const todaySessions = sessions.filter((s) => s.date === today);
-  const nextSession = sessions.find(
-    (s) => s.date > today || (s.date === today && s.startTime >= clock),
-  );
+  const nextSession = findNextSession(sessions, now);
   const weekSessions = sessions.filter((s) => parseDay(s.date) <= weekEnd);
 
   const deadlines: Deadline[] = [
