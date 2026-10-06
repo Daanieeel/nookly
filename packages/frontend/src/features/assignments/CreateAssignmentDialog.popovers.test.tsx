@@ -47,6 +47,7 @@ describe("CreateAssignmentDialog popovers", () => {
   it("offers seven relative dates beside the calendar, with no search box", async () => {
     const { user } = renderDialog();
     await user.click(await screen.findByRole("button", { name: "Change Due Date" }));
+    await user.click(await screen.findByText("Specific date"));
     for (const label of [
       "Today",
       "Tomorrow",
@@ -66,6 +67,7 @@ describe("CreateAssignmentDialog popovers", () => {
     await user.click(await screen.findByRole("button", { name: "Change Course" }));
     await user.click(await screen.findByText("Algo", { selector: "span" }));
     await user.click(screen.getByRole("button", { name: "Change Due Date" }));
+    await user.click(await screen.findByText("Specific date"));
     await user.click(await screen.findByText("In two weeks"));
     await user.click(screen.getByRole("button", { name: /Create assignment/ }));
     await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));

@@ -14,6 +14,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import { useSpaceSessions } from "#/features/courses/course-queries.ts";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { parseDay, toDay } from "#/features/tasks/task-model.ts";
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { formatClock, formatDate } from "#/lib/datetime.ts";
 import type { Assignment } from "#/lib/api/types.ts";
 import {
@@ -98,7 +99,7 @@ export function DuePicker({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className={cn("p-2", step === "date" ? "w-120" : "w-80")}
+        {...dialogPopover(cn("p-2", step === "date" ? "w-120" : "w-80"))}
         align={align}
         aria-label="Due date"
         ref={contentRef}
