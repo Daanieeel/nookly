@@ -86,6 +86,7 @@ export const Equation = sourceBlock("equation", {
   emptyLabel: "Empty equation",
   render: renderLatex((source) => source),
   centered: true,
+  copyLabel: "Copy LaTeX",
 });
 
 /// Several lines of math, one row each and aligned at `&`, for a derivation or
@@ -97,6 +98,7 @@ export const MathBlock = sourceBlock("math", {
   emptyLabel: "Empty math block",
   render: renderLatex(mathBlockLatex),
   centered: false,
+  copyLabel: "Copy LaTeX",
 });
 
 /// A Mermaid diagram: flowcharts, sequence, class, state, gantt, mind maps, ...

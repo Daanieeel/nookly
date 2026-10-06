@@ -3,6 +3,8 @@ import { Selection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { type ComponentType, useEffect, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
+import { CopyButton } from "@nookly/ui/components/copy-button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// What a block's own editing view is given: the stored drawing, the block's code
@@ -24,6 +26,8 @@ export interface SourceBlockOptions {
   render: (source: string, element: HTMLElement, dark: boolean) => Promise<string | null>;
   /// Center the preview, for a single display equation.
   centered: boolean;
+  /// Tooltip and name of a button that copies the code, shown in every view.
+  copyLabel?: string;
   /// A third view between the code and the preview, where the block is edited by
   /// hand. It keeps its work in a `drawing` attr.
   interactive?: ComponentType<InteractiveProps>;
@@ -43,7 +47,10 @@ function useIsDark(): boolean {
     const observer = new MutationObserver(() =>
       setDark(document.documentElement.classList.contains("dark")),
     );
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
   return dark;
@@ -109,20 +116,34 @@ export function SourceBlock({
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{options.label}</span>
         </span>
-        <fieldset aria-label="View" className="flex min-w-0 shrink-0 items-center gap-0.5">
-          {views.map((name) => (
-            <Button
-              key={name}
-              variant={name === view ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={name === view}
-              onClick={() => show(name)}
-              className="h-6 px-2"
-            >
-              {viewLabel(name, options.sourceLabel)}
-            </Button>
-          ))}
-        </fieldset>
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
+          {options.copyLabel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CopyButton
+                  value={source}
+                  aria-label={options.copyLabel}
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                />
+              </TooltipTrigger>
+              <TooltipContent>{options.copyLabel}</TooltipContent>
+            </Tooltip>
+          )}
+          <fieldset aria-label="View" className="flex min-w-0 shrink-0 items-center gap-0.5">
+            {views.map((name) => (
+              <Button
+                key={name}
+                variant={name === view ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={name === view}
+                onClick={() => show(name)}
+                className="h-6 px-2"
+              >
+                {viewLabel(name, options.sourceLabel)}
+              </Button>
+            ))}
+          </fieldset>
+        </div>
       </div>
       <pre className="code-block-body" hidden={view !== "source"}>
         <NodeViewContent<"code"> as="code" />

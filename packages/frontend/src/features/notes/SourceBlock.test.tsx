@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
 
@@ -12,7 +12,11 @@ afterEach(() => editor?.destroy());
 /// editor mounts after its first render.
 async function open(block: JSONContent) {
   editor = new Editor({
-    extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+    extensions: editorExtensions({
+      spaceId: "s",
+      pageId: "p",
+      getEntities: () => [],
+    }),
     content: { type: "doc", content: [block] },
   });
   const view = renderWithProviders(<EditorContent editor={editor} />);
@@ -92,5 +96,33 @@ describe("the circuit block", () => {
     const { editor: target } = await open(circuit({ view: "interactive", drawing: stored }));
     expect(screen.getByRole("button", { name: "NOT gate 1" })).toBeInTheDocument();
     expect(attrsOf(target).drawing).toBe(stored);
+  });
+});
+
+describe("copying the LaTeX of equation and math blocks", () => {
+  const latex = (type: "equation" | "math"): JSONContent => ({
+    type,
+    attrs: { blockId: "m1" },
+    content: [{ type: "text", text: "x^2 + y^2 = z^2" }],
+  });
+
+  it.each(["equation", "math"] as const)(
+    "copies the %s code from the code and the preview tab",
+    async (type) => {
+      const { user } = await open(latex(type));
+      const copied = vi.spyOn(navigator.clipboard, "writeText");
+      await user.click(screen.getByRole("button", { name: "Copy LaTeX" }));
+      expect(copied).toHaveBeenLastCalledWith("x^2 + y^2 = z^2");
+
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      await user.click(screen.getByRole("button", { name: "Copy LaTeX" }));
+      expect(copied).toHaveBeenCalledTimes(2);
+      expect(copied).toHaveBeenLastCalledWith("x^2 + y^2 = z^2");
+    },
+  );
+
+  it("leaves the diagram and circuit blocks without it", async () => {
+    await open(circuit());
+    expect(screen.queryByRole("button", { name: "Copy LaTeX" })).toBeNull();
   });
 });
