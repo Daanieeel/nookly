@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   cliInstallCardDismissed: "nookly:cli-install-card-dismissed",
   theme: "nookly:theme",
   fileViewerTheme: "nookly:file-viewer-theme",
+  fileViewerThemeBackfill: "nookly:file-viewer-theme-backfill",
   notesSort: "nookly:notes-sort",
   coursesSort: "nookly:courses-sort",
   jotsSort: "nookly:jots-sort",

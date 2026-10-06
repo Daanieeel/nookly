@@ -1,4 +1,5 @@
 import { type Store, load } from "@tauri-apps/plugin-store";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 
 /// Device preferences (theme, sidebar state, sort orders...), persisted with the
 /// Tauri store plugin in `preferences.json` in the app data folder. Loaded once
@@ -18,7 +19,20 @@ export async function initPreferences(): Promise<void> {
     for (const [key, value] of await store.entries<string>()) cache.set(key, value);
   } catch (error) {
     console.error("Couldn't load preferences", error);
+    return;
   }
+  backfillFileViewerTheme();
+}
+
+/// One time backfill: a saved "light" file viewer theme becomes the defaults.
+/// Runs once, guarded by a marker, so a light theme picked afterwards stays.
+/// Any other value, or none, is left as it is.
+function backfillFileViewerTheme() {
+  if (cache.get(STORAGE_KEYS.fileViewerThemeBackfill) === "1") return;
+  if (cache.get(STORAGE_KEYS.fileViewerTheme) === "light") {
+    preferences.set(STORAGE_KEYS.fileViewerTheme, "defaults");
+  }
+  preferences.set(STORAGE_KEYS.fileViewerThemeBackfill, "1");
 }
 
 function persist(write: (store: Store) => Promise<void | boolean>) {
