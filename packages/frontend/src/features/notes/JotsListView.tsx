@@ -2,7 +2,6 @@ import { qk } from "#/lib/query-keys.ts";
 import {
   IconCalendarEvent,
   IconCalendarWeek,
-  IconClock,
   IconFeather,
   IconFileText,
   IconInbox,
@@ -45,11 +44,14 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
+  EDITED_FILTER_FIELD,
   editedColumn,
+  editedWithin,
   labelsColumn,
   ListSearchInput,
   PageSummaryTable,
   matchesQuery,
+  passesRowFilters,
   readStoredSorting,
   titleColumn,
   writeStoredSorting,
@@ -78,22 +80,14 @@ const DAY = 24 * 60 * 60 * 1000;
 const readSorting = () => readStoredSorting(STORAGE_KEYS.jotsSort);
 const writeSorting = (sorting: SortingState) => writeStoredSorting(STORAGE_KEYS.jotsSort, sorting);
 
-const EDITED_WINDOWS = new Map([
-  ["today", DAY],
-  ["week", 7 * DAY],
-  ["month", 30 * DAY],
-]);
-
 /// Whether `row` carries `value` for a filter field. Fields like labels or the edited
 /// window can hold several values at once, so filters test membership, not equality.
 function rowHas(row: JotRow, fieldId: string, value: string, now: number): boolean {
   switch (fieldId) {
     case "link":
       return row.refined === (value === "linked");
-    case "edited": {
-      const window = EDITED_WINDOWS.get(value);
-      return window !== undefined && now - Date.parse(row.summary.lastEditedAt) < window;
-    }
+    case "edited":
+      return editedWithin(row.summary, value, now);
     case "labels":
       return row.labels.some((l) => l.id === value);
     case "course":
@@ -103,12 +97,8 @@ function rowHas(row: JotRow, fieldId: string, value: string, now: number): boole
   }
 }
 
-/// "is" keeps rows matching any chosen value, "is not" keeps rows matching none.
 function passesFilters(row: JotRow, filters: ActiveFilter[], now: number): boolean {
-  return filters.every((f) => {
-    const hit = f.values.some((v) => rowHas(row, f.fieldId, v, now));
-    return f.operator === "is" ? hit : !hit;
-  });
+  return passesRowFilters(row, filters, (r, fieldId, value) => rowHas(r, fieldId, value, now));
 }
 
 interface Preset {
@@ -168,16 +158,7 @@ const BASE_FILTER_FIELDS: FilterField[] = [
       { value: "unlinked", label: "Not refined yet" },
     ],
   },
-  {
-    id: "edited",
-    label: "Last edited",
-    icon: IconClock,
-    options: [
-      { value: "today", label: "Past day" },
-      { value: "week", label: "Past 7 days" },
-      { value: "month", label: "Past 30 days" },
-    ],
-  },
+  EDITED_FILTER_FIELD,
 ];
 
 export function toRow(summary: PageSummary, labelsById: Map<string, Label>): JotRow {

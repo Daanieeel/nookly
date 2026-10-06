@@ -1,5 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconNotes, IconPin, IconPlus, IconTag } from "@tabler/icons-react";
+import { IconNotes, IconPin, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -15,8 +15,7 @@ import type { DataTableGroup } from "#/components/data-table/data-table.tsx";
 import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import { LabelDot } from "#/components/label-chip.tsx";
+import { type ActiveFilter, FilterMenu } from "#/components/filter-menu.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { listLabels } from "#/lib/api/labels.ts";
@@ -39,6 +38,7 @@ import {
   writeStoredSorting,
 } from "./list-table-shared";
 import { keyColumn } from "./key-column";
+import { noteFilterFields, passesNoteFilters } from "./note-filters";
 import { notePreviewText } from "./note-preview";
 import {} from "#/lib/datetime.ts";
 import {} from "#/lib/preferences.ts";
@@ -53,15 +53,6 @@ export interface NoteRow {
 
 const readSorting = () => readStoredSorting(STORAGE_KEYS.notesSort);
 const writeSorting = (sorting: SortingState) => writeStoredSorting(STORAGE_KEYS.notesSort, sorting);
-
-/// A Note passes the label filter when "is" matches any chosen label and "is not"
-/// matches none of them.
-function passesLabelFilters(row: NoteRow, filters: ActiveFilter[]): boolean {
-  return filters.every((f) => {
-    const hit = row.labels.some((l) => f.values.includes(l.id));
-    return f.operator === "is" ? hit : !hit;
-  });
-}
 
 export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
   keyColumn<NoteRow>(),
@@ -84,7 +75,7 @@ export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
 ];
 
 /// Notes as a data table (docs/skills/data-tables.md, client mode): every Note of this
-/// Space is already in memory, so search, sorting and label filtering all run locally.
+/// Space is already in memory, so search, sorting and filtering all run locally.
 /// Global cross Space search stays in Cmd+K.
 export function NotesListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
@@ -125,24 +116,14 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
     }));
   }, [summaries, spaceLabels]);
 
-  // Only labels some Note actually carries are worth offering as a filter.
-  const filterFields = useMemo<FilterField[]>(() => {
-    const used = spaceLabels.filter((l) => rows.some((r) => r.labels.includes(l)));
-    if (used.length === 0) return [];
-    return [
-      {
-        id: "labels",
-        label: "Labels",
-        icon: IconTag,
-        options: used.map((l) => ({ value: l.id, label: l.name, icon: <LabelDot label={l} /> })),
-      },
-    ];
-  }, [spaceLabels, rows]);
+  const filterFields = useMemo(() => noteFilterFields(rows, spaceLabels), [rows, spaceLabels]);
 
+  // Time windows ("Past 7 days") are measured from the latest load, not every render.
+  const now = useMemo(() => Date.now(), [summaries]);
   const needle = query.trim().toLowerCase();
   const data = useMemo(
-    () => rows.filter((r) => matchesQuery(r, needle, query) && passesLabelFilters(r, filters)),
-    [rows, needle, filters],
+    () => rows.filter((r) => matchesQuery(r, needle, query) && passesNoteFilters(r, filters, now)),
+    [rows, needle, filters, now],
   );
 
   const onSortingChange = (updater: Updater<SortingState>) => {
@@ -232,11 +213,9 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
           placeholder="Filter notes"
           ariaLabel="Filter notes in this Space"
         />
-        {filterFields.length > 0 && (
-          <div className="flex-1">
-            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
-          </div>
-        )}
+        <div className="flex-1">
+          <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+        </div>
       </div>
 
       {data.length > 0 ? (

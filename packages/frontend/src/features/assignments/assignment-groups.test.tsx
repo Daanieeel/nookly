@@ -104,10 +104,10 @@ describe("assignment filters", () => {
     ]);
   });
 
-  it("offers courses by title", () => {
-    expect(assignmentFilterFields([algebra, untitled])[0].options).toEqual([
-      { value: "c1", label: "Algebra" },
-      { value: "c2", label: "Untitled Course" },
+  it("offers courses by title, with their key", () => {
+    expect(assignmentFilterFields([algebra, untitled])[0].options).toMatchObject([
+      { value: "c1", label: "Algebra", entityKey: algebra.key },
+      { value: "c2", label: "Untitled Course", entityKey: untitled.key },
     ]);
   });
 

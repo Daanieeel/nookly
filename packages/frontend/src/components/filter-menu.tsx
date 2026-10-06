@@ -21,6 +21,11 @@ import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityKey } from "#/components/entity-key.tsx";
+import type { Entity } from "#/lib/api/types.ts";
+import { keyKeywords } from "#/lib/entity-key.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 
@@ -33,7 +38,34 @@ export interface FilterOption {
   value: string;
   label: string;
   icon?: ReactNode;
+  /// An entity's `CRS-3` key, shown before the label and matched by search.
+  entityKey?: string;
 }
+
+/// An option for filtering by an entity (e.g. a Course): its icon, key and title,
+/// laid out like its row in the entity picker.
+export function entityFilterOption(entity: Entity): FilterOption {
+  return {
+    value: entity.id,
+    label: displayTitle(entity),
+    icon: <EntityIcon entity={entity} size={14} />,
+    entityKey: entity.key,
+  };
+}
+
+/// An option's icon, key and label, as every option list shows it.
+function OptionContent({ option }: { option: FilterOption }) {
+  return (
+    <>
+      {option.icon}
+      {option.entityKey && <EntityKey entityKey={option.entityKey} />}
+      <span className="truncate">{option.label}</span>
+    </>
+  );
+}
+
+const optionKeywords = (option: FilterOption) =>
+  option.entityKey ? keyKeywords(option.entityKey) : undefined;
 
 export interface FilterField {
   id: string;
@@ -168,6 +200,7 @@ export function FilterMenu({
           <PopoverContent
             className="w-56"
             align="end"
+            aria-label="Filter"
             onKeyDown={stopKeys}
             onCloseAutoFocus={(e) => {
               e.preventDefault();
@@ -195,10 +228,10 @@ export function FilterMenu({
                       <CommandItem
                         key={option.value}
                         value={option.label}
+                        keywords={optionKeywords(option)}
                         onSelect={() => addValue(field, option.value)}
                       >
-                        {option.icon}
-                        <span className="truncate">{option.label}</span>
+                        <OptionContent option={option} />
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -349,7 +382,12 @@ function FilterChip({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-56" onKeyDown={stopKeys} onCloseAutoFocus={refocus}>
+        <PopoverContent
+          className="w-56"
+          aria-label={`Filter by ${field.label.toLowerCase()}`}
+          onKeyDown={stopKeys}
+          onCloseAutoFocus={refocus}
+        >
           <Command loop>
             <CommandInput placeholder={`Search ${field.label.toLowerCase()}…`} />
             <CommandList className="p-1">
@@ -360,6 +398,7 @@ function FilterChip({
                   <CommandItem
                     key={option.value}
                     value={option.label}
+                    keywords={optionKeywords(option)}
                     onSelect={() => toggle(option.value)}
                   >
                     <span
@@ -370,8 +409,7 @@ function FilterChip({
                     >
                       {checked && <IconCheck size={12} className="text-primary-foreground" />}
                     </span>
-                    {option.icon}
-                    <span className="truncate">{option.label}</span>
+                    <OptionContent option={option} />
                   </CommandItem>
                 );
               })}

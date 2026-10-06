@@ -9,7 +9,11 @@ import { EmptyState } from "#/components/empty-state.tsx";
 import type { ViewGroup } from "#/components/grouped-view/grouping.ts";
 import { buildVisibleGroups } from "#/components/grouped-view/visible-groups.ts";
 import { ModuleViewHeader, NoMatchesNotice } from "#/components/module-view-header.tsx";
-import type { ActiveFilter, FilterField } from "#/components/filter-menu.tsx";
+import {
+  type ActiveFilter,
+  entityFilterOption,
+  type FilterField,
+} from "#/components/filter-menu.tsx";
 import { LabelDot } from "#/components/label-chip.tsx";
 import { attachLabel, detachLabel } from "#/lib/api/labels.ts";
 import { listCourses, listSemesters } from "#/lib/api/courses.ts";
@@ -113,7 +117,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         id: "course",
         label: "Course",
         icon: IconSchool,
-        options: usedCourses.map((c) => ({ value: c.id, label: displayTitle(c) })),
+        options: usedCourses.map(entityFilterOption),
       });
     }
     const usedSemesters = semesters.filter((s) =>

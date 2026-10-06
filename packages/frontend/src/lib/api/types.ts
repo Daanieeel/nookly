@@ -211,6 +211,8 @@ export interface PageSummary {
   linked: Entity[];
   /// Jot rows only: the most recent related Session occurrence.
   session: SessionContext | null;
+  /// Note rows only: live Courses linked directly or through the Note's Session.
+  courses: Entity[];
 }
 
 export interface SessionContext {

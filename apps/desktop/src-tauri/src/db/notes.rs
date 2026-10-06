@@ -165,6 +165,9 @@ pub struct PageSummary {
     /// Jot rows only: the most recent Session occurrence this page is
     /// related to, in either direction.
     pub session: Option<SessionContext>,
+    /// Note rows only: live Courses this Note belongs to, linked directly
+    /// (`course-notes`) or through the Session it was written for, by title.
+    pub courses: Vec<Entity>,
 }
 
 /// Row mapper for the page list queries: a summary with the enrichment fields
@@ -177,6 +180,7 @@ fn bare_page_summary(row: &rusqlite::Row) -> rusqlite::Result<PageSummary> {
         label_ids: Vec::new(),
         linked: Vec::new(),
         session: None,
+        courses: Vec::new(),
     })
 }
 
@@ -200,8 +204,34 @@ const PREVIEW_BLOCK_TYPES: &str =
 const OTHER_END_JOIN: &str = "JOIN relationships r ON r.from_entity_id = e.id OR r.to_entity_id = e.id
      JOIN entities t ON t.id = CASE WHEN r.from_entity_id = e.id THEN r.to_entity_id ELSE r.from_entity_id END";
 
+/// Notes for their list page, with the Courses each row can be filtered by.
 pub fn list_note_summaries(conn: &Connection, space_id: &str) -> AppResult<Vec<PageSummary>> {
-    list_page_summaries(conn, space_id, "'note'")
+    let mut summaries = list_page_summaries(conn, space_id, "'note'")?;
+    let index = summary_index(&summaries);
+
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT e.id AS owner_id, c.* FROM entities e
+         JOIN relationships r ON r.to_entity_id = e.id
+         LEFT JOIN relationships rs ON r.relationship_type = 'session-note'
+           AND rs.from_entity_id = r.from_entity_id AND rs.relationship_type = 'session-course'
+         JOIN entities c ON c.id = CASE
+           WHEN r.relationship_type = 'course-notes' THEN r.from_entity_id
+           ELSE rs.to_entity_id END
+         WHERE e.space_id = ?1 AND e.deleted_at IS NULL AND e.type = 'note'
+           AND r.relationship_type IN ('course-notes', 'session-note')
+           AND c.type = 'course' AND c.deleted_at IS NULL
+         ORDER BY c.title COLLATE NOCASE ASC",
+    )?;
+    let rows = stmt.query_map(params![space_id], |row| {
+        Ok((row.get::<_, String>("owner_id")?, row_to_entity(row)?))
+    })?;
+    for row in rows {
+        let (owner_id, course) = row?;
+        if let Some(&i) = index.get(&owner_id) {
+            summaries[i].courses.push(course);
+        }
+    }
+    Ok(summaries)
 }
 
 /// Jots for their list page, with the linked Notes and Session context each row shows.
@@ -1051,6 +1081,65 @@ mod tests {
         assert!(lecture.last_edited_at >= lecture.entity.updated_at);
         let blank = summaries.iter().find(|s| s.entity.id == empty.id).unwrap();
         assert!(blank.preview.is_empty() && blank.label_ids.is_empty());
+    }
+
+    #[test]
+    fn note_summaries_carry_courses_linked_directly_or_through_a_session() {
+        let conn = crate::db::test_conn();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let algorithms =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Algorithms".into())
+                .unwrap();
+        let databases =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Databases".into()).unwrap();
+        let dropped =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Dropped".into()).unwrap();
+        let direct = create_page(&conn, space.id.clone(), "note", "Direct".into()).unwrap();
+        let loose = create_page(&conn, space.id.clone(), "note", "Loose".into()).unwrap();
+        for course in [&algorithms, &dropped] {
+            crate::db::relationships::create_relationship(
+                &conn,
+                course.id.clone(),
+                direct.id.clone(),
+                "course-notes".into(),
+                None,
+                None,
+            )
+            .unwrap();
+        }
+        crate::db::entities::soft_delete_entity(&conn, &dropped.id).unwrap();
+        let session = crate::db::sessions::create_one_off_session(
+            &conn,
+            space.id.clone(),
+            "Lecture".into(),
+            databases.id.clone(),
+            "2026-09-21".into(),
+            "10:00".into(),
+            "11:30".into(),
+            None,
+        )
+        .unwrap();
+        let session_note = crate::db::sessions::create_session_page(
+            &conn,
+            &session.entity.id,
+            "note",
+            "Lecture notes".into(),
+        )
+        .unwrap();
+
+        let summaries = list_note_summaries(&conn, &space.id).unwrap();
+        let courses_of = |id: &str| {
+            let summary = summaries.iter().find(|s| s.entity.id == id).unwrap();
+            summary
+                .courses
+                .iter()
+                .map(|c| c.title.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(courses_of(&direct.id), vec!["Algorithms"]);
+        assert_eq!(courses_of(&session_note.id), vec!["Databases"]);
+        assert!(courses_of(&loose.id).is_empty());
     }
 
     #[test]
