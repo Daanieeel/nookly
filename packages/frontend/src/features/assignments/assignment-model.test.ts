@@ -6,7 +6,6 @@ import {
   ASSIGNMENT_VIEW_PRESETS,
   DEFAULT_DISPLAY,
   type DisplayOptions,
-  dayBefore,
   upcomingSessions,
   ageBucket,
   assignmentStatus,
@@ -244,14 +243,6 @@ describe("orderAssignments", () => {
     expect(ids(orderAssignments(all, "deadline", "created", NOW))).toEqual(
       ids(orderAssignments(all, "created", "auto", NOW)),
     );
-  });
-});
-
-describe("dayBefore", () => {
-  it("steps a day back across month and year ends", () => {
-    expect(dayBefore("2026-03-10", 0)).toBe("2026-03-10");
-    expect(dayBefore("2026-03-10", 2)).toBe("2026-03-08");
-    expect(dayBefore("2026-01-02", 3)).toBe("2025-12-30");
   });
 });
 

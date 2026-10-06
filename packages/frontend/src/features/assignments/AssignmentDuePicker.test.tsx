@@ -133,14 +133,18 @@ describe("AssignmentDuePicker", () => {
       ]);
     }
 
-    it("lists only the course's upcoming sessions and sets the day of the one picked", async () => {
+    it("lists only the course's upcoming sessions and follows the one picked", async () => {
       backend();
       const { onSelect, user } = await open();
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
       const list = await screen.findByRole("list", { name: "Upcoming sessions" });
       expect(list.querySelectorAll("li")).toHaveLength(2);
       await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
-      expect(onSelect).toHaveBeenCalledWith({ kind: "date", day: "2026-03-19" });
+      expect(onSelect).toHaveBeenCalledWith({
+        kind: "session",
+        offsetDays: 0,
+        sessionId: "s-later",
+      });
     });
 
     it("can set the due date some days before the picked session", async () => {
@@ -152,7 +156,11 @@ describe("AssignmentDuePicker", () => {
       await user.clear(days);
       await user.type(days, "2");
       await user.click(screen.getByRole("button", { name: /Mar 12/ }));
-      expect(onSelect).toHaveBeenCalledWith({ kind: "date", day: "2026-03-10" });
+      expect(onSelect).toHaveBeenCalledWith({
+        kind: "session",
+        offsetDays: 2,
+        sessionId: "s-next",
+      });
     });
 
     it("says so when the course has no upcoming sessions", async () => {
@@ -170,7 +178,7 @@ describe("AssignmentDuePicker", () => {
       const onSelect = vi.fn<(due: AssignmentDue) => void>();
       const { user } = renderWithProviders(
         <DuePicker
-          value={{ dueDate: null, dueSessionOffsetDays: null }}
+          value={{ dueDate: null, dueSessionOffsetDays: null, dueSessionId: null }}
           spaceId="space-1"
           onSelect={onSelect}
         >

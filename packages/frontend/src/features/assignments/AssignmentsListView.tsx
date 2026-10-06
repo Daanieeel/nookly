@@ -227,7 +227,7 @@ type AssignmentValues = z.infer<typeof assignmentSchema>;
 const emptyAssignment: AssignmentValues = {
   title: "",
   course: null,
-  due: { dueDate: null, dueSessionOffsetDays: null },
+  due: { dueDate: null, dueSessionOffsetDays: null, dueSessionId: null },
 };
 
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
@@ -273,6 +273,7 @@ export function CreateAssignmentDialog({
         picked.id,
         due.dueDate,
         due.dueSessionOffsetDays,
+        due.dueSessionId,
       );
     },
     onSuccess: async (created, { course: picked }) => {
@@ -373,8 +374,12 @@ export function CreateAssignmentDialog({
                 onSelect={(next) =>
                   field.handleChange(
                     next.kind === "date"
-                      ? { dueDate: next.day, dueSessionOffsetDays: null }
-                      : { dueDate: null, dueSessionOffsetDays: next.offsetDays },
+                      ? { dueDate: next.day, dueSessionOffsetDays: null, dueSessionId: null }
+                      : {
+                          dueDate: null,
+                          dueSessionOffsetDays: next.offsetDays,
+                          dueSessionId: next.sessionId ?? null,
+                        },
                   )
                 }
               >

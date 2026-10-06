@@ -71,8 +71,9 @@ describe("CreateAssignmentDialog due date", () => {
     await user.click(screen.getByRole("button", { name: /Create assignment/ }));
     await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
     expect(callsOf("create_assignment")[0]).toMatchObject({
-      dueDate: "2026-03-19",
-      dueSessionOffsetDays: null,
+      dueDate: null,
+      dueSessionOffsetDays: 0,
+      dueSessionId: "s-1",
     });
   });
 });

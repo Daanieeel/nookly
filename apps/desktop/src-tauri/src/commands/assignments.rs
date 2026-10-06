@@ -11,11 +11,17 @@ pub fn create_assignment(
     course_id: String,
     due_date: Option<String>,
     due_session_offset_days: Option<i64>,
+    due_session_id: Option<String>,
 ) -> AppResult<Assignment> {
     let conn = state.0.lock().unwrap();
     match due_session_offset_days {
         Some(days) => assignments::create_assignment_due_before_session(
-            &conn, space_id, title, course_id, days,
+            &conn,
+            space_id,
+            title,
+            course_id,
+            days,
+            due_session_id,
         ),
         None => assignments::create_assignment(&conn, space_id, title, course_id, due_date),
     }
@@ -69,9 +75,10 @@ pub fn update_assignment_due_before_session(
     state: State<DbState>,
     entity_id: String,
     offset_days: Option<i64>,
+    session_id: Option<String>,
 ) -> AppResult<()> {
     let conn = state.0.lock().unwrap();
-    assignments::update_assignment_due_before_session(&conn, &entity_id, offset_days)
+    assignments::update_assignment_due_before_session(&conn, &entity_id, offset_days, session_id)
 }
 
 #[tauri::command]

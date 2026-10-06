@@ -928,7 +928,7 @@ inventory::submit! {
         supports_blocks: false,
         description: "A single, dated class/meeting occurrence — either one-off, or generated from a session_template.",
         fields: SESSION_FIELDS,
-        relationship_types: &["session-course", "session-jot", "session-note"],
+        relationship_types: &["session-course", "session-jot", "session-note", "assignment-due-session"],
         create: cli_create_session,
         update: cli_update_session,
         get: cli_get_session,

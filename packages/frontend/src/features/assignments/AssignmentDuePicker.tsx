@@ -20,7 +20,6 @@ import {
   type AssignmentDue,
   type DueValue,
   MAX_DUE_OFFSET_DAYS,
-  dayBefore,
   upcomingSessions,
 } from "./assignment-model";
 
@@ -124,14 +123,14 @@ export function DuePicker({
                 icon={<IconSchool />}
                 title="Before session"
                 description="Follows the course's next session."
-                selected={offset !== null}
+                selected={offset !== null && assignment.dueSessionId === null}
                 onClick={() => setStep("session")}
               />
               <ChoiceCard
                 icon={<IconCalendarTime />}
                 title="Specific session"
-                description="Pick one of the course's upcoming sessions."
-                selected={false}
+                description="Follows one of the course's upcoming sessions."
+                selected={assignment.dueSessionId !== null}
                 className="col-span-2"
                 onClick={() => setStep("pick")}
               />
@@ -166,7 +165,7 @@ export function DuePicker({
               spaceId={spaceId}
               courseId={courseId}
               assignmentId={assignmentId}
-              onPick={(day) => choose({ kind: "date", day })}
+              onPick={(sessionId, offsetDays) => choose({ kind: "session", offsetDays, sessionId })}
             />
           </div>
         )}
@@ -200,7 +199,7 @@ export function DuePicker({
 }
 
 /// The Course's upcoming sessions, each one a click away from being the due date, a
-/// chosen number of days before it. The day is stored as a fixed date.
+/// chosen number of days before it. The assignment follows the picked session.
 function SessionChoices({
   spaceId,
   courseId,
@@ -210,7 +209,7 @@ function SessionChoices({
   spaceId: string;
   courseId?: string | null;
   assignmentId?: string;
-  onPick: (day: string) => void;
+  onPick: (sessionId: string, offsetDays: number) => void;
 }) {
   const [days, setDays] = useState(0);
   const { data: sessions = [], isPending } = useSpaceSessions(spaceId);
@@ -243,7 +242,7 @@ function SessionChoices({
                 variant="ghost"
                 size="sm"
                 className="w-full justify-between gap-2"
-                onClick={() => onPick(dayBefore(session.date, days))}
+                onClick={() => onPick(session.entity.id, days)}
               >
                 <span>{formatDate(parseDay(session.date))}</span>
                 <span className="text-muted-foreground">{formatClock(session.startTime)}</span>
