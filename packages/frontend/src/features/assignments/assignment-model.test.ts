@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { makeAssignment } from "#/test/fixtures.ts";
+import { makeAssignment, makeSession } from "#/test/fixtures.ts";
 import {
   ASSIGNMENT_VIEW_PRESETS,
   DEFAULT_DISPLAY,
   type DisplayOptions,
+  dayBefore,
+  upcomingSessions,
   ageBucket,
   assignmentStatus,
   createdBucket,
@@ -242,5 +244,40 @@ describe("orderAssignments", () => {
     expect(ids(orderAssignments(all, "deadline", "created", NOW))).toEqual(
       ids(orderAssignments(all, "created", "auto", NOW)),
     );
+  });
+});
+
+describe("dayBefore", () => {
+  it("steps a day back across month and year ends", () => {
+    expect(dayBefore("2026-03-10", 0)).toBe("2026-03-10");
+    expect(dayBefore("2026-03-10", 2)).toBe("2026-03-08");
+    expect(dayBefore("2026-01-02", 3)).toBe("2025-12-30");
+  });
+});
+
+describe("upcomingSessions", () => {
+  const session = (id: string, date: string, patch = {}) => makeSession({ date, ...patch }, { id });
+  const sessions = [
+    session("late", "2026-03-20"),
+    session("past", "2026-03-01"),
+    session("today", "2026-03-10"),
+    session("cancelled", "2026-03-12", { cancelled: true }),
+    session("other", "2026-03-11"),
+    session("soon", "2026-03-11", { startTime: "08:00" }),
+  ];
+  const courseOf = new Map(
+    Object.entries({
+      late: "c1",
+      past: "c1",
+      today: "c1",
+      cancelled: "c1",
+      other: "c2",
+      soon: "c1",
+    }),
+  );
+
+  it("lists the course sessions from today on, earliest first, without cancelled ones", () => {
+    const found = upcomingSessions(sessions, "c1", courseOf, "2026-03-10");
+    expect(found.map((s) => s.entity.id)).toEqual(["today", "soon", "late"]);
   });
 });

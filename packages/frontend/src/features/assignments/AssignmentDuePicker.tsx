@@ -1,12 +1,28 @@
-import { IconCalendarEvent, IconChevronLeft, IconSchool, IconX } from "@tabler/icons-react";
+import {
+  IconCalendarEvent,
+  IconCalendarTime,
+  IconChevronLeft,
+  IconSchool,
+  IconX,
+} from "@tabler/icons-react";
 import { type ReactNode, useRef, useState } from "react";
 import { DueDateChooser } from "#/features/tasks/task-properties.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { NumberInput } from "@nookly/ui/components/number-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { cn } from "@nookly/ui/lib/utils";
+import { useSpaceSessions } from "#/features/courses/course-queries.ts";
+import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
+import { parseDay, toDay } from "#/features/tasks/task-model.ts";
+import { formatClock, formatDate } from "#/lib/datetime.ts";
 import type { Assignment } from "#/lib/api/types.ts";
-import { type AssignmentDue, MAX_DUE_OFFSET_DAYS } from "./assignment-model";
+import {
+  type AssignmentDue,
+  type DueValue,
+  MAX_DUE_OFFSET_DAYS,
+  dayBefore,
+  upcomingSessions,
+} from "./assignment-model";
 
 /// Common offsets, picked in one click; the stepper below covers the rest.
 const SESSION_PRESETS = [
@@ -16,22 +32,50 @@ const SESSION_PRESETS = [
   { label: "1 week", days: 7 },
 ];
 
-type Step = "choose" | "date" | "session";
+type Step = "choose" | "date" | "session" | "pick";
 
-/// Sets an assignment's due date in two steps: first what it is based on, a specific
-/// date or the Course's next session, then the date itself or how many days before the
-/// session. Works for a new due date and for changing or removing one later.
+/// The picker for an assignment that already exists; its Course is found from it.
 export function AssignmentDuePicker({
   assignment,
-  onSelect,
-  align = "start",
-  children,
+  ...rest
 }: {
   assignment: Assignment;
   onSelect: (due: AssignmentDue) => void;
   align?: "start" | "end";
   children: ReactNode;
 }) {
+  return (
+    <DuePicker
+      value={assignment}
+      spaceId={assignment.entity.spaceId}
+      assignmentId={assignment.entity.id}
+      {...rest}
+    />
+  );
+}
+
+/// Sets a due date in two steps: first what it is based on (a specific date, the
+/// Course's next session, or one of its upcoming sessions), then the date itself or how
+/// many days before the session. Works for a new due date and for changing or removing
+/// one later. The Course is `courseId`, or that of the existing assignment `assignmentId`.
+export function DuePicker({
+  value,
+  spaceId,
+  courseId,
+  assignmentId,
+  onSelect,
+  align = "start",
+  children,
+}: {
+  value: DueValue;
+  spaceId: string;
+  courseId?: string | null;
+  assignmentId?: string;
+  onSelect: (due: AssignmentDue) => void;
+  align?: "start" | "end";
+  children: ReactNode;
+}) {
+  const assignment = value;
   const [open, setOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>("choose");
@@ -83,6 +127,14 @@ export function AssignmentDuePicker({
                 selected={offset !== null}
                 onClick={() => setStep("session")}
               />
+              <ChoiceCard
+                icon={<IconCalendarTime />}
+                title="Specific session"
+                description="Pick one of the course's upcoming sessions."
+                selected={false}
+                className="col-span-2"
+                onClick={() => setStep("pick")}
+              />
             </div>
             {(assignment.dueDate || offset !== null) && (
               <Button
@@ -104,6 +156,17 @@ export function AssignmentDuePicker({
               searchable={false}
               value={offset === null ? assignment.dueDate : null}
               onSelect={(day) => choose({ kind: "date", day })}
+            />
+          </div>
+        )}
+        {step === "pick" && (
+          <div className="flex flex-col gap-2">
+            <BackButton onClick={() => setStep("choose")} />
+            <SessionChoices
+              spaceId={spaceId}
+              courseId={courseId}
+              assignmentId={assignmentId}
+              onPick={(day) => choose({ kind: "date", day })}
             />
           </div>
         )}
@@ -136,6 +199,67 @@ export function AssignmentDuePicker({
   );
 }
 
+/// The Course's upcoming sessions, each one a click away from being the due date, a
+/// chosen number of days before it. The day is stored as a fixed date.
+function SessionChoices({
+  spaceId,
+  courseId,
+  assignmentId,
+  onPick,
+}: {
+  spaceId: string;
+  courseId?: string | null;
+  assignmentId?: string;
+  onPick: (day: string) => void;
+}) {
+  const [days, setDays] = useState(0);
+  const { data: sessions = [], isPending } = useSpaceSessions(spaceId);
+  const { courseOf: sessionCourse } = useCourseLookup(spaceId, "session-course");
+  const { courseOf: assignmentCourse } = useCourseLookup(spaceId, "assignment-course");
+  const course = courseId ?? (assignmentId ? assignmentCourse.get(assignmentId)?.id : undefined);
+  const courseOfSession = new Map([...sessionCourse].map(([id, c]) => [id, c.id]));
+  const upcoming = course
+    ? upcomingSessions(sessions, course, courseOfSession, toDay(new Date()))
+    : [];
+
+  return (
+    <>
+      {upcoming.length === 0 ? (
+        <p className="px-1 py-2 text-xs text-muted-foreground">
+          {!course
+            ? "Pick a course first."
+            : isPending
+              ? "Loading sessions…"
+              : "This course has no upcoming sessions."}
+        </p>
+      ) : (
+        <ul
+          aria-label="Upcoming sessions"
+          className="flex max-h-48 flex-col gap-0.5 overflow-y-auto"
+        >
+          {upcoming.map((session) => (
+            <li key={session.entity.id}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-between gap-2"
+                onClick={() => onPick(dayBefore(session.date, days))}
+              >
+                <span>{formatDate(parseDay(session.date))}</span>
+                <span className="text-muted-foreground">{formatClock(session.startTime)}</span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center gap-2 border-t border-border pt-2">
+        <NumberInput value={days} onChange={setDays} min={0} max={MAX_DUE_OFFSET_DAYS} />
+        <span className="flex-1 text-xs text-muted-foreground">days before the session</span>
+      </div>
+    </>
+  );
+}
+
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
     <Button variant="ghost" size="sm" className="self-start gap-1" onClick={onClick}>
@@ -151,12 +275,14 @@ function ChoiceCard({
   title,
   description,
   selected,
+  className,
   onClick,
 }: {
   icon: ReactNode;
   title: string;
   description: string;
   selected: boolean;
+  className?: string;
   onClick: () => void;
 }) {
   return (
@@ -167,6 +293,7 @@ function ChoiceCard({
       className={cn(
         "flex cursor-pointer flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
         selected ? "border-foreground/30 bg-accent" : "border-border",
+        className,
       )}
     >
       <span className="flex items-center gap-1.5 text-xs font-medium">

@@ -71,6 +71,22 @@ pub fn create_assignment(
     })
 }
 
+/// Creates an assignment already due this many days before its course's next session,
+/// all or nothing, so a bad offset leaves no assignment behind.
+pub fn create_assignment_due_before_session(
+    conn: &Connection,
+    space_id: String,
+    title: String,
+    course_id: String,
+    offset_days: i64,
+) -> AppResult<Assignment> {
+    crate::db::atomically(conn, || {
+        let created = create_assignment(conn, space_id, title, course_id, None)?;
+        update_assignment_due_before_session(conn, &created.entity.id, Some(offset_days))?;
+        get_assignment(conn, &created.entity.id)
+    })
+}
+
 pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
         "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e

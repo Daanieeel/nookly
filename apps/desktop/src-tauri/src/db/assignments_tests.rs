@@ -591,3 +591,36 @@ fn a_weighted_assignment_counts_for_its_share_of_the_course_grade() {
     let weighted = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
     assert!((weighted.grade.unwrap() - 1.5).abs() < 1e-9);
 }
+
+#[test]
+fn creating_an_assignment_due_before_a_session_sets_it_in_one_step() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    session(&conn, &space.id, &course.id, "2099-01-05");
+    let a = create_assignment_due_before_session(
+        &conn,
+        space.id.clone(),
+        "Sheet".into(),
+        course.id.clone(),
+        2,
+    )
+    .unwrap();
+    assert_eq!(a.due_session_offset_days, Some(2));
+    assert_eq!(a.due_date.as_deref(), Some("2099-01-03"));
+    assert_eq!(list_assignments(&conn, &space.id).unwrap().len(), 1);
+}
+
+#[test]
+fn a_bad_offset_on_create_leaves_no_assignment_behind() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let result = create_assignment_due_before_session(
+        &conn,
+        space.id.clone(),
+        "Sheet".into(),
+        course.id.clone(),
+        -1,
+    );
+    assert!(result.is_err());
+    assert!(list_assignments(&conn, &space.id).unwrap().is_empty());
+}

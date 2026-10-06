@@ -10,9 +10,15 @@ pub fn create_assignment(
     title: String,
     course_id: String,
     due_date: Option<String>,
+    due_session_offset_days: Option<i64>,
 ) -> AppResult<Assignment> {
     let conn = state.0.lock().unwrap();
-    assignments::create_assignment(&conn, space_id, title, course_id, due_date)
+    match due_session_offset_days {
+        Some(days) => assignments::create_assignment_due_before_session(
+            &conn, space_id, title, course_id, days,
+        ),
+        None => assignments::create_assignment(&conn, space_id, title, course_id, due_date),
+    }
 }
 
 #[tauri::command]

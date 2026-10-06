@@ -19,7 +19,12 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { weightPercent } from "#/features/exams/exam-model.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { AssignmentDuePicker } from "./AssignmentDuePicker";
-import { ASSIGNMENT_STATUSES, assignmentStatus, statusKindOf } from "./assignment-model";
+import {
+  ASSIGNMENT_STATUSES,
+  assignmentStatus,
+  offsetLabel,
+  statusKindOf,
+} from "./assignment-model";
 import {
   AssignmentDueControl,
   AssignmentStatusControl,
@@ -146,9 +151,7 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
             )}
             {assignment.dueSessionOffsetDays !== null && (
               <span className="truncate text-xs text-muted-foreground">
-                {assignment.dueSessionOffsetDays === 0
-                  ? "day of session"
-                  : `${assignment.dueSessionOffsetDays}d before session`}
+                {offsetLabel(assignment.dueSessionOffsetDays)}
               </span>
             )}
           </button>

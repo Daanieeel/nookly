@@ -11,7 +11,7 @@ import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { type ActiveFilter, type FilterField, applyFilters } from "#/components/filter-menu.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { DueDatePicker, DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
+import { DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
@@ -27,8 +27,11 @@ import type { Assignment, Entity, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { AssignmentDisplayMenu } from "./AssignmentDisplayMenu";
+import { DuePicker } from "./AssignmentDuePicker";
 import { assignmentGroupDefs } from "./assignment-groups";
 import {
+  type DueValue,
+  offsetLabel,
   orderAssignments,
   normalizeDisplay,
   readDisplay,
@@ -218,10 +221,14 @@ export function AssignmentsListView({
 const assignmentSchema = z.object({
   title: z.string(),
   course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
-  dueDate: z.string().nullable(),
+  due: z.custom<DueValue>(),
 });
 type AssignmentValues = z.infer<typeof assignmentSchema>;
-const emptyAssignment: AssignmentValues = { title: "", course: null, dueDate: null };
+const emptyAssignment: AssignmentValues = {
+  title: "",
+  course: null,
+  due: { dueDate: null, dueSessionOffsetDays: null },
+};
 
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
 /// and property pills (Course, due date). The title is optional and defaults to
@@ -258,13 +265,14 @@ export function CreateAssignmentDialog({
   const course = useStore(form.store, (state) => state.values.course);
 
   const create = useMutation({
-    mutationFn: ({ title, course: picked, dueDate }: AssignmentValues) => {
+    mutationFn: ({ title, course: picked, due }: AssignmentValues) => {
       if (!picked) throw new Error("pick a course");
       return createAssignment(
         spaceId,
         title.trim() || `${displayTitle(picked)} Assignment`,
         picked.id,
-        dueDate,
+        due.dueDate,
+        due.dueSessionOffsetDays,
       );
     },
     onSuccess: async (created, { course: picked }) => {
@@ -354,21 +362,40 @@ export function CreateAssignmentDialog({
             />
           )}
         </form.Field>
-        <form.Field name="dueDate">
-          {(field) => (
-            <DueDatePicker value={field.state.value} onSelect={field.handleChange}>
-              <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
-                {field.state.value ? (
-                  <DueLabel day={field.state.value} tone={null} />
-                ) : (
-                  <>
-                    <IconCalendarEvent size={14} className="shrink-0" />
-                    Due date
-                  </>
-                )}
-              </button>
-            </DueDatePicker>
-          )}
+        <form.Field name="due">
+          {(field) => {
+            const { dueDate, dueSessionOffsetDays: offset } = field.state.value;
+            return (
+              <DuePicker
+                value={field.state.value}
+                spaceId={spaceId}
+                courseId={course?.id}
+                onSelect={(next) =>
+                  field.handleChange(
+                    next.kind === "date"
+                      ? { dueDate: next.day, dueSessionOffsetDays: null }
+                      : { dueDate: null, dueSessionOffsetDays: next.offsetDays },
+                  )
+                }
+              >
+                <button type="button" className={PROPERTY_PILL} aria-label="Change Due Date">
+                  {offset !== null ? (
+                    <>
+                      <IconCalendarEvent size={14} className="shrink-0" />
+                      <span className="text-foreground">{offsetLabel(offset)}</span>
+                    </>
+                  ) : dueDate ? (
+                    <DueLabel day={dueDate} tone={null} />
+                  ) : (
+                    <>
+                      <IconCalendarEvent size={14} className="shrink-0" />
+                      Due date
+                    </>
+                  )}
+                </button>
+              </DuePicker>
+            );
+          }}
         </form.Field>
       </div>
 

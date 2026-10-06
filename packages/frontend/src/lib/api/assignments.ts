@@ -6,8 +6,9 @@ export function createAssignment(
   title: string,
   courseId: string,
   dueDate: string | null,
+  dueSessionOffsetDays: number | null = null,
 ): Promise<Assignment> {
-  return invoke("create_assignment", { spaceId, title, courseId, dueDate });
+  return invoke("create_assignment", { spaceId, title, courseId, dueDate, dueSessionOffsetDays });
 }
 
 export function listAssignments(spaceId: string): Promise<Assignment[]> {
