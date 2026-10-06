@@ -17,10 +17,18 @@ describe("the block editor's scroll room", () => {
   });
   afterEach(uninstallTauriMock);
 
-  it("leaves a screen of room below the last block on a full page", async () => {
-    const { container } = renderWithProviders(<BlockEditor entityId="e1" spaceId="s1" />);
+  it("leaves a screen of room below the last block when asked, for a full page", async () => {
+    const { container } = renderWithProviders(
+      <BlockEditor entityId="e1" spaceId="s1" scrollPastEnd />,
+    );
     const content = await findEditor(container);
     expect(content.getAttribute("style")).toContain("padding-bottom: 100vh");
+  });
+
+  it("adds none by default, so content below an inline editor sits right under it", async () => {
+    const { container } = renderWithProviders(<BlockEditor entityId="e1" spaceId="s1" />);
+    const content = await findEditor(container);
+    expect(content.getAttribute("style") ?? "").not.toContain("padding-bottom");
   });
 
   it("adds none to a compact editor embedded in another page", async () => {

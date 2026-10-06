@@ -50,7 +50,7 @@ export function SessionDetailView({ entity }: { entity: Entity }) {
       sidebar={occurrence && <SessionSidebar entity={entity} occurrence={occurrence} />}
     >
       {occurrence && (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 pb-8">
+        <div className="flex w-full flex-col gap-3 pb-8">
           <SessionNotes occurrence={occurrence} />
           <SessionCalendarCutout occurrence={occurrence} />
           <SessionPageCards occurrence={occurrence} />

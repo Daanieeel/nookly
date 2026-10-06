@@ -27,7 +27,7 @@ export function CalendarEntryDetailView({ entity }: { entity: Entity }) {
 
   return (
     <EntityDetailLayout entity={entity} sidebar={entry && <PropertiesPanel entry={entry} />}>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 pb-24">
+      <div className="flex w-full flex-col gap-3 pb-24">
         {entry && (
           <Textarea
             aria-label="Description"
