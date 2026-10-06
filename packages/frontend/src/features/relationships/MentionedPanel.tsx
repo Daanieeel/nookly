@@ -3,6 +3,7 @@ import { IconAt } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { listBlocks } from "#/lib/api/notes.ts";
 import type { Entity } from "#/lib/api/types.ts";
+import { TypeGroups } from "./EntityGroups";
 import { EntityRow } from "./EntityRow";
 import { extractMentionIds } from "./mention-utils";
 import { SidebarHint, SidebarSection } from "./SidebarSection";
@@ -22,11 +23,10 @@ export function MentionedPanel({ entity }: { entity: Entity }) {
       {mentionIds.length === 0 ? (
         <SidebarHint>Type @ in the page to mention something.</SidebarHint>
       ) : (
-        <div className="flex flex-col gap-0.5">
-          {mentionIds.map((id) => (
-            <EntityRow key={id} entityId={id} currentSpaceId={entity.spaceId} />
-          ))}
-        </div>
+        <TypeGroups
+          items={mentionIds.map((id) => ({ key: id, entityId: id }))}
+          renderRow={(m) => <EntityRow entityId={m.entityId} currentSpaceId={entity.spaceId} />}
+        />
       )}
     </SidebarSection>
   );

@@ -3,7 +3,7 @@ import { IconArrowBackUp } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { listMentioningEntities } from "#/lib/api/notes.ts";
 import type { Entity } from "#/lib/api/types.ts";
-import { EntityRow } from "./EntityRow";
+import { EntityGroups } from "./EntityGroups";
 import { SidebarHint, SidebarSection } from "./SidebarSection";
 
 /// Right sidebar, section 4 of 4 (§1.5): backlinks, the reverse of Mentioned.
@@ -24,11 +24,7 @@ export function MentionedInPanel({ entity }: { entity: Entity }) {
       {mentionedIn.length === 0 ? (
         <SidebarHint>Nothing references this yet.</SidebarHint>
       ) : (
-        <div className="flex flex-col gap-0.5">
-          {mentionedIn.map((e) => (
-            <EntityRow key={e.id} entityId={e.id} currentSpaceId={entity.spaceId} />
-          ))}
-        </div>
+        <EntityGroups entities={mentionedIn} currentSpaceId={entity.spaceId} />
       )}
     </SidebarSection>
   );

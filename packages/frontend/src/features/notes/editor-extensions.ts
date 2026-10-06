@@ -25,11 +25,12 @@ import {
   Video,
   WebBookmark,
 } from "./custom-block-extensions";
+import { LetterOrderedList } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
 import { InlineMath } from "./InlineMath";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
-import { Diagram, Equation, MathBlock } from "./source-block-extensions";
+import { CircuitBlock, Diagram, Equation, MathBlock } from "./source-block-extensions";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { UniqueBlockId } from "./unique-block-id";
 
@@ -59,7 +60,10 @@ export function editorExtensions({
       codeBlock: false,
       // Replaced by `Divider`, the same rule saved as a `divider` block.
       horizontalRule: false,
+      // Replaced by `LetterOrderedList`, which also starts from `a.` and `a)`.
+      orderedList: false,
     }),
+    LetterOrderedList,
     CodeBlockWithHeader.configure({ defaultLanguage: "plaintext" }),
     Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
     TableKit.configure({ table: { resizable: true } }),
@@ -87,6 +91,7 @@ export function editorExtensions({
     Equation,
     MathBlock,
     Diagram,
+    CircuitBlock,
     EntityCard.configure({ spaceId, pageId }),
     Image.configure({ spaceId }),
     Video.configure({ spaceId }),

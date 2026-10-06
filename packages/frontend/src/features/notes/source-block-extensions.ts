@@ -1,4 +1,6 @@
-import { IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
+import { IconCpu, IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
+import { CircuitCanvas } from "./circuit/CircuitCanvas";
+import { renderCircuit } from "./circuit/render";
 import { renderDiagram } from "./diagram";
 import { TextSelection } from "@tiptap/pm/state";
 import { mergeAttributes, Node, ReactNodeViewRenderer } from "@tiptap/react";
@@ -21,6 +23,15 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
     },
     addAttributes() {
       return {
+        // What a block with an interactive view drew by hand, as JSON.
+        ...(defaults.interactive && {
+          drawing: {
+            default: "",
+            parseHTML: (element: HTMLElement) => element.getAttribute("data-drawing") ?? "",
+            renderHTML: (attributes: { drawing?: string }) =>
+              attributes.drawing ? { "data-drawing": attributes.drawing } : {},
+          },
+        }),
         view: {
           default: "source",
           parseHTML: (element: HTMLElement) => element.getAttribute("data-view") ?? "source",
@@ -75,6 +86,7 @@ export const Equation = sourceBlock("equation", {
   emptyLabel: "Empty equation",
   render: renderLatex((source) => source),
   centered: true,
+  copyLabel: "Copy LaTeX",
 });
 
 /// Several lines of math, one row each and aligned at `&`, for a derivation or
@@ -86,6 +98,7 @@ export const MathBlock = sourceBlock("math", {
   emptyLabel: "Empty math block",
   render: renderLatex(mathBlockLatex),
   centered: false,
+  copyLabel: "Copy LaTeX",
 });
 
 /// A Mermaid diagram: flowcharts, sequence, class, state, gantt, mind maps, ...
@@ -96,4 +109,16 @@ export const Diagram = sourceBlock("diagram", {
   emptyLabel: "Empty diagram",
   render: renderDiagram,
   centered: true,
+});
+
+/// Logic gates from boolean expressions, with a view to draw them by hand.
+export const CircuitBlock = sourceBlock("circuit", {
+  label: "Circuit",
+  icon: IconCpu,
+  sourceLabel: "Code",
+  emptyLabel: "Empty circuit",
+  render: (source, element) => renderCircuit(source, element),
+  centered: true,
+  interactive: CircuitCanvas,
+  interactiveDisabled: "Interactive mode is not available yet.",
 });

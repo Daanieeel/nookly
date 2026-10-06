@@ -1,9 +1,21 @@
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Selection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { type ComponentType, useEffect, useRef, useState } from "react";
+import { type ComponentType, Fragment, useEffect, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
+import { CopyButton } from "@nookly/ui/components/copy-button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+
+/// What a block's own editing view is given: the stored drawing, the block's code
+/// and a way to save a new drawing.
+export interface InteractiveProps {
+  drawing: string;
+  source: string;
+  onChange: (drawing: string) => void;
+  /// Replaces the block's code, for a view that writes the code from what it drew.
+  onSourceChange: (code: string) => void;
+}
 
 export interface SourceBlockOptions {
   label: string;
@@ -16,6 +28,21 @@ export interface SourceBlockOptions {
   render: (source: string, element: HTMLElement, dark: boolean) => Promise<string | null>;
   /// Center the preview, for a single display equation.
   centered: boolean;
+  /// Tooltip and name of a button that copies the code, shown in every view.
+  copyLabel?: string;
+  /// A third view between the code and the preview, where the block is edited by
+  /// hand. It keeps its work in a `drawing` attr.
+  interactive?: ComponentType<InteractiveProps>;
+  /// Switches the interactive view off: its tab stays, disabled, with this as the
+  /// tooltip, and a block saved on it opens as the code. The drawing is kept.
+  interactiveDisabled?: string;
+}
+
+type View = "source" | "interactive" | "rendered";
+
+function viewLabel(view: View, sourceLabel: string): string {
+  if (view === "source") return sourceLabel;
+  return view === "interactive" ? "Interactive" : "Preview";
 }
 
 /// Whether the app shows its dark theme right now, following theme switches.
@@ -25,7 +52,10 @@ function useIsDark(): boolean {
     const observer = new MutationObserver(() =>
       setDark(document.documentElement.classList.contains("dark")),
     );
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
   return dark;
@@ -45,7 +75,14 @@ export function SourceBlock({
   // (`source-block-extensions.ts`).
   const options = extension.options as SourceBlockOptions;
   const Icon = options.icon;
-  const rendered = node.attrs.view === "rendered";
+  const Interactive = options.interactive;
+  const views: View[] = Interactive
+    ? ["source", "interactive", "rendered"]
+    : ["source", "rendered"];
+  // SAFETY: the attr is one of the views, or something stored by a newer version.
+  const saved = views.includes(node.attrs.view) ? (node.attrs.view as View) : "source";
+  const view = saved === "interactive" && options.interactiveDisabled ? "source" : saved;
+  const rendered = view === "rendered";
   const source = node.textContent;
   const dark = useIsDark();
   const previewRef = useRef<HTMLDivElement>(null);
@@ -63,45 +100,95 @@ export function SourceBlock({
     };
   }, [rendered, source, dark, options]);
 
-  const show = (view: "source" | "rendered") => {
-    if ((view === "rendered") === rendered) return;
-    updateAttributes({ view });
+  const replaceSource = (code: string) => {
     const pos = getPos();
     if (pos === undefined) return;
-    // The code is hidden while rendered, so the cursor moves out of it; editing
+    const { state } = editor.view;
+    const from = pos + 1;
+    const to = pos + node.nodeSize - 1;
+    editor.view.dispatch(
+      code ? state.tr.replaceWith(from, to, state.schema.text(code)) : state.tr.delete(from, to),
+    );
+  };
+
+  const show = (next: View) => {
+    if (next === view) return;
+    updateAttributes({ view: next });
+    const pos = getPos();
+    if (pos === undefined) return;
+    // The code is hidden unless it is shown, so the cursor moves out of it; editing
     // puts it back at the end of the code.
     const { state } = editor.view;
-    const target = view === "rendered" ? pos + node.nodeSize : pos + node.nodeSize - 1;
-    const selection = Selection.near(state.doc.resolve(target), view === "rendered" ? 1 : -1);
+    const hidden = next !== "source";
+    const target = hidden ? pos + node.nodeSize : pos + node.nodeSize - 1;
+    const selection = Selection.near(state.doc.resolve(target), hidden ? 1 : -1);
     editor.view.dispatch(state.tr.setSelection(selection));
     editor.view.focus();
   };
 
   return (
-    <NodeViewWrapper className="source-block my-1" data-view={rendered ? "rendered" : "source"}>
+    <NodeViewWrapper className="source-block my-1" data-view={view}>
       <div className="code-block-header" contentEditable={false}>
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{options.label}</span>
         </span>
-        <fieldset aria-label="View" className="flex min-w-0 shrink-0 items-center gap-0.5">
-          {(["source", "rendered"] as const).map((view) => (
-            <Button
-              key={view}
-              variant={(view === "rendered") === rendered ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={(view === "rendered") === rendered}
-              onClick={() => show(view)}
-              className="h-6 px-2"
-            >
-              {view === "source" ? options.sourceLabel : "Preview"}
-            </Button>
-          ))}
-        </fieldset>
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
+          {options.copyLabel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CopyButton
+                  value={source}
+                  aria-label={options.copyLabel}
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                />
+              </TooltipTrigger>
+              <TooltipContent>{options.copyLabel}</TooltipContent>
+            </Tooltip>
+          )}
+          <fieldset aria-label="View" className="flex min-w-0 shrink-0 items-center gap-0.5">
+            {views.map((name) => {
+              const disabledReason =
+                name === "interactive" ? options.interactiveDisabled : undefined;
+              const tab = (
+                <Button
+                  variant={name === view ? "secondary" : "ghost"}
+                  size="sm"
+                  aria-pressed={name === view}
+                  disabled={!!disabledReason}
+                  onClick={() => show(name)}
+                  className="h-6 px-2"
+                >
+                  {viewLabel(name, options.sourceLabel)}
+                </Button>
+              );
+              if (!disabledReason) return <Fragment key={name}>{tab}</Fragment>;
+              // A disabled button gets no pointer events, so the tooltip hangs off a wrapper.
+              return (
+                <Tooltip key={name}>
+                  <TooltipTrigger asChild>
+                    <span>{tab}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{disabledReason}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </fieldset>
+        </div>
       </div>
-      <pre className="code-block-body" hidden={rendered}>
+      <pre className="code-block-body" hidden={view !== "source"}>
         <NodeViewContent<"code"> as="code" />
       </pre>
+      {Interactive && view === "interactive" && (
+        <div contentEditable={false} className="source-block-preview">
+          <Interactive
+            drawing={String(node.attrs.drawing ?? "")}
+            source={source}
+            onChange={(drawing) => updateAttributes({ drawing })}
+            onSourceChange={replaceSource}
+          />
+        </div>
+      )}
       {rendered && (
         <div
           contentEditable={false}

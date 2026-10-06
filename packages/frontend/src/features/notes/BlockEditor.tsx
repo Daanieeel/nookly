@@ -257,7 +257,10 @@ function HydratedBlockEditor({
     }),
     editorProps: {
       attributes: {
+        // A screen of room below the last block, so the end of the page can scroll up
+        // to the top like in a code editor.
         class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
+        ...(!compact && { style: "padding-bottom: 100vh" }),
       },
       handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {

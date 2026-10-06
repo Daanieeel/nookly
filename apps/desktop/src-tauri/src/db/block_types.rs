@@ -845,6 +845,42 @@ inventory::submit! {
     }
 }
 
+// --- circuit ---------------------------------------------------------------
+
+const CIRCUIT_VIEWS: &[&str] = &["source", "interactive", "rendered"];
+
+const CIRCUIT_VIEW_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "view",
+    kind: AttrKind::Enum(CIRCUIT_VIEWS),
+    description: "What the editor shows: the code, the canvas to draw on by hand, or the circuit \
+                  drawn from the code. Defaults to source.",
+};
+
+const DRAWING_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "drawing",
+    kind: AttrKind::Text,
+    description:
+        "The circuit drawn by hand on the interactive canvas, as JSON owned by the editor. \
+                  Independent of the code. Leave it alone unless copying a block.",
+};
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "circuit",
+        content_format: "A logic circuit as boolean expressions, one per line (\"x = A & B\\nY = x | !C\"). \
+                         \"name = expression\" labels an output with its name, a bare expression with its \
+                         formula. Operators from loosest to tightest: | (OR), ^ (XOR), & (AND), ! (NOT), \
+                         plus NAND, NOR and XNOR; the symbols ∨ ⊕ ∧ ¬ work too. A name never assigned is an \
+                         input, a name no other line uses is an output, any other assigned name is a wire \
+                         between gates. A chain of one operator is one gate with many inputs. A negated \
+                         input is drawn as a bubble on the gate, other negations as NOT gates.",
+        attrs: &[CIRCUIT_VIEW_ATTR, DRAWING_ATTR],
+        validate: accept_anything,
+        // The code in a fence: no markdown viewer draws gates, but the expressions stay readable.
+        to_markdown: |block| format!("```circuit\n{}\n```", block.content.trim_end()),
+    }
+}
+
 // --- entity card -----------------------------------------------------------
 
 /// The one `[title](mention:<id>)` link a card is, or nothing yet.
@@ -1159,6 +1195,22 @@ mod tests {
         );
         let open = toggle_to_markdown(&block("toggle", "Q", &[("toggle", "open")]));
         assert_eq!(open, "<details open>\n<summary>Q</summary>\n\n</details>");
+    }
+
+    #[test]
+    fn circuit_exports_its_code_and_keeps_a_hand_drawing() {
+        let md = (lookup("circuit").unwrap().to_markdown)(&block("circuit", "Y = A & B\n", &[]));
+        assert_eq!(md, "```circuit\nY = A & B\n```");
+        let attr =
+            |key: &str, value: &str| BlockAttrs::from([(key.to_string(), value.to_string())]);
+        assert!(validate_attrs("circuit", &attr("view", "interactive")).is_ok());
+        assert!(validate_attrs("circuit", &attr("view", "rendered")).is_ok());
+        assert!(validate_attrs("circuit", &attr("view", "paper")).is_err());
+        assert!(validate_attrs("circuit", &attr("drawing", "{\"v\":1,\"parts\":[]}")).is_ok());
+        // Only a circuit has a third view and a drawing.
+        assert!(validate_attrs("equation", &attr("view", "interactive")).is_err());
+        assert!(validate_attrs("diagram", &attr("drawing", "{}")).is_err());
+        assert!(validate_content("circuit", "anything the editor shows an error for").is_ok());
     }
 
     #[test]

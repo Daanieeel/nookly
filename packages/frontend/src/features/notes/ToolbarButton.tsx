@@ -6,10 +6,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 export function ToolbarButton({
   label,
   onClick,
+  disabled,
   children,
 }: {
   label: string;
   onClick: () => void;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -20,6 +22,7 @@ export function ToolbarButton({
           size="iconSm"
           aria-label={label}
           onClick={onClick}
+          disabled={disabled}
           className="size-7"
         >
           {children}

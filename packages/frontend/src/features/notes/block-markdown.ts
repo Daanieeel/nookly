@@ -147,9 +147,15 @@ export function blockToNode(block: Block): JSONNode {
     case "equation":
     case "math":
     case "diagram":
+    case "circuit":
       return {
         type: block.blockType,
-        attrs: { blockId, view: block.attrs.view ?? "source" },
+        attrs: {
+          blockId,
+          view: block.attrs.view ?? "source",
+          // Only a circuit has a hand drawing to keep.
+          ...(block.blockType === "circuit" && { drawing: block.attrs.drawing ?? "" }),
+        },
         content: block.content ? [{ type: "text", text: block.content }] : undefined,
       };
     case "toggle": {
@@ -280,11 +286,15 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     case "equation":
     case "math":
     case "diagram":
+    case "circuit":
       return {
         blockId,
         blockType: node.type,
         content: (node.content ?? []).map((n) => n.text ?? "").join(""),
-        attrs: { view: asString(node.attrs?.view) ?? "source" },
+        attrs: {
+          view: asString(node.attrs?.view) ?? "source",
+          ...(node.type === "circuit" && { drawing: asString(node.attrs?.drawing) ?? "" }),
+        },
       };
     case "toggle":
       return {

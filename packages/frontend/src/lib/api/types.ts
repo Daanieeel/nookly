@@ -263,6 +263,7 @@ export type BlockType =
   | "equation"
   | "math"
   | "diagram"
+  | "circuit"
   | "entity_card"
   | "video"
   | "audio"

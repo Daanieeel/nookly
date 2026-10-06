@@ -111,6 +111,22 @@ describe("turn into kinds", () => {
     expect(titles(atom("entity_card", "[Task](mention:abc)"))).toEqual([]);
   });
 
+  it("turns a circuit into text and back, but keeps one with a drawing as it is", () => {
+    const code = node({ type: "circuit", content: [text("Y = A & B")] });
+    expect(titles(code)).toContain("Text");
+    expect(convert(code, "Text")).toEqual(blocks(paragraph("Y = A & B")));
+    expect(convert(node(paragraph("Y = A | B")), "Circuit")).toEqual(
+      blocks({ type: "circuit", attrs: { view: "source" }, content: [text("Y = A | B")] }),
+    );
+    // Turning it into text would drop what was drawn by hand.
+    const drawn = node({
+      type: "circuit",
+      attrs: { drawing: '{"parts":[]}' },
+      content: [text("Y = A & B")],
+    });
+    expect(titles(drawn)).toEqual([]);
+  });
+
   it("turns source blocks into text and each other", () => {
     const equation = node({ type: "equation", content: [text("x^2")] });
     const offered = titles(equation);
