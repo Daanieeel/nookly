@@ -6,7 +6,14 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
+- Refine into new note button
+
+## 0.18.15 (2026-10-06)
+
+### Changed
+
 - Upgrade from 0.17.7 with rows of a deleted space
+- Circuit block (#62)
 
 ## 0.18.6 (2026-10-06)
 
