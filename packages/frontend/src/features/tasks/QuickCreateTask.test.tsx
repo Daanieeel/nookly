@@ -131,6 +131,9 @@ describe("QuickCreateTask related picker", () => {
     expect(option.className).toContain("flex-1");
     expect(option.closest("[cmdk-group]")!.className).toContain("flex-col");
     expect(screen.getByRole("listbox").className).toContain("flex-1");
+    // A percentage height (the Command's default `size-full`) stops a flex item from
+    // stretching to its row, so `h-auto` has to override it (checked in Chrome).
+    expect(option.closest("[cmdk-root]")!.className).toContain("h-auto");
   });
 
   it.each([

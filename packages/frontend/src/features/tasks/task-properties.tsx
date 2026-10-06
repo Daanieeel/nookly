@@ -435,7 +435,7 @@ export function DueDateChooser({
   ];
   return (
     <div className="flex items-stretch" onKeyDown={stopKeys}>
-      <Command loop className="w-1/2">
+      <Command loop className="h-auto w-1/2">
         {/* No cap of its own: the calendar beside the presets sets the height. The rows
             stretch evenly to fill it (list, its sizer, the group and its items are a flex
             chain), so nothing scrolls and no gap is left below them. */}
