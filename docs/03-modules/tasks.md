@@ -44,7 +44,7 @@ Out of scope for v1. Do not build.
 
 ## Creation UX
 
-A lightweight, keyboard-first quick-create overlay with a title field and inline pickers for status, label, and date. Not a full form.
+A lightweight, keyboard-first quick-create overlay with a title field and inline pickers for status, label, date, and one related entity (a `relates-to` link, prefilled with the Course when the list is filtered to one). Not a full form.
 
 - The user can create one task and immediately start the next without closing the overlay.
 - Hovering a board column reveals a "+" that creates a task directly in that status.

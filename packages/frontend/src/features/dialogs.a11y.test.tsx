@@ -15,6 +15,9 @@ import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
 import { setDateTimeSettings } from "#/test/time.ts";
 import { QuickCreateSessionDialog } from "#/features/sessions/calendar/QuickCreateSessionDialog.tsx";
+import { QuickCreateTask } from "#/features/tasks/QuickCreateTask.tsx";
+import { TasksDataContext } from "#/features/tasks/task-controls.tsx";
+import { STATUSES } from "#/test/fixtures.ts";
 import { CreateNameDialog } from "./CreateNameDialog.tsx";
 
 // Each one is rendered open, the way a user meets it, and checked with axe.
@@ -49,6 +52,30 @@ describe("dialogs and menus have no axe violations", () => {
         onOpenChange={() => {}}
         onCreated={() => {}}
       />,
+    );
+    await expectNoA11yViolations();
+  });
+
+  it("QuickCreateTask", async () => {
+    mockCommand("list_spaces", []);
+    renderWithProviders(
+      <TasksDataContext.Provider
+        value={{
+          spaceId: "space-1",
+          statuses: STATUSES,
+          labels: [],
+          statusById: new Map(STATUSES.map((s) => [s.id, s])),
+          labelById: new Map(),
+          kindOf: () => "unstarted",
+        }}
+      >
+        <QuickCreateTask
+          open
+          draft={{ related: makeEntity({ id: "c1", type: "course", title: "Algebra" }) }}
+          onOpenChange={() => {}}
+          onCreated={() => {}}
+        />
+      </TasksDataContext.Provider>,
     );
     await expectNoA11yViolations();
   });

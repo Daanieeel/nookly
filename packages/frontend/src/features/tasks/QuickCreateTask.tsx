@@ -1,6 +1,6 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
 import { fieldMessage } from "#/components/form-field.tsx";
-import { IconCalendarEvent } from "@tabler/icons-react";
+import { IconCalendarEvent, IconLink, IconX } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -8,10 +8,15 @@ import { z } from "zod";
 import { FieldError, StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityPickerPopover } from "#/components/entity-picker.tsx";
+import { createRelationship } from "#/lib/api/relationships.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { attachLabel } from "#/lib/api/labels.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { createTask, updateTaskStatus } from "#/lib/api/tasks.ts";
-import type { Space, Task } from "#/lib/api/types.ts";
+import type { Entity, Space, Task } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { useTasksData } from "./task-controls";
 import {
@@ -34,6 +39,8 @@ import {
 export interface TaskDraft {
   statusId?: string;
   labelIds?: string[];
+  /// What the task starts out related to, e.g. the Course the list is filtered to.
+  related?: Entity;
 }
 
 const taskSchema = z.object({
@@ -41,11 +48,18 @@ const taskSchema = z.object({
   statusId: z.string().optional(),
   labelIds: z.array(z.string()),
   dueDate: z.string().nullable(),
+  related: z.custom<Entity>().nullable(),
 });
 
 type NewTask = z.infer<typeof taskSchema>;
 
-const emptyValues: NewTask = { title: "", statusId: undefined, labelIds: [], dueDate: null };
+const emptyValues: NewTask = {
+  title: "",
+  statusId: undefined,
+  labelIds: [],
+  dueDate: null,
+  related: null,
+};
 
 /// Linear's "New issue" modal, cut down to the title and three property pills
 /// (status, labels, due date). Enter or Cmd+Enter creates; with "Create more" on
@@ -91,6 +105,7 @@ export function QuickCreateTask({
       statusId: draft.statusId ?? statuses[0]?.id,
       labelIds: draft.labelIds ?? [],
       dueDate: null,
+      related: draft.related ?? null,
     });
   }, [open, draft, statuses, form]);
 
@@ -101,6 +116,11 @@ export function QuickCreateTask({
         await updateTaskStatus(task.entity.id, vars.statusId);
       }
       await Promise.all(vars.labelIds.map((id) => attachLabel(task.entity.id, id)));
+      // An entity picked in another Space (the Space chip changed since) is not linked.
+      if (vars.related && vars.related.spaceId === spaceId) {
+        await createRelationship(task.entity.id, vars.related.id, "relates-to");
+        await queryClient.invalidateQueries({ queryKey: qk.relationships.of(vars.related.id) });
+      }
       await queryClient.invalidateQueries({ queryKey: qk.tasks.bySpace(spaceId) });
       await queryClient.invalidateQueries({ queryKey: qk.tasks.all });
       return task;
@@ -133,7 +153,7 @@ export function QuickCreateTask({
         spaces={spaces}
         onSpaceChange={onSpaceChange}
         title="New task"
-        description="Give the task a title, then set its status, labels and due date."
+        description="Give the task a title, then set its status, labels, due date and what it relates to."
       />
 
       <form.Field name="title">
@@ -160,7 +180,8 @@ export function QuickCreateTask({
 
       <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
         <form.Subscribe selector={(state) => state.values}>
-          {({ statusId, labelIds, dueDate }) => {
+          {({ statusId, labelIds, dueDate, related: picked }) => {
+            const related = picked && picked.spaceId === spaceId ? picked : null;
             const status = statusId ? statusById.get(statusId) : undefined;
             const chosenLabels = labelIds.flatMap((id) => labelById.get(id) ?? []);
             return (
@@ -230,6 +251,41 @@ export function QuickCreateTask({
                     )}
                   </button>
                 </DueDatePicker>
+
+                <EntityPickerPopover
+                  spaceId={spaceId}
+                  onSelect={(entity) => form.setFieldValue("related", entity)}
+                  trigger={
+                    <button type="button" className={PROPERTY_PILL} aria-label="Change Related">
+                      {related ? (
+                        <>
+                          <EntityIcon entity={related} size={14} className="shrink-0" />
+                          <span className="truncate text-foreground">{displayTitle(related)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <IconLink size={14} className="shrink-0" />
+                          Related to
+                        </>
+                      )}
+                    </button>
+                  }
+                />
+                {related && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Clear Related"
+                        onClick={() => form.setFieldValue("related", null)}
+                        className="-ml-1 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Clear Related</TooltipContent>
+                  </Tooltip>
+                )}
               </>
             );
           }}
