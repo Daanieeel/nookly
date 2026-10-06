@@ -16,6 +16,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
   CommandSeparator,
   CommandShortcut,
 } from "@nookly/ui/components/command";
@@ -426,16 +427,18 @@ export function DueDateChooser({
   const presets = [
     { label: "Today", day: addDays(0) },
     { label: "Tomorrow", day: addDays(1) },
-    { label: "End of this week", day: addDays(daysTo(5)) },
+    { label: "End of work week", day: addDays(daysTo(5)) },
     { label: "Next Monday", day: addDays(daysTo(1)) },
     { label: "In one week", day: addDays(7) },
     { label: "In two weeks", day: addDays(14) },
     { label: "In one month", day: inOneMonth() },
   ];
   return (
-    <div className="flex" onKeyDown={stopKeys}>
+    <div className="flex items-stretch" onKeyDown={stopKeys}>
       <Command loop className="w-1/2">
-        <DialogCommandList>
+        {/* No cap of its own: the presets are short, and the calendar beside them sets the
+            height, so they never scroll when the remove row appears. */}
+        <CommandList className="max-h-none overflow-visible p-1">
           <CommandEmpty>No match.</CommandEmpty>
           <CommandGroup className="p-0">
             {presets.map((p) => (
@@ -452,7 +455,7 @@ export function DueDateChooser({
               </CommandItem>
             )}
           </CommandGroup>
-        </DialogCommandList>
+        </CommandList>
       </Command>
       <div className="w-1/2 border-l border-border">
         <Calendar value={value} onSelect={onSelect} className="w-full p-2" />

@@ -67,7 +67,7 @@ describe("QuickCreateTask related picker", () => {
     const labels = [
       "Today",
       "Tomorrow",
-      "End of this week",
+      "End of work week",
       "Next Monday",
       "In one week",
       "In two weeks",
@@ -75,6 +75,11 @@ describe("QuickCreateTask related picker", () => {
     ];
     for (const label of labels) expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.queryByText("End of this month")).not.toBeInTheDocument();
+    // Seven presets and the remove row fit without their own scrollbar: the list takes
+    // the height the calendar sets instead of a cap.
+    const list = screen.getByRole("listbox");
+    expect(list.className).toContain("max-h-none");
+    expect(list.className).toContain("overflow-visible");
     // The presets are a short list and a calendar: nothing to search.
     expect(screen.queryByPlaceholderText(/due date/i)).not.toBeInTheDocument();
     await user.click(screen.getByText("Next Monday"));

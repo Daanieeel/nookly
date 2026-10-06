@@ -50,7 +50,7 @@ describe("CreateAssignmentDialog popovers", () => {
     for (const label of [
       "Today",
       "Tomorrow",
-      "End of this week",
+      "End of work week",
       "Next Monday",
       "In one week",
       "In two weeks",
