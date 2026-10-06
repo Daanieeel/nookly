@@ -161,7 +161,11 @@ export function RightSidebar({
           </Tooltip>
           {actions()}
         </div>
-        {entity.type === "jot" && <RefineJotButton jot={entity} />}
+        {entity.type === "jot" && (
+          <div>
+            <RefineJotButton jot={entity} />
+          </div>
+        )}
         {children}
         {entity.type === "course" && <CourseSemesterPanel course={entity} />}
         {/* Task and Sub-task already show Labels inline in their own properties
