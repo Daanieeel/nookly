@@ -1,9 +1,8 @@
 import { IconCalendarEvent, IconCircleDot, IconSchool, IconStar } from "@tabler/icons-react";
-import type { FilterField } from "#/components/filter-menu.tsx";
+import { entityFilterOption, type FilterField } from "#/components/filter-menu.tsx";
 import { AGE_FILTER_FIELDS } from "#/features/tasks/shared-view-defs.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
 import {
   ASSIGNMENT_STATUSES,
   DEADLINE_BUCKETS,
@@ -21,7 +20,7 @@ export function assignmentFilterFields(courses: Entity[]): FilterField[] {
       id: "course",
       label: "Course",
       icon: IconSchool,
-      options: courses.map((c) => ({ value: c.id, label: displayTitle(c) })),
+      options: courses.map(entityFilterOption),
     },
     {
       id: "status",

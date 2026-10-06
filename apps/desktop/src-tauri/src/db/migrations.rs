@@ -677,6 +677,38 @@ fn all() -> Vec<M<'static>> {
         -- event on the calendar, so existing exams need no backfill.
         ALTER TABLE exams ADD COLUMN exam_time TEXT;
         ",
+    ), M::up(
+        "
+        -- An assignment due before the course's next session: how many days before it.
+        -- NULL keeps the fixed due_date, so existing assignments need no backfill.
+        ALTER TABLE assignments ADD COLUMN due_session_offset_days INTEGER;
+        ",
+    ), M::up(
+        "
+        -- The Grade Report module comes with Exams and Assignments. Spaces already
+        -- using either get it now, at the end of their module order. A Space that
+        -- removed the module keeps its hidden row, as INSERT OR IGNORE leaves it be.
+        -- Rows pointing at a Space that no longer exists are left as they are.
+        INSERT OR IGNORE INTO space_modules (space_id, module_key, added_at, position)
+            SELECT s.space_id, 'grades', strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+                   COALESCE((SELECT MAX(m.position) FROM space_modules m
+                             WHERE m.space_id = s.space_id), -1) + 1
+            FROM (
+                SELECT space_id FROM space_modules
+                    WHERE module_key IN ('exams', 'assignments') AND hidden_at IS NULL
+                UNION
+                SELECT space_id FROM entities
+                    WHERE type IN ('exam', 'assignment')
+                      AND deleted_at IS NULL AND hidden_at IS NULL
+            ) s
+            WHERE s.space_id IN (SELECT id FROM spaces);
+        ",
+    ), M::up(
+        "
+        -- An assignment's weight in its course's grade, like an exam's. NULL splits what
+        -- the weighted work leaves evenly, as every existing assignment did.
+        ALTER TABLE assignments ADD COLUMN weight REAL;
+        ",
     )]
 }
 
@@ -686,6 +718,143 @@ pub static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| Migratio
 /// whether it's about to change the schema (`current_version < MIGRATION_COUNT`).
 /// Used to snapshot the database right before an upgrade touches it.
 pub static MIGRATION_COUNT: LazyLock<usize> = LazyLock::new(|| all().len());
+
+#[cfg(test)]
+mod grades_module_backfill {
+    use super::{MIGRATIONS, MIGRATION_COUNT};
+    use rusqlite::{params, Connection};
+
+    /// The schema version right before the Grades module migration.
+    const BEFORE: usize = 37;
+
+    fn space(conn: &Connection, id: &str) {
+        conn.execute(
+            "INSERT INTO spaces (id, name, color, created_at, updated_at)
+             VALUES (?1, ?1, '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            params![id],
+        )
+        .unwrap();
+    }
+
+    fn module(conn: &Connection, space: &str, key: &str, position: i64, hidden: Option<&str>) {
+        conn.execute(
+            "INSERT INTO space_modules (space_id, module_key, added_at, position, hidden_at)
+             VALUES (?1, ?2, '2026-01-01T00:00:00+00:00', ?3, ?4)",
+            params![space, key, position, hidden],
+        )
+        .unwrap();
+    }
+
+    fn rows(conn: &Connection, space: &str) -> Vec<(String, i64, Option<String>)> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT module_key, position, hidden_at FROM space_modules
+                 WHERE space_id = ?1 ORDER BY position, module_key",
+            )
+            .unwrap();
+        stmt.query_map(params![space], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+    }
+
+    #[test]
+    fn spaces_with_exams_or_assignments_get_the_grades_module() {
+        assert!(*MIGRATION_COUNT > BEFORE);
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        for id in [
+            "exams",
+            "assignments",
+            "both",
+            "neither",
+            "removed",
+            "empty",
+        ] {
+            space(&conn, id);
+        }
+        module(&conn, "exams", "courses", 0, None);
+        module(&conn, "exams", "exams", 1, None);
+        module(&conn, "assignments", "assignments", 0, None);
+        module(&conn, "both", "exams", 0, None);
+        module(&conn, "both", "assignments", 1, None);
+        module(&conn, "neither", "tasks", 0, None);
+        // Removed again, hidden: not in use, so nothing to report on.
+        module(
+            &conn,
+            "removed",
+            "exams",
+            0,
+            Some("2026-02-01T00:00:00+00:00"),
+        );
+        // Its own row is kept as it is when it already exists.
+        module(
+            &conn,
+            "both",
+            "grades",
+            2,
+            Some("2026-02-01T00:00:00+00:00"),
+        );
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        let keys = |space: &str| -> Vec<String> {
+            rows(&conn, space)
+                .into_iter()
+                .map(|(key, _, _)| key)
+                .collect()
+        };
+        assert_eq!(keys("exams"), vec!["courses", "exams", "grades"]);
+        assert_eq!(keys("assignments"), vec!["assignments", "grades"]);
+        assert_eq!(keys("neither"), vec!["tasks"]);
+        assert_eq!(keys("removed"), vec!["exams"]);
+        assert!(keys("empty").is_empty());
+        // It joins the end of the Space's module order.
+        assert_eq!(rows(&conn, "exams")[2].1, 2);
+        assert_eq!(rows(&conn, "assignments")[1].1, 1);
+        // A removed Grades module stays removed.
+        let both = rows(&conn, "both");
+        assert_eq!(both.iter().filter(|(key, _, _)| key == "grades").count(), 1);
+        assert!(both
+            .iter()
+            .any(|(key, _, hidden)| key == "grades" && hidden.is_some()));
+    }
+
+    /// A user's upgrade stopped here: rows of theirs pointed at a Space that no longer
+    /// exists, and the Grades row for it failed its foreign key. Those rows are left as
+    /// they are, and the Space that is gone gets no module.
+    #[test]
+    fn rows_of_a_space_that_no_longer_exists_do_not_stop_it() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        space(&conn, "kept");
+        module(&conn, "kept", "exams", 0, None);
+        conn.execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO space_modules (space_id, module_key, added_at, position)
+                 VALUES ('gone', 'assignments', '2026-01-01T00:00:00+00:00', 0);
+             INSERT INTO entities (id, space_id, type, title, created_at, updated_at)
+                 VALUES ('e1', 'gone', 'exam', 'Final', '2026-01-01T00:00:00+00:00',
+                         '2026-01-01T00:00:00+00:00');
+             PRAGMA foreign_keys = ON;",
+        )
+        .unwrap();
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        let keys: Vec<String> = rows(&conn, "kept").into_iter().map(|r| r.0).collect();
+        assert_eq!(keys, vec!["exams", "grades"]);
+        assert_eq!(rows(&conn, "gone").len(), 1);
+        let entity: i64 = conn
+            .query_row("SELECT COUNT(*) FROM entities WHERE id = 'e1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(entity, 1);
+    }
+}
 
 #[cfg(test)]
 mod overridden_fields_backfill {
@@ -1058,6 +1227,13 @@ mod history {
         0xf26762aee1e57139,
         0x92f77bf6cda3ea8c,
         0x7070e02fbefb5df4,
+        0xea6ca357124886f,
+        // Migration 38, the one sanctioned rewrite: it failed on databases with rows
+        // pointing at a Space that no longer exists, and a failing migration cannot be
+        // fixed forward. The added guard only skips those Spaces, so every database it
+        // already ran on would get the same result.
+        0xec9ec2b054e9e2f9,
+        0x689c23fb341a5f0a,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

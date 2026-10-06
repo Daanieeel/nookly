@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { describe, expect, it } from "vitest";
 import type { Repeat } from "#/components/repeat-chip.tsx";
-import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates } from "./repeat.ts";
+import { DEFAULT_REPEAT, MAX_OCCURRENCES, repeatDates, repeatProblem } from "./repeat.ts";
 
 const day = (d: Date) => format(d, "yyyy-MM-dd");
 const days = (start: string, repeat: Partial<Repeat>) =>
@@ -19,7 +19,13 @@ describe("repeatDates", () => {
   });
 
   it("defaults to not repeating, for 16 weeks once it does", () => {
-    expect(DEFAULT_REPEAT).toEqual({ cadence: "none", durationCount: 16, durationUnit: "weeks" });
+    expect(DEFAULT_REPEAT).toEqual({
+      cadence: "none",
+      endMode: "for",
+      durationCount: 16,
+      durationUnit: "weeks",
+      until: "",
+    });
   });
 
   it("repeats daily up to but not including the end", () => {
@@ -113,7 +119,64 @@ describe("repeatDates", () => {
     ).toHaveLength(MAX_OCCURRENCES);
   });
 
+  it("repeats until a date, including that day", () => {
+    expect(
+      days("2026-03-02", { cadence: "weekly", endMode: "until", until: "2026-03-23" }),
+    ).toEqual(["2026-03-02", "2026-03-09", "2026-03-16", "2026-03-23"]);
+  });
+
+  it("stops before the until date when a step skips over it", () => {
+    expect(
+      days("2026-03-02", { cadence: "weekly", endMode: "until", until: "2026-03-22" }),
+    ).toEqual(["2026-03-02", "2026-03-09", "2026-03-16"]);
+  });
+
+  it("ignores the duration when repeating until a date", () => {
+    expect(
+      days("2026-03-01", {
+        cadence: "daily",
+        endMode: "until",
+        until: "2026-03-03",
+        durationCount: 50,
+      }),
+    ).toEqual(["2026-03-01", "2026-03-02", "2026-03-03"]);
+  });
+
+  it("keeps only the start when the until date is missing or before it", () => {
+    expect(days("2026-03-05", { cadence: "daily", endMode: "until", until: "" })).toEqual([
+      "2026-03-05",
+    ]);
+    expect(days("2026-03-05", { cadence: "daily", endMode: "until", until: "2026-03-01" })).toEqual(
+      ["2026-03-05"],
+    );
+  });
+
   it("caps at 366 occurrences", () => {
     expect(MAX_OCCURRENCES).toBe(366);
+  });
+});
+
+describe("repeatProblem", () => {
+  const until = (cadence: Repeat["cadence"], day: string): Repeat => ({
+    ...DEFAULT_REPEAT,
+    cadence,
+    endMode: "until",
+    until: day,
+  });
+
+  it("accepts a series that runs for a duration, or doesn't repeat", () => {
+    expect(repeatProblem("2026-03-01", { ...DEFAULT_REPEAT, cadence: "weekly" })).toBeNull();
+    expect(repeatProblem("2026-03-01", until("none", ""))).toBeNull();
+  });
+
+  it("asks for a day when repeating until one", () => {
+    expect(repeatProblem("2026-03-01", until("weekly", ""))).toBe("Pick a day to repeat until");
+  });
+
+  it("refuses an until day before the start", () => {
+    expect(repeatProblem("2026-03-05", until("daily", "2026-03-04"))).toBe(
+      "Repeat until a day on or after the start",
+    );
+    expect(repeatProblem("2026-03-05", until("daily", "2026-03-05"))).toBeNull();
   });
 });

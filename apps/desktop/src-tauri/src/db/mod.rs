@@ -21,6 +21,9 @@ pub mod files;
 mod forward_compat_tests;
 #[cfg(test)]
 mod golden_tests;
+pub mod grade_report;
+#[cfg(test)]
+mod grade_report_tests;
 pub mod labels;
 #[cfg(test)]
 mod labels_tests;

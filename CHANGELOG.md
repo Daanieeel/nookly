@@ -2,6 +2,41 @@
 
 All notable changes to Nookly are listed here.
 
+## Unreleased
+
+### Changed
+
+- Upgrade from 0.17.7 with rows of a deleted space
+
+## 0.18.6 (2026-10-06)
+
+### Changed
+
+- Grade report upgrade skips spaces that no longer exist
+- Filter notes by course, pinned, last edited and created
+
+## 0.18.3 (2026-10-06)
+
+### Changed
+
+- Grade report (#61)
+
+## 0.17.11 (2026-10-05)
+
+### Changed
+
+- File viewer keeps its scroll position across tabs
+- Repeat until a date as well as for a duration
+- Assignments due before a course's next session
+- Calendar blocks only show the lines that fit
+
+## 0.17.7 (2026-10-05)
+
+### Changed
+
+- Math, equation and diagram blocks pasting back as code blocks
+- Turn any block into every block it can hold
+
 ## 0.17.6 (2026-10-05)
 
 ### Changed

@@ -57,3 +57,23 @@ pub fn set_assignment_course(
     let conn = state.0.lock().unwrap();
     assignments::set_assignment_course(&conn, &entity_id, course_id)
 }
+
+#[tauri::command]
+pub fn update_assignment_due_before_session(
+    state: State<DbState>,
+    entity_id: String,
+    offset_days: Option<i64>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    assignments::update_assignment_due_before_session(&conn, &entity_id, offset_days)
+}
+
+#[tauri::command]
+pub fn update_assignment_weight(
+    state: State<DbState>,
+    entity_id: String,
+    weight: Option<f64>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    assignments::update_assignment_weight(&conn, &entity_id, weight)
+}

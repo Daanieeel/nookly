@@ -364,3 +364,40 @@ fn every_real_version_upgrades_through_the_check() {
         std::fs::remove_dir_all(dir).ok();
     }
 }
+
+/// A user on 0.17.7 (schema 36) could not upgrade: rows of theirs pointed at a Space
+/// that no longer exists, and the Grades migration stopped on them. Through the real
+/// check, from that version, with those rows: the upgrade goes through and keeps them.
+#[test]
+fn rows_of_a_space_that_no_longer_exists_upgrade_from_0_17_7() {
+    let dir = scratch();
+    let path = dir.join("nookly.db");
+    {
+        let mut conn = Connection::open(&path).unwrap();
+        migrate_to(&mut conn, 36);
+        populate(&conn);
+        conn.execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO space_modules (space_id, module_key, added_at, position)
+                 VALUES ('gone', 'assignments', '2026-01-01T00:00:00+00:00', 0);
+             INSERT INTO entities (id, space_id, type, title, created_at, updated_at)
+                 VALUES ('orphan', 'gone', 'exam', 'Final', '2026-01-01T00:00:00+00:00',
+                         '2026-01-01T00:00:00+00:00');
+             PRAGMA foreign_keys = ON;",
+        )
+        .unwrap();
+    }
+    run(&path).unwrap_or_else(|e| panic!("{e}"));
+    let conn = Connection::open(&path).unwrap();
+    assert_eq!(super::schema_version(&conn).unwrap(), latest());
+    let count = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+    assert_eq!(
+        count("SELECT COUNT(*) FROM entities WHERE id = 'orphan'"),
+        1
+    );
+    assert_eq!(
+        count("SELECT COUNT(*) FROM space_modules WHERE space_id = 'gone'"),
+        1
+    );
+    std::fs::remove_dir_all(dir).ok();
+}

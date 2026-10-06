@@ -211,6 +211,8 @@ export interface PageSummary {
   linked: Entity[];
   /// Jot rows only: the most recent related Session occurrence.
   session: SessionContext | null;
+  /// Note rows only: live Courses linked directly or through the Note's Session.
+  courses: Entity[];
 }
 
 export interface SessionContext {
@@ -399,6 +401,43 @@ export interface CourseDetails {
   professor: string | null;
 }
 
+/// One Exam or Assignment counting towards a course's grade.
+export interface GradeItem {
+  entity: Entity;
+  kind: "exam" | "assignment";
+  /// As stored: a fraction, or a whole percentage in older data. Only Exams have one.
+  weight: number | null;
+  /// What share of the course's grade it counts for, 0 to 1.
+  share: number;
+  grade: number | null;
+  /// The exam's or the assignment's own status.
+  status: string;
+  /// The exam date, or the day the assignment is due.
+  date: string | null;
+}
+
+export interface CourseReport {
+  course: Entity;
+  grades: CourseGrades;
+  items: GradeItem[];
+}
+
+export interface SemesterReport {
+  /// `null` for the courses that are in no semester.
+  semester: Semester | null;
+  /// Mean of the grades of its courses that have one.
+  gpa: number | null;
+  gradedCourseCount: number;
+  courses: CourseReport[];
+}
+
+/// A Space's courses and the work behind their grades, by semester.
+export interface GradeReport {
+  semesters: SemesterReport[];
+  /// Mean of every graded course's grade, across all semesters.
+  gpa: number | null;
+}
+
 /// A Course's grade rolled up from its Exams and Assignments.
 export interface CourseGrades {
   /// Weighted mean of the graded items, `null` until one is graded.
@@ -411,7 +450,12 @@ export interface CourseGrades {
 
 export interface Assignment {
   entity: Entity;
+  /// For one due before a session this is the resolved day, worked out when read.
   dueDate: string | null;
+  /// Due this many days before the Course's next session; null for a fixed date.
+  dueSessionOffsetDays: number | null;
+  /// Its share of the course's grade: a fraction, or a whole percentage in older data.
+  weight: number | null;
   status: string;
   grade: number | null;
 }

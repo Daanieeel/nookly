@@ -5,6 +5,7 @@ import { makeCalendarEntry, makeExam, makeSession } from "#/test/fixtures.ts";
 import { setDateTimeSettings } from "#/test/time.ts";
 import {
   DAY_MINUTES,
+  blockLinesFor,
   buildColumns,
   dayKey,
   daySpanFor,
@@ -270,5 +271,25 @@ describe("buildColumns", () => {
     ];
     const [, wednesday] = buildColumns(days, sessions, []);
     expect(wednesday.lanes.size).toBe(2);
+  });
+});
+
+describe("blockLinesFor", () => {
+  // A bug found by hand: a 60 minute session printed four lines into 48px, so they
+  // overlapped. Lines that don't fit are left out instead.
+  it("fits a title and a time into an hour", () => {
+    expect(blockLinesFor(heightPxFor(14 * 60, 15 * 60))).toBe(2);
+  });
+
+  it("fits a third line from 56px and a fourth from 72px", () => {
+    expect(blockLinesFor(55)).toBe(2);
+    expect(blockLinesFor(56)).toBe(3);
+    expect(blockLinesFor(71)).toBe(3);
+    expect(blockLinesFor(72)).toBe(4);
+    expect(blockLinesFor(heightPxFor(14 * 60, 15 * 60 + 30))).toBe(4);
+  });
+
+  it("always keeps the title", () => {
+    expect(blockLinesFor(heightPxFor(10 * 60, 10 * 60 + 5))).toBe(1);
   });
 });

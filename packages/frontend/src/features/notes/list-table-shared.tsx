@@ -1,9 +1,10 @@
-import { IconSearch } from "@tabler/icons-react";
+import { IconClock, IconSearch } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, SortingState, Table as TanstackTable } from "@tanstack/react-table";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { DataTable, type DataTableGroup } from "#/components/data-table/data-table.tsx";
 import { DataTableColumnHeader } from "#/components/data-table/data-table-column-header.tsx";
+import type { ActiveFilter, FilterField } from "#/components/filter-menu.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Input } from "@nookly/ui/components/input";
 import type { Label, PageSummary } from "#/lib/api/types.ts";
@@ -20,6 +21,44 @@ import { prefetchBlocks } from "./blocks-query";
 const SORTABLE_COLUMNS = new Set(["key", "title", "edited"]);
 const DEFAULT_SORTING: SortingState = [{ id: "edited", desc: true }];
 const MAX_ROW_LABELS = 3;
+
+const DAY = 24 * 60 * 60 * 1000;
+
+const EDITED_WINDOWS = new Map([
+  ["today", DAY],
+  ["week", 7 * DAY],
+  ["month", 30 * DAY],
+]);
+
+/// Last edited as rolling windows from `now`, the same on Notes and Jots.
+export const EDITED_FILTER_FIELD: FilterField = {
+  id: "edited",
+  label: "Last edited",
+  icon: IconClock,
+  options: [
+    { value: "today", label: "Past day" },
+    { value: "week", label: "Past 7 days" },
+    { value: "month", label: "Past 30 days" },
+  ],
+};
+
+export function editedWithin(summary: PageSummary, value: string, now: number): boolean {
+  const window = EDITED_WINDOWS.get(value);
+  return window !== undefined && now - Date.parse(summary.lastEditedAt) < window;
+}
+
+/// "is" keeps rows matching any chosen value, "is not" keeps rows matching none.
+/// `has` says whether a row carries one value of a field.
+export function passesRowFilters<T>(
+  row: T,
+  filters: ActiveFilter[],
+  has: (row: T, fieldId: string, value: string) => boolean,
+): boolean {
+  return filters.every((f) => {
+    const hit = f.values.some((v) => has(row, f.fieldId, v));
+    return f.operator === "is" ? hit : !hit;
+  });
+}
 
 /// Stored as `"<column>:<asc|desc>"`, e.g. `"edited:desc"`.
 export function readStoredSorting(storageKey: string): SortingState {

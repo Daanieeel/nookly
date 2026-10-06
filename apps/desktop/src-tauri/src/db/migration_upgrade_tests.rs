@@ -1195,6 +1195,8 @@ pub(crate) fn verify_upgraded(conn: &Connection, fixture: &Fixture) {
         t("sp-life,sp-uni"),
         "{ctx}: space order"
     );
+    // Migration 37 (version 38) gives every Space with Exams or Assignments the Grades module.
+    let grades_backfilled = fixture.version < 38;
     if fixture.has("space_modules", "sp-life") {
         assert_eq!(
             scalar(
@@ -1202,17 +1204,27 @@ pub(crate) fn verify_upgraded(conn: &Connection, fixture: &Fixture) {
                 "SELECT group_concat(space_id || '/' || module_key || '=' || position, ',')
                  FROM (SELECT * FROM space_modules ORDER BY space_id, position)"
             ),
-            t("sp-life/tasks=1,sp-life/notes=2,sp-uni/courses=1,sp-uni/files=2"),
+            t(if grades_backfilled {
+                "sp-life/tasks=1,sp-life/notes=2,sp-uni/courses=1,sp-uni/files=2,sp-uni/grades=3"
+            } else {
+                "sp-life/tasks=1,sp-life/notes=2,sp-uni/courses=1,sp-uni/files=2"
+            }),
             "{ctx}: module order"
         );
     } else {
-        // Migration 9 adds the Notes module to every Space holding a Note.
+        // Migration 9 adds the Notes module to every Space holding a Note, and the Grades
+        // module (migration 37) comes to every Space holding an Exam or an Assignment.
         assert_eq!(
             scalar(
                 conn,
-                "SELECT group_concat(space_id || '/' || module_key, ',') FROM space_modules"
+                "SELECT group_concat(space_id || '/' || module_key, ',')
+                 FROM (SELECT * FROM space_modules ORDER BY space_id, module_key)"
             ),
-            t("sp-life/notes"),
+            t(if grades_backfilled {
+                "sp-life/notes,sp-uni/grades"
+            } else {
+                "sp-life/notes"
+            }),
             "{ctx}: backfilled modules"
         );
     }

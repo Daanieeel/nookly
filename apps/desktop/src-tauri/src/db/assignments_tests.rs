@@ -298,3 +298,278 @@ fn unicode_and_long_titles_round_trip() {
         );
     }
 }
+
+// --- Due before the next session ---------------------------------------------
+
+fn session(conn: &Connection, space: &str, course: &str, date: &str) -> String {
+    crate::db::sessions::create_one_off_session(
+        conn,
+        space.into(),
+        "Lecture".into(),
+        course.into(),
+        date.into(),
+        "10:00".into(),
+        "12:00".into(),
+        None,
+    )
+    .unwrap()
+    .entity
+    .id
+}
+
+fn cancel(conn: &Connection, session_id: &str) {
+    crate::db::sessions::override_occurrence(
+        conn,
+        session_id,
+        crate::db::sessions::OccurrenceOverride {
+            cancelled: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+}
+
+#[test]
+fn due_before_a_session_is_the_next_sessions_day_minus_the_offset() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    session(&conn, &space.id, &course.id, "2026-04-06");
+    session(&conn, &space.id, &course.id, "2026-04-13");
+    let due = |offset, today| next_session_due(&conn, &course.id, offset, today).unwrap();
+    assert_eq!(due(0, "2026-04-01").as_deref(), Some("2026-04-06"));
+    assert_eq!(due(2, "2026-04-01").as_deref(), Some("2026-04-04"));
+    // The session day itself still counts: it is due today.
+    assert_eq!(due(0, "2026-04-06").as_deref(), Some("2026-04-06"));
+}
+
+#[test]
+fn due_before_a_session_jumps_to_the_next_one_once_the_session_has_passed() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    session(&conn, &space.id, &course.id, "2026-04-06");
+    session(&conn, &space.id, &course.id, "2026-04-13");
+    let due = |offset, today| next_session_due(&conn, &course.id, offset, today).unwrap();
+    assert_eq!(due(0, "2026-04-07").as_deref(), Some("2026-04-13"));
+    // Past the last one, it stays on that session, and so is overdue.
+    assert_eq!(due(0, "2026-04-14").as_deref(), Some("2026-04-13"));
+}
+
+// A bug found by hand: "1 week before" a session less than a week away showed no due
+// date, because the sessions whose due day had already passed were skipped. The next
+// session is still the next session, and the assignment is simply overdue.
+#[test]
+fn due_before_a_session_stays_on_the_next_session_even_when_that_day_is_past() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    session(&conn, &space.id, &course.id, "2026-04-06");
+    let due = |offset, today| next_session_due(&conn, &course.id, offset, today).unwrap();
+    assert_eq!(due(7, "2026-04-04").as_deref(), Some("2026-03-30"));
+    assert_eq!(due(3, "2026-04-06").as_deref(), Some("2026-04-03"));
+}
+
+#[test]
+fn due_before_a_session_skips_cancelled_and_trashed_sessions() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let cancelled = session(&conn, &space.id, &course.id, "2026-04-06");
+    let trashed = session(&conn, &space.id, &course.id, "2026-04-08");
+    session(&conn, &space.id, &course.id, "2026-04-13");
+    conn.execute(
+        "UPDATE sessions SET cancelled = 1 WHERE entity_id = ?1",
+        params![cancelled],
+    )
+    .unwrap();
+    soft_delete_entity(&conn, &trashed).unwrap();
+    assert_eq!(
+        next_session_due(&conn, &course.id, 0, "2026-04-01")
+            .unwrap()
+            .as_deref(),
+        Some("2026-04-13")
+    );
+}
+
+#[test]
+fn due_before_a_session_only_looks_at_its_own_course() {
+    let conn = test_conn();
+    let (space, algo) = test_space_with_course(&conn, "Uni", "Algo");
+    let other = crate::db::courses::create_course(&conn, space.id.clone(), "Logic".into()).unwrap();
+    session(&conn, &space.id, &other.id, "2026-04-02");
+    session(&conn, &space.id, &algo.id, "2026-04-09");
+    assert_eq!(
+        next_session_due(&conn, &algo.id, 0, "2026-04-01")
+            .unwrap()
+            .as_deref(),
+        Some("2026-04-09")
+    );
+}
+
+#[test]
+fn an_assignment_due_before_a_session_reads_the_resolved_day() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    // Far apart, so the test doesn't depend on today's date.
+    session(&conn, &space.id, &course.id, "2000-01-03");
+    session(&conn, &space.id, &course.id, "2099-01-05");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", Some("2026-04-01"));
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(1)).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert_eq!(stored.due_session_offset_days, Some(1));
+    assert_eq!(stored.due_date.as_deref(), Some("2099-01-04"));
+    let listed = list_assignments(&conn, &space.id).unwrap();
+    assert_eq!(listed[0].due_date.as_deref(), Some("2099-01-04"));
+}
+
+#[test]
+fn an_assignment_due_before_a_session_has_no_due_day_without_any_session() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", Some("2026-04-01"));
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(0)).unwrap();
+    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().due_date, None);
+    // A trashed session is gone for good, so it is no session either.
+    let only = session(&conn, &space.id, &course.id, "2099-01-05");
+    soft_delete_entity(&conn, &only).unwrap();
+    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().due_date, None);
+}
+
+// A bug found by hand: cancelling the only session left the assignment with no due date,
+// so the sidebar went back to "Set due date". With nothing upcoming to move to, it stays
+// on the last session the course had.
+#[test]
+fn cancelling_the_only_session_keeps_the_due_day() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let only = session(&conn, &space.id, &course.id, "2099-01-05");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(1)).unwrap();
+    assert_eq!(
+        get_assignment(&conn, &a.entity.id)
+            .unwrap()
+            .due_date
+            .as_deref(),
+        Some("2099-01-04")
+    );
+    cancel(&conn, &only);
+    let after = get_assignment(&conn, &a.entity.id).unwrap();
+    assert_eq!(after.due_date.as_deref(), Some("2099-01-04"));
+    assert_eq!(after.due_session_offset_days, Some(1));
+    assert_eq!(
+        list_assignments(&conn, &space.id).unwrap()[0]
+            .due_date
+            .as_deref(),
+        Some("2099-01-04")
+    );
+}
+
+#[test]
+fn cancelling_a_session_moves_the_due_day_to_the_next_one_that_is_on() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let first = session(&conn, &space.id, &course.id, "2099-01-05");
+    session(&conn, &space.id, &course.id, "2099-01-12");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(0)).unwrap();
+    cancel(&conn, &first);
+    assert_eq!(
+        get_assignment(&conn, &a.entity.id)
+            .unwrap()
+            .due_date
+            .as_deref(),
+        Some("2099-01-12")
+    );
+}
+
+#[test]
+fn picking_a_date_again_stops_following_sessions() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    session(&conn, &space.id, &course.id, "2099-01-05");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(0)).unwrap();
+    update_assignment_due_date(&conn, &a.entity.id, Some("2030-06-01".into())).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert_eq!(stored.due_session_offset_days, None);
+    assert_eq!(stored.due_date.as_deref(), Some("2030-06-01"));
+}
+
+#[test]
+fn due_before_a_session_can_be_switched_off_and_refuses_a_negative_offset() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", Some("2030-06-01"));
+    assert!(matches!(
+        update_assignment_due_before_session(&conn, &a.entity.id, Some(-1)),
+        Err(AppError::InvalidInput(_))
+    ));
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(0)).unwrap();
+    update_assignment_due_before_session(&conn, &a.entity.id, None).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert_eq!(stored.due_session_offset_days, None);
+    assert_eq!(stored.due_date.as_deref(), Some("2030-06-01"));
+    assert!(matches!(
+        update_assignment_due_before_session(&conn, "ghost", Some(0)),
+        Err(AppError::NotFound(_))
+    ));
+}
+
+// --- Weight --------------------------------------------------------------------
+
+#[test]
+fn an_assignment_has_no_weight_until_one_is_set_and_it_can_be_cleared() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    assert_eq!(a.weight, None);
+    update_assignment_weight(&conn, &a.entity.id, Some(0.3)).unwrap();
+    assert_eq!(
+        get_assignment(&conn, &a.entity.id).unwrap().weight,
+        Some(0.3)
+    );
+    assert_eq!(
+        list_assignments(&conn, &space.id).unwrap()[0].weight,
+        Some(0.3)
+    );
+    update_assignment_weight(&conn, &a.entity.id, None).unwrap();
+    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().weight, None);
+}
+
+#[test]
+fn an_assignment_weight_refuses_a_negative_number_and_an_unknown_assignment() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    assert!(matches!(
+        update_assignment_weight(&conn, &a.entity.id, Some(-0.1)),
+        Err(AppError::InvalidInput(_))
+    ));
+    assert!(matches!(
+        update_assignment_weight(&conn, "ghost", Some(0.1)),
+        Err(AppError::NotFound(_))
+    ));
+    assert_eq!(get_assignment(&conn, &a.entity.id).unwrap().weight, None);
+}
+
+#[test]
+fn a_weighted_assignment_counts_for_its_share_of_the_course_grade() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let exam = crate::db::exams::create_exam(
+        &conn,
+        space.id.clone(),
+        "Final".into(),
+        course.id.clone(),
+        None,
+        None,
+    )
+    .unwrap();
+    crate::db::exams::update_exam_grade(&conn, &exam.entity.id, Some(1.0)).unwrap();
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(3.0)).unwrap();
+    // Without a weight both split the grade evenly.
+    let even = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
+    assert_eq!(even.grade, Some(2.0));
+    // With 25% on the assignment, the unweighted exam takes the other 75%.
+    update_assignment_weight(&conn, &a.entity.id, Some(0.25)).unwrap();
+    let weighted = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
+    assert!((weighted.grade.unwrap() - 1.5).abs() < 1e-9);
+}

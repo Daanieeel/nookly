@@ -64,6 +64,18 @@ fn removal_group(module_key: &str) -> &'static [&'static str] {
         "files" => &["files"],
         "bookmarks" => &["bookmarks"],
         "recipes" => &["recipes"],
+        // Has no entities of its own: a report on Exams and Assignments.
+        "grades" => &["grades"],
+        _ => &[],
+    }
+}
+
+/// Modules that come along when `module_key` is added, and stay when it is removed:
+/// the Grade Report appears with Exams or Assignments, but is its own module. Mirrors
+/// `MODULE_COMPANIONS` in `src/lib/modules.ts`.
+fn companions(module_key: &str) -> &'static [&'static str] {
+    match module_key {
+        "exams" | "assignments" => &["grades"],
         _ => &[],
     }
 }
@@ -98,6 +110,9 @@ fn ensure_space_module(conn: &Connection, space_id: &str, module_key: &str) -> A
         "INSERT OR IGNORE INTO space_modules (space_id, module_key, added_at, position) VALUES (?1, ?2, ?3, ?4)",
         params![space_id, module_key, super::now(), position],
     )?;
+    for companion in companions(module_key) {
+        ensure_space_module(conn, space_id, companion)?;
+    }
     Ok(())
 }
 
@@ -370,5 +385,71 @@ mod tests {
         assert_eq!(visible_titles(&conn, &home.id), vec!["Latin"]);
         assert!(remove_space_module(&conn, &work.id, "semesters", false).is_err());
         assert!(remove_space_module(&conn, &work.id, "nope", false).is_err());
+    }
+
+    fn modules(conn: &Connection, space_id: &str) -> Vec<String> {
+        let mut modules = list_space_modules(conn, space_id).unwrap();
+        modules.sort();
+        modules
+    }
+
+    #[test]
+    fn exams_and_assignments_bring_the_grades_module_along() {
+        let conn = setup();
+        let exams = create_space(&conn, "Exams".into(), None, "#000".into()).unwrap();
+        let assignments = create_space(&conn, "Assignments".into(), None, "#000".into()).unwrap();
+        let other = create_space(&conn, "Other".into(), None, "#000".into()).unwrap();
+        add_space_module(&conn, &exams.id, "exams").unwrap();
+        add_space_module(&conn, &assignments.id, "assignments").unwrap();
+        add_space_module(&conn, &other.id, "tasks").unwrap();
+        assert_eq!(modules(&conn, &exams.id), vec!["exams", "grades"]);
+        assert_eq!(
+            modules(&conn, &assignments.id),
+            vec!["assignments", "grades"]
+        );
+        assert_eq!(modules(&conn, &other.id), vec!["tasks"]);
+    }
+
+    #[test]
+    fn creating_the_first_exam_or_assignment_adds_grades_too() {
+        let conn = setup();
+        let (space, course) = crate::db::test_space_with_course(&conn, "Uni", "Algo");
+        assert_eq!(modules(&conn, &space.id), vec!["courses", "semesters"]);
+        crate::db::assignments::create_assignment(
+            &conn,
+            space.id.clone(),
+            "Sheet".into(),
+            course.id,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            modules(&conn, &space.id),
+            vec!["assignments", "courses", "grades", "semesters"]
+        );
+    }
+
+    #[test]
+    fn grades_has_no_content_of_its_own_and_stays_when_exams_go() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        add_space_module(&conn, &space.id, "exams").unwrap();
+        remove_space_module(&conn, &space.id, "exams", false).unwrap();
+        assert_eq!(modules(&conn, &space.id), vec!["grades"]);
+        remove_space_module(&conn, &space.id, "grades", true).unwrap();
+        assert!(modules(&conn, &space.id).is_empty());
+    }
+
+    #[test]
+    fn a_removed_grades_module_is_not_brought_back_by_more_exams() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        add_space_module(&conn, &space.id, "exams").unwrap();
+        remove_space_module(&conn, &space.id, "grades", false).unwrap();
+        add_space_module(&conn, &space.id, "exams").unwrap();
+        assert_eq!(modules(&conn, &space.id), vec!["exams"]);
+        // Only adding it explicitly brings it back.
+        add_space_module(&conn, &space.id, "grades").unwrap();
+        assert_eq!(modules(&conn, &space.id), vec!["exams", "grades"]);
     }
 }

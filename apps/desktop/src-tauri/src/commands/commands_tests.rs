@@ -96,6 +96,7 @@ ipc_commands![
     courses::list_courses,
     courses::create_semester,
     courses::list_semesters,
+    courses::get_grade_report,
     courses::update_semester,
     courses::set_current_semester,
     courses::reorder_semesters,
@@ -158,6 +159,8 @@ ipc_commands![
     assignments::list_assignments_all_spaces,
     assignments::update_assignment_status,
     assignments::update_assignment_due_date,
+    assignments::update_assignment_due_before_session,
+    assignments::update_assignment_weight,
     assignments::set_assignment_course,
     recipes::create_recipe,
     recipes::list_recipes,
@@ -2063,6 +2066,20 @@ fn assignments_create_list_and_update() {
     assert_eq!(stored.grade, Some(1.3));
     assert_eq!(stored.due_date.as_deref(), Some("2026-05-05"));
 
+    h.ok(
+        "update_assignment_due_before_session",
+        json!({ "entityId": id, "offsetDays": 2 }),
+    );
+    let stored = h.db(|c| db::assignments::get_assignment(c, &id).unwrap());
+    assert_eq!(stored.due_session_offset_days, Some(2));
+
+    h.ok(
+        "update_assignment_weight",
+        json!({ "entityId": id, "weight": 0.25 }),
+    );
+    let stored = h.db(|c| db::assignments::get_assignment(c, &id).unwrap());
+    assert_eq!(stored.weight, Some(0.25));
+
     // A null grade on a status change clears the grade.
     h.ok(
         "update_assignment_status",
@@ -2074,6 +2091,33 @@ fn assignments_create_list_and_update() {
             .remove(0)
     });
     assert_eq!(stored.grade, None);
+}
+
+#[test]
+fn courses_get_grade_report() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let course = h.course(&space, "Algo");
+    let exam = id_of(&h.ok(
+        "create_exam",
+        json!({ "spaceId": space, "title": "Final", "courseId": course, "examDate": "2026-02-01", "weight": 0.5 }),
+    ));
+    h.ok(
+        "update_exam_grade",
+        json!({ "entityId": exam, "grade": 1.7 }),
+    );
+
+    let report = h.ok("get_grade_report", json!({ "spaceId": space }));
+    assert_eq!(
+        report,
+        h.db(|c| to_json(db::grade_report::get_grade_report(c, &space).unwrap()))
+    );
+    assert_eq!(report["gpa"], json!(1.7));
+    assert_eq!(report["semesters"][0]["semester"], Value::Null);
+    assert_eq!(
+        report["semesters"][0]["courses"][0]["items"][0]["kind"],
+        "exam"
+    );
 }
 
 #[test]

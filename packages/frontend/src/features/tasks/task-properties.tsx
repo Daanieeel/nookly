@@ -365,12 +365,6 @@ export function DueDatePicker({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const presets = [
-    { label: "Today", day: addDays(0) },
-    { label: "Tomorrow", day: addDays(1) },
-    { label: "End of this week", day: addDays(daysToFriday()) },
-    { label: "In one week", day: addDays(7) },
-  ];
 
   function choose(day: string | null) {
     setOpen(false);
@@ -381,31 +375,57 @@ export function DueDatePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-68" align={align} onKeyDown={stopKeys}>
-        <Command loop>
-          <CommandInput placeholder={`Set ${noun}…`} />
-          <CommandList className="p-1">
-            <CommandEmpty>No match.</CommandEmpty>
-            <CommandGroup className="p-0">
-              {presets.map((p) => (
-                <CommandItem key={p.label} value={p.label} onSelect={() => choose(p.day)}>
-                  <IconCalendarEvent />
-                  <span className="truncate">{p.label}</span>
-                  <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
-                </CommandItem>
-              ))}
-              {value && (
-                <CommandItem value={`Remove ${noun}`} onSelect={() => choose(null)}>
-                  <IconX />
-                  Remove {noun}
-                </CommandItem>
-              )}
-            </CommandGroup>
-          </CommandList>
-          <CommandSeparator />
-          <Calendar value={value} onSelect={choose} className="w-auto p-2" />
-        </Command>
+        <DueDateChooser value={value} onSelect={choose} noun={noun} />
       </PopoverContent>
     </Popover>
+  );
+}
+
+/// The date picker's content: a search over presets, the remove item and a calendar.
+/// Also used inside other popovers, e.g. an assignment's due date step.
+export function DueDateChooser({
+  value,
+  onSelect,
+  noun = "due date",
+  searchable = true,
+}: {
+  value: string | null;
+  onSelect: (day: string | null) => void;
+  /// Names the date in the search placeholder and the remove item.
+  noun?: string;
+  /// Shows the search box above the presets.
+  searchable?: boolean;
+}) {
+  const presets = [
+    { label: "Today", day: addDays(0) },
+    { label: "Tomorrow", day: addDays(1) },
+    { label: "End of this week", day: addDays(daysToFriday()) },
+    { label: "In one week", day: addDays(7) },
+  ];
+  return (
+    <Command loop onKeyDown={stopKeys}>
+      {searchable && <CommandInput placeholder={`Set ${noun}…`} />}
+      <CommandList className="p-1">
+        <CommandEmpty>No match.</CommandEmpty>
+        <CommandGroup className="p-0">
+          {presets.map((p) => (
+            <CommandItem key={p.label} value={p.label} onSelect={() => onSelect(p.day)}>
+              <IconCalendarEvent />
+              <span className="truncate">{p.label}</span>
+              <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
+            </CommandItem>
+          ))}
+          {value && (
+            <CommandItem value={`Remove ${noun}`} onSelect={() => onSelect(null)}>
+              <IconX />
+              Remove {noun}
+            </CommandItem>
+          )}
+        </CommandGroup>
+      </CommandList>
+      <CommandSeparator />
+      <Calendar value={value} onSelect={onSelect} className="w-auto p-2" />
+    </Command>
   );
 }
 
@@ -414,28 +434,36 @@ export function DueDatePicker({
 export function DueDateButton({
   value,
   onSelect,
+  renderPicker,
   pending,
   failed,
 }: {
   value: string | null;
-  onSelect: (day: string | null) => void;
+  onSelect?: (day: string | null) => void;
+  /// Wraps the button in a different picker than the date one, e.g. an assignment's.
+  renderPicker?: (trigger: ReactNode) => ReactNode;
   pending: boolean;
   failed: boolean;
 }) {
+  const trigger = (
+    <button
+      type="button"
+      aria-label={failed ? "Couldn't set due date, try again" : "Change Due Date"}
+      className={cn(
+        "pointer-events-auto -ml-1 flex h-6 max-w-full cursor-pointer items-center gap-1 truncate rounded-sm px-1 hover:bg-accent data-[state=open]:bg-accent",
+        failed && "text-destructive",
+      )}
+    >
+      <PendingIcon pending={pending} failed={failed} idle={null} />
+      <DueDateLabel dueDate={value} />
+    </button>
+  );
   return (
-    <DueDatePicker value={value} onSelect={onSelect}>
-      <button
-        type="button"
-        aria-label={failed ? "Couldn't set due date, try again" : "Change Due Date"}
-        className={cn(
-          "pointer-events-auto -ml-1 flex h-6 max-w-full cursor-pointer items-center gap-1 truncate rounded-sm px-1 hover:bg-accent data-[state=open]:bg-accent",
-          failed && "text-destructive",
-        )}
-      >
-        <PendingIcon pending={pending} failed={failed} idle={null} />
-        <DueDateLabel dueDate={value} />
-      </button>
-    </DueDatePicker>
+    renderPicker?.(trigger) ?? (
+      <DueDatePicker value={value} onSelect={(day) => onSelect?.(day)}>
+        {trigger}
+      </DueDatePicker>
+    )
   );
 }
 
