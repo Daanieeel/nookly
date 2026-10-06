@@ -47,7 +47,7 @@ describe("QuickCreateTask related picker", () => {
     expect(callsOf("create_relationship")).toEqual([]);
   });
 
-  it("offers six relative dates beside the calendar, with no search box", async () => {
+  it("offers eight relative dates beside the calendar, with no search box", async () => {
     freezeTime("2026-03-11T12:00:00"); // a Wednesday
     const { user, onCreated } = setup();
     await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
@@ -59,6 +59,8 @@ describe("QuickCreateTask related picker", () => {
       "Next Monday",
       "In one week",
       "In two weeks",
+      "End of this month",
+      "In one month",
     ];
     for (const label of labels) expect(await screen.findByText(label)).toBeInTheDocument();
     // The presets are a short list and a calendar: nothing to search.
@@ -69,15 +71,35 @@ describe("QuickCreateTask related picker", () => {
     expect(callsOf("create_task")[0]).toMatchObject({ dueDate: "2026-03-16" });
   });
 
-  it("picks two weeks out", async () => {
+  it.each([
+    // Next month can be shorter, and on the month's last day "end of this month" is today.
+    ["2026-01-31T12:00:00", "In one month", "2026-02-28"],
+    ["2026-01-31T12:00:00", "End of this month", "2026-02-28"],
+    ["2026-12-15T12:00:00", "In one month", "2027-01-15"],
+  ])("handles month ends: %s %s", async (now, label, day) => {
+    freezeTime(now);
+    const { user, onCreated } = setup();
+    await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
+    await user.click(screen.getByRole("button", { name: "Change Due Date" }));
+    await user.click(await screen.findByText(label));
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(callsOf("create_task")[0]).toMatchObject({ dueDate: day });
+  });
+
+  it.each([
+    ["In two weeks", "2026-03-25"],
+    ["End of this month", "2026-03-31"],
+    ["In one month", "2026-04-11"],
+  ])("picks %s", async (label, day) => {
     freezeTime("2026-03-11T12:00:00");
     const { user, onCreated } = setup();
     await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
     await user.click(screen.getByRole("button", { name: "Change Due Date" }));
-    await user.click(await screen.findByText("In two weeks"));
+    await user.click(await screen.findByText(label));
     await user.click(screen.getByRole("button", { name: "Create task" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
-    expect(callsOf("create_task")[0]).toMatchObject({ dueDate: "2026-03-25" });
+    expect(callsOf("create_task")[0]).toMatchObject({ dueDate: day });
   });
 
   it("clears every picked label from a Clear all row under the search box", async () => {
