@@ -688,6 +688,7 @@ fn all() -> Vec<M<'static>> {
         -- The Grade Report module comes with Exams and Assignments. Spaces already
         -- using either get it now, at the end of their module order. A Space that
         -- removed the module keeps its hidden row, as INSERT OR IGNORE leaves it be.
+        -- Rows pointing at a Space that no longer exists are left as they are.
         INSERT OR IGNORE INTO space_modules (space_id, module_key, added_at, position)
             SELECT s.space_id, 'grades', strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
                    COALESCE((SELECT MAX(m.position) FROM space_modules m
@@ -699,7 +700,8 @@ fn all() -> Vec<M<'static>> {
                 SELECT space_id FROM entities
                     WHERE type IN ('exam', 'assignment')
                       AND deleted_at IS NULL AND hidden_at IS NULL
-            ) s;
+            ) s
+            WHERE s.space_id IN (SELECT id FROM spaces);
         ",
     ), M::up(
         "
@@ -818,6 +820,39 @@ mod grades_module_backfill {
         assert!(both
             .iter()
             .any(|(key, _, hidden)| key == "grades" && hidden.is_some()));
+    }
+
+    /// A user's upgrade stopped here: rows of theirs pointed at a Space that no longer
+    /// exists, and the Grades row for it failed its foreign key. Those rows are left as
+    /// they are, and the Space that is gone gets no module.
+    #[test]
+    fn rows_of_a_space_that_no_longer_exists_do_not_stop_it() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        space(&conn, "kept");
+        module(&conn, "kept", "exams", 0, None);
+        conn.execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO space_modules (space_id, module_key, added_at, position)
+                 VALUES ('gone', 'assignments', '2026-01-01T00:00:00+00:00', 0);
+             INSERT INTO entities (id, space_id, type, title, created_at, updated_at)
+                 VALUES ('e1', 'gone', 'exam', 'Final', '2026-01-01T00:00:00+00:00',
+                         '2026-01-01T00:00:00+00:00');
+             PRAGMA foreign_keys = ON;",
+        )
+        .unwrap();
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        let keys: Vec<String> = rows(&conn, "kept").into_iter().map(|r| r.0).collect();
+        assert_eq!(keys, vec!["exams", "grades"]);
+        assert_eq!(rows(&conn, "gone").len(), 1);
+        let entity: i64 = conn
+            .query_row("SELECT COUNT(*) FROM entities WHERE id = 'e1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(entity, 1);
     }
 }
 
@@ -1193,7 +1228,11 @@ mod history {
         0x92f77bf6cda3ea8c,
         0x7070e02fbefb5df4,
         0xea6ca357124886f,
-        0x795439dbf90ce14e,
+        // Migration 38, the one sanctioned rewrite: it failed on databases with rows
+        // pointing at a Space that no longer exists, and a failing migration cannot be
+        // fixed forward. The added guard only skips those Spaces, so every database it
+        // already ran on would get the same result.
+        0xec9ec2b054e9e2f9,
         0x689c23fb341a5f0a,
     ];
 
