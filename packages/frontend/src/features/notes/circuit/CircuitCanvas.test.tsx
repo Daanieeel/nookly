@@ -20,18 +20,25 @@ import {
 
 function Harness({
   initial = "",
-  source = "Y = A & B",
+  source: initialSource = "Y = A & B",
   onChange,
+  onSourceChange,
 }: {
   initial?: string;
   source?: string;
   onChange: (drawing: string) => void;
+  onSourceChange?: (code: string) => void;
 }) {
   const [drawing, setDrawing] = useState(initial);
+  const [source, setSource] = useState(initialSource);
   return (
     <CircuitCanvas
       drawing={drawing}
       source={source}
+      onSourceChange={(code) => {
+        onSourceChange?.(code);
+        setSource(code);
+      }}
       onChange={(next) => {
         onChange(next);
         setDrawing(next);
@@ -42,12 +49,18 @@ function Harness({
 
 function setup(initial: Drawing = emptyDrawing(), source?: string) {
   const onChange = vi.fn<(drawing: string) => void>();
+  const onSourceChange = vi.fn<(code: string) => void>();
   const view = renderWithProviders(
-    <Harness initial={stringifyDrawing(initial)} source={source} onChange={onChange} />,
+    <Harness
+      initial={stringifyDrawing(initial)}
+      source={source}
+      onChange={onChange}
+      onSourceChange={onSourceChange}
+    />,
   );
   const last = () => parseDrawing(onChange.mock.lastCall?.[0] ?? "");
   const canvas = () => screen.getByRole("application", { name: /circuit drawing/i });
-  return { ...view, onChange, last, canvas };
+  return { ...view, onChange, onSourceChange, last, canvas };
 }
 
 /// A drawing of `kinds` with the ids they got.
@@ -199,7 +212,7 @@ describe("CircuitCanvas", () => {
     const { drawing } = draw(["NOT"]);
     const canvas = (stored: string) => (
       <TooltipProvider>
-        <CircuitCanvas drawing={stored} source="" onChange={() => {}} />
+        <CircuitCanvas drawing={stored} source="" onChange={() => {}} onSourceChange={() => {}} />
       </TooltipProvider>
     );
     const { rerender } = render(canvas(""));
@@ -257,5 +270,44 @@ describe("CircuitCanvas accessibility", () => {
     const { container } = setup(drawing);
     act(() => screen.getByRole("button", { name: "AND gate 1" }).focus());
     await expectNoA11yViolations(container);
+  });
+
+  describe("writing the code", () => {
+    /// A wired INPUT -> NOT -> OUTPUT circuit, one wire short of finished.
+    function almostDone() {
+      let { drawing, ids } = draw(["INPUT", "NOT", "OUTPUT"]);
+      drawing = setLabel(setLabel(drawing, ids[0]!, "A"), ids[2]!, "Y");
+      drawing = connect(drawing, ids[0]!, ids[1]!, 0);
+      return { drawing, ids };
+    }
+
+    it("writes the code once the drawing is finished", () => {
+      const { drawing, ids } = almostDone();
+      const { onSourceChange, canvas } = setup(drawing, "");
+      const from = outPoint(drawing.parts[1]!);
+      const to = pinPoint(drawing.parts[2]!, 0);
+      expect(ids).toHaveLength(3);
+      fireEvent.pointerDown(canvas(), point(from.x, from.y));
+      fireEvent.pointerMove(canvas(), point(to.x - 2, to.y));
+      fireEvent.pointerUp(canvas(), point(to.x - 2, to.y));
+      expect(onSourceChange).toHaveBeenLastCalledWith("Y = !A");
+    });
+
+    it("writes nothing while the drawing is unfinished", async () => {
+      const { user, onSourceChange } = setup(emptyDrawing(), "");
+      await user.click(screen.getByRole("button", { name: "Add AND gate" }));
+      expect(onSourceChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps code that is not what the drawing was", () => {
+      const { drawing } = almostDone();
+      const { onSourceChange, canvas } = setup(drawing, "Y = A & B");
+      const from = outPoint(drawing.parts[1]!);
+      const to = pinPoint(drawing.parts[2]!, 0);
+      fireEvent.pointerDown(canvas(), point(from.x, from.y));
+      fireEvent.pointerMove(canvas(), point(to.x - 2, to.y));
+      fireEvent.pointerUp(canvas(), point(to.x - 2, to.y));
+      expect(onSourceChange).not.toHaveBeenCalled();
+    });
   });
 });

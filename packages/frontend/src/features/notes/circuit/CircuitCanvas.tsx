@@ -48,6 +48,7 @@ import {
   drawingModel,
   PIN_HIT,
 } from "./drawing";
+import { drawingToCode } from "./code";
 import { circuitModel, compareModels, type CheckResult } from "./evaluate";
 import type { Run } from "./label";
 import { CircuitError, parseCircuit } from "./parse";
@@ -80,6 +81,17 @@ interface History {
 const HISTORY_LIMIT = 50;
 const CLICK_SLOP = 4;
 const NOT_CONNECTED = "";
+
+/// Whether `source` is what `before` drew (or was written from it), so writing the
+/// new drawing's code over it loses nothing the person typed.
+function codeFollows(source: string, before: Drawing, written: string | null): boolean {
+  if (!source.trim() || source === written) return true;
+  try {
+    return compareModels(circuitModel(parseCircuit(source)), drawingModel(before)).ok;
+  } catch {
+    return false;
+  }
+}
 
 const nameRuns = (part: Part): Run[] => [{ text: part.label || "?", bars: 0, italic: true }];
 
@@ -117,8 +129,15 @@ const SELECT_CLASS =
   "h-8 min-w-0 rounded-md border border-input bg-accent px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /// The interactive tab of a circuit block: gates are placed and wired by hand, as
-/// on paper. It never reads the block's code except to check the drawing against it.
-export function CircuitCanvas({ drawing: stored, source, onChange }: InteractiveProps) {
+/// on paper. A finished drawing writes the block's code, unless the code says
+/// something else than the drawing did, which is left alone. Otherwise the code is
+/// only read to check the drawing against it.
+export function CircuitCanvas({
+  drawing: stored,
+  source,
+  onChange,
+  onSourceChange,
+}: InteractiveProps) {
   const [drawing, setDrawing] = useState(() => parseDrawing(stored));
   const [history, setHistory] = useState<History>({ past: [], future: [] });
   const [selected, setSelected] = useState<Selection>(null);
@@ -126,6 +145,7 @@ export function CircuitCanvas({ drawing: stored, source, onChange }: Interactive
   const [result, setResult] = useState<CheckResult | null>(null);
   const [available, setAvailable] = useState(0);
   const emitted = useRef(stored);
+  const written = useRef<string | null>(null);
   const drag = useRef<Drag | null>(null);
   const merging = useRef<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -158,6 +178,11 @@ export function CircuitCanvas({ drawing: stored, source, onChange }: Interactive
     setDrawing(next);
     setResult(null);
     onChange(text);
+    const code = drawingToCode(next);
+    if (code !== null && code !== source && codeFollows(source, drawing, written.current)) {
+      written.current = code;
+      onSourceChange(code);
+    }
   };
 
   /// Saves `next`, and remembers `base` for undo. Edits sharing a `merge` key, like

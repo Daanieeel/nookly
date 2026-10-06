@@ -33,30 +33,36 @@ const circuit = (attrs: Record<string, string> = {}): JSONContent => ({
 const attrsOf = (target: Editor) => target.getJSON().content?.[0]?.attrs ?? {};
 
 describe("the circuit block", () => {
+  // The interactive tab is switched off for now (`interactiveDisabled` in
+  // `source-block-extensions.ts`); the canvas itself is tested in `CircuitCanvas.test.tsx`.
+  it("shows the interactive tab disabled, with a tooltip saying so", async () => {
+    const { user } = await open(circuit());
+    const tab = screen.getByRole("button", { name: "Interactive" });
+    expect(tab).toBeDisabled();
+    await user.hover(tab);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/not available yet/i);
+  });
+
+  it("does not open the canvas when the interactive tab is clicked", async () => {
+    const { user, editor: target } = await open(circuit());
+    await user.click(screen.getByRole("button", { name: "Interactive" }));
+    expect(screen.queryByRole("application", { name: /circuit drawing/i })).toBeNull();
+    expect(attrsOf(target).view).toBe("source");
+  });
+
+  it("opens a block saved on the interactive tab as the code, keeping its drawing", async () => {
+    const stored = '{"v":1,"parts":[],"wires":[]}';
+    const { editor: target } = await open(circuit({ view: "interactive", drawing: stored }));
+    expect(screen.getByRole("button", { name: "Code" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("application", { name: /circuit drawing/i })).toBeNull();
+    expect(attrsOf(target).drawing).toBe(stored);
+  });
+
   it("has a code, an interactive and a preview tab", async () => {
     await open(circuit());
     const tabs = screen.getByRole("group", { name: "View" });
     expect(tabs).toHaveTextContent(/Code.*Interactive.*Preview/);
     expect(screen.getByRole("button", { name: "Code" })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("opens the drawing canvas on the interactive tab and keeps the choice", async () => {
-    const { user, editor: target } = await open(circuit());
-    await user.click(screen.getByRole("button", { name: "Interactive" }));
-    expect(screen.getByRole("application", { name: /circuit drawing/i })).toBeInTheDocument();
-    expect(attrsOf(target).view).toBe("interactive");
-    expect(screen.getByRole("button", { name: "Interactive" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-  });
-
-  it("saves what is drawn in the block", async () => {
-    const { user, editor: target } = await open(circuit({ view: "interactive" }));
-    await user.click(screen.getByRole("button", { name: "Add AND gate" }));
-    expect(String(attrsOf(target).drawing)).toContain('"AND"');
-    // The code is left alone.
-    expect(target.getText()).toContain("Y = A & B");
   });
 
   it("draws the code on the preview tab", async () => {
@@ -88,14 +94,6 @@ describe("the circuit block", () => {
     });
     expect(screen.queryByRole("button", { name: "Interactive" })).toBeNull();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
-  });
-
-  it("brings a drawing back from the editor's document", async () => {
-    const stored =
-      '{"v":1,"parts":[{"id":"p1","kind":"NOT","x":20,"y":20,"label":"","pins":1,"negated":[false]}],"wires":[]}';
-    const { editor: target } = await open(circuit({ view: "interactive", drawing: stored }));
-    expect(screen.getByRole("button", { name: "NOT gate 1" })).toBeInTheDocument();
-    expect(attrsOf(target).drawing).toBe(stored);
   });
 });
 

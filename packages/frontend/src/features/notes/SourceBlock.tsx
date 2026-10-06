@@ -1,7 +1,7 @@
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Selection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { type ComponentType, useEffect, useRef, useState } from "react";
+import { type ComponentType, Fragment, useEffect, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -13,6 +13,8 @@ export interface InteractiveProps {
   drawing: string;
   source: string;
   onChange: (drawing: string) => void;
+  /// Replaces the block's code, for a view that writes the code from what it drew.
+  onSourceChange: (code: string) => void;
 }
 
 export interface SourceBlockOptions {
@@ -31,6 +33,9 @@ export interface SourceBlockOptions {
   /// A third view between the code and the preview, where the block is edited by
   /// hand. It keeps its work in a `drawing` attr.
   interactive?: ComponentType<InteractiveProps>;
+  /// Switches the interactive view off: its tab stays, disabled, with this as the
+  /// tooltip, and a block saved on it opens as the code. The drawing is kept.
+  interactiveDisabled?: string;
 }
 
 type View = "source" | "interactive" | "rendered";
@@ -75,7 +80,8 @@ export function SourceBlock({
     ? ["source", "interactive", "rendered"]
     : ["source", "rendered"];
   // SAFETY: the attr is one of the views, or something stored by a newer version.
-  const view = views.includes(node.attrs.view) ? (node.attrs.view as View) : "source";
+  const saved = views.includes(node.attrs.view) ? (node.attrs.view as View) : "source";
+  const view = saved === "interactive" && options.interactiveDisabled ? "source" : saved;
   const rendered = view === "rendered";
   const source = node.textContent;
   const dark = useIsDark();
@@ -93,6 +99,17 @@ export function SourceBlock({
       cancelled = true;
     };
   }, [rendered, source, dark, options]);
+
+  const replaceSource = (code: string) => {
+    const pos = getPos();
+    if (pos === undefined) return;
+    const { state } = editor.view;
+    const from = pos + 1;
+    const to = pos + node.nodeSize - 1;
+    editor.view.dispatch(
+      code ? state.tr.replaceWith(from, to, state.schema.text(code)) : state.tr.delete(from, to),
+    );
+  };
 
   const show = (next: View) => {
     if (next === view) return;
@@ -130,18 +147,32 @@ export function SourceBlock({
             </Tooltip>
           )}
           <fieldset aria-label="View" className="flex min-w-0 shrink-0 items-center gap-0.5">
-            {views.map((name) => (
-              <Button
-                key={name}
-                variant={name === view ? "secondary" : "ghost"}
-                size="sm"
-                aria-pressed={name === view}
-                onClick={() => show(name)}
-                className="h-6 px-2"
-              >
-                {viewLabel(name, options.sourceLabel)}
-              </Button>
-            ))}
+            {views.map((name) => {
+              const disabledReason =
+                name === "interactive" ? options.interactiveDisabled : undefined;
+              const tab = (
+                <Button
+                  variant={name === view ? "secondary" : "ghost"}
+                  size="sm"
+                  aria-pressed={name === view}
+                  disabled={!!disabledReason}
+                  onClick={() => show(name)}
+                  className="h-6 px-2"
+                >
+                  {viewLabel(name, options.sourceLabel)}
+                </Button>
+              );
+              if (!disabledReason) return <Fragment key={name}>{tab}</Fragment>;
+              // A disabled button gets no pointer events, so the tooltip hangs off a wrapper.
+              return (
+                <Tooltip key={name}>
+                  <TooltipTrigger asChild>
+                    <span>{tab}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{disabledReason}</TooltipContent>
+                </Tooltip>
+              );
+            })}
           </fieldset>
         </div>
       </div>
@@ -154,6 +185,7 @@ export function SourceBlock({
             drawing={String(node.attrs.drawing ?? "")}
             source={source}
             onChange={(drawing) => updateAttributes({ drawing })}
+            onSourceChange={replaceSource}
           />
         </div>
       )}

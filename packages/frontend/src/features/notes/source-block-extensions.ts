@@ -120,4 +120,5 @@ export const CircuitBlock = sourceBlock("circuit", {
   render: (source, element) => renderCircuit(source, element),
   centered: true,
   interactive: CircuitCanvas,
+  interactiveDisabled: "Interactive mode is not available yet.",
 });
