@@ -5,6 +5,7 @@ import { CoursesListView } from "#/features/courses/CoursesListView.tsx";
 import { SemestersListView } from "#/features/courses/SemestersListView.tsx";
 import { DecksListView } from "#/features/exams/DecksListView.tsx";
 import { ExamsListView } from "#/features/exams/ExamsListView.tsx";
+import { GradeReportView } from "#/features/grades/GradeReportView.tsx";
 import { FilesListView } from "#/features/files/FilesListView.tsx";
 import { JotsListView } from "#/features/notes/JotsListView.tsx";
 import { NotesListView } from "#/features/notes/NotesListView.tsx";
@@ -53,5 +54,7 @@ export function ModuleView({
       return <BookmarksListView spaceId={spaceId} />;
     case "recipes":
       return <RecipesListView spaceId={spaceId} />;
+    case "grades":
+      return <GradeReportView spaceId={spaceId} />;
   }
 }

@@ -20,6 +20,9 @@ pub struct Assignment {
     pub due_date: Option<String>,
     /// Due this many days before the course's next session; `None` for a fixed date.
     pub due_session_offset_days: Option<i64>,
+    /// Its share of the course's grade, like an exam's: a fraction, or a whole
+    /// percentage. `None` splits what the weighted work leaves evenly.
+    pub weight: Option<f64>,
     pub status: String,
     pub grade: Option<f64>,
 }
@@ -29,6 +32,7 @@ fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
         entity: crate::db::entities::row_to_entity(row)?,
         due_date: row.get("due_date")?,
         due_session_offset_days: row.get("due_session_offset_days")?,
+        weight: row.get("weight")?,
         status: row.get("status")?,
         grade: row.get("grade")?,
     })
@@ -60,6 +64,7 @@ pub fn create_assignment(
             entity,
             due_date,
             due_session_offset_days: None,
+            weight: None,
             status: "not_started".into(),
             grade: None,
         })
@@ -68,7 +73,7 @@ pub fn create_assignment(
 
 pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.status, a.grade FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -79,7 +84,7 @@ pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assi
 /// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
 pub fn list_assignments_all_spaces(conn: &Connection) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.status, a.grade FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -110,6 +115,25 @@ pub fn update_assignment_due_date(
     let affected = conn.execute(
         "UPDATE assignments SET due_date = ?1, due_session_offset_days = NULL WHERE entity_id = ?2",
         params![due_date, entity_id],
+    )?;
+    crate::db::require_row(affected, "assignment", entity_id)?;
+    Ok(())
+}
+
+/// `None` clears the weight.
+pub fn update_assignment_weight(
+    conn: &Connection,
+    entity_id: &str,
+    weight: Option<f64>,
+) -> AppResult<()> {
+    if weight.is_some_and(|w| !w.is_finite() || w < 0.0) {
+        return Err(crate::error::AppError::InvalidInput(
+            "weight must be a number of 0 or more".into(),
+        ));
+    }
+    let affected = conn.execute(
+        "UPDATE assignments SET weight = ?1 WHERE entity_id = ?2",
+        params![weight, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
@@ -237,7 +261,7 @@ pub fn set_assignment_course(
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
     let mut assignment = conn
         .query_row(
-            "SELECT e.*, a.due_date, a.due_session_offset_days, a.status, a.grade FROM entities e
+            "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e
          JOIN assignments a ON a.entity_id = e.id WHERE e.id = ?1",
             params![entity_id],
             row_to_assignment,
@@ -273,6 +297,13 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         description: "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
     },
     FieldDef {
+        name: "weight",
+        kind: FieldKind::Float,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "Its share of the Course's grade, as a fraction (0.25) or a whole percentage (25). Without one it splits what the weighted work leaves evenly. Pass null to clear it.",
+    },
+    FieldDef {
         name: "status",
         kind: FieldKind::Enum(ASSIGNMENT_STATUSES),
         required_on_create: false,
@@ -292,6 +323,10 @@ fn cli_create_assignment(conn: &Connection, input: CreateInput) -> AppResult<ser
     let course_id = crate::db::schema::require_str(&input.fields, "courseId")?;
     let due_date = crate::db::schema::field_str(&input.fields, "dueDate");
     let assignment = create_assignment(conn, input.space_id, input.title, course_id, due_date)?;
+    if input.fields.contains_key("weight") {
+        let weight = crate::db::schema::field_f64(&input.fields, "weight");
+        update_assignment_weight(conn, &assignment.entity.id, weight)?;
+    }
     if let Some(days) = crate::db::schema::field_i64(&input.fields, "dueSessionOffsetDays") {
         update_assignment_due_before_session(conn, &assignment.entity.id, Some(days))?;
         return cli_get_assignment(conn, &assignment.entity.id);
@@ -314,6 +349,9 @@ fn cli_update_assignment(
     if fields.contains_key("dueDate") {
         let due_date = crate::db::schema::field_str(fields, "dueDate");
         update_assignment_due_date(conn, id, due_date)?;
+    }
+    if fields.contains_key("weight") {
+        update_assignment_weight(conn, id, crate::db::schema::field_f64(fields, "weight"))?;
     }
     if fields.contains_key("dueSessionOffsetDays") {
         let days = crate::db::schema::field_i64(fields, "dueSessionOffsetDays");

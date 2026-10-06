@@ -95,6 +95,7 @@ export const qk = {
     ...spaceList("semesters"),
     notes: (semesterId: string) => ["semester-notes", semesterId] as const,
   },
+  gradeReport: spaceList("grade-report"),
   exams: {
     ...spaceList("exams"),
     all: ["exams-all"] as const,

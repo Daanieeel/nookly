@@ -51,6 +51,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     ),
     (35, &[]),
     (36, &[]),
+    (37, &[]),
+    (38, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

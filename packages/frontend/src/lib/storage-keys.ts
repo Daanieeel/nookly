@@ -37,4 +37,5 @@ export const STORAGE_KEYS = {
   backupFolder: "nookly:backup-folder",
   backupAuto: "nookly:backup-auto",
   backupError: "nookly:backup-error",
+  gradeSemesters: "nookly:grade-semesters",
 } as const;

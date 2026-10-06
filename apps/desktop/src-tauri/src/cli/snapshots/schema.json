@@ -337,6 +337,13 @@
           "name": "status",
           "requiredOnCreate": false,
           "writableOnUpdate": true
+        },
+        {
+          "description": "Its share of the Course's grade, as a fraction (0.25) or a whole percentage (25). Without one it splits what the weighted work leaves evenly. Pass null to clear it.",
+          "kind": "float",
+          "name": "weight",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
         }
       ],
       "relationshipTypes": [
@@ -2560,7 +2567,13 @@
       "blockPage": null,
       "bulkActions": [],
       "childCollections": [],
-      "computedFields": [],
+      "computedFields": [
+        {
+          "description": "Read only grade point average of the semester's courses: { gpa, gradedCourseCount, courseCount }. `gpa` is the mean of the course grades (see a Course's `grades`), null until a course has one.",
+          "kind": "object",
+          "name": "grades"
+        }
+      ],
       "convertsTo": [],
       "description": "A Semester groups Courses within a Space.",
       "entityActions": [],

@@ -16,7 +16,7 @@ export function InvertibleDocument({
   children: (pageClass: string) => ReactNode;
   className?: string;
 }) {
-  const isDark = useFileViewerIsDark();
+  const isDark = useFileViewerIsDark("document");
   const [original, setOriginal] = useState(false);
   const inverted = isDark && !original;
   const label = inverted ? "Show Original Colors" : "Show in Dark Colors";

@@ -9,9 +9,14 @@ import { RelatedItemsSection } from "#/features/relationships/RelatedItemsSectio
 import { TasksDataContext, useTasksDataValue } from "#/features/tasks/task-controls.tsx";
 import { formatTimestamp } from "#/features/tasks/task-model.ts";
 import { DueLabel, PendingIcon } from "#/features/tasks/task-properties.tsx";
-import { listAssignments, updateAssignmentStatus } from "#/lib/api/assignments.ts";
+import {
+  listAssignments,
+  updateAssignmentStatus,
+  updateAssignmentWeight,
+} from "#/lib/api/assignments.ts";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { weightPercent } from "#/features/exams/exam-model.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { AssignmentDuePicker } from "./AssignmentDuePicker";
 import { ASSIGNMENT_STATUSES, assignmentStatus, statusKindOf } from "./assignment-model";
@@ -150,6 +155,10 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
         </AssignmentDuePicker>
       </PropertyRow>
 
+      <PropertyRow label="Weight">
+        <WeightField assignment={assignment} />
+      </PropertyRow>
+
       <PropertyRow label="Grade">
         <GradeField assignment={assignment} />
       </PropertyRow>
@@ -169,6 +178,33 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
         </span>
       </PropertyRow>
     </section>
+  );
+}
+
+function WeightField({ assignment }: { assignment: Assignment }) {
+  const queryClient = useQueryClient();
+  const save = useMutation({
+    mutationFn: (percent: number | null) =>
+      updateAssignmentWeight(assignment.entity.id, percent === null ? null : percent / 100),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
+      }),
+  });
+  return (
+    <NumberProperty
+      value={weightPercent(assignment.weight)}
+      onSave={(percent) => save.mutate(percent)}
+      addLabel="Add weight"
+      clearLabel="Remove Weight"
+      startAt={20}
+      step={5}
+      min={0}
+      max={100}
+      unit="%"
+      pending={save.isPending}
+      failed={save.isError}
+    />
   );
 }
 

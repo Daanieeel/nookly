@@ -110,7 +110,7 @@ function DocxViewer({
     };
   }, [src]);
 
-  const isDark = useFileViewerIsDark();
+  const isDark = useFileViewerIsDark("document");
   // A document docx-preview can't read may still convert through LibreOffice.
   if (state === "failed") return <ConvertedViewer file={file} name={name} fallback={fallback} />;
   return (
@@ -263,7 +263,7 @@ function SheetGrid({
   /// `ExcelJS.ValueType.Number`, from the lazily loaded module.
   numberType: ExcelJS.ValueType;
 }) {
-  const isDark = useFileViewerIsDark();
+  const isDark = useFileViewerIsDark("document");
   const rowCount = Math.min(sheet.actualRowCount > 0 ? sheet.rowCount : 0, MAX_ROWS);
   const colCount = Math.min(sheet.actualColumnCount > 0 ? sheet.columnCount : 0, MAX_COLUMNS);
   const clipped = sheet.rowCount > MAX_ROWS || sheet.columnCount > MAX_COLUMNS;

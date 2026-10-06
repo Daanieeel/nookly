@@ -363,10 +363,11 @@ pub struct CourseGrades {
     pub item_count: usize,
 }
 
-/// Exams with a weight count for exactly that share. Assignments and Exams
-/// without one split whatever weight is left evenly, so a course with no
-/// weights at all is a plain mean. Weights above 1 are read as percentages.
-fn roll_up_grades(items: &[(Option<f64>, Option<f64>)]) -> CourseGrades {
+/// What share each item counts for, from 0 to 1 and in the same order. Exams with a weight
+/// count for exactly that share. Assignments and Exams without one split whatever weight is
+/// left evenly, so a course with no weights at all is a plain mean. Weights above 1 are read
+/// as percentages.
+pub(crate) fn item_weights(items: &[(Option<f64>, Option<f64>)]) -> Vec<f64> {
     let weights: Vec<Option<f64>> = items
         .iter()
         .map(|(weight, _)| {
@@ -382,10 +383,14 @@ fn roll_up_grades(items: &[(Option<f64>, Option<f64>)]) -> CourseGrades {
     } else {
         0.0
     };
+    weights.iter().map(|w| w.unwrap_or(share)).collect()
+}
 
+/// A Course's grade from its items' `(weight, grade)` pairs, see `item_weights`.
+pub(crate) fn roll_up_grades(items: &[(Option<f64>, Option<f64>)]) -> CourseGrades {
+    let weights = item_weights(items);
     let (mut total, mut graded, mut sum, mut graded_count) = (0.0, 0.0, 0.0, 0);
     for ((_, grade), weight) in items.iter().zip(&weights) {
-        let weight = weight.unwrap_or(share);
         total += weight;
         if let Some(grade) = grade {
             graded += weight;
@@ -408,7 +413,7 @@ pub fn get_course_grades(conn: &Connection, course_id: &str) -> AppResult<Course
          JOIN relationships r ON r.from_entity_id = x.entity_id AND r.relationship_type = 'exam-course'
          WHERE r.to_entity_id = ?1 AND e.deleted_at IS NULL
          UNION ALL
-         SELECT NULL, a.grade FROM assignments a
+         SELECT a.weight, a.grade FROM assignments a
          JOIN entities e ON e.id = a.entity_id
          JOIN relationships r ON r.from_entity_id = a.entity_id AND r.relationship_type = 'assignment-course'
          WHERE r.to_entity_id = ?1 AND e.deleted_at IS NULL",
@@ -563,7 +568,7 @@ fn cli_create_semester(conn: &Connection, input: CreateInput) -> AppResult<serde
         term_type,
         year,
     )?;
-    Ok(serde_json::to_value(semester).expect("Semester always serializes"))
+    cli_get_semester(conn, &semester.entity.id)
 }
 
 fn cli_update_semester(
@@ -579,8 +584,32 @@ fn cli_update_semester(
     cli_get_semester(conn, id)
 }
 
+/// The Semester plus its `grades` computed field.
+fn semester_payload(
+    semester: Semester,
+    report: &crate::db::grade_report::GradeReport,
+) -> serde_json::Value {
+    let grades = crate::db::grade_report::semester_summary(report, &semester.entity.id);
+    let mut value = serde_json::to_value(semester).expect("Semester always serializes");
+    value["grades"] = serde_json::to_value(grades).expect("SemesterGrades always serializes");
+    value
+}
+
 fn cli_get_semester(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_semester(conn, id)?).expect("Semester always serializes"))
+    let semester = get_semester(conn, id)?;
+    let report = crate::db::grade_report::get_grade_report(conn, &semester.entity.space_id)?;
+    Ok(semester_payload(semester, &report))
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "semester",
+        name: "grades",
+        kind: FieldKind::Object,
+        description: "Read only grade point average of the semester's courses: \
+                      { gpa, gradedCourseCount, courseCount }. `gpa` is the mean of the course grades \
+                      (see a Course's `grades`), null until a course has one.",
+    }
 }
 
 fn cli_list_semesters(
@@ -591,9 +620,10 @@ fn cli_list_semesters(
     let space_id = space_id.ok_or_else(|| {
         crate::error::AppError::InvalidInput("semester list requires --space <space-id>".into())
     })?;
+    let report = crate::db::grade_report::get_grade_report(conn, space_id)?;
     Ok(list_semesters(conn, space_id)?
         .into_iter()
-        .map(|s| serde_json::to_value(s).expect("Semester always serializes"))
+        .map(|s| semester_payload(s, &report))
         .collect())
 }
 
@@ -905,5 +935,42 @@ mod tests {
         assert_eq!(grades.grade, Some(1.5));
         assert_eq!(grades.item_count, 2);
         assert_eq!(grades.graded_weight, 1.0);
+    }
+
+    #[test]
+    fn a_semester_reads_its_grade_point_average_through_the_cli() {
+        let conn = setup();
+        let (space, algo) = crate::db::test_space_with_course(&conn, "Uni", "Algorithms");
+        let logic = create_course(&conn, space.id.clone(), "Logic".into()).unwrap();
+        let untouched = create_course(&conn, space.id.clone(), "Untouched".into()).unwrap();
+        let semester =
+            create_semester(&conn, space.id.clone(), "WS".into(), None, None, None, None).unwrap();
+        for (course, grade) in [(&algo, Some(1.0)), (&logic, Some(2.0)), (&untouched, None)] {
+            set_course_semester(&conn, &course.id, semester.entity.id.clone()).unwrap();
+            let exam = crate::db::exams::create_exam(
+                &conn,
+                space.id.clone(),
+                "Exam".into(),
+                course.id.clone(),
+                None,
+                None,
+            )
+            .unwrap();
+            crate::db::exams::update_exam_grade(&conn, &exam.entity.id, grade).unwrap();
+        }
+        let expected = serde_json::json!({ "gpa": 1.5, "gradedCourseCount": 2, "courseCount": 3 });
+        let got = cli_get_semester(&conn, &semester.entity.id).unwrap();
+        assert_eq!(got["grades"], expected);
+        let listed = cli_list_semesters(&conn, Some(&space.id), false).unwrap();
+        assert_eq!(listed[0]["grades"], expected);
+
+        // A semester without courses has no grades to report.
+        let empty =
+            create_semester(&conn, space.id.clone(), "SS".into(), None, None, None, None).unwrap();
+        let got = cli_get_semester(&conn, &empty.entity.id).unwrap();
+        assert_eq!(
+            got["grades"],
+            serde_json::json!({ "gpa": null, "gradedCourseCount": 0, "courseCount": 0 })
+        );
     }
 }
