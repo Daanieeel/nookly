@@ -119,14 +119,18 @@ describe("QuickCreateTask related picker", () => {
     );
   });
 
-  it("uses a compact calendar and tighter presets so the popover is shorter", async () => {
+  it("uses a compact calendar and evenly stretched presets so the popover is shorter", async () => {
     // jsdom has no layout: this pins the compact sizes (days 28px instead of 32px, tighter
     // rows) that take about 30px off the popover.
     const { user } = setup();
     await user.click(screen.getByRole("button", { name: "Change Due Date" }));
     await screen.findByText("Tomorrow");
     expect(screen.getAllByRole("gridcell")[0].className).toContain("h-7");
-    expect(screen.getByRole("option", { name: /Tomorrow/ }).className).toContain("py-1");
+    // The rows stretch evenly to the height the calendar sets, so no gap is left below.
+    const option = screen.getByRole("option", { name: /Tomorrow/ });
+    expect(option.className).toContain("flex-1");
+    expect(option.closest("[cmdk-group]")!.className).toContain("flex-col");
+    expect(screen.getByRole("listbox").className).toContain("flex-1");
   });
 
   it.each([

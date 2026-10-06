@@ -436,16 +436,17 @@ export function DueDateChooser({
   return (
     <div className="flex items-stretch" onKeyDown={stopKeys}>
       <Command loop className="w-1/2">
-        {/* No cap of its own: the presets are short, and the calendar beside them sets the
-            height, so they never scroll when the remove row appears. */}
-        <CommandList className="max-h-none overflow-visible p-1">
+        {/* No cap of its own: the calendar beside the presets sets the height. The rows
+            stretch evenly to fill it (list, its sizer, the group and its items are a flex
+            chain), so nothing scrolls and no gap is left below them. */}
+        <CommandList className="flex max-h-none flex-1 flex-col overflow-visible p-1 *:[[cmdk-list-sizer]]:flex *:[[cmdk-list-sizer]]:flex-1 *:[[cmdk-list-sizer]]:flex-col">
           <CommandEmpty>No match.</CommandEmpty>
-          <CommandGroup className="p-0">
+          <CommandGroup className="flex flex-1 flex-col p-0 **:[[cmdk-group-items]]:flex **:[[cmdk-group-items]]:flex-1 **:[[cmdk-group-items]]:flex-col">
             {presets.map((p) => (
               <CommandItem
                 key={p.label}
                 value={p.label}
-                className="py-1"
+                className="flex-1 py-1"
                 onSelect={() => onSelect(p.day)}
               >
                 <IconCalendarEvent />
@@ -456,7 +457,7 @@ export function DueDateChooser({
             {/* Always there, so the list doesn't change height: disabled with nothing to remove. */}
             <CommandItem
               value={`Remove ${noun}`}
-              className="py-1"
+              className="flex-1 py-1"
               disabled={!value}
               onSelect={() => onSelect(null)}
             >
