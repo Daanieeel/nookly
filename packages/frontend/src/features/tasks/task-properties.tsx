@@ -24,6 +24,8 @@ import { Calendar } from "#/components/date-input.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import type { Label, TaskStatus } from "#/lib/api/types.ts";
 import { EFFORT_STEPS, effortLabel, useEffortSettings } from "#/lib/effort.ts";
+import { DialogCommandList } from "#/components/dialog-command-list.tsx";
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { type StatusKind, formatDay, toDay } from "./task-model";
 
@@ -146,7 +148,7 @@ export function StatusPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-56" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput
             value={search}
@@ -161,7 +163,7 @@ export function StatusPicker({
               }
             }}
           />
-          <CommandList className="p-1">
+          <DialogCommandList>
             <CommandEmpty>No status found.</CommandEmpty>
             {statuses.map((status, i) => (
               <CommandItem key={status.id} value={status.name} onSelect={() => choose(status.id)}>
@@ -171,7 +173,7 @@ export function StatusPicker({
                 {i < 9 && <CommandShortcut className="w-3 text-center">{i + 1}</CommandShortcut>}
               </CommandItem>
             ))}
-          </CommandList>
+          </DialogCommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -227,14 +229,25 @@ export function LabelsPicker({
       }}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-56" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput
             placeholder={onCreate ? "Find or create labels…" : "Add labels…"}
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList className="p-1">
+          {selected.length > 0 && (
+            // Outside the scrolling list, so it stays put like the search box.
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 border-b border-border px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => selected.forEach(onToggle)}
+            >
+              <IconX size={14} />
+              Clear all
+            </button>
+          )}
+          <DialogCommandList>
             {!(onCreate && name) && (
               <CommandEmpty>
                 {labels.length === 0 ? "No labels in this Space yet." : "No label found."}
@@ -277,7 +290,7 @@ export function LabelsPicker({
                 </CommandItem>
               );
             })}
-          </CommandList>
+          </DialogCommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -307,10 +320,10 @@ export function EffortPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-48" align={align} onKeyDown={stopKeys}>
+      <PopoverContent {...dialogPopover("w-48")} align={align} onKeyDown={stopKeys}>
         <Command loop>
           <CommandInput placeholder="Set effort…" />
-          <CommandList className="p-1">
+          <DialogCommandList>
             <CommandEmpty>No size found.</CommandEmpty>
             {EFFORT_STEPS.map((step) => (
               <CommandItem
@@ -331,7 +344,7 @@ export function EffortPicker({
                 </CommandItem>
               </>
             )}
-          </CommandList>
+          </DialogCommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -344,9 +357,18 @@ function addDays(days: number): string {
   return toDay(date);
 }
 
-/// Days until the coming Friday, or a week on when today already is one.
-function daysToFriday(): number {
-  const diff = (5 - new Date().getDay() + 7) % 7;
+/// The same day next month, or its last day when next month is shorter (Jan 31 is Feb 28).
+function inOneMonth(): string {
+  const today = new Date();
+  const lastOfNext = new Date(today.getFullYear(), today.getMonth() + 2, 0).getDate();
+  return toDay(
+    new Date(today.getFullYear(), today.getMonth() + 1, Math.min(today.getDate(), lastOfNext)),
+  );
+}
+
+/// Days until the coming `weekday` (0 is Sunday), or a week on when today already is one.
+function daysTo(weekday: number): number {
+  const diff = (weekday - new Date().getDay() + 7) % 7;
   return diff === 0 ? 7 : diff;
 }
 
@@ -359,7 +381,7 @@ export function DueDatePicker({
 }: {
   value: string | null;
   onSelect: (day: string | null) => void;
-  /// Names the date in the search placeholder and the remove item.
+  /// Names the date in the remove item.
   noun?: string;
   align?: "start" | "end";
   children: ReactNode;
@@ -374,58 +396,81 @@ export function DueDatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-68" align={align} onKeyDown={stopKeys}>
+      <PopoverContent
+        {...dialogPopover(
+          // Capped to the room it has, so a short window scrolls it instead of letting
+          // it run off the window.
+          "max-h-(--radix-popover-content-available-height) w-120 overflow-y-auto",
+        )}
+        align={align}
+        onKeyDown={stopKeys}
+      >
         <DueDateChooser value={value} onSelect={choose} noun={noun} />
       </PopoverContent>
     </Popover>
   );
 }
 
-/// The date picker's content: a search over presets, the remove item and a calendar.
+/// The date picker's content: the presets and the remove item beside a calendar, half
+/// the width each (30rem in all).
 /// Also used inside other popovers, e.g. an assignment's due date step.
 export function DueDateChooser({
   value,
   onSelect,
   noun = "due date",
-  searchable = true,
 }: {
   value: string | null;
   onSelect: (day: string | null) => void;
-  /// Names the date in the search placeholder and the remove item.
+  /// Names the date in the remove item.
   noun?: string;
-  /// Shows the search box above the presets.
-  searchable?: boolean;
 }) {
   const presets = [
     { label: "Today", day: addDays(0) },
     { label: "Tomorrow", day: addDays(1) },
-    { label: "End of this week", day: addDays(daysToFriday()) },
+    { label: "End of work week", day: addDays(daysTo(5)) },
+    { label: "Next Monday", day: addDays(daysTo(1)) },
     { label: "In one week", day: addDays(7) },
+    { label: "In two weeks", day: addDays(14) },
+    { label: "In one month", day: inOneMonth() },
   ];
   return (
-    <Command loop onKeyDown={stopKeys}>
-      {searchable && <CommandInput placeholder={`Set ${noun}…`} />}
-      <CommandList className="p-1">
-        <CommandEmpty>No match.</CommandEmpty>
-        <CommandGroup className="p-0">
-          {presets.map((p) => (
-            <CommandItem key={p.label} value={p.label} onSelect={() => onSelect(p.day)}>
-              <IconCalendarEvent />
-              <span className="truncate">{p.label}</span>
-              <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
-            </CommandItem>
-          ))}
-          {value && (
-            <CommandItem value={`Remove ${noun}`} onSelect={() => onSelect(null)}>
+    <div className="flex items-stretch" onKeyDown={stopKeys}>
+      <Command loop className="h-auto w-1/2">
+        {/* No cap of its own: the calendar beside the presets sets the height. The rows
+            stretch evenly to fill it (list, its sizer, the group and its items are a flex
+            chain), so nothing scrolls and no gap is left below them. */}
+        <CommandList className="flex max-h-none flex-1 flex-col overflow-visible p-1 *:[[cmdk-list-sizer]]:flex *:[[cmdk-list-sizer]]:flex-1 *:[[cmdk-list-sizer]]:flex-col">
+          <CommandEmpty>No match.</CommandEmpty>
+          <CommandGroup className="flex flex-1 flex-col p-0 **:[[cmdk-group-items]]:flex **:[[cmdk-group-items]]:flex-1 **:[[cmdk-group-items]]:flex-col">
+            {presets.map((p) => (
+              <CommandItem
+                key={p.label}
+                value={p.label}
+                className="flex-1 py-1"
+                onSelect={() => onSelect(p.day)}
+              >
+                <IconCalendarEvent />
+                <span className="truncate">{p.label}</span>
+                <CommandShortcut className="tracking-normal">{formatDay(p.day)}</CommandShortcut>
+              </CommandItem>
+            ))}
+            {/* Always there, so the list doesn't change height: disabled with nothing to remove. */}
+            <CommandItem
+              value={`Remove ${noun}`}
+              className="flex-1 py-1"
+              disabled={!value}
+              onSelect={() => onSelect(null)}
+            >
               <IconX />
               Remove {noun}
             </CommandItem>
-          )}
-        </CommandGroup>
-      </CommandList>
-      <CommandSeparator />
-      <Calendar value={value} onSelect={onSelect} className="w-auto p-2" />
-    </Command>
+          </CommandGroup>
+        </CommandList>
+      </Command>
+      <div className="w-1/2 border-l border-border">
+        <Calendar value={value} onSelect={onSelect} className="w-full p-2" compact />
+      </div>
+    </div>
   );
 }
 

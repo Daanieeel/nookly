@@ -80,10 +80,19 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
   const data = useTasksDataValue(spaceId);
   const { statuses, labels, kindOf } = data;
 
-  const startCreate = useCallback((next: TaskDraft = {}) => {
-    setDraft(next);
-    setCreateOpen(true);
-  }, []);
+  /// With the list filtered to exactly one Course, a new task starts related to it.
+  const filteredCourse = useMemo(() => {
+    const only = filters.find((f) => f.fieldId === "course" && f.operator === "is");
+    return only?.values.length === 1 ? courses.find((c) => c.id === only.values[0]) : undefined;
+  }, [filters, courses]);
+
+  const startCreate = useCallback(
+    (next: TaskDraft = {}) => {
+      setDraft({ related: filteredCourse, ...next });
+      setCreateOpen(true);
+    },
+    [filteredCourse],
+  );
 
   useCreateShortcut(() => startCreate());
 
