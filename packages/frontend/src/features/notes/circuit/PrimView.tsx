@@ -4,7 +4,7 @@ import type { Prim } from "./draw";
 export function PrimView({ prim }: { prim: Prim }) {
   switch (prim.t) {
     case "path":
-      return <path d={prim.d} />;
+      return <path d={prim.d} strokeWidth={prim.strokeWidth} />;
     case "circle":
       return (
         <circle

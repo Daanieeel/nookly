@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { layoutCircuit, type LayoutNode } from "./layout";
 import { parseCircuit } from "./parse";
+import { gateSymbol } from "./symbols";
 
 const layout = (source: string) => layoutCircuit(parseCircuit(source));
 const kinds = (nodes: LayoutNode[], kind: LayoutNode["kind"]) =>
@@ -81,5 +82,39 @@ describe("layoutCircuit", () => {
   it("lays out circuits that are only a wire", () => {
     const { nodes } = layout("Y = A");
     expect(nodes.map((n) => n.kind).sort()).toEqual(["input", "output"]);
+  });
+
+  describe("gate tags", () => {
+    const gates = (source: string) => kinds(layout(source).nodes, "gate");
+
+    it("numbers every gate G1, G2, ... in the order the code builds them", () => {
+      expect(gates("Y = (A & B) | C").map((gate) => gate.tag)).toEqual(["G1", "G2"]);
+      expect(gates("x = A & B\nY = x | !C ^ D").map((gate) => gate.tag)).toEqual([
+        "G1",
+        "G2",
+        "G3",
+      ]);
+    });
+
+    it("labels each input pin with the signal or gate that feeds it", () => {
+      const [and, or] = gates("Y = (A & B) | C");
+      expect(and?.pinTags).toEqual(["A", "B"]);
+      expect(or?.pinTags).toEqual(["G1", "C"]);
+    });
+
+    it("labels the pin of a NOT gate and of a negated input with its source", () => {
+      const [and, inverter] = gates("Y = !(A & B)");
+      expect(and?.pinTags).toEqual(["A", "B"]);
+      expect(inverter?.pinTags).toEqual(["G1"]);
+      expect(gates("Y = !A & B")[0]?.pinTags).toEqual(["A", "B"]);
+    });
+
+    it("keeps the standard symbol when the labels fit and widens it when they do not", () => {
+      const width = (source: string) => kinds(layout(source).nodes, "gate")[0]?.width ?? 0;
+      expect(width("Y = A & B")).toBe(gateSymbol("AND", 2).width);
+      expect(width("Y = LongSignalName & AnotherLongName")).toBeGreaterThan(
+        gateSymbol("AND", 2).width,
+      );
+    });
   });
 });

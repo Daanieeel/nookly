@@ -119,6 +119,7 @@ export const CircuitBlock = sourceBlock("circuit", {
   emptyLabel: "Empty circuit",
   render: (source, element) => renderCircuit(source, element),
   centered: true,
+  copyLabel: "Copy code",
   interactive: CircuitCanvas,
   interactiveDisabled: "Interactive mode is not available yet.",
 });

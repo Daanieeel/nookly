@@ -1,5 +1,5 @@
 import { FONT_SIZE, runsWidth, textWidth, type Run } from "./label";
-import type { Layout, LayoutNode } from "./layout";
+import { LABEL_INSET, PIN_TAG_SIZE, TAG_SIZE, type Layout, type LayoutNode } from "./layout";
 import {
   BUBBLE_R,
   LABEL_GAP,
@@ -13,7 +13,7 @@ import {
 /// What a circuit is drawn with. The static drawing prints these as SVG text and
 /// the interactive canvas as React elements, so both look the same.
 export type Prim =
-  | { t: "path"; d: string }
+  | { t: "path"; d: string; strokeWidth?: number }
   | { t: "circle"; cx: number; cy: number; r: number; filled: boolean }
   | {
       t: "text";
@@ -29,6 +29,9 @@ export type Prim =
 export const FONT_FAMILY =
   '"Cambria Math", "STIX Two Math", "Latin Modern Math", "Times New Roman", serif';
 const BAR_RISE = 0.95;
+/// Overlines are drawn about a third thinner than the wires and outlines, which are heavy
+/// for them (two steps of 20%).
+export const BAR_STROKE = STROKE * 0.64;
 const BAR_STEP = 3.5;
 const WIRE_LABEL_SIZE = 13;
 const DOT_R = 3.5;
@@ -67,7 +70,12 @@ export function labelPrims(
     let from: number | null = null;
     let to = 0;
     const flush = () => {
-      if (from !== null) prims.push({ t: "path", d: `M${round(from)} ${round(y)}H${round(to)}` });
+      if (from !== null)
+        prims.push({
+          t: "path",
+          d: `M${round(from)} ${round(y)}H${round(to)}`,
+          strokeWidth: BAR_STROKE,
+        });
       from = null;
     };
     for (const span of spans) {
@@ -115,11 +123,40 @@ export function outputPrims(label: Run[]): Prim[] {
   ];
 }
 
+/// The labels inside a gate: at each input pin what feeds it, then the gate's own tag
+/// in the middle of what is left. Each is vertically centred on its line.
+export function gateLabelPrims(node: LayoutNode): Prim[] {
+  const symbol = node.symbol;
+  if (!symbol) return [];
+  const prims: Prim[] = [];
+  let labelsEnd = 0;
+  node.pinTags.forEach((tag, pin) => {
+    const x = (symbol.insideX[pin] ?? 0) + LABEL_INSET;
+    const y = (symbol.pinY[pin] ?? 0) + PIN_TAG_SIZE * 0.3;
+    // A negated pin shows its bubble on the symbol and a bar over what feeds it.
+    const run = { ...plainRun(tag), bars: node.negated[pin] ? 1 : 0 };
+    prims.push(...labelPrims([run], x, y, "start", PIN_TAG_SIZE));
+    labelsEnd = Math.max(labelsEnd, x + textWidth(tag, PIN_TAG_SIZE));
+  });
+  if (node.tag) {
+    const front = node.symbol?.body ?? 0;
+    const room = front - labelsEnd;
+    const x = labelsEnd + Math.max(0, (room - textWidth(node.tag, TAG_SIZE)) / 2) - 1;
+    prims.push(
+      ...labelPrims([plainRun(node.tag)], x, symbol.height / 2 + TAG_SIZE * 0.3, "start", TAG_SIZE),
+    );
+  }
+  return prims;
+}
+
+const plainRun = (text: string): Run => ({ text, bars: 0, italic: false });
+
 function nodePrims(node: LayoutNode): Prim[] {
   if (node.kind === "input") return inputPrims(node.label, node.width);
   if (node.kind === "output") return outputPrims(node.label);
   if (node.kind === "gate" && node.symbol) {
     const prims = gatePrims(node.symbol, node.negated);
+    prims.push(...gateLabelPrims(node));
     const name = node.gate?.name;
     if (name) {
       const text = [{ text: name, bars: 0, italic: true }];
@@ -149,7 +186,7 @@ const escape = (text: string) =>
 function print(prim: Prim): string {
   switch (prim.t) {
     case "path":
-      return `<path d="${prim.d}"/>`;
+      return `<path d="${prim.d}"${prim.strokeWidth ? ` stroke-width="${prim.strokeWidth}"` : ""}/>`;
     case "circle":
       return `<circle cx="${round(prim.cx)}" cy="${round(prim.cy)}" r="${prim.r}"${
         prim.filled ? ' fill="currentColor" stroke="none"' : ""

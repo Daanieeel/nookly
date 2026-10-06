@@ -119,8 +119,23 @@ describe("copying the LaTeX of equation and math blocks", () => {
     },
   );
 
-  it("leaves the diagram and circuit blocks without it", async () => {
-    await open(circuit());
+  it("leaves the diagram block without it", async () => {
+    await open({
+      type: "diagram",
+      attrs: { blockId: "d1" },
+      content: [{ type: "text", text: "flowchart LR\n  A --> B" }],
+    });
+    expect(screen.queryByRole("button", { name: /^Copy/ })).toBeNull();
+  });
+
+  it("copies a circuit block's code, not its LaTeX", async () => {
+    const { user } = await open(circuit());
+    const copied = vi.spyOn(navigator.clipboard, "writeText");
     expect(screen.queryByRole("button", { name: "Copy LaTeX" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Copy code" }));
+    expect(copied).toHaveBeenLastCalledWith("Y = A & B");
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    await user.click(screen.getByRole("button", { name: "Copy code" }));
+    expect(copied).toHaveBeenCalledTimes(2);
   });
 });

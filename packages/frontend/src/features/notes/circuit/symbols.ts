@@ -26,6 +26,10 @@ export interface GateSymbol {
   /// Where each input wire ends, on the gate's back.
   pinX: number[];
   pinY: number[];
+  /// Where the inside of the gate begins at each pin, for a label there.
+  insideX: number[];
+  /// The width of the gate's body, without an output bubble.
+  body: number;
   /// Where the output wire starts, past the output bubble if there is one.
   outX: number;
   outY: number;
@@ -54,9 +58,9 @@ interface AndOutline {
   width: number;
 }
 
-function andPath(height: number): AndOutline {
+function andPath(height: number, widen: number): AndOutline {
   const radius = height / 2;
-  const width = radius + AND_FLAT;
+  const width = radius + AND_FLAT + widen;
   const flat = num(width - radius);
   return {
     width,
@@ -67,8 +71,7 @@ function andPath(height: number): AndOutline {
 /// The curve OR and XOR have for a back, as cubic control points.
 const BACK = { control: 0.28, near: 0.72, far: 0.28 };
 
-function orPath(height: number, dx: number): string {
-  const w = OR_WIDTH;
+function orPath(height: number, dx: number, w: number): string {
   const x = (f: number) => num(dx + w * f);
   const y = (f: number) => num(height * f);
   return (
@@ -79,8 +82,7 @@ function orPath(height: number, dx: number): string {
 }
 
 /// XOR's extra curve: the back of an OR, on its own.
-function orBack(height: number): string {
-  const w = OR_WIDTH;
+function orBack(height: number, w: number): string {
   return (
     `M0 ${num(height)}C${num(w * BACK.control)} ${num(height * BACK.near)} ` +
     `${num(w * BACK.control)} ${num(height * BACK.far)} 0 0`
@@ -89,11 +91,11 @@ function orBack(height: number): string {
 
 /// The x of the OR back curve at height `y`, found by bisection since the curve
 /// is parametric.
-function backX(height: number, y: number): number {
+function backX(height: number, y: number, w: number): number {
   const at = (t: number) => {
     const u = 1 - t;
     return {
-      x: 3 * OR_WIDTH * BACK.control * u * t,
+      x: 3 * w * BACK.control * u * t,
       y: height * (u ** 3 + 3 * u * u * t * BACK.near + 3 * u * t * t * BACK.far),
     };
   };
@@ -108,18 +110,22 @@ function backX(height: number, y: number): number {
   return round(at((low + high) / 2).x);
 }
 
-export function gateSymbol(op: GateOp, pins: number): GateSymbol {
+/// The symbol of a gate. `widen` stretches its body by that much, to give the labels
+/// inside it room.
+export function gateSymbol(op: GateOp, pins: number, widen = 0): GateSymbol {
   if (op === "NOT") {
-    const bubble = { cx: NOT_WIDTH + BUBBLE_R, cy: NOT_HEIGHT / 2 };
+    const body = NOT_WIDTH + widen;
     return {
-      width: NOT_WIDTH + 2 * BUBBLE_R,
+      width: body + 2 * BUBBLE_R,
       height: NOT_HEIGHT,
       pinX: [0],
       pinY: [NOT_HEIGHT / 2],
-      outX: NOT_WIDTH + 2 * BUBBLE_R,
+      insideX: [0],
+      body,
+      outX: body + 2 * BUBBLE_R,
       outY: NOT_HEIGHT / 2,
-      paths: [`M0 0L${NOT_WIDTH} ${NOT_HEIGHT / 2}L0 ${NOT_HEIGHT}Z`],
-      outBubble: bubble,
+      paths: [`M0 0L${body} ${NOT_HEIGHT / 2}L0 ${NOT_HEIGHT}Z`],
+      outBubble: { cx: body + BUBBLE_R, cy: NOT_HEIGHT / 2 },
     };
   }
 
@@ -132,16 +138,20 @@ export function gateSymbol(op: GateOp, pins: number): GateSymbol {
   let body: number;
   let paths: string[];
   let pinX: number[];
+  let insideX: number[];
   if (family === "and") {
-    const and = andPath(height);
+    const and = andPath(height, widen);
     body = and.width;
     paths = [and.path];
     pinX = pinY.map(() => 0);
+    insideX = pinX;
   } else {
     const dx = xor ? XOR_GAP : 0;
-    body = dx + OR_WIDTH;
-    paths = xor ? [orPath(height, dx), orBack(height)] : [orPath(height, 0)];
-    pinX = pinY.map((y) => backX(height, y));
+    const w = OR_WIDTH + widen;
+    body = dx + w;
+    paths = xor ? [orPath(height, dx, w), orBack(height, w)] : [orPath(height, 0, w)];
+    pinX = pinY.map((y) => backX(height, y, w));
+    insideX = pinX.map((x) => x + dx);
   }
 
   return {
@@ -149,6 +159,8 @@ export function gateSymbol(op: GateOp, pins: number): GateSymbol {
     height,
     pinX,
     pinY,
+    insideX,
+    body,
     outX: body + (inverted ? 2 * BUBBLE_R : 0),
     outY: height / 2,
     paths,

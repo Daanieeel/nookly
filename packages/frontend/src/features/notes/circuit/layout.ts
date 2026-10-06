@@ -1,5 +1,5 @@
 import { outputLabel, runsWidth, textWidth, type Run } from "./label";
-import type { Circuit, GateNode, InputNode, Output, Source } from "./parse";
+import type { Circuit, GateNode, GateOp, InputNode, Output, Source } from "./parse";
 import {
   BUBBLE_R,
   gateSymbol,
@@ -17,6 +17,11 @@ const ROW_GAP = 18;
 const BASE_GAP = 40;
 const LANE_GAP = 10;
 const WIRE_LABEL_SIZE = 13;
+export const TAG_SIZE = 12;
+export const PIN_TAG_SIZE = 11;
+/// Inside a gate: from its back to a pin's label, and between the labels and the tag.
+export const LABEL_INSET = 5;
+const LABEL_GAP = 5;
 const PAD_X = 14;
 const PAD_TOP = 22;
 const PAD_BOTTOM = 14;
@@ -45,6 +50,9 @@ export interface LayoutNode {
   negated: boolean[];
   label: Run[];
   gate?: GateNode;
+  /// A gate's number (`G1`), and what feeds each of its input pins.
+  tag?: string;
+  pinTags: string[];
   symbol?: GateSymbol;
   ins: Edge[];
   outs: Edge[];
@@ -75,6 +83,7 @@ function newNode(key: string, kind: LayoutNode["kind"], col: number): LayoutNode
     outY: WIRE_SLOT / 2,
     negated: [false],
     label: [],
+    pinTags: [],
     ins: [],
     outs: [],
   };
@@ -96,11 +105,38 @@ function inputNode(input: InputNode): LayoutNode {
   return node;
 }
 
-function gateNode(gate: GateNode, col: number): LayoutNode {
+/// What a pin's source is called on the drawing: an input's name, or a gate's tag.
+function tagOf(source: Source, tags: Map<GateNode, string>): string {
+  return source.kind === "input" ? source.name : (tags.get(source) ?? "");
+}
+
+/// How much wider than the standard symbol a gate must be for its labels (what feeds
+/// each pin, then its own tag) to sit inside it, clear of the curved front.
+function labelWidening(op: GateOp, pinTags: string[], tag: string): number {
+  const fit = (widen: number) => {
+    const symbol = gateSymbol(op, pinTags.length, widen);
+    let labelsEnd = 0;
+    pinTags.forEach((text, pin) => {
+      const start = (symbol.insideX[pin] ?? 0) + LABEL_INSET;
+      labelsEnd = Math.max(labelsEnd, start + textWidth(text, PIN_TAG_SIZE));
+    });
+    const front = op === "NOT" ? symbol.body * 0.3 : 8;
+    return labelsEnd + LABEL_GAP + textWidth(tag, TAG_SIZE) + front - symbol.body;
+  };
+  // The back curves with the width, so a second pass settles it.
+  const first = Math.max(0, fit(0));
+  return Math.max(first, fit(first));
+}
+
+function gateNode(gate: GateNode, col: number, tags: Map<GateNode, string>): LayoutNode {
   const node = newNode(`g${gate.id}`, "gate", col);
-  const symbol = gateSymbol(gate.op, gate.inputs.length);
+  const tag = tags.get(gate) ?? "";
+  const pinTags = gate.inputs.map((pin) => tagOf(pin.from, tags));
+  const symbol = gateSymbol(gate.op, gate.inputs.length, labelWidening(gate.op, pinTags, tag));
   Object.assign(node, {
     gate,
+    tag,
+    pinTags,
     symbol,
     width: symbol.width,
     height: symbol.height,
@@ -166,6 +202,8 @@ function connect(circuit: Circuit): Wired {
     link(from, to, pin);
   };
 
+  // Gates are numbered in the order the code builds them, so a gate's sources come first.
+  const tags = new Map(circuit.gates.map((gate, index) => [gate, `G${index + 1}`]));
   for (const input of circuit.inputs) of.set(input, add(inputNode(input)));
   for (const gate of circuit.gates) {
     let col = 1;
@@ -173,7 +211,7 @@ function connect(circuit: Circuit): Wired {
       // SAFETY: a gate's sources are created before it.
       col = Math.max(col, (of.get(pin.from) as LayoutNode).col + 1);
     }
-    const node = add(gateNode(gate, col));
+    const node = add(gateNode(gate, col, tags));
     of.set(gate, node);
     gate.inputs.forEach((pin, index) => feed(pin.from, node, index));
   }

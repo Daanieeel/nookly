@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { drawCircuit, gatePrims, labelPrims } from "./draw";
+import { BAR_STROKE, drawCircuit, gateLabelPrims, gatePrims, labelPrims } from "./draw";
+import { textWidth } from "./label";
 import { layoutCircuit } from "./layout";
 import { parseCircuit } from "./parse";
-import { gateSymbol } from "./symbols";
+import { gateSymbol, STROKE } from "./symbols";
 
 const svg = (source: string) => drawCircuit(layoutCircuit(parseCircuit(source)));
 
@@ -80,5 +81,86 @@ describe("gatePrims", () => {
     const prims = gatePrims(gateSymbol("NAND", 2), [true, false]);
     expect(prims.filter((p) => p.t === "path")).toHaveLength(1);
     expect(prims.filter((p) => p.t === "circle")).toHaveLength(2);
+  });
+
+  it("writes each gate's tag on it and on the pins it feeds", () => {
+    const out = svg("Y = (A & B) | C");
+    expect(out.match(/>G1<\/text>/g)?.length).toBe(2);
+    expect(out.match(/>G2<\/text>/g)?.length).toBe(1);
+    // A and B each as an input and as the label of the pin they feed.
+    expect(out.match(/>A<\/text>/g)?.length).toBe(2);
+    expect(out.match(/>C<\/text>/g)?.length).toBe(2);
+  });
+
+  it.each([
+    "Y = A & B",
+    "Y = A | B | C | D",
+    "Y = A ^ B",
+    "Y = !(A NOR B)",
+    "Y = A NAND B",
+    "Y = A XNOR LongSignalName",
+    "x = A & B\nY = !x | (x ^ C)",
+    "Y = !A",
+  ])("keeps every label of a gate inside it: %s", (source) => {
+    const { nodes } = layoutCircuit(parseCircuit(source));
+    for (const node of nodes.filter((n) => n.kind === "gate")) {
+      const texts = gateLabelPrims(node).filter((prim) => prim.t === "text");
+      expect(texts.length).toBe(node.pinTags.length + 1);
+      for (const text of texts) {
+        expect(text.x).toBeGreaterThan(0);
+        expect(text.x + textWidth(text.text, text.size)).toBeLessThan(node.width);
+        // Text sits on its baseline, so its top is a size above it.
+        expect(text.y - text.size * 0.8).toBeGreaterThanOrEqual(0);
+        expect(text.y).toBeLessThanOrEqual(node.height);
+      }
+    }
+  });
+
+  it("puts a pin's label beside its pin, and the tag after the labels", () => {
+    const [gate] = layoutCircuit(parseCircuit("Y = A & B")).nodes.filter((n) => n.kind === "gate");
+    const texts = gateLabelPrims(gate!).filter((prim) => prim.t === "text");
+    const [a, b, tag] = texts;
+    expect(a?.text).toBe("A");
+    expect(b?.text).toBe("B");
+    expect(tag?.text).toBe("G1");
+    expect(a?.y).toBeLessThan(b?.y ?? 0);
+    expect(tag?.x).toBeGreaterThan(a?.x ?? 0);
+  });
+
+  it("draws the label of a negated pin with a bar over it, and only that one", () => {
+    const bars = (source: string) => {
+      const [gate] = layoutCircuit(parseCircuit(source)).nodes.filter((n) => n.kind === "gate");
+      return gateLabelPrims(gate!).filter((prim) => prim.t === "path");
+    };
+    expect(bars("Y = A & B")).toHaveLength(0);
+    // The bar is over C, which is the first pin; B and the tag stay plain.
+    expect(bars("Y = !C & B")).toHaveLength(1);
+    expect(bars("Y = !C & !B")).toHaveLength(2);
+    expect(bars("Y = !(A & B) | C")).toHaveLength(0);
+    // The gate's own symbol keeps its bubble for the negation.
+    expect(svg("Y = !C & B").match(/<circle[^>]*r="4.5"/g)).toHaveLength(1);
+  });
+
+  it("puts the bar over the label's own text", () => {
+    const [gate] = layoutCircuit(parseCircuit("Y = !C & B")).nodes.filter((n) => n.kind === "gate");
+    const prims = gateLabelPrims(gate!);
+    const c = prims.find((prim) => prim.t === "text" && prim.text === "C");
+    const bar = prims.find((prim) => prim.t === "path");
+    expect(
+      c?.t === "text" && bar?.t === "path" && bar.d.startsWith(`M${Math.round(c.x * 100) / 100} `),
+    ).toBe(true);
+  });
+
+  it("draws an overline about a third thinner than the wires and gate outlines", () => {
+    const out = svg("Y = !C & B");
+    // One bar, over the pin label; the wires and outlines keep the svg's width.
+    expect(out.match(/<path d="M[^"]*" stroke-width="1.6"\/>/g)).toHaveLength(1);
+    expect(out).toContain(`stroke-width="${STROKE}"`);
+    expect(BAR_STROKE).toBeCloseTo(STROKE * 0.64);
+  });
+
+  it("gives an overline in an output formula the same thinner bar", () => {
+    const bars = svg("!A & B").match(/stroke-width="1.6"/g) ?? [];
+    expect(bars.length).toBeGreaterThan(0);
   });
 });
