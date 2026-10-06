@@ -21,7 +21,12 @@ const DATA: TasksData = {
   kindOf: () => "unstarted",
 };
 
-function setup(draft: TaskDraft = {}, data: TasksData = DATA, spaces: Space[] = []) {
+function setup(
+  draft: TaskDraft = {},
+  data: TasksData = DATA,
+  spaces: Space[] = [],
+  pickSpace = false,
+) {
   mockCommand("list_entities", [COURSE, NOTE]);
   mockCommand("list_spaces", spaces);
   mockCommand("create_task", makeTask({}, { id: "task-new" }));
@@ -32,7 +37,14 @@ function setup(draft: TaskDraft = {}, data: TasksData = DATA, spaces: Space[] = 
   const onCreated = vi.fn();
   const view = renderWithProviders(
     <TasksDataContext.Provider value={data}>
-      <QuickCreateTask open draft={draft} onOpenChange={() => {}} onCreated={onCreated} />
+      <QuickCreateTask
+        open
+        draft={draft}
+        onOpenChange={() => {}}
+        onCreated={onCreated}
+        spaces={pickSpace ? spaces : undefined}
+        onSpaceChange={pickSpace ? () => {} : undefined}
+      />
     </TasksDataContext.Provider>,
   );
   return { ...view, onCreated };
@@ -47,7 +59,7 @@ describe("QuickCreateTask related picker", () => {
     expect(callsOf("create_relationship")).toEqual([]);
   });
 
-  it("offers eight relative dates beside the calendar, with no search box", async () => {
+  it("offers seven relative dates beside the calendar, with no search box", async () => {
     freezeTime("2026-03-11T12:00:00"); // a Wednesday
     const { user, onCreated } = setup();
     await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
@@ -59,10 +71,10 @@ describe("QuickCreateTask related picker", () => {
       "Next Monday",
       "In one week",
       "In two weeks",
-      "End of this month",
       "In one month",
     ];
     for (const label of labels) expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText("End of this month")).not.toBeInTheDocument();
     // The presets are a short list and a calendar: nothing to search.
     expect(screen.queryByPlaceholderText(/due date/i)).not.toBeInTheDocument();
     await user.click(screen.getByText("Next Monday"));
@@ -72,9 +84,8 @@ describe("QuickCreateTask related picker", () => {
   });
 
   it.each([
-    // Next month can be shorter, and on the month's last day "end of this month" is today.
+    // Next month can be shorter.
     ["2026-01-31T12:00:00", "In one month", "2026-02-28"],
-    ["2026-01-31T12:00:00", "End of this month", "2026-02-28"],
     ["2026-12-15T12:00:00", "In one month", "2027-01-15"],
   ])("handles month ends: %s %s", async (now, label, day) => {
     freezeTime(now);
@@ -89,7 +100,6 @@ describe("QuickCreateTask related picker", () => {
 
   it.each([
     ["In two weeks", "2026-03-25"],
-    ["End of this month", "2026-03-31"],
     ["In one month", "2026-04-11"],
   ])("picks %s", async (label, day) => {
     freezeTime("2026-03-11T12:00:00");
@@ -128,6 +138,22 @@ describe("QuickCreateTask related picker", () => {
     await user.click(screen.getByRole("button", { name: "Create task" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(callsOf("attach_label")).toEqual([]);
+  });
+
+  it("colors the icon in the Space picker with the Space's color", async () => {
+    // The select's own styles gray out any icon without a `text-` class of its own, so
+    // the color has to sit on the icon itself, in the trigger and in the list.
+    const spaces = [
+      makeSpace({ id: "space-1", color: "#ff0000", icon: null }),
+      makeSpace({ id: "space-2", name: "Work", color: "#00ff00", icon: null, position: 1 }),
+    ];
+    const { user } = setup({}, DATA, spaces, true);
+    const trigger = await screen.findByRole("combobox", { name: "Space" });
+    await waitFor(() => expect(trigger.querySelector("svg")).toBeTruthy());
+    expect(trigger.querySelector("svg")!.getAttribute("class")).toContain("text-(--space-color)");
+    await user.click(trigger);
+    const option = await screen.findByRole("option", { name: /Work/ });
+    expect(option.querySelector("svg")!.getAttribute("class")).toContain("text-(--space-color)");
   });
 
   it("starts in Backlog, however the statuses are ordered", async () => {

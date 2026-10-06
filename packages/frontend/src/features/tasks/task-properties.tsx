@@ -356,15 +356,6 @@ function addDays(days: number): string {
   return toDay(date);
 }
 
-/// The last day of this month, or of the next one when today already is it.
-function endOfMonth(): string {
-  const today = new Date();
-  const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  return today.getDate() === last.getDate()
-    ? toDay(new Date(today.getFullYear(), today.getMonth() + 2, 0))
-    : toDay(last);
-}
-
 /// The same day next month, or its last day when next month is shorter (Jan 31 is Feb 28).
 function inOneMonth(): string {
   const today = new Date();
@@ -439,7 +430,6 @@ export function DueDateChooser({
     { label: "Next Monday", day: addDays(daysTo(1)) },
     { label: "In one week", day: addDays(7) },
     { label: "In two weeks", day: addDays(14) },
-    { label: "End of this month", day: endOfMonth() },
     { label: "In one month", day: inOneMonth() },
   ];
   return (

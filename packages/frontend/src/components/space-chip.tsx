@@ -15,7 +15,8 @@ export function SpaceDot({ space }: { space: Space }) {
   );
 }
 
-/// A Space's own icon (a folder without one) in its color.
+/// A Space's own icon (a folder without one) in its color. The color sits on the icon
+/// itself too: a select's styles gray out any icon without a `text-` class of its own.
 export function SpaceIcon({ space, size = 14 }: { space: Space; size?: number }) {
   return (
     <span
@@ -23,7 +24,11 @@ export function SpaceIcon({ space, size = 14 }: { space: Space; size?: number })
       // SAFETY: `--space-color` only ever receives `space.color`, a plain hex string.
       style={{ "--space-color": space.color } as CSSProperties}
     >
-      {space.icon ? renderIconValue(space.icon, size) : <IconFolder size={size} />}
+      {space.icon ? (
+        renderIconValue(space.icon, size, "text-(--space-color)")
+      ) : (
+        <IconFolder size={size} className="text-(--space-color)" />
+      )}
     </span>
   );
 }

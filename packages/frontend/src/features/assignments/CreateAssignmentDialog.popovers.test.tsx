@@ -44,7 +44,7 @@ describe("CreateAssignmentDialog popovers", () => {
     },
   );
 
-  it("offers eight relative dates beside the calendar, with no search box", async () => {
+  it("offers seven relative dates beside the calendar, with no search box", async () => {
     const { user } = renderDialog();
     await user.click(await screen.findByRole("button", { name: "Change Due Date" }));
     for (const label of [
@@ -54,7 +54,6 @@ describe("CreateAssignmentDialog popovers", () => {
       "Next Monday",
       "In one week",
       "In two weeks",
-      "End of this month",
       "In one month",
     ]) {
       expect(await screen.findByText(label)).toBeInTheDocument();
