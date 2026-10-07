@@ -5,7 +5,7 @@ use std::{fs, path::Path};
 
 use serde_json::Value;
 
-const MIN_WIDTH: u64 = 1100;
+const MIN_WIDTH: u64 = 1200;
 
 #[test]
 fn main_window_has_a_minimum_width_that_keeps_text_apart() {
