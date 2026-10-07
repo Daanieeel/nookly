@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { settings } from "#/lib/settings/settings.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { makeAssignment, makeSession } from "#/test/fixtures.ts";
@@ -78,6 +79,22 @@ describe("ageBucket", () => {
     ["2026-03-01T23:59:00Z", "earlier"],
   ])("puts %s in %s", (iso, bucket) => {
     expect(ageBucket(iso, NOW)).toBe(bucket);
+  });
+
+  it("starts the week on Monday by default and follows the week start setting", () => {
+    // Sunday 8 March 2026 is last week when weeks start on Monday.
+    expect(ageBucket("2026-03-08T12:00:00Z", NOW)).toBe("last");
+    settings.set("calendar.weekStart", "sunday");
+    expect(ageBucket("2026-03-08T12:00:00Z", NOW)).toBe("week");
+    settings.set("calendar.weekStart", "monday");
+    expect(ageBucket("2026-03-08T12:00:00Z", NOW)).toBe("last");
+  });
+
+  it("ends the deadline week on the day before the week start", () => {
+    const due = makeAssignment({ dueDate: "2026-03-15", status: "not_started" });
+    expect(deadlineBucket(due, NOW)).toBe("week");
+    settings.set("calendar.weekStart", "sunday");
+    expect(deadlineBucket(due, NOW)).toBe("next");
   });
 
   it("buckets an assignment by its creation", () => {

@@ -1,5 +1,6 @@
-import { Extension, textInputRule } from "@tiptap/react";
+import { Extension, InputRule, textInputRule } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { settings } from "#/lib/settings/settings.ts";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 /// Inter has no glyph for these, so the browser falls back to a system font that
@@ -19,11 +20,25 @@ function enlargedArrows(doc: Parameters<typeof DecorationSet.create>[0]): Decora
   return DecorationSet.create(doc, decorations);
 }
 
+/// A text rule that does nothing while the `notes.arrowLigatures` setting is off,
+/// checked on every keystroke so a change reaches editors that are already open.
+function ligature(find: RegExp, replace: string): InputRule {
+  const rule = textInputRule({ find, replace });
+  return new InputRule({
+    find,
+    handler: (props) => {
+      if (!settings.get("notes.arrowLigatures")) return null;
+      return rule.handler(props);
+    },
+  });
+}
+
 /// Arrows and comparisons as you type: `->` becomes →, `<-` ←, `<->` ↔, `=>` ⇒,
 /// `<=>` ⇔, `!=` ≠, `<=` ≤ and `>=` ≥. They are real
 /// characters, so they look the same in every font and survive export. Backspace right
 /// after one gives the typed characters back. Tiptap skips input rules inside code
-/// blocks and inline code, where `->` has to stay as typed.
+/// blocks and inline code, where `->` has to stay as typed. The `notes.arrowLigatures`
+/// setting turns the rules off.
 export const ArrowLigatures = Extension.create({
   name: "arrowLigatures",
 
@@ -46,16 +61,16 @@ export const ArrowLigatures = Extension.create({
 
   addInputRules() {
     return [
-      textInputRule({ find: /->$/, replace: "→" }),
-      textInputRule({ find: /<-$/, replace: "←" }),
+      ligature(/->$/, "→"),
+      ligature(/<-$/, "←"),
       // `<-` has already turned into ←, so the closing `>` finds that.
-      textInputRule({ find: /←>$/, replace: "↔" }),
-      textInputRule({ find: /=>$/, replace: "⇒" }),
+      ligature(/←>$/, "↔"),
+      ligature(/=>$/, "⇒"),
       // Same for `<=>`: `<=` is already ≤ by the time the `>` arrives.
-      textInputRule({ find: /≤>$/, replace: "⇔" }),
-      textInputRule({ find: /!=$/, replace: "≠" }),
-      textInputRule({ find: /<=$/, replace: "≤" }),
-      textInputRule({ find: />=$/, replace: "≥" }),
+      ligature(/≤>$/, "⇔"),
+      ligature(/!=$/, "≠"),
+      ligature(/<=$/, "≤"),
+      ligature(/>=$/, "≥"),
     ];
   },
 });

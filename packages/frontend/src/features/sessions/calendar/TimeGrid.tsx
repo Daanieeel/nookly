@@ -16,11 +16,12 @@ import {
   type DayColumn,
   type DayItem,
   HOUR_PX,
-  SCROLL_TO_HOUR,
-  SNAP_MINUTES,
   type SlotRange,
   daySpanFor,
   defaultSlotFrom,
+  type SlotKind,
+  scrollToHour,
+  snapMinutes,
   heightPxFor,
   isEmptySpot,
   minutesToTime,
@@ -74,7 +75,7 @@ function dragToRange(drag: Drag, columns: DayColumn[]): SlotRange {
     return {
       date: columns[startCol].day,
       startMin: Math.min(drag.anchorMin, drag.currentMin),
-      endMin: Math.max(drag.anchorMin, drag.currentMin) + SNAP_MINUTES,
+      endMin: Math.max(drag.anchorMin, drag.currentMin) + snapMinutes(),
     };
   }
   const startIsAnchor = drag.anchorCol <= drag.currentCol;
@@ -83,7 +84,7 @@ function dragToRange(drag: Drag, columns: DayColumn[]): SlotRange {
     startMin: startIsAnchor ? drag.anchorMin : drag.currentMin,
     endMin: Math.min(
       DAY_MINUTES,
-      (startIsAnchor ? drag.currentMin : drag.anchorMin) + SNAP_MINUTES,
+      (startIsAnchor ? drag.currentMin : drag.anchorMin) + snapMinutes(),
     ),
     endDate: columns[endCol].day,
   };
@@ -103,6 +104,7 @@ export function TimeGrid({
   secondaryKind,
   allowMultiDay,
   initialScrollMinutes,
+  createKind = "calendarEntry",
 }: {
   columns: DayColumn[];
   /// The range a create dialog is open for, kept highlighted meanwhile.
@@ -132,8 +134,10 @@ export function TimeGrid({
   /// entry (dragging from Monday noon to Wednesday 3pm, say). Off by default,
   /// so Sessions (always a single day) keep dragging exactly as before.
   allowMultiDay?: boolean;
-  /// Minutes after midnight to open scrolled to, instead of `SCROLL_TO_HOUR`.
+  /// Minutes after midnight to open scrolled to, instead of the first hour setting.
   initialScrollMinutes?: number;
+  /// What a click on empty time creates, which sets how long the proposed range is.
+  createKind?: SlotKind;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -158,7 +162,7 @@ export function TimeGrid({
     if (scrollRef.current)
       scrollRef.current.scrollTop =
         initialScrollMinutes === undefined
-          ? SCROLL_TO_HOUR * HOUR_PX
+          ? scrollToHour() * HOUR_PX
           : topPxFor(initialScrollMinutes);
   }, []);
 
@@ -172,8 +176,9 @@ export function TimeGrid({
   const minutesAt = (e: ReactPointerEvent<HTMLElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const minutes = ((e.clientY - rect.top) / HOUR_PX) * 60;
-    const snapped = Math.floor(minutes / SNAP_MINUTES) * SNAP_MINUTES;
-    return Math.max(0, Math.min(snapped, DAY_MINUTES - SNAP_MINUTES));
+    const step = snapMinutes();
+    const snapped = Math.floor(minutes / step) * step;
+    return Math.max(0, Math.min(snapped, DAY_MINUTES - step));
   };
 
   /// Which day column `e` is currently over, by x position in the row — used
@@ -329,7 +334,7 @@ export function TimeGrid({
                   onSelect(dragToRange(drag, columns));
                 } else {
                   const startMin = Math.floor(drag.anchorMin / 30) * 30;
-                  onSelect({ date: day, ...defaultSlotFrom(startMin) });
+                  onSelect({ date: day, ...defaultSlotFrom(startMin, createKind) });
                 }
               }}
               onPointerCancel={() => setDrag(null)}
@@ -348,7 +353,7 @@ export function TimeGrid({
                         startCreate: () =>
                           onSelect({
                             date: day,
-                            ...defaultSlotFrom(i * 30),
+                            ...defaultSlotFrom(i * 30, createKind),
                           }),
                       })
                     : {})}

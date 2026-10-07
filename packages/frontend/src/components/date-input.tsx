@@ -11,6 +11,7 @@ import {
   formatWeekday,
   useDateTimeSettings,
 } from "#/lib/datetime.ts";
+import { useWeekStartsOn } from "#/lib/week-start.ts";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// `YYYY-MM-DD` for a local date.
@@ -51,7 +52,7 @@ export function Calendar({
   /// with little room.
   compact?: boolean;
 }) {
-  const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
+  const weekStartsOn = useWeekStartsOn();
   const [focused, setFocused] = useState(() => (value ? fromDay(value) : new Date()));
   const [month, setMonth] = useState(() => startOfMonth(focused));
   const gridRef = useRef<HTMLDivElement>(null);

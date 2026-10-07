@@ -56,7 +56,8 @@ const FORMAT_MODES = z.enum(["american", "european", "timezone"]);
 const THEMES = z.enum(["light", "dark", "system"]);
 const FILE_VIEWER_THEMES = z.enum(["light", "dark", "defaults"]);
 const text = z.string().min(1);
-const minutes = z.number().int().min(5).max(720);
+/// A length in whole steps of five minutes, from 5 minutes to 12 hours.
+const minutes = z.number().int().min(5).max(720).multipleOf(5);
 
 /// The file viewer's theme choice, with the defaults when there is none. "system",
 /// the old "follow the app theme" choice, became the defaults.
@@ -194,7 +195,8 @@ export const SETTINGS = {
     id: "notes.defaultCodeLanguage",
     category: "notes",
     title: "Default code language",
-    description: "The language a new code block starts with.",
+    description:
+      "The language a new code block starts with, used for syntax highlighting. A note can pick its own.",
     synonyms: [
       "programming language",
       "syntax",
@@ -202,6 +204,8 @@ export const SETTINGS = {
       "highlight",
       "code block",
       "snippet",
+      "programming",
+      "plain text",
       "notes",
     ],
     default: "plaintext",
@@ -212,7 +216,8 @@ export const SETTINGS = {
     id: "calendar.sessionLengthMinutes",
     category: "calendar",
     title: "Session length",
-    description: "How long a new study session lasts, in minutes.",
+    description:
+      "How long a new session is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
     synonyms: [
       "duration",
       "study block",
@@ -229,7 +234,8 @@ export const SETTINGS = {
     id: "calendar.calendarEntryLengthMinutes",
     category: "calendar",
     title: "Calendar entry length",
-    description: "How long a new calendar entry lasts, in minutes.",
+    description:
+      "How long a new calendar entry is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
     synonyms: [
       "duration",
       "event length",
@@ -242,6 +248,83 @@ export const SETTINGS = {
     ],
     default: 60,
     schema: minutes,
+  }),
+  "calendar.weekStart": define({
+    id: "calendar.weekStart",
+    category: "calendar",
+    title: "First day of the week",
+    description:
+      "Where weeks begin in calendars, date pickers and week groupings. Automatic follows the date format: American starts on Sunday, the rest on Monday.",
+    synonyms: [
+      "week start",
+      "monday",
+      "sunday",
+      "saturday",
+      "weekday",
+      "start of week",
+      "weeks begin",
+      "calendar",
+    ],
+    default: "auto",
+    schema: z.enum(["auto", "monday", "sunday", "saturday"]),
+  }),
+  "calendar.dayStartHour": define({
+    id: "calendar.dayStartHour",
+    category: "calendar",
+    title: "Day starts at",
+    description:
+      "The hour the day and week views scroll to when they open. The whole day stays available. 0 to 23.",
+    synonyms: [
+      "scroll",
+      "first hour",
+      "morning",
+      "working hours",
+      "start of day",
+      "hour",
+      "time grid",
+      "calendar",
+    ],
+    default: 7,
+    schema: z.number().int().min(0).max(23),
+  }),
+  "calendar.snapMinutes": define({
+    id: "calendar.snapMinutes",
+    category: "calendar",
+    title: "Snap to",
+    description:
+      "How finely dragging snaps on the calendar when you create, move or resize something.",
+    synonyms: [
+      "grid",
+      "drag",
+      "precision",
+      "round",
+      "increment",
+      "interval",
+      "minutes",
+      "resize",
+      "calendar",
+    ],
+    default: 15,
+    schema: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]),
+  }),
+  "notes.arrowLigatures": define({
+    id: "notes.arrowLigatures",
+    category: "notes",
+    title: "Turn arrows into symbols",
+    description:
+      "Typing -> gives →, <= gives ≤, != gives ≠ and so on, outside code. Turn off to keep exactly what you type.",
+    synonyms: [
+      "arrows",
+      "ligatures",
+      "autocorrect",
+      "symbols",
+      "replace",
+      "typography",
+      "comparison",
+      "notes",
+    ],
+    default: true,
+    schema: z.boolean(),
   }),
 };
 

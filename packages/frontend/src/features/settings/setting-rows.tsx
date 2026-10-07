@@ -22,8 +22,13 @@ import {
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
 import { Switch } from "@nookly/ui/components/switch";
+import {
+  NumberControl,
+  SnapControl,
+  SwitchControl,
+  WeekStartControl,
+} from "./setting-controls.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { formatEditedAt } from "#/lib/relative-time.ts";
 import {
@@ -54,8 +59,8 @@ export interface RowSpec extends Searchable {
 const SECTIONS = {
   general: ["Date and time", "Tasks", "Backup", "About"],
   appearance: ["Theme"],
-  calendar: ["Defaults", "Connections"],
-  notes: ["Code"],
+  calendar: ["Defaults", "Week and day", "Connections"],
+  notes: ["Code", "Editing"],
   shortcuts: [],
 } satisfies Record<SettingCategory, string[]>;
 
@@ -73,16 +78,47 @@ const SETTING_UI = {
   "notes.defaultCodeLanguage": { section: "Code", control: <CodeLanguageSettings /> },
   "calendar.sessionLengthMinutes": {
     section: "Defaults",
-    control: <MinutesControl settingId="calendar.sessionLengthMinutes" label="Session length" />,
+    control: (
+      <NumberControl
+        settingId="calendar.sessionLengthMinutes"
+        label="Session length"
+        unit="minutes"
+        min={5}
+        max={720}
+        step={5}
+      />
+    ),
   },
   "calendar.calendarEntryLengthMinutes": {
     section: "Defaults",
     control: (
-      <MinutesControl
+      <NumberControl
         settingId="calendar.calendarEntryLengthMinutes"
         label="Calendar entry length"
+        unit="minutes"
+        min={5}
+        max={720}
+        step={5}
       />
     ),
+  },
+  "calendar.weekStart": { section: "Week and day", control: <WeekStartControl /> },
+  "calendar.dayStartHour": {
+    section: "Week and day",
+    control: (
+      <NumberControl
+        settingId="calendar.dayStartHour"
+        label="Day starts at"
+        unit="o'clock"
+        min={0}
+        max={23}
+      />
+    ),
+  },
+  "calendar.snapMinutes": { section: "Week and day", control: <SnapControl /> },
+  "notes.arrowLigatures": {
+    section: "Editing",
+    control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,
   },
 } satisfies Record<SettingId, { section: string; control: ReactNode }>;
 
@@ -178,37 +214,6 @@ function BackupAutoControl() {
     />
   );
 }
-
-/// A whole number of minutes. A half typed value is only kept once it is valid.
-function MinutesControl({ settingId, label }: { settingId: MinutesId; label: string }) {
-  const [value, setValue] = useSetting(settingId);
-  const [draft, setDraft] = useState<string | null>(null);
-  return (
-    <div className="flex items-center gap-2">
-      <Input
-        type="number"
-        inputMode="numeric"
-        aria-label={label}
-        min={MINUTES.min}
-        max={MINUTES.max}
-        step={5}
-        className="w-20 tabular-nums"
-        value={draft ?? String(value)}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          const next = Number(e.target.value);
-          if (Number.isInteger(next) && next >= MINUTES.min && next <= MINUTES.max) setValue(next);
-        }}
-        onBlur={() => setDraft(null)}
-      />
-      <span className="text-xs text-muted-foreground">minutes</span>
-    </div>
-  );
-}
-
-type MinutesId = "calendar.sessionLengthMinutes" | "calendar.calendarEntryLengthMinutes";
-/// What the registry accepts for a number of minutes.
-const MINUTES = { min: 5, max: 720 };
 
 /// Entry to the read only external calendar overlay shown on Sessions.
 function CalendarConnectionsControl() {

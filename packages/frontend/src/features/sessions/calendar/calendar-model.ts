@@ -14,6 +14,8 @@ import type { ExternalEvent } from "#/lib/api/externalCalendars.ts";
 import type { CalendarEntry, Exam, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatMonth, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { settings } from "#/lib/settings/settings.ts";
+import type { WeekStart } from "#/lib/week-start.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import {
   type EventSegment,
@@ -23,7 +25,6 @@ import {
 } from "../external-calendars/overlay-layout";
 
 export type CalendarView = "day" | "workweek" | "week" | "month";
-export type WeekStart = 0 | 1;
 
 /// In Outlook's order, with the number key that switches to each.
 export const CALENDAR_VIEWS = [
@@ -46,10 +47,14 @@ export function writeView(view: CalendarView, storageKey: string = STORAGE_KEYS.
 
 /// Pixels per hour on the time grid; each half hour row is exactly `h-6`.
 export const HOUR_PX = 48;
-/// Dragging snaps to quarter hours, fine enough for 8:15 to 9:45 lectures.
-export const SNAP_MINUTES = 15;
+/// What dragging snaps to, in minutes: a quarter hour unless changed in settings.
+export function snapMinutes(): number {
+  return settings.get("calendar.snapMinutes");
+}
 /// The hour the time grid opens scrolled to.
-export const SCROLL_TO_HOUR = 7;
+export function scrollToHour(): number {
+  return settings.get("calendar.dayStartHour");
+}
 export const DAY_MINUTES = 24 * 60;
 const MIN_BLOCK_PX = 18;
 /// How long an exam block is drawn, as exams have a start time but no end.
@@ -159,12 +164,20 @@ export interface SlotRange extends MinuteRange {
   endDate?: Date;
 }
 
-/// How long a Session lasts until the dialog changes it.
-export const DEFAULT_SLOT_MINUTES = 90;
+/// What a slot is picked for. Each kind has its own default length in settings.
+export type SlotKind = "session" | "calendarEntry";
 
-/// The window a new Session or Calendar entry opens on when it starts at `startMin`.
-export function defaultSlotFrom(startMin: number): MinuteRange {
-  return { startMin, endMin: Math.min(startMin + DEFAULT_SLOT_MINUTES, DAY_MINUTES) };
+/// How long a new item of `kind` lasts until the dialog changes it, in minutes.
+export function slotLengthMinutes(kind: SlotKind): number {
+  return settings.get(
+    kind === "session" ? "calendar.sessionLengthMinutes" : "calendar.calendarEntryLengthMinutes",
+  );
+}
+
+/// The window a new Session or Calendar entry opens on when it starts at `startMin`,
+/// as long as that kind's length setting, cut off at the end of the day.
+export function defaultSlotFrom(startMin: number, kind: SlotKind): MinuteRange {
+  return { startMin, endMin: Math.min(startMin + slotLengthMinutes(kind), DAY_MINUTES) };
 }
 
 /// The part of a (possibly multi-day) `SlotRange` that falls on `day`, or null

@@ -9,11 +9,12 @@ import { cn } from "@nookly/ui/lib/utils";
 import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
 import { useScreenHotkeys } from "#/hooks/use-app-hotkey.ts";
-import { useDateTimeSettings } from "#/lib/datetime.ts";
+import { useWeekStartsOn } from "#/lib/week-start.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 import {
   CALENDAR_VIEWS,
   type CalendarView,
+  type SlotKind,
   type SlotRange,
   defaultSlotFrom,
   rangeLabel,
@@ -27,12 +28,14 @@ import {
 
 /// Shared state, hotkeys and header for the three full-page calendars
 /// (Sessions, Calendar module and the unified Calendar page).
-export function useCalendarPage(storageKey?: string) {
+/// `kind` is what this page creates, which sets the length of a new item's proposed
+/// range. The unified Calendar page only creates calendar entries.
+export function useCalendarPage(storageKey: string | undefined, kind: SlotKind) {
   const [view, setViewState] = useState<CalendarView>(() => readView(storageKey));
   const [anchor, setAnchor] = useState(() => new Date());
   const [draft, setDraft] = useState<SlotRange | null>(null);
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
-  const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
+  const weekStartsOn = useWeekStartsOn();
 
   const setView = useCallback(
     (next: CalendarView) => {
@@ -61,8 +64,8 @@ export function useCalendarPage(storageKey?: string) {
     const shown = visibleDays(view, anchor, weekStartsOn);
     const today = shown.find((d) => isToday(d));
     const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
-    setDraft({ date: today ?? shown[0], ...defaultSlotFrom(startMin) });
-  }, [view, anchor, weekStartsOn]);
+    setDraft({ date: today ?? shown[0], ...defaultSlotFrom(startMin, kind) });
+  }, [view, anchor, weekStartsOn, kind]);
 
   const goToday = useCallback(() => setAnchor(new Date()), []);
 

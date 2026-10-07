@@ -31,7 +31,7 @@ export function SessionsListView({
   spaceId: string;
   filterCourseId?: string;
 }) {
-  const page = useCalendarPage();
+  const page = useCalendarPage(undefined, "session");
   const { view, anchor, days, draft, setDraft, highlightIds, setHighlightIds, pickDay } = page;
   const setNavView = useNavStore((s) => s.setView);
 
@@ -133,6 +133,7 @@ export function SessionsListView({
           onPickDay={pickDay}
           spaceColor={spaceColor}
           secondaryKind="calendarEntry"
+          createKind="session"
         />
       ) : (
         <TimeGrid
@@ -143,6 +144,7 @@ export function SessionsListView({
           onSelect={setDraft}
           onPickDay={pickDay}
           slotCreateNoun="Session"
+          createKind="session"
           spaceColor={spaceColor}
           secondaryKind="calendarEntry"
         />

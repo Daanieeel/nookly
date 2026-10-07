@@ -9,7 +9,7 @@ import {
   subMonths,
 } from "date-fns";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
-import { useDateTimeSettings } from "#/lib/datetime.ts";
+import { currentWeekStartsOn } from "#/lib/week-start.ts";
 import type { ReindexProgress } from "#/lib/api/files.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -85,7 +85,7 @@ interface AddedBucket {
 /// call rather than a static table, since which month or year "this year" and
 /// "N years back" mean depends on when it's called.
 function addedBuckets(now: Date): AddedBucket[] {
-  const weekStartsOn = useDateTimeSettings.getState().dateFormat === "american" ? 0 : 1;
+  const weekStartsOn = currentWeekStartsOn();
   const lastMonth = subMonths(now, 1);
   const thisYear = getYear(now);
 

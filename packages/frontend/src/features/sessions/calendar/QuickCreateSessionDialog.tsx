@@ -19,7 +19,7 @@ import {
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
-import { type SlotRange, minutesToTime } from "./calendar-model";
+import { type SlotRange, defaultSlotFrom, minutesToTime } from "./calendar-model";
 import {
   RepeatChip,
   cadenceSchema,
@@ -51,15 +51,19 @@ const sessionSchema = z
 
 type SessionValues = z.infer<typeof sessionSchema>;
 
-const emptyValues: SessionValues = {
-  title: "",
-  course: null,
-  date: "",
-  startTime: "09:00",
-  endTime: "10:30",
-  location: "",
-  ...DEFAULT_REPEAT,
-};
+/// The form before a range is picked, ending as long after 9:00 as a new session lasts.
+function emptyValues(): SessionValues {
+  const { startMin, endMin } = defaultSlotFrom(9 * 60, "session");
+  return {
+    title: "",
+    course: null,
+    date: "",
+    startTime: minutesToTime(startMin),
+    endTime: minutesToTime(endMin),
+    location: "",
+    ...DEFAULT_REPEAT,
+  };
+}
 
 /// Opens on the range picked on the calendar: the title and Course come first,
 /// the date and times arrive filled in and only need touching to fine tune them.
@@ -79,7 +83,7 @@ export function QuickCreateSessionDialog({
   const titleRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
-    defaultValues: emptyValues,
+    defaultValues: emptyValues(),
     validators: { onChange: sessionSchema },
     onSubmit: ({ value }) => {
       if (!create.isPending && createStatus !== "success") create.mutate(value);
@@ -89,7 +93,7 @@ export function QuickCreateSessionDialog({
   useEffect(() => {
     if (!draft) return;
     form.reset({
-      ...emptyValues,
+      ...emptyValues(),
       date: format(draft.date, "yyyy-MM-dd"),
       startTime: minutesToTime(draft.startMin),
       endTime: minutesToTime(draft.endMin),

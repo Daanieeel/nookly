@@ -44,7 +44,9 @@ describe("settings registry", () => {
     for (const id of SETTING_IDS) {
       const def = definitionOf(id);
       for (const junk of [null, 42.5, {}, [], false, ""]) {
-        if (id === "general.backupAuto" && junk === false) continue;
+        if ((id === "general.backupAuto" || id === "notes.arrowLigatures") && junk === false) {
+          continue;
+        }
         expect(def.parse(junk)).toEqual(def.default);
       }
     }
@@ -65,6 +67,36 @@ describe("settings registry", () => {
   it("defaults the new calendar lengths", () => {
     expect(SETTINGS["calendar.sessionLengthMinutes"].default).toBe(90);
     expect(SETTINGS["calendar.calendarEntryLengthMinutes"].default).toBe(60);
+  });
+
+  it("keeps lengths to whole steps of five minutes between 5 and 720", () => {
+    const length = SETTINGS["calendar.sessionLengthMinutes"];
+    expect(length.parse(5)).toBe(5);
+    expect(length.parse(720)).toBe(720);
+    for (const bad of [0, 4, 7, 722, 725, -5]) expect(length.parse(bad)).toBe(90);
+    expect(SETTINGS["calendar.calendarEntryLengthMinutes"].parse(47)).toBe(60);
+  });
+
+  it("defaults the calendar layout and editor settings to today's behaviour", () => {
+    expect(SETTINGS["calendar.weekStart"].default).toBe("auto");
+    expect(SETTINGS["calendar.dayStartHour"].default).toBe(7);
+    expect(SETTINGS["calendar.snapMinutes"].default).toBe(15);
+    expect(SETTINGS["notes.arrowLigatures"].default).toBe(true);
+  });
+
+  it("validates the calendar layout and editor settings", () => {
+    const week = SETTINGS["calendar.weekStart"];
+    for (const ok of ["auto", "monday", "sunday", "saturday"]) expect(week.parse(ok)).toBe(ok);
+    expect(week.parse("friday")).toBe("auto");
+    const hour = SETTINGS["calendar.dayStartHour"];
+    expect(hour.parse(0)).toBe(0);
+    expect(hour.parse(23)).toBe(23);
+    expect(hour.parse(24)).toBe(7);
+    expect(hour.parse(-1)).toBe(7);
+    const snap = SETTINGS["calendar.snapMinutes"];
+    for (const ok of [5, 10, 15, 30]) expect(snap.parse(ok)).toBe(ok);
+    expect(snap.parse(20)).toBe(15);
+    expect(SETTINGS["notes.arrowLigatures"].parse(false)).toBe(false);
   });
 
   it("turns the legacy backup flag into a boolean", () => {

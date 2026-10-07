@@ -7,6 +7,7 @@ import { ExternalEventChip } from "../external-calendars/ExternalEventBlock";
 import {
   type DayColumn,
   type DayItem,
+  type SlotKind,
   type SlotRange,
   defaultSlotFrom,
   isEmptySpot,
@@ -29,6 +30,7 @@ export function MonthGrid({
   onPickDay,
   spaceColor,
   secondaryKind,
+  createKind,
 }: {
   anchor: Date;
   columns: DayColumn[];
@@ -39,6 +41,8 @@ export function MonthGrid({
   spaceColor?: (spaceId: string) => string | undefined;
   /// See `TimeGrid`'s `secondaryKind`.
   secondaryKind?: DayItem["kind"];
+  /// What clicking an empty spot creates, which sets how long the proposed range is.
+  createKind: SlotKind;
 }) {
   const weeks = Array.from({ length: Math.ceil(columns.length / 7) }, (_, i) =>
     columns.slice(i * 7, i * 7 + 7),
@@ -154,7 +158,7 @@ export function MonthGrid({
                       return;
                     onSelect({
                       date: day,
-                      ...defaultSlotFrom(DEFAULT_START_MIN),
+                      ...defaultSlotFrom(DEFAULT_START_MIN, createKind),
                     });
                   }}
                 >

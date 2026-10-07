@@ -12,6 +12,8 @@ Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `ge
 
 The Settings dialog (titlebar gear, `Mod+,`, "Open Settings" in the commands palette) draws the title, description, id and a reset button for you. The control only edits the value and should carry an `aria-label` equal to the title. A value that needs a side effect on reset, like the theme, goes in `SettingRow.tsx`.
 
+A setting read where it is used (a calendar length, the snap, the notes editor's arrow rules) is read with `settings.get` at that moment, so a change applies without a restart.
+
 A row with no stored value (a button that opens a dialog) goes in `ACTION_ROWS` instead.
 
 ## Search synonyms

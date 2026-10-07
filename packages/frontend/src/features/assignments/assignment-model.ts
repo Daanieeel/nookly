@@ -24,6 +24,7 @@ import {
 } from "date-fns";
 import type { Assignment, SessionOccurrence, TaskStatus } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { mondayWeekStartsOn } from "#/lib/week-start.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { normalizeBaseDisplay, readStoredDisplay } from "#/lib/display-options.ts";
@@ -87,7 +88,10 @@ export const CREATED_BUCKETS: BucketDef[] = [
   { id: "earlier", label: "Earlier", tone: "muted" },
 ];
 
-const WEEK = { weekStartsOn: 1 } as const;
+/// Weeks begin on Monday unless the first day of the week setting says otherwise.
+function week() {
+  return { weekStartsOn: mondayWeekStartsOn() };
+}
 
 export function deadlineBucket(a: Assignment, now = new Date()): string {
   const today = startOfDay(now);
@@ -95,7 +99,7 @@ export function deadlineBucket(a: Assignment, now = new Date()): string {
   const due = parseISO(a.dueDate);
   if (isBefore(due, today)) return isDone(a) ? "done" : "overdue";
   if (isSameDay(due, today)) return "today";
-  const weekEnd = endOfWeek(today, WEEK);
+  const weekEnd = endOfWeek(today, week());
   if (!isBefore(weekEnd, due)) return "week";
   if (!isBefore(addWeeks(weekEnd, 1), due)) return "next";
   return "later";
@@ -107,7 +111,7 @@ export function ageBucket(iso: string, now = new Date()): string {
   const today = startOfDay(now);
   const day = startOfDay(parseISO(iso));
   if (isSameDay(day, today)) return "today";
-  const weekStart = startOfWeek(today, WEEK);
+  const weekStart = startOfWeek(today, week());
   if (!isBefore(day, weekStart)) return "week";
   if (!isBefore(day, subWeeks(weekStart, 1))) return "last";
   return "earlier";

@@ -22,7 +22,11 @@ import {
   SelectValue,
 } from "@nookly/ui/components/select";
 import { QuickCreateDialogShell } from "../../calendar/QuickCreateDialogShell";
-import { type SlotRange, minutesToTime } from "../../sessions/calendar/calendar-model";
+import {
+  type SlotRange,
+  defaultSlotFrom,
+  minutesToTime,
+} from "../../sessions/calendar/calendar-model";
 import {
   RepeatChip,
   cadenceSchema,
@@ -59,17 +63,21 @@ const entrySchema = z
 
 type EntryValues = z.infer<typeof entrySchema>;
 
-const emptyValues: EntryValues = {
-  title: "",
-  targetSpaceId: "",
-  date: "",
-  endDate: "",
-  allDay: false,
-  startTime: "09:00",
-  endTime: "10:00",
-  location: "",
-  ...DEFAULT_REPEAT,
-};
+/// The form before a range is picked, ending as long after 9:00 as a new entry lasts.
+function emptyValues(): EntryValues {
+  const { startMin, endMin } = defaultSlotFrom(9 * 60, "calendarEntry");
+  return {
+    title: "",
+    targetSpaceId: "",
+    date: "",
+    endDate: "",
+    allDay: false,
+    startTime: minutesToTime(startMin),
+    endTime: minutesToTime(endMin),
+    location: "",
+    ...DEFAULT_REPEAT,
+  };
+}
 
 /// Opens on the range picked on the calendar, the same creation surface as
 /// `QuickCreateSessionDialog` — no Course picker (calendar entries have no
@@ -97,7 +105,7 @@ export function QuickCreateCalendarEntryDialog({
   const titleRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
-    defaultValues: { ...emptyValues, targetSpaceId: spaceId ?? "" },
+    defaultValues: { ...emptyValues(), targetSpaceId: spaceId ?? "" },
     validators: { onChange: entrySchema },
     onSubmit: ({ value }) => {
       if (!create.isPending && createStatus !== "success") create.mutate(value);

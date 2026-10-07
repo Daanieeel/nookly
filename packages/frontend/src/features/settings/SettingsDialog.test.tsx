@@ -112,6 +112,19 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).not.toBeNull();
   });
 
+  it.each([
+    ["monday", "calendar.weekStart"],
+    ["scroll", "calendar.dayStartHour"],
+    ["grid", "calendar.snapMinutes"],
+    ["arrows", "notes.arrowLigatures"],
+    ["syntax highlighting", "notes.defaultCodeLanguage"],
+    ["appointment length", "calendar.calendarEntryLengthMinutes"],
+  ])("finds %j by its synonyms", async (query, id) => {
+    const { user } = renderOpen();
+    await user.type(await screen.findByRole("searchbox"), query);
+    expect(rowFor(id)).not.toBeNull();
+  });
+
   it("finds rows that have no setting, like the version", async () => {
     const { user } = renderOpen();
     await user.type(await screen.findByRole("searchbox"), "updates");
@@ -188,6 +201,31 @@ describe("the settings dialog", () => {
     expect(settings.get("calendar.sessionLengthMinutes")).toBe(45);
     await user.tab();
     expect(input).toHaveValue(45);
+  });
+
+  it("saves the calendar layout and editor settings from their controls", async () => {
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Calendar" }));
+    await user.click(screen.getByRole("button", { name: "First day of the week" }));
+    await user.click(await screen.findByRole("option", { name: "Saturday" }));
+    expect(settings.get("calendar.weekStart")).toBe("saturday");
+
+    const hour = screen.getByRole("spinbutton", { name: "Day starts at" });
+    await user.clear(hour);
+    await user.type(hour, "8");
+    expect(settings.get("calendar.dayStartHour")).toBe(8);
+    await user.clear(hour);
+    await user.type(hour, "24");
+    // The 2 was a valid hour on its own; the 24 that followed is not, so it stayed at 2.
+    expect(settings.get("calendar.dayStartHour")).toBe(2);
+
+    await user.click(screen.getByRole("button", { name: "Snap to" }));
+    await user.click(await screen.findByRole("option", { name: "30 minutes" }));
+    expect(settings.get("calendar.snapMinutes")).toBe(30);
+
+    await user.click(screen.getByRole("button", { name: "Notes" }));
+    await user.click(screen.getByRole("switch", { name: "Turn arrows into symbols" }));
+    expect(settings.get("notes.arrowLigatures")).toBe(false);
   });
 
   it("opens and closes with Ctrl and a comma", async () => {
