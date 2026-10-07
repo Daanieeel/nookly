@@ -70,6 +70,7 @@ export function SelectField({
       </PopoverTrigger>
       <PopoverContent
         {...dialogPopover("w-(--radix-popover-trigger-width) min-w-56 p-0")}
+        aria-label={ariaLabel}
         align="end"
       >
         <Command loop>

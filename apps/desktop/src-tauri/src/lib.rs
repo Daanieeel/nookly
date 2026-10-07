@@ -182,6 +182,8 @@ pub fn run() {
             commands::notes::delete_block,
             commands::notes::reorder_blocks,
             commands::notes::render_page_markdown,
+            commands::notes::get_note_code_language,
+            commands::notes::set_note_code_language,
             commands::notes::export_page_markdown,
             commands::courses::create_course,
             commands::courses::list_courses,

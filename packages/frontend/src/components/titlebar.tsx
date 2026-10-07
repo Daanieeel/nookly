@@ -24,6 +24,7 @@ import { FileViewerThemeToggle } from "#/components/file-viewer-theme-toggle.tsx
 import { ThemeToggle } from "#/components/theme-toggle.tsx";
 import { UpdateCard } from "#/components/update-card.tsx";
 import { DateTimeSettings } from "#/components/datetime-settings.tsx";
+import { CodeLanguageSettings } from "#/components/code-language-settings.tsx";
 import { EffortSettings } from "#/components/effort-settings.tsx";
 // Aliased: this file has its own breadcrumb `Separator`.
 import { Separator as UiSeparator } from "@nookly/ui/components/separator";
@@ -231,6 +232,8 @@ function SettingsPopover() {
           <DateTimeSettings />
           <UiSeparator />
           <EffortSettings />
+          <UiSeparator />
+          <CodeLanguageSettings />
           <UiSeparator />
           <CalendarConnectionsSetting
             onOpen={() => {

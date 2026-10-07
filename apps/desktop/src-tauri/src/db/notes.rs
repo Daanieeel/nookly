@@ -1,8 +1,8 @@
 use crate::db::block_types::{self, BlockAttrs};
 use crate::db::entities::{row_to_entity, Entity};
-use crate::db::schema::{CreateInput, EntitySchemaDef, JsonMap};
+use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -40,6 +40,44 @@ fn row_to_block(row: &rusqlite::Row) -> rusqlite::Result<Block> {
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
+}
+
+/// The language a new code block in Note `note_id` starts with, `None` when the
+/// note has no override and the app's default applies.
+pub fn get_note_code_language(conn: &Connection, note_id: &str) -> AppResult<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT code_language FROM note_settings WHERE entity_id = ?1",
+            params![note_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .optional()?
+        .flatten())
+}
+
+/// Sets, or with `None` (or a blank value) clears, the note's own code language.
+/// Never touches an existing code block.
+pub fn set_note_code_language(
+    conn: &Connection,
+    note_id: &str,
+    language: Option<String>,
+) -> AppResult<()> {
+    crate::db::entities::get_entity_of_type(conn, note_id, "note")?;
+    let language = language
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty());
+    match language {
+        Some(language) => conn.execute(
+            "INSERT INTO note_settings (entity_id, code_language) VALUES (?1, ?2)
+             ON CONFLICT(entity_id) DO UPDATE SET code_language = excluded.code_language",
+            params![note_id, language],
+        )?,
+        None => conn.execute(
+            "DELETE FROM note_settings WHERE entity_id = ?1",
+            params![note_id],
+        )?,
+    };
+    Ok(())
 }
 
 /// Creates the page entity. `page_type` lets Jots (§5.3) reuse the same
@@ -823,7 +861,21 @@ fn cli_get_typed_page(
 }
 
 fn cli_get_note(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    cli_get_typed_page("note")(conn, id)
+    let mut page = cli_get_typed_page("note")(conn, id)?;
+    page["codeLanguage"] = serde_json::json!(get_note_code_language(conn, id)?);
+    Ok(page)
+}
+
+fn cli_update_note(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
+    crate::db::entities::get_entity_of_type(conn, id, "note")?;
+    if fields.contains_key("codeLanguage") {
+        set_note_code_language(
+            conn,
+            id,
+            crate::db::schema::field_str(fields, "codeLanguage"),
+        )?;
+    }
+    cli_get_note(conn, id)
 }
 fn cli_get_jot(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     cli_get_typed_page("jot")(conn, id)
@@ -857,7 +909,17 @@ fn cli_list_pages(
 }
 
 fn cli_create_note(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
-    cli_create_page("note")(conn, input)
+    let language = crate::db::schema::field_str(&input.fields, "codeLanguage");
+    let created = cli_create_page("note")(conn, input)?;
+    let Some(language) = language else {
+        return Ok(created);
+    };
+    let id = created["entity"]["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    set_note_code_language(conn, &id, Some(language))?;
+    cli_get_note(conn, &id)
 }
 fn cli_list_notes(
     conn: &Connection,
@@ -947,7 +1009,13 @@ inventory::submit! {
         entity_type: "note",
         supports_blocks: true,
         description: "A free-form page of block content.",
-        fields: &[],
+        fields: &[FieldDef {
+            name: "codeLanguage",
+            kind: FieldKind::Text,
+            required_on_create: false,
+            writable_on_update: true,
+            description: "The language a new code block in this note starts with, like 'rust' or 'python'. Without one, new code blocks use the app's default language. Pass null to clear it. Existing code blocks are not changed.",
+        }],
         relationship_types: &[
             "relates-to",
             "attached-file",
@@ -956,7 +1024,7 @@ inventory::submit! {
             "session-note",
         ],
         create: cli_create_note,
-        update: cli_update_page,
+        update: cli_update_note,
         get: cli_get_note,
         list: cli_list_notes,
     }
@@ -979,6 +1047,62 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn note_code_language_defaults_to_none_and_can_be_set_and_cleared() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "S");
+        let note = create_page(&conn, space.id, "note", "N".into()).unwrap();
+        assert_eq!(get_note_code_language(&conn, &note.id).unwrap(), None);
+
+        set_note_code_language(&conn, &note.id, Some(" rust ".into())).unwrap();
+        assert_eq!(
+            get_note_code_language(&conn, &note.id).unwrap().as_deref(),
+            Some("rust")
+        );
+        set_note_code_language(&conn, &note.id, Some("python".into())).unwrap();
+        assert_eq!(
+            get_note_code_language(&conn, &note.id).unwrap().as_deref(),
+            Some("python")
+        );
+        set_note_code_language(&conn, &note.id, None).unwrap();
+        assert_eq!(get_note_code_language(&conn, &note.id).unwrap(), None);
+        set_note_code_language(&conn, &note.id, Some("  ".into())).unwrap();
+        assert_eq!(get_note_code_language(&conn, &note.id).unwrap(), None);
+    }
+
+    #[test]
+    fn note_code_language_is_for_notes_only_and_shows_in_cli_get() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "S");
+        let jot = create_page(&conn, space.id.clone(), "jot", "J".into()).unwrap();
+        assert!(set_note_code_language(&conn, &jot.id, Some("rust".into())).is_err());
+
+        let note = create_page(&conn, space.id, "note", "N".into()).unwrap();
+        let mut fields = JsonMap::new();
+        fields.insert("codeLanguage".into(), serde_json::json!("go"));
+        let updated = cli_update_note(&conn, &note.id, &fields).unwrap();
+        assert_eq!(updated["codeLanguage"], "go");
+        assert_eq!(cli_get_note(&conn, &note.id).unwrap()["codeLanguage"], "go");
+        let mut clear = JsonMap::new();
+        clear.insert("codeLanguage".into(), serde_json::Value::Null);
+        let cleared = cli_update_note(&conn, &note.id, &clear).unwrap();
+        assert!(cleared["codeLanguage"].is_null());
+    }
+
+    #[test]
+    fn deleting_a_note_forever_removes_its_code_language() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "S");
+        let note = create_page(&conn, space.id, "note", "N".into()).unwrap();
+        set_note_code_language(&conn, &note.id, Some("rust".into())).unwrap();
+        crate::db::entities::soft_delete_entity(&conn, &note.id).unwrap();
+        crate::db::entities::hard_delete_entity(&conn, &note.id).unwrap();
+        let rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM note_settings", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0);
+    }
 
     #[test]
     fn refine_jot_creates_linked_note_and_leaves_jot_alone() {

@@ -40,6 +40,8 @@ export interface EditorExtensionOptions {
   pageId: string;
   /// Read live, so mentions and the "/" menu see entities loaded after the editor.
   getEntities: () => Entity[];
+  /// Read live: the language a new code block in this page starts with, `null` for plain text.
+  getNewCodeLanguage?: () => string | null;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -47,6 +49,7 @@ export function editorExtensions({
   spaceId,
   pageId,
   getEntities,
+  getNewCodeLanguage = () => null,
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
@@ -64,7 +67,10 @@ export function editorExtensions({
       orderedList: false,
     }),
     LetterOrderedList,
-    CodeBlockWithHeader.configure({ defaultLanguage: "plaintext" }),
+    CodeBlockWithHeader.configure({
+      defaultLanguage: "plaintext",
+      getNewLanguage: getNewCodeLanguage,
+    }),
     Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
     TableKit.configure({ table: { resizable: true } }),
     UniqueBlockId,

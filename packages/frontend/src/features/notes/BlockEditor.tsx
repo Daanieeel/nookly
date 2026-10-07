@@ -6,7 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
 import { listEntities } from "#/lib/api/entities.ts";
-import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "#/lib/api/notes.ts";
+import {
+  createBlock,
+  deleteBlock,
+  getNoteCodeLanguage,
+  reorderBlocks,
+  updateBlock,
+} from "#/lib/api/notes.ts";
 import type { Block } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -19,6 +25,7 @@ import {
   nodeToBlockInput,
 } from "./block-markdown";
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
+import { newCodeBlockLanguage } from "./default-code-language";
 import { usePasteFiles } from "./paste-files";
 import { editorExtensions } from "./editor-extensions";
 import { TableControls } from "./TableControls";
@@ -127,6 +134,13 @@ function HydratedBlockEditor({
 
   const entitiesRef = useRef(entities);
   entitiesRef.current = entities;
+  // The note's own code language, read live when a code block is made. A Jot has none.
+  const { data: noteCodeLanguage = null } = useQuery({
+    queryKey: qk.noteCodeLanguage(entityId),
+    queryFn: () => getNoteCodeLanguage(entityId),
+  });
+  const noteCodeLanguageRef = useRef(noteCodeLanguage);
+  noteCodeLanguageRef.current = noteCodeLanguage;
 
   /// Client-generated `blockId` (assigned by `UniqueBlockId`) -> server block id.
   /// Pre-existing blocks bootstrap this as an identity mapping (§ notes rewrite).
@@ -262,6 +276,7 @@ function HydratedBlockEditor({
       spaceId,
       pageId: entityId,
       getEntities: () => entitiesRef.current,
+      getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
     }),
     editorProps: {
       attributes: {
