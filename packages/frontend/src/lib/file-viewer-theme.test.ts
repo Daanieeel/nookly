@@ -18,13 +18,15 @@ describe("parseFileViewerTheme", () => {
 });
 
 describe("viewerIsDark", () => {
-  it("draws code dark and everything else light by default", () => {
+  it("draws code and raw text dark and documents light by default", () => {
     expect(viewerIsDark("defaults", "code")).toBe(true);
+    expect(viewerIsDark("defaults", "text")).toBe(true);
     expect(viewerIsDark("defaults", "document")).toBe(false);
   });
 
   it("draws every file in a picked theme", () => {
     expect(viewerIsDark("light", "code")).toBe(false);
+    expect(viewerIsDark("light", "text")).toBe(false);
     expect(viewerIsDark("dark", "document")).toBe(true);
   });
 });

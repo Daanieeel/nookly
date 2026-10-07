@@ -3,12 +3,13 @@ import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 
 /// The file viewer's own theme (Files tab, every file type), independent of the
-/// app's own light/dark/system theme. "defaults" draws code dark and documents and
-/// plain text light; "light" or "dark" draws every file that way.
+/// app's own light/dark/system theme. "defaults" draws code and raw text files dark and
+/// documents light; "light" or "dark" draws every file that way.
 export type FileViewerTheme = "light" | "dark" | "defaults";
 
-/// What a file is, as far as its default theme goes.
-export type ViewerContent = "code" | "document";
+/// What a file is, as far as its default theme goes: source code, raw text like
+/// `.txt` and `.log`, or a document drawn like paper.
+export type ViewerContent = "code" | "text" | "document";
 
 /// The stored choice, with the defaults when there is none. "system", the old
 /// "follow the app theme" choice, became the defaults.
@@ -17,7 +18,7 @@ export function parseFileViewerTheme(stored: string | null): FileViewerTheme {
 }
 
 export function viewerIsDark(theme: FileViewerTheme, content: ViewerContent): boolean {
-  return theme === "defaults" ? content === "code" : theme === "dark";
+  return theme === "defaults" ? content !== "document" : theme === "dark";
 }
 
 export const useFileViewerThemeStore = create<{

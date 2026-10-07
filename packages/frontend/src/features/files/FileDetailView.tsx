@@ -148,8 +148,8 @@ function TextViewer({ file, src }: { file: FileEntity; src: string }) {
       return blob.text();
     },
   });
-  // Code draws dark by default, plain text light like a document.
-  const isDark = useFileViewerIsDark(fileKind(file).id === "code" ? "code" : "document");
+  // Code and raw text draw dark by default.
+  const isDark = useFileViewerIsDark(fileKind(file).id === "code" ? "code" : "text");
   if (isError) return <Placeholder file={file} />;
   return (
     <pre
