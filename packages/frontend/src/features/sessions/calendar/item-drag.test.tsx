@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { settings } from "#/lib/settings/settings.ts";
 import { type ItemDragMode, type ItemDragRange, useItemDrag } from "./item-drag.ts";
 
 /// A 10:00 to 11:00 block in the middle of three 100 pixel wide day columns.
@@ -103,6 +104,18 @@ describe("useItemDrag", () => {
     // 10 pixels is 12.5 minutes, which rounds to 15.
     drag(block, 0, 10);
     expect(onCommit).toHaveBeenCalledWith(expect.objectContaining({ startMin: 615, endMin: 675 }));
+  });
+
+  it("snaps to the snap setting", () => {
+    settings.set("calendar.snapMinutes", 30);
+    const { block, onCommit } = setup("move");
+    // 10 pixels is 12.5 minutes, which rounds to 0 on a half hour grid; 30 pixels to 30.
+    drag(block, 0, 10);
+    expect(onCommit).toHaveBeenLastCalledWith(expect.objectContaining({ startMin: 600 }));
+    drag(block, 0, 30);
+    expect(onCommit).toHaveBeenLastCalledWith(
+      expect.objectContaining({ startMin: 630, endMin: 690 }),
+    );
   });
 
   it("keeps a moved block inside the day", () => {

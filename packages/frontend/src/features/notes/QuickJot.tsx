@@ -14,7 +14,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { softDeleteEntity } from "#/lib/api/entities.ts";
 import { createBlock, createJot } from "#/lib/api/notes.ts";
@@ -24,7 +24,6 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { jotTextToBlocks } from "./jot-blocks";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Tallest the capture box grows before it scrolls, in pixels.
 const MAX_COMPOSER_HEIGHT = 320;
@@ -152,7 +151,7 @@ export function QuickJotDialog() {
   const open = useNavStore((s) => s.quickJotOpen);
   const setOpen = useNavStore((s) => s.setQuickJotOpen);
 
-  useAppHotkey(HOTKEYS.quickJot, () => setOpen(true));
+  useAppHotkey("quickJot", () => setOpen(true));
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>

@@ -1,7 +1,6 @@
 import { create } from "zustand";
-import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { localeForTimezone } from "#/lib/timezone-countries.ts";
-import { preferences } from "#/lib/preferences.ts";
+import { settings as stored, subscribeSetting } from "#/lib/settings/settings.ts";
 
 /// How dates or times are written. `american` and `european` are fixed conventions
 /// (12 hour, month first / 24 hour, day first); `timezone` follows the chosen time
@@ -14,8 +13,6 @@ export interface DateTimeSettings {
   dateFormat: FormatMode;
   timeFormat: FormatMode;
 }
-
-const FORMAT_MODES: FormatMode[] = ["american", "european", "timezone"];
 
 // A small fallback for engines without `Intl.supportedValuesOf`.
 const FALLBACK_TIMEZONES = [
@@ -51,16 +48,11 @@ export function systemTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-function readMode(key: string): FormatMode {
-  const stored = preferences.get(key);
-  return FORMAT_MODES.find((m) => m === stored) ?? "timezone";
-}
-
 function readSettings(): DateTimeSettings {
   return {
-    timezone: preferences.get(STORAGE_KEYS.timezone) ?? "system",
-    dateFormat: readMode(STORAGE_KEYS.dateFormat),
-    timeFormat: readMode(STORAGE_KEYS.timeFormat),
+    timezone: stored.get("general.timezone"),
+    dateFormat: stored.get("general.dateFormat"),
+    timeFormat: stored.get("general.timeFormat"),
   };
 }
 
@@ -71,12 +63,20 @@ export const useDateTimeSettings = create<
 >((set) => ({
   ...readSettings(),
   update: (patch) => {
-    if (patch.timezone) preferences.set(STORAGE_KEYS.timezone, patch.timezone);
-    if (patch.dateFormat) preferences.set(STORAGE_KEYS.dateFormat, patch.dateFormat);
-    if (patch.timeFormat) preferences.set(STORAGE_KEYS.timeFormat, patch.timeFormat);
+    if (patch.timezone) stored.set("general.timezone", patch.timezone);
+    if (patch.dateFormat) stored.set("general.dateFormat", patch.dateFormat);
+    if (patch.timeFormat) stored.set("general.timeFormat", patch.timeFormat);
     set(patch);
   },
 }));
+
+subscribeSetting("general.timezone", (timezone) => useDateTimeSettings.setState({ timezone }));
+subscribeSetting("general.dateFormat", (dateFormat) =>
+  useDateTimeSettings.setState({ dateFormat }),
+);
+subscribeSetting("general.timeFormat", (timeFormat) =>
+  useDateTimeSettings.setState({ timeFormat }),
+);
 
 function settings(): DateTimeSettings {
   return useDateTimeSettings.getState();

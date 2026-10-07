@@ -12,7 +12,7 @@ import {
   SpotlightItem,
   SpotlightList,
 } from "#/components/spotlight.tsx";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { listEntities } from "#/lib/api/entities.ts";
 import { listEmbeddedPageIds } from "#/lib/api/search.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
@@ -23,7 +23,6 @@ import { fuzzyMatch, type TextSegment } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const MAX_RESULTS = 50;
 
@@ -56,7 +55,7 @@ export function QuickSwitcher() {
   const embedded = new Set(embeddedIds);
   const entities = allEntities.filter((e) => !embedded.has(e.id));
 
-  useAppHotkey(HOTKEYS.quickSwitcher, () => setOpen(!useNavStore.getState().switcherOpen));
+  useAppHotkey("quickSwitcher", () => setOpen(!useNavStore.getState().switcherOpen));
 
   useEffect(() => {
     if (!open) setQuery("");
@@ -118,10 +117,7 @@ export function QuickSwitcher() {
       <SpotlightFooter
         aside={
           <>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </KbdGroup>
+            <ShortcutKbd name="search" />
             Search everything
           </>
         }

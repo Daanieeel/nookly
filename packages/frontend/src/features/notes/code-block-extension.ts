@@ -1,4 +1,5 @@
-import { CodeBlock } from "@tiptap/extension-code-block";
+import { textblockTypeInputRule } from "@tiptap/core";
+import { CodeBlock, type CodeBlockOptions } from "@tiptap/extension-code-block";
 import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
@@ -179,7 +180,14 @@ function HighlightPlugin({ name, defaultLanguage }: { name: string; defaultLangu
 /// TSX/JSX than highlight.js's regex-based grammars were), and the React NodeView
 /// that renders the header (§ code block header). `language` is already a built-in `CodeBlock`
 /// attribute.
-export const CodeBlockWithHeader = CodeBlock.extend({
+export const CodeBlockWithHeader = CodeBlock.extend<
+  CodeBlockOptions & { getNewLanguage: () => string | null }
+>({
+  addOptions() {
+    // SAFETY: `parent` is `CodeBlock`'s own `addOptions`, which always returns every `CodeBlockOptions` key.
+    const options = this.parent?.() as CodeBlockOptions;
+    return { ...options, getNewLanguage: () => null };
+  },
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -190,6 +198,38 @@ export const CodeBlockWithHeader = CodeBlock.extend({
           attributes.filename ? { "data-filename": attributes.filename } : {},
       },
     };
+  },
+  // A block made here starts with the default language (see `default-code-language.ts`). Only
+  // creation does: loading, pasting and turning a block off never touch a block's language, which
+  // is why toggling off is spelled out rather than passed the default as attributes to match.
+  addCommands() {
+    return {
+      setCodeBlock:
+        (attributes) =>
+        ({ commands }) =>
+          commands.setNode(this.name, {
+            language: this.options.getNewLanguage(),
+            ...attributes,
+          }),
+      toggleCodeBlock:
+        (attributes) =>
+        ({ commands, editor }) =>
+          editor.isActive(this.name)
+            ? commands.setNode("paragraph")
+            : commands.setNode(this.name, {
+                language: this.options.getNewLanguage(),
+                ...attributes,
+              }),
+    };
+  },
+  addInputRules() {
+    const fence = (find: RegExp) =>
+      textblockTypeInputRule({
+        find,
+        type: this.type,
+        getAttributes: (match) => ({ language: match[1] || this.options.getNewLanguage() }),
+      });
+    return [fence(/^```([a-z]+)?[\s\n]$/), fence(/^~~~([a-z]+)?[\s\n]$/)];
   },
   addProseMirrorPlugins() {
     return [

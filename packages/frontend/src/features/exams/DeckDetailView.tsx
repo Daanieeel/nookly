@@ -19,7 +19,7 @@ import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   deleteCard,
@@ -47,7 +47,6 @@ import {
 import { DeckStack, STATE_TONE, stateGroup } from "./deck/index-card";
 import { StudySession } from "./deck/StudySession";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 type Mode = { kind: "overview" } | { kind: "write"; editing: IndexCard | null } | { kind: "study" };
 
@@ -80,10 +79,10 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
   const overview = () => setMode({ kind: "overview" });
 
   const inOverview = mode.kind === "overview";
-  useAppHotkey(HOTKEYS.newCard, () => setMode({ kind: "write", editing: null }), {
+  useAppHotkey("newCard", () => setMode({ kind: "write", editing: null }), {
     enabled: inOverview,
   });
-  useAppHotkey(HOTKEYS.study, () => setMode({ kind: "study" }), {
+  useAppHotkey("study", () => setMode({ kind: "study" }), {
     enabled: inOverview && toStudy > 0,
   });
 
@@ -199,7 +198,7 @@ function DeckHero({
         <Button variant="secondary" onClick={onWrite}>
           <IconPencilPlus />
           Write cards
-          <Kbd>N</Kbd>
+          <ShortcutKbd name="newCard" />
         </Button>
         <Button onClick={onStudy} disabled={toStudy === 0}>
           <IconPlayerPlayFilled />

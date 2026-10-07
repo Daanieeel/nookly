@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DAY_MINUTES, HOUR_PX, SNAP_MINUTES } from "./calendar-model";
+import { DAY_MINUTES, HOUR_PX, snapMinutes } from "./calendar-model";
 
 /// Below this many pixels of pointer travel, a pointerdown/up on a block still
 /// counts as a click that opens its popover rather than a drag.
@@ -52,7 +52,8 @@ function isOwnEvent(e: ReactPointerEvent<HTMLElement>): boolean {
 }
 
 function snap(min: number): number {
-  return Math.round(min / SNAP_MINUTES) * SNAP_MINUTES;
+  const step = snapMinutes();
+  return Math.round(min / step) * step;
 }
 
 function resolve(state: DragState, startMin: number, endMin: number): ItemDragRange {
@@ -67,17 +68,17 @@ function resolve(state: DragState, startMin: number, endMin: number): ItemDragRa
     };
   }
   if (state.mode === "resize-start") {
-    const start = Math.max(0, Math.min(startMin + state.offsetMin, endMin - SNAP_MINUTES));
+    const start = Math.max(0, Math.min(startMin + state.offsetMin, endMin - snapMinutes()));
     return { startMin: start, endMin, dayDelta: 0, dayDeltaPx: 0 };
   }
-  const end = Math.min(DAY_MINUTES, Math.max(endMin + state.offsetMin, startMin + SNAP_MINUTES));
+  const end = Math.min(DAY_MINUTES, Math.max(endMin + state.offsetMin, startMin + snapMinutes()));
   return { startMin, endMin: end, dayDelta: 0, dayDeltaPx: 0 };
 }
 
 /// Powers the resize handles and whole-block drag-to-move on a Session or
 /// Calendar entry block in the time grid: a plain click still opens the
 /// block's popover (the drag only takes over past a small movement
-/// threshold), and everything snaps to the same 15 minute grid as
+/// threshold), and everything snaps to the same grid as
 /// drag-to-create. Reports the result in the block's own start/end minutes
 /// plus a day-column delta (0 unless dragged to a different day); the caller
 /// resolves that back to a real date and location and calls its own override

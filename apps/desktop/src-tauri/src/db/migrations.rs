@@ -709,6 +709,15 @@ fn all() -> Vec<M<'static>> {
         -- the weighted work leaves evenly, as every existing assignment did.
         ALTER TABLE assignments ADD COLUMN weight REAL;
         ",
+    ), M::up(
+        "
+        -- Per note settings. code_language is the language a new code block in the
+        -- note starts with; no row means the app's default applies.
+        CREATE TABLE note_settings (
+            entity_id TEXT PRIMARY KEY REFERENCES entities(id),
+            code_language TEXT
+        );
+        ",
     )]
 }
 
@@ -1234,6 +1243,7 @@ mod history {
         // already ran on would get the same result.
         0xec9ec2b054e9e2f9,
         0x689c23fb341a5f0a,
+        0xfc01de1290319823,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

@@ -2419,7 +2419,15 @@
       "description": "A free-form page of block content.",
       "entityActions": [],
       "entityType": "note",
-      "fields": [],
+      "fields": [
+        {
+          "description": "The language a new code block in this note starts with, like 'rust' or 'python'. Without one, new code blocks use the app's default language. Pass null to clear it. Existing code blocks are not changed.",
+          "kind": "text",
+          "name": "codeLanguage",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
       "relationshipTypes": [
         "attached-file",
         "course-notes",

@@ -111,6 +111,7 @@ interface NavState {
   paletteOpen: boolean;
   switcherOpen: boolean;
   commandsOpen: boolean;
+  settingsOpen: boolean;
   quickJotOpen: boolean;
   focusBlock: FocusBlock | null;
   sidebarCollapsed: boolean;
@@ -141,6 +142,7 @@ interface NavState {
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -324,6 +326,7 @@ const NO_OVERLAY = {
   paletteOpen: false,
   switcherOpen: false,
   commandsOpen: false,
+  settingsOpen: false,
   bookmarkSheetId: null,
 };
 
@@ -336,6 +339,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   paletteOpen: false,
   switcherOpen: false,
   commandsOpen: false,
+  settingsOpen: false,
   quickJotOpen: false,
   focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
@@ -498,6 +502,8 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(switcherOpen ? { ...NO_OVERLAY, switcherOpen } : { switcherOpen }),
   setCommandsOpen: (commandsOpen) =>
     set(commandsOpen ? { ...NO_OVERLAY, commandsOpen } : { commandsOpen }),
+  setSettingsOpen: (settingsOpen) =>
+    set(settingsOpen ? { ...NO_OVERLAY, settingsOpen } : { settingsOpen }),
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),

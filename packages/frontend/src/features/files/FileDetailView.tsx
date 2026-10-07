@@ -44,6 +44,7 @@ import {
 } from "#/lib/api/files.ts";
 import type { Entity, FileEntity } from "#/lib/api/types.ts";
 import { formatDate } from "#/lib/datetime.ts";
+import { MarkdownViewer } from "./MarkdownViewer.tsx";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -132,14 +133,16 @@ function FileViewer({ file }: { file: FileEntity }) {
       </Placeholder>
     );
   }
+  if (ext === "md") return <MarkdownFileViewer file={file} src={src} />;
   if (ext && TEXT_EXTENSIONS.has(ext)) {
     return <TextViewer file={file} src={src} />;
   }
   return <Placeholder file={file} />;
 }
 
-function TextViewer({ file, src }: { file: FileEntity; src: string }) {
-  const { data: text, isError } = useQuery({
+/// The file's text, unless it is too big to preview.
+function useFileText(file: FileEntity, src: string) {
+  return useQuery({
     queryKey: qk.files.text(file.entity.id),
     queryFn: async () => {
       const response = await fetch(src);
@@ -148,8 +151,30 @@ function TextViewer({ file, src }: { file: FileEntity; src: string }) {
       return blob.text();
     },
   });
-  // Code draws dark by default, plain text light like a document.
-  const isDark = useFileViewerIsDark(fileKind(file).id === "code" ? "code" : "document");
+}
+
+/// Markdown drawn like a Note, in the viewer's document theme.
+function MarkdownFileViewer({ file, src }: { file: FileEntity; src: string }) {
+  const { data: text, isError } = useFileText(file, src);
+  const isDark = useFileViewerIsDark("document");
+  if (isError) return <Placeholder file={file} />;
+  return (
+    <div
+      className={cn(
+        "min-h-full rounded-md border border-border bg-background p-6 text-foreground",
+        fileViewerThemeClass(isDark),
+        text === undefined && "animate-pulse",
+      )}
+    >
+      {text !== undefined && <MarkdownViewer text={text} spaceId={file.entity.spaceId} />}
+    </div>
+  );
+}
+
+function TextViewer({ file, src }: { file: FileEntity; src: string }) {
+  const { data: text, isError } = useFileText(file, src);
+  // Code and raw text draw dark by default.
+  const isDark = useFileViewerIsDark(fileKind(file).id === "code" ? "code" : "text");
   if (isError) return <Placeholder file={file} />;
   return (
     <pre

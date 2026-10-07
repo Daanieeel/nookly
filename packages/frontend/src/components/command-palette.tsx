@@ -23,7 +23,7 @@ import {
   SpotlightItem,
   SpotlightList,
 } from "#/components/spotlight.tsx";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { listEntities } from "#/lib/api/entities.ts";
 import { listEntityLabelIds, listLabels } from "#/lib/api/labels.ts";
 import type { SearchHit } from "#/lib/api/types.ts";
@@ -40,7 +40,6 @@ import {
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Items shown per Space and type group before collapsing into "View all (N)".
 const GROUP_PREVIEW_LIMIT = 3;
@@ -90,7 +89,7 @@ export function CommandPalette() {
     placeholderData: keepPreviousData,
   });
 
-  useAppHotkey(HOTKEYS.search, () => setPaletteOpen(!useNavStore.getState().paletteOpen));
+  useAppHotkey("search", () => setPaletteOpen(!useNavStore.getState().paletteOpen));
 
   useEffect(() => {
     if (paletteOpen) return;
@@ -302,10 +301,7 @@ export function CommandPalette() {
       <SpotlightFooter
         aside={
           <>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>P</Kbd>
-            </KbdGroup>
+            <ShortcutKbd name="quickSwitcher" />
             Quick open
           </>
         }

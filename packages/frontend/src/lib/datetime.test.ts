@@ -13,8 +13,7 @@ import {
   useDateTimeSettings,
   zonedDayMinutes,
 } from "./datetime.ts";
-import { preferences } from "./preferences.ts";
-import { STORAGE_KEYS } from "./storage-keys.ts";
+import { settings } from "./settings/settings.ts";
 
 const american = () => setDateTimeSettings({ dateFormat: "american", timeFormat: "american" });
 const european = () => setDateTimeSettings({ dateFormat: "european", timeFormat: "european" });
@@ -115,8 +114,8 @@ describe("settings", () => {
 
   it("saves only the fields that change", () => {
     useDateTimeSettings.getState().update({ timeFormat: "american" });
-    expect(preferences.get(STORAGE_KEYS.timeFormat)).toBe("american");
-    expect(preferences.get(STORAGE_KEYS.dateFormat)).toBeNull();
+    expect(settings.get("general.timeFormat")).toBe("american");
+    expect(settings.get("general.dateFormat")).toBe("timezone");
     expect(useDateTimeSettings.getState().timeFormat).toBe("american");
   });
 });

@@ -1,7 +1,7 @@
 import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand } from "@tabler/icons-react";
 import { type CSSProperties, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { CourseSemesterPanel } from "#/features/courses/CourseSemesterPanel.tsx";
 import { RefineJotButton } from "#/features/notes/RefineJotButton.tsx";
@@ -19,19 +19,12 @@ import {
   useNavStore,
 } from "#/lib/store/nav.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const KEYBOARD_STEP_PX = 16;
 
-/// `HOTKEYS.toggleDetailSidebar`, as keycaps.
+/// The details sidebar toggle shortcut, as keycaps.
 function ToggleShortcut() {
-  return (
-    <KbdGroup>
-      <Kbd>⌘</Kbd>
-      <Kbd>⇧</Kbd>
-      <Kbd>S</Kbd>
-    </KbdGroup>
-  );
+  return <ShortcutKbd name="toggleDetailSidebar" />;
 }
 
 /// Fixed section order: Attachments, Mentioned, Mentioned in, Relationships.
@@ -63,7 +56,7 @@ export function RightSidebar({
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const width = dragWidth ?? storedWidth;
 
-  useAppHotkey(HOTKEYS.toggleDetailSidebar, () =>
+  useAppHotkey("toggleDetailSidebar", () =>
     setCollapsed(!useNavStore.getState().rightSidebarCollapsed),
   );
 

@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { preferences } from "#/lib/preferences.ts";
+import { settings, subscribeSetting } from "#/lib/settings/settings.ts";
 
 /// Task effort estimates. One stored value per step (Fibonacci points), shown as
 /// T-shirt sizes or points depending on the scale setting, so switching the scale
@@ -34,10 +33,6 @@ export function effortLabel(value: number, scale: EffortScale): string {
   return scale === "tshirt" ? step.tshirt : String(step.value);
 }
 
-function readScale(): EffortScale {
-  return preferences.get(STORAGE_KEYS.effortScale) === "fibonacci" ? "fibonacci" : "tshirt";
-}
-
 export interface EffortSettings {
   scale: EffortScale;
 }
@@ -46,9 +41,11 @@ export interface EffortSettings {
 export const useEffortSettings = create<
   EffortSettings & { update: (patch: Partial<EffortSettings>) => void }
 >((set) => ({
-  scale: readScale(),
+  scale: settings.get("general.effortScale"),
   update: (patch) => {
-    if (patch.scale) preferences.set(STORAGE_KEYS.effortScale, patch.scale);
+    if (patch.scale) settings.set("general.effortScale", patch.scale);
     set(patch);
   },
 }));
+
+subscribeSetting("general.effortScale", (scale) => useEffortSettings.setState({ scale }));

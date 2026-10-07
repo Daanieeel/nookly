@@ -17,7 +17,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -27,7 +27,6 @@ import type { Entity } from "#/lib/api/types.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Command menu filters in the style of `docs/skills/data-tables.md` (the
 /// tablecn filter menu): one "Filter" button opens a searchable field list,
@@ -134,7 +133,7 @@ export function FilterMenu({
   const [search, setSearch] = useState("");
   const field = fields.find((f) => f.id === fieldId);
 
-  useAppHotkey(HOTKEYS.filter, () => showButton && setOpen((o) => !o));
+  useAppHotkey("filter", () => showButton && setOpen((o) => !o));
 
   function onOpenChange(next: boolean) {
     setOpen(next);
@@ -190,11 +189,7 @@ export function FilterMenu({
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
               Filter
-              <KbdGroup>
-                <Kbd>⌘</Kbd>
-                <Kbd>⇧</Kbd>
-                <Kbd>F</Kbd>
-              </KbdGroup>
+              <ShortcutKbd name="filter" />
             </TooltipContent>
           </Tooltip>
           <PopoverContent

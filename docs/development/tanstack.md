@@ -16,7 +16,7 @@ Invalidation is prefix based, so `qk.entities.bySpace(id)` also refreshes `qk.en
 
 ## Hotkeys
 
-Shortcuts are named in [`lib/hotkeys.ts`](../../packages/frontend/src/lib/hotkeys.ts) and registered with `useAppHotkey` (works anywhere) or `useScreenHotkey` (page shortcuts, skipped while typing or while a dialog or menu is open) from `hooks/use-app-hotkey.ts`.
+Shortcuts are named in [`lib/hotkeys.ts`](../../packages/frontend/src/lib/hotkeys.ts) (the defaults) and registered by name with `useAppHotkey` (works anywhere) or `useScreenHotkey` (page shortcuts, skipped while typing or while a dialog or menu is open) from `hooks/use-app-hotkey.ts`. They are rebindable in Settings, so never read a key from `HOTKEYS` in a component; see [Shortcuts](settings.md#shortcuts).
 
 Handlers that need capture phase ordering or in gesture state keep their own listeners: context menu, right sidebar, select all, block handles, drag, time grid, PDF viewer and study session.
 

@@ -161,6 +161,7 @@ fn sweep_space(conn: &Connection, id: &str) -> AppResult<()> {
         "assignments",
         "files",
         "bookmarks",
+        "note_settings",
         "views",
         "search_index",
     ] {

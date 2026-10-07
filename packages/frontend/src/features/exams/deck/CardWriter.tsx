@@ -11,7 +11,7 @@ import {
 } from "react";
 import { FieldError, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { createCard, updateCard } from "#/lib/api/decks.ts";
 import type { IndexCard } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";

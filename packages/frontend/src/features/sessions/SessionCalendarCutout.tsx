@@ -3,7 +3,7 @@ import { parseISO } from "date-fns";
 import { useMemo } from "react";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import type { SessionOccurrence } from "#/lib/api/types.ts";
-import { useDateTimeSettings } from "#/lib/datetime.ts";
+import { useWeekStartsOn } from "#/lib/week-start.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { timeToMinutes, visibleDays } from "./calendar/calendar-model";
@@ -18,7 +18,7 @@ const LEAD_MINUTES = 30;
 /// Calendar entries, plus the external overlay) and edits in place like the calendar.
 export function SessionCalendarCutout({ occurrence }: { occurrence: SessionOccurrence }) {
   const setView = useNavStore((s) => s.setView);
-  const weekStartsOn = useDateTimeSettings((s) => (s.dateFormat === "american" ? 0 : 1));
+  const weekStartsOn = useWeekStartsOn();
   const days = useMemo(
     () => visibleDays("week", parseISO(occurrence.date), weekStartsOn),
     [occurrence.date, weekStartsOn],

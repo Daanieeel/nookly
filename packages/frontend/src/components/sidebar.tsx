@@ -47,7 +47,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   Sidebar,
@@ -99,7 +99,6 @@ import { SidebarCustomizeButton, SidebarNavItems } from "./sidebar/sidebar-items
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 const SPACE_COLORS = ACCENT_COLORS;
 
@@ -169,7 +168,7 @@ export function AppSidebar() {
   // pointer leaves it.
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
-  useAppHotkey(HOTKEYS.toggleSidebar, toggleSidebar);
+  useAppHotkey("toggleSidebar", toggleSidebar);
   const [peeking, setPeeking] = useState(false);
   useEffect(() => {
     if (!collapsed) setPeeking(false);
@@ -278,10 +277,7 @@ export function AppSidebar() {
                 children: (
                   <span className="flex items-center gap-2">
                     {collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    <KbdGroup>
-                      <Kbd>⌘</Kbd>
-                      <Kbd>S</Kbd>
-                    </KbdGroup>
+                    <ShortcutKbd name="toggleSidebar" />
                   </span>
                 ),
               }}
@@ -289,10 +285,10 @@ export function AppSidebar() {
             >
               {collapsed ? <IconLayoutSidebarLeftExpand /> : <IconLayoutSidebarLeftCollapse />}
               <span>{collapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
-              <KbdGroup className="ml-auto group-data-[collapsible=icon]:hidden">
-                <Kbd>⌘</Kbd>
-                <Kbd>S</Kbd>
-              </KbdGroup>
+              <ShortcutKbd
+                name="toggleSidebar"
+                className="ml-auto group-data-[collapsible=icon]:hidden"
+              />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

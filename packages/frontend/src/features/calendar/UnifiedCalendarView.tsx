@@ -21,7 +21,7 @@ import { qk } from "#/lib/query-keys.ts";
 /// from here too, the same drag/right-click surface as its own Space's
 /// calendar, just with an added Space picker in the dialog.
 export function UnifiedCalendarView() {
-  const page = useCalendarPage(STORAGE_KEYS.calendarView);
+  const page = useCalendarPage(STORAGE_KEYS.calendarView, "calendarEntry");
   const { view, anchor, days, draft, setDraft, highlightIds, setHighlightIds, pickDay } = page;
 
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
@@ -52,6 +52,7 @@ export function UnifiedCalendarView() {
           onSelect={setDraft}
           onPickDay={pickDay}
           spaceColor={spaceColor}
+          createKind="calendarEntry"
         />
       ) : (
         <TimeGrid

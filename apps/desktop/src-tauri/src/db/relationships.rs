@@ -249,6 +249,28 @@ pub fn create_relationship(
         params![id, from_entity_id, to_entity_id, relationship_type, from_block_id, to_block_id, now],
     )?;
 
+    // A session's Note belongs to the session's Course too, so it shows up with the
+    // Course's other notes.
+    if relationship_type == "session-note" {
+        let course_id: Option<String> = conn
+            .query_row(
+                "SELECT to_entity_id FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'session-course'",
+                params![from_entity_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(course_id) = course_id {
+            create_relationship(
+                conn,
+                course_id,
+                to_entity_id.clone(),
+                "course-notes".into(),
+                None,
+                None,
+            )?;
+        }
+    }
+
     Ok(Relationship {
         id,
         from_entity_id,

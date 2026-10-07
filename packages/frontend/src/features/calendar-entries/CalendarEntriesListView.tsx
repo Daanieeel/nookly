@@ -20,7 +20,7 @@ import { qk } from "#/lib/query-keys.ts";
 /// unified-Calendar-page thing). See `docs/03-modules/sessions-timetable.md`
 /// for the shared pattern.
 export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
-  const page = useCalendarPage(STORAGE_KEYS.calendarModuleView);
+  const page = useCalendarPage(STORAGE_KEYS.calendarModuleView, "calendarEntry");
   const { view, anchor, days, draft, setDraft, highlightIds, setHighlightIds, pickDay } = page;
 
   const { data: entries = [] } = useQuery({
@@ -67,6 +67,7 @@ export function CalendarEntriesListView({ spaceId }: { spaceId: string }) {
           onPickDay={pickDay}
           spaceColor={spaceColor}
           secondaryKind="session"
+          createKind="calendarEntry"
         />
       ) : (
         <TimeGrid

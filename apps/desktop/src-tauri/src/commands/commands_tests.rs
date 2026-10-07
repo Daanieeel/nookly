@@ -92,6 +92,8 @@ ipc_commands![
     notes::reorder_blocks,
     notes::render_page_markdown,
     notes::export_page_markdown,
+    notes::get_note_code_language,
+    notes::set_note_code_language,
     courses::create_course,
     courses::list_courses,
     courses::create_semester,
@@ -1683,6 +1685,38 @@ fn notes_export_to_an_unwritable_path_is_an_io_error() {
         "Io",
     );
     assert!(!out.exists());
+}
+
+#[test]
+fn notes_code_language_round_trips_and_rejects_jots() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let page = h.note(&space, "Page");
+    assert_eq!(
+        h.ok("get_note_code_language", json!({ "entityId": page })),
+        json!(null)
+    );
+    h.ok(
+        "set_note_code_language",
+        json!({ "entityId": page, "language": "rust" }),
+    );
+    assert_eq!(
+        h.ok("get_note_code_language", json!({ "entityId": page })),
+        json!("rust")
+    );
+    h.ok(
+        "set_note_code_language",
+        json!({ "entityId": page, "language": null }),
+    );
+    assert_eq!(
+        h.ok("get_note_code_language", json!({ "entityId": page })),
+        json!(null)
+    );
+    h.app_err(
+        "set_note_code_language",
+        json!({ "entityId": MISSING, "language": "rust" }),
+        "NotFound",
+    );
 }
 
 #[test]

@@ -2,6 +2,7 @@ import type { Icon as TablerIcon } from "@tabler/icons-react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { MouseEvent, ReactNode } from "react";
 import type { Entity } from "#/lib/api/types.ts";
+import type { ShortcutName } from "#/lib/shortcuts.ts";
 
 /// App-wide right-click menus (docs/plans: custom context menus). Nothing here
 /// knows about any module: a component marks what was right-clicked with
@@ -90,7 +91,10 @@ export interface MenuAction<T> {
   group: ActionGroup;
   label: string | ((target: T) => string);
   icon: TablerIcon | ((target: T) => TablerIcon);
+  /// Shown on the right, written with Mac symbols; for a fixed shortcut.
   shortcut?: string;
+  /// Shown on the right instead, as the user has bound it (nothing while unassigned).
+  shortcutName?: ShortcutName;
   destructive?: boolean;
   /// Hides the action for this target.
   when?: (target: T) => boolean;

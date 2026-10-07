@@ -7,7 +7,7 @@ import { type SaveMutation, ViewSaveBar } from "#/features/views/ViewActions.tsx
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 
 /// The header of a list and board page (Tasks, Assignments and their cross-Space
@@ -89,7 +89,7 @@ export function ModuleViewHeader<D>({
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
-              {create.tooltip} <Kbd>C</Kbd>
+              {create.tooltip} <ShortcutKbd name="create" />
             </TooltipContent>
           </Tooltip>
         </div>

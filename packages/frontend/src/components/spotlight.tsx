@@ -4,7 +4,7 @@ import { Command } from "cmdk";
 import type { ComponentProps, CSSProperties, ReactNode, Ref } from "react";
 import { renderIconValue } from "#/components/entity-icon.tsx";
 import { DialogPortal } from "@nookly/ui/components/dialog";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import type { Space } from "#/lib/api/types.ts";
 import type { TextSegment } from "#/lib/search-results.ts";
 import { cn } from "@nookly/ui/lib/utils";

@@ -146,3 +146,22 @@ pub fn export_page_markdown(
     };
     std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }
+
+#[tauri::command]
+pub fn get_note_code_language(
+    state: State<DbState>,
+    entity_id: String,
+) -> AppResult<Option<String>> {
+    let conn = state.0.lock().unwrap();
+    notes::get_note_code_language(&conn, &entity_id)
+}
+
+#[tauri::command]
+pub fn set_note_code_language(
+    state: State<DbState>,
+    entity_id: String,
+    language: Option<String>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    notes::set_note_code_language(&conn, &entity_id, language)
+}

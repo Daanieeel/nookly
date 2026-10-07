@@ -19,13 +19,12 @@ import { getEntity } from "#/lib/api/entities.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { getView } from "#/lib/api/views.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 import { MODULE_ICONS, MODULE_LABELS } from "#/lib/modules.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { type View, armNewTabIntent, currentTabs, useNavStore } from "#/lib/store/nav.ts";
 import type { Tab } from "#/lib/store/tab-model.ts";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Separator } from "@nookly/ui/components/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -195,13 +194,13 @@ export function useTabInteractions() {
     }),
     [],
   );
-  useAppHotkey(HOTKEYS.newTab, newTab);
-  useAppHotkey(HOTKEYS.closeTab, closeTab);
-  useAppHotkey(HOTKEYS.closeOtherTabs, closeOthers);
-  useAppHotkey(HOTKEYS.nextTab, () => cycle(1));
-  useAppHotkey(HOTKEYS.previousTab, () => cycle(-1));
-  useAppHotkey(HOTKEYS.nextTabAlt, () => cycle(1));
-  useAppHotkey(HOTKEYS.previousTabAlt, () => cycle(-1));
+  useAppHotkey("newTab", newTab);
+  useAppHotkey("closeTab", closeTab);
+  useAppHotkey("closeOtherTabs", closeOthers);
+  useAppHotkey("nextTab", () => cycle(1));
+  useAppHotkey("previousTab", () => cycle(-1));
+  useAppHotkey("nextTabAlt", () => cycle(1));
+  useAppHotkey("previousTabAlt", () => cycle(-1));
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -276,10 +275,7 @@ export function TabBar() {
         </TooltipTrigger>
         <TooltipContent side="bottom" className="flex items-center gap-2">
           New Tab
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>T</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="newTab" />
         </TooltipContent>
       </Tooltip>
     </div>

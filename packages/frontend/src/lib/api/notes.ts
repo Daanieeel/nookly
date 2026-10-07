@@ -83,3 +83,12 @@ export function renderPageMarkdown(entityId: string): Promise<string> {
 export function exportPageMarkdown(entityId: string, path: string): Promise<void> {
   return invoke("export_page_markdown", { entityId, path });
 }
+
+/// The language a new code block in this note starts with, or null to follow the app default.
+export function getNoteCodeLanguage(entityId: string): Promise<string | null> {
+  return invoke("get_note_code_language", { entityId });
+}
+
+export function setNoteCodeLanguage(entityId: string, language: string | null): Promise<void> {
+  return invoke("set_note_code_language", { entityId, language });
+}

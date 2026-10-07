@@ -1,35 +1,40 @@
 import { create } from "zustand";
-import { preferences } from "#/lib/preferences.ts";
-import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { parseFileViewerTheme as parse } from "#/lib/settings/registry.ts";
+import { settings, subscribeSetting } from "#/lib/settings/settings.ts";
 
 /// The file viewer's own theme (Files tab, every file type), independent of the
-/// app's own light/dark/system theme. "defaults" draws code dark and documents and
-/// plain text light; "light" or "dark" draws every file that way.
+/// app's own light/dark/system theme. "defaults" draws code and raw text files dark and
+/// documents light; "light" or "dark" draws every file that way.
 export type FileViewerTheme = "light" | "dark" | "defaults";
 
-/// What a file is, as far as its default theme goes.
-export type ViewerContent = "code" | "document";
+/// What a file is, as far as its default theme goes: source code, raw text like
+/// `.txt` and `.log`, or a document drawn like paper.
+export type ViewerContent = "code" | "text" | "document";
 
 /// The stored choice, with the defaults when there is none. "system", the old
 /// "follow the app theme" choice, became the defaults.
 export function parseFileViewerTheme(stored: string | null): FileViewerTheme {
-  return stored === "light" || stored === "dark" ? stored : "defaults";
+  return parse(stored);
 }
 
 export function viewerIsDark(theme: FileViewerTheme, content: ViewerContent): boolean {
-  return theme === "defaults" ? content === "code" : theme === "dark";
+  return theme === "defaults" ? content !== "document" : theme === "dark";
 }
 
 export const useFileViewerThemeStore = create<{
   theme: FileViewerTheme;
   setTheme: (theme: FileViewerTheme) => void;
 }>((set) => ({
-  theme: parseFileViewerTheme(preferences.get(STORAGE_KEYS.fileViewerTheme)),
+  theme: settings.get("appearance.fileViewerTheme"),
   setTheme: (theme) => {
-    preferences.set(STORAGE_KEYS.fileViewerTheme, theme);
+    settings.set("appearance.fileViewerTheme", theme);
     set({ theme });
   },
 }));
+
+subscribeSetting("appearance.fileViewerTheme", (theme) =>
+  useFileViewerThemeStore.setState({ theme }),
+);
 
 /// Whether the file viewer should currently draw `content` dark.
 export function useFileViewerIsDark(content: ViewerContent): boolean {

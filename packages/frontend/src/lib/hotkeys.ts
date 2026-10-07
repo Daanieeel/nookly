@@ -1,13 +1,16 @@
 import type { RegisterableHotkey } from "@tanstack/hotkeys";
 
-/// Every keyboard shortcut registered through TanStack Hotkeys. `Mod` is Cmd on
-/// macOS and Ctrl elsewhere. Shortcuts that need capture phase ordering or
+/// The default of every keyboard shortcut registered through TanStack Hotkeys, by
+/// name. Each is rebindable in Settings, so code reads the effective key through
+/// `useShortcut` / `useAppHotkey`, never from here, and every name needs metadata in
+/// `lib/shortcuts.ts`. `Mod` is Cmd on macOS and Ctrl elsewhere. Shortcuts that need capture phase ordering or
 /// in-gesture state (context menu, right sidebar, select all, block handles,
 /// drag, time grid, PDF viewer, study session) still use their own listeners.
 export const HOTKEYS = {
   search: "Mod+K",
   quickSwitcher: "Mod+P",
   commands: "Mod+Shift+P",
+  settings: "Mod+,",
   quickJot: "Mod+J",
   filter: "Mod+Shift+F",
   toggleSidebar: "Mod+S",
@@ -32,4 +35,8 @@ export const HOTKEYS = {
   nextPeriod: "ArrowRight",
   newCard: "N",
   study: "S",
+  viewDay: "1",
+  viewWorkWeek: "2",
+  viewWeek: "3",
+  viewMonth: "4",
 } as const satisfies Record<string, RegisterableHotkey>;

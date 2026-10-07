@@ -1,44 +1,25 @@
 import {
   IconArrowLeft,
-  IconArchive,
   IconArrowRight,
-  IconCalendarUser,
   IconChevronRight,
   IconChecklist,
   IconClipboardCheck,
   IconFolder,
   IconLayoutDashboard,
   IconPin,
-  IconRefresh,
   IconSearch,
   IconSettings,
   IconTrash,
 } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { type CSSProperties, type ReactNode, useEffect } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon, renderIconValue } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
-import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
-import { FileViewerThemeToggle } from "#/components/file-viewer-theme-toggle.tsx";
-import { ThemeToggle } from "#/components/theme-toggle.tsx";
-import { UpdateCard } from "#/components/update-card.tsx";
-import { DateTimeSettings } from "#/components/datetime-settings.tsx";
-import { EffortSettings } from "#/components/effort-settings.tsx";
-// Aliased: this file has its own breadcrumb `Separator`.
-import { Separator as UiSeparator } from "@nookly/ui/components/separator";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { BackupDialog, useBackups } from "#/features/backup/BackupDialog.tsx";
-import { backupFolder } from "#/features/backup/backup-run.ts";
-import {
-  CalendarConnectionsDialog,
-  useExternalCalendarStatus,
-} from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
-import { formatEditedAt } from "#/lib/relative-time.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { getView } from "#/lib/api/views.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
@@ -46,12 +27,9 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS, MODULE_LABELS, moduleForEntityType } from "#/lib/modules.ts";
 import { useIsFullscreen } from "#/lib/fullscreen.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
-import { useHotkey } from "@tanstack/react-hotkeys";
-import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { useAppHotkey, useRawHotkey } from "#/hooks/use-app-hotkey.ts";
 
 function Crumb({
   icon,
@@ -196,144 +174,25 @@ function SavedViewCrumb({ viewId }: { viewId: string }) {
   );
 }
 
-function SettingsPopover() {
-  const [open, setOpen] = useState(false);
-  const [connectionsOpen, setConnectionsOpen] = useState(false);
-  const [backupOpen, setBackupOpen] = useState(false);
+function SettingsButton() {
   return (
-    <>
-      <Popover open={open} onOpenChange={setOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button
-                variant="secondary"
-                size="iconSm"
-                className="ml-1 shrink-0"
-                aria-label="Settings"
-              >
-                <IconSettings size={14} />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent>Settings</TooltipContent>
-        </Tooltip>
-        <PopoverContent align="end" className="flex w-96 flex-col gap-3 p-3">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Theme</span>
-            <ThemeToggle />
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">File Viewer Theme</span>
-            <FileViewerThemeToggle />
-          </div>
-          <UiSeparator />
-          <DateTimeSettings />
-          <UiSeparator />
-          <EffortSettings />
-          <UiSeparator />
-          <CalendarConnectionsSetting
-            onOpen={() => {
-              setOpen(false);
-              setConnectionsOpen(true);
-            }}
-          />
-          <UiSeparator />
-          <BackupSetting
-            onOpen={() => {
-              setOpen(false);
-              setBackupOpen(true);
-            }}
-          />
-          <UiSeparator />
-          <div className="flex flex-col gap-2">
-            <VersionSection />
-          </div>
-        </PopoverContent>
-      </Popover>
-      <CalendarConnectionsDialog open={connectionsOpen} onOpenChange={setConnectionsOpen} />
-      <BackupDialog open={backupOpen} onOpenChange={setBackupOpen} />
-    </>
-  );
-}
-
-/// Entry to the read only external calendar overlay shown on Sessions.
-function CalendarConnectionsSetting({ onOpen }: { onOpen: () => void }) {
-  const { data: status } = useExternalCalendarStatus();
-  const count = status?.connections.length ?? 0;
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex flex-col">
-        <span className="text-xs font-medium text-muted-foreground">Calendars</span>
-        <span className="text-sm">
-          {count === 0 ? "Not connected" : count === 1 ? "1 connected" : `${count} connected`}
-        </span>
-      </div>
-      <Button variant="secondary" size="sm" onClick={onOpen}>
-        <IconCalendarUser size={14} />
-        Manage
-      </Button>
-    </div>
-  );
-}
-
-/// Entry to backing up the whole app to a folder and restoring from one.
-function BackupSetting({ onOpen }: { onOpen: () => void }) {
-  const folder = backupFolder();
-  const { data: backups } = useBackups(folder);
-  const newest = backups?.find((b) => b.manifest)?.manifest?.createdAt;
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex flex-col">
-        <span className="text-xs font-medium text-muted-foreground">Backup</span>
-        <span className="text-sm">
-          {!folder ? "Not set up" : newest ? `Last ${formatEditedAt(newest)}` : "No backup yet"}
-        </span>
-      </div>
-      <Button variant="secondary" size="sm" onClick={onOpen}>
-        <IconArchive size={14} />
-        Manage
-      </Button>
-    </div>
-  );
-}
-
-function VersionSection() {
-  const version = useAppVersion();
-  const queryClient = useQueryClient();
-  const checkUpdate = useMutation({
-    mutationFn: () =>
-      queryClient.fetchQuery({
-        queryKey: qk.appUpdate,
-        queryFn: checkForUpdate,
-        staleTime: 0,
-      }),
-  });
-  const status = useActionStatus(checkUpdate);
-
-  return (
-    <>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col">
-          <span className="text-xs font-medium text-muted-foreground">Version</span>
-          <span className="text-sm tabular-nums">{version ? `v${version}` : ""}</span>
-        </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
         <Button
           variant="secondary"
-          size="sm"
-          onClick={() => !checkUpdate.isPending && checkUpdate.mutate()}
+          size="iconSm"
+          className="ml-1 shrink-0"
+          aria-label="Settings"
+          onClick={() => useNavStore.getState().setSettingsOpen(true)}
         >
-          <StatusButtonContent
-            status={status}
-            icon={<IconRefresh size={14} />}
-            label="Check for updates"
-            successLabel={checkUpdate.data ? "Update found" : "Up to date"}
-            errorLabel="Couldn't check"
-          />
+          <IconSettings size={14} />
         </Button>
-      </div>
-      <UpdateCard />
-    </>
+      </TooltipTrigger>
+      <TooltipContent className="flex items-center gap-2">
+        Settings
+        <ShortcutKbd name="settings" />
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -419,27 +278,19 @@ function HistoryButtons() {
   const canGoBack = useNavStore((s) => s.backStack.length > 0);
   const canGoForward = useNavStore((s) => s.forwardStack.length > 0);
 
-  useAppHotkey(HOTKEYS.back, () => useNavStore.getState().goBack());
-  useAppHotkey(HOTKEYS.forward, () => useNavStore.getState().goForward());
+  useAppHotkey("back", () => useNavStore.getState().goBack());
+  useAppHotkey("forward", () => useNavStore.getState().goForward());
   // Cmd+Arrow moves the caret to the line edge while typing, so it only navigates outside text fields.
-  useHotkey(
-    HOTKEYS.backArrow,
-    (event) => {
-      if (isTyping()) return;
-      event.preventDefault();
-      useNavStore.getState().goBack();
-    },
-    { preventDefault: false, stopPropagation: false },
-  );
-  useHotkey(
-    HOTKEYS.forwardArrow,
-    (event) => {
-      if (isTyping()) return;
-      event.preventDefault();
-      useNavStore.getState().goForward();
-    },
-    { preventDefault: false, stopPropagation: false },
-  );
+  useRawHotkey("backArrow", (event) => {
+    if (isTyping()) return;
+    event.preventDefault();
+    useNavStore.getState().goBack();
+  });
+  useRawHotkey("forwardArrow", (event) => {
+    if (isTyping()) return;
+    event.preventDefault();
+    useNavStore.getState().goForward();
+  });
 
   useEffect(() => {
     const { goBack, goForward } = useNavStore.getState();
@@ -467,10 +318,7 @@ function HistoryButtons() {
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-2">
           Go Back
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>[</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="back" />
         </TooltipContent>
       </Tooltip>
       <Tooltip>
@@ -487,10 +335,7 @@ function HistoryButtons() {
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-2">
           Go Forward
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>]</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="forward" />
         </TooltipContent>
       </Tooltip>
     </div>
@@ -521,11 +366,7 @@ export function Titlebar() {
           className="shrink-0 gap-1.5"
         >
           Commands
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>⇧</Kbd>
-            <Kbd>P</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="commands" />
         </Button>
         <Button
           variant="ghost"
@@ -534,10 +375,7 @@ export function Titlebar() {
           className="shrink-0 gap-1.5"
         >
           Quick open
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>P</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="quickSwitcher" />
         </Button>
         <Button
           variant="ghost"
@@ -547,12 +385,9 @@ export function Titlebar() {
         >
           <IconSearch size={14} />
           Search
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>K</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="search" />
         </Button>
-        <SettingsPopover />
+        <SettingsButton />
       </div>
     </div>
   );

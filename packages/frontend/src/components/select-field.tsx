@@ -1,3 +1,4 @@
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { IconCheck, IconSelector } from "@tabler/icons-react";
 import { Fragment, type ReactNode, useState } from "react";
 import {
@@ -67,7 +68,11 @@ export function SelectField({
           <IconSelector size={14} className="shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-(--radix-popover-trigger-width) min-w-56 p-0">
+      <PopoverContent
+        {...dialogPopover("w-(--radix-popover-trigger-width) min-w-56 p-0")}
+        aria-label={ariaLabel}
+        align="end"
+      >
         <Command loop>
           {searchable && (
             <CommandInput

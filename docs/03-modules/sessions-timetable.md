@@ -20,7 +20,7 @@ Session and Course. A Session must always have exactly one Course. This is enfor
 
 Every relationship (Jots, Notes, Tasks, Files) targets a **specific occurrence**, never the template. The template's only job is to generate occurrences, and it does not take part in the relationship graph.
 
-Each occurrence can have one Jot (`session-jot`, typed during the session) and one Note (`session-note`, the refinement afterwards). Both are real Jots and Notes, created and opened from the calendar popover.
+Each occurrence can have one Jot (`session-jot`, typed during the session) and one Note (`session-note`, the refinement afterwards). Both are real Jots and Notes, created and opened from the calendar popover. A Note linked as `session-note` is also linked to the Session's Course (`course-notes`).
 
 ## Session Page
 
@@ -32,7 +32,7 @@ A full page calendar modeled on Outlook, with Day, Work week, Week and Month vie
 
 ## Creation UX
 
-Sessions are created in context from the calendar by dragging across time (snapping to 15 minutes) or clicking a half hour, which picks an hour. In Month, clicking a day starts one at 9:00. The calendar itself is the creation surface, not an abstract form.
+Sessions are created in context from the calendar by dragging across time or clicking a half hour. A drag snaps to 15 minutes and a click proposes 90 minutes (settings: snap, session length). In Month, clicking a day starts one at 9:00. Calendar entries are created the same way and a click proposes 60 minutes (setting: calendar entry length); the unified Calendar only creates entries, so it only uses that one. The week starts per the first day of the week setting, and the day and week views open scrolled to the day start setting, 7:00 by default. The calendar itself is the creation surface, not an abstract form.
 
 ## External Calendar Overlay
 

@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { CourseChip, useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { moveRowFocus } from "#/components/grouped-view/grouping.ts";
@@ -156,7 +156,7 @@ export function ExamsListView({
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
-              Create an exam <Kbd>C</Kbd>
+              Create an exam <ShortcutKbd name="create" />
             </TooltipContent>
           </Tooltip>
         </div>

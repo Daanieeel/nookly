@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { settings } from "#/lib/settings/settings.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { makeCalendarEntry, makeExam, makeSession } from "#/test/fixtures.ts";
@@ -9,12 +10,15 @@ import {
   buildColumns,
   dayKey,
   daySpanFor,
+  defaultSlotFrom,
   heightPxFor,
   isEmptySpot,
   minutesToTime,
   rangeForDay,
   rangeLabel,
   readView,
+  scrollToHour,
+  snapMinutes,
   stepAnchor,
   stepLabel,
   timeToMinutes,
@@ -291,5 +295,45 @@ describe("blockLinesFor", () => {
 
   it("always keeps the title", () => {
     expect(blockLinesFor(heightPxFor(10 * 60, 10 * 60 + 5))).toBe(1);
+  });
+});
+
+describe("defaultSlotFrom", () => {
+  it("suggests 90 minutes for a session and 60 for a calendar entry", () => {
+    expect(defaultSlotFrom(540, "session")).toEqual({ startMin: 540, endMin: 630 });
+    expect(defaultSlotFrom(540, "calendarEntry")).toEqual({ startMin: 540, endMin: 600 });
+  });
+
+  it("follows the length settings, each for its own kind", () => {
+    settings.set("calendar.sessionLengthMinutes", 45);
+    settings.set("calendar.calendarEntryLengthMinutes", 120);
+    expect(defaultSlotFrom(540, "session")).toEqual({ startMin: 540, endMin: 585 });
+    expect(defaultSlotFrom(540, "calendarEntry")).toEqual({ startMin: 540, endMin: 660 });
+  });
+
+  it("stops at the end of the day", () => {
+    expect(defaultSlotFrom(23 * 60, "session")).toEqual({ startMin: 23 * 60, endMin: DAY_MINUTES });
+    settings.set("calendar.calendarEntryLengthMinutes", 720);
+    expect(defaultSlotFrom(20 * 60, "calendarEntry").endMin).toBe(DAY_MINUTES);
+  });
+});
+
+describe("calendar layout settings", () => {
+  it("snaps to 15 minutes and opens at 7:00 by default", () => {
+    expect(snapMinutes()).toBe(15);
+    expect(scrollToHour()).toBe(7);
+  });
+
+  it("reads the snap and the first hour from the settings", () => {
+    settings.set("calendar.snapMinutes", 30);
+    settings.set("calendar.dayStartHour", 9);
+    expect(snapMinutes()).toBe(30);
+    expect(scrollToHour()).toBe(9);
+  });
+});
+
+describe("visibleDays with a Saturday start", () => {
+  it("starts the week on Saturday", () => {
+    expect(keys(visibleDays("week", WED, 6))[0]).toBe("2026-03-07");
   });
 });

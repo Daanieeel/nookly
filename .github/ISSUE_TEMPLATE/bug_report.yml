@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Nookly is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Notes module
+        2. Create a new note
+        3. See the problem
+    validations:
+      required: true
+  - type: dropdown
+    id: data-affected
+    attributes:
+      label: Was any of your data lost, changed or corrupted?
+      options:
+        - "No"
+        - "Yes"
+        - "Not sure"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Nookly version
+      description: Open Settings with the gear icon in the title bar. The version is at the bottom.
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: e.g. macOS 15.1
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, logs or other context
+      description: Drag and drop images or paste any relevant output.
