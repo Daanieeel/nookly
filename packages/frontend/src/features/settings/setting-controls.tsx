@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { SelectField } from "#/components/select-field.tsx";
-import { Input } from "@nookly/ui/components/input";
+import { NumberInput } from "@nookly/ui/components/number-input";
 import { Switch } from "@nookly/ui/components/switch";
 import type { SettingId, SettingValue } from "#/lib/settings/registry.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
@@ -11,8 +10,9 @@ type NumberId =
   | "calendar.calendarEntryLengthMinutes"
   | "calendar.dayStartHour";
 
-/// A whole number in `[min, max]`, in steps of `step`. A half typed value is only
-/// kept once it is valid, so the setting never holds anything else.
+/// A whole number in `[min, max]`, saved in multiples of `step`; the buttons move it by
+/// `increments`. A number typed on its way to a valid one is only rounded into range
+/// as it is saved, so the setting never holds anything else.
 export function NumberControl({
   settingId,
   label,
@@ -20,6 +20,7 @@ export function NumberControl({
   min,
   max,
   step = 1,
+  increments = step,
 }: {
   settingId: NumberId;
   label: string;
@@ -27,34 +28,20 @@ export function NumberControl({
   min: number;
   max: number;
   step?: number;
+  increments?: number;
 }) {
   const [value, setValue] = useSetting(settingId);
-  const [draft, setDraft] = useState<string | null>(null);
   return (
     <div className="flex items-center gap-2">
-      <Input
-        type="number"
-        inputMode="numeric"
+      <NumberInput
         aria-label={label}
         min={min}
         max={max}
         step={step}
-        className="w-20 tabular-nums"
-        value={draft ?? String(value)}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          const next = Number(e.target.value);
-          if (
-            e.target.value !== "" &&
-            Number.isInteger(next) &&
-            next >= min &&
-            next <= max &&
-            next % step === 0
-          ) {
-            setValue(next);
-          }
-        }}
-        onBlur={() => setDraft(null)}
+        increments={increments}
+        className="w-28"
+        value={value}
+        onChange={(next) => setValue(Math.round(next / step) * step)}
       />
       <span className="text-xs text-muted-foreground">{unit}</span>
     </div>

@@ -190,17 +190,24 @@ describe("the settings dialog", () => {
     expect(settings.get("general.effortScale")).toBe("tshirt");
   });
 
-  it("saves a valid number of minutes and ignores a half typed one", async () => {
+  it("saves a number of minutes in steps of five and moves it by ten with the buttons", async () => {
     const { user } = renderOpen();
     await user.click(await screen.findByRole("button", { name: "Calendar" }));
     const input = screen.getByRole("spinbutton", { name: "Session length" });
     await user.clear(input);
     await user.type(input, "4");
-    expect(settings.get("calendar.sessionLengthMinutes")).toBe(90);
-    await user.type(input, "5");
+    // On its way to 45: rounded into range, shown as typed.
+    expect(settings.get("calendar.sessionLengthMinutes")).toBe(5);
+    expect(input).toHaveValue(4);
+    await user.type(input, "7");
     expect(settings.get("calendar.sessionLengthMinutes")).toBe(45);
     await user.tab();
     expect(input).toHaveValue(45);
+    await user.click(screen.getByRole("button", { name: "Increase Session length" }));
+    expect(settings.get("calendar.sessionLengthMinutes")).toBe(55);
+    await user.click(screen.getByRole("button", { name: "Decrease Session length" }));
+    await user.click(screen.getByRole("button", { name: "Decrease Session length" }));
+    expect(settings.get("calendar.sessionLengthMinutes")).toBe(35);
   });
 
   it("saves the calendar layout and editor settings from their controls", async () => {
@@ -216,8 +223,8 @@ describe("the settings dialog", () => {
     expect(settings.get("calendar.dayStartHour")).toBe(8);
     await user.clear(hour);
     await user.type(hour, "24");
-    // The 2 was a valid hour on its own; the 24 that followed is not, so it stayed at 2.
-    expect(settings.get("calendar.dayStartHour")).toBe(2);
+    // The 2 was a valid hour on its own; the 24 that followed is held at the last hour.
+    expect(settings.get("calendar.dayStartHour")).toBe(23);
 
     await user.click(screen.getByRole("button", { name: "Snap to" }));
     await user.click(await screen.findByRole("option", { name: "30 minutes" }));

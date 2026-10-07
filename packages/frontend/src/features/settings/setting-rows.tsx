@@ -85,6 +85,7 @@ const SETTING_UI = {
         min={5}
         max={720}
         step={5}
+        increments={10}
       />
     ),
   },
@@ -98,6 +99,7 @@ const SETTING_UI = {
         min={5}
         max={720}
         step={5}
+        increments={10}
       />
     ),
   },
