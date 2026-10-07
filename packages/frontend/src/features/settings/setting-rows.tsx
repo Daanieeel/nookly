@@ -1,4 +1,4 @@
-import { IconArchive, IconCalendarUser, IconFolder, IconRefresh } from "@tabler/icons-react";
+import { IconCalendarUser, IconRefresh } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
@@ -13,16 +13,16 @@ import { FileViewerThemeToggle } from "#/components/file-viewer-theme-toggle.tsx
 import { ThemeToggle } from "#/components/theme-toggle.tsx";
 import { UpdateCard } from "#/components/update-card.tsx";
 import {
-  BackupDialog,
-  useBackups,
-  useChooseBackupFolder,
-} from "#/features/backup/BackupDialog.tsx";
+  BackupAutoControl,
+  BackupFolderControl,
+  BackupNowControl,
+} from "#/features/backup/backup-controls.tsx";
+import { BackupList, RestoreFileControl } from "#/features/backup/backup-restore.tsx";
 import {
   CalendarConnectionsDialog,
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Switch } from "@nookly/ui/components/switch";
 import {
   NumberControl,
   SnapControl,
@@ -30,7 +30,6 @@ import {
   WeekStartControl,
 } from "./setting-controls.tsx";
 import { qk } from "#/lib/query-keys.ts";
-import { formatEditedAt } from "#/lib/relative-time.ts";
 import {
   SETTING_IDS,
   type SettingCategory,
@@ -38,7 +37,6 @@ import {
   definitionOf,
 } from "#/lib/settings/registry.ts";
 import type { Searchable } from "#/lib/settings/search.ts";
-import { useSetting } from "#/lib/settings/settings.ts";
 import { checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 
 /// One row of the Settings dialog: a registry setting with its control, or an
@@ -57,10 +55,11 @@ export interface RowSpec extends Searchable {
 
 /// Headings within a category, in display order.
 const SECTIONS = {
-  general: ["Date and time", "Tasks", "Backup", "About"],
+  general: ["Date and time", "Tasks", "About"],
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Connections"],
   notes: ["Code", "Editing"],
+  backup: ["Backup", "Restore"],
   shortcuts: [],
 } satisfies Record<SettingCategory, string[]>;
 
@@ -73,8 +72,8 @@ const SETTING_UI = {
   "general.dateFormat": { section: "Date and time", control: <DateFormatSetting /> },
   "general.timeFormat": { section: "Date and time", control: <TimeFormatSetting /> },
   "general.effortScale": { section: "Tasks", control: <EffortSettings /> },
-  "general.backupFolder": { section: "Backup", control: <BackupFolderControl /> },
-  "general.backupAuto": { section: "Backup", control: <BackupAutoControl /> },
+  "backup.folder": { section: "Backup", control: <BackupFolderControl /> },
+  "backup.auto": { section: "Backup", control: <BackupAutoControl /> },
   "notes.defaultCodeLanguage": { section: "Code", control: <CodeLanguageSettings /> },
   "calendar.sessionLengthMinutes": {
     section: "Defaults",
@@ -134,13 +133,25 @@ const ACTION_ROWS: RowSpec[] = [
     control: <CalendarConnectionsControl />,
   },
   {
-    id: "general.backup",
-    category: "general",
+    id: "backup.run",
+    category: "backup",
     section: "Backup",
-    title: "Back up and restore",
-    description: "Back up everything in Nookly now, or restore from a backup.",
-    synonyms: ["export", "save", "copy", "archive", "restore", "import", "zip"],
-    control: <BackupControl />,
+    title: "Back up now",
+    description:
+      "Saves everything in Nookly to one file: every Space, note, file, deck and setting. Files added by reference stay where they are and are not copied.",
+    synonyms: ["export", "save", "copy", "archive", "restore", "zip", "backup now"],
+    control: <BackupNowControl />,
+  },
+  {
+    id: "backup.restore",
+    category: "backup",
+    section: "Restore",
+    title: "Restore from a backup",
+    description:
+      "Replace everything in Nookly with a backup from the chosen folder, or from a file. You confirm before anything is replaced.",
+    synonyms: ["restore", "import", "recover", "export", "save", "copy", "archive", "zip"],
+    control: <RestoreFileControl />,
+    footer: <BackupList />,
   },
   {
     id: "general.version",
@@ -181,40 +192,6 @@ export const ROWS: RowSpec[] = [...FROM_REGISTRY, ...ACTION_ROWS].sort(
   (a, b) => sectionIndex(a) - sectionIndex(b),
 );
 
-function BackupFolderControl() {
-  const [folder] = useSetting("general.backupFolder");
-  const choose = useChooseBackupFolder();
-  return (
-    <div className="flex min-w-0 items-center justify-end gap-2">
-      <span className="min-w-0 truncate text-xs text-muted-foreground" title={folder ?? undefined}>
-        {folder ?? "No folder chosen"}
-      </span>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="shrink-0"
-        onClick={() => !choose.isPending && choose.mutate()}
-      >
-        <IconFolder size={14} />
-        {folder ? "Change" : "Choose"}
-      </Button>
-    </div>
-  );
-}
-
-function BackupAutoControl() {
-  const [folder] = useSetting("general.backupFolder");
-  const [auto, setAuto] = useSetting("general.backupAuto");
-  return (
-    <Switch
-      aria-label="Back up every day"
-      checked={auto}
-      disabled={!folder}
-      onCheckedChange={setAuto}
-    />
-  );
-}
-
 /// Entry to the read only external calendar overlay shown on Sessions.
 function CalendarConnectionsControl() {
   const [open, setOpen] = useState(false);
@@ -230,26 +207,6 @@ function CalendarConnectionsControl() {
         Manage
       </Button>
       <CalendarConnectionsDialog open={open} onOpenChange={setOpen} />
-    </>
-  );
-}
-
-/// Entry to backing up the whole app to a folder and restoring from one.
-function BackupControl() {
-  const [open, setOpen] = useState(false);
-  const [folder] = useSetting("general.backupFolder");
-  const { data: backups } = useBackups(folder);
-  const newest = backups?.find((b) => b.manifest)?.manifest?.createdAt;
-  return (
-    <>
-      <span className="text-xs text-muted-foreground">
-        {!folder ? "Not set up" : newest ? `Last ${formatEditedAt(newest)}` : "No backup yet"}
-      </span>
-      <Button variant="secondary" size="sm" className="ml-3" onClick={() => setOpen(true)}>
-        <IconArchive size={14} />
-        Manage
-      </Button>
-      <BackupDialog open={open} onOpenChange={setOpen} />
     </>
   );
 }

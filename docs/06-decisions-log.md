@@ -282,7 +282,7 @@ A View is a `view` entity holding a module (Tasks or Assignments) and a JSON con
 
 ### Backups go to a folder, and restores install at the next launch
 
-Settings has a Backup section that writes one zip to a chosen folder, on demand or daily. The zip holds a snapshot of `nookly.db` and every other file in the app data folder (stored files, recipe banners, bookmark previews, preferences, external calendar settings), except caches that rebuild themselves. A restore is staged, then installed by the next launch before the database opens, and the replaced data is kept in `restore-safety/` inside the app data folder.
+Settings has a Backup tab that writes one zip to a chosen folder, on demand or daily. The zip holds a snapshot of `nookly.db` and every other file in the app data folder (stored files, recipe banners, bookmark previews, preferences, external calendar settings), except caches that rebuild themselves. A restore is staged, then installed by the next launch before the database opens, and the replaced data is kept in `restore-safety/` inside the app data folder.
 
 **Why:** a folder needs no OAuth or network code, and pointing it into iCloud Drive, Google Drive or Dropbox reaches all of them. Backing up the whole app data folder, not a list of tables, means a new kind of stored data is covered without extra work. Swapping a live database is unsafe, so the swap happens when nothing has it open.
 

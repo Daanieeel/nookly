@@ -16,7 +16,7 @@ const TIMEZONE = item("general.timezone", "Time zone", "The zone times are shown
   "region",
 ]);
 const TIME_FORMAT = item("general.timeFormat", "Time format", "12 or 24 hour.", ["am pm"]);
-const BACKUP = item("general.backupFolder", "Backup folder", "Where backups are written.", [
+const BACKUP = item("backup.folder", "Backup folder", "Where backups are written.", [
   "export",
   "save",
   "copy",
@@ -55,9 +55,9 @@ describe("scoreSetting", () => {
   });
 
   it("splits camel case ids", () => {
-    expect(
-      scoreSetting("backup folder", item("general.backupFolder", "x", "y", ["z"])),
-    ).toBeGreaterThan(0);
+    expect(scoreSetting("backup folder", item("backup.folder", "x", "y", ["z"]))).toBeGreaterThan(
+      0,
+    );
     expect(scoreSetting("timeformat", TIME_FORMAT)).toBeGreaterThan(0);
   });
 

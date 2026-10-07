@@ -1,16 +1,24 @@
 import { z } from "zod";
+import { BACKUP_KEEP } from "#/lib/api/backup.ts";
 
 /// Every hard setting Nookly has. Each one has a unique dotted id
 /// (`category.name`), is stored under that id in `settings.json`, and says how
 /// to validate whatever was read from disk. See docs/development/settings.md.
 
-export type SettingCategory = "general" | "appearance" | "calendar" | "notes" | "shortcuts";
+export type SettingCategory =
+  | "general"
+  | "appearance"
+  | "calendar"
+  | "notes"
+  | "backup"
+  | "shortcuts";
 
 export const SETTING_CATEGORIES: SettingCategory[] = [
   "general",
   "appearance",
   "calendar",
   "notes",
+  "backup",
   "shortcuts",
 ];
 
@@ -37,6 +45,10 @@ export interface SettingDef<T extends SettingJson> {
   /// The `preferences.json` key this setting used to live under. Its value is
   /// copied over once, then the old key is deleted.
   legacyKey?: string;
+  /// Ids this setting was stored under before a rename. A value found under one is
+  /// copied to `id`, verified on disk, and only then deleted. A value already under
+  /// `id` wins.
+  previousIds?: string[];
   /// Turns the old string value into a candidate for `parse`; the string itself
   /// when missing.
   fromLegacy?: (raw: string) => SettingJson;
@@ -152,9 +164,9 @@ export const SETTINGS = {
     schema: z.enum(["tshirt", "fibonacci"]),
     legacyKey: "nookly:effort-scale",
   }),
-  "general.backupFolder": define<string | null>({
-    id: "general.backupFolder",
-    category: "general",
+  "backup.folder": define<string | null>({
+    id: "backup.folder",
+    category: "backup",
     title: "Backup folder",
     description: "The folder backups are written to.",
     synonyms: [
@@ -171,12 +183,13 @@ export const SETTINGS = {
     default: null,
     schema: text.nullable(),
     legacyKey: "nookly:backup-folder",
+    previousIds: ["general.backupFolder"],
   }),
-  "general.backupAuto": define({
-    id: "general.backupAuto",
-    category: "general",
+  "backup.auto": define({
+    id: "backup.auto",
+    category: "backup",
     title: "Back up every day",
-    description: "Back up automatically once a day while Nookly is open.",
+    description: `Back up automatically once a day while Nookly is open. Keeps the newest ${BACKUP_KEEP} backups.`,
     synonyms: [
       "automatic backup",
       "scheduled backup",
@@ -189,6 +202,7 @@ export const SETTINGS = {
     default: false,
     schema: z.boolean(),
     legacyKey: "nookly:backup-auto",
+    previousIds: ["general.backupAuto"],
     fromLegacy: (raw) => raw === "1",
   }),
   "notes.defaultCodeLanguage": define({

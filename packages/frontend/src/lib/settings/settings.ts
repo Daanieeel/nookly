@@ -107,7 +107,44 @@ export async function initSettings(): Promise<void> {
     if (isSettingId(key)) Object.assign(values, { [key]: definitionOf(key).parse(raw) });
   }
   useSettingsStore.setState({ values });
+  const stored = new Map(entries);
+  for (const id of SETTING_IDS) await migrateRenamed(loaded, id, inFile, stored);
   for (const id of SETTING_IDS) await migrateLegacy(loaded, id, inFile);
+}
+
+/// Moves a renamed setting to its new id inside `settings.json`. The value is written
+/// under the new id, saved, and read back from disk before the old id is deleted, so
+/// a failure at any step leaves the old id to retry on the next launch. A value
+/// already under the new id wins and the old one is just removed.
+async function migrateRenamed(
+  target: Store,
+  id: SettingId,
+  inFile: Set<string>,
+  stored: Map<string, SettingJson>,
+) {
+  const def = definitionOf(id);
+  for (const old of def.previousIds ?? []) {
+    const raw = stored.get(old);
+    if (raw === undefined) continue;
+    try {
+      if (!inFile.has(id)) {
+        const value = def.parse(raw);
+        await target.set(id, value);
+        await target.save();
+        await target.reload({ ignoreDefaults: true });
+        const saved = await target.get<SettingJson>(id);
+        if (JSON.stringify(saved) !== JSON.stringify(value)) {
+          throw new Error(`${id} did not reach settings.json`);
+        }
+        useSettingsStore.setState((s) => ({ values: { ...s.values, ...{ [id]: value } } }));
+        inFile.add(id);
+      }
+      await target.delete(old);
+      await target.save();
+    } catch (error) {
+      console.error(`Couldn't rename ${old} to ${id}`, error);
+    }
+  }
 }
 
 /// Moves one setting out of `preferences.json`. The value is written to

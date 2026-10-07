@@ -106,7 +106,7 @@ describe("settings", () => {
     fakeFiles({
       settings: {
         "appearance.theme": "dark",
-        "general.backupAuto": true,
+        "backup.auto": true,
         "general.effortScale": "bogus",
         "something.future": 1,
       },
@@ -114,7 +114,7 @@ describe("settings", () => {
     const { settings, initSettings } = await launch();
     await initSettings();
     expect(settings.get("appearance.theme")).toBe("dark");
-    expect(settings.get("general.backupAuto")).toBe(true);
+    expect(settings.get("backup.auto")).toBe(true);
     expect(settings.get("general.effortScale")).toBe("tshirt");
   });
 
@@ -122,18 +122,18 @@ describe("settings", () => {
     const { settings: file } = fakeFiles({});
     const { settings, initSettings } = await launch();
     await initSettings();
-    settings.set("general.backupAuto", true);
+    settings.set("backup.auto", true);
     settings.set("calendar.sessionLengthMinutes", 45);
-    expect(settings.get("general.backupAuto")).toBe(true);
+    expect(settings.get("backup.auto")).toBe(true);
     await vi.waitFor(() =>
       expect(file.memory).toEqual({
-        "general.backupAuto": true,
+        "backup.auto": true,
         "calendar.sessionLengthMinutes": 45,
       }),
     );
     settings.reset("calendar.sessionLengthMinutes");
     expect(settings.get("calendar.sessionLengthMinutes")).toBe(90);
-    await vi.waitFor(() => expect(file.memory).toEqual({ "general.backupAuto": true }));
+    await vi.waitFor(() => expect(file.memory).toEqual({ "backup.auto": true }));
   });
 
   it("stores an invalid value as the default instead", async () => {
@@ -196,6 +196,88 @@ describe("settings", () => {
     });
   });
 
+  describe("renamed settings", () => {
+    const OLD = { "general.backupFolder": "/Users/me/Backups", "general.backupAuto": true };
+
+    it("copies to the new id, saves, reads back and only then deletes the old one", async () => {
+      const files = fakeFiles({ settings: { ...OLD, "appearance.theme": "dark" }, prefs: MARKER });
+      const { settings, initSettings } = await launch();
+      await initSettings();
+      expect(files.settings.disk).toEqual({
+        "appearance.theme": "dark",
+        "backup.folder": "/Users/me/Backups",
+        "backup.auto": true,
+      });
+      expect(settings.get("backup.folder")).toBe("/Users/me/Backups");
+      expect(settings.get("backup.auto")).toBe(true);
+      const at = (what: string) => files.order.indexOf(what);
+      expect(at("set:backup.folder")).toBeLessThan(at("save"));
+      expect(at("save")).toBeLessThan(at("reload"));
+      expect(at("reload")).toBeLessThan(at("delete:general.backupFolder"));
+      expect(at("reload")).toBeLessThan(at("delete:general.backupAuto"));
+    });
+
+    it("lets a value already under the new id win", async () => {
+      const files = fakeFiles({
+        settings: { ...OLD, "backup.folder": "/new", "backup.auto": false },
+        prefs: MARKER,
+      });
+      const { settings, initSettings } = await launch();
+      await initSettings();
+      expect(settings.get("backup.folder")).toBe("/new");
+      expect(settings.get("backup.auto")).toBe(false);
+      expect(files.settings.disk).toEqual({ "backup.folder": "/new", "backup.auto": false });
+    });
+
+    it("is idempotent", async () => {
+      const files = fakeFiles({ settings: OLD, prefs: MARKER });
+      const first = await launch();
+      await first.initSettings();
+      const disk = { ...files.settings.disk };
+      files.order.length = 0;
+      const second = await launch();
+      await second.initSettings();
+      expect(files.settings.disk).toEqual(disk);
+      expect(files.order).toEqual([]);
+    });
+
+    it("keeps the old id when saving fails, and retries on the next launch", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const failed = fakeFiles({ settings: OLD, prefs: MARKER }, { saveFails: true });
+      const run1 = await launch();
+      await run1.initSettings();
+      expect(failed.settings.disk).toEqual(OLD);
+      expect(run1.settings.get("backup.folder")).toBeNull();
+
+      const retry = fakeFiles({ settings: failed.settings.disk, prefs: MARKER });
+      const run2 = await launch();
+      await run2.initSettings();
+      expect(retry.settings.disk).toEqual({
+        "backup.folder": "/Users/me/Backups",
+        "backup.auto": true,
+      });
+    });
+
+    it("keeps the old id when the new one is not on disk after saving", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const files = fakeFiles({ settings: OLD, prefs: MARKER });
+      mockCommandWith("plugin:store|save", () => null);
+      const { initSettings } = await launch();
+      await initSettings();
+      expect(files.settings.disk).toEqual(OLD);
+    });
+
+    it("moves old preferences straight to the new ids", async () => {
+      const files = fakeFiles({
+        prefs: { ...MARKER, "nookly:backup-auto": "1", "nookly:backup-folder": "/b" },
+      });
+      const { settings, initSettings } = await launch();
+      await initSettings();
+      expect(files.settings.disk).toEqual({ "backup.auto": true, "backup.folder": "/b" });
+      expect(settings.get("backup.folder")).toBe("/b");
+    });
+  });
+
   describe("moving old preferences over", () => {
     it("copies, saves, reads back and only then deletes the old key", async () => {
       const files = fakeFiles({
@@ -210,10 +292,10 @@ describe("settings", () => {
       await initSettings();
       expect(files.settings.disk).toEqual({
         "appearance.theme": "dark",
-        "general.backupAuto": true,
-        "general.backupFolder": "/Users/me/Backups",
+        "backup.auto": true,
+        "backup.folder": "/Users/me/Backups",
       });
-      expect(settings.get("general.backupAuto")).toBe(true);
+      expect(settings.get("backup.auto")).toBe(true);
       await vi.waitFor(() => {
         expect(preferences.get("nookly:theme")).toBeNull();
         expect(files.prefs.disk).toEqual(MARKER);

@@ -2,7 +2,7 @@
 
 Hard settings live in `settings.json` in the app data folder, a flat JSON object keyed by setting id. Code reads and writes them through [`packages/frontend/src/lib/settings/settings.ts`](../../packages/frontend/src/lib/settings/settings.ts); the list is [`registry.ts`](../../packages/frontend/src/lib/settings/registry.ts). View state (sorts, tabs, filters, display options, dismissed cards) stays in `preferences.json`, see [`preference-keys.md`](preference-keys.md).
 
-Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `shortcuts`. An id is never renamed once released.
+Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `shortcuts`. An id is never renamed once released.
 
 ## Add a setting
 
@@ -14,11 +14,17 @@ The Settings dialog (titlebar gear, `Mod+,`, "Open Settings" in the commands pal
 
 A setting read where it is used (a calendar length, the snap, the notes editor's arrow rules) is read with `settings.get` at that moment, so a change applies without a restart.
 
-A row with no stored value (a button that opens a dialog) goes in `ACTION_ROWS` instead.
+A row with no stored value (a button that opens a dialog or runs something, like Back up now) goes in `ACTION_ROWS` instead.
+
+The Backup tab holds everything about backups inline: the folder, the daily switch, Back up now and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
 
 ## Search synonyms
 
 The dialog search ([`lib/settings/search.ts`](../../packages/frontend/src/lib/settings/search.ts)) matches every typed word against the title, `synonyms`, id and description, in that order of weight, tolerating typos. List the other words someone would type: `timezone` has "time zone", "clock", "utc", "region". Use whole words or short phrases, not near spellings of the title.
+
+## Renaming a setting
+
+Set `previousIds` on the entry (`backup.folder` has `["general.backupFolder"]`). On start, a value under an old id is copied to the new id, saved, read back from disk, and only then deleted. A failure leaves the old id for the next start. A value already under the new id wins, and the old one is just removed. Keep `legacyKey` pointing at the original preferences key, it moves straight to the new id.
 
 ## Moving a preference over
 

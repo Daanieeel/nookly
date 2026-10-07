@@ -10,11 +10,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 
 function backupFolder(): string | null {
-  return settings.get("general.backupFolder");
+  return settings.get("backup.folder");
 }
 
 function autoBackupEnabled(): boolean {
-  return settings.get("general.backupAuto");
+  return settings.get("backup.auto");
 }
 
 let running: Promise<BackupInfo> | null = null;

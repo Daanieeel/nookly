@@ -44,7 +44,7 @@ describe("settings registry", () => {
     for (const id of SETTING_IDS) {
       const def = definitionOf(id);
       for (const junk of [null, 42.5, {}, [], false, ""]) {
-        if ((id === "general.backupAuto" || id === "notes.arrowLigatures") && junk === false) {
+        if ((id === "backup.auto" || id === "notes.arrowLigatures") && junk === false) {
           continue;
         }
         expect(def.parse(junk)).toEqual(def.default);
@@ -55,9 +55,9 @@ describe("settings registry", () => {
   it("parses typed values", () => {
     expect(SETTINGS["appearance.theme"].parse("dark")).toBe("dark");
     expect(SETTINGS["general.effortScale"].parse("fibonacci")).toBe("fibonacci");
-    expect(SETTINGS["general.backupAuto"].parse(true)).toBe(true);
-    expect(SETTINGS["general.backupAuto"].parse("1")).toBe(false);
-    expect(SETTINGS["general.backupFolder"].parse("")).toBeNull();
+    expect(SETTINGS["backup.auto"].parse(true)).toBe(true);
+    expect(SETTINGS["backup.auto"].parse("1")).toBe(false);
+    expect(SETTINGS["backup.folder"].parse("")).toBeNull();
     expect(SETTINGS["general.timezone"].parse("")).toBe("system");
     expect(SETTINGS["calendar.sessionLengthMinutes"].parse(45)).toBe(45);
     expect(SETTINGS["calendar.sessionLengthMinutes"].parse(0)).toBe(90);
@@ -100,7 +100,7 @@ describe("settings registry", () => {
   });
 
   it("turns the legacy backup flag into a boolean", () => {
-    const def = SETTINGS["general.backupAuto"];
+    const def = SETTINGS["backup.auto"];
     expect(def.fromLegacy?.("1")).toBe(true);
     expect(def.fromLegacy?.("0")).toBe(false);
   });

@@ -1,4 +1,5 @@
 import {
+  IconArchive,
   IconCalendar,
   IconKeyboard,
   IconNotes,
@@ -30,6 +31,7 @@ const CATEGORY_META = {
   appearance: { label: "Appearance", icon: IconPalette },
   calendar: { label: "Calendar", icon: IconCalendar },
   notes: { label: "Notes", icon: IconNotes },
+  backup: { label: "Backup", icon: IconArchive },
   shortcuts: { label: "Shortcuts", icon: IconKeyboard },
 } satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
 
