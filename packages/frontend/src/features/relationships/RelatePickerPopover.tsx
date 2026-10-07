@@ -1,3 +1,4 @@
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { Command } from "cmdk";
 import { IconChevronLeft } from "@tabler/icons-react";
@@ -84,7 +85,7 @@ export function RelatePickerPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="start">
+      <PopoverContent {...dialogPopover("w-72 p-0")} align="start">
         <RelatePicker
           spaceId={spaceId}
           exclude={exclude}

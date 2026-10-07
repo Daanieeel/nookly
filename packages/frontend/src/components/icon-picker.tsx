@@ -1,3 +1,4 @@
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import {
   IconApple,
   IconBallFootball,
@@ -126,7 +127,7 @@ export function IconPicker({
       }}
     >
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="start">
+      <PopoverContent {...dialogPopover("w-72 p-2")} align="start">
         <Tabs defaultValue={value && !isIconLibraryValue(value) ? "emoji" : "icons"}>
           <TabsList size="sm" className="w-full">
             <TabsTrigger value="icons" size="sm">
