@@ -9,6 +9,7 @@ import {
   buildColumns,
   dayKey,
   daySpanFor,
+  defaultSlotFrom,
   heightPxFor,
   isEmptySpot,
   minutesToTime,
@@ -291,5 +292,15 @@ describe("blockLinesFor", () => {
 
   it("always keeps the title", () => {
     expect(blockLinesFor(heightPxFor(10 * 60, 10 * 60 + 5))).toBe(1);
+  });
+});
+
+describe("defaultSlotFrom", () => {
+  it("suggests a 1.5 hour window", () => {
+    expect(defaultSlotFrom(540)).toEqual({ startMin: 540, endMin: 630 });
+  });
+
+  it("stops at the end of the day", () => {
+    expect(defaultSlotFrom(23 * 60)).toEqual({ startMin: 23 * 60, endMin: DAY_MINUTES });
   });
 });

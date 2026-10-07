@@ -8,6 +8,7 @@ import {
   type DayColumn,
   type DayItem,
   type SlotRange,
+  defaultSlotFrom,
   isEmptySpot,
   weekNumber,
 } from "./calendar-model";
@@ -153,8 +154,7 @@ export function MonthGrid({
                       return;
                     onSelect({
                       date: day,
-                      startMin: DEFAULT_START_MIN,
-                      endMin: DEFAULT_START_MIN + 60,
+                      ...defaultSlotFrom(DEFAULT_START_MIN),
                     });
                   }}
                 >

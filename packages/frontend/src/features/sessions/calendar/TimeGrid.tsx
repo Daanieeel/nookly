@@ -20,6 +20,7 @@ import {
   SNAP_MINUTES,
   type SlotRange,
   daySpanFor,
+  defaultSlotFrom,
   heightPxFor,
   isEmptySpot,
   minutesToTime,
@@ -328,7 +329,7 @@ export function TimeGrid({
                   onSelect(dragToRange(drag, columns));
                 } else {
                   const startMin = Math.floor(drag.anchorMin / 30) * 30;
-                  onSelect({ date: day, startMin, endMin: Math.min(startMin + 60, DAY_MINUTES) });
+                  onSelect({ date: day, ...defaultSlotFrom(startMin) });
                 }
               }}
               onPointerCancel={() => setDrag(null)}
@@ -347,8 +348,7 @@ export function TimeGrid({
                         startCreate: () =>
                           onSelect({
                             date: day,
-                            startMin: i * 30,
-                            endMin: Math.min(i * 30 + 60, DAY_MINUTES),
+                            ...defaultSlotFrom(i * 30),
                           }),
                       })
                     : {})}

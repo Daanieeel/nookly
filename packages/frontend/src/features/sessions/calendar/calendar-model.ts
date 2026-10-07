@@ -159,6 +159,14 @@ export interface SlotRange extends MinuteRange {
   endDate?: Date;
 }
 
+/// How long a Session lasts until the dialog changes it.
+export const DEFAULT_SLOT_MINUTES = 90;
+
+/// The window a new Session or Calendar entry opens on when it starts at `startMin`.
+export function defaultSlotFrom(startMin: number): MinuteRange {
+  return { startMin, endMin: Math.min(startMin + DEFAULT_SLOT_MINUTES, DAY_MINUTES) };
+}
+
 /// The part of a (possibly multi-day) `SlotRange` that falls on `day`, or null
 /// if `day` is outside it. The first and last day only show their own partial
 /// time; every day in between counts as the full day. Shared by the live

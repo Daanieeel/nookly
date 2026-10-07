@@ -32,7 +32,7 @@ A full page calendar modeled on Outlook, with Day, Work week, Week and Month vie
 
 ## Creation UX
 
-Sessions are created in context from the calendar by dragging across time (snapping to 15 minutes) or clicking a half hour, which picks an hour. In Month, clicking a day starts one at 9:00. The calendar itself is the creation surface, not an abstract form.
+Sessions are created in context from the calendar by dragging across time (snapping to 15 minutes) or clicking a half hour, which picks an hour and a half. In Month, clicking a day starts one at 9:00. The calendar itself is the creation surface, not an abstract form.
 
 ## External Calendar Overlay
 

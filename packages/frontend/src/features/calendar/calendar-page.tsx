@@ -15,6 +15,7 @@ import {
   CALENDAR_VIEWS,
   type CalendarView,
   type SlotRange,
+  defaultSlotFrom,
   rangeLabel,
   readView,
   stepAnchor,
@@ -60,7 +61,7 @@ export function useCalendarPage(storageKey?: string) {
     const shown = visibleDays(view, anchor, weekStartsOn);
     const today = shown.find((d) => isToday(d));
     const startMin = today ? Math.min((new Date().getHours() + 1) * 60, 23 * 60) : 9 * 60;
-    setDraft({ date: today ?? shown[0], startMin, endMin: startMin + 60 });
+    setDraft({ date: today ?? shown[0], ...defaultSlotFrom(startMin) });
   }, [view, anchor, weekStartsOn]);
 
   const goToday = useCallback(() => setAnchor(new Date()), []);

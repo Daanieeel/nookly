@@ -56,7 +56,7 @@ const emptyValues: SessionValues = {
   course: null,
   date: "",
   startTime: "09:00",
-  endTime: "10:00",
+  endTime: "10:30",
   location: "",
   ...DEFAULT_REPEAT,
 };
