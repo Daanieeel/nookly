@@ -64,7 +64,7 @@ describe("the settings dialog", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Appearance" })).toBeInTheDocument();
   });
 
-  it("has a row with a control for every setting, apart from shortcuts", async () => {
+  it("has a row with a control for every setting", async () => {
     const { user } = renderOpen();
     await screen.findByRole("dialog");
     const found = new Set<string>();
@@ -77,15 +77,7 @@ describe("the settings dialog", () => {
         expect(row.textContent).toContain(id);
       }
     }
-    expect([...found].sort()).toEqual(
-      SETTING_IDS.filter((id) => !id.startsWith("shortcuts.")).sort(),
-    );
-  });
-
-  it("shows a placeholder for shortcuts", async () => {
-    const { user } = renderOpen();
-    await user.click(await screen.findByRole("button", { name: "Shortcuts" }));
-    expect(screen.getByText("Shortcuts coming soon")).toBeInTheDocument();
+    expect([...found].sort()).toEqual([...SETTING_IDS].sort());
   });
 
   it("filters rows while typing in the search and counts matches per category", async () => {

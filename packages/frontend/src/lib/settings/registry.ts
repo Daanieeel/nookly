@@ -1,5 +1,13 @@
 import { z } from "zod";
 import { BACKUP_KEEP } from "#/lib/api/backup.ts";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
+import {
+  SHORTCUT_META,
+  SHORTCUT_NAMES,
+  type ShortcutName,
+  checkBinding,
+  shortcutSettingId,
+} from "#/lib/shortcuts.ts";
 
 /// Every hard setting Nookly has. Each one has a unique dotted id
 /// (`category.name`), is stored under that id in `settings.json`, and says how
@@ -77,7 +85,42 @@ export function parseFileViewerTheme(stored: SettingJson): z.infer<typeof FILE_V
   return FILE_VIEWER_THEMES.catch("defaults").parse(stored);
 }
 
+/// A shortcut's stored key: a hotkey it may have, or null for "unassigned", which is
+/// not the same as absent (the default). Only an override is ever stored.
+function shortcutSchema(name: ShortcutName) {
+  return z
+    .string()
+    .refine((hotkey) => checkBinding(name, hotkey).ok)
+    .nullable();
+}
+
+type ShortcutSettings = {
+  [N in ShortcutName as `shortcuts.${N}`]: SettingDef<string | null>;
+};
+
+// SAFETY: one entry per shortcut name, keyed `shortcuts.<name>`, which is exactly the
+// mapped type above.
+const SHORTCUT_SETTINGS = Object.fromEntries(
+  SHORTCUT_NAMES.map((name) => {
+    const id = shortcutSettingId(name);
+    const meta = SHORTCUT_META[name];
+    return [
+      id,
+      define<string | null>({
+        id,
+        category: "shortcuts",
+        title: meta.title,
+        description: meta.description,
+        synonyms: ["shortcut", "keyboard", "hotkey", "key binding", ...meta.synonyms],
+        default: HOTKEYS[name],
+        schema: shortcutSchema(name),
+      }),
+    ];
+  }),
+) as ShortcutSettings;
+
 export const SETTINGS = {
+  ...SHORTCUT_SETTINGS,
   "appearance.theme": define({
     id: "appearance.theme",
     category: "appearance",

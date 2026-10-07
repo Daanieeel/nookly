@@ -60,7 +60,8 @@ import {
 } from "./task-properties";
 import { qk } from "#/lib/query-keys.ts";
 import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { useShortcutMap } from "#/hooks/use-shortcut.ts";
+import { displayText } from "#/lib/shortcuts.ts";
 
 /// A Task's page: the same header and description editor as a Note, plus a
 /// previous and next stepper, the sub-tasks, and a properties panel at the top of
@@ -183,11 +184,12 @@ function TaskStepper({
   next: Task | undefined;
   onStep: (task: Task) => void;
 }) {
-  // K and J step through tasks, as in Linear, whenever nothing else has the keyboard.
-  useScreenHotkey(HOTKEYS.previousTask, () => prev && onStep(prev), {
+  // K and J step through tasks by default, as in Linear, whenever nothing else has the keyboard.
+  const keys = useShortcutMap();
+  useScreenHotkey("previousTask", () => prev && onStep(prev), {
     enabled: prev !== undefined,
   });
-  useScreenHotkey(HOTKEYS.nextTask, () => next && onStep(next), { enabled: next !== undefined });
+  useScreenHotkey("nextTask", () => next && onStep(next), { enabled: next !== undefined });
 
   return (
     <div className="flex items-center gap-0.5 pr-1">
@@ -196,8 +198,8 @@ function TaskStepper({
       </span>
       {(
         [
-          { task: prev, label: "Previous Task", shortcut: "K", icon: IconChevronUp },
-          { task: next, label: "Next Task", shortcut: "J", icon: IconChevronDown },
+          { task: prev, label: "Previous Task", shortcut: "previousTask", icon: IconChevronUp },
+          { task: next, label: "Next Task", shortcut: "nextTask", icon: IconChevronDown },
         ] as const
       ).map(({ task, label, shortcut, icon: Icon }) => (
         <Tooltip key={label}>
@@ -213,7 +215,8 @@ function TaskStepper({
             </button>
           </TooltipTrigger>
           <TooltipContent>
-            {label} ({shortcut})
+            {label}
+            {keys[shortcut] && ` (${displayText(keys[shortcut])})`}
           </TooltipContent>
         </Tooltip>
       ))}

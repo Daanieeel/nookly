@@ -25,7 +25,7 @@ registerActions("tab", [
     group: "danger",
     label: "Close Tab",
     icon: IconX,
-    shortcut: "⌘W",
+    shortcutName: "closeTab",
     run: (t) => useNavStore.getState().closeTab(t.tabId),
   },
   {
@@ -33,7 +33,7 @@ registerActions("tab", [
     group: "danger",
     label: "Close Other Tabs",
     icon: IconX,
-    shortcut: "⇧⌘W",
+    shortcutName: "closeOtherTabs",
     disabled: (t) => useNavStore.getState().tabs.every((tab) => tab.id === t.tabId || tab.pinned),
     run: (t) => {
       useNavStore.getState().switchTab(t.tabId);

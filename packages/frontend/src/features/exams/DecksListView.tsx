@@ -10,6 +10,7 @@ import { contextTarget, entityTarget } from "#/components/context-menu/registry.
 import { EmptyState } from "#/components/empty-state.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { createDeck, listDeckSummaries } from "#/lib/api/decks.ts";
@@ -65,7 +66,7 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
-              Create a deck <Kbd>C</Kbd>
+              Create a deck <ShortcutKbd name="create" />
             </TooltipContent>
           </Tooltip>
         </div>

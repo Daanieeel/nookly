@@ -23,14 +23,15 @@ const FILE = "settings.json";
 let store: Store | null = null;
 
 /// The valid values in the file, by id. A setting that isn't here is at its default.
-type Values = { [I in SettingId]?: SettingValue<I> };
+export type Values = { [I in SettingId]?: SettingValue<I> };
 
 const useSettingsStore = create<{ values: Values }>(() => ({ values: {} }));
 
 function valueOf<I extends SettingId>(id: I, values = useSettingsStore.getState().values) {
   // SAFETY: `values[id]` only ever holds what `SETTINGS[id].parse` returned, and a
-  // missing one is that same setting's default.
-  return (values[id] ?? definitionOf(id).default) as SettingValue<I>;
+  // missing one is that same setting's default. A stored null is a value (a shortcut
+  // left unassigned), not a missing one.
+  return (Object.hasOwn(values, id) ? values[id] : definitionOf(id).default) as SettingValue<I>;
 }
 
 /// Stores an already validated value.
@@ -43,6 +44,10 @@ function persist(write: (store: Store) => Promise<void>) {
   write(store).catch((error) => console.error("Couldn't save settings", error));
 }
 
+/// One change in `settings.apply`: a new value, or back to the default. The value is
+/// validated by the setting's own `parse`, so a wrong one becomes the default.
+export type SettingChange = { id: SettingId; value: SettingJson } | { id: SettingId; reset: true };
+
 export const settings = {
   get<I extends SettingId>(id: I): SettingValue<I> {
     return valueOf(id);
@@ -53,6 +58,30 @@ export const settings = {
     const parsed = definitionOf(id).parse(value) as SettingValue<I>;
     withValue(id, parsed);
     persist((s) => s.set(id, parsed));
+  },
+  /// Several changes as one update: memory changes together, and the file is written in
+  /// the order given, stopping at the first failure so a later change never lands
+  /// without the earlier ones.
+  apply(changes: SettingChange[]) {
+    const parsed = changes.map((change) =>
+      "reset" in change
+        ? { id: change.id, reset: true as const }
+        : { id: change.id, value: definitionOf(change.id).parse(change.value) },
+    );
+    useSettingsStore.setState((s) => {
+      const values: Values = { ...s.values };
+      for (const change of parsed) {
+        if ("reset" in change) delete values[change.id];
+        else Object.assign(values, { [change.id]: change.value });
+      }
+      return { values };
+    });
+    persist(async (s) => {
+      for (const change of parsed) {
+        if ("reset" in change) await s.delete(change.id);
+        else await s.set(change.id, change.value);
+      }
+    });
   },
   /// Back to the default, removed from the file.
   reset(id: SettingId) {
@@ -74,6 +103,17 @@ export function subscribeSetting<I extends SettingId>(
     const next = valueOf(id, state.values);
     if (next !== valueOf(id, previous.values)) listener(next);
   });
+}
+
+/// Reads the settings store reactively. `select` must return something stable (a value,
+/// or a cached object) or the caller re-renders on every change.
+export function useSettingsValues<T>(select: (values: Values) => T): T {
+  return useSettingsStore((s) => select(s.values));
+}
+
+/// The settings store's current values, for code that is not a hook.
+export function readSettingsValues(): Values {
+  return useSettingsStore.getState().values;
 }
 
 /// A setting's value and its setter, re-rendering when it changes from anywhere.

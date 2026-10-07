@@ -14,6 +14,8 @@ import { copyText } from "#/lib/clipboard.ts";
 import { applyTheme } from "#/lib/theme.ts";
 import { SETTINGS, type SettingId, definitionOf } from "#/lib/settings/registry.ts";
 import { settings, useSetting } from "#/lib/settings/settings.ts";
+import { isShortcutName } from "#/lib/shortcuts.ts";
+import { requestShortcutChange } from "./shortcut-editing.ts";
 
 /// A row of the Settings dialog: title and description on the left, the control on
 /// the right. `settingId` rows also show their id and a reset button.
@@ -109,6 +111,13 @@ function ResetButton({ settingId, title }: { settingId: SettingId; title: string
           className="size-5"
           aria-label={`Reset ${title} to default`}
           onClick={() => {
+            const shortcut = settingId.replace(/^shortcuts\./, "");
+            // A shortcut's default key may be in use by now; that goes through the
+            // same check as any change, never straight to a double assignment.
+            if (settingId.startsWith("shortcuts.") && isShortcutName(shortcut)) {
+              requestShortcutChange(shortcut, "default");
+              return;
+            }
             settings.reset(settingId);
             // Resetting alone doesn't redraw the page, only `applyTheme` does.
             if (settingId === "appearance.theme") applyTheme(SETTINGS["appearance.theme"].default);

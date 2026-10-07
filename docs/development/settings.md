@@ -18,6 +18,18 @@ A row with no stored value (a button that opens a dialog or runs something, like
 
 The Backup tab holds everything about backups inline: the folder, the daily switch, Back up now and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
 
+## Shortcuts
+
+Every entry of `HOTKEYS` in [`lib/hotkeys.ts`](../../packages/frontend/src/lib/hotkeys.ts) is a rebindable shortcut and the default of the setting `shortcuts.<name>`. Only overrides are stored: absent means the default, a hotkey string replaces it, `null` means unassigned.
+
+Add a shortcut: add it to `HOTKEYS`, then to `SHORTCUT_META` in [`lib/shortcuts.ts`](../../packages/frontend/src/lib/shortcuts.ts) (title, description, synonyms, `section`, `scopes`). The registry entry and the Settings row are generated from it, and a test fails without the metadata. Register it by name, `useAppHotkey("search", fn)`, and show it with `<ShortcutKbd name="search" />`, `useShortcut(name)` or `shortcutLabel(name)`, never a literal key.
+
+A scope is where the shortcut is active (`global`, `lists`, `calendar`, `task`, `deck`). The same key on two shortcuts is a clash only when their scopes overlap, and `global` overlaps everything. `resolveShortcuts` builds the effective map and can never return two active shortcuts on one key: an explicit override beats a default, and every loser (also one that hits a fixed shortcut) is unassigned and logged once, so a hand edited `settings.json` is safe.
+
+Changes from Settings go through `planShortcutChange` (`features/settings/shortcut-editing.ts`): a key owned by a fixed shortcut is refused inline, a key used by another shortcut asks first and, on Reassign, unassigns the other and sets this one in one `settings.apply`. A shortcut without a command modifier (Cmd, Ctrl, Alt) is only allowed when its default is a bare key.
+
+Fixed shortcuts (`FIXED_SHORTCUTS`: copy, paste, select all, undo, Escape, the context menu key, study session keys, PDF find) have their own listeners and are listed read only. Add a key there when a new capture phase or editor listener claims one.
+
 ## Search synonyms
 
 The dialog search ([`lib/settings/search.ts`](../../packages/frontend/src/lib/settings/search.ts)) matches every typed word against the title, `synonyms`, id and description, in that order of weight, tolerating typos. List the other words someone would type: `timezone` has "time zone", "clock", "utc", "region". Use whole words or short phrases, not near spellings of the title.

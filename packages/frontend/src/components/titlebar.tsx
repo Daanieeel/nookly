@@ -17,7 +17,7 @@ import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon, renderIconValue } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
 import { getEntity } from "#/lib/api/entities.ts";
@@ -29,9 +29,7 @@ import { useIsFullscreen } from "#/lib/fullscreen.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
-import { useHotkey } from "@tanstack/react-hotkeys";
-import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { useAppHotkey, useRawHotkey } from "#/hooks/use-app-hotkey.ts";
 
 function Crumb({
   icon,
@@ -192,10 +190,7 @@ function SettingsButton() {
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-2">
         Settings
-        <KbdGroup>
-          <Kbd>⌘</Kbd>
-          <Kbd>,</Kbd>
-        </KbdGroup>
+        <ShortcutKbd name="settings" />
       </TooltipContent>
     </Tooltip>
   );
@@ -283,27 +278,19 @@ function HistoryButtons() {
   const canGoBack = useNavStore((s) => s.backStack.length > 0);
   const canGoForward = useNavStore((s) => s.forwardStack.length > 0);
 
-  useAppHotkey(HOTKEYS.back, () => useNavStore.getState().goBack());
-  useAppHotkey(HOTKEYS.forward, () => useNavStore.getState().goForward());
+  useAppHotkey("back", () => useNavStore.getState().goBack());
+  useAppHotkey("forward", () => useNavStore.getState().goForward());
   // Cmd+Arrow moves the caret to the line edge while typing, so it only navigates outside text fields.
-  useHotkey(
-    HOTKEYS.backArrow,
-    (event) => {
-      if (isTyping()) return;
-      event.preventDefault();
-      useNavStore.getState().goBack();
-    },
-    { preventDefault: false, stopPropagation: false },
-  );
-  useHotkey(
-    HOTKEYS.forwardArrow,
-    (event) => {
-      if (isTyping()) return;
-      event.preventDefault();
-      useNavStore.getState().goForward();
-    },
-    { preventDefault: false, stopPropagation: false },
-  );
+  useRawHotkey("backArrow", (event) => {
+    if (isTyping()) return;
+    event.preventDefault();
+    useNavStore.getState().goBack();
+  });
+  useRawHotkey("forwardArrow", (event) => {
+    if (isTyping()) return;
+    event.preventDefault();
+    useNavStore.getState().goForward();
+  });
 
   useEffect(() => {
     const { goBack, goForward } = useNavStore.getState();
@@ -331,10 +318,7 @@ function HistoryButtons() {
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-2">
           Go Back
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>[</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="back" />
         </TooltipContent>
       </Tooltip>
       <Tooltip>
@@ -351,10 +335,7 @@ function HistoryButtons() {
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-2">
           Go Forward
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>]</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="forward" />
         </TooltipContent>
       </Tooltip>
     </div>
@@ -385,11 +366,7 @@ export function Titlebar() {
           className="shrink-0 gap-1.5"
         >
           Commands
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>⇧</Kbd>
-            <Kbd>P</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="commands" />
         </Button>
         <Button
           variant="ghost"
@@ -398,10 +375,7 @@ export function Titlebar() {
           className="shrink-0 gap-1.5"
         >
           Quick open
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>P</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="quickSwitcher" />
         </Button>
         <Button
           variant="ghost"
@@ -411,10 +385,7 @@ export function Titlebar() {
         >
           <IconSearch size={14} />
           Search
-          <KbdGroup>
-            <Kbd>⌘</Kbd>
-            <Kbd>K</Kbd>
-          </KbdGroup>
+          <ShortcutKbd name="search" />
         </Button>
         <SettingsButton />
       </div>

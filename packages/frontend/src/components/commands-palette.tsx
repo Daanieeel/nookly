@@ -7,10 +7,9 @@ import {
   SpotlightInput,
   SpotlightList,
 } from "#/components/spotlight.tsx";
-import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 
 /// Cmd+Shift+P: every quick action and setting, nothing else, in the spirit of
 /// VS Code's command palette. Cmd+K mixes the same actions into search.
@@ -20,7 +19,7 @@ export function CommandsPalette() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useAppHotkey(HOTKEYS.commands, () => setOpen(!useNavStore.getState().commandsOpen));
+  useAppHotkey("commands", () => setOpen(!useNavStore.getState().commandsOpen));
 
   useEffect(() => {
     if (!open) setQuery("");
@@ -52,10 +51,7 @@ export function CommandsPalette() {
       <SpotlightFooter
         aside={
           <>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </KbdGroup>
+            <ShortcutKbd name="search" />
             Search everything
           </>
         }

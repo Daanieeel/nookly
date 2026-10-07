@@ -1,5 +1,5 @@
 import { IconFeather } from "@tabler/icons-react";
-import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { SidebarMenuButton, SidebarMenuItem } from "@nookly/ui/components/sidebar";
 import { useNavStore } from "#/lib/store/nav.ts";
 
@@ -12,10 +12,7 @@ export function QuickJotTrigger() {
       <SidebarMenuButton size="sm" tooltip="Quick Jot" onClick={() => setQuickJotOpen(true)}>
         <IconFeather />
         <span>Quick Jot</span>
-        <KbdGroup className="ml-auto group-data-[collapsible=icon]:hidden">
-          <Kbd>⌘</Kbd>
-          <Kbd>J</Kbd>
-        </KbdGroup>
+        <ShortcutKbd name="quickJot" className="ml-auto group-data-[collapsible=icon]:hidden" />
       </SidebarMenuButton>
     </SidebarMenuItem>
   );

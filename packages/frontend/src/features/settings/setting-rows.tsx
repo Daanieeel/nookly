@@ -23,6 +23,7 @@ import {
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { ShortcutControl } from "./ShortcutControl.tsx";
 import {
   NumberControl,
   SnapControl,
@@ -37,6 +38,13 @@ import {
   definitionOf,
 } from "#/lib/settings/registry.ts";
 import type { Searchable } from "#/lib/settings/search.ts";
+import {
+  SHORTCUT_META,
+  SHORTCUT_NAMES,
+  SHORTCUT_SECTIONS,
+  type ShortcutName,
+  shortcutSettingId,
+} from "#/lib/shortcuts.ts";
 import { checkForUpdate, useAppVersion } from "#/lib/updater.ts";
 
 /// One row of the Settings dialog: a registry setting with its control, or an
@@ -60,12 +68,24 @@ const SECTIONS = {
   calendar: ["Defaults", "Week and day", "Connections"],
   notes: ["Code", "Editing"],
   backup: ["Backup", "Restore"],
-  shortcuts: [],
+  shortcuts: [...SHORTCUT_SECTIONS],
 } satisfies Record<SettingCategory, string[]>;
+
+/// One row per shortcut: its recorder, under the section its metadata names.
+// SAFETY: one entry per shortcut name, keyed `shortcuts.<name>`, which is the mapped type.
+const SHORTCUT_UI = Object.fromEntries(
+  SHORTCUT_NAMES.map((name) => [
+    shortcutSettingId(name),
+    { section: SHORTCUT_META[name].section, control: <ShortcutControl name={name} /> },
+  ]),
+) as {
+  [N in ShortcutName as `shortcuts.${N}`]: { section: string; control: ReactNode };
+};
 
 /// Every registry setting needs an entry here, or the build fails. This is how a
 /// setting gets its control.
 const SETTING_UI = {
+  ...SHORTCUT_UI,
   "appearance.theme": { section: "Theme", control: <ThemeToggle /> },
   "appearance.fileViewerTheme": { section: "Theme", control: <FileViewerThemeToggle /> },
   "general.timezone": { section: "Date and time", control: <TimezoneSetting /> },

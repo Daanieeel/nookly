@@ -9,12 +9,12 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import type { Key } from "@tanstack/hotkeys";
 import type { ExternalEvent } from "#/lib/api/externalCalendars.ts";
 import type { CalendarEntry, Exam, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatMonth, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { settings } from "#/lib/settings/settings.ts";
+import type { ShortcutName } from "#/lib/shortcuts.ts";
 import type { WeekStart } from "#/lib/week-start.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import {
@@ -26,13 +26,13 @@ import {
 
 export type CalendarView = "day" | "workweek" | "week" | "month";
 
-/// In Outlook's order, with the number key that switches to each.
+/// In Outlook's order, with the shortcut that switches to each (a number key by default).
 export const CALENDAR_VIEWS = [
-  { id: "day", label: "Day", key: "1" },
-  { id: "workweek", label: "Work week", key: "2" },
-  { id: "week", label: "Week", key: "3" },
-  { id: "month", label: "Month", key: "4" },
-] satisfies { id: CalendarView; label: string; key: Key }[];
+  { id: "day", label: "Day", shortcut: "viewDay" },
+  { id: "workweek", label: "Work week", shortcut: "viewWorkWeek" },
+  { id: "week", label: "Week", shortcut: "viewWeek" },
+  { id: "month", label: "Month", shortcut: "viewMonth" },
+] satisfies { id: CalendarView; label: string; shortcut: ShortcutName }[];
 
 /// `storageKey` lets Sessions, the Calendar module and the unified Calendar
 /// page each remember their own last picked view (see `STORAGE_KEYS`).

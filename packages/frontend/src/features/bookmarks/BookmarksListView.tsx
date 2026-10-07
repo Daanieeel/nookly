@@ -21,7 +21,7 @@ import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Skeleton } from "@nookly/ui/components/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
@@ -305,7 +305,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
             />
           )}
         </form.Field>
-        <Kbd className="max-sm:hidden">C</Kbd>
+        <ShortcutKbd name="create" className="max-sm:hidden" />
         <form.Subscribe selector={hasVisibleErrors}>
           {(blocked) => (
             <Tooltip>

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { SHORTCUT_META, SHORTCUT_NAMES, shortcutSettingId } from "#/lib/shortcuts.ts";
 import {
   SETTINGS,
   SETTING_CATEGORIES,
@@ -47,6 +49,8 @@ describe("settings registry", () => {
         if ((id === "backup.auto" || id === "notes.arrowLigatures") && junk === false) {
           continue;
         }
+        // A shortcut's null means unassigned, which is a value of its own.
+        if (id.startsWith("shortcuts.") && junk === null) continue;
         expect(def.parse(junk)).toEqual(def.default);
       }
     }
@@ -97,6 +101,32 @@ describe("settings registry", () => {
     for (const ok of [5, 10, 15, 30]) expect(snap.parse(ok)).toBe(ok);
     expect(snap.parse(20)).toBe(15);
     expect(SETTINGS["notes.arrowLigatures"].parse(false)).toBe(false);
+  });
+
+  it("registers one setting per shortcut, defaulting to its current key", () => {
+    for (const name of SHORTCUT_NAMES) {
+      const def = SETTINGS[shortcutSettingId(name)];
+      expect(def.category).toBe("shortcuts");
+      expect(def.default).toBe(HOTKEYS[name]);
+      expect(def.title).toBe(SHORTCUT_META[name].title);
+    }
+    expect(SETTING_IDS.filter((id) => id.startsWith("shortcuts."))).toHaveLength(
+      SHORTCUT_NAMES.length,
+    );
+  });
+
+  it("validates a shortcut: a known hotkey, a string or null, nothing else", () => {
+    const search = SETTINGS["shortcuts.search"];
+    expect(search.parse("Mod+Shift+K")).toBe("Mod+Shift+K");
+    expect(search.parse(null)).toBeNull();
+    expect(search.parse("")).toBe("Mod+K");
+    expect(search.parse("Mod+Nonsense")).toBe("Mod+K");
+    expect(search.parse("Foo+K")).toBe("Mod+K");
+    expect(search.parse(42)).toBe("Mod+K");
+    expect(search.parse(["Mod+K"])).toBe("Mod+K");
+    // A bare letter is only for shortcuts that are a bare key today.
+    expect(search.parse("K")).toBe("Mod+K");
+    expect(SETTINGS["shortcuts.today"].parse("G")).toBe("G");
   });
 
   it("turns the legacy backup flag into a boolean", () => {

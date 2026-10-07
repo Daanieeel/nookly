@@ -1,4 +1,5 @@
-import { platformKeys } from "#/lib/platform.ts";
+import { useShortcut } from "#/hooks/use-shortcut.ts";
+import { displayText } from "#/lib/shortcuts.ts";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconCalendarEvent,
@@ -31,7 +32,7 @@ import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/fi
 import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
-import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listLabels } from "#/lib/api/labels.ts";
 import { listJotSummaries } from "#/lib/api/notes.ts";
@@ -191,6 +192,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const setQuickJotOpen = useNavStore((s) => s.setQuickJotOpen);
+  const jotKey = useShortcut("quickJot");
   useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>(readStoredPresetFilters);
@@ -285,10 +287,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
     <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setQuickJotOpen(true)}>
       <IconPlus size={14} />
       New Jot
-      <KbdGroup>
-        <Kbd>⌘</Kbd>
-        <Kbd>J</Kbd>
-      </KbdGroup>
+      <ShortcutKbd name="quickJot" />
     </Button>
   );
 
@@ -306,7 +305,11 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
         <EmptyState
           icon={IconFeather}
           title="Nothing captured yet"
-          description={`Press ${platformKeys("⌘J")} anywhere to jot a thought down. Refine it into a Note later.`}
+          description={
+            jotKey
+              ? `Press ${displayText(jotKey)} anywhere to jot a thought down. Refine it into a Note later.`
+              : "Jot a thought down from anywhere. Refine it into a Note later."
+          }
           action={{ label: "New Jot", onClick: () => setQuickJotOpen(true) }}
         />
       </div>

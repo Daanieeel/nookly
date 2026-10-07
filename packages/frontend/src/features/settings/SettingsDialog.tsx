@@ -8,7 +8,7 @@ import {
   IconSettings,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
   Dialog,
@@ -19,10 +19,14 @@ import {
 import { Input } from "@nookly/ui/components/input";
 import { cn } from "@nookly/ui/lib/utils";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { HOTKEYS } from "#/lib/hotkeys.ts";
 import { SETTING_CATEGORIES, type SettingCategory } from "#/lib/settings/registry.ts";
 import { searchSettings } from "#/lib/settings/search.ts";
+import { useShortcutMap } from "#/hooks/use-shortcut.ts";
+import { isShortcutName, keySynonyms } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { cancelPendingShortcut } from "./shortcut-editing.ts";
+import { ShortcutConflictDialog } from "./ShortcutConflictDialog.tsx";
+import { FixedShortcuts, ShortcutsToolbar } from "./ShortcutsTab.tsx";
 import { SettingRow } from "./SettingRow.tsx";
 import { ROWS, type RowSpec, sectionsOf } from "./setting-rows.tsx";
 
@@ -50,9 +54,8 @@ function Row({ row }: { row: RowSpec }) {
 /// One category's rows under their section headings, in display order.
 function CategoryRows({ category }: { category: SettingCategory }) {
   const rows = ROWS.filter((r) => r.category === category);
-  if (category === "shortcuts") return <ShortcutsPlaceholder />;
   const showHeadings = sectionsOf(category).length > 1;
-  return sectionsOf(category).map((section) => (
+  const sections = sectionsOf(category).map((section) => (
     <Fragment key={section}>
       {showHeadings && (
         <h3 className="pt-5 pb-1 text-xs font-medium text-muted-foreground first:pt-0">
@@ -66,17 +69,27 @@ function CategoryRows({ category }: { category: SettingCategory }) {
         ))}
     </Fragment>
   ));
+  if (category !== "shortcuts") return sections;
+  return (
+    <>
+      <ShortcutsToolbar />
+      {sections}
+      <FixedShortcuts />
+    </>
+  );
 }
 
-function ShortcutsPlaceholder() {
-  return (
-    <div className="flex flex-col items-center gap-2 py-20 text-center">
-      <IconKeyboard size={28} className="text-muted-foreground" />
-      <p className="text-sm font-medium">Shortcuts coming soon</p>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        You will be able to see and change every keyboard shortcut here.
-      </p>
-    </div>
+/// The rows, with each shortcut also searchable by the key it has right now ("cmd k").
+function useSearchableRows(): RowSpec[] {
+  const keys = useShortcutMap();
+  return useMemo(
+    () =>
+      ROWS.map((row) => {
+        const name = row.setting?.replace(/^shortcuts\./, "");
+        if (!row.setting?.startsWith("shortcuts.") || !name || !isShortcutName(name)) return row;
+        return { ...row, synonyms: [...row.synonyms, ...keySynonyms(keys[name])] };
+      }),
+    [keys],
   );
 }
 
@@ -128,14 +141,17 @@ export function SettingsDialog() {
   const [category, setCategory] = useState<SettingCategory>("general");
   const searchRef = useRef<HTMLInputElement>(null);
   const searching = query.trim() !== "";
-  const results = searchSettings(query, ROWS);
+  const results = searchSettings(query, useSearchableRows());
 
   // Closed from anywhere (another overlay opening, Cmd+,), it reopens with a clean search.
   useEffect(() => {
-    if (!open) setQuery("");
+    if (!open) {
+      setQuery("");
+      cancelPendingShortcut();
+    }
   }, [open]);
 
-  useAppHotkey(HOTKEYS.settings, () => setOpen(!useNavStore.getState().settingsOpen));
+  useAppHotkey("settings", () => setOpen(!useNavStore.getState().settingsOpen));
 
   function pick(next: SettingCategory) {
     setCategory(next);
@@ -222,6 +238,7 @@ export function SettingsDialog() {
           </div>
         </div>
       </DialogContent>
+      <ShortcutConflictDialog />
     </Dialog>
   );
 }

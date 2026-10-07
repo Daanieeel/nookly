@@ -40,7 +40,7 @@ import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   hostOf,
@@ -510,7 +510,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
-              Choose files to import <Kbd>C</Kbd>
+              Choose files to import <ShortcutKbd name="create" />
             </TooltipContent>
           </Tooltip>
         </FloatingBar>

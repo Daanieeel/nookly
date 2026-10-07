@@ -177,6 +177,62 @@ describe("settings", () => {
     expect(result.current[0]).toBe("light");
   });
 
+  describe("shortcut overrides", () => {
+    it("keeps an explicit null, unassigned, apart from a missing value, the default", async () => {
+      const { settings: file } = fakeFiles({ settings: { "shortcuts.search": null } });
+      const { settings, initSettings } = await launch();
+      await initSettings();
+      expect(settings.get("shortcuts.search")).toBeNull();
+      expect(settings.get("shortcuts.quickSwitcher")).toBe("Mod+P");
+      settings.reset("shortcuts.search");
+      expect(settings.get("shortcuts.search")).toBe("Mod+K");
+      await vi.waitFor(() => expect(file.memory).toEqual({}));
+    });
+
+    it("applies several changes in one update and writes them in the order given", async () => {
+      const { settings: file, order } = fakeFiles({ settings: { "shortcuts.search": "Mod+U" } });
+      const { settings, initSettings, subscribeSetting } = await launch();
+      await initSettings();
+      const seen: string[] = [];
+      subscribeSetting("shortcuts.search", (v) => seen.push(`search:${v}`));
+      subscribeSetting("shortcuts.quickJot", (v) => seen.push(`jot:${v}`));
+      order.length = 0;
+      settings.apply([
+        { id: "shortcuts.search", value: null },
+        { id: "shortcuts.quickJot", value: "Mod+U" },
+        { id: "shortcuts.commands", reset: true },
+      ]);
+      expect(settings.get("shortcuts.search")).toBeNull();
+      expect(settings.get("shortcuts.quickJot")).toBe("Mod+U");
+      await vi.waitFor(() =>
+        expect(file.memory).toEqual({ "shortcuts.search": null, "shortcuts.quickJot": "Mod+U" }),
+      );
+      expect(order.filter((o) => o !== "save")).toEqual([
+        "set:shortcuts.search",
+        "set:shortcuts.quickJot",
+        "delete:shortcuts.commands",
+      ]);
+      expect(seen).toEqual(["search:null", "jot:Mod+U"]);
+    });
+
+    it("stops writing at the first failure, leaving no later change behind", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { settings: file } = fakeFiles({});
+      const { settings, initSettings } = await launch();
+      await initSettings();
+      mockCommandWith("plugin:store|set", (a) => {
+        if (StoreArgs.parse(a).key === "shortcuts.search") throw new Error("disk full");
+        return null;
+      });
+      settings.apply([
+        { id: "shortcuts.search", value: null },
+        { id: "shortcuts.quickJot", value: "Mod+U" },
+      ]);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(file.memory).toEqual({});
+    });
+  });
+
   describe("an unreadable file", () => {
     it("falls back to defaults, never writes and keeps the old preferences", async () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
