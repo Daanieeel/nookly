@@ -180,7 +180,7 @@ Every language twinkleplop ships goes through it. Shiki only covers the picker l
 
 ### Updates come from GitHub Releases through the Tauri updater
 
-The app reads `latest.json` from the newest published release, checks on launch, every 30 minutes (also while the window is hidden) and when the window regains focus, and installs plus restarts in one click from the sidebar card or the settings popover.
+The app reads `latest.json` from the newest published release, checks on launch, every 30 minutes (also while the window is hidden) and when the window regains focus, and installs plus restarts in one click from the sidebar card or the Settings dialog.
 
 **Why:** releases already live on GitHub, and `tauri-action` generates and uploads the signed update manifest for free.
 

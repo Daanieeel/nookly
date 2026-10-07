@@ -8,6 +8,7 @@ export const HOTKEYS = {
   search: "Mod+K",
   quickSwitcher: "Mod+P",
   commands: "Mod+Shift+P",
+  settings: "Mod+,",
   quickJot: "Mod+J",
   filter: "Mod+Shift+F",
   toggleSidebar: "Mod+S",

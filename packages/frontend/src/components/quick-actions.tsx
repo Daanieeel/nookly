@@ -9,6 +9,7 @@ import {
   IconLayoutSidebarRight,
   IconMoon,
   IconPin,
+  IconSettings,
   IconSun,
   IconTrash,
   type Icon as TablerIcon,
@@ -492,6 +493,15 @@ export function QuickActions({
         ) : undefined,
       ),
     })),
+    {
+      id: "open-settings",
+      category: "settings",
+      words: "Open Settings preferences options configure",
+      node: simpleItem("open-settings", IconSettings, "Open Settings", () => {
+        useNavStore.getState().setSettingsOpen(true);
+        onDone();
+      }),
+    },
     ...(view.kind === "entity"
       ? [
           {

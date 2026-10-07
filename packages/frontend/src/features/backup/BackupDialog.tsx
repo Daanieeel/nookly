@@ -26,14 +26,32 @@ import {
 import { formatDateTime } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { settings } from "#/lib/settings/settings.ts";
-import { autoBackupEnabled, backupFolder, runBackup } from "./backup-run.ts";
+import { settings, useSetting } from "#/lib/settings/settings.ts";
+import { runBackup } from "./backup-run.ts";
 
 export function useBackups(folder: string | null) {
   return useQuery({
     queryKey: qk.backups.inFolder(folder),
     queryFn: () => listBackups(folder ?? ""),
     enabled: folder !== null,
+  });
+}
+
+/// Asks for a backup folder and saves the choice. Settings and the Backup dialog both use it.
+export function useChooseBackupFolder() {
+  const [folder] = useSetting("general.backupFolder");
+  return useMutation({
+    mutationFn: async () => {
+      const picked = await pickPath({
+        directory: true,
+        multiple: false,
+        defaultPath: folder ?? undefined,
+        title: "Choose a backup folder",
+      });
+      if (!picked) return;
+      settings.set("general.backupFolder", picked);
+      preferences.remove(STORAGE_KEYS.backupError);
+    },
   });
 }
 
@@ -77,26 +95,13 @@ export function BackupDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [folder, setFolder] = useState(backupFolder);
-  const [auto, setAuto] = useState(autoBackupEnabled);
+  const [folder] = useSetting("general.backupFolder");
+  const [auto, setAuto] = useSetting("general.backupAuto");
   const [target, setTarget] = useState<RestoreTarget | null>(null);
   const backups = useBackups(folder);
   const lastError = preferences.get(STORAGE_KEYS.backupError);
 
-  const choose = useMutation({
-    mutationFn: async () => {
-      const picked = await pickPath({
-        directory: true,
-        multiple: false,
-        defaultPath: folder ?? undefined,
-        title: "Choose a backup folder",
-      });
-      if (!picked) return;
-      settings.set("general.backupFolder", picked);
-      preferences.remove(STORAGE_KEYS.backupError);
-      setFolder(picked);
-    },
-  });
+  const choose = useChooseBackupFolder();
   const backUp = useMutation({ mutationFn: () => runBackup(queryClient) });
   const pickFile = useMutation({
     mutationFn: async () => {
@@ -161,10 +166,7 @@ export function BackupDialog({
                 id="backup-auto"
                 checked={auto}
                 disabled={!folder}
-                onCheckedChange={(next) => {
-                  settings.set("general.backupAuto", next);
-                  setAuto(next);
-                }}
+                onCheckedChange={setAuto}
               />
             </div>
             <div className="flex items-center justify-between gap-3">

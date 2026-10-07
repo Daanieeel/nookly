@@ -5,8 +5,6 @@ import euFlag from "#/assets/flag-eu.svg";
 import { SelectField, type SelectFieldOption } from "#/components/select-field.tsx";
 import {
   type FormatMode,
-  formatDate,
-  formatTime,
   listTimezones,
   systemTimezone,
   useDateTimeSettings,
@@ -108,54 +106,43 @@ function asMode(value: string): FormatMode {
   return value === "american" || value === "european" ? value : "timezone";
 }
 
-/// Time zone, date format and time format, with a live preview of the result.
-export function DateTimeSettings() {
-  const { timezone, dateFormat, timeFormat, update } = useDateTimeSettings();
-  const now = new Date().toISOString();
-
+/// The time zone setting's control.
+export function TimezoneSetting() {
+  const { timezone, update } = useDateTimeSettings();
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-xs font-medium text-muted-foreground">Date and time</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {formatDate(now)}, {formatTime(now)}
-        </span>
-      </div>
-      <SettingRow label="Time zone">
-        <SelectField
-          aria-label="Time zone"
-          searchable
-          searchPlaceholder="Search time zones…"
-          options={TIMEZONE_OPTIONS}
-          value={timezone}
-          onChange={(value) => update({ timezone: value })}
-        />
-      </SettingRow>
-      <SettingRow label="Date format">
-        <SelectField
-          aria-label="Date format"
-          options={DATE_FORMAT_OPTIONS}
-          value={dateFormat}
-          onChange={(value) => update({ dateFormat: asMode(value) })}
-        />
-      </SettingRow>
-      <SettingRow label="Time format">
-        <SelectField
-          aria-label="Time format"
-          options={TIME_FORMAT_OPTIONS}
-          value={timeFormat}
-          onChange={(value) => update({ timeFormat: asMode(value) })}
-        />
-      </SettingRow>
-    </div>
+    <SelectField
+      aria-label="Time zone"
+      searchable
+      searchPlaceholder="Search time zones…"
+      options={TIMEZONE_OPTIONS}
+      value={timezone}
+      onChange={(value) => update({ timezone: value })}
+    />
   );
 }
 
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+/// The date format setting's control.
+export function DateFormatSetting() {
+  const { dateFormat, update } = useDateTimeSettings();
   return (
-    <div className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      {children}
-    </div>
+    <SelectField
+      aria-label="Date format"
+      options={DATE_FORMAT_OPTIONS}
+      value={dateFormat}
+      onChange={(value) => update({ dateFormat: asMode(value) })}
+    />
+  );
+}
+
+/// The time format setting's control.
+export function TimeFormatSetting() {
+  const { timeFormat, update } = useDateTimeSettings();
+  return (
+    <SelectField
+      aria-label="Time format"
+      options={TIME_FORMAT_OPTIONS}
+      value={timeFormat}
+      onChange={(value) => update({ timeFormat: asMode(value) })}
+    />
   );
 }

@@ -9,11 +9,11 @@ import { settings } from "#/lib/settings/settings.ts";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 
-export function backupFolder(): string | null {
+function backupFolder(): string | null {
   return settings.get("general.backupFolder");
 }
 
-export function autoBackupEnabled(): boolean {
+function autoBackupEnabled(): boolean {
   return settings.get("general.backupAuto");
 }
 
