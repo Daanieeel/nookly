@@ -1,7 +1,7 @@
 import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand } from "@tabler/icons-react";
 import { type CSSProperties, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { CourseSemesterPanel } from "#/features/courses/CourseSemesterPanel.tsx";
 import { RefineJotButton } from "#/features/notes/RefineJotButton.tsx";

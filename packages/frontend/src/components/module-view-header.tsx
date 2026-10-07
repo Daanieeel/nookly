@@ -7,7 +7,7 @@ import { type SaveMutation, ViewSaveBar } from "#/features/views/ViewActions.tsx
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 
 /// The header of a list and board page (Tasks, Assignments and their cross-Space

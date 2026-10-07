@@ -1,5 +1,5 @@
 import { IconFeather } from "@tabler/icons-react";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { SidebarMenuButton, SidebarMenuItem } from "@nookly/ui/components/sidebar";
 import { useNavStore } from "#/lib/store/nav.ts";
 

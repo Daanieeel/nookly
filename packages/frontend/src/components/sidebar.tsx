@@ -47,7 +47,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   Sidebar,

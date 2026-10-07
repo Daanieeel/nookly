@@ -9,7 +9,7 @@ import { FieldError, StatusIcon, statusOf } from "#/components/action-feedback.t
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { createDeck, listDeckSummaries } from "#/lib/api/decks.ts";

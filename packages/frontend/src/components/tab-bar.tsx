@@ -25,7 +25,7 @@ import { qk } from "#/lib/query-keys.ts";
 import { type View, armNewTabIntent, currentTabs, useNavStore } from "#/lib/store/nav.ts";
 import type { Tab } from "#/lib/store/tab-model.ts";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { Separator } from "@nookly/ui/components/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";

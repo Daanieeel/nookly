@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Popover, PopoverAnchor, PopoverContent } from "@nookly/ui/components/popover";
+import { platformKeys } from "#/lib/platform.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import {
   ACTION_GROUPS,
@@ -551,7 +552,9 @@ function ActionItem<T>({
         errorLabel={errorLabel}
       />
       {action.shortcut && (
-        <span className="ml-auto pl-4 text-xs text-muted-foreground">{action.shortcut}</span>
+        <span className="ml-auto pl-4 text-xs text-muted-foreground">
+          {platformKeys(action.shortcut)}
+        </span>
       )}
     </DropdownMenuItem>
   );

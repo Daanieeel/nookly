@@ -3,7 +3,7 @@ import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react
 import { isToday } from "date-fns";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import type { UseHotkeyDefinition } from "@tanstack/react-hotkeys";

@@ -28,7 +28,7 @@ import { EffortSettings } from "#/components/effort-settings.tsx";
 // Aliased: this file has its own breadcrumb `Separator`.
 import { Separator as UiSeparator } from "@nookly/ui/components/separator";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { BackupDialog, useBackups } from "#/features/backup/BackupDialog.tsx";

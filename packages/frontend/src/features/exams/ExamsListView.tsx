@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { CourseChip, useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { moveRowFocus } from "#/components/grouped-view/grouping.ts";

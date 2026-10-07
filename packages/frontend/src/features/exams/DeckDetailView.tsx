@@ -19,7 +19,7 @@ import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   deleteCard,

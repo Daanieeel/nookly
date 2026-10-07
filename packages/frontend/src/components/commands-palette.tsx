@@ -7,7 +7,7 @@ import {
   SpotlightInput,
   SpotlightList,
 } from "#/components/spotlight.tsx";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";

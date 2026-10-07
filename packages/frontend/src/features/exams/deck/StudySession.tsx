@@ -11,7 +11,7 @@ import {
   type ActionStatus,
 } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Kbd } from "@nookly/ui/components/kbd";
+import { Kbd } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { getDeckStats, getStudyQueue, reviewCard, undoReview } from "#/lib/api/decks.ts";
 import type { CardRating, IndexCard } from "#/lib/api/types.ts";

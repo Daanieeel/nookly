@@ -1,3 +1,4 @@
+import { platformKeys } from "#/lib/platform.ts";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconCalendarEvent,
@@ -30,7 +31,7 @@ import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/fi
 import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listLabels } from "#/lib/api/labels.ts";
 import { listJotSummaries } from "#/lib/api/notes.ts";
@@ -305,7 +306,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
         <EmptyState
           icon={IconFeather}
           title="Nothing captured yet"
-          description="Press ⌘J anywhere to jot a thought down. Refine it into a Note later."
+          description={`Press ${platformKeys("⌘J")} anywhere to jot a thought down. Refine it into a Note later.`}
           action={{ label: "New Jot", onClick: () => setQuickJotOpen(true) }}
         />
       </div>

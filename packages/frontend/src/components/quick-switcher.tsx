@@ -12,7 +12,7 @@ import {
   SpotlightItem,
   SpotlightList,
 } from "#/components/spotlight.tsx";
-import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
+import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { listEntities } from "#/lib/api/entities.ts";
 import { listEmbeddedPageIds } from "#/lib/api/search.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
