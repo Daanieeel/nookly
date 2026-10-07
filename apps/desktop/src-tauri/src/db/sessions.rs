@@ -1118,6 +1118,51 @@ mod tests {
         );
     }
 
+    fn course_note_links(conn: &Connection, note_id: &str) -> Vec<String> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT from_entity_id FROM relationships
+                 WHERE to_entity_id = ?1 AND relationship_type = 'course-notes'",
+            )
+            .unwrap();
+        stmt.query_map(params![note_id], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn a_session_note_is_also_linked_to_the_sessions_course() {
+        let conn = setup();
+        let (_, occ) = weekly_series(&conn);
+        let id = &occ[0].entity.id;
+        let course: String = conn
+            .query_row(
+                "SELECT to_entity_id FROM relationships WHERE from_entity_id = ?1 AND relationship_type = 'session-course'",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap();
+
+        let jot = create_session_page(&conn, id, "jot", "Jot".into()).unwrap();
+        assert!(course_note_links(&conn, &jot.id).is_empty());
+
+        let note = create_session_page(&conn, id, "note", "Note".into()).unwrap();
+        assert_eq!(course_note_links(&conn, &note.id), vec![course.clone()]);
+
+        // A refined Note takes the same path.
+        crate::db::entities::soft_delete_entity(&conn, &note.id).unwrap();
+        let refined = crate::db::notes::create_page(
+            &conn,
+            occ[0].entity.space_id.clone(),
+            "note",
+            "Refined".into(),
+        )
+        .unwrap();
+        assert!(link_session_page(&conn, id, "note", &refined.id).unwrap());
+        assert_eq!(course_note_links(&conn, &refined.id), vec![course]);
+    }
+
     // --- Characterization tests: recurring series logic -------------------
     // Pin the CURRENT behavior so a later refactor (shared series module with
     // `calendar`) can be verified. Mirrored by tests in `calendar.rs`.
