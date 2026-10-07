@@ -2,28 +2,29 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.18.24 (2026-10-07)
-
-### Added
-
-- Relate a task to a page, course or other item right when you create it
-- Pick a specific session as an assignment's due date, and the due date follows that session
-- Circuit blocks label every gate and input pin inside the drawing, and have a copy code button
-- More due date presets: end of the month and in one month
+## 0.18.40 (2026-10-07)
 
 ### Changed
 
-- Notes and jots keep their centered page width, while other pages use the full width
-- The right sidebar scrolls on its own instead of moving the whole page
-- The next session no longer counts sessions that have already started
-- Refine into new note button is easier to find
-- Thinner overlines in circuit drawings
+- Linux bundle icon destination needs absolute path
+- Small issues batch (#86)
 
-### Fixed
+## 0.18.23 (2026-10-06)
 
-- Popovers in create dialogs scroll properly and stay inside small windows
-- The file viewer theme Light is restored to its default for existing users
-- Linux builds now ship with the correct app icon
+### Changed
+
+- Refine into new note button
+- Circuit gate labels inside gates, copy button, thinner overlines
+- Backfill file viewer theme Light to defaults (#73)
+- 67 linux app icon (#72)
+- 65 next session excludes started (#71)
+- 64 page padding notes jots only (#70)
+- 63 assignment due session picker (#69)
+- 66 relate task on create (#68)
+
+### Documentation
+
+- Update CHANGELOG.md
 
 ## 0.18.15 (2026-10-06)
 
