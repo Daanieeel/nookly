@@ -66,7 +66,7 @@ fn bundled_pngs_are_square_and_not_oversized() {
 #[test]
 fn linux_packages_install_scalable_svg() {
     let config = config();
-    let target = "usr/share/icons/hicolor/scalable/apps/nookly.svg";
+    let target = "/usr/share/icons/hicolor/scalable/apps/nookly.svg";
     for format in ["deb", "rpm", "appimage"] {
         let files = &config["bundle"]["linux"][format]["files"];
         let source = files[target]

@@ -2,7 +2,7 @@
 
 All notable changes to Nookly are listed here.
 
-## Unreleased
+## 0.18.24 (2026-10-07)
 
 ### Added
 
