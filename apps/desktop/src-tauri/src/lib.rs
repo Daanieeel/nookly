@@ -6,6 +6,7 @@ mod commands;
 mod db;
 mod error;
 mod external_calendars;
+mod store_guard;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// The default menu minus "Close Window": its Cmd+W would close the whole app, and
@@ -111,6 +112,9 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             db::setup(app)?;
+            store_guard::preserve_unreadable_stores(&db::resolve_app_data_dir(
+                app.path().app_data_dir()?,
+            ));
             app.manage(external_calendars::ExternalCalendarState::load(
                 &db::resolve_app_data_dir(app.path().app_data_dir()?),
             ));

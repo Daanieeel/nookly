@@ -4,16 +4,17 @@ import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type BackupInfo, createBackup, listBackups } from "#/lib/api/backup.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { settings } from "#/lib/settings/settings.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 
 export function backupFolder(): string | null {
-  return preferences.get(STORAGE_KEYS.backupFolder);
+  return settings.get("general.backupFolder");
 }
 
 export function autoBackupEnabled(): boolean {
-  return preferences.get(STORAGE_KEYS.backupAuto) === "1";
+  return settings.get("general.backupAuto");
 }
 
 let running: Promise<BackupInfo> | null = null;

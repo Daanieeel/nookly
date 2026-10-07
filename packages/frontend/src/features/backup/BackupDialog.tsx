@@ -26,6 +26,7 @@ import {
 import { formatDateTime } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { settings } from "#/lib/settings/settings.ts";
 import { autoBackupEnabled, backupFolder, runBackup } from "./backup-run.ts";
 
 export function useBackups(folder: string | null) {
@@ -91,7 +92,7 @@ export function BackupDialog({
         title: "Choose a backup folder",
       });
       if (!picked) return;
-      preferences.set(STORAGE_KEYS.backupFolder, picked);
+      settings.set("general.backupFolder", picked);
       preferences.remove(STORAGE_KEYS.backupError);
       setFolder(picked);
     },
@@ -161,7 +162,7 @@ export function BackupDialog({
                 checked={auto}
                 disabled={!folder}
                 onCheckedChange={(next) => {
-                  preferences.set(STORAGE_KEYS.backupAuto, next ? "1" : "0");
+                  settings.set("general.backupAuto", next);
                   setAuto(next);
                 }}
               />

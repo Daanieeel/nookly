@@ -1,0 +1,142 @@
+import { useCallback } from "react";
+import { type Store, load } from "@tauri-apps/plugin-store";
+import { create } from "zustand";
+import { preferences } from "#/lib/preferences.ts";
+import {
+  SETTING_IDS,
+  type SettingId,
+  type SettingJson,
+  type SettingValue,
+  definitionOf,
+  isSettingId,
+} from "./registry.ts";
+
+/// Hard settings, persisted with the Tauri store plugin as one flat, human readable
+/// JSON object in `settings.json` in the app data folder, keyed by setting id.
+/// Loaded once before the app renders, then read synchronously from memory; writes
+/// update memory at once and reach disk shortly after. See docs/development/settings.md.
+
+const FILE = "settings.json";
+
+/// Null until the file loads. While null nothing is ever written, so a file that
+/// failed to load is left exactly as it is.
+let store: Store | null = null;
+
+/// The valid values in the file, by id. A setting that isn't here is at its default.
+type Values = { [I in SettingId]?: SettingValue<I> };
+
+const useSettingsStore = create<{ values: Values }>(() => ({ values: {} }));
+
+function valueOf<I extends SettingId>(id: I, values = useSettingsStore.getState().values) {
+  // SAFETY: `values[id]` only ever holds what `SETTINGS[id].parse` returned, and a
+  // missing one is that same setting's default.
+  return (values[id] ?? definitionOf(id).default) as SettingValue<I>;
+}
+
+/// Stores an already validated value.
+function withValue<I extends SettingId>(id: I, value: SettingValue<I>) {
+  useSettingsStore.setState((s) => ({ values: { ...s.values, [id]: value } }));
+}
+
+function persist(write: (store: Store) => Promise<void>) {
+  if (!store) return;
+  write(store).catch((error) => console.error("Couldn't save settings", error));
+}
+
+export const settings = {
+  get<I extends SettingId>(id: I): SettingValue<I> {
+    return valueOf(id);
+  },
+  /// Stores `value`, falling back to the default when it isn't valid for `id`.
+  set<I extends SettingId>(id: I, value: SettingValue<I>) {
+    // SAFETY: `parse` of this id returns this id's value type.
+    const parsed = definitionOf(id).parse(value) as SettingValue<I>;
+    withValue(id, parsed);
+    persist((s) => s.set(id, parsed));
+  },
+  /// Back to the default, removed from the file.
+  reset(id: SettingId) {
+    useSettingsStore.setState((s) => {
+      const values = { ...s.values };
+      delete values[id];
+      return { values };
+    });
+    persist((s) => s.delete(id).then(() => undefined));
+  },
+};
+
+/// Calls `listener` with the new value whenever `id` changes. Returns the unsubscribe.
+export function subscribeSetting<I extends SettingId>(
+  id: I,
+  listener: (value: SettingValue<I>) => void,
+): () => void {
+  return useSettingsStore.subscribe((state, previous) => {
+    const next = valueOf(id, state.values);
+    if (next !== valueOf(id, previous.values)) listener(next);
+  });
+}
+
+/// A setting's value and its setter, re-rendering when it changes from anywhere.
+export function useSetting<I extends SettingId>(
+  id: I,
+): readonly [SettingValue<I>, (value: SettingValue<I>) => void] {
+  const value = useSettingsStore((s) => valueOf(id, s.values));
+  const set = useCallback((next: SettingValue<I>) => settings.set(id, next), [id]);
+  return [value, set] as const;
+}
+
+/// Loads `settings.json`, then moves old preferences over. Must finish after
+/// `initPreferences` and before anything reads a setting. When the file can't load,
+/// every setting stays at its default and nothing is written.
+export async function initSettings(): Promise<void> {
+  let loaded: Store;
+  let entries: [string, SettingJson][];
+  try {
+    loaded = await load(FILE, { defaults: {}, autoSave: 100 });
+    entries = await loaded.entries<SettingJson>();
+  } catch (error) {
+    console.error("Couldn't load settings", error);
+    return;
+  }
+  store = loaded;
+  const inFile = new Set<string>();
+  const values: Values = {};
+  for (const [key, raw] of entries) {
+    inFile.add(key);
+    // SAFETY: `parse` of an id returns that id's value type; the loop only widens it.
+    if (isSettingId(key)) Object.assign(values, { [key]: definitionOf(key).parse(raw) });
+  }
+  useSettingsStore.setState({ values });
+  for (const id of SETTING_IDS) await migrateLegacy(loaded, id, inFile);
+}
+
+/// Moves one setting out of `preferences.json`. The value is written to
+/// `settings.json`, saved, and read back from disk before the old key is deleted,
+/// so a failure at any step leaves the old key to retry on the next launch.
+async function migrateLegacy(target: Store, id: SettingId, inFile: Set<string>) {
+  const def = definitionOf(id);
+  if (!def.legacyKey) return;
+  const old = preferences.get(def.legacyKey);
+  if (old === null) return;
+  if (inFile.has(id)) {
+    // Already moved by an earlier run that stopped before deleting the old key.
+    preferences.remove(def.legacyKey);
+    return;
+  }
+  try {
+    const value = def.parse(def.fromLegacy ? def.fromLegacy(old) : old);
+    await target.set(id, value);
+    await target.save();
+    await target.reload({ ignoreDefaults: true });
+    const saved = await target.get<SettingJson>(id);
+    if (JSON.stringify(saved) !== JSON.stringify(value)) {
+      throw new Error(`${id} did not reach settings.json`);
+    }
+    useSettingsStore.setState((s) => ({ values: { ...s.values, ...{ [id]: value } } }));
+    inFile.add(id);
+  } catch (error) {
+    console.error(`Couldn't move ${def.legacyKey} to settings`, error);
+    return;
+  }
+  preferences.remove(def.legacyKey);
+}

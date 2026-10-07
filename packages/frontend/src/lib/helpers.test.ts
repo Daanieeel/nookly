@@ -9,9 +9,8 @@ import {
   matchesTitleOrKey,
 } from "./entity-key.ts";
 import { displayTitle, labelForType } from "./entity-title.ts";
-import { preferences } from "./preferences.ts";
+import { settings } from "./settings/settings.ts";
 import { formatEditedAt } from "./relative-time.ts";
-import { STORAGE_KEYS } from "./storage-keys.ts";
 
 describe("entity titles", () => {
   it("names every entity type", () => {
@@ -102,7 +101,7 @@ describe("effort", () => {
   it("remembers the chosen scale", () => {
     useEffortSettings.getState().update({ scale: "fibonacci" });
     expect(useEffortSettings.getState().scale).toBe("fibonacci");
-    expect(preferences.get(STORAGE_KEYS.effortScale)).toBe("fibonacci");
+    expect(settings.get("general.effortScale")).toBe("fibonacci");
     useEffortSettings.getState().update({ scale: "tshirt" });
   });
 });

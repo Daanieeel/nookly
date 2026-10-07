@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
-import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { preferences } from "#/lib/preferences.ts";
+import { type SettingValue } from "#/lib/settings/registry.ts";
+import { settings, subscribeSetting } from "#/lib/settings/settings.ts";
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = SettingValue<"appearance.theme">;
 
 export function getStoredTheme(): Theme {
-  const stored = preferences.get(STORAGE_KEYS.theme);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+  return settings.get("appearance.theme");
 }
 
 function systemPrefersDark(): boolean {
@@ -20,7 +19,7 @@ export function applyTheme(theme: Theme): void {
 }
 
 export function setTheme(theme: Theme): void {
-  preferences.set(STORAGE_KEYS.theme, theme);
+  settings.set("appearance.theme", theme);
   applyTheme(theme);
 }
 
@@ -39,6 +38,10 @@ export const useThemeStore = create<{ theme: Theme; setTheme: (theme: Theme) => 
     set({ theme });
   },
 }));
+
+// Keeps the store in step when the setting changes elsewhere. Only `setTheme`
+// also redraws the page, so change the theme through it.
+subscribeSetting("appearance.theme", (theme) => useThemeStore.setState({ theme }));
 
 /// Whether the app currently draws dark, following the system when the theme
 /// is "system".
