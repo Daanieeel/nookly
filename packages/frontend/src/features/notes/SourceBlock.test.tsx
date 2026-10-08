@@ -81,6 +81,33 @@ describe("the circuit block", () => {
     expect(await screen.findByText(/^Line 1:/)).toBeInTheDocument();
   });
 
+  it("explains how to write a circuit below the code, only on the code tab", async () => {
+    const { user } = await open(circuit());
+    expect(screen.getByText(/Y = A & !B/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.queryByText(/Y = A & !B/)).toBeNull();
+  });
+
+  it("keeps the legend to one line until its details are shown", async () => {
+    const { user } = await open(circuit());
+    const toggle = screen.getByRole("button", { name: /show details/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/name = expression/i)).toBeNull();
+    await user.click(toggle);
+    expect(screen.getByText(/name = expression/i)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /hide details/i }));
+    expect(screen.queryByText(/name = expression/i)).toBeNull();
+  });
+
+  it("gives the equation block no legend", async () => {
+    await open({
+      type: "equation",
+      attrs: { blockId: "e1" },
+      content: [{ type: "text", text: "x" }],
+    });
+    expect(screen.queryByText(/name = expression/i)).toBeNull();
+  });
+
   it("opens a view this version does not know as the code", async () => {
     await open(circuit({ view: "from-the-future" }));
     expect(screen.getByRole("button", { name: "Code" })).toHaveAttribute("aria-pressed", "true");

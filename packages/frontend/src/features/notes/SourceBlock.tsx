@@ -30,6 +30,8 @@ export interface SourceBlockOptions {
   centered: boolean;
   /// Tooltip and name of a button that copies the code, shown in every view.
   copyLabel?: string;
+  /// A short guide to writing the code, shown below it on the code view.
+  legend?: ComponentType;
   /// A third view between the code and the preview, where the block is edited by
   /// hand. It keeps its work in a `drawing` attr.
   interactive?: ComponentType<InteractiveProps>;
@@ -76,6 +78,7 @@ export function SourceBlock({
   const options = extension.options as SourceBlockOptions;
   const Icon = options.icon;
   const Interactive = options.interactive;
+  const Legend = options.legend;
   const views: View[] = Interactive
     ? ["source", "interactive", "rendered"]
     : ["source", "rendered"];
@@ -179,6 +182,14 @@ export function SourceBlock({
       <pre className="code-block-body" hidden={view !== "source"}>
         <NodeViewContent<"code"> as="code" />
       </pre>
+      {Legend && view === "source" && (
+        <div
+          contentEditable={false}
+          className="mt-1 space-y-0.5 px-1 text-xs text-muted-foreground"
+        >
+          <Legend />
+        </div>
+      )}
       {Interactive && view === "interactive" && (
         <div contentEditable={false} className="source-block-preview">
           <Interactive

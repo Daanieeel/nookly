@@ -1,4 +1,5 @@
 import { IconCpu, IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
+import { CircuitLegend } from "./circuit/CircuitLegend";
 import { CircuitCanvas } from "./circuit/CircuitCanvas";
 import { renderCircuit } from "./circuit/render";
 import { renderDiagram } from "./diagram";
@@ -120,6 +121,7 @@ export const CircuitBlock = sourceBlock("circuit", {
   render: (source, element) => renderCircuit(source, element),
   centered: true,
   copyLabel: "Copy code",
+  legend: CircuitLegend,
   interactive: CircuitCanvas,
   interactiveDisabled: "Interactive mode is not available yet.",
 });
