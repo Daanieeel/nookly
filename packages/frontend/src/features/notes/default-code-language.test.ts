@@ -2,7 +2,7 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { CodeBlockWithHeader } from "./code-block-extension";
 import { newCodeBlockLanguage, useDefaultCodeLanguage } from "./default-code-language";
 
@@ -25,11 +25,21 @@ describe("the language a new code block starts with", () => {
   });
 });
 
+const editors: Editor[] = [];
+
+// ProseMirror keeps a DOM observer timer alive until the editor is destroyed. Left running, it
+// fires after jsdom is gone and fails the whole run with "document is not defined".
+afterEach(() => {
+  for (const e of editors.splice(0)) e.destroy();
+});
+
 function editor(getNewLanguage: () => string | null, content?: JSONContent) {
-  return new Editor({
+  const e = new Editor({
     extensions: [Document, Paragraph, Text, CodeBlockWithHeader.configure({ getNewLanguage })],
     content,
   });
+  editors.push(e);
+  return e;
 }
 
 const languages = (e: Editor) => e.getJSON().content?.map((n) => n.attrs?.language);
