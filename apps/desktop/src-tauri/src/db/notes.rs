@@ -1036,7 +1036,7 @@ inventory::submit! {
         supports_blocks: true,
         description: "A quick, unrefined capture. Link it to the `note` it was refined into via `relates-to`.",
         fields: &[],
-        relationship_types: &["relates-to", "session-jot"],
+        relationship_types: &["relates-to", "session-jot", "course-jots"],
         create: cli_create_jot,
         update: cli_update_page,
         get: cli_get_jot,

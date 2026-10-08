@@ -1057,6 +1057,7 @@
     ],
     "relationshipTypes": [
       "assignment-course",
+      "course-jots",
       "course-note",
       "course-notes",
       "course-semester",
@@ -2103,6 +2104,7 @@
     "entityType": "jot",
     "fields": [],
     "relationshipTypes": [
+      "course-jots",
       "relates-to",
       "session-jot"
     ],

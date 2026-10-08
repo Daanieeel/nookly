@@ -20,6 +20,9 @@ inventory::submit! {
     RelationshipTypeDef { name: "course-notes", label: "Notes for course", description: "Links regular notes to a course, any number of them.", from_type: Some("course"), to_type: Some("note"), inverse_label: "notes for course", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
 }
 inventory::submit! {
+    RelationshipTypeDef { name: "course-jots", label: "Jots for course", description: "Links jots to a course, any number of them.", from_type: Some("course"), to_type: Some("jot"), inverse_label: "jots for course", cardinality: Cardinality::Unrestricted, moves_with: MovesWith::Independent }
+}
+inventory::submit! {
     RelationshipTypeDef { name: "semester-notes", label: "Notes for semester", description: "The notes page of a semester.", from_type: Some("semester"), to_type: Some("note"), inverse_label: "notes for semester", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::ToFollowsFrom }
 }
 
@@ -509,6 +512,7 @@ inventory::submit! {
             "course-semester",
             "course-note",
             "course-notes",
+            "course-jots",
             "assignment-course",
             "exam-course",
             "session-course",

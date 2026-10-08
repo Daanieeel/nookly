@@ -1058,6 +1058,7 @@
       ],
       "relationshipTypes": [
         "assignment-course",
+        "course-jots",
         "course-note",
         "course-notes",
         "course-semester",
@@ -2104,6 +2105,7 @@
       "entityType": "jot",
       "fields": [],
       "relationshipTypes": [
+        "course-jots",
         "relates-to",
         "session-jot"
       ],
@@ -3934,6 +3936,14 @@
       "label": "Blocks",
       "name": "blocks",
       "toType": null
+    },
+    {
+      "description": "Links jots to a course, any number of them.",
+      "fromType": "course",
+      "inverseLabel": "jots for course",
+      "label": "Jots for course",
+      "name": "course-jots",
+      "toType": "jot"
     },
     {
       "description": "The notes page built into a course, one per course.",
