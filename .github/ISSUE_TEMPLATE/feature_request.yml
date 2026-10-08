@@ -25,6 +25,7 @@ body:
     id: module
     attributes:
       label: Area
+      description: You can select more than one area.
       multiple: true
       options:
         - Bookmarks
@@ -39,9 +40,6 @@ body:
         - Settings
         - Tasks
         - Other
-  - type: markdown
-    attributes:
-      value: You can select more than one area.
   - type: textarea
     id: extra
     attributes:
