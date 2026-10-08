@@ -1,15 +1,18 @@
-import type { BlockType } from "#/lib/api/types.ts";
+import type { BlockAttrs, BlockType } from "#/lib/api/types.ts";
 
 export interface JotBlock {
   blockType: BlockType;
   content: string;
   language: string | null;
+  /// A lettered list's `marker` (`a)`, `A.`, ...); absent on every other block.
+  attrs?: BlockAttrs;
 }
 
 const HEADING = /^(#{1,6})\s+(.*)$/;
 const CHECK = /^[-*+]\s+\[([ xX])\]\s+(.*)$/;
 const BULLET = /^[-*+]\s+(.*)$/;
 const NUMBERED = /^\d+[.)]\s+(.*)$/;
+const LETTERED = /^([a-zA-Z])([.)])\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
 const FENCE = /^```\s*(\S*)/;
 
@@ -28,13 +31,31 @@ const HEADING_TYPES: BlockType[] = [
 export function jotTextToBlocks(text: string): JotBlock[] {
   const blocks: JotBlock[] = [];
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
-  const push = (blockType: BlockType, content: string, language: string | null = null) => {
+  const push = (
+    blockType: BlockType,
+    content: string,
+    language: string | null = null,
+    attrs?: BlockAttrs,
+  ) => {
     const last = blocks.at(-1);
     // Consecutive list items share one block, one item per line.
     const mergeable =
       blockType === "bulleted_list" || blockType === "numbered_list" || blockType === "checklist";
-    if (mergeable && last?.blockType === blockType) last.content += `\n${content}`;
-    else blocks.push({ blockType, content, language });
+    if (mergeable && last?.blockType === blockType && last.attrs?.marker === attrs?.marker) {
+      last.content += `\n${content}`;
+    } else blocks.push({ blockType, content, language, ...(attrs && { attrs }) });
+  };
+  /// A line like `a) text` or `B. text`: it starts a lettered list at `a`, or carries one on
+  /// when it is the next letter, in the same case and punctuation, of the list just before.
+  const lettered = (line: string): { marker: string; text: string } | null => {
+    const match = LETTERED.exec(line);
+    if (!match) return null;
+    const [, letter = "", delimiter = "", text = ""] = match;
+    const marker = `${letter.toLowerCase() === letter ? "a" : "A"}${delimiter}`;
+    const last = blocks.at(-1);
+    const items = last?.attrs?.marker === marker ? last.content.split("\n").length : 0;
+    const expected = String.fromCharCode(marker.charCodeAt(0) + items);
+    return letter === expected ? { marker, text } : null;
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -58,11 +79,13 @@ export function jotTextToBlocks(text: string): JotBlock[] {
     const check = CHECK.exec(trimmed);
     const bullet = BULLET.exec(trimmed);
     const numbered = NUMBERED.exec(trimmed);
+    const letters = lettered(trimmed);
     const quote = QUOTE.exec(trimmed);
     if (heading) push(HEADING_TYPES[heading[1].length - 1] ?? "heading1", heading[2].trim());
     else if (check) push("checklist", `[${check[1] === " " ? " " : "x"}] ${check[2]}`);
     else if (bullet) push("bulleted_list", bullet[1]);
     else if (numbered) push("numbered_list", numbered[1]);
+    else if (letters) push("numbered_list", letters.text, null, { marker: letters.marker });
     else if (quote) push("quote", quote[1]);
     else push("paragraph", trimmed);
   }

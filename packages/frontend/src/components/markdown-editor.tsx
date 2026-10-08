@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
 import { cn } from "@nookly/ui/lib/utils";
+import { letterListExtensions } from "#/features/notes/ordered-list-extension.ts";
 
 const SAVE_DELAY_MS = 600;
 
@@ -31,7 +32,8 @@ export function MarkdownEditor({
     content: value,
     contentType: "markdown",
     extensions: [
-      StarterKit.configure({ link: { openOnClick: false } }),
+      StarterKit.configure({ link: { openOnClick: false }, orderedList: false, listItem: false }),
+      ...letterListExtensions,
       Markdown,
       Placeholder.configure({ placeholder }),
     ],

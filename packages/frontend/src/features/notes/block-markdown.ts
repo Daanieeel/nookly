@@ -52,7 +52,7 @@ export function asString(value: JSONAttrValue | undefined): string | undefined {
   return isString(value) ? value : undefined;
 }
 
-function asNumber(value: JSONAttrValue | undefined): number | undefined {
+export function asNumber(value: JSONAttrValue | undefined): number | undefined {
   return isNumber(value) ? value : undefined;
 }
 

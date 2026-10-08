@@ -49,7 +49,15 @@ export function useJotCapture({
       const entity = await createJot(targetSpaceId, "");
       try {
         for (const block of jotTextToBlocks(text)) {
-          await createBlock(entity.id, block.blockType, block.content, null, block.language);
+          await createBlock(
+            entity.id,
+            block.blockType,
+            block.content,
+            null,
+            block.language,
+            null,
+            block.attrs ?? null,
+          );
         }
       } catch (err) {
         // A half written Jot would duplicate on retry; the text stays in the box instead.
