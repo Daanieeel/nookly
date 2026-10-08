@@ -186,7 +186,10 @@ export function blockToNode(block: Block): JSONNode {
       const lines = block.content.length > 0 ? block.content.split("\n") : [""];
       return {
         type: block.blockType === "bulleted_list" ? "bulletList" : "orderedList",
-        attrs: { blockId },
+        attrs:
+          block.blockType === "numbered_list"
+            ? { blockId, marker: block.attrs.marker ?? null }
+            : { blockId },
         content: lines.map((line) => ({
           type: "listItem",
           content: [{ type: "paragraph", content: nonEmpty(decodeInline(line)) }],
@@ -316,7 +319,13 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     case "bulletList":
       return { blockId, blockType: "bulleted_list", content: listLines(node) };
     case "orderedList":
-      return { blockId, blockType: "numbered_list", content: listLines(node) };
+      return {
+        blockId,
+        blockType: "numbered_list",
+        content: listLines(node),
+        // Lettered lists only; `""` keeps a plain list counting 1, 2, 3.
+        attrs: { marker: asString(node.attrs?.marker) ?? "" },
+      };
     case "taskList":
       return {
         blockId,

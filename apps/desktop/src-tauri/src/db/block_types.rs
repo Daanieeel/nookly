@@ -111,12 +111,47 @@ const HEADING_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
                   next heading of the same or a higher level, 'open' shows them. Omit for a plain heading.",
 }];
 
+const LIST_MARKERS: &[&str] = &["a.", "a)", "A.", "A)"];
+
+/// A numbered list normally counts 1, 2, 3. This keeps one a writer typed as
+/// `a.` or `a)` (either case) as letters.
+const NUMBERED_LIST_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
+    name: "marker",
+    kind: AttrKind::Enum(LIST_MARKERS),
+    description:
+        "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', \
+                  'A.' or 'A)'. Omit for 1, 2, 3.",
+}];
+
+/// The marker shown for item `index` (from 0) of a numbered list with `attrs`.
+pub fn numbered_marker(attrs: &BlockAttrs, index: usize) -> String {
+    let Some(first) = attrs
+        .get("marker")
+        .filter(|m| LIST_MARKERS.contains(&m.as_str()))
+    else {
+        return format!("{}.", index + 1);
+    };
+    let base = if first.starts_with('A') { b'A' } else { b'a' };
+    // Bijective base 26 (a..z, aa, ab, ...), the same count CSS `lower-alpha` shows.
+    let mut n = index + 1;
+    let mut letters = Vec::new();
+    while n > 0 {
+        n -= 1;
+        letters.push(base + (n % 26) as u8);
+        n /= 26;
+    }
+    letters.reverse();
+    let delimiter = &first[1..];
+    format!("{}{delimiter}", String::from_utf8_lossy(&letters))
+}
+
 /// The attrs `block_type` accepts: a custom block's own, the heading attrs, or none.
 pub fn declared_attrs(block_type: &str) -> &'static [BlockAttrDef] {
     match block_type {
         "heading1" | "heading2" | "heading3" | "heading4" | "heading5" | "heading6" => {
             HEADING_ATTRS
         }
+        "numbered_list" => NUMBERED_LIST_ATTRS,
         _ => lookup(block_type).map_or(&[], |def| def.attrs),
     }
 }
@@ -1291,6 +1326,35 @@ mod tests {
         assert!(validate_attrs("paragraph", &attrs("title", "x")).is_err());
         assert!(validate_attrs("heading2", &attrs("toggle", "closed")).is_ok());
         assert!(validate_attrs("heading2", &attrs("toggle", "yes")).is_err());
+        assert!(validate_attrs("numbered_list", &attrs("marker", "a)")).is_ok());
+        assert!(validate_attrs("numbered_list", &attrs("marker", "A.")).is_ok());
+        assert!(validate_attrs("numbered_list", &attrs("marker", "b.")).is_err());
+        assert!(validate_attrs("bulleted_list", &attrs("marker", "a.")).is_err());
+    }
+
+    #[test]
+    fn a_lettered_list_exports_with_its_letters() {
+        let md = crate::db::notes::block_to_markdown(&block(
+            "numbered_list",
+            "One\nTwo",
+            &[("marker", "a)")],
+        ));
+        assert_eq!(md, "a) One\nb) Two");
+        let plain = crate::db::notes::block_to_markdown(&block("numbered_list", "One\nTwo", &[]));
+        assert_eq!(plain, "1. One\n2. Two");
+    }
+
+    #[test]
+    fn list_markers_follow_the_marker_attr() {
+        let attrs = |m: &str| BlockAttrs::from([("marker".to_string(), m.to_string())]);
+        assert_eq!(numbered_marker(&BlockAttrs::new(), 0), "1.");
+        assert_eq!(numbered_marker(&BlockAttrs::new(), 11), "12.");
+        assert_eq!(numbered_marker(&attrs("a."), 1), "b.");
+        assert_eq!(numbered_marker(&attrs("a)"), 2), "c)");
+        assert_eq!(numbered_marker(&attrs("A."), 0), "A.");
+        assert_eq!(numbered_marker(&attrs("A)"), 25), "Z)");
+        assert_eq!(numbered_marker(&attrs("a."), 26), "aa.");
+        assert_eq!(numbered_marker(&attrs("a."), 27), "ab.");
     }
 
     #[test]

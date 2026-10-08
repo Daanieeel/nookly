@@ -154,7 +154,7 @@ pub fn list_display(block: &Block, previous: Option<&Block>) -> Option<Value> {
         .enumerate()
         .map(|(i, text)| {
             let marker = if numbered {
-                format!("{}.", i + 1)
+                crate::db::block_types::numbered_marker(&block.attrs, i)
             } else {
                 "•".to_string()
             };
@@ -449,6 +449,15 @@ mod tests {
         assert_eq!(json[1]["display"]["items"][0]["marker"], "1.");
         assert_eq!(json[1]["display"]["restartsAfterList"], true);
         assert!(json[2].get("display").is_none());
+    }
+
+    #[test]
+    fn list_display_uses_the_letter_marker_of_a_lettered_list() {
+        let mut lettered = block("a", "numbered_list", "One\nTwo");
+        lettered.attrs.insert("marker".into(), "a)".into());
+        let json = blocks_json(&[lettered]);
+        assert_eq!(json[0]["display"]["items"][0]["marker"], "a)");
+        assert_eq!(json[0]["display"]["items"][1]["marker"], "b)");
     }
 
     #[test]

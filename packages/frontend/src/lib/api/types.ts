@@ -193,8 +193,8 @@ export interface Block {
   /// `null` for every other block type.
   language: string | null;
   filename: string | null;
-  /// Settings of a custom block (callout `variant`, timeline `title`, ...). Always
-  /// empty on the standard block types.
+  /// Settings of a custom block (callout `variant`, timeline `title`, ...), a toggle
+  /// heading's `toggle` or a lettered list's `marker`. Empty on every other block.
   attrs: BlockAttrs;
   createdAt: string;
   updatedAt: string;

@@ -724,7 +724,7 @@ pub fn block_to_markdown(block: &Block) -> String {
             .content
             .lines()
             .enumerate()
-            .map(|(i, l)| format!("{}. {l}", i + 1))
+            .map(|(i, l)| format!("{} {l}", block_types::numbered_marker(&block.attrs, i)))
             .collect::<Vec<_>>()
             .join("\n"),
         // `content` is rows joined by "\n", cells within a row joined by "\t"

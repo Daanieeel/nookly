@@ -3,6 +3,16 @@
 
 @source "./";
 
+/* Lettered lists typed as `a)` or `A)` keep the parenthesis, which no built in list style has. */
+@counter-style lower-alpha-paren {
+  system: extends lower-alpha;
+  suffix: ") ";
+}
+@counter-style upper-alpha-paren {
+  system: extends upper-alpha;
+  suffix: ") ";
+}
+
 /* The rich note editor's document typography (§ notes rewrite) — Tiptap emits
    bare h1/blockquote/pre/ul/ol with no styling of its own, so this is the one
    place those get real rules. `code:not(pre code)` in the @nookly/ui base layer covers inline
@@ -548,6 +558,18 @@
   }
   .tiptap-content ol {
     list-style: decimal;
+  }
+  .tiptap-content ol[data-marker="a."] {
+    list-style: lower-alpha;
+  }
+  .tiptap-content ol[data-marker="A."] {
+    list-style: upper-alpha;
+  }
+  .tiptap-content ol[data-marker="a)"] {
+    list-style: lower-alpha-paren;
+  }
+  .tiptap-content ol[data-marker="A)"] {
+    list-style: upper-alpha-paren;
   }
   .tiptap-content li {
     margin: 0.125rem 0;

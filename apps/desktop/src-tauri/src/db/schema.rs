@@ -402,6 +402,10 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             "heading1 to heading6".into(),
             crate::db::block_types::describe_attr_defs(crate::db::block_types::declared_attrs("heading1")),
         );
+        attrs.insert(
+            "numbered_list".into(),
+            crate::db::block_types::describe_attr_defs(crate::db::block_types::declared_attrs("numbered_list")),
+        );
         for block_def in &custom {
             formats[block_def.block_type] = serde_json::json!(block_def.content_format);
             attrs.insert(

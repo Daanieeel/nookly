@@ -1,5 +1,7 @@
 import { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
+import type { Block } from "../../lib/api/types";
+import { blockToNode, nodeToBlockInput } from "./block-markdown";
 import { editorExtensions } from "./editor-extensions";
 
 let editor: Editor | null = null;
@@ -37,5 +39,46 @@ describe("starting a numbered list", () => {
 
   it("does not start a list from a letter in the middle of a sentence", () => {
     expect(firstNode(type("so a. "))?.type).toBe("paragraph");
+  });
+});
+
+function numberedList(content: string, attrs: Block["attrs"]): Block {
+  return {
+    id: "b1",
+    entityId: "p",
+    position: 0,
+    blockType: "numbered_list",
+    content,
+    language: null,
+    filename: null,
+    attrs,
+    createdAt: "",
+    updatedAt: "",
+  };
+}
+
+describe("a lettered list keeps its letters", () => {
+  it.each(["a.", "a)", "A.", "A)"])("%j is remembered as the list's marker", (marker) => {
+    expect(firstNode(type(`${marker} `))?.attrs?.marker).toBe(marker);
+  });
+
+  it("a 1. list has no marker", () => {
+    expect(firstNode(type("1. "))?.attrs?.marker).toBeNull();
+  });
+
+  it("renders the marker on the list so it can be styled", () => {
+    const target = type("a) ");
+    expect(target.getHTML()).toContain('data-marker="a)"');
+  });
+
+  it("saves the marker and loads it back", () => {
+    const node = blockToNode(numberedList("One\nTwo", { marker: "A)" }));
+    expect(node.attrs?.marker).toBe("A)");
+    expect(nodeToBlockInput(node)?.attrs).toEqual({ marker: "A)" });
+  });
+
+  it("clears the marker on a plain numbered list", () => {
+    const node = blockToNode(numberedList("One", {}));
+    expect(nodeToBlockInput(node)?.attrs).toEqual({ marker: "" });
   });
 });

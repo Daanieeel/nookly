@@ -164,6 +164,19 @@
                 ]
               }
             ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
+                ]
+              }
+            ],
             "progress": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -892,6 +905,19 @@
                 ]
               }
             ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
+                ]
+              }
+            ],
             "progress": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -1230,6 +1256,19 @@
                 "values": [
                   "rendered",
                   "source"
+                ]
+              }
+            ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
                 ]
               }
             ],
@@ -1950,6 +1989,19 @@
                 ]
               }
             ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
+                ]
+              }
+            ],
             "progress": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -2272,6 +2324,19 @@
                 "values": [
                   "rendered",
                   "source"
+                ]
+              }
+            ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
                 ]
               }
             ],
@@ -3240,6 +3305,19 @@
                 ]
               }
             ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
+                ]
+              }
+            ],
             "progress": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -3601,6 +3679,19 @@
                 "values": [
                   "rendered",
                   "source"
+                ]
+              }
+            ],
+            "numbered_list": [
+              {
+                "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
+                "kind": "enum",
+                "name": "marker",
+                "values": [
+                  "A)",
+                  "A.",
+                  "a)",
+                  "a."
                 ]
               }
             ],
