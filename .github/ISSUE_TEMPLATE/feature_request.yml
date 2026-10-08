@@ -25,6 +25,7 @@ body:
     id: module
     attributes:
       label: Area
+      multiple: true
       options:
         - Bookmarks
         - Calendar
@@ -32,8 +33,10 @@ body:
         - Exams and decks
         - Files
         - Jots
+        - Markdown editor
         - Navigation and UI
         - Notes
+        - Settings
         - Tasks
         - Other
   - type: textarea
