@@ -4,7 +4,6 @@ import { ScrollProgress } from "@nookly/ui/components/scroll-progress";
 import type { Entity } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { BlockEditor } from "./BlockEditor";
-import { NoteCodeLanguageRow } from "./NoteCodeLanguageRow";
 import type { PageSection } from "./heading-anchors";
 
 /// A page needs at least this many headings before a section navigator helps.
@@ -21,7 +20,6 @@ export function PageDetailView({ entity }: { entity: Entity }) {
     <EntityDetailLayout
       entity={entity}
       exportable
-      sidebar={entity.type === "note" && <NoteCodeLanguageRow entityId={entity.id} />}
       bodyOverlay={(scrollContainer) =>
         showSections && (
           <ScrollProgress

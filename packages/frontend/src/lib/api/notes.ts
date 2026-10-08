@@ -88,7 +88,3 @@ export function exportPageMarkdown(entityId: string, path: string): Promise<void
 export function getNoteCodeLanguage(entityId: string): Promise<string | null> {
   return invoke("get_note_code_language", { entityId });
 }
-
-export function setNoteCodeLanguage(entityId: string, language: string | null): Promise<void> {
-  return invoke("set_note_code_language", { entityId, language });
-}
