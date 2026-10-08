@@ -2,6 +2,24 @@
 
 All notable changes to Nookly are listed here.
 
+## Unreleased
+
+### Removed
+
+- Remove the per note code language setting from the note sidebar
+
+## 0.18.44 (2026-10-08)
+
+### Added
+
+- Add operation legend for circuit block
+
+### Changed
+
+- Jots created on a session link to the session's course
+- Lettered lists keep their letters
+- Lettered lists in jots and every markdown editor
+
 ## 0.18.40 (2026-10-07)
 
 ### Changed
