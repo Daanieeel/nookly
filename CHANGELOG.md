@@ -2,7 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
-## Unreleased
+## 0.18.46 (2026-10-09)
+
+### Added
+
+- Add markdown editor and settings areas to the feature request template
+
+### Changed
+
+- Note that multiple areas can be selected in the feature request template
+- Show the multiple areas note as the area description in the feature request template
+- Destroy editors in the default code language test so CI stops failing on a late timer
+- Keep the scroll position and avoid flashing when zooming in a pdf
 
 ### Removed
 
