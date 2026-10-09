@@ -10,11 +10,13 @@ import {
   IconZoomOut,
 } from "@tabler/icons-react";
 import {
+  type ComponentProps,
   type CSSProperties,
   type ReactNode,
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -31,6 +33,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { cn } from "@nookly/ui/lib/utils";
 import { useRememberedScroll } from "#/hooks/use-remembered-scroll.ts";
 import { InvertibleDocument } from "./document-frame";
+import { findZoomAnchor, scrollDeltaForAnchor, type ZoomAnchor } from "./pdf-zoom-anchor";
 
 // Vite bundles the worker as its own asset; pdf.js can't run without one.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -99,10 +102,79 @@ function LazyMount({
       ref={boxRef}
       // SAFETY: both custom properties only ever receive plain pixel lengths;
       // `CSSProperties` just doesn't model custom properties.
-      style={{ "--lazy-width": `${width}px`, "--lazy-height": `${minHeight}px` } as CSSProperties}
+      style={
+        {
+          "--lazy-width": `${width}px`,
+          "--lazy-height": `${minHeight}px`,
+        } as CSSProperties
+      }
       className="min-h-(--lazy-height) w-(--lazy-width)"
     >
       {near ? children : null}
+    </div>
+  );
+}
+
+/// A page drawn at `renderScale` but laid out and shown at `scale`: the box
+/// follows `scale` at once and the page inside is stretched to match. While
+/// pdf.js redraws at the new `renderScale` (react-pdf hides the canvas for
+/// that), a copy of the last drawn canvas stays visible behind it, so zooming
+/// never flashes blank.
+function ScaledPage({
+  width,
+  height,
+  scale,
+  renderScale,
+  onRenderSuccess,
+  ...pageProps
+}: {
+  width: number;
+  height: number;
+  scale: number;
+  renderScale: number;
+} & Omit<ComponentProps<typeof Page>, "scale">) {
+  const staleRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
+  // Runs before react-pdf's own effect clears the canvas for the redraw.
+  useLayoutEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const canvas = hostRef.current?.querySelector("canvas");
+    const stale = staleRef.current;
+    if (!canvas || !stale || canvas.width === 0 || canvas.style.visibility === "hidden") return;
+    const copy = document.createElement("canvas");
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    copy.getContext("2d")?.drawImage(canvas, 0, 0);
+    copy.className = "size-full";
+    stale.replaceChildren(copy);
+  }, [renderScale]);
+  return (
+    <div
+      ref={hostRef}
+      // SAFETY: both custom properties only ever receive plain numbers;
+      // `CSSProperties` just doesn't model custom properties.
+      style={{ "--page-width": `${width}px`, "--page-height": `${height}px` } as CSSProperties}
+      className="relative h-(--page-height) w-(--page-width) overflow-hidden"
+    >
+      <div ref={staleRef} className="absolute inset-0" aria-hidden />
+      <div
+        // SAFETY: `--page-stretch` only ever receives `scale / renderScale`.
+        style={{ "--page-stretch": scale / renderScale } as CSSProperties}
+        className="absolute top-0 left-0 origin-top-left scale-(--page-stretch)"
+      >
+        <Page
+          {...pageProps}
+          scale={renderScale}
+          onRenderSuccess={(page) => {
+            staleRef.current?.replaceChildren();
+            onRenderSuccess?.(page);
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -137,19 +209,56 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const clampScale = (next: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
-  const zoomIn = () => setScale((s) => clampScale(Math.round((s + ZOOM_STEP) * 100) / 100));
-  const zoomOut = () => setScale((s) => clampScale(Math.round((s - ZOOM_STEP) * 100) / 100));
+  const zoomIn = () => applyScale(scaleRef.current + ZOOM_STEP);
+  const zoomOut = () => applyScale(scaleRef.current - ZOOM_STEP);
 
-  // Re-rendering a page's canvas at a new scale is expensive and clears it
-  // first, flashing blank for a moment. `renderScale` is what `<Page>`
-  // actually renders at, catching up to `scale` only once zooming pauses for
-  // a beat; a CSS transform previews `scale` on the already-rendered pages
-  // instantly in the meantime, so a click or a pinch gesture reads as one
-  // smooth zoom instead of a flash per step.
+  // Re-rendering a page's canvas at a new scale is expensive, so `<Page>`
+  // renders at `renderScale`, catching up to `scale` only once zooming pauses
+  // for a beat. Page boxes follow `scale` right away and the rendered page is
+  // stretched with a CSS transform in the meantime, so a click or a pinch
+  // gesture reads as one smooth zoom and the layout (and scroll position)
+  // only changes once per step, never again when the render catches up.
   const [renderScale, setRenderScale] = useState(1);
   useEffect(() => {
     const id = setTimeout(() => setRenderScale(scale), 150);
     return () => clearTimeout(id);
+  }, [scale]);
+
+  // Every page grows or shrinks with `scale`, so the same scroll offset would
+  // point somewhere else. The spot at the middle of the viewport is noted
+  // before the layout changes and put back right after.
+  const scaleRef = useRef(1);
+  // Unrounded zoom: a trackpad pinch sends many tiny wheel deltas, each far
+  // under the 1% the shown scale rounds to, so they must add up here.
+  const targetScaleRef = useRef(1);
+  const zoomAnchor = useRef<ZoomAnchor | null>(null);
+  const applyScale = (next: number) => {
+    targetScaleRef.current = clampScale(next);
+    const clamped = Math.round(targetScaleRef.current * 100) / 100;
+    if (clamped === scaleRef.current) return;
+    const root = scrollRef.current;
+    if (root && !zoomAnchor.current) {
+      const box = root.getBoundingClientRect();
+      const rects = [...pageRefs.current.entries()]
+        .sort(([x], [y]) => x - y)
+        .map(([page, el]) => {
+          const { top, height } = el.getBoundingClientRect();
+          return { page, top, height };
+        });
+      zoomAnchor.current = findZoomAnchor(box.top + box.height / 2, rects);
+    }
+    scaleRef.current = clamped;
+    setScale(clamped);
+  };
+  useLayoutEffect(() => {
+    const anchor = zoomAnchor.current;
+    zoomAnchor.current = null;
+    const root = scrollRef.current;
+    const el = anchor && pageRefs.current.get(anchor.page);
+    if (!anchor || !root || !el) return;
+    const box = root.getBoundingClientRect();
+    const { top, height } = el.getBoundingClientRect();
+    root.scrollTop += scrollDeltaForAnchor(anchor, { top, height }, box.top + box.height / 2);
   }, [scale]);
 
   // Trackpad pinch: WebKit (and every other engine) reports it as a wheel
@@ -159,13 +268,25 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    // A pinch can send several wheel events per frame, and every applied
+    // step re-lays out all the pages, so deltas pile up in the target and
+    // are applied once per frame.
+    let frame = 0;
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      setScale((s) => clampScale(Math.round((s - e.deltaY * 0.01) * 100) / 100));
+      targetScaleRef.current = clampScale(targetScaleRef.current - e.deltaY * 0.01);
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        applyScale(targetScaleRef.current);
+      });
     }
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   // The toolbar's zoom field: shows the rounded percentage, but only while
@@ -177,7 +298,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   }, [scale, editingZoom]);
   const commitZoomInput = () => {
     const parsed = Number.parseInt(zoomInput, 10);
-    if (Number.isFinite(parsed)) setScale(clampScale(parsed / 100));
+    if (Number.isFinite(parsed)) applyScale(parsed / 100);
     setEditingZoom(false);
   };
 
@@ -627,12 +748,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
         <InvertibleDocument className="block min-w-0 flex-1">
           {(pageClass) => (
             <div ref={scrollRef} className="size-full overflow-auto p-4">
-              <div
-                // SAFETY: `--pdf-zoom-ratio` only ever receives `scale / renderScale`,
-                // a plain number — `CSSProperties` just doesn't model custom properties.
-                style={{ "--pdf-zoom-ratio": scale / renderScale } as CSSProperties}
-                className="origin-top scale-(--pdf-zoom-ratio) transition-transform duration-100 ease-out"
-              >
+              <div>
                 <Document
                   file={src}
                   onLoadSuccess={(doc) => {
@@ -641,7 +757,10 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                     setPageSizes({});
                     void doc.getPage(1).then((first) => {
                       const view = first.getViewport({ scale: 1 });
-                      setDefaultSize({ width: view.width, height: view.height });
+                      setDefaultSize({
+                        width: view.width,
+                        height: view.height,
+                      });
                     });
                   }}
                   // No <Suspense> boundary anywhere in this app; use the plain
@@ -672,12 +791,15 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                         <LazyMount
                           rootRef={scrollRef}
                           margin={RENDER_MARGIN}
-                          width={size.width * renderScale}
-                          minHeight={size.height * renderScale}
+                          width={size.width * scale}
+                          minHeight={size.height * scale}
                         >
-                          <Page
+                          <ScaledPage
                             pageNumber={page}
-                            scale={renderScale}
+                            width={size.width * scale}
+                            height={size.height * scale}
+                            scale={scale}
+                            renderScale={renderScale}
                             customTextRenderer={renderMatch}
                             onLoadSuccess={(loaded) =>
                               setPageSizes((sizes) =>
