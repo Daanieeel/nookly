@@ -278,8 +278,13 @@ function SessionChoices({
                 aria-pressed={session.entity.id === selected}
                 onClick={() => setPicked(session.entity.id)}
               >
-                <span>{formatDate(parseDay(session.date))}</span>
-                <span className="text-muted-foreground">{formatClock(session.startTime)}</span>
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="shrink-0">{formatDate(parseDay(session.date))}</span>
+                  <span className="truncate text-muted-foreground">{session.entity.title}</span>
+                </span>
+                <span className="shrink-0 text-muted-foreground">
+                  {formatClock(session.startTime)}
+                </span>
               </Button>
             </li>
           ))}

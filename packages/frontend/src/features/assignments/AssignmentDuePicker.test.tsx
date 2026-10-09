@@ -127,8 +127,11 @@ describe("AssignmentDuePicker", () => {
       ]);
       mockCommand("list_sessions", [
         makeSession({ date: "2026-03-03" }, { id: "s-past" }),
-        makeSession({ date: "2026-03-12", startTime: "09:00" }, { id: "s-next" }),
-        makeSession({ date: "2026-03-19", startTime: "14:00" }, { id: "s-later" }),
+        makeSession({ date: "2026-03-12", startTime: "09:00" }, { id: "s-next", title: "Graphs" }),
+        makeSession(
+          { date: "2026-03-19", startTime: "14:00" },
+          { id: "s-later", title: "Dynamic programming" },
+        ),
         makeSession({ date: "2026-03-26", cancelled: true }, { id: "s-off" }),
       ]);
     }
@@ -146,6 +149,14 @@ describe("AssignmentDuePicker", () => {
         offsetDays: 0,
         sessionId: "s-later",
       });
+    });
+
+    it("shows each session's name next to its date", async () => {
+      backend();
+      const { user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      expect(await screen.findByText("Graphs")).toBeInTheDocument();
+      expect(screen.getByText("Dynamic programming")).toBeInTheDocument();
     });
 
     it("offers the same spans as the next session, one click for a common one", async () => {
