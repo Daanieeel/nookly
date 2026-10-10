@@ -167,6 +167,7 @@ pub fn run() {
             commands::tasks::update_task_status,
             commands::tasks::update_task_dates,
             commands::tasks::update_task_effort,
+            commands::tasks::set_task_repeat,
             commands::tasks::convert_to_subtask,
             commands::tasks::count_tasks_due_today,
             commands::tasks::count_open_tasks_due_or_overdue,

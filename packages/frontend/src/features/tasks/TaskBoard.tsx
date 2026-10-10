@@ -12,6 +12,7 @@ import {
   TaskSpaceChip,
   TaskStatusControl,
 } from "./task-controls";
+import { RepeatIcon } from "./RepeatIcon";
 import type { DisplayProperty } from "./task-model";
 
 /// Linear style board: one column per group (and one swimlane per sub-group),
@@ -165,6 +166,9 @@ function TaskCardBody({
         )}
         <span className="pointer-events-none relative line-clamp-3 min-w-0 flex-1 text-sm font-medium">
           {displayTitle(task.entity)}
+        </span>
+        <span className="mt-1 flex">
+          <RepeatIcon task={task} />
         </span>
       </div>
       <TaskSpaceChip task={task} className="self-start" />

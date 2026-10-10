@@ -161,6 +161,12 @@ export interface TaskStatus {
   position: number;
 }
 
+/// How often a repeating Task comes back: every N days, weeks or months.
+export interface RepeatRule {
+  every: number;
+  unit: "day" | "week" | "month";
+}
+
 export interface Task {
   entity: Entity;
   statusId: string;
@@ -172,6 +178,8 @@ export interface Task {
   completedAt: string | null;
   /// A step of the shared effort scale (1, 2, 3, 5, 8 or 13), see `lib/effort.ts`.
   effort: number | null;
+  /// Finishing the task (not cancelling it) creates the next one when this is set.
+  repeat: RepeatRule | null;
   /// Courses linked through `relates-to`. Only filled by `listTasks`.
   courseIds: string[];
   /// Semesters of those Courses, and any linked directly. Only filled by `listTasks`.

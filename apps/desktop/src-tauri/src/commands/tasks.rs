@@ -119,3 +119,15 @@ pub fn update_task_effort(
     let conn = state.0.lock().unwrap();
     tasks::update_task_effort(&conn, &entity_id, effort)
 }
+
+/// Sets (`repeat` given) or removes (`null`) the Task's repeat rule. Finishing a repeating
+/// Task creates the next one.
+#[tauri::command]
+pub fn set_task_repeat(
+    state: State<DbState>,
+    entity_id: String,
+    repeat: Option<tasks::RepeatRule>,
+) -> AppResult<()> {
+    let conn = state.0.lock().unwrap();
+    tasks::set_task_repeat(&conn, &entity_id, repeat)
+}

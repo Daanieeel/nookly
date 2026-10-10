@@ -3369,3 +3369,65 @@ fn other_block_types_get_no_view_from_the_cli() {
     .unwrap();
     assert_eq!(stored_view(&fx, &note), None);
 }
+
+#[test]
+fn a_task_repeat_rule_is_set_and_cleared_through_the_generic_update() {
+    let fx = fx();
+    let created = cli(
+        &fx.conn,
+        &[
+            "task",
+            "create",
+            "--space",
+            &fx.space,
+            "--title",
+            "Water plants",
+        ],
+    )
+    .unwrap();
+    let id = extract_id(&created["data"]).unwrap();
+    // A JSON value on the command line, as an agent would write it.
+    let set = cli(
+        &fx.conn,
+        &[
+            "task",
+            "update",
+            &id,
+            "--field",
+            r#"repeat={"every":2,"unit":"week"}"#,
+        ],
+    )
+    .unwrap();
+    assert_eq!(set["data"]["repeat"], json!({ "every": 2, "unit": "week" }));
+    let got = cli(&fx.conn, &["task", "get", &id]).unwrap();
+    assert_eq!(got["data"]["repeat"], json!({ "every": 2, "unit": "week" }));
+    // A rule that is out of range is refused and leaves the stored one alone.
+    assert!(cli(
+        &fx.conn,
+        &[
+            "task",
+            "update",
+            &id,
+            "--field",
+            r#"repeat={"every":0,"unit":"day"}"#
+        ],
+    )
+    .is_err());
+    assert!(cli(
+        &fx.conn,
+        &[
+            "task",
+            "update",
+            &id,
+            "--field",
+            r#"repeat={"every":1,"unit":"year"}"#
+        ],
+    )
+    .is_err());
+    assert_eq!(
+        cli(&fx.conn, &["task", "get", &id]).unwrap()["data"]["repeat"],
+        json!({ "every": 2, "unit": "week" })
+    );
+    let cleared = cli(&fx.conn, &["task", "update", &id, "--field", "repeat=null"]).unwrap();
+    assert!(cleared["data"]["repeat"].is_null());
+}

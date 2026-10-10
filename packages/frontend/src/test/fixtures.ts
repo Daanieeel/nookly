@@ -75,6 +75,7 @@ export function makeTask(patch: Partial<Task> = {}, entity: Partial<Entity> = {}
     labelIds: [],
     completedAt: null,
     effort: null,
+    repeat: null,
     courseIds: [],
     semesterIds: [],
     ...patch,

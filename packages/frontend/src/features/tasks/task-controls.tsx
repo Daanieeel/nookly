@@ -90,6 +90,9 @@ export function useRefreshTasks(spaceId: string) {
         qk.tasks.byIdRoot,
         qk.tasks.subtasksRoot,
         qk.tasks.subtaskProgressRoot,
+        // Finishing a repeating task creates the next one, which the Dashboard counts too.
+        qk.tasks.dueToday,
+        qk.tasks.openDueOrOverdue,
       ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     );
 }

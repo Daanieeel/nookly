@@ -3496,6 +3496,13 @@
         "writableOnUpdate": false
       },
       {
+        "description": "Repeat rule {\"every\": N, \"unit\": \"day\"|\"week\"|\"month\"}, N from 1 to 365. Finishing the task (not cancelling it) creates the next one, due one step after this one. null removes the rule. Also accepted as a JSON string.",
+        "kind": "object",
+        "name": "repeat",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
         "description": "ISO date",
         "kind": "date",
         "name": "startDate",
@@ -3869,6 +3876,13 @@
           "type": "entity_ref"
         },
         "name": "parentId",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "Repeat rule {\"every\": N, \"unit\": \"day\"|\"week\"|\"month\"}, N from 1 to 365. Finishing the task (not cancelling it) creates the next one, due one step after this one. null removes the rule. Also accepted as a JSON string.",
+        "kind": "object",
+        "name": "repeat",
         "requiredOnCreate": false,
         "writableOnUpdate": true
       },

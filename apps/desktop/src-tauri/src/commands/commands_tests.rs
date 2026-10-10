@@ -72,6 +72,7 @@ ipc_commands![
     tasks::update_task_status,
     tasks::update_task_dates,
     tasks::update_task_effort,
+    tasks::set_task_repeat,
     tasks::convert_to_subtask,
     tasks::count_tasks_due_today,
     tasks::count_open_tasks_due_or_overdue,
@@ -1394,6 +1395,51 @@ fn tasks_update_effort_validates_steps() {
         json!({ "entityId": MISSING, "effort": 3 }),
         "NotFound",
     );
+}
+
+#[test]
+fn tasks_set_repeat_validates_the_rule_and_creates_the_next_task_when_done() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let id = h.task(&space, "t");
+    h.ok(
+        "set_task_repeat",
+        json!({ "entityId": id, "repeat": { "every": 2, "unit": "week" } }),
+    );
+    assert_eq!(
+        h.ok("list_tasks", json!({ "spaceId": space }))[0]["repeat"],
+        json!({ "every": 2, "unit": "week" })
+    );
+    h.app_err(
+        "set_task_repeat",
+        json!({ "entityId": id, "repeat": { "every": 0, "unit": "day" } }),
+        "InvalidInput",
+    );
+    // An unknown unit never reaches the backend.
+    h.args_err(
+        "set_task_repeat",
+        json!({ "entityId": id, "repeat": { "every": 1, "unit": "year" } }),
+    );
+    h.app_err(
+        "set_task_repeat",
+        json!({ "entityId": MISSING, "repeat": null }),
+        "NotFound",
+    );
+
+    h.ok(
+        "update_task_status",
+        json!({ "entityId": id, "statusId": "done" }),
+    );
+    assert_eq!(
+        h.ok("list_tasks", json!({ "spaceId": space }))
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    h.ok("set_task_repeat", json!({ "entityId": id, "repeat": null }));
+    assert_eq!(h.db(|c| db::tasks::get_task(c, &id).unwrap().repeat), None);
 }
 
 #[test]

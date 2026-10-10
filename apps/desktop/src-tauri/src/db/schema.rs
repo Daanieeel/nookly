@@ -37,8 +37,8 @@ pub enum FieldKind {
     /// References another entity by id. `entity_type` names the referenced
     /// type, so an agent calling `describe` knows what to pass.
     EntityRef(&'static str),
-    /// A JSON object. Only read only computed fields use it; the description
-    /// names its keys.
+    /// A JSON object, like a read only computed field or a Task's `repeat` rule; the
+    /// description names its keys.
     Object,
 }
 

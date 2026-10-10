@@ -718,6 +718,13 @@ fn all() -> Vec<M<'static>> {
             code_language TEXT
         );
         ",
+    ), M::up(
+        "
+        -- A Task's repeat rule, as JSON: {\"every\": N, \"unit\": \"day\" | \"week\" | \"month\"}.
+        -- Finishing a repeating Task creates the next one. NULL, which every existing
+        -- Task keeps, means it does not repeat.
+        ALTER TABLE tasks ADD COLUMN repeat_rule TEXT;
+        ",
     )]
 }
 
@@ -1244,6 +1251,7 @@ mod history {
         0xec9ec2b054e9e2f9,
         0x689c23fb341a5f0a,
         0xfc01de1290319823,
+        0xe33f069e6b32963,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

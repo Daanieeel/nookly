@@ -1,3 +1,4 @@
+import { RepeatIcon } from "./RepeatIcon";
 import { IconCircleDot } from "@tabler/icons-react";
 import type { ViewGroup } from "#/components/grouped-view/grouping.ts";
 import { GroupedList } from "#/components/grouped-view/grouped-list.tsx";
@@ -118,6 +119,7 @@ export function TaskRow({
         </span>
       )}
       <span className="pointer-events-none relative min-w-0 flex-1 truncate text-sm">{title}</span>
+      <RepeatIcon task={task} />
       <TaskSpaceChip task={task} />
       {show("effort") && task.effort != null && (
         <span className="relative hidden shrink-0 sm:flex">
