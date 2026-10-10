@@ -75,7 +75,8 @@ export function editorExtensions({
       getNewLanguage: getNewCodeLanguage,
     }),
     Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
-    TableKit.configure({ table: { resizable: true } }),
+    // `cellMinWidth` is the narrowest a column gets before the table scrolls sideways.
+    TableKit.configure({ table: { resizable: true, cellMinWidth: 120 } }),
     UniqueBlockId,
     HeadingAnchors,
     ArrowLigatures,
