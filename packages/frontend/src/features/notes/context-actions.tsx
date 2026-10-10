@@ -5,6 +5,7 @@ import {
   IconCode,
   IconCopyPlus,
   IconFileDownload,
+  IconFileExport,
   IconItalic,
   IconLink,
   IconMarkdown,
@@ -30,7 +31,7 @@ import { renderPageMarkdown } from "#/lib/api/notes.ts";
 import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
 import { useState } from "react";
 import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./block-conversion";
-import { savePageMarkdownFile } from "./PageExportMenu";
+import { savePageJsonFile, savePageMarkdownFile } from "./PageExportMenu";
 import { refineJotIntoNote } from "./refine-jot";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
@@ -342,6 +343,13 @@ registerEntityType<EntityRecord>({
       label: "Save as Markdown File…",
       icon: IconFileDownload,
       run: ({ entity }) => savePageMarkdownFile(entity),
+    },
+    {
+      id: "save-nookly-page",
+      group: "share",
+      label: "Export as Nookly Page (.json)",
+      icon: IconFileExport,
+      run: ({ entity }) => savePageJsonFile(entity),
     },
   ],
 });
