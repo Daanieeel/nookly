@@ -191,6 +191,7 @@ pub fn run() {
             commands::notes::set_note_code_language,
             commands::notes::export_page_markdown,
             commands::notes::export_page_json,
+            commands::notes::render_page_json,
             commands::notes::preview_page_json,
             commands::notes::import_page_json,
             commands::notes::preview_page_text,

@@ -43,6 +43,7 @@ export const qk = {
   blocksRoot: ["blocks"] as const,
   noteCodeLanguage: (entityId: string) => ["note-code-language", entityId] as const,
   pageMarkdown: (entityId: string) => ["page-markdown", entityId] as const,
+  pageJson: (entityId: string) => ["page-json", entityId] as const,
   mentioning: (entityId: string) => ["mentioning-entities", entityId] as const,
   embeddedPageIds: ["embedded-page-ids"] as const,
   search: (query: string) => ["search", query] as const,

@@ -90,6 +90,11 @@ export function exportPageJson(entityId: string, path: string): Promise<void> {
   return invoke("export_page_json", { entityId, path });
 }
 
+/// The page as the text of a Nookly page file, for sharing it without a path.
+export function renderPageJson(entityId: string): Promise<string> {
+  return invoke("render_page_json", { entityId });
+}
+
 /// What importing a Nookly page file would create. Reads the file, changes nothing.
 export interface PagePreview {
   kind: string;

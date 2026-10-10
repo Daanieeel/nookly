@@ -147,6 +147,13 @@ pub fn export_page_markdown(
     std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }
 
+/// The page as the text of a Nookly page file, for sharing it without a path.
+#[tauri::command]
+pub fn render_page_json(state: State<DbState>, entity_id: String) -> AppResult<String> {
+    let conn = state.0.lock().unwrap();
+    crate::db::page_json::export_page_json(&conn, &entity_id)
+}
+
 /// Writes the page as a Nookly page file (`nookly-page` JSON, see `db::page_json`).
 /// `path` comes from the native save dialog.
 #[tauri::command]
