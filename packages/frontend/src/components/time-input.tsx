@@ -54,13 +54,13 @@ export function TimeInput({
     if (segment) refs.current[segment]?.focus();
   }
 
-  /// A click on the field's empty space (padding, the colon) lands on the segment
-  /// nearest it: the hours left of the minutes, the minutes from there on.
+  /// A click anywhere in the field that is not on a segment itself (the padding, the
+  /// colon) starts at the hour. The segments take their own clicks, so the minutes still
+  /// get the click on their digits.
   function onGroupMouseDown(e: MouseEvent<HTMLDivElement>) {
     if (e.target instanceof Element && e.target.closest("[role=spinbutton]")) return;
     e.preventDefault();
-    const minuteLeft = refs.current.minute?.getBoundingClientRect().left ?? 0;
-    focusSegment(e.clientX < minuteLeft ? "hour" : "minute");
+    focusSegment("hour");
   }
 
   function type(segment: Segment, digit: number) {

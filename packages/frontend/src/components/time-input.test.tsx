@@ -19,16 +19,41 @@ describe("TimeInput click targets", () => {
     expect(hour).toHaveFocus();
   });
 
-  it("focuses the minutes when the space right of them is clicked", () => {
-    const { group, minute } = setup();
+  it("focuses the hour when the space right of the minutes is clicked", () => {
+    const { group, hour } = setup();
     fireEvent.mouseDown(group, { clientX: 150 });
-    expect(minute).toHaveFocus();
+    expect(hour).toHaveFocus();
+  });
+
+  it("focuses the hour when the colon between the segments is clicked", () => {
+    const { hour } = setup();
+    fireEvent.mouseDown(screen.getByText(":"));
+    expect(hour).toHaveFocus();
+  });
+
+  it("focuses the hour from anywhere in the field, wherever the minutes sit", () => {
+    const { group, hour } = setup();
+    for (const clientX of [0, 10, 99, 101, 130, 400]) {
+      fireEvent.mouseDown(group, { clientX });
+      expect(hour).toHaveFocus();
+      hour.blur();
+    }
   });
 
   it("focuses the minutes when their digits are clicked", () => {
     const { minute } = setup();
     fireEvent.mouseDown(minute);
     expect(minute).toHaveFocus();
+  });
+
+  it("focuses the period when AM or PM is clicked", () => {
+    render(<TimeInput value="09:30" onChange={() => {}} aria-label="Ends" />);
+    const periods = screen.queryAllByRole("spinbutton", { name: "Ends AM or PM" });
+    // A 24 hour clock has none; on a 12 hour clock a click on it stays on it.
+    for (const period of periods) {
+      fireEvent.mouseDown(period);
+      expect(period).toHaveFocus();
+    }
   });
 
   it("focuses the hour when its digits are clicked", () => {
