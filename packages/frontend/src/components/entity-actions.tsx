@@ -16,6 +16,7 @@ import {
   CopyPageMarkdownItem,
   PageExportMenu,
   SaveMarkdownFileItem,
+  SaveNooklyPageItem,
 } from "#/features/notes/PageExportMenu.tsx";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
 import type { Entity } from "#/lib/api/types.ts";
@@ -119,6 +120,7 @@ export function EntityActions({
               <DropdownMenuSeparator />
               <CopyPageMarkdownItem entity={entity} />
               <SaveMarkdownFileItem entity={entity} onDone={closeMenu} />
+              <SaveNooklyPageItem entity={entity} onDone={closeMenu} />
             </>
           )}
           <DropdownMenuSeparator />
