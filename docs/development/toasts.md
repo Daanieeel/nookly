@@ -17,7 +17,7 @@ One short line that says what changed. When the toast is about an item, pass `en
 ## Behaviour
 
 - The status icon (check, triangle, info) sits on the message's line, never in a column of its own. Sonner's icon column is not used.
-- Success, warning and info close after 5 seconds and pause while the pointer is over them. Errors stay until closed.
+- Success, warning and info close after 5 seconds and pause while the pointer is over them. Errors stay until closed. Use a warning when something did not happen but nothing is broken (no session is running), and an error when the app failed to do what it was asked.
 - Errors are announced as `role="alert"`, the rest as `role="status"`.
 - Every toast has a close button on its corner. With more than one toast showing, a Clear all button appears under the stack.
 - Corners are rounder and motion is 180 ms, fade only under `prefers-reduced-motion`; both are rules at the end of `styles.css`.

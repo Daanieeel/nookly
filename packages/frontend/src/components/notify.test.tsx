@@ -91,20 +91,34 @@ describe("notify", () => {
     expect(screen.getByText("Second")).toBeInTheDocument();
   });
 
-  it("keeps an error until it is closed, and lets the others go after a few seconds", async () => {
+  it.each(["success", "warning"] as const)(
+    "closes a %s by itself after a few seconds",
+    async (kind) => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        renderWithProviders(<AppToaster />);
+        act(() => void notify[kind]("Goes away"));
+        await screen.findByText("Goes away");
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(10_000);
+        });
+        await waitFor(() => expect(screen.queryByText("Goes away")).toBeNull());
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("keeps an error until it is closed", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       renderWithProviders(<AppToaster />);
-      act(() => {
-        notify.error("Couldn't save");
-        notify.success("Saved");
-      });
-      await screen.findByText("Saved");
+      act(() => void notify.error("Stays"));
+      await screen.findByText("Stays");
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(10_000);
+        await vi.advanceTimersByTimeAsync(60_000);
       });
-      await waitFor(() => expect(screen.queryByText("Saved")).toBeNull());
-      expect(screen.getByText("Couldn't save")).toBeInTheDocument();
+      expect(screen.getByText("Stays")).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
