@@ -58,14 +58,19 @@ export function insertMention(
 interface MentionItem {
   entity: Entity;
   page: number | null;
+  /// A file offered before any `#` was typed: its row has a button to start a page number.
+  canAddPage: boolean;
 }
 
-function toListItem({ entity }: MentionItem): SuggestionListItem {
+function toListItem({ entity, page, canAddPage }: MentionItem): SuggestionListItem {
+  const kind = `${entity.key} · ${labelForType(entity.type)}`;
   return {
     key: entity.id,
     icon: <EntityIcon entity={entity} size={14} />,
     label: displayTitle(entity),
-    description: `${entity.key} · ${labelForType(entity.type)}`,
+    // A page the query asked for shows only on a file, which is all that can take one.
+    description: entity.type === "file" && page ? `Page ${page} · ${kind}` : kind,
+    actionLabel: canAddPage ? "# Page" : undefined,
   };
 }
 
@@ -110,15 +115,25 @@ export const Mention = Extension.create<MentionOptions>({
           const { search, page } = parseMentionQuery(query);
           return rankMentions(this.options.getEntities(), search)
             .slice(0, 8)
-            .map((entity) => ({ entity, page }));
+            .map((entity) => ({
+              entity,
+              page,
+              canAddPage: entity.type === "file" && !query.includes("#"),
+            }));
         },
         command: ({ editor, range, props }) =>
           insertMention(editor, range, props.entity, props.page),
         render: createSuggestionRender(toListItem, {
-          footer: (items, query) =>
-            items.some((i) => i.entity.type === "file") && !query.includes("#")
-              ? "Add a page number: type #12"
-              : undefined,
+          footer: (items, query) => {
+            if (!items.some((i) => i.entity.type === "file")) return undefined;
+            if (!query.includes("#")) return "Press → to add a page number";
+            return parseMentionQuery(query).page === null
+              ? "Type the page number, then press Enter"
+              : undefined;
+          },
+          // Starts a page number: the query becomes `report#`, and the digits follow.
+          onAction: (_item, props) =>
+            void props.editor.chain().focus().insertContentAt(props.range.to, "#").run(),
         }),
       }),
     ];

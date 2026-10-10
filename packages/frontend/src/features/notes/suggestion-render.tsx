@@ -14,10 +14,13 @@ export function createSuggestionRender<I>(
   {
     hideWhenEmpty = false,
     footer,
+    onAction,
   }: {
     hideWhenEmpty?: boolean;
     /// A hint shown under the list for the current items and query.
     footer?: (items: I[], query: string) => string | undefined;
+    /// The `actionLabel` button of a row, or the right arrow on it, was used.
+    onAction?: (item: I, props: SuggestionProps<I>) => void;
   } = {},
 ): NonNullable<SuggestionOptions<I>["render"]> {
   return () => {
@@ -38,6 +41,10 @@ export function createSuggestionRender<I>(
       return {
         items: props.items.map(toItem),
         footer: footer?.(props.items, props.query),
+        onAction: (index: number) => {
+          const item = props.items[index];
+          if (item) onAction?.(item, props);
+        },
         onSelect: (index: number) => {
           const item = props.items[index];
           if (item) props.command(item);

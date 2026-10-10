@@ -18,6 +18,10 @@ export interface SuggestionListItem {
   /// Heading the item is listed under. Items of one group must be adjacent;
   /// groups left empty by a search disappear with their heading.
   group?: string;
+  /// A button at the end of the row that does something other than choose the item
+  /// (for a file, adding a page number). Also bound to the right arrow while the row is
+  /// highlighted.
+  actionLabel?: string;
 }
 
 export interface SuggestionListHandle {
@@ -40,8 +44,13 @@ export const SuggestionList = forwardRef<
     embedded?: boolean;
     /// A hint under the list, such as how to refine the search.
     footer?: string;
+    /// The row's own `actionLabel` button was used; gets the index into `items`.
+    onAction?: (index: number) => void;
   }
->(function SuggestionList({ items, onSelect, searchable = false, embedded = false, footer }, ref) {
+>(function SuggestionList(
+  { items, onSelect, searchable = false, embedded = false, footer, onAction },
+  ref,
+) {
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -69,8 +78,17 @@ export const SuggestionList = forwardRef<
     if (item) onSelect(items.indexOf(item));
   };
 
+  const act = (visibleIndex: number) => {
+    const item = visible[visibleIndex];
+    if (item?.actionLabel && onAction) onAction(items.indexOf(item));
+  };
+
   const handleKey = (event: KeyboardEvent): boolean => {
     if (visible.length === 0) return false;
+    if (event.key === "ArrowRight" && visible[selected]?.actionLabel && onAction) {
+      act(selected);
+      return true;
+    }
     if (event.key === "ArrowDown") {
       setSelected((i) => (i + 1) % visible.length);
       return true;
@@ -134,30 +152,44 @@ export const SuggestionList = forwardRef<
                   {item.group}
                 </div>
               )}
-              <button
+              <div
                 data-index={index}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => select(index)}
                 className={cn(
-                  "flex w-full shrink-0 items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                  "flex w-full shrink-0 items-center gap-1 rounded-sm",
                   index === selected
                     ? "bg-accent text-accent-foreground"
                     : "hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  {item.icon}
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{item.label}</span>
-                  {item.description && (
-                    <span className="truncate text-xs text-muted-foreground">
-                      {item.description}
-                    </span>
-                  )}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => select(index)}
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
+                >
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    {item.icon}
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium">{item.label}</span>
+                    {item.description && (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {item.description}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {item.actionLabel && onAction && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => act(index)}
+                    className="mr-1 shrink-0 rounded-sm border border-border bg-card px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {item.actionLabel}
+                  </button>
+                )}
+              </div>
             </Fragment>
           ))}
         </div>
