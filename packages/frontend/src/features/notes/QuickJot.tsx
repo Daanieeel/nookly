@@ -1,6 +1,6 @@
 import { qk } from "#/lib/query-keys.ts";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { IconChevronDown, IconFeather } from "@tabler/icons-react";
+import { IconCalendarEvent, IconChevronDown, IconFeather } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,11 +15,15 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Kbd } from "#/components/kbd.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { softDeleteEntity } from "#/lib/api/entities.ts";
 import { createBlock, createJot } from "#/lib/api/notes.ts";
+import { createSessionPage, getSessionPages, listSessionsAll } from "#/lib/api/sessions.ts";
+import { findCurrentSession } from "#/features/sessions/next-session.ts";
+import { sessionPageTitle } from "#/features/sessions/calendar/SessionPopover.tsx";
 import { listSpaces } from "#/lib/api/spaces.ts";
-import type { Entity, Space } from "#/lib/api/types.ts";
+import type { Entity, SessionOccurrence, Space } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { jotTextToBlocks } from "./jot-blocks";
@@ -34,9 +38,12 @@ const MAX_COMPOSER_HEIGHT = 320;
 /// and `JotComposer`, so they can never drift apart.
 export function useJotCapture({
   spaceId,
+  session = null,
   onSaved,
 }: {
   spaceId: string | null;
+  /// Writes into this occurrence's Jot (created on first use) instead of a new loose Jot.
+  session?: SessionOccurrence | null;
   onSaved: (entity: Entity) => void;
 }) {
   const queryClient = useQueryClient();
@@ -44,11 +51,21 @@ export function useJotCapture({
   // Enter and Escape can both land in one tick, before `isPending` updates.
   const inFlight = useRef(false);
 
+  // Blocks already appended to a Jot that existed before, so a retry never repeats them.
+  const appended = useRef(0);
+
   const save = useMutation({
     mutationFn: async (targetSpaceId: string) => {
-      const entity = await createJot(targetSpaceId, "");
+      const existing = session ? (await getSessionPages(session.entity.id)).jot : null;
+      const created = existing === null;
+      const entity =
+        existing ??
+        (session
+          ? await createSessionPage(session.entity.id, "jot", sessionPageTitle(session))
+          : await createJot(targetSpaceId, ""));
       try {
-        for (const block of jotTextToBlocks(text)) {
+        const blocks = jotTextToBlocks(text);
+        for (const block of created ? blocks : blocks.slice(appended.current)) {
           await createBlock(
             entity.id,
             block.blockType,
@@ -58,17 +75,24 @@ export function useJotCapture({
             null,
             block.attrs ?? null,
           );
+          if (!created) appended.current += 1;
         }
       } catch (err) {
-        // A half written Jot would duplicate on retry; the text stays in the box instead.
-        await softDeleteEntity(entity.id).catch(() => undefined);
+        // A half written new Jot would duplicate on retry; the text stays in the box
+        // instead. A Jot that existed before is never deleted, only what this call made.
+        if (created) await softDeleteEntity(entity.id).catch(() => undefined);
         throw err;
       }
+      appended.current = 0;
       return entity;
     },
     onSuccess: (entity) => {
       queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(entity.spaceId) });
       queryClient.invalidateQueries({ queryKey: qk.jots.unrefined });
+      if (session) {
+        queryClient.invalidateQueries({ queryKey: qk.sessions.pages(session.entity.id) });
+        queryClient.invalidateQueries({ queryKey: qk.blocks(entity.id) });
+      }
       setText("");
       onSaved(entity);
     },
@@ -158,8 +182,20 @@ export function JotComposer({
 export function QuickJotDialog() {
   const open = useNavStore((s) => s.quickJotOpen);
   const setOpen = useNavStore((s) => s.setQuickJotOpen);
+  const queryClient = useQueryClient();
 
   useAppHotkey("quickJot", () => setOpen(true));
+  // Binds to the session running now; without one this is the plain quick jot.
+  useAppHotkey("quickJotSession", () => {
+    void queryClient
+      .fetchQuery({ queryKey: qk.sessions.all, queryFn: listSessionsAll, staleTime: 30_000 })
+      .then((sessions) => findCurrentSession(sessions, new Date()))
+      .catch(() => undefined)
+      .then((current) => {
+        if (current) useNavStore.getState().openQuickJotForSession(current.entity.id);
+        else setOpen(true);
+      });
+  });
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -171,14 +207,25 @@ export function QuickJotDialog() {
 
 function QuickJotSurface({ onClose }: { onClose: () => void }) {
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
+  const sessionId = useNavStore((s) => s.quickJotSessionId);
   const openEntity = useNavStore((s) => s.openEntity);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const { data: sessions } = useQuery({
+    queryKey: qk.sessions.all,
+    queryFn: listSessionsAll,
+    enabled: sessionId !== null,
+  });
+  const session = sessionId ? (sessions?.find((s) => s.entity.id === sessionId) ?? null) : null;
   const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(null);
+  // A session Jot lives in the session's Space, whatever Space is active.
   const space =
-    spaces.find((s) => s.id === (pickedSpaceId ?? activeSpaceId)) ?? spaces[0] ?? undefined;
+    spaces.find((s) => s.id === (session?.entity.spaceId ?? pickedSpaceId ?? activeSpaceId)) ??
+    spaces[0] ??
+    undefined;
 
   const capture = useJotCapture({
     spaceId: space?.id ?? null,
+    session,
     onSaved: (entity) => {
       onClose();
       // The dialog is gone, so nothing on screen is left to confirm the save.
@@ -231,10 +278,22 @@ function QuickJotSurface({ onClose }: { onClose: () => void }) {
               />
             </div>
             <div className="flex items-center gap-3 px-2 pb-2 text-xs text-muted-foreground">
-              {space && (
-                <SpaceChip space={space} spaces={spaces} onPick={(id) => setPickedSpaceId(id)} />
+              {session ? (
+                <span className="flex min-w-0 items-center gap-1.5 px-1.5">
+                  <IconCalendarEvent size={12} className="shrink-0" />
+                  <span className="max-w-56 truncate">{sessionPageTitle(session)}</span>
+                </span>
+              ) : (
+                space && (
+                  <SpaceChip space={space} spaces={spaces} onPick={(id) => setPickedSpaceId(id)} />
+                )
               )}
-              <span className="ml-auto flex items-center gap-1">
+              {!session && (
+                <span className="ml-auto flex items-center gap-1">
+                  <ShortcutKbd name="quickJotSession" /> Session jot
+                </span>
+              )}
+              <span className={cn("flex items-center gap-1", session && "ml-auto")}>
                 <Kbd>↵</Kbd> Save
               </span>
               <span className="flex items-center gap-1">

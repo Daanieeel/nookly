@@ -15,6 +15,19 @@ export function hasStarted(session: Timed, now: Date): boolean {
   return session.date < today || (session.date === today && session.startTime <= clockOf(now));
 }
 
+/// The Session that is running right now: today, started and not yet ended, not
+/// cancelled. The earliest start wins when several overlap.
+export function findCurrentSession<T extends Timed & { endTime: string; cancelled?: boolean }>(
+  sessions: readonly T[],
+  now: Date,
+): T | undefined {
+  const today = toDay(now);
+  const clock = clockOf(now);
+  return sessions
+    .filter((s) => !s.cancelled && s.date === today && s.startTime <= clock && clock < s.endTime)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
+}
+
 /// The soonest Session that has not started and is not cancelled. A Session that is
 /// underway or done never counts, even when it is still today.
 export function findNextSession<T extends Timed & { cancelled?: boolean }>(
