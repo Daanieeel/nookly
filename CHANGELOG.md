@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.4 (2026-10-10)
+
+### Changed
+
+- **The page has a border like the sidebar.** The main area now has the same outline as the left navigation, and it goes away with the sidebar collapsed.
+
 ## 0.32.3 (2026-10-10)
 
 ### Fixed
