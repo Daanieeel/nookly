@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { startOfDay } from "date-fns";
 import { isDone } from "#/features/assignments/assignment-model.ts";
-import { listAssignments } from "#/lib/api/assignments.ts";
+import { listAssignments, listAssignmentsAllSpaces } from "#/lib/api/assignments.ts";
+import type { Assignment } from "#/lib/api/types.ts";
 import { listDeckSummaries } from "#/lib/api/decks.ts";
 import { listExams } from "#/lib/api/exams.ts";
 import type { ModuleKey } from "#/lib/store/nav.ts";
@@ -23,15 +24,35 @@ function ExamsMeta({ spaceId }: { spaceId: string }) {
   return <SidebarUrgencyChip date={nearestExam.examDate} />;
 }
 
+/// The open assignment due soonest, today included. One that is done, past due or without
+/// a date never counts.
+export function nearestDueAssignment(
+  assignments: Assignment[],
+  now: Date = new Date(),
+): Assignment | undefined {
+  const today = startOfDay(now);
+  return assignments
+    .filter((a) => !isDone(a) && a.dueDate && startOfDay(new Date(a.dueDate)) >= today)
+    .sort((a, b) => new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime())[0];
+}
+
 function AssignmentsMeta({ spaceId }: { spaceId: string }) {
   const { data: assignments = [] } = useQuery({
     queryKey: qk.assignments.bySpace(spaceId),
     queryFn: () => listAssignments(spaceId),
   });
-  const today = startOfDay(new Date());
-  const nearest = assignments
-    .filter((a) => !isDone(a) && a.dueDate && startOfDay(new Date(a.dueDate)) >= today)
-    .sort((a, b) => new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime())[0];
+  const nearest = nearestDueAssignment(assignments);
+  if (!nearest?.dueDate) return null;
+  return <SidebarUrgencyChip date={nearest.dueDate} />;
+}
+
+/// The same chip on the cross-Space Assignments item, over every Space's assignments.
+export function AssignmentsOverviewMeta() {
+  const { data: assignments = [] } = useQuery({
+    queryKey: qk.assignments.all,
+    queryFn: listAssignmentsAllSpaces,
+  });
+  const nearest = nearestDueAssignment(assignments);
   if (!nearest?.dueDate) return null;
   return <SidebarUrgencyChip date={nearest.dueDate} />;
 }

@@ -34,6 +34,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import { ASSIGNMENTS_OVERVIEW, TASKS_OVERVIEW } from "#/lib/api/views.ts";
 import { type SidebarItemId, type SidebarItemPref, useSidebarItems } from "#/lib/sidebar-items.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
+import { AssignmentsOverviewMeta } from "./module-row-meta";
 import { OverviewNavItem } from "./overview-nav-item";
 import { QuickJotTrigger } from "./quick-jot-trigger";
 
@@ -72,6 +73,7 @@ export function SidebarNavItems() {
             icon={Icon}
             target={target}
             module={target.kind === "tasks" ? TASKS_OVERVIEW : ASSIGNMENTS_OVERVIEW}
+            meta={target.kind === "assignments" ? <AssignmentsOverviewMeta /> : undefined}
           />
         );
       }

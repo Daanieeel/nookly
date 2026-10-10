@@ -9,7 +9,7 @@ import {
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { IconChevronRight, IconPlus, type Icon as TablerIcon } from "@tabler/icons-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   SidebarMenuButton,
   SidebarMenuItem,
@@ -41,11 +41,15 @@ export function OverviewNavItem({
   icon: Icon,
   target,
   module,
+  meta,
 }: {
   label: string;
   icon: TablerIcon;
   target: Extract<View, { kind: "tasks" | "assignments" }>;
   module: OverviewModule;
+  /// Shown after the label, like a Space's module rows show theirs. Hidden with the
+  /// labels when the sidebar is collapsed to icons.
+  meta?: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const view = useNavStore((s) => s.view);
@@ -108,6 +112,11 @@ export function OverviewNavItem({
       >
         <Icon />
         <span>{label}</span>
+        {meta && (
+          <span className="ml-auto flex items-center group-data-[collapsible=icon]:hidden">
+            {meta}
+          </span>
+        )}
       </SidebarMenuButton>
       <button
         type="button"
