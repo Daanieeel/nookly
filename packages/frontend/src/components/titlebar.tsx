@@ -54,24 +54,24 @@ function Crumb({
         variant="ghost"
         size="sm"
         onClick={onClick}
-        className="min-w-0 shrink-0 gap-1.5 px-1.5 text-sm [&_svg]:size-3.5"
+        className="min-w-0 gap-1.5 px-1.5 text-sm [&_svg]:size-3.5 [&_svg]:shrink-0"
       >
         {icon}
         {key}
-        {label && <span className="max-w-48 truncate">{label}</span>}
+        {label && <span className="max-w-48 min-w-0 truncate">{label}</span>}
       </Button>
     );
   }
   return (
     <span
       className={cn(
-        "flex min-w-0 shrink-0 select-none items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground",
+        "flex min-w-0 select-none items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground",
         "[&_svg]:size-3.5 [&_svg]:shrink-0",
       )}
     >
       {icon}
       {key}
-      {label && <span className="max-w-48 truncate">{label}</span>}
+      {label && <span className="max-w-48 min-w-0 truncate">{label}</span>}
     </span>
   );
 }
@@ -90,7 +90,7 @@ function SpaceIndicator({ spaceId }: { spaceId: string }) {
   if (!space) return null;
 
   return (
-    <span className="flex min-w-0 shrink-0 select-none items-center gap-1.5 text-sm text-muted-foreground">
+    <span className="flex min-w-0 select-none items-center gap-1.5 text-sm text-muted-foreground">
       <span
         className="flex shrink-0 items-center text-(--space-color)"
         // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
@@ -99,7 +99,7 @@ function SpaceIndicator({ spaceId }: { spaceId: string }) {
       >
         {space.icon ? renderIconValue(space.icon, 14) : <IconFolder size={14} />}
       </span>
-      <span className="max-w-40 truncate">{space.name}</span>
+      <span className="max-w-40 min-w-0 truncate">{space.name}</span>
     </span>
   );
 }
@@ -349,7 +349,7 @@ export function Titlebar() {
         fullscreen ? "pl-3" : "pl-12",
       )}
     >
-      <div className={cn("flex min-w-0 shrink-0 items-center gap-1.5", !fullscreen && "ml-10")}>
+      <div className={cn("flex min-w-0 items-center gap-1.5", !fullscreen && "ml-10")}>
         <HistoryButtons />
         <Breadcrumbs />
       </div>
