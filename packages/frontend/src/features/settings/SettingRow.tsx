@@ -43,7 +43,10 @@ export function SettingRow({
     <fieldset
       aria-labelledby={labelId}
       data-setting-id={settingId}
-      className="flex min-w-0 flex-col gap-3 border-b border-border/60 py-4 last:border-b-0"
+      className={cn(
+        "flex min-w-0 flex-col gap-3 border-b border-border/60 py-4 last:border-b-0",
+        hideTitle && "pt-0",
+      )}
     >
       <div className="flex items-center justify-between gap-6">
         <div className="flex min-w-0 flex-col gap-0.5">

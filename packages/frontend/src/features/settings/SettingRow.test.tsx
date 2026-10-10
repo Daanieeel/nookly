@@ -90,6 +90,8 @@ describe("a setting row with a wide footer", () => {
     );
     expect(screen.getByRole("group", { name: "Agent files" })).toBeTruthy();
     expect(screen.getByText("Agent files")).toHaveClass("sr-only");
+    // With no title to separate it from, the description sits right under the heading.
+    expect(screen.getByRole("group", { name: "Agent files" })).toHaveClass("pt-0");
   });
 
   it("shows the title otherwise", () => {
