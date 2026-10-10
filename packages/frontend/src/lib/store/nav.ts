@@ -1,3 +1,4 @@
+import { forgetScroll } from "#/hooks/use-remembered-scroll.ts";
 import { create } from "zustand";
 import { z } from "zod";
 import { viewTarget } from "#/features/views/view-target.ts";
@@ -35,6 +36,22 @@ export type View =
   | { kind: "trash" }
   | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string; viewId?: string }
   | { kind: "entity"; entityId: string; spaceId: string };
+
+/// A stable name for a view, for anything that remembers something per view (where it was
+/// scrolled). The same page gives the same key, whichever Space it is opened from.
+export function viewKey(view: View): string {
+  switch (view.kind) {
+    case "tasks":
+    case "assignments":
+      return `${view.kind}:${view.viewId ?? ""}`;
+    case "module":
+      return `module:${view.spaceId}:${view.module}:${view.viewId ?? ""}:${view.filterCourseId ?? ""}`;
+    case "entity":
+      return `entity:${view.entityId}`;
+    default:
+      return view.kind;
+  }
+}
 
 const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("dashboard") }),
@@ -379,6 +396,7 @@ export const useNavStore = create<NavState>((set, get) => ({
     set((state) => {
       const tabs = currentTabs(state);
       if (!tabs.some((t) => t.id === id)) return {};
+      forgetScroll(`tab:${id}:`);
       // Closing the last tab leaves a fresh Dashboard one behind.
       if (tabs.length === 1) {
         const tab = makeTab({ kind: "dashboard" });
@@ -391,7 +409,9 @@ export const useNavStore = create<NavState>((set, get) => ({
     }),
   closeOtherTabs: () =>
     set((state) => {
-      const tabs = currentTabs(state).filter((t) => t.id === state.activeTabId || t.pinned);
+      const all = currentTabs(state);
+      const tabs = all.filter((t) => t.id === state.activeTabId || t.pinned);
+      for (const closed of all.filter((t) => !tabs.includes(t))) forgetScroll(`tab:${closed.id}:`);
       return { tabs };
     }),
   pinTab: (id, pinned) =>

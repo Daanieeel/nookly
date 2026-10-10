@@ -16,12 +16,13 @@ import {
   IconEyeOff,
   IconPlus,
 } from "@tabler/icons-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { ContextTargetProps } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { useTabScroll } from "#/hooks/use-tab-scroll.ts";
 import { type ViewGroup, isCollapsed, moveRowFocus, toggleId } from "./grouping";
 
 /// What a card needs to become the drag handle: spread onto its open button.
@@ -175,9 +176,15 @@ function HiddenColumns<T>({
 /// Without sub-groups: full height columns, each scrolling on its own.
 function ColumnBoard<T>(props: BoardProps<T>) {
   const { groups, onCreateIn, columnProps, onHide } = props;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useTabScroll(scrollRef, "board");
   return (
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the card buttons inside
-    <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3" onKeyDown={moveRowFocus}>
+    <div
+      ref={scrollRef}
+      className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3"
+      onKeyDown={moveRowFocus}
+    >
       {groups.map((group) => {
         const onCreate = onCreateIn?.(group, null);
         return (
@@ -213,6 +220,8 @@ function ColumnBoard<T>(props: BoardProps<T>) {
 function LaneBoard<T>(props: BoardProps<T> & { lanes: ViewGroup<T>[] }) {
   const { groups, lanes, onCreateIn, columnProps, onHide } = props;
   const [toggled, setToggled] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useTabScroll(scrollRef, "board");
   const cell = (group: ViewGroup<T>, laneId: string) =>
     group.subgroups?.find((s) => s.id === laneId);
   const laneCount = (laneId: string) =>
@@ -220,7 +229,7 @@ function LaneBoard<T>(props: BoardProps<T> & { lanes: ViewGroup<T>[] }) {
 
   return (
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the card buttons inside
-    <div className="min-h-0 flex-1 overflow-auto pb-3" onKeyDown={moveRowFocus}>
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto pb-3" onKeyDown={moveRowFocus}>
       <div className="flex w-max min-w-full flex-col">
         <div className="sticky top-0 z-20 flex gap-3 bg-card px-3 pt-3">
           {groups.map((group) => (

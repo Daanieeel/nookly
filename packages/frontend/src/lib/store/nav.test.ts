@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
+import { renderHook } from "@testing-library/react";
 import type { View } from "./nav.ts";
 
 /// A fresh nav store, as the app builds it on launch from `stored` preferences.
@@ -566,5 +567,96 @@ describe("nav store, overlays and sidebars", () => {
     expect(preferences.get(STORAGE_KEYS.rightSidebarCollapsed)).toBe("1");
     expect(store.getState().rightSidebarWidth).toBe(480);
     expect(preferences.get(STORAGE_KEYS.rightSidebarWidth)).toBe("480");
+  });
+});
+
+describe("viewKey", () => {
+  it("is the same for the same view and differs between views", async () => {
+    const { viewKey } = await loadNav();
+    const notes: View = { kind: "module", spaceId: "s1", module: "notes" };
+    expect(viewKey(notes)).toBe(viewKey({ ...notes }));
+    const keys = [
+      { kind: "dashboard" },
+      { kind: "pinned" },
+      { kind: "calendar" },
+      { kind: "trash" },
+      { kind: "tasks" },
+      { kind: "tasks", viewId: "v1" },
+      { kind: "assignments" },
+      { kind: "assignments", viewId: "v1" },
+      notes,
+      { kind: "module", spaceId: "s2", module: "notes" },
+      { kind: "module", spaceId: "s1", module: "tasks" },
+      { kind: "module", spaceId: "s1", module: "notes", viewId: "v1" },
+      { kind: "module", spaceId: "s1", module: "notes", filterCourseId: "c1" },
+      { kind: "entity", entityId: "e1", spaceId: "s1" },
+      { kind: "entity", entityId: "e2", spaceId: "s1" },
+    ] satisfies View[];
+    expect(new Set(keys.map(viewKey)).size).toBe(keys.length);
+    // The Space of an entity page does not change which page it is.
+    expect(viewKey({ kind: "entity", entityId: "e1", spaceId: "s1" })).toBe(
+      viewKey({ kind: "entity", entityId: "e1", spaceId: "s9" }),
+    );
+  });
+});
+
+describe("closing a tab forgets where it was scrolled", () => {
+  /// Loads the store and the scroll memory together: `loadNav` resets the modules, so the
+  /// store only ever forgets entries of the copy it was built with.
+  async function load() {
+    const nav = await loadNav();
+    const { useRememberedScroll } = await import("#/hooks/use-remembered-scroll.ts");
+    /// Scrolls a view under `tab:<id>:...` and unmounts it, like leaving the tab.
+    const scrollTab = (tabId: string, top: number) => {
+      const el = document.createElement("div");
+      document.body.append(el);
+      const { unmount } = renderHook(() =>
+        useRememberedScroll({ current: el }, `tab:${tabId}:dashboard`),
+      );
+      el.scrollTop = top;
+      el.dispatchEvent(new Event("scroll"));
+      unmount();
+    };
+    const scrolledTo = (tabId: string): number => {
+      const el = document.createElement("div");
+      document.body.append(el);
+      renderHook(() => useRememberedScroll({ current: el }, `tab:${tabId}:dashboard`));
+      return el.scrollTop;
+    };
+    return { ...nav, scrollTab, scrolledTo };
+  }
+
+  it("on close, and only that tab", async () => {
+    const { store, scrollTab, scrolledTo } = await load();
+    store.getState().openInNewTab({ kind: "pinned" }, { activate: false });
+    const [first, second] = store.getState().tabs;
+    if (!first || !second) throw new Error("two tabs expected");
+    scrollTab(first.id, 111);
+    scrollTab(second.id, 222);
+    store.getState().closeTab(second.id);
+    expect(scrolledTo(second.id)).toBe(0);
+    expect(scrolledTo(first.id)).toBe(111);
+  });
+
+  it("on close of the last tab, which is replaced by a fresh one", async () => {
+    const { store, scrollTab, scrolledTo } = await load();
+    const [only] = store.getState().tabs;
+    if (!only) throw new Error("one tab expected");
+    scrollTab(only.id, 90);
+    store.getState().closeTab(only.id);
+    expect(scrolledTo(only.id)).toBe(0);
+  });
+
+  it("for every tab closed with Close Others", async () => {
+    const { store, scrollTab, scrolledTo } = await load();
+    store.getState().openInNewTab({ kind: "pinned" }, { activate: false });
+    store.getState().openInNewTab({ kind: "trash" }, { activate: false });
+    const [keep, ...others] = store.getState().tabs;
+    if (!keep || others.length < 2) throw new Error("three tabs expected");
+    scrollTab(keep.id, 10);
+    for (const tab of others) scrollTab(tab.id, 20);
+    store.getState().closeOtherTabs();
+    for (const tab of others) expect(scrolledTo(tab.id)).toBe(0);
+    expect(scrolledTo(keep.id)).toBe(10);
   });
 });

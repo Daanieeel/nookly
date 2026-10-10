@@ -1,7 +1,8 @@
 import { IconCaretDownFilled, IconCaretRightFilled, IconPlus } from "@tabler/icons-react";
-import { Fragment, type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { useTabScroll } from "#/hooks/use-tab-scroll.ts";
 import { type ViewGroup, isCollapsed, moveRowFocus, toggleId } from "./grouping";
 
 /// Dense Linear style list: sticky group headers with a count, sub-group headers
@@ -27,6 +28,8 @@ export function GroupedList<T>({
   footer?: ReactNode;
 }) {
   const [toggled, setToggled] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useTabScroll(scrollRef, "list");
   const toggle = (id: string) => setToggled((prev) => toggleId(prev, id));
   const rows = (items: T[]) =>
     items.map((item) => <Fragment key={getKey(item)}>{renderRow(item)}</Fragment>);
@@ -34,7 +37,7 @@ export function GroupedList<T>({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside */}
-      <div className="min-h-0 flex-1 overflow-y-auto pb-6" onKeyDown={moveRowFocus}>
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-6" onKeyDown={moveRowFocus}>
         {groups.map((group) => {
           const collapsed = isCollapsed(toggled, group.id, group.defaultCollapsed);
           return (
