@@ -76,6 +76,9 @@ export function createSuggestionRender<I>(
       },
       onExit: () => {
         unmount?.();
+        // The handle is spent: left in place, the next start would think the popup is
+        // still showing and never mount it.
+        unmount = undefined;
         component.destroy();
       },
     };

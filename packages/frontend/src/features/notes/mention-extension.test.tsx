@@ -102,6 +102,7 @@ describe("mentioning a page of a file", () => {
     const { user, editor: target } = await open();
     target.commands.insertContent("@report");
     await screen.findByRole("button", { name: "# Page" });
+    target.view.dom.focus();
     await user.keyboard("{ArrowRight}");
     await waitFor(() => expect(target.getText()).toBe("@report#"));
   });
@@ -119,5 +120,65 @@ describe("mentioning a page of a file", () => {
     const { editor: target } = await open();
     target.commands.insertContent("@report#12");
     expect(await screen.findByText(/Page 12/)).toBeTruthy();
+  });
+});
+
+describe("cancelling the mention menu", () => {
+  it("opens again for the next @, in the same place and further on", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent("@rep");
+    await screen.findByRole("button", { name: "# Page" });
+    target.view.dom.focus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "# Page" })).toBeNull());
+
+    // Further on in the same line.
+    target.commands.insertContent(" and @rep");
+    expect(await screen.findByRole("button", { name: "# Page" })).toBeTruthy();
+    target.view.dom.focus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "# Page" })).toBeNull());
+
+    // And once more, then choosing works.
+    target.commands.insertContent(" or @rep");
+    await user.click(await screen.findByText("Report"));
+    await waitFor(() => expect(links(target).some((l) => l.href === "mention:f1")).toBe(true));
+  });
+
+  it("opens again after the menu was closed by deleting the @", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent("@rep");
+    await screen.findByRole("button", { name: "# Page" });
+    target.view.dom.focus();
+    await user.keyboard("{Escape}");
+    target.commands.clearContent();
+    target.commands.insertContent("@rep");
+    expect(await screen.findByRole("button", { name: "# Page" })).toBeTruthy();
+  });
+
+  it("opens again after the menu ended another way than Escape", async () => {
+    const { user, editor: target } = await open();
+    // A space ends the search (nothing is being mentioned any more).
+    target.commands.insertContent("@rep");
+    await screen.findByRole("button", { name: "# Page" });
+    target.commands.insertContent(" ");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "# Page" })).toBeNull());
+    target.commands.insertContent("@rep");
+    expect(await screen.findByRole("button", { name: "# Page" })).toBeTruthy();
+
+    // A click outside the menu closes it too.
+    await user.click(document.body);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "# Page" })).toBeNull());
+    target.commands.insertContent(" @rep");
+    expect(await screen.findByRole("button", { name: "# Page" })).toBeTruthy();
+  });
+
+  it("opens again after a mention was chosen", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent("@rep");
+    await user.click(await screen.findByText("Report"));
+    await waitFor(() => expect(links(target).some((l) => l.href === "mention:f1")).toBe(true));
+    target.commands.insertContent(" @rep");
+    expect(await screen.findByRole("button", { name: "# Page" })).toBeTruthy();
   });
 });
