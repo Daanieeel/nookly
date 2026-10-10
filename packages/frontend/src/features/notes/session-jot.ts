@@ -19,7 +19,7 @@ export async function openCurrentSessionJot(queryClient: QueryClient): Promise<v
     const current = findCurrentSession(sessions, new Date());
     if (!current) {
       notify.error("Quick session jot could not be created", {
-        description: "No session is running right now. Create a session in the calendar first.",
+        description: "No session is running right now.",
       });
       return;
     }

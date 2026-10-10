@@ -83,14 +83,11 @@ describe("openCurrentSessionJot", () => {
     expect(callsOf("create_session_page")).toHaveLength(0);
   });
 
-  it("says why, and what to do next, when nothing is running", async () => {
+  it("says why when nothing is running", async () => {
     mockCommand("list_sessions_all", []);
     run();
-    expect(
-      await screen.findByText(
-        "No session is running right now. Create a session in the calendar first.",
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText("No session is running right now.")).toBeTruthy();
+    expect(screen.queryByText(/Create a session/)).toBeNull();
   });
 
   it("shows an error when the jot cannot be made, and opens nothing", async () => {
