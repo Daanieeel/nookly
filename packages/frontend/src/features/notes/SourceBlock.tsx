@@ -42,6 +42,22 @@ export interface SourceBlockOptions {
 
 type View = "source" | "interactive" | "rendered";
 
+/// The view a block's `view` attr resolves to: a view this version does not know, or an
+/// interactive one that is switched off, opens as the code.
+function viewOf(attr: string | null | undefined, options: SourceBlockOptions): View {
+  const views: View[] = options.interactive
+    ? ["source", "interactive", "rendered"]
+    : ["source", "rendered"];
+  // The attr is one of the views, or something stored by a newer version.
+  const saved = views.find((v) => v === attr) ?? "source";
+  return saved === "interactive" && options.interactiveDisabled ? "source" : saved;
+}
+
+/// Whether the block's code is hidden, so the caret must stay out of it.
+export function hidesCode(attr: string | null | undefined, options: SourceBlockOptions): boolean {
+  return viewOf(attr, options) !== "source";
+}
+
 function viewLabel(view: View, sourceLabel: string): string {
   if (view === "source") return sourceLabel;
   return view === "interactive" ? "Interactive" : "Preview";
@@ -82,9 +98,7 @@ export function SourceBlock({
   const views: View[] = Interactive
     ? ["source", "interactive", "rendered"]
     : ["source", "rendered"];
-  // SAFETY: the attr is one of the views, or something stored by a newer version.
-  const saved = views.includes(node.attrs.view) ? (node.attrs.view as View) : "source";
-  const view = saved === "interactive" && options.interactiveDisabled ? "source" : saved;
+  const view = viewOf(node.attrs.view, options);
   const rendered = view === "rendered";
   const source = node.textContent;
   const dark = useIsDark();
@@ -179,7 +193,12 @@ export function SourceBlock({
           </fieldset>
         </div>
       </div>
-      <pre className="code-block-body" hidden={view !== "source"}>
+      {/* Hidden code is not editable either, so the caret has nowhere to go in it. */}
+      <pre
+        className="code-block-body"
+        hidden={view !== "source"}
+        contentEditable={view === "source"}
+      >
         <NodeViewContent<"code"> as="code" />
       </pre>
       {Legend && view === "source" && (

@@ -1,5 +1,6 @@
 import { screen } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -164,5 +165,96 @@ describe("copying the LaTeX of equation and math blocks", () => {
     await user.click(screen.getByRole("button", { name: "Preview" }));
     await user.click(screen.getByRole("button", { name: "Copy code" }));
     expect(copied).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Reported crash (#92): arrowing next to a block that shows its preview let the caret
+// into its hidden code, which aborts WebKit. jsdom cannot reproduce the abort, so this
+// pins the cause: the selection must never end up inside the hidden code. The real
+// check is a manual one in `bun run dev` on macOS.
+describe("arrow keys next to a block that shows its preview", () => {
+  const types = ["equation", "math", "diagram", "circuit"] as const;
+  const para = (text: string): JSONContent => ({
+    type: "paragraph",
+    attrs: { blockId: `p-${text}` },
+    content: [{ type: "text", text }],
+  });
+  const block = (type: string, view: string): JSONContent => ({
+    type,
+    attrs: { blockId: "b1", view },
+    content: [{ type: "text", text: "x" }],
+  });
+
+  async function openDoc(content: JSONContent[]) {
+    editor = new Editor({
+      extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+      content: { type: "doc", content },
+    });
+    renderWithProviders(<EditorContent editor={editor} />);
+    await screen.findByRole("group", { name: "View" });
+    return editor;
+  }
+
+  const press = (target: Editor, key: string) =>
+    target.view.someProp("handleKeyDown", (f) =>
+      f(target.view, new KeyboardEvent("keydown", { key })),
+    );
+
+  const insideHiddenCode = (target: Editor) => {
+    const { $from, $to } = target.state.selection;
+    return [$from, $to].some(
+      ($pos) => $pos.parent.type.spec.code === true && $pos.parent.attrs.view !== "source",
+    );
+  };
+
+  it.each(types)(
+    "selects a %s preview as a whole on Left from the paragraph below",
+    async (type) => {
+      const target = await openDoc([block(type, "rendered"), para("after")]);
+      target.commands.setTextSelection(target.state.doc.child(0).nodeSize + 1);
+      expect(press(target, "ArrowLeft")).toBe(true);
+      expect(target.state.selection).toBeInstanceOf(NodeSelection);
+      expect(target.state.selection.$from.nodeAfter?.type.name).toBe(type);
+      expect(insideHiddenCode(target)).toBe(false);
+    },
+  );
+
+  it.each(types)(
+    "selects a %s preview as a whole on Right from the paragraph above",
+    async (type) => {
+      const target = await openDoc([para("before"), block(type, "rendered")]);
+      target.commands.setTextSelection(1 + "before".length);
+      expect(press(target, "ArrowRight")).toBe(true);
+      expect(target.state.selection).toBeInstanceOf(NodeSelection);
+      expect(target.state.selection.$from.nodeAfter?.type.name).toBe(type);
+    },
+  );
+
+  it.each(types)("moves a caret that lands in the hidden %s code out of it", async (type) => {
+    const target = await openDoc([para("before"), block(type, "rendered"), para("after")]);
+    const inside = target.state.doc.child(0).nodeSize + 2;
+    target.view.dispatch(
+      target.state.tr.setSelection(TextSelection.create(target.state.doc, inside)),
+    );
+    expect(insideHiddenCode(target)).toBe(false);
+  });
+
+  it("leaves the arrows alone when the block shows its code", async () => {
+    const target = await openDoc([block("math", "source"), para("after")]);
+    target.commands.setTextSelection(target.state.doc.child(0).nodeSize + 1);
+    expect(press(target, "ArrowLeft")).toBeFalsy();
+    expect(target.state.selection).not.toBeInstanceOf(NodeSelection);
+  });
+
+  it("lets the caret into the code on the code tab", async () => {
+    const target = await openDoc([block("math", "source")]);
+    target.view.dispatch(target.state.tr.setSelection(TextSelection.create(target.state.doc, 2)));
+    expect(target.state.selection).toBeInstanceOf(TextSelection);
+  });
+
+  it("keeps the hidden code out of the tab order and out of editing", async () => {
+    await openDoc([block("math", "rendered")]);
+    const code = document.querySelector("pre.code-block-body");
+    expect(code).toHaveAttribute("contenteditable", "false");
   });
 });
