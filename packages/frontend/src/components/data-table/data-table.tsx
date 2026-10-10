@@ -5,6 +5,7 @@ import {
   type Table as TanstackTable,
 } from "@tanstack/react-table";
 import type * as React from "react";
+import type { CSSProperties } from "react";
 import {
   Table,
   TableBody,
@@ -32,6 +33,17 @@ function columnData(meta: DataTableColumnMeta | undefined) {
     "data-hide-below": meta?.hideBelow,
     "data-align": meta?.align,
   };
+}
+
+/// Room for padding and a sort chevron next to the label, on top of its characters.
+const COLUMN_PADDING = "3.5rem";
+
+/// The narrowest a column may get: as wide as its label, so a narrow window scrolls the
+/// table sideways instead of squeezing the columns until they cannot be read. Used as a
+/// custom property so the class (`min-w-(--col-min)`) stays static.
+function columnMinWidth(column: { id: string; columnDef: { meta?: DataTableColumnMeta } }): string {
+  const label = column.columnDef.meta?.label ?? column.id;
+  return `calc(${label.length}ch + ${COLUMN_PADDING})`;
 }
 
 export function DataTable<TData extends RowData>({
@@ -85,7 +97,9 @@ export function DataTable<TData extends RowData>({
         <TableCell
           key={cell.id}
           {...columnData(cell.column.columnDef.meta)}
-          className="data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 md:data-[hide-below=md]:table-cell md:data-[width=third]:w-1/3 lg:data-[hide-below=lg]:table-cell"
+          // SAFETY: only a custom property, which `CSSProperties` can't name.
+          style={{ "--col-min": columnMinWidth(cell.column) } as CSSProperties}
+          className="min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 md:data-[hide-below=md]:table-cell md:data-[width=third]:w-1/3 lg:data-[hide-below=lg]:table-cell"
         >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
@@ -94,44 +108,49 @@ export function DataTable<TData extends RowData>({
   );
 
   return (
-    <Table className={className}>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id} className="hover:bg-transparent">
-            {headerGroup.headers.map((header) => (
-              <TableHead
-                key={header.id}
-                colSpan={header.colSpan}
-                {...columnData(header.column.columnDef.meta)}
-                className="data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 md:data-[hide-below=md]:table-cell md:data-[width=third]:w-1/3 lg:data-[hide-below=lg]:table-cell"
-              >
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      {groups ? (
-        sections
-          .filter((s) => s.rows.length > 0)
-          .map((section) => (
-            <TableBody key={section.group.id}>
-              <TableRow className="border-b-0 hover:bg-transparent">
-                <TableCell
-                  colSpan={columnCount}
-                  className="pt-4 pb-1 text-xs font-medium text-muted-foreground"
+    // Scrolls sideways when the columns cannot fit, rather than squeezing them.
+    <div className="overflow-x-auto">
+      <Table className={cn("w-full min-w-max", className)}>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              {headerGroup.headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  colSpan={header.colSpan}
+                  {...columnData(header.column.columnDef.meta)}
+                  // SAFETY: only a custom property, which `CSSProperties` can't name.
+                  style={{ "--col-min": columnMinWidth(header.column) } as CSSProperties}
+                  className="min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 md:data-[hide-below=md]:table-cell md:data-[width=third]:w-1/3 lg:data-[hide-below=lg]:table-cell"
                 >
-                  {section.group.label}
-                </TableCell>
-              </TableRow>
-              {section.rows.map(renderRow)}
-            </TableBody>
-          ))
-      ) : (
-        <TableBody>{rows.map(renderRow)}</TableBody>
-      )}
-    </Table>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        {groups ? (
+          sections
+            .filter((s) => s.rows.length > 0)
+            .map((section) => (
+              <TableBody key={section.group.id}>
+                <TableRow className="border-b-0 hover:bg-transparent">
+                  <TableCell
+                    colSpan={columnCount}
+                    className="pt-4 pb-1 text-xs font-medium text-muted-foreground"
+                  >
+                    {section.group.label}
+                  </TableCell>
+                </TableRow>
+                {section.rows.map(renderRow)}
+              </TableBody>
+            ))
+        ) : (
+          <TableBody>{rows.map(renderRow)}</TableBody>
+        )}
+      </Table>
+    </div>
   );
 }
