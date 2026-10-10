@@ -17,7 +17,17 @@ export function AppToaster() {
   const count = toasts.length;
   return (
     <>
-      <Toaster closeButton offset={count > 1 ? OFFSET_WITH_CLEAR : OFFSET} />
+      {/* Only the bottom edge moves to make room for the bar: one number would shift the
+          stack away from the right edge too. */}
+      <Toaster
+        closeButton
+        offset={{
+          top: OFFSET,
+          right: OFFSET,
+          left: OFFSET,
+          bottom: count > 1 ? OFFSET_WITH_CLEAR : OFFSET,
+        }}
+      />
       {count > 1 && (
         <div
           data-toast-clear
