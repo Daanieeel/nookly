@@ -30,6 +30,7 @@ import { usePasteFiles } from "./paste-files";
 import { parseMentionHref } from "#/features/relationships/mention-utils.ts";
 import { editorExtensions } from "./editor-extensions";
 import { TableControls } from "./TableControls";
+import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { type PageSection, pageSections } from "./heading-anchors";
@@ -537,6 +538,7 @@ function HydratedBlockEditor({
     <div className="relative" {...blockContextTarget}>
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} />
+      <TableColumnHandles editor={editor} />
       <BlockHandles editor={editor} />
       <EditorContent editor={editor} />
       {pasteFiles.popover}
