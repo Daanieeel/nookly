@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.5 (2026-10-10)
+
+### Fixed
+
+- **What's new shows after updating from an older version.** If Nookly never noted which version you last saw, the update card and What's new dialog now appear instead of staying hidden.
+
 ## 0.32.4 (2026-10-10)
 
 ### Changed

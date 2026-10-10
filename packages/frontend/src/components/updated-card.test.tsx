@@ -55,10 +55,9 @@ describe("UpdatedCard", () => {
     expect(preferences.get(STORAGE_KEYS.lastSeenVersion)).toBe("0.31.10");
   });
 
-  it("shows nothing right after a fresh install", async () => {
+  it("shows the card when no version was ever seen", async () => {
     setup({ seen: "" });
-    await new Promise((resolve) => setTimeout(resolve, 40));
-    expect(screen.queryByText("Nookly updated")).toBeNull();
+    expect(await screen.findByText("Nookly updated")).toBeTruthy();
   });
 
   it("shows nothing when the version has not changed", async () => {

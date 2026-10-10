@@ -23,10 +23,14 @@ beforeEach(() => {
 });
 
 describe("useUpdatedNotice", () => {
-  it("says nothing on the first run, and remembers the version", async () => {
+  it("announces the running version when no version was ever seen", async () => {
     const { result } = run("0.31.10");
-    await waitFor(() => expect(preferences.get(STORAGE_KEYS.lastSeenVersion)).toBe("0.31.10"));
+    await waitFor(() => expect(result.current.version).toBe("0.31.10"));
+    // Seen only once the user has dealt with the card.
+    expect(preferences.get(STORAGE_KEYS.lastSeenVersion)).toBeNull();
+    act(() => result.current.dismiss());
     expect(result.current.version).toBeNull();
+    expect(preferences.get(STORAGE_KEYS.lastSeenVersion)).toBe("0.31.10");
   });
 
   it("announces a newer version than the one last seen", async () => {
@@ -88,9 +92,13 @@ describe("useUpdatedNotice", () => {
     expect(preferences.get(STORAGE_KEYS.whatsNewSince)).toBe("0.31.10");
   });
 
-  it("writes nothing on a first run or when the version has not changed", async () => {
-    run("0.32.0");
-    await waitFor(() => expect(preferences.get(STORAGE_KEYS.lastSeenVersion)).toBe("0.32.0"));
+  it("has no version to start from when none was ever seen, or when it has not changed", async () => {
+    const first = run("0.32.0");
+    await waitFor(() => expect(first.result.current.version).toBe("0.32.0"));
+    expect(preferences.get(STORAGE_KEYS.whatsNewSince)).toBeNull();
+    preferences.set(STORAGE_KEYS.lastSeenVersion, "0.32.0");
+    const same = run("0.32.0");
+    await waitFor(() => expect(same.result.current.version).toBeNull());
     expect(preferences.get(STORAGE_KEYS.whatsNewSince)).toBeNull();
   });
 });

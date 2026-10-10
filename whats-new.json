@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.32.5",
+      "date": "2026-10-10",
+      "title": "What's new after any update",
+      "summary": "Updating from an older version always shows what changed.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The update card and What's new dialog now appear even when Nookly never noted which version you last saw."
+        ]
+      }
+    },
+    {
       "version": "0.32.4",
       "date": "2026-10-10",
       "title": "A cleaner page edge",
