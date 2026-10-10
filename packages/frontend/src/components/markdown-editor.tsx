@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
 import { cn } from "@nookly/ui/lib/utils";
+import { Emoji } from "#/features/notes/emoji-extension.tsx";
 import { letterListExtensions } from "#/features/notes/ordered-list-extension.ts";
 
 const SAVE_DELAY_MS = 600;
@@ -35,6 +36,7 @@ export function MarkdownEditor({
       StarterKit.configure({ link: { openOnClick: false }, orderedList: false, listItem: false }),
       ...letterListExtensions,
       Markdown,
+      Emoji,
       Placeholder.configure({ placeholder }),
     ],
     editorProps: {

@@ -11,10 +11,21 @@ import {
 /// which differ only in what `toItem` turns each raw item into.
 export function createSuggestionRender<I>(
   toItem: (item: I) => SuggestionListItem,
+  { hideWhenEmpty = false }: { hideWhenEmpty?: boolean } = {},
 ): NonNullable<SuggestionOptions<I>["render"]> {
   return () => {
     let component: ReactRenderer<SuggestionListHandle>;
     let unmount: (() => void) | undefined;
+
+    /// Shows the popup, or with `hideWhenEmpty` hides it while nothing matches.
+    function sync(props: SuggestionProps<I>) {
+      if (hideWhenEmpty && props.items.length === 0) {
+        unmount?.();
+        unmount = undefined;
+      } else if (!unmount) {
+        unmount = props.mount(component.element);
+      }
+    }
 
     function listProps(props: SuggestionProps<I>) {
       return {
@@ -32,16 +43,20 @@ export function createSuggestionRender<I>(
           props: listProps(props),
           editor: props.editor,
         });
-        unmount = props.mount(component.element);
+        sync(props);
       },
       onUpdate: (props) => {
         component.updateProps(listProps(props));
+        sync(props);
       },
       onKeyDown: (props) => {
         if (props.event.key === "Escape") {
           unmount?.();
+          unmount = undefined;
           return true;
         }
+        // A hidden popup leaves the keys to the editor.
+        if (!unmount) return false;
         return component.ref?.onKeyDown(props.event) ?? false;
       },
       onExit: () => {

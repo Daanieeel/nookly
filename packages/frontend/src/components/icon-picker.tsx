@@ -20,6 +20,7 @@ import {
   parseIconLibraryValue,
 } from "#/components/entity-icon.tsx";
 import { ACCENT_COLORS } from "#/lib/colors.ts";
+import { ALL_EMOJI, type EmojiEntry } from "#/lib/emoji.ts";
 import { Input } from "@nookly/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
@@ -36,13 +37,6 @@ const CATEGORY_ICONS = new Map<string, TablerIcon>([
   ["symbols", IconMathSymbols],
   ["flags", IconFlag],
 ]);
-
-interface EmojiEntry {
-  emoji: string;
-  name: string;
-}
-
-const ALL_EMOJI: EmojiEntry[] = emojiGroups.flatMap((g) => g.emojis);
 
 function EmojiGrid({
   emojis,
