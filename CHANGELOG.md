@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.3 (2026-10-10)
+
+### Fixed
+
+- **The titlebar no longer overflows.** A long page or space name now shortens instead of pushing the Settings button out of the window.
+
 ## 0.32.2 (2026-10-10)
 
 ### Changed
