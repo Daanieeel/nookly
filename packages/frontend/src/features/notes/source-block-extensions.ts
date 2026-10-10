@@ -3,10 +3,22 @@ import { CircuitLegend } from "./circuit/CircuitLegend";
 import { CircuitCanvas } from "./circuit/CircuitCanvas";
 import { renderCircuit } from "./circuit/render";
 import { renderDiagram } from "./diagram";
-import { TextSelection } from "@tiptap/pm/state";
+import type { Node as ProseNode } from "@tiptap/pm/model";
+import { NodeSelection, Selection, TextSelection } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 import { mergeAttributes, Node, ReactNodeViewRenderer } from "@tiptap/react";
+import { Plugin } from "@tiptap/pm/state";
 import { mathBlockLatex, renderMath } from "./math";
-import { SourceBlock, type SourceBlockOptions } from "./SourceBlock";
+import { hidesCode, SourceBlock, type SourceBlockOptions } from "./SourceBlock";
+
+/// Whether `node` is a block named `name` that is showing its preview, not its code.
+function hiddenBlock(
+  node: ProseNode | null | undefined,
+  name: string,
+  options: SourceBlockOptions,
+): boolean {
+  return node?.type.name === name && hidesCode(node.attrs.view, options);
+}
 
 /// A plain text code node with a `view` attr, shown through `SourceBlock`. The
 /// node name is the backend block type it saves as.
@@ -51,8 +63,57 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
     addNodeView() {
       return ReactNodeViewRenderer(SourceBlock);
     },
+    // The code stays in the document while the preview shows, but a caret inside it is
+    // invisible and, in WebKit, aborts the app. Arrow keys select the whole block
+    // instead, and a caret that lands in it anyway is moved out.
+    addProseMirrorPlugins() {
+      const hidden = (node: ProseNode | null | undefined) => hiddenBlock(node, name, this.options);
+      return [
+        new Plugin({
+          appendTransaction: (_transactions, _old, state) => {
+            const { selection, doc } = state;
+            if (!(selection instanceof TextSelection)) return null;
+            const { $from, $to } = selection;
+            const fromHidden = hidden($from.parent);
+            const toHidden = hidden($to.parent);
+            if (!fromHidden && !toHidden) return null;
+            if ($from.parent === $to.parent) {
+              return state.tr.setSelection(NodeSelection.create(doc, $from.before()));
+            }
+            // A range reaching into the code stops at the block's edge instead.
+            const from = fromHidden ? Selection.findFrom(doc.resolve($from.after()), 1) : selection;
+            const to = toHidden ? Selection.findFrom(doc.resolve($to.before()), -1) : selection;
+            if (!from || !to) return null;
+            return state.tr.setSelection(TextSelection.between(from.$from, to.$to));
+          },
+        }),
+      ];
+    },
     addKeyboardShortcuts() {
+      const hidden = (node: ProseNode | null | undefined) => hiddenBlock(node, name, this.options);
+      const selectNeighbor = (direction: -1 | 1, vertical: boolean) => () => {
+        const { state, view } = this.editor;
+        const { selection } = state;
+        if (!(selection instanceof TextSelection) || !selection.empty) return false;
+        const { $from } = selection;
+        if (!$from.parent.isTextblock) return false;
+        const atEdge = vertical
+          ? endOfTextblock(view, direction < 0 ? "up" : "down")
+          : direction < 0
+            ? $from.parentOffset === 0
+            : $from.parentOffset === $from.parent.content.size;
+        if (!atEdge) return false;
+        const container = $from.node($from.depth - 1);
+        const neighbor = container.maybeChild($from.index($from.depth - 1) + direction);
+        if (!hidden(neighbor)) return false;
+        const pos = direction < 0 ? $from.before() - (neighbor?.nodeSize ?? 0) : $from.after();
+        return this.editor.commands.setNodeSelection(pos);
+      };
       return {
+        ArrowLeft: selectNeighbor(-1, false),
+        ArrowRight: selectNeighbor(1, false),
+        ArrowUp: selectNeighbor(-1, true),
+        ArrowDown: selectNeighbor(1, true),
         /// Mod+Enter finishes the code: shows the preview and moves on below.
         "Mod-Enter": () => {
           const { $from } = this.editor.state.selection;
@@ -73,6 +134,16 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
       };
     },
   });
+}
+
+/// Whether the caret is on the first or last line of its block. Needs layout, so a
+/// missing one (no real browser) counts as not at the edge.
+function endOfTextblock(view: EditorView, direction: "up" | "down"): boolean {
+  try {
+    return view.endOfTextblock(direction);
+  } catch {
+    return false;
+  }
 }
 
 const renderLatex =
