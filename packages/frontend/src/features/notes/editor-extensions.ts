@@ -3,7 +3,7 @@ import { TableKit } from "@tiptap/extension-table";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import type { Extensions } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import type { Entity } from "#/lib/api/types.ts";
+import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { ArrowLigatures } from "./arrow-ligatures";
 import { BlockSelection } from "./block-selection";
 import { CodeBlockWithHeader } from "./code-block-extension";
@@ -47,6 +47,8 @@ export interface EditorExtensionOptions {
   /// Read live: whether a File can be mentioned by page (see `hasPages` in `file-kind.ts`).
   /// Without it no file offers a page.
   hasPages?: (entity: Entity) => boolean;
+  /// Read live: the occurrence behind a session, so the "@" menu finds it by its day and time.
+  sessionOf?: (entity: Entity) => SessionOccurrence | undefined;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -56,6 +58,7 @@ export function editorExtensions({
   getEntities,
   getNewCodeLanguage = () => null,
   hasPages = () => false,
+  sessionOf = () => undefined,
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
@@ -87,7 +90,7 @@ export function editorExtensions({
     BlockSelection,
     SlashCommand.configure({ getEntities }),
     CodeCompletion,
-    Mention.configure({ getEntities, hasPages }),
+    Mention.configure({ getEntities, hasPages, sessionOf }),
     Emoji,
     TabIndent,
     Callout,

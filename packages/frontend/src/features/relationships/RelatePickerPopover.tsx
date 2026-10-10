@@ -10,11 +10,12 @@ import { listEntities } from "#/lib/api/entities.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
 import type { Entity, RelationshipTypeInfo, SessionOccurrence } from "#/lib/api/types.ts";
-import { formatClock, formatShortDate } from "#/lib/datetime.ts";
+import { formatShortDate } from "#/lib/datetime.ts";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { sessionMatches, sessionWhen } from "#/lib/session-search.ts";
 
 /// One way to link: a relationship type read from this item's side. `reverse`
 /// means this item is the type's `to` end, so the new link points at it.
@@ -213,7 +214,16 @@ export function RelatePicker({
   // Filtered here, best match first, so the list needs no filtering of its own on this step.
   const matches = query
     ? targets
-        .map((t) => ({ t, score: defaultFilter(valueOf(t), query, keyKeywords(t.entity.key)) }))
+        .map((t) => ({
+          t,
+          // A session is found by its course and its day and time, written the usual ways.
+          score: t.session
+            ? Math.max(
+                Number(sessionMatches(t.session, query)),
+                defaultFilter(t.entity.key, query, []),
+              )
+            : defaultFilter(valueOf(t), query, keyKeywords(t.entity.key)),
+        }))
         .filter((m) => m.score > 0)
         .toSorted((a, b) => b.score - a.score)
         .map((m) => m.t)
@@ -344,12 +354,6 @@ function newestFirst(a: Target, b: Target): number {
     );
   }
   return b.entity.updatedAt.localeCompare(a.entity.updatedAt);
-}
-
-/// A session row reads "Course, Mar 10, 09:00": a session's title is only its course.
-function sessionWhen(session: SessionOccurrence): string {
-  const when = `${formatShortDate(session.date)}, ${formatClock(session.startTime)}`;
-  return session.courseTitle ? `${session.courseTitle}, ${when}` : when;
 }
 
 /// The second line of a row: what it is, and when it last changed.
