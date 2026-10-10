@@ -1,0 +1,81 @@
+{
+  "versions": [
+    {
+      "version": "0.31.10",
+      "date": "2026-10-10",
+      "title": "Bring pages in, share them out, and link things the easy way",
+      "summary": "Import and share pages, jot into the session that is running, and a calmer way to relate things to each other.",
+      "highlights": [
+        {
+          "title": "Import a page",
+          "description": "Drop in a page exported from Nookly, choose the Space, relate it to what you have and check what it contains first.",
+          "icon": "file-import",
+          "tag": "New",
+          "shortcut": "Mod+I"
+        },
+        {
+          "title": "Share a page",
+          "description": "Send a page as Markdown or as a Nookly page file through the share menu of your system.",
+          "icon": "share",
+          "tag": "New"
+        },
+        {
+          "title": "Jot for the session now",
+          "description": "Open the jot of the session that is running **right now**, or get told there is none.",
+          "icon": "notebook",
+          "tag": "New",
+          "shortcut": "Mod+Shift+J"
+        },
+        {
+          "title": "Relate in three steps",
+          "description": "Pick the **type**, then **how**, then **which one**. Suggestions put the notes of the same course first.",
+          "icon": "link",
+          "tag": "Improved"
+        },
+        {
+          "title": "Repeating tasks",
+          "description": "Make a task repeat. Finishing it creates the next one.",
+          "icon": "repeat",
+          "tag": "New"
+        },
+        {
+          "title": "Agent files",
+          "description": "Keep instructions for your own coding agent in Settings, with a starter `AGENTS.md` and a guide to the CLI.",
+          "icon": "robot",
+          "tag": "New"
+        },
+        {
+          "title": "Symbols and emoji",
+          "description": "Type `:` in a note and pick a symbol or an emoji, with the common ones ready.",
+          "icon": "mood-smile",
+          "tag": "New"
+        },
+        {
+          "title": "Mention a page of a file",
+          "description": "Press the right arrow on a file in the @ menu to pick a page. Clicking the mention opens the file there.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Search by day or time (Mar 10, Tuesday, 9am) when you relate to, mention or pick a session.",
+          "The @ menu groups notes, files, sessions and the rest under their own headings.",
+          "Renaming anything updates the mentions of it.",
+          "Notifications have a close button, a Clear all bar and their own icon for each kind. Errors stay until you close them.",
+          "Wide tables scroll sideways, and table columns can be dragged to a new place.",
+          "`Tab` and `Shift+Tab` indent text, and `Mod+Shift+V` pastes without formatting.",
+          "Click with **Cmd** (or **Ctrl**) held to open links, images and files.",
+          "Every tab remembers where you scrolled to.",
+          "Boards can hide a column, and the Assignments item shows the next one that is due.",
+          "The time field starts at the hour wherever you click it."
+        ],
+        "Fixed": [
+          "A PDF that comes back after being unavailable no longer leaves Nookly blank.",
+          "The @ and / menus open again after you have closed them.",
+          "Long folder paths no longer run out of the Settings dialog."
+        ]
+      }
+    }
+  ]
+}
