@@ -12,6 +12,8 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { useEscapeBack } from "#/hooks/use-escape-back.ts";
+import { isTyping } from "#/lib/is-typing.ts";
 import { type CSSProperties, type ReactNode, useEffect } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon, renderIconValue } from "#/components/entity-icon.tsx";
@@ -265,19 +267,13 @@ function Breadcrumbs() {
   }
 }
 
-function isTyping() {
-  const el = document.activeElement;
-  return (
-    el instanceof HTMLElement && (el.isContentEditable || el.matches("input, textarea, select"))
-  );
-}
-
 /// Browser style Back and Forward through the views visited this session. Also on
 /// Cmd+[ and Cmd+] (or Cmd+Left and Cmd+Right outside text fields), and the mouse's side buttons.
 function HistoryButtons() {
   const canGoBack = useNavStore((s) => s.backStack.length > 0);
   const canGoForward = useNavStore((s) => s.forwardStack.length > 0);
 
+  useEscapeBack();
   useAppHotkey("back", () => useNavStore.getState().goBack());
   useAppHotkey("forward", () => useNavStore.getState().goForward());
   // Cmd+Arrow moves the caret to the line edge while typing, so it only navigates outside text fields.

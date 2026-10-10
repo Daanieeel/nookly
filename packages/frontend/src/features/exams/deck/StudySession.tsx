@@ -129,7 +129,8 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
     review.variables?.rating === rating ? statusOf(review) : "idle";
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+    // Escape ends the session itself, so the page must not also go back (`use-escape-back.ts`).
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4" data-owns-escape>
       <div className="flex items-center justify-between gap-2">
         <Button variant="ghost" size="sm" onClick={onExit}>
           <IconArrowLeft />

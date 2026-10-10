@@ -304,7 +304,11 @@ export const FIXED_SHORTCUTS: FixedShortcut[] = [
   { label: "Select all", keys: ["Mod+A"], scopes: GLOBAL },
   { label: "Undo", keys: ["Mod+Z"], scopes: GLOBAL },
   { label: "Redo", keys: ["Mod+Shift+Z", "Mod+Y"], scopes: GLOBAL },
-  { label: "Close a dialog or menu, or stop editing", keys: ["Escape"], scopes: GLOBAL },
+  {
+    label: "Close a dialog or menu, stop editing, or go back to the list",
+    keys: ["Escape"],
+    scopes: GLOBAL,
+  },
   { label: "Open the context menu", keys: ["ContextMenu", "Shift+F10"], scopes: GLOBAL },
   { label: "Submit a form or a card", keys: ["Mod+Enter"], scopes: GLOBAL },
   {

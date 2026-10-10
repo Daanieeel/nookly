@@ -680,7 +680,8 @@ export function PdfViewer({
         <div className="min-w-0 flex-1" />
 
         {searchOpen ? (
-          <div className="flex items-center gap-1">
+          // Escape closes the search first, before the page goes back (`use-escape-back.ts`).
+          <div className="flex items-center gap-1" data-owns-escape>
             <Input
               ref={searchInputRef}
               value={query}
