@@ -210,7 +210,9 @@ export function TimeGrid({
                 isWeekend(day) && "bg-weekend",
               )}
             >
-              <span className="truncate">{formatWeekday(day, single ? "long" : "short")}</span>
+              <span className={cn("truncate", isToday(day) && "font-medium text-primary")}>
+                {formatWeekday(day, single ? "long" : "short")}
+              </span>
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-full text-sm tabular-nums",
@@ -304,6 +306,7 @@ export function TimeGrid({
               className={cn(
                 "relative min-w-0 flex-1 touch-none border-l border-border select-none",
                 isWeekend(day) && "bg-weekend",
+                isToday(day) && "bg-primary/5",
               )}
               onPointerDown={(e) => {
                 if (e.button !== 0 || !onSelect) return;

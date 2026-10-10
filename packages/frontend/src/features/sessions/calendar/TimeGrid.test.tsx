@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { settings } from "#/lib/settings/settings.ts";
 import { HOUR_PX, buildColumns, type SlotRange } from "./calendar-model.ts";
 import { TimeGrid } from "./TimeGrid.tsx";
@@ -75,5 +75,54 @@ describe("TimeGrid creating", () => {
     settings.set("calendar.dayStartHour", 9);
     const { view } = setup();
     expect(view.container.firstElementChild?.scrollTop).toBe(9 * HOUR_PX);
+  });
+});
+
+describe("TimeGrid today", () => {
+  afterEach(() => vi.useRealTimers());
+
+  // Wednesday 11 March 2026, local time.
+  const week = [9, 10, 11, 12, 13].map((d) => new Date(2026, 2, d));
+
+  function weekdayLabels() {
+    const view = render(
+      <TimeGrid
+        columns={buildColumns(week, [], [])}
+        selection={null}
+        highlightIds={new Set()}
+        onSelect={() => {}}
+        onPickDay={() => {}}
+      />,
+    );
+    return view;
+  }
+
+  it("highlights the weekday and the column of today only", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 2, 11, 10, 0));
+    const view = weekdayLabels();
+    const labels = ["Mon", "Tue", "Wed", "Thu", "Fri"].map((name) => view.getByText(name));
+    expect(labels.map((l) => l.className.includes("text-primary"))).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
+    const columns = [...view.container.querySelectorAll("[data-day-column]")];
+    expect(columns.map((c) => c.className.includes("bg-primary/5"))).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it("highlights nothing when today is not on screen", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 5, 1, 10, 0));
+    const view = weekdayLabels();
+    expect(view.container.querySelector(".text-primary")).toBeNull();
   });
 });
