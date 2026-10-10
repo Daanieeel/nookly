@@ -40,6 +40,7 @@ export const qk = {
     idsForSpaces: (spaceIds: string[]) => ["entity-label-ids", "all", spaceIds] as const,
   },
   blocks: (entityId: string) => ["blocks", entityId] as const,
+  blocksRoot: ["blocks"] as const,
   noteCodeLanguage: (entityId: string) => ["note-code-language", entityId] as const,
   pageMarkdown: (entityId: string) => ["page-markdown", entityId] as const,
   mentioning: (entityId: string) => ["mentioning-entities", entityId] as const,

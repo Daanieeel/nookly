@@ -828,7 +828,7 @@ fn is_page_fragment(fragment: &str) -> bool {
 
 /// Search and the mention index read a custom block's raw content, not its
 /// exported figure: the ASCII frame drops mention links and pads words with glyphs.
-fn reindex_page(conn: &Connection, entity_id: &str) -> AppResult<()> {
+pub(crate) fn reindex_page(conn: &Connection, entity_id: &str) -> AppResult<()> {
     let text = list_blocks(conn, entity_id)?
         .iter()
         .map(|block| match block_types::lookup(&block.block_type) {

@@ -194,11 +194,17 @@ pub struct EntityPatch {
 }
 
 pub fn update_entity(conn: &Connection, id: &str, patch: EntityPatch) -> AppResult<Entity> {
+    // Atomic: a rename that rewrites the labels of mentions across pages either lands
+    // with the title, or not at all.
+    super::atomically(conn, || update_entity_inner(conn, id, patch))
+}
+
+fn update_entity_inner(conn: &Connection, id: &str, patch: EntityPatch) -> AppResult<Entity> {
     let mut entity = get_entity(conn, id)?;
     let mut title_changed = false;
     if let Some(title) = patch.title {
         if title != entity.title && entity.entity_type == "file" {
-            sync_media_block_names(conn, id, &title)?;
+            sync_file_mention_labels(conn, id, &entity.title, &title)?;
         }
         title_changed = title != entity.title;
         entity.title = title;
@@ -251,35 +257,125 @@ pub(crate) fn clear_title_override(conn: &Connection, id: &str) -> AppResult<()>
     set_title_override(conn, id, false)
 }
 
-/// Media blocks (`/file`, image, video, audio) hold nothing but one mention of
-/// their File, so its label is the file's name, not the author's words: a rename
-/// rewrites it. Inline @mentions in prose keep whatever text the author left.
-fn sync_media_block_names(conn: &Connection, file_id: &str, title: &str) -> AppResult<()> {
-    let target = format!("(mention:{file_id})");
-    let label: String = title.chars().filter(|c| *c != '[' && *c != ']').collect();
-    let mut stmt = conn.prepare(
-        "SELECT id, content FROM blocks
-         WHERE block_type IN ('file', 'image', 'video', 'audio') AND content LIKE ?1",
-    )?;
+/// Blocks whose text is prose, where a mention's label may be the file's name.
+const PROSE_BLOCK_TYPES: &[&str] = &[
+    "paragraph",
+    "heading1",
+    "heading2",
+    "heading3",
+    "heading4",
+    "heading5",
+    "heading6",
+    "quote",
+    "callout",
+    "bulleted_list",
+    "numbered_list",
+    "checklist",
+    "toggle",
+    "table",
+];
+
+/// Media blocks (`/file`, image, video, audio) hold nothing but one mention of their
+/// File, so their label is always the file's name.
+const MEDIA_BLOCK_TYPES: &[&str] = &["file", "image", "video", "audio"];
+
+/// A label as it sits in markdown: no brackets, and a literal `$` written `\$` (the
+/// editor's inline format, which reads a bare one as math).
+fn markdown_label(title: &str) -> String {
+    title
+        .chars()
+        .filter(|c| *c != '[' && *c != ']')
+        .collect::<String>()
+        .replace('$', "\\$")
+}
+
+/// After a File is renamed, mentions that showed its old name show the new one. A label
+/// the author wrote is left alone: only one equal to the old title, or to the old title
+/// with a page suffix (`Slides (p. 3)` on a `#p3` mention), counts as the default one.
+/// Runs inside the rename's savepoint, touches only blocks that change and reindexes
+/// their pages so search finds the new name.
+fn sync_file_mention_labels(
+    conn: &Connection,
+    file_id: &str,
+    old_title: &str,
+    new_title: &str,
+) -> AppResult<()> {
+    if old_title.trim().is_empty() {
+        return Ok(());
+    }
+    let mut stmt = conn
+        .prepare("SELECT id, entity_id, block_type, content FROM blocks WHERE content LIKE ?1")?;
     let rows = stmt
-        .query_map(params![format!("%{target}")], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        .query_map(params![format!("%(mention:{file_id}%")], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    for (block_id, content) in rows {
-        // Exactly `[name](mention:<id>)`, the only shape a media block stores.
-        let name = content
-            .trim()
-            .strip_prefix('[')
-            .and_then(|c| c.strip_suffix(&target))
-            .and_then(|c| c.strip_suffix(']'));
-        if name.is_none_or(|n| n.contains(['[', ']'])) {
+
+    let label_pattern = regex::Regex::new(&format!(
+        r"\[([^\]]*)\]\(mention:{}(#[a-zA-Z0-9_-]+)?\)",
+        regex::escape(file_id)
+    ))
+    .map_err(|e| AppError::InvalidInput(e.to_string()))?;
+    // The old title as it may have been stored: as typed, and in markdown form.
+    let old_forms = [old_title.to_string(), markdown_label(old_title)];
+    let new_label = markdown_label(new_title);
+    let target = format!("(mention:{file_id})");
+
+    let mut changed_pages = std::collections::BTreeSet::new();
+    for (block_id, entity_id, block_type, content) in rows {
+        let rewritten = if MEDIA_BLOCK_TYPES.contains(&block_type.as_str()) {
+            // Exactly `[name](mention:<id>)`, the only shape a media block stores.
+            let is_plain = content
+                .trim()
+                .strip_prefix('[')
+                .and_then(|c| c.strip_suffix(&target))
+                .and_then(|c| c.strip_suffix(']'))
+                .is_some_and(|name| !name.contains(['[', ']']));
+            let label: String = new_title
+                .chars()
+                .filter(|c| *c != '[' && *c != ']')
+                .collect();
+            is_plain.then(|| format!("[{label}]{target}"))
+        } else if PROSE_BLOCK_TYPES.contains(&block_type.as_str()) {
+            let replaced = label_pattern.replace_all(&content, |caps: &regex::Captures| {
+                let label = &caps[1];
+                let fragment = caps.get(2).map_or("", |m| m.as_str());
+                let page = fragment
+                    .strip_prefix("#p")
+                    .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+                if old_forms.iter().any(|old| old == label) {
+                    format!("[{new_label}](mention:{file_id}{fragment})")
+                } else if page.is_some_and(|n| {
+                    old_forms
+                        .iter()
+                        .any(|old| *label == format!("{old} (p. {n})"))
+                }) {
+                    let n = page.unwrap_or_default();
+                    format!("[{new_label} (p. {n})](mention:{file_id}{fragment})")
+                } else {
+                    caps[0].to_string()
+                }
+            });
+            Some(replaced.into_owned())
+        } else {
+            None
+        };
+        let Some(rewritten) = rewritten.filter(|r| *r != content) else {
             continue;
-        }
+        };
         conn.execute(
-            "UPDATE blocks SET content = ?1 WHERE id = ?2",
-            params![format!("[{label}]{target}"), block_id],
+            "UPDATE blocks SET content = ?1, updated_at = ?2 WHERE id = ?3",
+            params![rewritten, super::now(), block_id],
         )?;
+        changed_pages.insert(entity_id);
+    }
+    for entity_id in changed_pages {
+        super::notes::reindex_page(conn, &entity_id)?;
     }
     Ok(())
 }
@@ -620,37 +716,155 @@ mod tests {
         crate::db::test_conn()
     }
 
-    #[test]
-    fn renaming_a_file_updates_media_blocks_but_not_prose_mentions() {
+    /// A page with the given blocks (type, content), and what each block looked like.
+    fn page_with(
+        conn: &Connection,
+        space_id: &str,
+        blocks: &[(&str, String)],
+    ) -> (String, Vec<crate::db::notes::Block>) {
         use crate::db::notes::{create_block, list_blocks};
+        let note = create_entity(conn, space_id.into(), "note".into(), "N".into(), None).unwrap();
+        for (block_type, content) in blocks {
+            create_block(
+                conn,
+                &note.id,
+                (*block_type).into(),
+                content.clone(),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        }
+        (note.id.clone(), list_blocks(conn, &note.id).unwrap())
+    }
+
+    fn rename(conn: &Connection, id: &str, title: &str) {
+        let patch = EntityPatch {
+            title: Some(title.into()),
+            ..Default::default()
+        };
+        update_entity(conn, id, patch).unwrap();
+    }
+
+    #[test]
+    fn renaming_a_file_updates_media_blocks_and_mentions_that_show_its_name() {
+        use crate::db::notes::list_blocks;
         let conn = setup();
         let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
         let file =
             create_entity(&conn, space.id.clone(), "file".into(), "a.pdf".into(), None).unwrap();
-        let note = create_entity(&conn, space.id.clone(), "note".into(), "N".into(), None).unwrap();
-        let mention = format!("[a.pdf](mention:{})", file.id);
-        let prose = format!("See {mention} here");
-        create_block(&conn, &note.id, "file".into(), mention, None, None, None).unwrap();
-        create_block(
+        let id = &file.id;
+        let (note, before) = page_with(
             &conn,
-            &note.id,
-            "paragraph".into(),
-            prose.clone(),
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+            &space.id,
+            &[
+                ("file", format!("[a.pdf](mention:{id})")),
+                ("paragraph", format!("See [a.pdf](mention:{id}) here")),
+                ("paragraph", format!("See [my slides](mention:{id}) here")),
+                (
+                    "paragraph",
+                    format!("Read [a.pdf (p. 3)](mention:{id}#p3)."),
+                ),
+                (
+                    "paragraph",
+                    format!("Read [a.pdf (p. 4)](mention:{id}#p3)."),
+                ),
+                ("heading2", format!("About [a.pdf](mention:{id})")),
+                ("bulleted_list", format!("[a.pdf](mention:{id})\nplain")),
+                ("table", format!("Name\tFile\nX\t[a.pdf](mention:{id})")),
+                ("callout", format!("Look at [a.pdf](mention:{id})")),
+                ("paragraph", "Nothing to do with it".into()),
+                ("code", format!("[a.pdf](mention:{id})")),
+            ],
+        );
 
-        let patch = EntityPatch {
-            title: Some("b.pdf".into()),
-            ..Default::default()
-        };
-        update_entity(&conn, &file.id, patch).unwrap();
+        rename(&conn, id, "b.pdf");
 
-        let blocks = list_blocks(&conn, &note.id).unwrap();
-        assert_eq!(blocks[0].content, format!("[b.pdf](mention:{})", file.id));
-        assert_eq!(blocks[1].content, prose);
+        let after = list_blocks(&conn, &note).unwrap();
+        let content: Vec<&str> = after.iter().map(|b| b.content.as_str()).collect();
+        assert_eq!(content[0], format!("[b.pdf](mention:{id})"));
+        assert_eq!(content[1], format!("See [b.pdf](mention:{id}) here"));
+        // A label the author wrote is theirs.
+        assert_eq!(content[2], format!("See [my slides](mention:{id}) here"));
+        // The page number of a default label stays.
+        assert_eq!(content[3], format!("Read [b.pdf (p. 3)](mention:{id}#p3)."));
+        assert_eq!(content[4], format!("Read [a.pdf (p. 4)](mention:{id}#p3)."));
+        assert_eq!(content[5], format!("About [b.pdf](mention:{id})"));
+        assert_eq!(content[6], format!("[b.pdf](mention:{id})\nplain"));
+        assert_eq!(content[7], format!("Name\tFile\nX\t[b.pdf](mention:{id})"));
+        assert_eq!(content[8], format!("Look at [b.pdf](mention:{id})"));
+        assert_eq!(content[9], "Nothing to do with it");
+        // Code is code: a link written in it is not a mention.
+        assert_eq!(content[10], format!("[a.pdf](mention:{id})"));
+        // Only blocks that changed are touched.
+        for index in [2, 4, 9, 10] {
+            assert_eq!(after[index].updated_at, before[index].updated_at, "{index}");
+        }
+        for index in [0, 1, 3, 5, 6, 7, 8] {
+            assert_ne!(after[index].updated_at, before[index].updated_at, "{index}");
+        }
+    }
+
+    #[test]
+    fn renaming_a_file_keeps_other_files_and_pages_untouched() {
+        use crate::db::notes::list_blocks;
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        let file =
+            create_entity(&conn, space.id.clone(), "file".into(), "a.pdf".into(), None).unwrap();
+        let other =
+            create_entity(&conn, space.id.clone(), "file".into(), "a.pdf".into(), None).unwrap();
+        let page =
+            create_entity(&conn, space.id.clone(), "note".into(), "a.pdf".into(), None).unwrap();
+        let text = format!("[a.pdf](mention:{}) [a.pdf](mention:{})", other.id, page.id);
+        let (note, _) = page_with(&conn, &space.id, &[("paragraph", text.clone())]);
+        rename(&conn, &file.id, "b.pdf");
+        assert_eq!(list_blocks(&conn, &note).unwrap()[0].content, text);
+    }
+
+    #[test]
+    fn a_renamed_file_name_with_brackets_or_dollars_stays_valid_markdown() {
+        use crate::db::notes::list_blocks;
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        let file =
+            create_entity(&conn, space.id.clone(), "file".into(), "a.pdf".into(), None).unwrap();
+        let id = &file.id;
+        let (note, _) = page_with(
+            &conn,
+            &space.id,
+            &[("paragraph", format!("[a.pdf](mention:{id})"))],
+        );
+        rename(&conn, id, "Cost [$5].pdf");
+        assert_eq!(
+            list_blocks(&conn, &note).unwrap()[0].content,
+            format!("[Cost \\$5.pdf](mention:{id})")
+        );
+        // And back again: the label written above counts as the default label.
+        rename(&conn, id, "Final.pdf");
+        assert_eq!(
+            list_blocks(&conn, &note).unwrap()[0].content,
+            format!("[Final.pdf](mention:{id})")
+        );
+    }
+
+    #[test]
+    fn renaming_a_file_updates_what_search_finds_on_the_page() {
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        let file =
+            create_entity(&conn, space.id.clone(), "file".into(), "a.pdf".into(), None).unwrap();
+        let id = &file.id;
+        let (note, _) = page_with(
+            &conn,
+            &space.id,
+            &[("paragraph", format!("Read [zebra.pdf](mention:{id}) now"))],
+        );
+        rename(&conn, id, "zebra.pdf");
+        rename(&conn, id, "giraffe.pdf");
+        let hits = crate::db::search::search(&conn, "giraffe", None).unwrap();
+        assert!(hits.iter().any(|h| h.entity_id == note), "{hits:?}");
     }
 
     #[test]
