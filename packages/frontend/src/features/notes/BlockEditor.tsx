@@ -29,6 +29,7 @@ import { newCodeBlockLanguage } from "./default-code-language";
 import { usePasteFiles } from "./paste-files";
 import { parseMentionHref } from "#/features/relationships/mention-utils.ts";
 import { editorExtensions } from "./editor-extensions";
+import { openExternalLink } from "./open-link";
 import { TableControls } from "./TableControls";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
@@ -301,7 +302,7 @@ function HydratedBlockEditor({
           );
           return true;
         }
-        return false;
+        return openExternalLink(event);
       },
     },
     onUpdate: () => {

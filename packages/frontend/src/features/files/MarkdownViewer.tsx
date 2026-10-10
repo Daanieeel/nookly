@@ -1,5 +1,6 @@
 import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
+import { openExternalLink } from "#/features/notes/open-link.ts";
 import { editorExtensions } from "#/features/notes/editor-extensions.ts";
 
 /// A markdown file drawn by the note editor's own renderer, read only: the same
@@ -10,7 +11,10 @@ export function MarkdownViewer({ text, spaceId }: { text: string; spaceId: strin
     contentType: "markdown",
     editable: false,
     extensions: [...editorExtensions({ spaceId, pageId: "", getEntities: () => [] }), Markdown],
-    editorProps: { attributes: { class: "tiptap-content text-sm/relaxed" } },
+    editorProps: {
+      attributes: { class: "tiptap-content text-sm/relaxed" },
+      handleClickOn: (_view, _pos, _node, _nodePos, event) => openExternalLink(event),
+    },
   });
   return <EditorContent editor={editor} />;
 }

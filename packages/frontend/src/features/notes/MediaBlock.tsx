@@ -16,7 +16,7 @@ import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { type ComponentType, useEffect, useState } from "react";
+import { type ComponentType, type MouseEvent, useEffect, useState } from "react";
 import { z } from "zod";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
@@ -165,6 +165,11 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
     if (source?.localPath) void openPath(source.localPath);
     else if (source?.url) void openUrl(source.url);
   };
+  /// Cmd or Ctrl and a click on the media itself opens it; a plain click is left alone
+  /// (it selects the block, and a video or audio player has its own controls).
+  const openOnModifierClick = (event: MouseEvent<HTMLElement>) => {
+    if (event.metaKey || event.ctrlKey) openSource();
+  };
 
   return (
     <NodeViewWrapper className="my-1" contentEditable={false}>
@@ -182,12 +187,19 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
             )}
           </div>
         ) : kind === "image" && source.src ? (
-          <img src={source.src} alt={caption || source.name} className="media-image" />
+          // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- Cmd or Ctrl and click is a pointer shortcut; the toolbar's Open File is the keyboard way
+          <img
+            src={source.src}
+            alt={caption || source.name}
+            className="media-image"
+            onClick={openOnModifierClick}
+          />
         ) : kind === "video" && source.src ? (
           // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own video, no captions to offer
           <video src={source.src} controls preload="metadata" className="media-video" />
         ) : (
-          <div className="media-card flex flex-col gap-2">
+          // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- Cmd or Ctrl and click is a pointer shortcut; the toolbar's Open File is the keyboard way
+          <div className="media-card flex flex-col gap-2" onClick={openOnModifierClick}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-muted-foreground">
                 <Icon className="size-4.5" />
