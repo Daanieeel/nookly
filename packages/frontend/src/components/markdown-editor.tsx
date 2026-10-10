@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
 import { cn } from "@nookly/ui/lib/utils";
+import { openExternalLink } from "#/features/notes/open-link.ts";
 import { Emoji } from "#/features/notes/emoji-extension.tsx";
 import { letterListExtensions } from "#/features/notes/ordered-list-extension.ts";
 
@@ -41,6 +42,7 @@ export function MarkdownEditor({
     ],
     editorProps: {
       attributes: { class: cn("tiptap-content min-h-32 text-sm/relaxed", className) },
+      handleClickOn: (_view, _pos, _node, _nodePos, event) => openExternalLink(event),
     },
     onUpdate: ({ editor: current }) => {
       window.clearTimeout(timer.current);
