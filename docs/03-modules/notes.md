@@ -29,6 +29,10 @@ Code is in `src-tauri/src/db/page_json.rs`. It is an app level file action, not 
 
 Custom markdown works in every free text field across the app, not just in Notes. Tasks, Exams, and every other module support it too.
 
+## Mention Labels
+
+A mention is a link whose label is the entity's title when it was written. Renaming any entity rewrites the labels that still show its old title (or "Untitled Note" and the like, when it had none) in every page block, inside the rename. A label the author changed is left alone.
+
 ## Layout Direction
 
 A full-width document canvas. The writing surface never uses a list plus detail pane split. The page itself is the canvas.

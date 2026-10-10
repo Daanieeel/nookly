@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { ENTITY_RENAMED } from "#/lib/rename-sync.ts";
 import type { Entity, EntityPatch } from "./types";
 
 export function createEntity(
@@ -14,8 +15,11 @@ export function getEntity(id: string): Promise<Entity> {
   return invoke("get_entity", { id });
 }
 
-export function updateEntity(id: string, patch: EntityPatch): Promise<Entity> {
-  return invoke("update_entity", { id, patch });
+export async function updateEntity(id: string, patch: EntityPatch): Promise<Entity> {
+  const entity = await invoke<Entity>("update_entity", { id, patch });
+  // A new title also rewrites the mentions that showed the old one, on other pages.
+  if (patch.title !== undefined) window.dispatchEvent(new Event(ENTITY_RENAMED));
+  return entity;
 }
 
 export function listEntities(spaceId: string | null, includeDeleted: boolean): Promise<Entity[]> {
