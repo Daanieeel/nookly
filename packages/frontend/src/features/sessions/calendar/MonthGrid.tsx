@@ -48,6 +48,10 @@ export function MonthGrid({
     columns.slice(i * 7, i * 7 + 7),
   );
 
+  // Today's weekday stands out in the header, but only while today is on screen.
+  const todayVisible = columns.some(({ day }) => isToday(day));
+  const todayWeekday = new Date().getDay();
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div className="sticky top-0 z-10 flex shrink-0 border-b border-border bg-card">
@@ -57,6 +61,7 @@ export function MonthGrid({
             className={cn(
               "min-w-0 flex-1 border-l border-border px-2 py-1.5 text-xs text-muted-foreground first:border-l-0",
               isWeekend(day) && "bg-weekend",
+              todayVisible && day.getDay() === todayWeekday && "font-medium text-primary",
             )}
           >
             {formatWeekday(day, "short")}
