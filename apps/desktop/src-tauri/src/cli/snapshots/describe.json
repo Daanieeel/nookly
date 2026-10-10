@@ -85,7 +85,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -104,7 +104,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -118,7 +118,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -154,7 +154,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -826,7 +826,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -845,7 +845,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -859,7 +859,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -895,7 +895,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1180,7 +1180,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1199,7 +1199,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1213,7 +1213,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1249,7 +1249,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1910,7 +1910,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1929,7 +1929,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1943,7 +1943,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -1979,7 +1979,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -2248,7 +2248,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -2267,7 +2267,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -2281,7 +2281,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -2317,7 +2317,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3226,7 +3226,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3245,7 +3245,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3259,7 +3259,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3295,7 +3295,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3603,7 +3603,7 @@
               "name": "drawing"
             },
             {
-              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source.",
+              "description": "What the editor shows: the code, the canvas to draw on by hand, or the circuit drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3622,7 +3622,7 @@
           ],
           "diagram": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3636,7 +3636,7 @@
           "entity_card": [],
           "equation": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [
@@ -3672,7 +3672,7 @@
           ],
           "math": [
             {
-              "description": "What the editor shows: the source code, or what it renders to. Defaults to source.",
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
               "name": "view",
               "values": [

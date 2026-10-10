@@ -814,7 +814,8 @@ const VIEW_ATTR: BlockAttrDef = BlockAttrDef {
     name: "view",
     kind: AttrKind::Enum(SOURCE_VIEWS),
     description:
-        "What the editor shows: the source code, or what it renders to. Defaults to source.",
+        "What the editor shows: the source code, or what it renders to. Defaults to source, \
+         but the CLI's add-block defaults to rendered.",
 };
 
 /// A math block's lines as one display formula, rows of an `aligned` environment
@@ -888,7 +889,7 @@ const CIRCUIT_VIEW_ATTR: BlockAttrDef = BlockAttrDef {
     name: "view",
     kind: AttrKind::Enum(CIRCUIT_VIEWS),
     description: "What the editor shows: the code, the canvas to draw on by hand, or the circuit \
-                  drawn from the code. Defaults to source.",
+                  drawn from the code. Defaults to source, but the CLI's add-block defaults to rendered.",
 };
 
 const DRAWING_ATTR: BlockAttrDef = BlockAttrDef {

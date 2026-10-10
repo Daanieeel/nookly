@@ -778,11 +778,14 @@ nookly cli note add-block <id> --type bookmark --content '[Rust Book](mention:<b
 nookly cli note add-block <id> --type embed --content 'https://www.youtube.com/watch?v=<id>'
 nookly cli note add-block <id> --type toggle --content "$(printf 'What is a monad?\nA monoid in the category of endofunctors.')"
 nookly cli note add-block <id> --type heading2 --content 'Week 1' --attr toggle=closed   # toggle heading
-nookly cli note add-block <id> --type equation --content '\int_0^1 x^2\,dx = \frac{1}{3}' --attr view=rendered
-nookly cli note add-block <id> --type diagram --content "$(printf 'flowchart LR\n  Idea --> Draft --> Done')" --attr view=rendered
+nookly cli note add-block <id> --type equation --content '\int_0^1 x^2\,dx = \frac{1}{3}'
+nookly cli note add-block <id> --type diagram --content "$(printf 'flowchart LR\n  Idea --> Draft --> Done')"
 nookly cli note add-block <id> --type math --content "$(printf '(a+b)^2 &= (a+b)(a+b) \\\\\n&= a^2 + 2ab + b^2')"
-nookly cli note add-block <id> --type circuit --content "$(printf 'S = A ^ B\nC = A & B')" --attr view=rendered
+nookly cli note add-block <id> --type circuit --content "$(printf 'S = A ^ B\nC = A & B')"
 ```
+
+Equation, math, diagram and circuit blocks added here open on the preview. Pass
+`--attr view=source` to show the code instead.
 
 Inline math goes straight into paragraph text as `$…$` (`The area is $\pi r^2$`); a literal
 dollar sign is written `\$`.
@@ -1676,15 +1679,19 @@ fn block_command(
             let language = args.flag("language");
             let filename = args.flag("filename");
             let submitted_content = content.clone();
+            let mut attrs = args.attrs()?;
+            // Whoever writes these blocks through the CLI wants to see the result, not the
+            // code, so they open on the preview unless `--attr view=...` says otherwise.
+            if matches!(
+                block_type.as_str(),
+                "equation" | "math" | "diagram" | "circuit"
+            ) {
+                attrs
+                    .entry("view".to_string())
+                    .or_insert_with(|| "rendered".to_string());
+            }
             let block = crate::db::notes::create_block_with_attrs(
-                conn,
-                &id,
-                block_type,
-                content,
-                position,
-                language,
-                filename,
-                args.attrs()?,
+                conn, &id, block_type, content, position, language, filename, attrs,
             )?;
             let page_key = crate::db::entities::entity_key(conn, &id)?;
             let mut result = json!({ "pageId": id, "pageKey": page_key, "block": block.clone() });
