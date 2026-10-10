@@ -48,3 +48,7 @@ A lightweight, keyboard-first quick-create overlay with a title field and inline
 
 - The user can create one task and immediately start the next without closing the overlay.
 - Hovering a board column reveals a "+" that creates a task directly in that status.
+
+## Export and Import
+
+A Task exports as a `nookly-task` file (version 1): title, status (name and doneness), start and due date, effort, repeat rule, description blocks and its Sub-tasks nested under `subtasks`. Ids, timestamps, Labels, links and the Space stay behind. Import creates a new Task with its Sub-tasks, whole or not at all.

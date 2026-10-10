@@ -335,3 +335,16 @@ Settings has an Agent tab for markdown files (`AGENTS.md` and others) in a folde
 A Note or Jot exports as a `nookly-page` JSON file that keeps every block with its settings, and imports as a new page. Markdown stays the format for reading elsewhere.
 
 **Why:** the markdown export flattens custom blocks into ASCII figures, so a page could not come back whole. Links, labels and files belong to one instance and stay behind: mentions become text, and media blocks become a paragraph with the file name.
+
+---
+
+### Tasks, Decks and Assignments port as JSON, one format per type
+
+A Task exports as `nookly-task`, a Deck as `nookly-deck` and an Assignment as `nookly-assignment`, next to `nookly-page`. Each has `format`, `version` and `kind`, is read strictly (an unknown or missing field refuses the whole file) and imports as a new entity, never changing an existing one. A `PortableDef` registered next to the type drives the app, the commands and the CLI's generic `export` and `import` verbs, so a new type needs no new command.
+
+- **One format per type, not one shared envelope.** Each type has its own fields and its own version, so one can change without touching the others, and a file says clearly what it is. An import reads `format` to know which.
+- **Tasks keep their Sub-tasks**, nested one level under `subtasks` (title, status, dates, effort and description blocks), as in the app. The status travels as its name and doneness: an import uses the status with that name, else the first with the same doneness, else the first. A finished one arrives finished and, when it repeats, starts no next occurrence. Labels, links (so its Course) and the completion time stay behind.
+- **Decks export their cards' front and back only.** When a card is due, how well it is known and its review history belong to the person who studied it, so imported cards start as new. The Exam a Deck is filed under stays behind.
+- **Assignments export title, status, due day, grade, weight and description.** An Assignment has no sub-items: its Tasks are separate entities and stay behind with the other relationships. A due day that followed a session travels as the plain day it resolved to. The Course is named as text and never looked up, and the import is filed under a Course the user picks, because every Assignment belongs to exactly one.
+
+**Why:** Pages already move this way, and the same rule fits: what belongs to one instance (ids, timestamps, labels, relationships, the Space, scheduling) never travels, and a reference to another entity becomes plain text. No schema changes, so no migration.

@@ -444,7 +444,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
             },
         })
     });
-    serde_json::json!({
+    let mut described = serde_json::json!({
         "entityType": def.entity_type,
         "description": def.description,
         "supportsBlocks": supports_blocks,
@@ -504,7 +504,22 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
                 "command": format!("nookly cli {} convert <id> --to {}", def.entity_type, c.to),
             }))
             .collect::<Vec<_>>(),
-    })
+    });
+    // Only a type with a file format reports one, so the rest of `describe` stays as it was.
+    if let Some(p) = crate::db::portable::for_type(def.entity_type) {
+        described["portable"] = serde_json::json!({
+            "format": p.format,
+            "version": p.version,
+            "parentType": p.parent_type,
+            "export": format!("nookly cli {} export <id> [--out <path>]", def.entity_type),
+            "import": format!(
+                "nookly cli {} import --file <path> --space <id>{}",
+                def.entity_type,
+                if p.parent_type.is_some() { " --parent <id>" } else { "" }
+            ),
+        });
+    }
+    described
 }
 
 /// The base entity id inside a registered `get`/`create` payload: at the top

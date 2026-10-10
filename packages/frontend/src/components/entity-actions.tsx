@@ -16,10 +16,11 @@ import {
   CopyPageMarkdownItem,
   PageExportMenu,
   SaveMarkdownFileItem,
-  SaveNooklyPageItem,
 } from "#/features/notes/PageExportMenu.tsx";
 import { ShareButton, ShareMenuSub } from "#/features/notes/SharePage.tsx";
+import { SaveNooklyFileItem } from "#/features/portable/save-nookly-file.tsx";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
+import { isPortableType } from "#/lib/api/portable.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -122,8 +123,14 @@ export function EntityActions({
               <DropdownMenuSeparator />
               <CopyPageMarkdownItem entity={entity} />
               <SaveMarkdownFileItem entity={entity} onDone={closeMenu} />
-              <SaveNooklyPageItem entity={entity} onDone={closeMenu} />
+              <SaveNooklyFileItem entity={entity} onDone={closeMenu} />
               <ShareMenuSub entity={entity} onDone={closeMenu} />
+            </>
+          )}
+          {!exportable && isPortableType(entity.type) && (
+            <>
+              <DropdownMenuSeparator />
+              <SaveNooklyFileItem entity={entity} onDone={closeMenu} />
             </>
           )}
           <DropdownMenuSeparator />

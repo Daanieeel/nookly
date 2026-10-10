@@ -21,7 +21,7 @@ function stubShare() {
 
 function setup(entity = note, exportable = true) {
   mockCommand("render_page_markdown", "# Physics");
-  mockCommand("render_page_json", '{"format":"nookly-page"}');
+  mockCommand("render_entity_json", '{"format":"nookly-page"}');
   return renderWithProviders(
     <EntityActions
       entity={entity}
@@ -86,7 +86,7 @@ describe("Share in the more actions menu", () => {
     const item = await screen.findByRole("menuitem", { name: "Nookly page" });
     act(() => item.focus());
     await user.keyboard("{Enter}");
-    await waitFor(() => expect(callsOf("render_page_json").length).toBeGreaterThan(0));
+    await waitFor(() => expect(callsOf("render_entity_json").length).toBeGreaterThan(0));
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
   });
 

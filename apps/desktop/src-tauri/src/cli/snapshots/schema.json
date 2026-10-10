@@ -388,6 +388,13 @@
           "writableOnUpdate": true
         }
       ],
+      "portable": {
+        "export": "nookly cli assignment export <id> [--out <path>]",
+        "format": "nookly-assignment",
+        "import": "nookly cli assignment import --file <path> --space <id> --parent <id>",
+        "parentType": "course",
+        "version": 1
+      },
       "relationshipTypes": [
         "assignment-course",
         "assignment-due-session",
@@ -1820,6 +1827,13 @@
           "writableOnUpdate": true
         }
       ],
+      "portable": {
+        "export": "nookly cli index_card_deck export <id> [--out <path>]",
+        "format": "nookly-deck",
+        "import": "nookly cli index_card_deck import --file <path> --space <id>",
+        "parentType": null,
+        "version": 1
+      },
       "relationshipTypes": [
         "deck-exam"
       ],
@@ -2156,6 +2170,13 @@
       ],
       "entityType": "jot",
       "fields": [],
+      "portable": {
+        "export": "nookly cli jot export <id> [--out <path>]",
+        "format": "nookly-page",
+        "import": "nookly cli jot import --file <path> --space <id>",
+        "parentType": null,
+        "version": 1
+      },
       "relationshipTypes": [
         "course-jots",
         "relates-to",
@@ -2495,6 +2516,13 @@
           "writableOnUpdate": true
         }
       ],
+      "portable": {
+        "export": "nookly cli note export <id> [--out <path>]",
+        "format": "nookly-page",
+        "import": "nookly cli note import --file <path> --space <id>",
+        "parentType": null,
+        "version": 1
+      },
       "relationshipTypes": [
         "attached-file",
         "course-notes",
@@ -3902,6 +3930,13 @@
           "writableOnUpdate": true
         }
       ],
+      "portable": {
+        "export": "nookly cli task export <id> [--out <path>]",
+        "format": "nookly-task",
+        "import": "nookly cli task import --file <path> --space <id>",
+        "parentType": null,
+        "version": 1
+      },
       "relationshipTypes": [
         "blocks",
         "relates-to",

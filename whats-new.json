@@ -1,6 +1,51 @@
 {
   "versions": [
     {
+      "version": "0.32.0",
+      "date": "2026-10-10",
+      "title": "Tasks, decks and assignments travel too",
+      "summary": "Export a task, a deck or an assignment as a Nookly file and bring it back with Import, on this Nookly or another one.",
+      "highlights": [
+        {
+          "title": "Export a task",
+          "description": "Save a task with its subtasks, status, dates and description from its **more actions** menu.",
+          "icon": "file-export",
+          "tag": "New"
+        },
+        {
+          "title": "Export a deck",
+          "description": "A deck leaves with its cards. Review history stays with you, so imported cards start as new.",
+          "icon": "cards",
+          "tag": "New"
+        },
+        {
+          "title": "Export an assignment",
+          "description": "Keep its status, due day, grade and description. When you import it, you choose the course it belongs to.",
+          "icon": "file-export",
+          "tag": "New"
+        },
+        {
+          "title": "Import any Nookly file",
+          "description": "The Import dialog recognises pages, tasks, decks and assignments and shows what is inside before you confirm.",
+          "icon": "file-import",
+          "tag": "Improved",
+          "shortcut": "Mod+I"
+        },
+        {
+          "title": "From the command line",
+          "description": "`nookly cli task export` and `import` work for notes, jots, tasks, decks and assignments too.",
+          "icon": "terminal",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Importing never changes what you already have. A bad file is refused with a clear reason and creates nothing.",
+          "Labels, links, the Space and review history are never part of a file."
+        ]
+      }
+    },
+    {
       "version": "0.31.10",
       "date": "2026-10-10",
       "title": "Bring pages in, share them out, and link things the easy way",

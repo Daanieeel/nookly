@@ -17,11 +17,11 @@ async function openMenu() {
 describe("PageExportMenu Nookly page file", () => {
   it("saves the page as a Nookly page file at the chosen path", async () => {
     mockCommand("plugin:dialog|save", "/tmp/Physics week 3.nookly.json");
-    mockCommand("export_page_json", null);
+    mockCommand("export_entity_json", null);
     const { user } = await openMenu();
     await user.click(await screen.findByRole("menuitem", { name: /Export as Nookly Page/ }));
-    await waitFor(() => expect(callsOf("export_page_json")).toHaveLength(1));
-    expect(callsOf("export_page_json")[0]).toEqual({
+    await waitFor(() => expect(callsOf("export_entity_json")).toHaveLength(1));
+    expect(callsOf("export_entity_json")[0]).toEqual({
       entityId: "note-1",
       path: "/tmp/Physics week 3.nookly.json",
     });
@@ -33,10 +33,10 @@ describe("PageExportMenu Nookly page file", () => {
 
   it("writes nothing when the save dialog is cancelled", async () => {
     mockCommand("plugin:dialog|save", null);
-    mockCommand("export_page_json", null);
+    mockCommand("export_entity_json", null);
     const { user } = await openMenu();
     await user.click(await screen.findByRole("menuitem", { name: /Export as Nookly Page/ }));
     await waitFor(() => expect(callsOf("plugin:dialog|save")).toHaveLength(1));
-    expect(callsOf("export_page_json")).toHaveLength(0);
+    expect(callsOf("export_entity_json")).toHaveLength(0);
   });
 });

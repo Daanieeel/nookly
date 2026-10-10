@@ -1,4 +1,5 @@
 pub mod ascii_frame;
+pub mod assignment_json;
 pub mod assignments;
 #[cfg(test)]
 mod assignments_tests;
@@ -9,6 +10,7 @@ mod bookmarks_tests;
 pub mod calendar;
 pub mod common_fields;
 pub mod courses;
+pub mod deck_json;
 pub mod decks;
 #[cfg(test)]
 mod decks_tests;
@@ -34,6 +36,7 @@ pub mod notes;
 mod ocr;
 mod office_text;
 pub mod page_json;
+pub mod portable;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;
@@ -55,6 +58,7 @@ mod spaces_tests;
 pub mod study_blocks;
 #[cfg(test)]
 mod study_blocks_tests;
+pub mod task_json;
 pub mod tasks;
 #[cfg(test)]
 mod tasks_tests;

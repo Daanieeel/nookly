@@ -3431,3 +3431,192 @@ fn a_task_repeat_rule_is_set_and_cleared_through_the_generic_update() {
     let cleared = cli(&fx.conn, &["task", "update", &id, "--field", "repeat=null"]).unwrap();
     assert!(cleared["data"]["repeat"].is_null());
 }
+
+// --- export and import (db::portable) -----------------------------------------
+
+fn temp_path(name: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!(
+        "nookly-cli-portable-{}-{name}",
+        crate::db::new_id()
+    ))
+}
+
+#[test]
+fn every_portable_type_exports_and_imports_through_the_generic_verbs() {
+    let mut walked = Vec::new();
+    each_type(|fx, def, created| {
+        let Some(portable) = crate::db::portable::for_type(def.entity_type) else {
+            return;
+        };
+        walked.push(def.entity_type);
+        let t = def.entity_type;
+
+        // Printed: the document itself, in the type's format.
+        let doc = cli(&fx.conn, &[t, "export", &created.id]).unwrap();
+        assert_eq!(doc["format"], portable.format, "{t}");
+        assert_eq!(doc["version"], portable.version, "{t}");
+
+        // Written to a path.
+        let path = temp_path(&format!("{t}.json"));
+        let path_text = path.to_string_lossy().to_string();
+        let out = cli(&fx.conn, &[t, "export", &created.id, "--out", &path_text]).unwrap();
+        assert_eq!(out["format"], portable.format);
+        let written: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written, doc, "{t}: --out writes what is printed");
+
+        // A parent where the type needs one, in the same Space.
+        let mut import: Vec<String> = [t, "import", "--file", &path_text, "--space", &fx.space]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        if let Some(parent_type) = portable.parent_type {
+            let parent_def = schema::lookup(parent_type).unwrap();
+            let parent = create_generic(&fx.conn, &fx.space, parent_def, 0).unwrap();
+            // Refused without it, and nothing is made.
+            let before = fingerprint(&fx.conn);
+            let err = err_of(cli_owned(&fx.conn, &import));
+            assert_eq!(kind_of(&err), "InvalidInput", "{t}");
+            assert!(err.to_string().contains(parent_type), "{t}: {err}");
+            assert_eq!(fingerprint(&fx.conn), before, "{t}");
+            import.extend(["--parent".into(), parent.id]);
+        }
+
+        // Imported as a new entity of the same type; the original is untouched.
+        let imported = cli_owned(&fx.conn, &import).unwrap();
+        let new_id = extract_id(&imported["data"]).unwrap();
+        assert_ne!(new_id, created.id, "{t}");
+        assert_eq!(
+            imported["data"]["title"],
+            get_data(&fx.conn, t, &created.id)["title"],
+            "{t}"
+        );
+        assert!(deleted_at(&fx.conn, &created.id).is_none(), "{t}");
+        let _ = std::fs::remove_file(&path);
+    });
+    for expected in ["note", "jot", "task", "index_card_deck", "assignment"] {
+        assert!(
+            walked.contains(&expected),
+            "{expected} was not exercised: {walked:?}"
+        );
+    }
+}
+
+#[test]
+fn a_type_with_a_file_format_describes_it_and_the_others_do_not() {
+    each_type(|fx, def, _| {
+        let described = cli(&fx.conn, &["describe", def.entity_type]).unwrap();
+        match crate::db::portable::for_type(def.entity_type) {
+            Some(p) => {
+                assert_eq!(
+                    described["portable"]["format"], p.format,
+                    "{}",
+                    def.entity_type
+                );
+                assert!(described["portable"]["export"]
+                    .as_str()
+                    .unwrap()
+                    .contains("export"));
+                assert!(described["portable"]["import"]
+                    .as_str()
+                    .unwrap()
+                    .contains("--file"));
+                assert_eq!(
+                    described["portable"]["import"]
+                        .as_str()
+                        .unwrap()
+                        .contains("--parent"),
+                    p.parent_type.is_some()
+                );
+            }
+            None => assert!(described["portable"].is_null(), "{}", def.entity_type),
+        }
+    });
+}
+
+#[test]
+fn export_and_import_refuse_what_they_cannot_do_and_write_nothing() {
+    let fx = fx();
+    let before = fingerprint(&fx.conn);
+    // A type with no file format.
+    let course = create_generic(&fx.conn, &fx.space, schema::lookup("course").unwrap(), 0).unwrap();
+    let err = err_of(cli(&fx.conn, &["course", "export", &course.id]));
+    assert_eq!(kind_of(&err), "InvalidInput");
+    assert!(err.to_string().contains("no file format"), "{err}");
+    // A file of one type imported as another says which it is.
+    let task = create_generic(&fx.conn, &fx.space, schema::lookup("task").unwrap(), 0).unwrap();
+    let path = temp_path("task.json");
+    let path_text = path.to_string_lossy().to_string();
+    cli(&fx.conn, &["task", "export", &task.id, "--out", &path_text]).unwrap();
+    let before = {
+        let _ = &before;
+        fingerprint(&fx.conn)
+    };
+    let err = err_of(cli(
+        &fx.conn,
+        &[
+            "index_card_deck",
+            "import",
+            "--file",
+            &path_text,
+            "--space",
+            &fx.space,
+        ],
+    ));
+    assert_eq!(kind_of(&err), "InvalidInput");
+    assert!(err.to_string().contains("nookly-task"), "{err}");
+    // A missing file, a missing flag and a file that is not JSON.
+    let missing = temp_path("missing.json").to_string_lossy().to_string();
+    assert_eq!(
+        kind_of(&err_of(cli(
+            &fx.conn,
+            &["task", "import", "--file", &missing, "--space", &fx.space]
+        ))),
+        "Io"
+    );
+    assert!(
+        err_of(cli(&fx.conn, &["task", "import", "--space", &fx.space]))
+            .to_string()
+            .contains("--file")
+    );
+    let junk = temp_path("junk.json");
+    std::fs::write(&junk, "{ nope").unwrap();
+    let junk_text = junk.to_string_lossy().to_string();
+    assert_eq!(
+        kind_of(&err_of(cli(
+            &fx.conn,
+            &["task", "import", "--file", &junk_text, "--space", &fx.space]
+        ))),
+        "InvalidInput"
+    );
+    assert_eq!(fingerprint(&fx.conn), before);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&junk);
+}
+
+#[test]
+fn a_dry_run_import_shows_the_result_and_writes_nothing() {
+    let fx = fx();
+    let task = create_generic(&fx.conn, &fx.space, schema::lookup("task").unwrap(), 0).unwrap();
+    let path = temp_path("dry.json");
+    let path_text = path.to_string_lossy().to_string();
+    cli(&fx.conn, &["task", "export", &task.id, "--out", &path_text]).unwrap();
+    let before = fingerprint(&fx.conn);
+    let result = cli(
+        &fx.conn,
+        &[
+            "task",
+            "import",
+            "--file",
+            &path_text,
+            "--space",
+            &fx.space,
+            "--dry-run",
+        ],
+    )
+    .unwrap();
+    assert_eq!(result["dryRun"], true);
+    assert_eq!(result["result"]["data"]["entity"]["type"], "task");
+    assert_eq!(fingerprint(&fx.conn), before);
+    let _ = std::fs::remove_file(&path);
+}

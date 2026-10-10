@@ -1,6 +1,7 @@
 import {
   IconArrowUpRight,
   IconCopyPlus,
+  IconFileExport,
   IconFolderShare,
   IconPlus,
   IconLink,
@@ -22,7 +23,9 @@ import { RelatePicker } from "#/features/relationships/RelatePickerPopover.tsx";
 import { duplicateEntity, restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import { attachLabel, detachLabel, listLabels, listLabelsForEntity } from "#/lib/api/labels.ts";
 import { createRelationship, listRelationshipTypes } from "#/lib/api/relationships.ts";
+import { isPortableType } from "#/lib/api/portable.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
+import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
 import type { Entity } from "#/lib/api/types.ts";
 import { copyEntityLink } from "#/lib/clipboard.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
@@ -163,6 +166,16 @@ registerActions("entity", [
     icon: IconLink,
     successLabel: "Link copied",
     run: ({ entity }) => copyEntityLink(entity),
+  },
+  {
+    // A page has its own export group (`features/notes/context-actions.tsx`).
+    id: "export-nookly-file",
+    group: "share",
+    label: ({ entity }) => nooklyFileLabel(entity.type),
+    icon: IconFileExport,
+    when: ({ entity }) =>
+      isPortableType(entity.type) && entity.type !== "note" && entity.type !== "jot",
+    run: ({ entity }) => saveNooklyFile(entity),
   },
   {
     id: "restore",

@@ -84,54 +84,6 @@ export function exportPageMarkdown(entityId: string, path: string): Promise<void
   return invoke("export_page_markdown", { entityId, path });
 }
 
-/// Writes the page as a Nookly page file: every block, ported natively, with nothing that
-/// belongs to this instance (ids, labels, links, files).
-export function exportPageJson(entityId: string, path: string): Promise<void> {
-  return invoke("export_page_json", { entityId, path });
-}
-
-/// The page as the text of a Nookly page file, for sharing it without a path.
-export function renderPageJson(entityId: string): Promise<string> {
-  return invoke("render_page_json", { entityId });
-}
-
-/// What importing a Nookly page file would create. Reads the file, changes nothing.
-export interface PagePreview {
-  kind: string;
-  title: string;
-  blockCount: number;
-  /// Blocks of a type this version does not know, which arrive as paragraphs.
-  convertedBlocks: number;
-  blocks: BlockPreview[];
-}
-
-export interface BlockPreview {
-  blockType: string;
-  /// The first line of text, cut to fit a list row.
-  firstLine: string;
-  /// The type is unknown to this version, so the block arrives as a paragraph.
-  converted: boolean;
-}
-
-export function previewPageJson(path: string): Promise<PagePreview> {
-  return invoke("preview_page_json", { path });
-}
-
-/// `previewPageJson` for file contents the app already holds (a drop or a paste).
-export function previewPageText(text: string): Promise<PagePreview> {
-  return invoke("preview_page_text", { text });
-}
-
-/// `importPageJson` for file contents the app already holds.
-export function importPageText(spaceId: string, text: string): Promise<Entity> {
-  return invoke("import_page_text", { spaceId, text });
-}
-
-/// Creates a new page in the Space from a Nookly page file. Never changes an existing page.
-export function importPageJson(spaceId: string, path: string): Promise<Entity> {
-  return invoke("import_page_json", { spaceId, path });
-}
-
 /// The language a new code block in this note starts with, or null to follow the app default.
 export function getNoteCodeLanguage(entityId: string): Promise<string | null> {
   return invoke("get_note_code_language", { entityId });

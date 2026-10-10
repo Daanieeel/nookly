@@ -1,5 +1,7 @@
 import {
   IconBell,
+  IconCards,
+  IconFileExport,
   IconFileImport,
   IconFileText,
   IconKeyboard,
@@ -10,6 +12,7 @@ import {
   IconRobot,
   IconShare,
   IconSparkles,
+  IconTerminal2,
   IconTable,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -18,6 +21,8 @@ import {
 /// and a test fails for a name that is missing here, so a typo is caught before release.
 const ICONS = new Map<string, TablerIcon>([
   ["bell", IconBell],
+  ["cards", IconCards],
+  ["file-export", IconFileExport],
   ["file-import", IconFileImport],
   ["file-text", IconFileText],
   ["keyboard", IconKeyboard],
@@ -29,6 +34,7 @@ const ICONS = new Map<string, TablerIcon>([
   ["share", IconShare],
   ["sparkles", IconSparkles],
   ["table", IconTable],
+  ["terminal", IconTerminal2],
 ]);
 
 export const ICON_NAMES = [...ICONS.keys()];

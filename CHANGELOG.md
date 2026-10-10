@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.0 (2026-10-10)
+
+### Added
+
+- **Export tasks, decks and assignments.** Save one as a Nookly file from its more actions menu. A task takes its subtasks along, a deck its cards, and an assignment its status, due day and grade. Labels, links and review history stay behind.
+- **Import them again.** The Import dialog now takes any Nookly file, shows what is inside (the status and dates of a task, the cards of a deck) and imports it as a new item. An assignment is filed under a course you choose.
+- **Command line.** `nookly cli <type> export` and `nookly cli <type> import` work for notes, jots, tasks, decks and assignments.
+
+### Changed
+
+- The command palette entry is now **Import from File**, since it takes more than pages.
+
 ## 0.31.10 (2026-10-10)
 
 ### Added

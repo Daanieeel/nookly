@@ -1,6 +1,7 @@
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { fileBaseName, savePageJsonFile, savePageMarkdownFile } from "./PageExportMenu.tsx";
+import { saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
+import { fileBaseName, savePageMarkdownFile } from "./PageExportMenu.tsx";
 
 export type ShareFormat = "markdown" | "json";
 
@@ -47,6 +48,6 @@ export async function sharePage(
   }
   const saved = await (format === "markdown"
     ? savePageMarkdownFile(entity)
-    : savePageJsonFile(entity));
+    : saveNooklyFile(entity));
   return saved ? "saved" : "cancelled";
 }

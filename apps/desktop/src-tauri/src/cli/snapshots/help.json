@@ -38,9 +38,11 @@
       "task",
       "view"
     ],
+    "export": "nookly cli <entity-type> export <id> [--out <path>]  (types that report `portable` in `describe`: the entity as a Nookly JSON file, printed or written to --out. Ids, timestamps, labels, relationships and the Space stay behind)",
     "get": "nookly cli <entity-type> get <id> [<id> ...] [--summary | --fields a,b,...]  (includes relationships, labels, mentionedIn backlinks, a `size` hint and a `revision`. --summary cuts long strings to excerpts and adds a heading outline for block pages; --fields returns just those fields, e.g. title,updatedAt. Several ids return {count, items}, a bad id becomes an {ref, error} row)",
     "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
     "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
+    "import": "nookly cli <entity-type> import --file <path> --space <id> [--parent <id>]  (creates a new entity from a file `export` wrote, all or nothing, never changing an existing one. A type with `portable.parentType`, an assignment, needs --parent <course id>)",
     "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since <30m|24h|7d|date|timestamp>] [--label <name>[,<name>...]] [--fields a,b,...] [--limit <n>]  (--since keeps rows changed since then, newest first; --label keeps rows carrying every named label (AND match, case insensitive) and requires --space since labels are siloed per Space; --fields labels works here too, same shape as on get; block pages also report lastEditedAt, blockCount and bodySize so you can gauge a get first)",
     "restore": "nookly cli <entity-type> restore <id>",
     "update": "nookly cli <entity-type> update <id> [--title <t>] [--icon <i>] [--pinned true|false] [--space <id>] [--field name=value ...] [--if-revision <rev>]  (response lists `changes`, before and after per field. --space moves the entity and everything it structurally owns, e.g. a Task's sub-tasks, to that Space)",

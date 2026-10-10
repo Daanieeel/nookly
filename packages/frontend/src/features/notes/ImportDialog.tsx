@@ -21,23 +21,25 @@ import { useRawHotkey } from "#/hooks/use-app-hotkey.ts";
 import { isTyping } from "#/lib/is-typing.ts";
 import { NewEntityBreadcrumb } from "#/components/new-entity-dialog.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityPickerPopover, EntityPickerValue } from "#/components/entity-picker.tsx";
 import { RelatePickerPopover } from "#/features/relationships/RelatePickerPopover.tsx";
 import { hiddenRelationshipTypes } from "#/features/relationships/RelationshipsPanel.tsx";
 import { updateEntity, listEntities } from "#/lib/api/entities.ts";
 import {
-  importPageJson,
-  importPageText,
-  previewPageJson,
-  previewPageText,
-  type PagePreview,
-} from "#/lib/api/notes.ts";
+  entityTypeOfKind,
+  importEntityJson,
+  importEntityText,
+  type PortablePreview,
+  previewEntityJson,
+  previewEntityText,
+} from "#/lib/api/portable.ts";
 import { createRelationship, listRelationshipTypes } from "#/lib/api/relationships.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { PAGE_FILE_FILTER, acceptedFormats, importFailureReason } from "./import-page.ts";
+import { NOOKLY_FILE_FILTER, acceptedFormats, importFailureReason } from "./import-page.ts";
 import { findDuplicate, suggestRelations } from "./import-suggestions.ts";
 
 /// The importer refuses a file above this size; a dropped file is checked before it is read.
@@ -50,10 +52,10 @@ type Source = { kind: "path"; path: string } | { kind: "text"; text: string };
 /// The file the user picked and what importing it would create.
 interface Picked {
   source: Source;
-  preview: PagePreview;
+  preview: PortablePreview;
 }
 
-/// A link the new page gets once it exists.
+/// A link the new item gets once it exists.
 interface PlannedRelation {
   target: Entity;
   type: string;
@@ -65,8 +67,17 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+/// What a file holds, as a person says it.
+const KIND_LABELS = new Map([
+  ["note", "Note"],
+  ["jot", "Jot"],
+  ["task", "Task"],
+  ["deck", "Deck"],
+  ["assignment", "Assignment"],
+]);
+
 function kindLabel(kind: string): string {
-  return kind === "jot" ? "Jot" : "Note";
+  return KIND_LABELS.get(kind) ?? "Item";
 }
 
 /// `heading1` as "Heading 1", `bulleted_list` as "Bulleted list".
@@ -75,13 +86,13 @@ function blockLabel(blockType: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-async function previewSource(source: Source): Promise<PagePreview> {
-  return source.kind === "path" ? previewPageJson(source.path) : previewPageText(source.text);
+async function previewSource(source: Source): Promise<PortablePreview> {
+  return source.kind === "path" ? previewEntityJson(source.path) : previewEntityText(source.text);
 }
 
 /// The text of a dropped file, after the checks the backend would otherwise make later.
 async function readDroppedFile(file: File): Promise<Source> {
-  const allowed = PAGE_FILE_FILTER.extensions.some((e) =>
+  const allowed = NOOKLY_FILE_FILTER.extensions.some((e) =>
     file.name.toLowerCase().endsWith(`.${e}`),
   );
   if (!allowed) throw new Error(`Only ${acceptedFormats()} can be imported.`);
@@ -132,6 +143,8 @@ export function ImportDialog() {
   const space = spaces.find((s) => s.id === (chosenSpaceId ?? activeSpaceId)) ?? spaces[0];
   const [picked, setPicked] = useState<Picked | null>(null);
   const [relations, setRelations] = useState<PlannedRelation[]>([]);
+  // The parent an import has to be filed under, when its type needs one (an assignment's course).
+  const [parent, setParent] = useState<Entity | null>(null);
   const [showBlocks, setShowBlocks] = useState(false);
   const [dragging, setDragging] = useState(false);
   const { data: types = [] } = useQuery({
@@ -144,8 +157,15 @@ export function ImportDialog() {
     enabled: space !== undefined && picked !== null,
   });
   const kind = picked?.preview.kind ?? "note";
-  const hidden = hiddenRelationshipTypes({ type: kind });
+  const entityType = entityTypeOfKind(kind);
+  // An assignment is filed under its course by the picker above, not by a relation.
+  const hidden = new Set([
+    ...hiddenRelationshipTypes({ type: entityType }),
+    ...(entityType === "assignment" ? ["assignment-course", "assignment-due-session"] : []),
+  ]);
   const pickableTypes = types.filter((t) => !hidden.has(t.name));
+  const needsParent = picked?.preview.parentType ?? null;
+  const canImport = needsParent === null || parent !== null;
   const suggestions = picked
     ? suggestRelations(
         picked.preview.title,
@@ -153,7 +173,7 @@ export function ImportDialog() {
         relations.map((r) => r.target.id),
       )
     : [];
-  const duplicate = picked ? findDuplicate(kind, picked.preview.title, entities) : undefined;
+  const duplicate = picked ? findDuplicate(entityType, picked.preview.title, entities) : undefined;
   const generalType = pickableTypes.find((t) => t.name === "relates-to");
 
   const load = useMutation({
@@ -165,18 +185,20 @@ export function ImportDialog() {
       if (!result) return;
       setPicked(result);
       setRelations([]);
+      setParent(null);
       setShowBlocks(false);
     },
   });
 
   const confirm = useMutation({
     mutationFn: async (target: { spaceId: string; source: Source; asCopy: boolean }) => {
+      const parentId = parent?.id ?? null;
       let entity =
         target.source.kind === "path"
-          ? await importPageJson(target.spaceId, target.source.path)
-          : await importPageText(target.spaceId, target.source.text);
+          ? await importEntityJson(target.spaceId, target.source.path, parentId)
+          : await importEntityText(target.spaceId, target.source.text, parentId);
       if (target.asCopy) {
-        // The page exists already; a title that cannot be changed is not worth losing it.
+        // It exists already; a title that cannot be changed is not worth losing it.
         entity = await updateEntity(entity.id, { title: `${entity.title} (copy)` }).catch(
           () => entity,
         );
@@ -213,6 +235,7 @@ export function ImportDialog() {
     setPicked(null);
     setChosenSpaceId(null);
     setRelations([]);
+    setParent(null);
     setShowBlocks(false);
     load.reset();
     confirm.reset();
@@ -221,6 +244,7 @@ export function ImportDialog() {
   function restart() {
     setPicked(null);
     setRelations([]);
+    setParent(null);
     confirm.reset();
   }
 
@@ -229,7 +253,7 @@ export function ImportDialog() {
       const path = await openFileDialog({
         multiple: false,
         directory: false,
-        filters: [PAGE_FILE_FILTER],
+        filters: [NOOKLY_FILE_FILTER],
       });
       return path ? { kind: "path", path } : null;
     });
@@ -270,11 +294,12 @@ export function ImportDialog() {
           spaces={spaces}
           onSpaceChange={(id) => {
             setChosenSpaceId(id);
-            // The picker lists the items of one Space, so a choice made in another goes.
+            // The pickers list the items of one Space, so a choice made in another goes.
             setRelations([]);
+            setParent(null);
           }}
           title="Import"
-          description="Import a page exported from Nookly into a space."
+          description="Import a file exported from Nookly into a space."
         />
 
         <div className="flex flex-col gap-3 p-4 text-sm">
@@ -284,40 +309,79 @@ export function ImportDialog() {
                 <p className="font-medium">
                   {kindLabel(picked.preview.kind)} "{picked.preview.title}"
                 </p>
-                <div className="overflow-hidden rounded-md border border-border">
-                  <button
-                    type="button"
-                    aria-expanded={showBlocks}
-                    onClick={() => setShowBlocks(!showBlocks)}
-                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs hover:bg-accent/50"
-                  >
-                    <span className="text-muted-foreground">Contents</span>
-                    <span className="flex items-center gap-1">
-                      {plural(picked.preview.blockCount, "block")}
-                      {showBlocks ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                    </span>
-                  </button>
-                  {showBlocks && (
-                    <ul className="max-h-40 divide-y divide-border overflow-y-auto border-t border-border">
-                      {picked.preview.blocks.map((block, index) => (
-                        <li key={index} className="flex items-center gap-2 px-2.5 py-1 text-xs">
-                          <span className="w-24 shrink-0 truncate text-muted-foreground">
-                            {blockLabel(block.blockType)}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate">
-                            {block.firstLine || "(empty)"}
-                          </span>
-                          {block.converted && (
-                            <span className="shrink-0 text-muted-foreground">
-                              becomes a paragraph
+                {picked.preview.facts.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {picked.preview.facts.join(" · ")}
+                  </p>
+                )}
+                {picked.preview.count > 0 && (
+                  <div className="overflow-hidden rounded-md border border-border">
+                    <button
+                      type="button"
+                      aria-expanded={showBlocks}
+                      onClick={() => setShowBlocks(!showBlocks)}
+                      className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs hover:bg-accent/50"
+                    >
+                      <span className="text-muted-foreground">Contents</span>
+                      <span className="flex items-center gap-1">
+                        {plural(picked.preview.count, picked.preview.countLabel)}
+                        {showBlocks ? (
+                          <IconChevronDown size={14} />
+                        ) : (
+                          <IconChevronRight size={14} />
+                        )}
+                      </span>
+                    </button>
+                    {showBlocks && (
+                      <ul className="max-h-40 divide-y divide-border overflow-y-auto border-t border-border">
+                        {picked.preview.items.map((item, index) => (
+                          <li key={index} className="flex items-center gap-2 px-2.5 py-1 text-xs">
+                            <span className="w-24 shrink-0 truncate text-muted-foreground">
+                              {blockLabel(item.label)}
                             </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                            <span className="min-w-0 flex-1 truncate">
+                              {item.text || "(empty)"}
+                            </span>
+                            {item.converted && (
+                              <span className="shrink-0 text-muted-foreground">
+                                becomes a paragraph
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {needsParent && space && (
+                <div className="flex flex-col gap-1.5">
+                  <div>
+                    <p className="font-medium">
+                      File under a {needsParent}{" "}
+                      <span className="font-normal text-muted-foreground">(required)</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Every {kindLabel(kind).toLowerCase()} belongs to one {needsParent}.
+                    </p>
+                  </div>
+                  <EntityPickerPopover
+                    key={space.id}
+                    spaceId={space.id}
+                    typeFilter={needsParent}
+                    onSelect={setParent}
+                    trigger={
+                      <Button variant="secondary" className="justify-start gap-2 font-normal">
+                        <EntityPickerValue
+                          entity={parent}
+                          placeholder={`Choose a ${needsParent}...`}
+                        />
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
 
               <div className="flex flex-col gap-1.5">
                 <div>
@@ -375,7 +439,7 @@ export function ImportDialog() {
                     key={space.id}
                     spaceId={space.id}
                     exclude=""
-                    entityType={kind}
+                    entityType={entityType}
                     types={pickableTypes}
                     trigger={
                       <Button
@@ -420,7 +484,7 @@ export function ImportDialog() {
                     </Button>
                     <Button
                       size="sm"
-                      disabled={confirm.isPending || confirm.isSuccess}
+                      disabled={confirm.isPending || confirm.isSuccess || !canImport}
                       onClick={() =>
                         confirm.mutate({
                           spaceId: space?.id ?? "",
@@ -476,7 +540,7 @@ export function ImportDialog() {
               Choose Another
             </Button>
             <Button
-              disabled={confirm.isPending || confirm.isSuccess}
+              disabled={confirm.isPending || confirm.isSuccess || !canImport}
               onClick={() =>
                 confirm.mutate({ spaceId: space.id, source: picked.source, asCopy: false })
               }
