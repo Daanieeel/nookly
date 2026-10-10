@@ -27,7 +27,7 @@ describe("notify", () => {
     toast.dismiss();
   });
 
-  it.each(["success", "error", "warning", "info"] as const)(
+  it.each(["success", "error", "warning", "caution", "info"] as const)(
     "puts the %s icon on the same line as the message",
     async (kind) => {
       renderWithProviders(<AppToaster />);
@@ -91,7 +91,7 @@ describe("notify", () => {
     expect(screen.getByText("Second")).toBeInTheDocument();
   });
 
-  it.each(["success", "warning"] as const)(
+  it.each(["success", "warning", "caution"] as const)(
     "closes a %s by itself after a few seconds",
     async (kind) => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -135,5 +135,33 @@ describe("notify", () => {
       "alert",
     );
     expect((await screen.findByText("Saved")).closest("[role]")).toHaveAttribute("role", "status");
+  });
+
+  it("draws a warning as a triangle in the warning color", async () => {
+    renderWithProviders(<AppToaster />);
+    act(() => void notify.warning("Careful"));
+    const icon = (await screen.findByText("Careful")).querySelector("svg");
+    expect(icon).toHaveClass("text-warning");
+    expect(icon?.getAttribute("class")).toContain("lucide-triangle-alert");
+  });
+
+  it("draws a caution as a circle with an exclamation mark in the caution color", async () => {
+    renderWithProviders(<AppToaster />);
+    act(() => void notify.caution("Heads up"));
+    const icon = (await screen.findByText("Heads up")).querySelector("svg");
+    expect(icon).toHaveClass("text-caution");
+    expect(icon?.getAttribute("class")).toContain("lucide-circle-alert");
+  });
+
+  it("keeps an error's triangle apart from a warning's by color", async () => {
+    renderWithProviders(<AppToaster />);
+    act(() => {
+      notify.error("Broke");
+      notify.warning("Careful");
+    });
+    expect((await screen.findByText("Broke")).querySelector("svg")).toHaveClass("text-destructive");
+    expect((await screen.findByText("Careful")).querySelector("svg")).not.toHaveClass(
+      "text-destructive",
+    );
   });
 });

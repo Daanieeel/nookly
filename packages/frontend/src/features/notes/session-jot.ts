@@ -18,8 +18,8 @@ export async function openCurrentSessionJot(queryClient: QueryClient): Promise<v
     });
     const current = findCurrentSession(sessions, new Date());
     if (!current) {
-      // Nothing is wrong with the app, so a warning, which closes by itself.
-      notify.warning("Quick session jot could not be created", {
+      // Nothing is wrong with the app, so a caution, which closes by itself.
+      notify.caution("Quick session jot could not be created", {
         description: "No session is running right now.",
       });
       return;
