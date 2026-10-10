@@ -23,7 +23,6 @@ import { labelForType } from "#/lib/entity-title.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
-import { refreshAfterFileRename } from "#/lib/rename-sync.ts";
 
 export function EntityDetailLayout({
   entity,
@@ -74,7 +73,6 @@ export function EntityDetailLayout({
   const rename = useMutation({
     mutationFn: (newTitle: string) => updateEntity(entity.id, { title: newTitle }),
     onSuccess: () => {
-      if (entity.type === "file") void refreshAfterFileRename(queryClient);
       return queryClient.invalidateQueries({ queryKey: qk.entity.byId(entity.id) });
     },
   });

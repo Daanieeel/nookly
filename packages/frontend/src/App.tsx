@@ -28,6 +28,7 @@ import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useTabScroll } from "#/hooks/use-tab-scroll.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
+import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import "#/context-actions.ts";
@@ -69,6 +70,7 @@ function MainContent() {
 }
 
 function Shell() {
+  useRefreshBlocksOnRename();
   const view = useNavStore((s) => s.view);
   const showTabBar = useNavStore((s) => s.tabs.length > 1);
   useTabInteractions();

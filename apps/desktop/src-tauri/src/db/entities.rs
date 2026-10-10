@@ -203,8 +203,8 @@ fn update_entity_inner(conn: &Connection, id: &str, patch: EntityPatch) -> AppRe
     let mut entity = get_entity(conn, id)?;
     let mut title_changed = false;
     if let Some(title) = patch.title {
-        if title != entity.title && entity.entity_type == "file" {
-            sync_file_mention_labels(conn, id, &entity.title, &title)?;
+        if title != entity.title {
+            sync_mention_labels(conn, id, &entity.entity_type, &entity.title, &title)?;
         }
         title_changed = title != entity.title;
         entity.title = title;
@@ -289,20 +289,43 @@ fn markdown_label(title: &str) -> String {
         .replace('$', "\\$")
 }
 
-/// After a File is renamed, mentions that showed its old name show the new one. A label
-/// the author wrote is left alone: only one equal to the old title, or to the old title
-/// with a page suffix (`Slides (p. 3)` on a `#p3` mention), counts as the default one.
-/// Runs inside the rename's savepoint, touches only blocks that change and reindexes
-/// their pages so search finds the new name.
-fn sync_file_mention_labels(
+/// The name shown for an entity with no title, as the app writes it into a mention's
+/// label ("Untitled Note"). Mirrors `labelForType` in the frontend's `entity-title.ts`.
+fn untitled_label(entity_type: &str) -> String {
+    let noun = match entity_type {
+        "task" | "sub_task" => "Task",
+        "note" => "Note",
+        "jot" => "Jot",
+        "course" => "Course",
+        "course_notes" => "Course Notes",
+        "semester" => "Semester",
+        "session" | "session_template" => "Session",
+        "exam" => "Exam",
+        "index_card_deck" => "Deck",
+        "study_block" => "Study Block",
+        "assignment" => "Assignment",
+        "file" => "File",
+        "bookmark" => "Bookmark",
+        "recipe" => "Recipe",
+        "view" => "View",
+        "space" => "Space",
+        _ => "Item",
+    };
+    format!("Untitled {noun}")
+}
+
+/// After an entity is renamed, mentions that showed its old name show the new one. A label
+/// the author wrote is left alone: only one equal to the old title (or, with no title,
+/// to its "Untitled Note" fallback), or to that with a page suffix (`Slides (p. 3)` on a
+/// `#p3` mention), counts as the default one. Runs inside the rename's savepoint, touches
+/// only blocks that change and reindexes their pages so search finds the new name.
+fn sync_mention_labels(
     conn: &Connection,
     file_id: &str,
+    entity_type: &str,
     old_title: &str,
     new_title: &str,
 ) -> AppResult<()> {
-    if old_title.trim().is_empty() {
-        return Ok(());
-    }
     let mut stmt = conn
         .prepare("SELECT id, entity_id, block_type, content FROM blocks WHERE content LIKE ?1")?;
     let rows = stmt
@@ -321,9 +344,23 @@ fn sync_file_mention_labels(
         regex::escape(file_id)
     ))
     .map_err(|e| AppError::InvalidInput(e.to_string()))?;
-    // The old title as it may have been stored: as typed, and in markdown form.
-    let old_forms = [old_title.to_string(), markdown_label(old_title)];
-    let new_label = markdown_label(new_title);
+    // The old name as it may have been stored: as typed, trimmed, in markdown form, or the
+    // fallback a title-less entity shows.
+    let old_forms: Vec<String> = if old_title.trim().is_empty() {
+        vec![untitled_label(entity_type)]
+    } else {
+        vec![
+            old_title.to_string(),
+            old_title.trim().to_string(),
+            markdown_label(old_title),
+            markdown_label(old_title.trim()),
+        ]
+    };
+    let new_label = if new_title.trim().is_empty() {
+        untitled_label(entity_type)
+    } else {
+        markdown_label(new_title.trim())
+    };
     let target = format!("(mention:{file_id})");
 
     let mut changed_pages = std::collections::BTreeSet::new();
@@ -336,10 +373,14 @@ fn sync_file_mention_labels(
                 .and_then(|c| c.strip_suffix(&target))
                 .and_then(|c| c.strip_suffix(']'))
                 .is_some_and(|name| !name.contains(['[', ']']));
-            let label: String = new_title
-                .chars()
-                .filter(|c| *c != '[' && *c != ']')
-                .collect();
+            let label: String = if new_title.trim().is_empty() {
+                untitled_label(entity_type)
+            } else {
+                new_title
+                    .chars()
+                    .filter(|c| *c != '[' && *c != ']')
+                    .collect()
+            };
             is_plain.then(|| format!("[{label}]{target}"))
         } else if PROSE_BLOCK_TYPES.contains(&block_type.as_str()) {
             let replaced = label_pattern.replace_all(&content, |caps: &regex::Captures| {
@@ -804,6 +845,126 @@ mod tests {
         for index in [0, 1, 3, 5, 6, 7, 8] {
             assert_ne!(after[index].updated_at, before[index].updated_at, "{index}");
         }
+    }
+
+    #[test]
+    fn renaming_any_entity_updates_the_mentions_that_show_its_name() {
+        use crate::db::notes::list_blocks;
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        for entity_type in ["note", "task", "course", "jot"] {
+            let target = create_entity(
+                &conn,
+                space.id.clone(),
+                entity_type.into(),
+                "Old name".into(),
+                None,
+            )
+            .unwrap();
+            let id = &target.id;
+            let (page, _) = page_with(
+                &conn,
+                &space.id,
+                &[
+                    ("paragraph", format!("See [Old name](mention:{id}) here")),
+                    ("paragraph", format!("See [my label](mention:{id}) here")),
+                    ("heading1", format!("About [Old name](mention:{id}#blk1)")),
+                ],
+            );
+            rename(&conn, id, "New name");
+            let content: Vec<String> = list_blocks(&conn, &page)
+                .unwrap()
+                .into_iter()
+                .map(|b| b.content)
+                .collect();
+            assert_eq!(
+                content[0],
+                format!("See [New name](mention:{id}) here"),
+                "{entity_type}"
+            );
+            assert_eq!(content[1], format!("See [my label](mention:{id}) here"));
+            assert_eq!(content[2], format!("About [New name](mention:{id}#blk1)"));
+        }
+    }
+
+    #[test]
+    fn renaming_an_untitled_entity_updates_mentions_labelled_with_its_fallback_name() {
+        use crate::db::notes::list_blocks;
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        for (entity_type, fallback) in [
+            ("note", "Untitled Note"),
+            ("task", "Untitled Task"),
+            ("jot", "Untitled Jot"),
+            ("bookmark", "Untitled Bookmark"),
+        ] {
+            let target =
+                create_entity(&conn, space.id.clone(), entity_type.into(), "".into(), None)
+                    .unwrap();
+            let id = &target.id;
+            let (page, _) = page_with(
+                &conn,
+                &space.id,
+                &[("paragraph", format!("[{fallback}](mention:{id})"))],
+            );
+            rename(&conn, id, "Physics");
+            assert_eq!(
+                list_blocks(&conn, &page).unwrap()[0].content,
+                format!("[Physics](mention:{id})"),
+                "{entity_type}"
+            );
+        }
+    }
+
+    #[test]
+    fn clearing_a_title_leaves_the_fallback_name_in_mentions_and_back_again() {
+        use crate::db::notes::list_blocks;
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        let target = create_entity(
+            &conn,
+            space.id.clone(),
+            "note".into(),
+            "Physics".into(),
+            None,
+        )
+        .unwrap();
+        let id = &target.id;
+        let (page, _) = page_with(
+            &conn,
+            &space.id,
+            &[("paragraph", format!("[Physics](mention:{id})"))],
+        );
+        rename(&conn, id, "");
+        assert_eq!(
+            list_blocks(&conn, &page).unwrap()[0].content,
+            format!("[Untitled Note](mention:{id})")
+        );
+        rename(&conn, id, "Chemistry");
+        assert_eq!(
+            list_blocks(&conn, &page).unwrap()[0].content,
+            format!("[Chemistry](mention:{id})")
+        );
+    }
+
+    #[test]
+    fn a_rename_that_changes_nothing_touches_no_block() {
+        use crate::db::notes::list_blocks;
+        let conn = setup();
+        let space = create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+        let target =
+            create_entity(&conn, space.id.clone(), "note".into(), "Same".into(), None).unwrap();
+        let id = &target.id;
+        let (page, before) = page_with(
+            &conn,
+            &space.id,
+            &[("paragraph", format!("[Same](mention:{id})"))],
+        );
+        rename(&conn, id, "Same");
+        assert_eq!(
+            list_blocks(&conn, &page).unwrap()[0].updated_at,
+            before[0].updated_at
+        );
     }
 
     #[test]
