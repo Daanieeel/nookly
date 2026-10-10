@@ -7,6 +7,9 @@ import {
   type ReactNodeViewProps,
 } from "@tiptap/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { IconRefresh } from "@tabler/icons-react";
+import { Button } from "@nookly/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { Popover, PopoverAnchor, PopoverContent } from "@nookly/ui/components/popover";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { cn } from "@nookly/ui/lib/utils";
@@ -76,16 +79,21 @@ function InlineMathView({
   // A formula typed moments ago opens straight into editing when it's empty.
   const [editing, setEditing] = useState(latex === "");
   const [draft, setDraft] = useState(latex);
+  // Bumped to draw the formula again, which re-measures its width after the node moved.
+  const [renderTick, setRenderTick] = useState(0);
+  const recalc = () => setRenderTick((tick) => tick + 1);
 
   useLayoutEffect(() => {
     if (ref.current) setError(latex ? renderMath(latex, ref.current, false) : null);
-  }, [latex]);
+  }, [latex, renderTick]);
   useEffect(() => {
     if (editing) setDraft(latex);
   }, [editing, latex]);
 
   const commit = () => {
     setEditing(false);
+    // Also when nothing changed: committing is how a wrong width gets fixed.
+    recalc();
     if (draft.trim() === "") deleteNode();
     else if (draft !== latex) updateAttributes({ latex: draft });
     editor.commands.focus();
@@ -117,27 +125,46 @@ function InlineMathView({
           className="w-80 p-2"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <Textarea
-            // oxlint-disable-next-line jsx-a11y/no-autofocus -- the popover opens on an explicit click to edit the formula
-            autoFocus
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                commit();
-              } else if (event.key === "Escape") {
-                event.preventDefault();
-                setDraft(latex);
-                setEditing(false);
-                editor.commands.focus();
-              }
-            }}
-            spellCheck={false}
-            placeholder="\frac{a}{b}"
-            aria-label="LaTeX"
-            className="min-h-16 font-mono text-xs"
-          />
+          <div className="relative">
+            <Textarea
+              // oxlint-disable-next-line jsx-a11y/no-autofocus -- the popover opens on an explicit click to edit the formula
+              autoFocus
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  commit();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  setDraft(latex);
+                  setEditing(false);
+                  editor.commands.focus();
+                }
+              }}
+              spellCheck={false}
+              placeholder="\frac{a}{b}"
+              aria-label="LaTeX"
+              className="min-h-16 pr-8 font-mono text-xs"
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Recalculate width"
+                  // Keeps the focus in the field, so the popover stays open.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={recalc}
+                  className="absolute right-1 bottom-1 size-6"
+                >
+                  <IconRefresh size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Recalculate width</TooltipContent>
+            </Tooltip>
+          </div>
           {error && <p className="mt-1.5 font-mono text-xs text-destructive">{error}</p>}
         </PopoverContent>
       </Popover>
