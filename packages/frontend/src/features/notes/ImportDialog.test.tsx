@@ -287,7 +287,7 @@ describe("ImportButton", () => {
       const { user } = await openDialog();
       await chooseFile(user);
       await user.click(await screen.findByRole("button", { name: "Relate to..." }));
-      await user.click(await screen.findByText("Relates to"));
+      await user.click(await screen.findByRole("option", { name: /^Course/ }));
       expect((await screen.findAllByText("Physics 101")).length).toBeGreaterThan(0);
     });
   });

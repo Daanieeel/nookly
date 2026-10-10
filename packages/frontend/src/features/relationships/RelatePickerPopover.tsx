@@ -1,20 +1,20 @@
-import { dialogPopover } from "#/lib/dialog-popover.ts";
-import { qk } from "#/lib/query-keys.ts";
-import { Command } from "cmdk";
 import { IconChevronLeft } from "@tabler/icons-react";
+import { Command, defaultFilter } from "cmdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { EntityKey } from "#/components/entity-key.tsx";
+import { Button } from "@nookly/ui/components/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
+import { cn } from "@nookly/ui/lib/utils";
 import { listEntities } from "#/lib/api/entities.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
 import type { Entity, RelationshipTypeInfo, SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate } from "#/lib/datetime.ts";
+import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { cn } from "@nookly/ui/lib/utils";
+import { qk } from "#/lib/query-keys.ts";
 
 /// One way to link: a relationship type read from this item's side. `reverse`
 /// means this item is the type's `to` end, so the new link points at it.
@@ -33,7 +33,7 @@ const SYMMETRIC_TYPES = new Set(["relates-to"]);
 
 /// Every way an item of `entityType` can be linked, with the target type each
 /// way allows: "Session of course" only for sessions, and only toward courses.
-export function relateOptions(types: RelationshipTypeInfo[], entityType: string): RelateOption[] {
+function relateOptions(types: RelationshipTypeInfo[], entityType: string): RelateOption[] {
   return types.flatMap((t) => {
     const options: RelateOption[] = [];
     if (t.fromType === null || t.fromType === entityType) {
@@ -66,8 +66,12 @@ function typeName(entityType: string): string {
   return entityType.replace(/_/g, " ");
 }
 
-/// Two steps in one popover: pick the relationship type, then the target entity.
-/// Backspace on an empty search goes back to the type step.
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/// A popover with the picker in it. Search for what to relate to; the relationship type
+/// is worked out from the two items (and can be changed).
 export function RelatePickerPopover({
   spaceId,
   exclude,
@@ -84,20 +88,11 @@ export function RelatePickerPopover({
   onSelect: (target: Entity, relationshipType: string, reverse: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  // The target step has chips and course context, so it gets more room.
-  const [wide, setWide] = useState(false);
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setWide(false);
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent {...dialogPopover(cn(wide ? "w-96" : "w-72", "p-0"))} align="start">
+      <PopoverContent {...dialogPopover("w-96 p-0")} align="start">
         <RelatePicker
-          onTargetStep={setWide}
           spaceId={spaceId}
           exclude={exclude}
           entityType={entityType}
@@ -112,27 +107,46 @@ export function RelatePickerPopover({
   );
 }
 
-/// The picker itself, for any surface that hosts it (the popover above, the
-/// context menu's Relate to...). Starts over at the type step on every mount.
+interface Target {
+  entity: Entity;
+  session: SessionOccurrence | undefined;
+}
+
+/// Targets shown in the browse view, and per heading.
+const SUGGESTED_CAP = 5;
+const RECENT_CAP = 8;
+
+const ROW =
+  "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent";
+const HEADING =
+  "**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-muted-foreground";
+
+/// The picker, in three steps that each ask one thing: what type of thing to relate to,
+/// how (the relationship type, skipped when only one fits), and which one. The last step
+/// leads with what belongs with this item (its course, that course's pages and sessions)
+/// before anything is typed, then searches everything of the type in one list. The
+/// choices made so far stay on top, and Back (or Backspace in an empty search) undoes the
+/// last one.
 export function RelatePicker({
   spaceId,
   exclude,
   entityType,
   types,
   onSelect,
-  onTargetStep,
 }: {
   spaceId: string;
   exclude: string;
   entityType: string;
   types: RelationshipTypeInfo[];
   onSelect: (target: Entity, relationshipType: string, reverse: boolean) => void;
-  /// Tells the host whether the target step (the wider one) is showing.
-  onTargetStep?: (onTargetStep: boolean) => void;
 }) {
+  const options = useMemo(() => relateOptions(types, entityType), [types, entityType]);
+  const [targetType, setTargetType] = useState<string | null>(null);
   const [option, setOption] = useState<RelateOption | null>(null);
-  const options = relateOptions(types, entityType);
+  // The relationship step was skipped, so Back from the items goes past it.
+  const [skipped, setSkipped] = useState(false);
   const [search, setSearch] = useState("");
+
   const { data: entities = [] } = useQuery({
     queryKey: qk.entities.bySpace(spaceId),
     queryFn: () => listEntities(spaceId, false),
@@ -141,152 +155,186 @@ export function RelatePicker({
   const { data: sessions = [] } = useQuery({
     queryKey: qk.sessions.bySpace(spaceId),
     queryFn: () => listSessions(spaceId),
-    enabled: option?.targetType === "session",
+    enabled: targetType === "session",
   });
   const sessionById = new Map(sessions.map((s) => [s.entity.id, s]));
-  const courseNoteIds = useCourseNoteIds(
-    exclude,
-    entityType,
-    option?.targetType === "note" || option?.targetType === "jot",
-  );
-  const [chip, setChip] = useState<string | null>(null);
+  const related = useRelatedIds(exclude, entityType, targetType !== null);
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  // The list remounts per step, so hand focus back to the search each time.
-  useEffect(() => {
-    inputRef.current?.focus();
-    onTargetStep?.(option !== null);
-  }, [option, onTargetStep]);
+  const candidatesFor = (type: string) =>
+    options
+      .filter((o) => o.targetType === null || o.targetType === type)
+      .toSorted((a, b) => Number(b.targetType !== null) - Number(a.targetType !== null));
+  const others = entities.filter((entity) => entity.id !== exclude);
 
-  const pickOption = (next: RelateOption | null) => {
-    setOption(next);
+  // Step 1: the types that have something to relate to and a way to do it.
+  const typeCounts = new Map<string, number>();
+  for (const entity of others) {
+    if (candidatesFor(entity.type).length > 0) {
+      typeCounts.set(entity.type, (typeCounts.get(entity.type) ?? 0) + 1);
+    }
+  }
+  const typeRows = [...typeCounts].toSorted((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  const step = targetType === null ? 1 : option === null ? 2 : 3;
+  const choose = (type: string) => {
+    const candidates = candidatesFor(type);
     setSearch("");
-    setChip(null);
+    setTargetType(type);
+    if (candidates.length === 1 && candidates[0]) {
+      setOption(candidates[0]);
+      setSkipped(true);
+    }
+  };
+  const back = () => {
+    setSearch("");
+    if (step === 3 && !skipped) setOption(null);
+    else {
+      setOption(null);
+      setTargetType(null);
+      setSkipped(false);
+    }
   };
 
-  const targets = entities
-    .filter((e) => e.id !== exclude && (!option?.targetType || e.type === option.targetType))
+  const targets: Target[] = others
+    .filter((entity) => entity.type === targetType)
     .map((entity) => ({ entity, session: sessionById.get(entity.id) }))
-    .sort(newestFirst);
-  const groups = groupTargets(targets, courseNoteIds);
-  const filtered = chip === null ? groups : groups.filter((g) => g.name === chip);
-  // Everything shows once the user is looking for something; the cap only tames the browse view.
-  const capped = chip === null && search.trim() === "";
+    .toSorted(newestFirst);
+  const query = search.trim();
+  const valueOf = (t: Target) =>
+    `${displayTitle(t.entity)} ${typeName(t.entity.type)} ${t.session?.courseTitle ?? ""} ${t.entity.id} ${t.session?.date ?? ""}`;
+  const suggested = query
+    ? []
+    : targets.filter((t) => related.has(t.entity.id)).slice(0, SUGGESTED_CAP);
+  const suggestedIds = new Set(suggested.map((t) => t.entity.id));
+  const recent = query
+    ? []
+    : targets.filter((t) => !suggestedIds.has(t.entity.id)).slice(0, RECENT_CAP);
+  const hiddenCount = query ? 0 : targets.length - suggested.length - recent.length;
+  // Filtered here, best match first, so the list needs no filtering of its own on this step.
+  const matches = query
+    ? targets
+        .map((t) => ({ t, score: defaultFilter(valueOf(t), query, keyKeywords(t.entity.key)) }))
+        .filter((m) => m.score > 0)
+        .toSorted((a, b) => b.score - a.score)
+        .map((m) => m.t)
+    : [];
+
+  const row = (t: Target) => (
+    <Command.Item
+      key={t.entity.id}
+      value={valueOf(t)}
+      onSelect={() => option && onSelect(t.entity, option.type, option.reverse)}
+      className={ROW}
+    >
+      <EntityIcon entity={t.entity} className="shrink-0 text-muted-foreground" />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">{displayTitle(t.entity)}</span>
+        <span className="truncate text-xs text-muted-foreground">{context(t)}</span>
+      </span>
+    </Command.Item>
+  );
+
+  const placeholder =
+    step === 1 ? "Search types…" : step === 2 ? "Search relations…" : "Search what to relate to…";
 
   return (
-    <Command key={option?.key ?? "type"} className="flex flex-col">
-      <div className="flex items-center border-b border-border">
-        {option && (
-          <button
-            type="button"
-            onClick={() => pickOption(null)}
-            className="ml-1.5 flex shrink-0 items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent"
+    <Command key={step} shouldFilter={step !== 3} className="flex flex-col">
+      {step > 1 && (
+        <nav
+          aria-label="Relation"
+          className="flex items-center gap-1 border-b border-border px-1.5 py-1 text-xs"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6 shrink-0"
+            aria-label="Back"
+            onClick={back}
           >
-            <IconChevronLeft size={12} />
-            {option.label}
-          </button>
-        )}
-        <Command.Input
-          ref={inputRef}
-          value={search}
-          onValueChange={setSearch}
-          onKeyDown={(event) => {
-            if (event.key === "Backspace" && option && search === "") pickOption(null);
-          }}
-          placeholder={
-            option
-              ? `Search ${option.targetType ? `${typeName(option.targetType)}s` : "this Space"}…`
-              : "How are they related?"
-          }
-          className="h-9 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-      {option && groups.length > 1 && (
-        <div className="flex flex-wrap gap-1 border-b border-border p-1.5">
-          <TypeChip
-            label="All"
-            count={targets.length}
-            active={chip === null}
-            onClick={() => setChip(null)}
-          />
-          {groups.map((g) => (
-            <TypeChip
-              key={g.name}
-              label={g.name}
-              count={g.items.length}
-              active={chip === g.name}
-              onClick={() => setChip(chip === g.name ? null : g.name)}
-            />
-          ))}
-        </div>
+            <IconChevronLeft size={14} />
+          </Button>
+          <span className="min-w-0 truncate text-muted-foreground">
+            {capitalize(typeName(entityType))}
+            {option ? (
+              <>
+                {" · "}
+                <span className="text-foreground">{option.label}</span>
+              </>
+            ) : null}
+            {" · "}
+            <span className="text-foreground">{capitalize(typeName(targetType ?? ""))}</span>
+          </span>
+        </nav>
       )}
-      <Command.List className="max-h-64 overflow-y-auto p-1">
+      <Command.Input
+        autoFocus
+        value={search}
+        onValueChange={setSearch}
+        onKeyDown={(event) => {
+          if (event.key === "Backspace" && step > 1 && search === "") back();
+        }}
+        placeholder={placeholder}
+        className="h-9 min-w-0 border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
+      />
+      <Command.List className="max-h-72 overflow-y-auto p-1">
         <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
           No matches.
         </Command.Empty>
-        {option === null
-          ? options.map((o) => (
-              <Command.Item
-                key={o.key}
-                value={`${o.label} ${o.description}`}
-                onSelect={() => pickOption(o)}
-                className="flex cursor-pointer flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
-              >
-                <span className="flex w-full items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                  {o.targetType && (
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {typeName(o.targetType)}
-                    </span>
-                  )}
-                </span>
+        {step === 1 &&
+          typeRows.map(([type, count]) => (
+            <Command.Item
+              key={type}
+              value={capitalize(typeName(type))}
+              onSelect={() => choose(type)}
+              className={ROW}
+            >
+              <EntityIcon
+                entity={{ type, icon: null }}
+                className="shrink-0 text-muted-foreground"
+              />
+              <span className="min-w-0 flex-1 truncate">{capitalize(typeName(type))}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{count}</span>
+            </Command.Item>
+          ))}
+        {step === 2 &&
+          candidatesFor(targetType ?? "").map((o) => (
+            <Command.Item
+              key={o.key}
+              value={`${o.label} ${o.description}`}
+              onSelect={() => setOption(o)}
+              className={cn(ROW, "flex-col items-start gap-0.5")}
+            >
+              <span>{o.label}</span>
+              {o.description && (
                 <span className="text-xs text-muted-foreground">{o.description}</span>
-              </Command.Item>
-            ))
-          : filtered.map((group) => (
-              <Command.Group
-                key={group.name}
-                heading={group.name}
-                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-muted-foreground"
-              >
-                {(capped ? group.items.slice(0, GROUP_CAP) : group.items).map(
-                  ({ entity, session }) => (
-                    <Command.Item
-                      key={entity.id}
-                      value={`${displayTitle(entity)} ${typeName(entity.type)} ${session?.courseTitle ?? ""} ${entity.id} ${session?.date ?? ""}`}
-                      keywords={keyKeywords(entity.key)}
-                      onSelect={() => onSelect(entity, option.type, option.reverse)}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm data-[selected=true]:bg-accent"
-                    >
-                      <EntityIcon entity={entity} className="shrink-0 text-muted-foreground" />
-                      <EntityKey entityKey={entity.key} />
-                      <span className="min-w-0 flex-1 truncate">{displayTitle(entity)}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {session ? sessionWhen(session) : typeName(entity.type)}
-                      </span>
-                    </Command.Item>
-                  ),
-                )}
-                {capped && group.items.length > GROUP_CAP && (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">
-                    {group.items.length - GROUP_CAP} more, search or pick the type to see them
-                  </p>
-                )}
-              </Command.Group>
-            ))}
+              )}
+            </Command.Item>
+          ))}
+        {step === 3 &&
+          (query ? (
+            matches.map(row)
+          ) : (
+            <>
+              {suggested.length > 0 && (
+                <Command.Group heading="Suggested" className={HEADING}>
+                  {suggested.map(row)}
+                </Command.Group>
+              )}
+              {recent.length > 0 && (
+                <Command.Group heading="Recent" className={HEADING}>
+                  {recent.map(row)}
+                </Command.Group>
+              )}
+              {hiddenCount > 0 && (
+                <p className="px-2 py-1 text-xs text-muted-foreground">
+                  {hiddenCount} more, search to find them
+                </p>
+              )}
+            </>
+          ))}
       </Command.List>
     </Command>
   );
-}
-
-/// Targets shown per group in the browse view.
-const GROUP_CAP = 8;
-
-const COURSE_NOTES_GROUP = "Notes of this course";
-
-interface Target {
-  entity: Entity;
-  session: SessionOccurrence | undefined;
 }
 
 function newestFirst(a: Target, b: Target): number {
@@ -304,31 +352,19 @@ function sessionWhen(session: SessionOccurrence): string {
   return session.courseTitle ? `${session.courseTitle}, ${when}` : when;
 }
 
-/// One group per entity type, most recent first, with the pages of the item's own
-/// course ahead of the rest.
-function groupTargets(targets: Target[], courseNoteIds: Set<string>) {
-  const groups: { name: string; items: Target[] }[] = [];
-  const inCourse = targets.filter((t) => courseNoteIds.has(t.entity.id));
-  if (inCourse.length > 0) groups.push({ name: COURSE_NOTES_GROUP, items: inCourse });
-  const byType = new Map<string, Target[]>();
-  for (const target of targets) {
-    if (courseNoteIds.has(target.entity.id)) continue;
-    const name = capitalize(typeName(target.entity.type));
-    byType.set(name, [...(byType.get(name) ?? []), target]);
-  }
-  for (const [name, items] of byType) groups.push({ name, items });
-  return groups;
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+/// The second line of a row: what it is, and when it last changed.
+function context(target: Target): string {
+  if (target.session) return sessionWhen(target.session);
+  const edited = formatShortDate(target.entity.updatedAt.slice(0, 10));
+  return `${capitalize(typeName(target.entity.type))} · Edited ${edited}`;
 }
 
 const COURSE_PAGE_LINKS = new Set(["course-notes", "course-jots", "course-note"]);
 
-/// Ids of the notes and jots that belong to the course of `entityId` (a course itself,
-/// or a session or page linked to one), so they can lead the target list.
-function useCourseNoteIds(entityId: string, entityType: string, enabled: boolean): Set<string> {
+/// Ids of what belongs with `entityId`: its course, that course's notes and jots and, for
+/// anything but a session, that course's sessions. The course of a session or page is
+/// the one it is linked to; a course is its own.
+function useRelatedIds(entityId: string, entityType: string, enabled: boolean): Set<string> {
   const { data: own = [] } = useQuery({
     queryKey: qk.relationships.of(entityId),
     queryFn: () => listRelationships(entityId, "both"),
@@ -349,41 +385,15 @@ function useCourseNoteIds(entityId: string, entityType: string, enabled: boolean
       enabled,
     })),
   });
-  const ids = new Set<string>();
+  const ids = new Set<string>(entityType === "course" ? [] : courseIds);
   for (const list of lists) {
     for (const link of list.data ?? []) {
       if (COURSE_PAGE_LINKS.has(link.relationshipType)) ids.add(link.toEntityId);
+      else if (link.relationshipType === "session-course" && entityType !== "session") {
+        ids.add(link.fromEntityId);
+      }
     }
   }
+  ids.delete(entityId);
   return ids;
-}
-
-function TypeChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      aria-label={`${label} ${count}`}
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs",
-        active
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
-      {label}
-      <span className="tabular-nums opacity-70">{count}</span>
-    </button>
-  );
 }
