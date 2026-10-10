@@ -41,14 +41,14 @@ describe("dialogs and menus have no axe violations", () => {
     await expectNoA11yViolations();
   });
 
-  it("RelatePicker target step", async () => {
+  it("RelatePicker", async () => {
     mockCommand("list_entities", [
       makeEntity({ id: "n1", type: "note", title: "Wave notes" }),
       makeEntity({ id: "t1", type: "task", title: "Read chapter" }),
     ]);
     mockCommand("list_sessions", []);
     mockCommand("list_relationships", []);
-    const { user } = renderWithProviders(
+    renderWithProviders(
       <RelatePicker
         spaceId="space-1"
         exclude="me"
@@ -66,8 +66,7 @@ describe("dialogs and menus have no axe violations", () => {
         onSelect={() => {}}
       />,
     );
-    await user.click(await screen.findByText("Related to"));
-    await screen.findByRole("group", { name: "Note" });
+    await screen.findByRole("option", { name: /^Note/ });
     await expectNoA11yViolations();
   });
 
