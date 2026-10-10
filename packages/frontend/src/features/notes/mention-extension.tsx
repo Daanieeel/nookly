@@ -13,6 +13,8 @@ export interface MentionOptions {
   /// Read live so the popup always sees the Space's current entities without
   /// re-registering the extension on every fetch (§ notes rewrite).
   getEntities: () => Entity[];
+  /// Whether a File is shown page by page, so a mention of it can name a page.
+  hasPages: (entity: Entity) => boolean;
 }
 
 /// A page number for a file, typed after the search: `report#12`.
@@ -58,18 +60,21 @@ export function insertMention(
 interface MentionItem {
   entity: Entity;
   page: number | null;
-  /// A file offered before any `#` was typed: its row has a button to start a page number.
+  /// A file with pages, offered before any `#` was typed: its row has a button to start a
+  /// page number.
   canAddPage: boolean;
+  /// The file has pages, so a page in the query is meant.
+  paged: boolean;
 }
 
-function toListItem({ entity, page, canAddPage }: MentionItem): SuggestionListItem {
+function toListItem({ entity, page, canAddPage, paged }: MentionItem): SuggestionListItem {
   const kind = `${entity.key} · ${labelForType(entity.type)}`;
   return {
     key: entity.id,
     icon: <EntityIcon entity={entity} size={14} />,
     label: displayTitle(entity),
     // A page the query asked for shows only on a file, which is all that can take one.
-    description: entity.type === "file" && page ? `Page ${page} · ${kind}` : kind,
+    description: paged && page ? `Page ${page} · ${kind}` : kind,
     actionLabel: canAddPage ? "# Page" : undefined,
   };
 }
@@ -101,7 +106,7 @@ export const Mention = Extension.create<MentionOptions>({
   name: "mention",
 
   addOptions() {
-    return { getEntities: () => [] };
+    return { getEntities: () => [], hasPages: () => false };
   },
 
   addProseMirrorPlugins() {
@@ -115,17 +120,22 @@ export const Mention = Extension.create<MentionOptions>({
           const { search, page } = parseMentionQuery(query);
           return rankMentions(this.options.getEntities(), search)
             .slice(0, 8)
-            .map((entity) => ({
-              entity,
-              page,
-              canAddPage: entity.type === "file" && !query.includes("#"),
-            }));
+            .map((entity) => {
+              const paged = entity.type === "file" && this.options.hasPages(entity);
+              return {
+                entity,
+                // Only a file with pages takes one; the number is dropped for anything else.
+                page: paged ? page : null,
+                paged,
+                canAddPage: paged && !query.includes("#"),
+              };
+            });
         },
         command: ({ editor, range, props }) =>
           insertMention(editor, range, props.entity, props.page),
         render: createSuggestionRender(toListItem, {
           footer: (items, query) => {
-            if (!items.some((i) => i.entity.type === "file")) return undefined;
+            if (!items.some((i) => i.paged)) return undefined;
             if (!query.includes("#")) return "Press → to add a page number";
             return parseMentionQuery(query).page === null
               ? "Type the page number, then press Enter"

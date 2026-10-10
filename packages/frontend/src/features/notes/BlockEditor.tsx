@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { notify } from "#/components/notify.tsx";
 import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
 import { listEntities } from "#/lib/api/entities.ts";
+import { listFiles } from "#/lib/api/files.ts";
+import { hasPages } from "#/features/files/file-kind.ts";
 import {
   createBlock,
   deleteBlock,
@@ -134,6 +136,13 @@ function HydratedBlockEditor({
 
   const entitiesRef = useRef(entities);
   entitiesRef.current = entities;
+  // Which files are shown page by page, so a mention of one can name a page.
+  const { data: files = [] } = useQuery({
+    queryKey: qk.files.bySpace(spaceId),
+    queryFn: () => listFiles(spaceId),
+  });
+  const pagedFileIds = useRef(new Set<string>());
+  pagedFileIds.current = new Set(files.filter(hasPages).map((f) => f.entity.id));
   // The note's own code language, read live when a code block is made. A Jot has none.
   const { data: noteCodeLanguage = null } = useQuery({
     queryKey: qk.noteCodeLanguage(entityId),
@@ -276,6 +285,7 @@ function HydratedBlockEditor({
       spaceId,
       pageId: entityId,
       getEntities: () => entitiesRef.current,
+      hasPages: (entity) => pagedFileIds.current.has(entity.id),
       getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
     }),
     editorProps: {

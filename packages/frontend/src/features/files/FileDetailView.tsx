@@ -127,6 +127,8 @@ function FileViewer({
         format={office}
         name={name}
         fallback={(hint) => <Placeholder file={file} hint={hint} />}
+        initialPage={initialPage}
+        onInitialPageShown={onInitialPageShown}
       />
     );
   }

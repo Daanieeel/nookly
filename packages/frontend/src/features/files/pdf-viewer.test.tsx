@@ -7,7 +7,17 @@ import { type PdfDocumentProps, PdfViewer } from "./pdf-viewer.tsx";
 
 /// How many more times the mocked pdf.js fails to open the file before it succeeds,
 /// like an iCloud file that is not downloaded yet.
-const loads = { failures: 0 };
+interface FirstPage {
+  getViewport: () => { width: number; height: number };
+}
+
+interface Loads {
+  failures: number;
+  /// When set, the first page's size arrives when this resolves, not at once.
+  firstPage: Promise<FirstPage> | null;
+}
+
+const loads: Loads = { failures: 0, firstPage: null };
 
 /// The document pdf.js hands the viewer once a file has loaded.
 type PdfDocument = Parameters<PdfDocumentProps["onLoadSuccess"]>[0];
@@ -26,7 +36,8 @@ function FakeDocument({ onLoadSuccess, onLoadError, error, children }: PdfDocume
     // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- a stub of pdf.js's document proxy, cast through unknown
     onLoadSuccess({
       numPages: 2,
-      getPage: () => Promise.resolve({ getViewport: () => ({ width: 100, height: 100 }) }),
+      getPage: () =>
+        loads.firstPage ?? Promise.resolve({ getViewport: () => ({ width: 100, height: 100 }) }),
     } as unknown as PdfDocument);
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- one load per mount, like pdf.js
   }, []);
@@ -39,6 +50,7 @@ const viewer = (props: { initialPage?: number; onInitialPageShown?: () => void }
 
 beforeEach(() => {
   loads.failures = 0;
+  loads.firstPage = null;
   // jsdom has none; pages never count as near the viewport, which is all these tests need.
   vi.stubGlobal(
     "IntersectionObserver",
@@ -102,7 +114,7 @@ describe("PdfViewer opening on a page", () => {
     const shown = vi.fn();
     renderWithProviders(viewer({ initialPage: 2, onInitialPageShown: shown }));
     await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
-    expect(screen.getByDisplayValue("2")).toBeTruthy();
+    expect(await screen.findByDisplayValue("2")).toBeTruthy();
   });
 
   it("waits for the document while it fails to load, and still goes there after a retry", async () => {
@@ -121,5 +133,76 @@ describe("PdfViewer opening on a page", () => {
     await screen.findByText("/ 2");
     expect(shown).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue("1")).toBeTruthy();
+  });
+});
+
+describe("PdfViewer landing on the right page", () => {
+  /// What the page's own scroll call was asked, for the page div it is called on.
+  function scrolls() {
+    const spy = vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>();
+    Element.prototype.scrollIntoView = function scrollIntoView(arg) {
+      if (this instanceof HTMLElement && this.dataset.page) spy(arg);
+    };
+    return spy;
+  }
+
+  it("does not scroll before the first page has been measured, so placeholder sizes cannot throw it off", async () => {
+    const spy = scrolls();
+    let measured: (page: FirstPage) => void = () => {};
+    loads.firstPage = new Promise((resolve) => {
+      measured = resolve;
+    });
+    const shown = vi.fn();
+    renderWithProviders(viewer({ initialPage: 2, onInitialPageShown: shown }));
+    await screen.findByText("/ 2");
+    expect(spy).not.toHaveBeenCalled();
+    expect(shown).not.toHaveBeenCalled();
+    await act(async () => measured({ getViewport: () => ({ width: 100, height: 56 }) }));
+    await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("jumps at once rather than smoothly, which a layout change would catch mid flight", async () => {
+    const spy = scrolls();
+    const shown = vi.fn();
+    renderWithProviders(viewer({ initialPage: 2, onInitialPageShown: shown }));
+    await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
+    expect(spy).toHaveBeenCalledWith({ block: "start" });
+    expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+  });
+
+  it("keeps the page in place while the layout settles, until the user scrolls", async () => {
+    const spy = scrolls();
+    const resized: Array<() => void> = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          resized.push(callback);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const shown = vi.fn();
+    const { container } = renderWithProviders(
+      viewer({ initialPage: 2, onInitialPageShown: shown }),
+    );
+    await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
+    const before = spy.mock.calls.length;
+    // Pages measured above it change its height: the page is put back at the top.
+    act(() => resized.forEach((callback) => callback()));
+    expect(spy.mock.calls.length).toBeGreaterThan(before);
+
+    // Once the user takes over, the viewer stops moving the page.
+    const root = container.querySelector(".overflow-auto");
+    if (!(root instanceof HTMLElement)) throw new Error("the scroll area is missing");
+    act(() => {
+      root.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+    });
+    const settled = spy.mock.calls.length;
+    act(() => resized.forEach((callback) => callback()));
+    expect(spy.mock.calls.length).toBe(settled);
   });
 });

@@ -35,19 +35,30 @@ export function OfficeViewer({
   format,
   name,
   fallback,
+  initialPage,
+  onInitialPageShown,
 }: {
   file: FileEntity;
   src: string;
   format: OfficeFormat;
   name: string;
   fallback: (hint?: string) => ReactNode;
+  /// A page to open on, for the formats shown as pages (the converted ones).
+  initialPage?: number;
+  onInitialPageShown?: () => void;
 }) {
   return format === "docx" ? (
     <DocxViewer file={file} src={src} name={name} fallback={fallback} />
   ) : format === "xlsx" ? (
     <SheetViewer file={file} src={src} name={name} fallback={fallback} />
   ) : (
-    <ConvertedViewer file={file} name={name} fallback={fallback} />
+    <ConvertedViewer
+      file={file}
+      name={name}
+      fallback={fallback}
+      initialPage={initialPage}
+      onInitialPageShown={onInitialPageShown}
+    />
   );
 }
 
@@ -374,10 +385,14 @@ function ConvertedViewer({
   file,
   name,
   fallback,
+  initialPage,
+  onInitialPageShown,
 }: {
   file: FileEntity;
   name: string;
   fallback: (hint?: string) => ReactNode;
+  initialPage?: number;
+  onInitialPageShown?: () => void;
 }) {
   const { data: available, isPending: checking } = useQuery({
     queryKey: qk.files.officeConverter,
@@ -403,7 +418,14 @@ function ConvertedViewer({
   }
   if (isError) return fallback("LibreOffice couldn't convert this file.");
   if (!pdf) return <Loading label="Converting with LibreOffice…" />;
-  return <PdfViewer src={convertFileSrc(pdf)} name={name} />;
+  return (
+    <PdfViewer
+      src={convertFileSrc(pdf)}
+      name={name}
+      initialPage={initialPage}
+      onInitialPageShown={onInitialPageShown}
+    />
+  );
 }
 
 const LIBREOFFICE_DOWNLOADS = "https://www.libreoffice.org/download/download-libreoffice/";
