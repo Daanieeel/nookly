@@ -176,6 +176,14 @@ export const SHORTCUT_META = {
     section: "Create",
     scopes: GLOBAL,
   },
+  quickJotSession: {
+    title: "Quick jot for the current session",
+    description:
+      "Jot into the session happening now. Opens a plain quick jot when none is running.",
+    synonyms: ["capture", "session jot", "lecture", "class notes", "current session"],
+    section: "Create",
+    scopes: GLOBAL,
+  },
   create: {
     title: "Create",
     description: "Create a new item in the list or calendar you are on.",

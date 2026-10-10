@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findNextSession, hasStarted } from "./next-session.ts";
+import { findCurrentSession, findNextSession, hasStarted } from "./next-session.ts";
 
 function s(date: string, startTime: string, cancelled = false) {
   return { date, startTime, cancelled };
@@ -35,5 +35,31 @@ describe("findNextSession", () => {
   it("skips cancelled sessions and returns undefined when none remain", () => {
     expect(findNextSession([s("2026-04-06", "14:00", true)], now)).toBeUndefined();
     expect(findNextSession([], now)).toBeUndefined();
+  });
+});
+
+describe("findCurrentSession", () => {
+  const run = (date: string, startTime: string, endTime: string, cancelled = false) => ({
+    date,
+    startTime,
+    endTime,
+    cancelled,
+  });
+  it("finds the session that is running now", () => {
+    const current = run("2026-04-06", "10:00", "11:00");
+    expect(findCurrentSession([run("2026-04-06", "08:00", "09:00"), current], now)).toBe(current);
+  });
+  it("ignores ended, upcoming, other day and cancelled sessions", () => {
+    expect(
+      findCurrentSession(
+        [
+          run("2026-04-06", "09:00", "10:30"),
+          run("2026-04-06", "10:31", "12:00"),
+          run("2026-04-07", "10:00", "11:00"),
+          run("2026-04-06", "10:00", "11:00", true),
+        ],
+        now,
+      ),
+    ).toBeUndefined();
   });
 });
