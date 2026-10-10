@@ -123,6 +123,15 @@ describe("the settings dialog", () => {
     expect(screen.getByText("Version")).toBeInTheDocument();
   });
 
+  it("has a See what's new button beside the version, which opens the what's new dialog", async () => {
+    const { user } = renderOpen();
+    await user.type(await screen.findByRole("searchbox"), "updates");
+    await user.click(screen.getByRole("button", { name: "See what's new" }));
+    expect(useNavStore.getState().whatsNewOpen).toBe(true);
+    // One overlay at a time: the settings give way to it.
+    expect(useNavStore.getState().settingsOpen).toBe(false);
+  });
+
   it("explains an empty search and clears it from the button", async () => {
     const { user } = renderOpen();
     const search = await screen.findByRole("searchbox");

@@ -1,4 +1,4 @@
-import { IconCalendarUser, IconRefresh } from "@tabler/icons-react";
+import { IconCalendarUser, IconRefresh, IconSparkles } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
@@ -23,6 +23,7 @@ import {
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { useNavStore } from "#/lib/store/nav.ts";
 import { AgentFilesTab } from "./AgentFilesTab.tsx";
 import { ShortcutControl } from "./ShortcutControl.tsx";
 import {
@@ -271,14 +272,21 @@ function VersionControl() {
   });
   const status = useActionStatus(checkUpdate);
   return (
-    <>
+    <div className="flex flex-wrap items-center justify-end gap-2">
       <span className="text-xs text-muted-foreground tabular-nums">
         {version ? `v${version}` : ""}
       </span>
       <Button
         variant="secondary"
         size="sm"
-        className="ml-3"
+        onClick={() => useNavStore.getState().setWhatsNewOpen(true)}
+      >
+        <IconSparkles size={14} />
+        See what's new
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => !checkUpdate.isPending && checkUpdate.mutate()}
       >
         <StatusButtonContent
@@ -289,6 +297,6 @@ function VersionControl() {
           errorLabel="Couldn't check"
         />
       </Button>
-    </>
+    </div>
   );
 }

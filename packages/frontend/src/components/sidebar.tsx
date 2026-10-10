@@ -93,6 +93,7 @@ import {
   ExpandableModuleChildren,
 } from "./sidebar/expandable-module-children";
 import { UpdateCard } from "#/components/update-card.tsx";
+import { UpdatedCard } from "#/components/updated-card.tsx";
 import { CliInstallCard } from "./sidebar/cli-install-card";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
 import { SidebarCustomizeButton, SidebarNavItems } from "./sidebar/sidebar-items";
@@ -260,6 +261,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <UpdateCard className="group-data-[collapsible=icon]:hidden" />
+            <UpdatedCard className="group-data-[collapsible=icon]:hidden" />
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton

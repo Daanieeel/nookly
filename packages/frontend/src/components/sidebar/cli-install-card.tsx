@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconCheck, IconTerminal2, IconX } from "@tabler/icons-react";
+import { IconCheck, IconTerminal2 } from "@tabler/icons-react";
 import { useState } from "react";
+import { CardDismissButton } from "#/components/sidebar/card-dismiss-button.tsx";
 import { StatusAnnouncer, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Card } from "@nookly/ui/components/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { getCliInstallStatus, installCli } from "#/lib/api/cli.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
@@ -54,7 +54,8 @@ export function CliInstallCard() {
           </div>
         </div>
         <StatusAnnouncer message="CLI installed" />
-        <DismissButton
+        <CardDismissButton
+          label="Dismiss CLI install suggestion"
           onDismiss={() => {
             dismiss();
             setDismissed(true);
@@ -87,30 +88,13 @@ export function CliInstallCard() {
       </Button>
       {install.isError && <p className="text-xs text-destructive">{install.error.message}</p>}
       <StatusAnnouncer message={install.isError ? "Couldn't install the CLI" : null} />
-      <DismissButton
+      <CardDismissButton
+        label="Dismiss CLI install suggestion"
         onDismiss={() => {
           dismiss();
           setDismissed(true);
         }}
       />
     </Card>
-  );
-}
-
-function DismissButton({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label="Dismiss CLI install suggestion"
-          onClick={onDismiss}
-          className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded text-muted-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <IconX className="size-3.5" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">Dismiss</TooltipContent>
-    </Tooltip>
   );
 }
