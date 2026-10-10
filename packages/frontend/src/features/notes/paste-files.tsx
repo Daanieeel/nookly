@@ -10,6 +10,7 @@ import { importFileFromBytes } from "#/lib/api/files.ts";
 import { attachLabel, createLabel, listLabels } from "#/lib/api/labels.ts";
 import { labelColorFor } from "#/components/label-manager.tsx";
 import { qk } from "#/lib/query-keys.ts";
+import { refreshAfterFileRename } from "#/lib/rename-sync.ts";
 import { inheritPageContext } from "#/features/relationships/inherit-context.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import type { MediaKind } from "./MediaBlock";
@@ -121,6 +122,7 @@ export function usePasteFiles(spaceId: string, pageId: string) {
       try {
         await updateEntity(current.entityId, { title });
         refresh(current.entityId);
+        void refreshAfterFileRename(queryClient);
       } catch {
         toast.error("Couldn't rename the file");
       } finally {
