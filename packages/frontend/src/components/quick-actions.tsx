@@ -9,6 +9,7 @@ import {
   IconLayoutSidebarRight,
   IconMoon,
   IconPin,
+  IconFileCode,
   IconSettings,
   IconSun,
   IconTrash,
@@ -17,6 +18,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { ReactNode } from "react";
 import {
   StatusAnnouncer,
@@ -37,6 +39,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@nookly/ui/components/po
 import { createCourse } from "#/lib/api/courses.ts";
 import { createDeck } from "#/lib/api/decks.ts";
 import { createJot, createNote } from "#/lib/api/notes.ts";
+import { openSettingsFile } from "#/lib/api/settings-file.ts";
 import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
@@ -500,6 +503,16 @@ export function QuickActions({
       node: simpleItem("open-settings", IconSettings, "Open Settings", () => {
         useNavStore.getState().setSettingsOpen(true);
         onDone();
+      }),
+    },
+    {
+      id: "open-settings-file",
+      category: "settings",
+      words: "Open Settings File settings json config edit",
+      node: simpleItem("open-settings-file", IconFileCode, "Open Settings File", () => {
+        onDone();
+        // The palette is gone by the time this can fail, so a toast is all that is left.
+        openSettingsFile().catch(() => toast.error("Couldn't open the settings file"));
       }),
     },
     ...(view.kind === "entity"

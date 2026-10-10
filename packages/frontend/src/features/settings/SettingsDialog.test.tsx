@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { mockCommand } from "#/test/tauri.ts";
+import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
 import { SETTING_CATEGORIES, SETTING_IDS } from "#/lib/settings/registry.ts";
 import { settings } from "#/lib/settings/settings.ts";
@@ -258,5 +258,33 @@ describe("Open Settings in the commands palette", () => {
     expect(useNavStore.getState().settingsOpen).toBe(true);
     expect(useNavStore.getState().commandsOpen).toBe(false);
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+  });
+});
+
+describe("opening the settings file", () => {
+  it("opens it from the button in the dialog", async () => {
+    mockCommand("open_settings_file", null);
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Open settings file" }));
+    await waitFor(() => expect(callsOf("open_settings_file")).toHaveLength(1));
+  });
+
+  it("says so on the button when the file cannot be opened", async () => {
+    mockCommandWith("open_settings_file", () => {
+      throw new Error("no app to open it");
+    });
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Open settings file" }));
+    expect(await screen.findByRole("button", { name: /Couldn't open/ })).toBeInTheDocument();
+  });
+
+  it("opens it from the commands palette", async () => {
+    mockCommand("list_spaces", []);
+    mockCommand("open_settings_file", null);
+    const { user } = renderWithProviders(<CommandsPalette />);
+    act(() => useNavStore.getState().setCommandsOpen(true));
+    await user.type(await screen.findByPlaceholderText("Run a command…"), "settings json");
+    await user.click(await screen.findByText("Open Settings File"));
+    await waitFor(() => expect(callsOf("open_settings_file")).toHaveLength(1));
   });
 });

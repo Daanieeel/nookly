@@ -20,6 +20,7 @@ pub mod recipes;
 pub mod relationships;
 pub mod search;
 pub mod sessions;
+pub mod settings_file;
 pub mod spaces;
 pub mod study_blocks;
 pub mod tasks;
