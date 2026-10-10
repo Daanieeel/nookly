@@ -1,7 +1,7 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ErrorBoundary } from "#/components/error-boundary.tsx";
+import { CrashFallback, ErrorBoundary } from "#/components/error-boundary.tsx";
 import { renderWithProviders } from "#/test/render.tsx";
 import { type PdfDocumentProps, PdfViewer } from "./pdf-viewer.tsx";
 
@@ -13,11 +13,14 @@ interface FirstPage {
 
 interface Loads {
   failures: number;
+  /// When set, opening the file succeeds but drawing it throws, like a viewer that breaks
+  /// on the file it could not read a moment ago.
+  crashesOnceReadable: boolean;
   /// When set, the first page's size arrives when this resolves, not at once.
   firstPage: Promise<FirstPage> | null;
 }
 
-const loads: Loads = { failures: 0, firstPage: null };
+const loads: Loads = { failures: 0, crashesOnceReadable: false, firstPage: null };
 
 /// The document pdf.js hands the viewer once a file has loaded.
 type PdfDocument = Parameters<PdfDocumentProps["onLoadSuccess"]>[0];
@@ -26,6 +29,7 @@ type PdfDocument = Parameters<PdfDocumentProps["onLoadSuccess"]>[0];
 function FakeDocument({ onLoadSuccess, onLoadError, error, children }: PdfDocumentProps) {
   // Decided once per mount, like pdf.js does per load.
   const [failing] = useState(() => loads.failures > 0);
+  if (!failing && loads.crashesOnceReadable) throw new Error("the viewer broke on the file");
   useEffect(() => {
     if (failing) {
       loads.failures -= 1;
@@ -50,6 +54,7 @@ const viewer = (props: { initialPage?: number; onInitialPageShown?: () => void }
 
 beforeEach(() => {
   loads.failures = 0;
+  loads.crashesOnceReadable = false;
   loads.firstPage = null;
   // jsdom has none; pages never count as near the viewport, which is all these tests need.
   vi.stubGlobal(
@@ -204,5 +209,98 @@ describe("PdfViewer landing on the right page", () => {
     const settled = spy.mock.calls.length;
     act(() => resized.forEach((callback) => callback()));
     expect(spy.mock.calls.length).toBe(settled);
+  });
+});
+
+/// Issue 81: a PDF in iCloud that is not downloaded fails to load. When the file becomes
+/// readable again the app used to go blank. Whatever it was that threw, the window must
+/// stay usable, and the file must come back without restarting the app.
+describe("a file that was unreachable becomes readable again (issue 81)", () => {
+  /// What the file view does: the viewer inside a boundary, with the rest of the app
+  /// outside it.
+  function FileView() {
+    return (
+      <div>
+        <p>app shell</p>
+        <ErrorBoundary fallback={(reset) => <CrashFallback reset={reset} what="this file" />}>
+          {viewer()}
+        </ErrorBoundary>
+      </div>
+    );
+  }
+
+  it("scenario 1: the viewer throws on the file, the app stays up and the file loads on Try Again", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    loads.failures = 1;
+    const { user } = renderWithProviders(<FileView />);
+    await screen.findByText(/Couldn't load a\.pdf/);
+
+    // The file comes back; the next load makes the viewer throw while it draws.
+    loads.crashesOnceReadable = true;
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await screen.findByText(/Something went wrong showing this file/);
+    // Not blank: everything outside the file is still there.
+    expect(screen.getByText("app shell")).toBeTruthy();
+
+    // Once what broke it is gone, Try Again brings the file back.
+    loads.crashesOnceReadable = false;
+    await user.click(screen.getByRole("button", { name: "Try Again" }));
+    expect(await screen.findByText("/ 2")).toBeTruthy();
+    expect(screen.getByText("app shell")).toBeTruthy();
+  });
+
+  /// A part of the page other than the viewer, which breaks when the file returns.
+  function Properties() {
+    const [available, setAvailable] = useState(false);
+    useEffect(() => {
+      const open = () => setAvailable(true);
+      window.addEventListener("focus", open);
+      return () => window.removeEventListener("focus", open);
+    }, []);
+    if (available && loads.crashesOnceReadable) throw new Error("the properties broke");
+    return <p>properties</p>;
+  }
+
+  function Page() {
+    const [view, setView] = useState(1);
+    return (
+      <div>
+        <p>app shell</p>
+        <button type="button" onClick={() => setView((n) => n + 1)}>
+          Go elsewhere
+        </button>
+        <ErrorBoundary
+          resetKeys={[view]}
+          fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
+        >
+          <Properties />
+          {viewer()}
+        </ErrorBoundary>
+      </div>
+    );
+  }
+
+  it("scenario 2: something else on the page throws, the app stays up and leaving the page recovers", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    loads.failures = 1;
+    loads.crashesOnceReadable = true;
+    const { user } = renderWithProviders(<Page />);
+    await screen.findByText(/Couldn't load a\.pdf/);
+
+    // The file comes back: the other part of the page throws, taking the viewer with it.
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await screen.findByText(/Something went wrong showing this view/);
+    expect(screen.getByText("app shell")).toBeTruthy();
+    expect(screen.queryByText("properties")).toBeNull();
+
+    // The viewer cannot recover on its own here; going elsewhere and back does.
+    loads.crashesOnceReadable = false;
+    await user.click(screen.getByRole("button", { name: "Go elsewhere" }));
+    expect(await screen.findByText("properties")).toBeTruthy();
+    expect(await screen.findByText("/ 2")).toBeTruthy();
   });
 });
