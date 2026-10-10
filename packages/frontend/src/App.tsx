@@ -24,6 +24,7 @@ import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
+import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -73,6 +74,7 @@ function Shell() {
   useExternalCalendarSync();
   useAutoBackup();
   useScopedSelectAll();
+  usePastePlainText();
   // Formatters read the date settings directly; re-rendering from the root applies
   // a changed format everywhere at once.
   useDateTimeSettings((s) => `${s.timezone}|${s.dateFormat}|${s.timeFormat}`);
