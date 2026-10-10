@@ -279,7 +279,9 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
           <NoMatchesNotice text="No tasks match this view." onClear={() => setFilters([])} />
         ) : display.layout === "board" ? (
           <TaskBoard
-            groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
+            groups={groups}
+            hiddenColumns={display.hiddenColumns}
+            onHiddenColumnsChange={(hiddenColumns) => setDisplay({ ...display, hiddenColumns })}
             properties={display.properties}
             highlightId={highlightId}
             failedTaskId={failedTaskId}

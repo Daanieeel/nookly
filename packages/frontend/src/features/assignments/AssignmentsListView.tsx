@@ -205,6 +205,7 @@ export function AssignmentsListView({
         <AssignmentGroups
           groups={groups}
           display={display}
+          onDisplayChange={setDisplay}
           courseOf={courseOf}
           boardDraggable={boardDraggable}
           onMove={onMove}

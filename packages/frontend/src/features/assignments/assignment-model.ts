@@ -269,9 +269,14 @@ export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     name: "Open",
     icon: "ClipboardList",
     color: "#3b82f6",
-    description: "Overdue, due today and due up to next week, as a board by status.",
+    description:
+      "Overdue, due today and due up to next week, as a board by status, without the finished columns.",
     filters: [is("due", "overdue", "today", "week", "next")],
-    display: normalizeDisplay({ layout: "board", grouping: "status" }),
+    display: normalizeDisplay({
+      layout: "board",
+      grouping: "status",
+      hiddenColumns: ["graded", "submitted"],
+    }),
   },
   {
     name: "Submitted",

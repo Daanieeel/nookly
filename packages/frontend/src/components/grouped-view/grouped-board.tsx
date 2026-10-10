@@ -10,9 +10,16 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { IconCaretDownFilled, IconCaretRightFilled, IconPlus } from "@tabler/icons-react";
+import {
+  IconCaretDownFilled,
+  IconCaretRightFilled,
+  IconEyeOff,
+  IconPlus,
+} from "@tabler/icons-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type { ContextTargetProps } from "#/components/context-menu/registry.ts";
+import { Button } from "@nookly/ui/components/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { type ViewGroup, isCollapsed, moveRowFocus, toggleId } from "./grouping";
@@ -46,13 +53,29 @@ interface BoardProps<T> {
   createLabel?: (name: string) => string;
   /// A column's context menu target.
   columnProps?: (group: ViewGroup<T>) => ContextTargetProps | undefined;
+  /// Ids of the columns not shown. Together with `onHiddenColumnsChange` this gives each
+  /// header a Hide button and the board a chip that brings hidden columns back.
+  hiddenColumns?: string[];
+  onHiddenColumnsChange?: (ids: string[]) => void;
+  /// Set by `GroupedBoard` for its columns: hides one.
+  onHide?: (group: ViewGroup<T>) => void;
 }
 
 /// Linear style board: one column per group with cards. With sub-grouping, a row
 /// of column headers sits on top and every sub-group is a collapsible swimlane
 /// holding one cell per column. Cards drag between cells when `draggable`.
-export function GroupedBoard<T>(props: BoardProps<T>) {
-  const { groups, renderOverlay, onMove } = props;
+export function GroupedBoard<T>(allProps: BoardProps<T>) {
+  const { renderOverlay, onMove, hiddenColumns = [], onHiddenColumnsChange } = allProps;
+  const hidden = allProps.groups.filter((g) => hiddenColumns.includes(g.id));
+  // The columns on screen; `groups` from here on never holds a hidden one.
+  const props: BoardProps<T> = {
+    ...allProps,
+    groups: allProps.groups.filter((g) => !hiddenColumns.includes(g.id)),
+    onHide: onHiddenColumnsChange
+      ? (group: ViewGroup<T>) => onHiddenColumnsChange([...hiddenColumns, group.id])
+      : undefined,
+  };
+  const { groups } = props;
   const [active, setActive] = useState<T | null>(null);
   // A few pixels of travel before a drag starts, so a plain click still opens the card.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -82,15 +105,76 @@ export function GroupedBoard<T>(props: BoardProps<T>) {
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActive(null)}
     >
-      {lanes ? <LaneBoard {...props} lanes={lanes} /> : <ColumnBoard {...props} />}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {hidden.length > 0 && onHiddenColumnsChange && (
+          <HiddenColumns
+            hidden={hidden}
+            onShow={(ids) => onHiddenColumnsChange(hiddenColumns.filter((id) => !ids.includes(id)))}
+          />
+        )}
+        {lanes ? <LaneBoard {...props} lanes={lanes} /> : <ColumnBoard {...props} />}
+      </div>
       <DragOverlay dropAnimation={null}>{active !== null && renderOverlay(active)}</DragOverlay>
     </DndContext>
   );
 }
 
+/// "N hidden columns": a small chip above the board that lists them and shows them again.
+function HiddenColumns<T>({
+  hidden,
+  onShow,
+}: {
+  hidden: ViewGroup<T>[];
+  onShow: (ids: string[]) => void;
+}) {
+  const label = `${hidden.length} hidden ${hidden.length === 1 ? "column" : "columns"}`;
+  return (
+    <div className="flex shrink-0 justify-end px-3 pt-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" aria-label={label} className="h-7 gap-1.5 text-xs">
+            <IconEyeOff size={14} />
+            {label}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" aria-label="Hidden columns" className="w-64 p-1">
+          <ul className="flex flex-col">
+            {hidden.map((group) => (
+              <li key={group.id} className="flex h-8 items-center gap-2 pr-1 pl-2 text-sm">
+                {group.icon}
+                <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                <span className="text-muted-foreground tabular-nums">{group.items.length}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  aria-label={`Show ${group.name}`}
+                  onClick={() => onShow([group.id])}
+                >
+                  Show
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {hidden.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-1 h-7 w-full justify-start text-xs"
+              onClick={() => onShow(hidden.map((g) => g.id))}
+            >
+              Show All Columns
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 /// Without sub-groups: full height columns, each scrolling on its own.
 function ColumnBoard<T>(props: BoardProps<T>) {
-  const { groups, onCreateIn, columnProps } = props;
+  const { groups, onCreateIn, columnProps, onHide } = props;
   return (
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the card buttons inside
     <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3" onKeyDown={moveRowFocus}>
@@ -112,6 +196,7 @@ function ColumnBoard<T>(props: BoardProps<T>) {
                 group={group}
                 count={group.items.length}
                 onCreate={onCreate}
+                onHide={onHide}
                 createLabel={props.createLabel}
               />
             }
@@ -126,7 +211,7 @@ function ColumnBoard<T>(props: BoardProps<T>) {
 /// With sub-groups: shared column headers on top, then one swimlane per
 /// sub-group that holds anything.
 function LaneBoard<T>(props: BoardProps<T> & { lanes: ViewGroup<T>[] }) {
-  const { groups, lanes, onCreateIn, columnProps } = props;
+  const { groups, lanes, onCreateIn, columnProps, onHide } = props;
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const cell = (group: ViewGroup<T>, laneId: string) =>
     group.subgroups?.find((s) => s.id === laneId);
@@ -144,6 +229,7 @@ function LaneBoard<T>(props: BoardProps<T> & { lanes: ViewGroup<T>[] }) {
                 group={group}
                 count={group.items.length}
                 onCreate={onCreateIn?.(group, null)}
+                onHide={onHide}
                 createLabel={props.createLabel}
               />
             </div>
@@ -205,11 +291,13 @@ function ColumnHeader<T>({
   group,
   count,
   onCreate,
+  onHide,
   createLabel,
 }: {
   group: ViewGroup<T>;
   count: number;
   onCreate: (() => void) | undefined;
+  onHide: ((group: ViewGroup<T>) => void) | undefined;
   createLabel?: (name: string) => string;
 }) {
   const label = createLabel?.(group.name) ?? `New in ${group.name}`;
@@ -218,21 +306,38 @@ function ColumnHeader<T>({
       {group.icon}
       <span className="truncate text-sm font-medium">{group.name}</span>
       <span className="text-sm text-muted-foreground tabular-nums">{count}</span>
-      {onCreate && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={label}
-              onClick={onCreate}
-              className="ml-auto flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/col:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
-            >
-              <IconPlus size={14} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
-      )}
+      <span className="ml-auto flex items-center">
+        {onHide && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Hide ${group.name}`}
+                onClick={() => onHide(group)}
+                className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/col:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+              >
+                <IconEyeOff size={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Hide Column</TooltipContent>
+          </Tooltip>
+        )}
+        {onCreate && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={label}
+                onClick={onCreate}
+                className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/col:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+              >
+                <IconPlus size={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        )}
+      </span>
     </header>
   );
 }

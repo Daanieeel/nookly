@@ -26,6 +26,8 @@ export function TaskBoard({
   onMove,
   onCreateIn,
   columnProps,
+  hiddenColumns,
+  onHiddenColumnsChange,
 }: {
   groups: ViewGroup<Task>[];
   properties: DisplayProperty[];
@@ -41,6 +43,8 @@ export function TaskBoard({
   ) => void;
   onCreateIn: (group: ViewGroup<Task>, lane: ViewGroup<Task> | null) => (() => void) | undefined;
   columnProps?: (group: ViewGroup<Task>) => ContextTargetProps | undefined;
+  hiddenColumns: string[];
+  onHiddenColumnsChange: (ids: string[]) => void;
 }) {
   return (
     <GroupedBoard
@@ -51,6 +55,8 @@ export function TaskBoard({
       onCreateIn={onCreateIn}
       createLabel={(name) => `New Task in ${name}`}
       columnProps={columnProps}
+      hiddenColumns={hiddenColumns}
+      onHiddenColumnsChange={onHiddenColumnsChange}
       renderOverlay={(task) => (
         <TaskCardBody task={task} properties={properties} className="rotate-2 shadow-lg" />
       )}
