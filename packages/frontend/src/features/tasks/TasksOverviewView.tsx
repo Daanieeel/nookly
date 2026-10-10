@@ -218,7 +218,9 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
           />
         ) : display.layout === "board" ? (
           <TaskBoard
-            groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
+            groups={groups}
+            hiddenColumns={display.hiddenColumns}
+            onHiddenColumnsChange={(hiddenColumns) => setDisplay({ ...display, hiddenColumns })}
             properties={properties}
             highlightId={null}
             failedTaskId={failedTaskId}

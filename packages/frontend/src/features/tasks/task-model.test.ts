@@ -206,6 +206,18 @@ describe("display options", () => {
     }
     expect(TASK_VIEW_PRESETS.map((p) => p.name)).toContain("Current");
   });
+
+  it("opens the Current preset without the finished columns", () => {
+    const current = TASK_VIEW_PRESETS.find((p) => p.name === "Current");
+    expect(current?.display.hiddenColumns).toEqual(["done", "cancelled"]);
+    for (const preset of TASK_VIEW_PRESETS.filter((p) => p.name !== "Current")) {
+      expect(preset.display.hiddenColumns).toEqual([]);
+    }
+  });
+
+  it("reads a saved view from before columns could be hidden as showing every column", () => {
+    expect(normalizeDisplay({ layout: "board", grouping: "status" }).hiddenColumns).toEqual([]);
+  });
 });
 
 describe("groupTasks", () => {

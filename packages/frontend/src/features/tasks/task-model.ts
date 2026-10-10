@@ -368,9 +368,14 @@ export const TASK_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     name: "Current",
     icon: "Target",
     color: "#3b82f6",
-    description: "What is on this week as a board, without done or cancelled tasks.",
+    description:
+      "What is on this week as a board, without done or cancelled tasks or their columns.",
     filters: [isNot("status", "done", "cancelled"), is("due", "today", "week")],
-    display: normalizeDisplay({ layout: "board", grouping: "status" }),
+    display: normalizeDisplay({
+      layout: "board",
+      grouping: "status",
+      hiddenColumns: ["done", "cancelled"],
+    }),
   },
   {
     name: "Backlog",

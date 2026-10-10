@@ -156,6 +156,7 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
         <AssignmentGroups
           groups={groups}
           display={display}
+          onDisplayChange={setDisplay}
           courseOf={courseOf}
           spaceById={spaceById}
           boardDraggable={boardDraggable}

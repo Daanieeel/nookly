@@ -148,6 +148,20 @@ describe("display options", () => {
     }
   });
 
+  it("opens the Open preset without the finished columns", () => {
+    const open = ASSIGNMENT_VIEW_PRESETS.find((p) => p.name === "Open");
+    expect(open?.display.hiddenColumns).toEqual(["graded", "submitted"]);
+    expect(open?.display.layout).toBe("board");
+    // The other presets keep every column.
+    for (const preset of ASSIGNMENT_VIEW_PRESETS.filter((p) => p.name !== "Open")) {
+      expect(preset.display.hiddenColumns).toEqual([]);
+    }
+  });
+
+  it("reads a saved view from before columns could be hidden as showing every column", () => {
+    expect(normalizeDisplay({ layout: "board", grouping: "status" }).hiddenColumns).toEqual([]);
+  });
+
   it("describes a display", () => {
     expect(describeDisplay(DEFAULT_DISPLAY)).toEqual({
       layout: "list",

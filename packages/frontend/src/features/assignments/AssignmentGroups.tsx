@@ -15,6 +15,7 @@ import {
 export function AssignmentGroups({
   groups,
   display,
+  onDisplayChange,
   courseOf,
   spaceById,
   boardDraggable,
@@ -24,6 +25,7 @@ export function AssignmentGroups({
 }: {
   groups: ViewGroup<Assignment>[];
   display: DisplayOptions;
+  onDisplayChange: (display: DisplayOptions) => void;
   courseOf: Map<string, Entity>;
   spaceById?: Map<string, Space>;
   boardDraggable: boolean;
@@ -37,7 +39,9 @@ export function AssignmentGroups({
   return display.layout === "board" ? (
     <GroupedBoard
       key={key}
-      groups={groups.filter((g) => !display.hiddenColumns.includes(g.id))}
+      groups={groups}
+      hiddenColumns={display.hiddenColumns}
+      onHiddenColumnsChange={(hiddenColumns) => onDisplayChange({ ...display, hiddenColumns })}
       getKey={(a) => a.entity.id}
       draggable={boardDraggable}
       onMove={onMove}
