@@ -40,12 +40,13 @@ function PageTabsBar({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-/// The tabs, side by side. Scrolls sideways when there are more than fit.
+/// The tabs, side by side. They never scroll: when there are more than fit, each tab
+/// shortens its label instead.
 function PageTabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
       data-slot="page-tabs-list"
-      className={cn("flex min-w-0 flex-1 items-center gap-1 overflow-x-auto", className)}
+      className={cn("flex min-w-0 flex-1 items-center gap-1", className)}
       {...props}
     />
   );
@@ -60,7 +61,7 @@ function PageTabsTrigger({
       data-slot="page-tabs-trigger"
       className={cn(
         // The underline sits on the bar's hairline (`-mb-px`) rather than above it.
-        "-mb-px inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-sm border-b-2 border-transparent px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-primary data-[state=active]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0",
+        "-mb-px inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-t-sm border-b-2 border-transparent px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-primary data-[state=active]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0",
         className,
       )}
       {...props}

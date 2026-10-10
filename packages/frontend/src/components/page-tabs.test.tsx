@@ -62,4 +62,16 @@ describe("PageTabs", () => {
       expect(active).not.toHaveClass(filled);
     }
   });
+
+  it("never scrolls, in either direction: the tabs shrink instead", () => {
+    render(<Demo />);
+    const list = screen.getByRole("tablist");
+    // An overflow rule on the list also scrolls it vertically, since the open tab's
+    // underline sits a pixel below the row.
+    expect(list.className).not.toMatch(/overflow/);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab).not.toHaveClass("shrink-0");
+      expect(tab).toHaveClass("min-w-0");
+    }
+  });
 });

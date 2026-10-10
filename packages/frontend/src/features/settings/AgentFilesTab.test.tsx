@@ -194,6 +194,15 @@ describe("AgentFilesTab", () => {
   });
 });
 
+describe("AgentFilesTab layout", () => {
+  it("gives the text room: tall by default, and never taller than the window", async () => {
+    setup();
+    const box = await editor();
+    expect(box).toHaveClass("h-120");
+    expect(box).toHaveClass("max-h-[60vh]");
+  });
+});
+
 describe("AgentFilesTab dialogs", () => {
   it("has no axe violations in the new file dialog", async () => {
     const { user } = setup();
