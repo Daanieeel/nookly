@@ -134,7 +134,6 @@ interface NavState {
   importOpen: boolean;
   quickJotOpen: boolean;
   /// The session the open Quick Jot writes into; null for a plain Jot.
-  quickJotSessionId: string | null;
   focusBlock: FocusBlock | null;
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
@@ -167,8 +166,6 @@ interface NavState {
   setSettingsOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
-  /// Opens the Quick Jot bound to one session occurrence.
-  openQuickJotForSession: (sessionId: string) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
@@ -368,7 +365,6 @@ export const useNavStore = create<NavState>((set, get) => ({
   settingsOpen: false,
   importOpen: false,
   quickJotOpen: false,
-  quickJotSessionId: null,
   focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
@@ -538,13 +534,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   setImportOpen: (importOpen) => set(importOpen ? { ...NO_OVERLAY, importOpen } : { importOpen }),
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
-    set(
-      quickJotOpen
-        ? { ...NO_OVERLAY, quickJotOpen, quickJotSessionId: null }
-        : { quickJotOpen, quickJotSessionId: null },
-    ),
-  openQuickJotForSession: (quickJotSessionId) =>
-    set({ ...NO_OVERLAY, quickJotOpen: true, quickJotSessionId }),
+    set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     preferences.set(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");

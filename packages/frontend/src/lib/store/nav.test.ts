@@ -524,18 +524,6 @@ describe("nav store, overlays and sidebars", () => {
     expect(store.getState().commandsOpen).toBe(true);
   });
 
-  it("binds the quick jot to a session and forgets it on close or a plain open", async () => {
-    const { store } = await loadNav();
-    store.getState().openQuickJotForSession("session-1");
-    expect(store.getState().quickJotOpen).toBe(true);
-    expect(store.getState().quickJotSessionId).toBe("session-1");
-    store.getState().setQuickJotOpen(false);
-    expect(store.getState().quickJotSessionId).toBeNull();
-    store.getState().openQuickJotForSession("session-1");
-    store.getState().setQuickJotOpen(true);
-    expect(store.getState().quickJotSessionId).toBeNull();
-  });
-
   it("closes only the overlay asked to close", async () => {
     const { store } = await loadNav();
     store.getState().setSwitcherOpen(true);
