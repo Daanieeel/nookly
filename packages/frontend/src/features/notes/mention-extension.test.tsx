@@ -74,9 +74,50 @@ describe("mentioning a page of a file", () => {
     );
   });
 
-  it("hints at the page number while a file is offered", async () => {
+  it("offers a page for a file as a button on its row, not for anything else", async () => {
     const { editor: target } = await open();
+    target.commands.insertContent("@");
+    expect(await screen.findAllByRole("button", { name: "# Page" })).toHaveLength(1);
+    expect(screen.getByText(/Press → to add a page number/)).toBeTruthy();
+  });
+
+  it("starts the page number when the row's page button is clicked", async () => {
+    const { user, editor: target } = await open();
     target.commands.insertContent("@report");
-    expect(await screen.findByText(/Add a page number: type #12/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "# Page" }));
+    await waitFor(() => expect(target.getText()).toBe("@report#"));
+    // The list stays open for the number, and says so.
+    expect(await screen.findByText(/Type the page number/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "# Page" })).toBeNull();
+    // Typing it finishes the link as before.
+    target.commands.insertContent("12");
+    expect(await screen.findByText(/Page 12/)).toBeTruthy();
+    await user.click((await screen.findAllByRole("button"))[0] ?? document.body);
+    await waitFor(() =>
+      expect(links(target)).toContainEqual({ text: "Report (p. 12)", href: "mention:f1#p12" }),
+    );
+  });
+
+  it("starts the page number with the right arrow on a highlighted file", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent("@report");
+    await screen.findByRole("button", { name: "# Page" });
+    await user.keyboard("{ArrowRight}");
+    await waitFor(() => expect(target.getText()).toBe("@report#"));
+  });
+
+  it("does not offer a page on a note, and the right arrow does nothing there", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent("@notes");
+    await screen.findByText("Notes");
+    expect(screen.queryByRole("button", { name: "# Page" })).toBeNull();
+    await user.keyboard("{ArrowRight}");
+    expect(target.getText()).toBe("@notes");
+  });
+
+  it("shows which page the row will link once a number is typed", async () => {
+    const { editor: target } = await open();
+    target.commands.insertContent("@report#12");
+    expect(await screen.findByText(/Page 12/)).toBeTruthy();
   });
 });
