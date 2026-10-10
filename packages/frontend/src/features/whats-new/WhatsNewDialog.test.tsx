@@ -85,6 +85,8 @@ describe("WhatsNewDialog", () => {
     const card = (await screen.findByText("Import a page")).closest("li");
     if (!(card instanceof HTMLElement)) throw new Error("the card is missing");
     expect(within(card).getByText("New")).toBeTruthy();
+    // New is positive (green), Improved is primary (blue).
+    expect(within(card).getByText("New").className).toContain("text-positive");
     expect(card.querySelector("svg")).not.toBeNull();
     // The shortcut is drawn as keys, not as text in a sentence.
     expect(card.querySelectorAll("kbd").length).toBeGreaterThanOrEqual(2);
