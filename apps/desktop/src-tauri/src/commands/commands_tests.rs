@@ -94,6 +94,7 @@ ipc_commands![
     notes::render_page_markdown,
     notes::export_page_markdown,
     notes::export_page_json,
+    notes::render_page_json,
     notes::preview_page_json,
     notes::import_page_json,
     notes::preview_page_text,
@@ -1798,6 +1799,36 @@ fn notes_preview_reads_a_page_file_and_refuses_bad_ones() {
     assert_eq!(
         h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
         before
+    );
+}
+
+#[test]
+fn notes_render_page_json_matches_the_exported_file() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let page = h.note(&space, "Shared");
+    h.block(&page, "Hello");
+    let text = h.ok("render_page_json", json!({ "entityId": page }));
+    let out = h.dir.path().join("shared.nookly.json");
+    h.ok(
+        "export_page_json",
+        json!({ "entityId": page, "path": out.to_string_lossy() }),
+    );
+    assert_eq!(
+        text.as_str().unwrap(),
+        std::fs::read_to_string(&out).unwrap()
+    );
+    assert!(text.as_str().unwrap().contains("Hello"));
+    h.app_err(
+        "render_page_json",
+        json!({ "entityId": MISSING }),
+        "NotFound",
+    );
+    let task = h.task(&space, "Not a page");
+    h.app_err(
+        "render_page_json",
+        json!({ "entityId": task }),
+        "InvalidInput",
     );
 }
 

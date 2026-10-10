@@ -18,6 +18,7 @@ import {
   SaveMarkdownFileItem,
   SaveNooklyPageItem,
 } from "#/features/notes/PageExportMenu.tsx";
+import { ShareButton, ShareMenuSub } from "#/features/notes/SharePage.tsx";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
@@ -55,6 +56,7 @@ export function EntityActions({
 
   return (
     <div className={cn("flex items-center gap-0.5", className)}>
+      {exportable && <ShareButton entity={entity} />}
       {exportable && <PageExportMenu entity={entity} />}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -121,6 +123,7 @@ export function EntityActions({
               <CopyPageMarkdownItem entity={entity} />
               <SaveMarkdownFileItem entity={entity} onDone={closeMenu} />
               <SaveNooklyPageItem entity={entity} onDone={closeMenu} />
+              <ShareMenuSub entity={entity} onDone={closeMenu} />
             </>
           )}
           <DropdownMenuSeparator />

@@ -17,7 +17,7 @@ import { exportPageJson, exportPageMarkdown, renderPageMarkdown } from "#/lib/ap
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 
-function fileBaseName(entity: Entity): string {
+export function fileBaseName(entity: Entity): string {
   const base = displayTitle(entity)
     .replace(/[\\/:*?"<>|]/g, "")
     .trim();
