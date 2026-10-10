@@ -14,6 +14,8 @@ Do not touch the major version. Report back to the user if a major version bump 
 
 `CHANGELOG.md` is written by hand for the people who use Nookly, and the What's new dialog shows the section of the running version. When you fix or implement something a user would notice, add one short, plain line to the section of the version you bumped to (add `## x.y.z (YYYY-MM-DD)` if it is missing), under `### Added`, `### Changed` or `### Fixed`. Say what changed for them, not how: no issue numbers, no jargon, no commit wording.
 
+A new feature users will notice also gets a card in `whats-new.json` (repo root), which is what the What's new dialog shows for the running version: a `title` and `summary` for the version, `highlights` (each a short `title`, a one sentence `description`, an `icon` from `features/whats-new/icons.ts`, an optional `tag` of `New` or `Improved`, and an optional `shortcut` like `Mod+Shift+J`) and `more` for the smaller lines under `Improved` and `Fixed`. Text is markdown, and a shortcut in code (`` `Mod+K` ``) shows as the system writes it. Newest version first. A version with no entry shows its `CHANGELOG.md` section instead.
+
 Quick map:
 
 - Where does code go, how do imports work? Read `development/monorepo.md`.
