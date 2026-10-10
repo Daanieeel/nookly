@@ -29,6 +29,7 @@ import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
+import { TabIndent } from "./tab-indent-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { CircuitBlock, Diagram, Equation, MathBlock } from "./source-block-extensions";
@@ -83,6 +84,7 @@ export function editorExtensions({
     CodeCompletion,
     Mention.configure({ getEntities }),
     Emoji,
+    TabIndent,
     Callout,
     Timeline,
     Progress,
