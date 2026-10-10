@@ -201,9 +201,16 @@ export function PdfViewer({
   src,
   name,
   documentComponent: PdfDocument = Document,
+  initialPage,
+  onInitialPageShown,
 }: {
   src: string;
   name: string;
+  /// A page to open on, from a mention of one (`[Slides (p. 12)]`). It wins over where
+  /// the viewer was last scrolled.
+  initialPage?: number;
+  /// Called once the viewer has gone to `initialPage`, so the request is not repeated.
+  onInitialPageShown?: () => void;
   /// The pdf.js document loader; tests pass a fake that fails on demand.
   documentComponent?: ComponentType<PdfDocumentProps>;
 }) {
@@ -367,6 +374,16 @@ export function PdfViewer({
     },
     [numPages],
   );
+
+  // Goes to a requested page once the document is laid out. This runs after the layout
+  // effect that restores the remembered scroll, so the request wins over it.
+  const shownRef = useRef(onInitialPageShown);
+  shownRef.current = onInitialPageShown;
+  useEffect(() => {
+    if (!initialPage || numPages === 0) return;
+    goToPage(initialPage);
+    shownRef.current?.();
+  }, [initialPage, numPages, goToPage]);
 
   // The toolbar's page field: shows the page currently in view, but only
   // while the user isn't actively typing a page to jump to.

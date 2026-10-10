@@ -273,6 +273,13 @@ describe("nav store, opening entities", () => {
     expect(store.getState().focusBlock).toBeNull();
   });
 
+  it("remembers a page of a file to scroll to", async () => {
+    const { store } = await loadNav();
+    store.getState().openEntity("f1", "s1", { entityId: "f1", page: 12 });
+    expect(store.getState().focusBlock).toEqual({ entityId: "f1", page: 12 });
+    expect(store.getState().view).toEqual({ kind: "entity", entityId: "f1", spaceId: "s1" });
+  });
+
   it("opens in a background tab after a Cmd click", async () => {
     const { store, armNewTabIntent } = await loadNav();
     armNewTabIntent();

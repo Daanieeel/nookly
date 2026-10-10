@@ -11,7 +11,14 @@ import {
 /// which differ only in what `toItem` turns each raw item into.
 export function createSuggestionRender<I>(
   toItem: (item: I) => SuggestionListItem,
-  { hideWhenEmpty = false }: { hideWhenEmpty?: boolean } = {},
+  {
+    hideWhenEmpty = false,
+    footer,
+  }: {
+    hideWhenEmpty?: boolean;
+    /// A hint shown under the list for the current items and query.
+    footer?: (items: I[], query: string) => string | undefined;
+  } = {},
 ): NonNullable<SuggestionOptions<I>["render"]> {
   return () => {
     let component: ReactRenderer<SuggestionListHandle>;
@@ -30,6 +37,7 @@ export function createSuggestionRender<I>(
     function listProps(props: SuggestionProps<I>) {
       return {
         items: props.items.map(toItem),
+        footer: footer?.(props.items, props.query),
         onSelect: (index: number) => {
           const item = props.items[index];
           if (item) props.command(item);

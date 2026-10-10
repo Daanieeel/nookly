@@ -78,11 +78,13 @@ const MAX_RECENTS = 5;
 /// How many steps Back can go, like a browser's history.
 const MAX_HISTORY = 50;
 
-/// A block to scroll into view once its page's editor has hydrated, e.g. after
-/// picking a block level search result. Consumed (cleared) by `BlockEditor`.
+/// Where to land once an entity's view has loaded: a block of a page to scroll into view
+/// (a block level search result, consumed by `BlockEditor`), or a page of a file (a mention
+/// like `[Slides (p. 12)]`, consumed by the PDF viewer).
 export interface FocusBlock {
   entityId: string;
-  blockId: string;
+  blockId?: string;
+  page?: number;
 }
 
 interface NavState {

@@ -15,21 +15,52 @@ export interface MentionOptions {
   getEntities: () => Entity[];
 }
 
-export function insertMention(editor: Editor, range: Range, entity: Entity) {
+/// A page number for a file, typed after the search: `report#12`.
+const PAGE_QUERY = /^(.*?)#(\d+)$/;
+
+/// Splits what was typed after `@` into the words to search for and the page of a file
+/// it asks for (`report#12`). A `#` without digits is still being typed and is ignored.
+export interface MentionQuery {
+  search: string;
+  page: number | null;
+}
+
+export function parseMentionQuery(query: string): MentionQuery {
+  const match = PAGE_QUERY.exec(query);
+  if (match) return { search: match[1] ?? "", page: Number(match[2]) };
+  return { search: query.replace(/#\D*$/, ""), page: null };
+}
+
+export function insertMention(
+  editor: Editor,
+  range: Range,
+  entity: Entity,
+  page: number | null = null,
+) {
+  // Only a file has pages; the number is dropped for anything else.
+  const target = entity.type === "file" && page ? page : null;
   editor
     .chain()
     .focus()
     .deleteRange(range)
     .insertContent({
       type: "text",
-      text: displayTitle(entity),
-      marks: [{ type: "link", attrs: { href: `mention:${entity.id}` } }],
+      text: target ? `${displayTitle(entity)} (p. ${target})` : displayTitle(entity),
+      marks: [
+        { type: "link", attrs: { href: `mention:${entity.id}${target ? `#p${target}` : ""}` } },
+      ],
     })
     .insertContent(" ")
     .run();
 }
 
-function toListItem(entity: Entity): SuggestionListItem {
+/// What the "@" menu lists: the entity, and the page of it the query asked for.
+interface MentionItem {
+  entity: Entity;
+  page: number | null;
+}
+
+function toListItem({ entity }: MentionItem): SuggestionListItem {
   return {
     key: entity.id,
     icon: <EntityIcon entity={entity} size={14} />,
@@ -70,14 +101,25 @@ export const Mention = Extension.create<MentionOptions>({
 
   addProseMirrorPlugins() {
     return [
-      Suggestion<Entity>({
+      Suggestion<MentionItem>({
         editor: this.editor,
         pluginKey: new PluginKey("mention"),
         char: "@",
         allow: allowOutsideCode,
-        items: ({ query }) => rankMentions(this.options.getEntities(), query).slice(0, 8),
-        command: ({ editor, range, props }) => insertMention(editor, range, props),
-        render: createSuggestionRender(toListItem),
+        items: ({ query }) => {
+          const { search, page } = parseMentionQuery(query);
+          return rankMentions(this.options.getEntities(), search)
+            .slice(0, 8)
+            .map((entity) => ({ entity, page }));
+        },
+        command: ({ editor, range, props }) =>
+          insertMention(editor, range, props.entity, props.page),
+        render: createSuggestionRender(toListItem, {
+          footer: (items, query) =>
+            items.some((i) => i.entity.type === "file") && !query.includes("#")
+              ? "Add a page number: type #12"
+              : undefined,
+        }),
       }),
     ];
   },

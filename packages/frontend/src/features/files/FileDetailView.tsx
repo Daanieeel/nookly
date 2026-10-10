@@ -44,6 +44,7 @@ import {
 } from "#/lib/api/files.ts";
 import type { Entity, FileEntity } from "#/lib/api/types.ts";
 import { formatDate } from "#/lib/datetime.ts";
+import { useNavStore } from "#/lib/store/nav.ts";
 import { MarkdownViewer } from "./MarkdownViewer.tsx";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -74,6 +75,11 @@ export function FileDetailView({ entity }: { entity: Entity }) {
     queryKey: qk.files.byId(entity.id),
     queryFn: () => getFile(entity.id),
   });
+  // A page asked for by a mention of it, handed back once the viewer has gone there.
+  const page = useNavStore((s) =>
+    s.focusBlock?.entityId === entity.id ? s.focusBlock.page : undefined,
+  );
+  const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
 
   return (
     <EntityDetailLayout
@@ -87,7 +93,7 @@ export function FileDetailView({ entity }: { entity: Entity }) {
           resetKeys={[file.entity.id, filePath(file)]}
           fallback={(reset) => <CrashFallback reset={reset} what="this file" />}
         >
-          <FileViewer file={file} />
+          <FileViewer file={file} initialPage={page} onInitialPageShown={clearFocusBlock} />
         </ErrorBoundary>
       ) : (
         <div className="size-full animate-pulse rounded-lg bg-muted/40" />
@@ -96,7 +102,15 @@ export function FileDetailView({ entity }: { entity: Entity }) {
   );
 }
 
-function FileViewer({ file }: { file: FileEntity }) {
+function FileViewer({
+  file,
+  initialPage,
+  onInitialPageShown,
+}: {
+  file: FileEntity;
+  initialPage?: number;
+  onInitialPageShown: () => void;
+}) {
   const kind = fileKind(file);
   const ext = fileExtension(file);
   const path = filePath(file);
@@ -123,7 +137,16 @@ function FileViewer({ file }: { file: FileEntity }) {
       </div>
     );
   }
-  if (kind.id === "pdf") return <PdfViewer src={src} name={name} />;
+  if (kind.id === "pdf") {
+    return (
+      <PdfViewer
+        src={src}
+        name={name}
+        initialPage={initialPage}
+        onInitialPageShown={onInitialPageShown}
+      />
+    );
+  }
   if (kind.id === "video") {
     return (
       <div className="flex size-full items-center justify-center">
