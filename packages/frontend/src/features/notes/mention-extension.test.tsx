@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it } from "vitest";
+import type { Entity } from "#/lib/api/types.ts";
 import { makeEntity } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
@@ -13,11 +14,20 @@ afterEach(() => editor?.destroy());
 const entities = [
   makeEntity({ id: "f1", type: "file", title: "Report", key: "FIL-1" }),
   makeEntity({ id: "n1", type: "note", title: "Notes", key: "NTE-1" }),
+  makeEntity({ id: "f2", type: "file", title: "Photo", key: "FIL-2" }),
 ];
+
+/// Only the report has pages; the other file is a picture.
+const entitiesWithPages = (entity: Entity) => entity.id === "f1";
 
 async function open() {
   editor = new Editor({
-    extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => entities }),
+    extensions: editorExtensions({
+      spaceId: "s",
+      pageId: "p",
+      getEntities: () => entities,
+      hasPages: entitiesWithPages,
+    }),
     content: { type: "doc", content: [{ type: "paragraph" }] },
   });
   const view = renderWithProviders(<EditorContent editor={editor} />);
@@ -120,6 +130,33 @@ describe("mentioning a page of a file", () => {
     const { editor: target } = await open();
     target.commands.insertContent("@report#12");
     expect(await screen.findByText(/Page 12/)).toBeTruthy();
+  });
+});
+
+describe("which files offer a page", () => {
+  it("offers a page only for a file that has pages", async () => {
+    const { editor: target } = await open();
+    target.commands.insertContent("@");
+    // Report has pages; the photo and the note do not.
+    expect(await screen.findAllByRole("button", { name: "# Page" })).toHaveLength(1);
+    expect(screen.getByText("Photo")).toBeTruthy();
+  });
+
+  it("shows no page hint when no file on the list has pages", async () => {
+    const { editor: target } = await open();
+    target.commands.insertContent("@photo");
+    await screen.findByText("Photo");
+    expect(screen.queryByText(/Press → to add a page number/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "# Page" })).toBeNull();
+  });
+
+  it("ignores a typed page number for a file without pages", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent("@photo#4");
+    await user.click(await screen.findByText("Photo"));
+    await waitFor(() =>
+      expect(links(target)).toContainEqual({ text: "Photo", href: "mention:f2" }),
+    );
   });
 });
 

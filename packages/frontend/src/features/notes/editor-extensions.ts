@@ -44,6 +44,9 @@ export interface EditorExtensionOptions {
   getEntities: () => Entity[];
   /// Read live: the language a new code block in this page starts with, `null` for plain text.
   getNewCodeLanguage?: () => string | null;
+  /// Read live: whether a File can be mentioned by page (see `hasPages` in `file-kind.ts`).
+  /// Without it no file offers a page.
+  hasPages?: (entity: Entity) => boolean;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -52,6 +55,7 @@ export function editorExtensions({
   pageId,
   getEntities,
   getNewCodeLanguage = () => null,
+  hasPages = () => false,
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
@@ -83,7 +87,7 @@ export function editorExtensions({
     BlockSelection,
     SlashCommand.configure({ getEntities }),
     CodeCompletion,
-    Mention.configure({ getEntities }),
+    Mention.configure({ getEntities, hasPages }),
     Emoji,
     TabIndent,
     Callout,

@@ -147,6 +147,18 @@ export function officeFormat(file: FileEntity): OfficeFormat | null {
   return OFFICE_FORMATS.find(([, exts]) => ext !== null && exts.includes(ext))?.[0] ?? null;
 }
 
+/// Spreadsheets convert to PDF too, but a "page" of one means nothing to the person who
+/// wrote the mention.
+const UNPAGED_OFFICE = new Set(["xls", "ods", "numbers"]);
+
+/// Whether the viewer shows the file page by page, so a mention can name a page of it:
+/// a PDF, or slides and documents converted to one.
+export function hasPages(file: FileEntity): boolean {
+  if (fileKind(file).id === "pdf") return true;
+  const ext = fileExtension(file);
+  return officeFormat(file) === "convert" && ext !== null && !UNPAGED_OFFICE.has(ext);
+}
+
 /// Whether the file viewer can show it, rather than only offer to open it.
 /// Office files count: the in app ones always, the rest once LibreOffice is there.
 export function isViewable(file: FileEntity): boolean {

@@ -64,6 +64,8 @@ function escapeRegExp(value: string): string {
 const RENDER_MARGIN = "1500px 0px";
 const THUMBNAIL_MARGIN = "600px 0px";
 const FALLBACK_PAGE_SIZE = { width: 612, height: 792 };
+/// How long a requested page is held at the top while pages above it are measured.
+const PIN_MS = 3000;
 
 interface PageSize {
   width: number;
@@ -228,6 +230,9 @@ export function PdfViewer({
   const [pageMatches, setPageMatches] = useState<number[]>([]);
   const matchCount = useMemo(() => pageMatches.reduce((a, b) => a + b, 0), [pageMatches]);
   const [defaultSize, setDefaultSize] = useState<PageSize>(FALLBACK_PAGE_SIZE);
+  // Until the first page is measured every page is laid out at the fallback size, so a
+  // page far down sits at the wrong offset; going to a page waits for the real size.
+  const [sizeKnown, setSizeKnown] = useState(false);
   // Real sizes of the pages seen so far, so a placeholder matches its page.
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
   // A load that failed (an iCloud file not downloaded yet, say) can be tried again;
@@ -242,6 +247,7 @@ export function PdfViewer({
     setPdf(null);
     setNumPages(0);
     setPageSizes({});
+    setSizeKnown(false);
     setLoadFailed(false);
   }
 
@@ -259,6 +265,7 @@ export function PdfViewer({
     setPdf(null);
     setNumPages(0);
     setPageSizes({});
+    setSizeKnown(false);
   };
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -363,27 +370,68 @@ export function PdfViewer({
   };
 
   const goToPage = useCallback(
-    (page: number) => {
+    (page: number, instant = false) => {
       const clamped = Math.min(Math.max(1, page), Math.max(1, numPages));
       // Set directly rather than waiting on the scroll-driven intersection
       // observer below: a short document that already fits the viewport
       // never actually scrolls, so nothing would otherwise mark the clicked
       // page as current.
       setCurrentPage(clamped);
-      pageRefs.current.get(clamped)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      pageRefs.current
+        .get(clamped)
+        ?.scrollIntoView(instant ? { block: "start" } : { behavior: "smooth", block: "start" });
     },
     [numPages],
   );
+
+  // The page a mention asked for stays at the top while the layout settles: pages
+  // measured above it change their height, which would otherwise leave it far off. The
+  // user taking over (wheel, touch, click, key) or a few seconds ends it.
+  const pinnedPage = useRef<number | null>(null);
+  const pinTimer = useRef<number | undefined>(undefined);
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = scrollRef.current;
+    const content = contentRef.current;
+    if (!root || !content || numPages === 0 || !("ResizeObserver" in window)) return;
+    const realign = () => {
+      const page = pinnedPage.current;
+      if (page) pageRefs.current.get(page)?.scrollIntoView({ block: "start" });
+    };
+    const release = () => {
+      pinnedPage.current = null;
+    };
+    const observer = new ResizeObserver(realign);
+    observer.observe(content);
+    const events = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    for (const type of events) root.addEventListener(type, release, { passive: true });
+    return () => {
+      observer.disconnect();
+      for (const type of events) root.removeEventListener(type, release);
+    };
+  }, [numPages]);
 
   // Goes to a requested page once the document is laid out. This runs after the layout
   // effect that restores the remembered scroll, so the request wins over it.
   const shownRef = useRef(onInitialPageShown);
   shownRef.current = onInitialPageShown;
   useEffect(() => {
-    if (!initialPage || numPages === 0) return;
-    goToPage(initialPage);
+    if (!initialPage || numPages === 0 || !sizeKnown) return;
+    goToPage(initialPage, true);
+    pinnedPage.current = Math.min(Math.max(1, initialPage), numPages);
+    // Not cleared with the effect: handing the request back clears `initialPage`, which
+    // reruns it, and the hold must still end on its own.
+    window.clearTimeout(pinTimer.current);
+    pinTimer.current = window.setTimeout(() => {
+      pinnedPage.current = null;
+    }, PIN_MS);
     shownRef.current?.();
-  }, [initialPage, numPages, goToPage]);
+  }, [initialPage, numPages, sizeKnown, goToPage]);
+  useEffect(() => () => window.clearTimeout(pinTimer.current), []);
+  // Zooming is the user taking over too.
+  useEffect(() => {
+    pinnedPage.current = null;
+  }, [scale]);
 
   // The toolbar's page field: shows the page currently in view, but only
   // while the user isn't actively typing a page to jump to.
@@ -819,7 +867,7 @@ export function PdfViewer({
         <InvertibleDocument className="block min-w-0 flex-1">
           {(pageClass) => (
             <div ref={scrollRef} className="size-full overflow-auto p-4">
-              <div>
+              <div ref={contentRef}>
                 <PdfDocument
                   key={retry}
                   file={src}
@@ -828,6 +876,7 @@ export function PdfViewer({
                     setPdf(doc);
                     setNumPages(doc.numPages);
                     setPageSizes({});
+                    setSizeKnown(false);
                     doc
                       .getPage(1)
                       .then((first) => {
@@ -838,7 +887,8 @@ export function PdfViewer({
                         });
                       })
                       // The pages still render at the fallback size.
-                      .catch(() => undefined);
+                      .catch(() => undefined)
+                      .finally(() => setSizeKnown(true));
                   }}
                   onLoadError={clearOnError}
                   onSourceError={clearOnError}
