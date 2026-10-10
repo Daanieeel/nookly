@@ -13,6 +13,13 @@ export interface AgentFile {
 /// The file coding agents open first. It always exists and cannot be deleted.
 export const AGENT_ENTRY_FILE = "AGENTS.md";
 
+/// The files every agent folder has, which cannot be deleted (the backend refuses too).
+const STANDARD_AGENT_FILES = [AGENT_ENTRY_FILE, "NOOKLY.md"];
+
+export function isStandardAgentFile(name: string): boolean {
+  return STANDARD_AGENT_FILES.some((standard) => standard.toLowerCase() === name.toLowerCase());
+}
+
 export function agentDirPath(): Promise<string> {
   return invoke("agent_dir_path");
 }

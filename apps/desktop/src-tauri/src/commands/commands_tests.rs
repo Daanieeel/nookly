@@ -4107,7 +4107,8 @@ fn agent_files_underlying_calls() {
     agent::write(&dir, "PROFILE.md", "hello").unwrap();
     assert_eq!(agent::read(&dir, "PROFILE.md").unwrap(), "hello");
     agent::delete(&dir, "PROFILE.md").unwrap();
-    assert_eq!(agent::list(&dir).unwrap().len(), 1);
+    // Only the two standard files are left.
+    assert_eq!(agent::list(&dir).unwrap().len(), 2);
     assert!(agent::validate_name("../x.md").is_err());
 }
 

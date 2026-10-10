@@ -1,6 +1,6 @@
 import { IconFile, IconFolderOpen, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,20 +13,30 @@ import {
 } from "@nookly/ui/components/alert-dialog";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
+import {
+  PageTabs,
+  PageTabsBar,
+  PageTabsContent,
+  PageTabsList,
+  PageTabsTrigger,
+} from "@nookly/ui/components/page-tabs";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   FieldError,
-  StatusButtonContent,
+  StatusIcon,
   statusOf,
+  statusTextClass,
   useActionStatus,
 } from "#/components/action-feedback.tsx";
+import { MiddleEllipsis } from "#/components/middle-ellipsis.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import {
   AGENT_ENTRY_FILE,
   agentDirPath,
   deleteAgentFile,
+  isStandardAgentFile,
   listAgentFiles,
   readAgentFile,
   revealAgentDir,
@@ -36,7 +46,8 @@ import { qk } from "#/lib/query-keys.ts";
 import { NewAgentFileDialog } from "./NewAgentFileDialog.tsx";
 
 /// The Agent tab of Settings: the folder to hand to a coding agent and the markdown
-/// files in it, edited in place. Plain file management, no AI.
+/// files in it, edited in place. Plain file management, no AI. A file is saved when the
+/// cursor leaves its text, when another file is opened and when Settings closes.
 export function AgentFilesTab() {
   const queryClient = useQueryClient();
   const { data: dir } = useQuery({ queryKey: qk.agentFiles.dir, queryFn: agentDirPath });
@@ -44,7 +55,7 @@ export function AgentFilesTab() {
   const [selected, setSelected] = useState(AGENT_ENTRY_FILE);
   // The text being typed; null while it is the file's own text.
   const [draft, setDraft] = useState<string | null>(null);
-  // A file chosen while the open one has unsaved changes, waiting for the user's answer.
+  // A file chosen while the open one could not be saved, waiting for the user's answer.
   const [switchTo, setSwitchTo] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -71,6 +82,35 @@ export function AgentFilesTab() {
   });
   const saveStatus = useActionStatus(save);
 
+  // Leaving the text and clicking another file happen back to back; they share one write.
+  const writing = useRef<Promise<boolean> | null>(null);
+  function persist(): Promise<boolean> {
+    if (writing.current) return writing.current;
+    if (!dirty) return Promise.resolve(true);
+    const run = save
+      .mutateAsync()
+      .then(
+        () => true,
+        () => false,
+      )
+      .finally(() => {
+        writing.current = null;
+      });
+    writing.current = run;
+    return run;
+  }
+
+  // Closing Settings with the cursor still in the text saves it too.
+  const latest = useRef({ selected, text, dirty });
+  latest.current = { selected, text, dirty };
+  useEffect(
+    () => () => {
+      const { selected: name, text: content, dirty: unsaved } = latest.current;
+      if (unsaved && !writing.current) void writeAgentFile(name, content).catch(() => undefined);
+    },
+    [],
+  );
+
   const remove = useMutation({
     mutationFn: () => deleteAgentFile(selected),
     onSuccess: async () => {
@@ -84,29 +124,22 @@ export function AgentFilesTab() {
 
   const reveal = useMutation({ mutationFn: revealAgentDir });
 
-  const select = (name: string) => {
-    if (name === selected) return;
-    if (dirty) setSwitchTo(name);
-    else {
-      setSelected(name);
-      setDraft(null);
-    }
-  };
   const goTo = (name: string) => {
     setSwitchTo(null);
     setSelected(name);
     setDraft(null);
+    save.reset();
+  };
+  const select = (name: string) => {
+    if (name === selected) return;
+    if (!dirty) goTo(name);
+    else void persist().then((ok) => (ok ? goTo(name) : setSwitchTo(name)));
   };
 
-  // Leaves the Settings dialog with nothing half typed carried into the next visit.
-  useEffect(() => () => setDraft(null), []);
-
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5">
-        <code className="min-w-0 flex-1 truncate font-mono text-xs" title={dir}>
-          {dir ?? "…"}
-        </code>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5">
+        <MiddleEllipsis text={dir ?? "…"} className="flex-1 font-mono text-xs" />
         <Tooltip>
           <TooltipTrigger asChild>
             <CopyButton
@@ -134,59 +167,53 @@ export function AgentFilesTab() {
       </div>
       <FieldError message={reveal.isError && "Couldn't open the folder."} />
 
-      <div className="flex min-h-72 gap-3">
-        <div className="flex w-48 shrink-0 flex-col gap-0.5">
-          {files.map((file) => (
-            <button
-              key={file.name}
-              type="button"
-              aria-current={file.name === selected ? "true" : undefined}
-              onClick={() => select(file.name)}
-              className={cn(
-                "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                file.name === selected ? "bg-accent font-medium" : "hover:bg-accent/60",
-              )}
-            >
-              <IconFile size={14} className="shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{file.name}</span>
-            </button>
-          ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-1 justify-start gap-2"
-            onClick={() => setCreating(true)}
-          >
-            <IconPlus size={14} />
-            New File
-          </Button>
-        </div>
+      <PageTabs value={selected} onValueChange={select}>
+        <PageTabsBar>
+          <PageTabsList aria-label="Agent files">
+            {files.map((file) => (
+              <PageTabsTrigger key={file.name} value={file.name} title={file.name}>
+                <IconFile />
+                <span className="max-w-40 truncate">{file.name}</span>
+              </PageTabsTrigger>
+            ))}
+          </PageTabsList>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mb-0.5 size-7 shrink-0"
+                aria-label="New File"
+                onClick={() => setCreating(true)}
+              >
+                <IconPlus size={14} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>New File</TooltipContent>
+          </Tooltip>
+        </PageTabsBar>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <PageTabsContent value={selected} className="flex min-h-72 flex-col gap-2">
           <Textarea
             aria-label="File content"
             spellCheck={false}
             value={text}
             readOnly={readFailed}
             onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => void persist()}
             className="min-h-64 flex-1 font-mono text-xs/relaxed"
           />
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!dirty && saveStatus === "idle"}
-              onClick={() => dirty && !save.isPending && save.mutate()}
+          <div className="flex min-h-7 items-center gap-2 text-xs">
+            <span
+              aria-live="polite"
+              className={cn("flex items-center gap-1.5", statusTextClass(saveStatus))}
             >
-              <StatusButtonContent
-                status={saveStatus}
-                label="Save"
-                successLabel="Saved"
-                errorLabel="Couldn't save, try again"
-              />
-            </Button>
-            {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
-            {selected !== AGENT_ENTRY_FILE && (
+              <StatusIcon status={saveStatus} idle={null} size={13} />
+              {saveStatus === "pending" && "Saving…"}
+              {saveStatus === "success" && "Saved"}
+              {saveStatus === "error" && "Couldn't save. Click out of the text to try again."}
+            </span>
+            {!isStandardAgentFile(selected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -204,8 +231,8 @@ export function AgentFilesTab() {
             )}
           </div>
           <FieldError message={readFailed && `Couldn't read ${selected}.`} />
-        </div>
-      </div>
+        </PageTabsContent>
+      </PageTabs>
 
       <NewAgentFileDialog
         open={creating}
@@ -236,25 +263,16 @@ export function AgentFilesTab() {
       <AlertDialog open={switchTo !== null} onOpenChange={(open) => !open && setSwitchTo(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved changes in {selected}</AlertDialogTitle>
+            <AlertDialogTitle>Couldn't save {selected}</AlertDialogTitle>
             <AlertDialogDescription>
-              Your unsaved changes will be lost if you switch to another file now.
+              Your changes could not be written. Keep editing to try again, or discard them and open
+              the other file.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep Editing</AlertDialogCancel>
             <AlertDialogAction variant="secondary" onClick={() => switchTo && goTo(switchTo)}>
               Discard
-            </AlertDialogAction>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                const target = switchTo;
-                if (!target) return;
-                save.mutate(undefined, { onSuccess: () => goTo(target) });
-              }}
-            >
-              Save and Switch
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

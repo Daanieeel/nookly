@@ -1,6 +1,7 @@
 //! Plain markdown files the user keeps for their own coding agent, in `<app data>/agent/`.
 //! Nookly never reads them or talks to an AI: this is file management only. The folder
-//! starts with an `AGENTS.md` and holds whatever other `.md` files the user adds.
+//! starts with an `AGENTS.md` and a `NOOKLY.md` guide, and holds whatever other `.md` files
+//! the user adds.
 //!
 //! The logic takes the folder as a parameter so tests run against a temp folder. The
 //! commands at the bottom only resolve it from the app handle.
@@ -18,24 +19,14 @@ const TRASH_DIR: &str = ".trash";
 const MAX_NAME_LEN: usize = 100;
 const MAX_CONTENT_BYTES: usize = 1024 * 1024;
 
-const STARTER: &str = "# Agent instructions
-
-## Who you are
-
-Describe the role you want your coding agent to play and who it works for.
-
-## Files in this folder
-
-List the other files here and when the agent should read them.
-
-## Working inside Nookly
-
-- Use the `nookly` CLI only. Never touch the database or the app's files directly.
-- Ask for JSON output so results are easy to read.
-- Deletions go to Trash and can be restored. Ask before deleting anything.
-- Ask before making big changes, such as many edits at once.
-- Run `nookly describe` to list every command, entity type and field.
-";
+/// What a new `AGENTS.md` says: a short entry point that sends the agent to the guide and
+/// to the live instructions the CLI prints.
+const STARTER: &str = include_str!("agent_starter.md");
+/// The guide `AGENTS.md` points at: how to operate Nookly, without listing fields or flags.
+const GUIDE: &str = include_str!("agent_guide.md");
+/// The files every agent folder has. Created when missing, never overwritten, and never
+/// deleted, since the entry file points at the guide.
+const STANDARD_FILES: [(&str, &str); 2] = [(ENTRY_FILE, STARTER), ("NOOKLY.md", GUIDE)];
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -68,21 +59,24 @@ pub fn validate_name(name: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// Creates the folder, and the starter `AGENTS.md` only when there is none. An existing
-/// file is never opened for writing.
+/// Creates the folder and each standard file that is missing. An existing file is never
+/// opened for writing.
 pub fn ensure_dir(dir: &Path) -> AppResult<()> {
     fs::create_dir_all(dir).map_err(|e| AppError::Io(e.to_string()))?;
-    match OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(dir.join(ENTRY_FILE))
-    {
-        Ok(mut file) => file
-            .write_all(STARTER.as_bytes())
-            .map_err(|e| AppError::Io(e.to_string())),
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(e) => Err(AppError::Io(e.to_string())),
+    for (name, content) in STANDARD_FILES {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dir.join(name))
+        {
+            Ok(mut file) => file
+                .write_all(content.as_bytes())
+                .map_err(|e| AppError::Io(e.to_string()))?,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(AppError::Io(e.to_string())),
+        }
     }
+    Ok(())
 }
 
 pub fn list(dir: &Path) -> AppResult<Vec<AgentFile>> {
@@ -149,12 +143,15 @@ pub fn write(dir: &Path, name: &str, content: &str) -> AppResult<()> {
 }
 
 /// Moves the file to `.trash/<timestamp>-<name>` so a delete can always be undone by
-/// hand. The entry file cannot be deleted.
+/// hand. The standard files cannot be deleted.
 pub fn delete(dir: &Path, name: &str) -> AppResult<()> {
     validate_name(name)?;
-    if name.eq_ignore_ascii_case(ENTRY_FILE) {
+    if STANDARD_FILES
+        .iter()
+        .any(|(standard, _)| name.eq_ignore_ascii_case(standard))
+    {
         return Err(AppError::InvalidInput(format!(
-            "{ENTRY_FILE} is the entry file and cannot be deleted"
+            "{name} is a standard file and cannot be deleted"
         )));
     }
     let source = dir.join(name);
@@ -258,15 +255,37 @@ mod tests {
     }
 
     #[test]
-    fn listing_creates_the_folder_with_a_starter_entry_file() {
+    fn listing_creates_the_folder_with_the_two_standard_files() {
         let dir = temp_dir();
         let files = list(&dir).unwrap();
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].name, "AGENTS.md");
-        let starter = read(&dir, "AGENTS.md").unwrap();
-        assert!(starter.contains("Working inside Nookly"));
-        assert!(starter.contains("Who you are"));
-        assert!(starter.contains("Files in this folder"));
+        let names: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["AGENTS.md", "NOOKLY.md"]);
+        // The entry file sends an agent to the guide and to the live instructions.
+        let agents = read(&dir, "AGENTS.md").unwrap();
+        assert!(agents.contains("NOOKLY.md"));
+        assert!(agents.contains("nookly cli agent-instructions"));
+        let guide = read(&dir, "NOOKLY.md").unwrap();
+        assert!(guide.starts_with("# NOOKLY.md: How to Work With Nookly"));
+        assert!(guide.contains("`nookly cli agent-instructions`"));
+    }
+
+    #[test]
+    fn the_standard_files_only_name_commands_the_cli_has() {
+        // `nookly describe` was never a command; the CLI is always `nookly cli ...`.
+        for text in [STARTER, GUIDE] {
+            assert!(!text.contains("`nookly describe`"));
+            assert!(!text.contains("nookly describe"));
+        }
+    }
+
+    #[test]
+    fn an_existing_guide_is_never_overwritten_and_one_that_is_missing_comes_back_whole() {
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("NOOKLY.md"), "my own guide").unwrap();
+        list(&dir).unwrap();
+        assert_eq!(read(&dir, "NOOKLY.md").unwrap(), "my own guide");
+        assert!(read(&dir, "AGENTS.md").unwrap().contains("nookly cli"));
     }
 
     #[test]
@@ -319,7 +338,7 @@ mod tests {
         fs::write(dir.join("notes.txt"), "no").unwrap();
         fs::create_dir_all(dir.join("folder.md")).unwrap();
         let names: Vec<String> = list(&dir).unwrap().into_iter().map(|f| f.name).collect();
-        assert_eq!(names, ["AGENTS.md", "Alpha.md", "zeta.md"]);
+        assert_eq!(names, ["AGENTS.md", "Alpha.md", "NOOKLY.md", "zeta.md"]);
     }
 
     #[test]
@@ -349,9 +368,11 @@ mod tests {
         }
         assert_eq!(fs::read_dir(dir.join(TRASH_DIR)).unwrap().count(), 2);
         ensure_dir(&dir).unwrap();
-        assert!(delete(&dir, "AGENTS.md").is_err());
-        assert!(delete(&dir, "agents.md").is_err());
+        for protected in ["AGENTS.md", "agents.md", "NOOKLY.md", "nookly.md"] {
+            assert!(delete(&dir, protected).is_err(), "{protected}");
+        }
         assert!(dir.join("AGENTS.md").is_file());
+        assert!(dir.join("NOOKLY.md").is_file());
         assert!(matches!(
             delete(&dir, "GONE.md"),
             Err(AppError::NotFound(_))

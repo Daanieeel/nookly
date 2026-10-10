@@ -24,7 +24,7 @@ The Backup tab holds everything about backups inline: the folder, the daily swit
 
 ## Agent files
 
-The Agent tab edits plain `.md` files in `agent/` inside the app data folder (`.dev-data` in debug builds), for the user's own coding agent. The first visit creates the folder and an `AGENTS.md` starter, which is never overwritten and cannot be deleted. Writes go through a temp file and a rename. A deleted file moves to `agent/.trash/<timestamp>-<name>`. The tab shows the folder path with a copy button. Code is in `commands/agent_files.rs` and `features/settings/AgentFilesTab.tsx`.
+The Agent tab edits plain `.md` files in `agent/` inside the app data folder (`.dev-data` in debug builds), for the user's own coding agent. The first visit creates the folder with two standard files: an `AGENTS.md` entry point and a `NOOKLY.md` guide to the CLI. Both are created only when missing, never overwritten and cannot be deleted. The files are `PageTabs` (the underlined in-page tabs of `packages/ui`, not the app's tab bar) above the text, which saves when the cursor leaves it, when another file is opened and when Settings closes. A long folder path is shortened in the middle. Writes go through a temp file and a rename. A deleted file moves to `agent/.trash/<timestamp>-<name>`. The tab shows the folder path with a copy button. Code is in `commands/agent_files.rs` and `features/settings/AgentFilesTab.tsx`.
 
 ## Shortcuts
 
