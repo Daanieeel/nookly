@@ -476,6 +476,12 @@ fn top_level_help() -> Value {
                         `convertsTo`, e.g. a file from a link becoming a bookmark)",
             "delete": "nookly cli <entity-type> delete <id> --yes [--if-revision <rev>]  (soft delete only, goes to Trash, never permanent)",
             "restore": "nookly cli <entity-type> restore <id>",
+            "export": "nookly cli <entity-type> export <id> [--out <path>]  (types that report `portable` in `describe`: \
+                       the entity as a Nookly JSON file, printed or written to --out. Ids, timestamps, labels, \
+                       relationships and the Space stay behind)",
+            "import": "nookly cli <entity-type> import --file <path> --space <id> [--parent <id>]  (creates a new entity \
+                       from a file `export` wrote, all or nothing, never changing an existing one. A type with \
+                       `portable.parentType`, an assignment, needs --parent <course id>)",
             "grep": "block pages only: `nookly cli <type> grep <id> <pattern> [--regex] [--case-sensitive] [--context <n>] \
                      [--max <n>]`  (matching lines with blockId/blockIndex, instead of pulling the whole page)",
             "childCollections": "records an entity owns that aren't entities, like a deck's cards (`describe <type>` \
@@ -921,6 +927,33 @@ fn describe_one(entity_type: &str) -> AppResult<Value> {
     Ok(schema::describe_json(def))
 }
 
+/// The file format a type exports and imports, or an error naming the types that have one.
+fn portable_def(entity_type: &str) -> AppResult<&'static crate::db::portable::PortableDef> {
+    crate::db::portable::for_type(entity_type).ok_or_else(|| {
+        let known: Vec<&str> = crate::db::portable::all()
+            .iter()
+            .map(|d| d.entity_type)
+            .collect();
+        AppError::InvalidInput(format!(
+            "'{entity_type}' has no file format to export or import. Types that do: {}",
+            known.join(", ")
+        ))
+    })
+}
+
+/// Reads a file to import, refusing one over the size limit before reading it.
+fn read_import_file(path: &str) -> AppResult<String> {
+    let size = std::fs::metadata(path)
+        .map_err(|e| AppError::Io(format!("{path}: {e}")))?
+        .len();
+    if size > crate::db::portable::MAX_IMPORT_BYTES {
+        return Err(AppError::InvalidInput(
+            "this file is too large to import (the limit is 20 MB)".into(),
+        ));
+    }
+    std::fs::read_to_string(path).map_err(|e| AppError::Io(format!("{path}: {e}")))
+}
+
 fn unknown_entity_type(entity_type: &str) -> AppError {
     let known: Vec<&'static str> = schema::all().iter().map(|d| d.entity_type).collect();
     AppError::InvalidInput(format!(
@@ -1199,6 +1232,43 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             crate::db::entities::restore_entity(conn, &id)?;
             let data = (def.get)(conn, &id)?;
             enrich(conn, entity_type, &id, data)
+        }
+        "export" => {
+            let id = args.require_entity(conn, 0, "id")?;
+            let portable = portable_def(entity_type)?;
+            let text = (portable.export)(conn, &id)?;
+            match args.flag("out") {
+                // Written next to nothing else of Nookly's: the path is the caller's.
+                Some(path) => {
+                    std::fs::write(&path, &text).map_err(|e| AppError::Io(e.to_string()))?;
+                    Ok(json!({ "exported": id, "format": portable.format, "path": path }))
+                }
+                None => serde_json::from_str(&text).map_err(|e| AppError::Io(e.to_string())),
+            }
+        }
+        "import" => {
+            let portable = portable_def(entity_type)?;
+            let path = args.require_flag("file")?;
+            let space_id = args.require_flag("space")?;
+            let parent = match args.flag("parent") {
+                Some(raw) => Some(crate::db::entities::resolve_entity_ref(conn, &raw)?),
+                None => None,
+            };
+            let text = read_import_file(&path)?;
+            // A task file is imported as a task: `nookly cli deck import` refuses it by name.
+            let format = crate::db::portable::format_of(&text)?;
+            if format != portable.format {
+                return Err(AppError::InvalidInput(format!(
+                    "this file is a {format} file, not a {} file. Import it with `nookly cli <type> import` \
+                     for its own type (`describe <type>` lists `portable`)",
+                    portable.format
+                )));
+            }
+            let created = crate::db::portable::import(conn, &space_id, parent.as_deref(), &text)?;
+            let data = schema::lookup(&created.entity_type)
+                .ok_or_else(|| unknown_entity_type(&created.entity_type))
+                .and_then(|def| (def.get)(conn, &created.id))?;
+            enrich(conn, &created.entity_type, &created.id, data)
         }
         "blocks" | "grep" | "add-block" | "update-block" | "delete-block" | "reorder-blocks" => {
             if !def.supports_blocks && schema::embedded_page(entity_type).is_none() {

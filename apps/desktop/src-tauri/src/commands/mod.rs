@@ -16,6 +16,7 @@ pub mod notes;
 pub mod office;
 pub mod office_install;
 pub mod office_thumbnail;
+pub mod portable;
 pub mod recipes;
 pub mod relationships;
 pub mod search;

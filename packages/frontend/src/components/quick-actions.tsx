@@ -446,8 +446,8 @@ export function QuickActions({
           {
             id: "import-page",
             category: "create" as const,
-            words: "Import Page from File nookly json open",
-            node: simpleItem("import-page", IconFileImport, "Import Page from File", () => {
+            words: "Import from File page task deck assignment nookly json open",
+            node: simpleItem("import-page", IconFileImport, "Import from File", () => {
               // Opening the dialog closes the palette: overlays never stack.
               useNavStore.getState().setImportOpen(true);
             }),

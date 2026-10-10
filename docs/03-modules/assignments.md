@@ -13,3 +13,7 @@ Assignments do not get Index Cards or Study Blocks. Those stay specific to Exams
 ## Layout Direction
 
 Like Exams: a list that puts dates and status first. It should look clearly different from generic Tasks even though the two are conceptually similar.
+
+## Export and Import
+
+An Assignment exports as a `nookly-assignment` file (version 1): title, status, due day, grade, weight and description blocks. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.

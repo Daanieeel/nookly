@@ -31,7 +31,8 @@ import { renderPageMarkdown } from "#/lib/api/notes.ts";
 import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
 import { useState } from "react";
 import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./block-conversion";
-import { savePageJsonFile, savePageMarkdownFile } from "./PageExportMenu";
+import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
+import { savePageMarkdownFile } from "./PageExportMenu";
 import { refineJotIntoNote } from "./refine-jot";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
@@ -347,9 +348,9 @@ registerEntityType<EntityRecord>({
     {
       id: "save-nookly-page",
       group: "share",
-      label: "Export as Nookly Page (.json)",
+      label: nooklyFileLabel("note"),
       icon: IconFileExport,
-      run: ({ entity }) => savePageJsonFile(entity),
+      run: ({ entity }) => saveNooklyFile(entity),
     },
   ],
 });

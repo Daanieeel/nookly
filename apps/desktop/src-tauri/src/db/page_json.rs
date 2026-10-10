@@ -13,6 +13,7 @@
 use crate::db::block_types::{self, BlockAttrs};
 use crate::db::entities::Entity;
 use crate::db::notes::{self, Block};
+use crate::db::portable::{first_line, Importer, PortableDef, PortablePreview, PreviewItem};
 use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -20,8 +21,7 @@ use std::sync::LazyLock;
 
 pub const FORMAT: &str = "nookly-page";
 pub const VERSION: u32 = 1;
-/// The largest file an import reads.
-pub const MAX_IMPORT_BYTES: u64 = 20 * 1024 * 1024;
+pub use crate::db::portable::MAX_IMPORT_BYTES;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PageJson {
@@ -107,6 +107,14 @@ fn export_attrs(attrs: &BlockAttrs) -> BlockAttrs {
         .collect()
 }
 
+/// The blocks of any page-like entity (a note, a task, an assignment) as they travel.
+pub fn export_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<BlockJson>> {
+    Ok(notes::list_blocks(conn, entity_id)?
+        .iter()
+        .map(export_block)
+        .collect())
+}
+
 /// The page as a `nookly-page` JSON document.
 pub fn export_page_json(conn: &Connection, entity_id: &str) -> AppResult<String> {
     let entity = crate::db::entities::get_entity(conn, entity_id)?;
@@ -121,10 +129,7 @@ pub fn export_page_json(conn: &Connection, entity_id: &str) -> AppResult<String>
         version: VERSION,
         kind: entity.entity_type,
         title: entity.title,
-        blocks: notes::list_blocks(conn, entity_id)?
-            .iter()
-            .map(export_block)
-            .collect(),
+        blocks: export_blocks(conn, entity_id)?,
     };
     serde_json::to_string_pretty(&page).map_err(|e| AppError::Io(e.to_string()))
 }
@@ -159,67 +164,6 @@ fn parse(text: &str) -> AppResult<PageJson> {
     Ok(page)
 }
 
-/// What an import of a document would create, read without touching the database.
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PagePreview {
-    pub kind: String,
-    pub title: String,
-    pub block_count: usize,
-    /// Blocks of a type this version does not know, which arrive as paragraphs.
-    pub converted_blocks: usize,
-    pub blocks: Vec<BlockPreview>,
-}
-
-/// One block of a file as the import dialog lists it.
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct BlockPreview {
-    pub block_type: String,
-    /// The first line of text, cut to a length that fits a list row.
-    pub first_line: String,
-    /// The type is unknown to this version, so the block arrives as a paragraph.
-    pub converted: bool,
-}
-
-const PREVIEW_LINE_CHARS: usize = 80;
-
-fn first_line(content: &str) -> String {
-    let line = content
-        .lines()
-        .map(str::trim)
-        .find(|l| !l.is_empty())
-        .unwrap_or("");
-    match line.char_indices().nth(PREVIEW_LINE_CHARS) {
-        Some((cut, _)) => format!("{}...", &line[..cut]),
-        None => line.to_string(),
-    }
-}
-
-/// Checks a `nookly-page` document and says what importing it would create.
-pub fn preview_page_json(text: &str) -> AppResult<PagePreview> {
-    let page = parse(text)?;
-    Ok(PagePreview {
-        converted_blocks: page
-            .blocks
-            .iter()
-            .filter(|b| !is_known_type(&b.block_type))
-            .count(),
-        block_count: page.blocks.len(),
-        blocks: page
-            .blocks
-            .iter()
-            .map(|b| BlockPreview {
-                block_type: b.block_type.clone(),
-                first_line: first_line(&b.content),
-                converted: !is_known_type(&b.block_type),
-            })
-            .collect(),
-        kind: page.kind,
-        title: page.title,
-    })
-}
-
 /// Creates a new page in `space_id` from a `nookly-page` document. A block type this
 /// version does not know becomes a paragraph, so its text survives. A block that does
 /// not pass the usual checks for its type fails the whole import: nothing is created.
@@ -228,37 +172,83 @@ pub fn import_page_json(conn: &Connection, space_id: &str, text: &str) -> AppRes
     crate::db::atomically(conn, || {
         let entity =
             notes::create_page(conn, space_id.to_string(), &page.kind, page.title.clone())?;
-        for (index, block) in page.blocks.iter().enumerate() {
-            let known = is_known_type(&block.block_type);
-            let (block_type, attrs, language, filename) = if known {
-                (
-                    block.block_type.clone(),
-                    block.attrs.clone(),
-                    block.language.clone(),
-                    block.filename.clone(),
-                )
-            } else {
-                ("paragraph".into(), BlockAttrs::new(), None, None)
-            };
-            notes::create_block_with_attrs(
-                conn,
-                &entity.id,
-                block_type,
-                block.content.clone(),
-                None,
-                language,
-                filename,
-                attrs,
-            )
-            .map_err(|e| match e {
-                AppError::InvalidInput(reason) => {
-                    AppError::InvalidInput(format!("block {}: {reason}", index + 1))
-                }
-                other => other,
-            })?;
-        }
+        import_blocks(conn, &entity.id, &page.blocks)?;
         crate::db::entities::get_entity(conn, &entity.id)
     })
+}
+
+/// Adds blocks to an entity that was just created. A block type this version does not
+/// know becomes a paragraph, so its text survives; a block that fails the checks for its
+/// type fails the whole import (the caller runs it inside one savepoint).
+pub fn import_blocks(conn: &Connection, entity_id: &str, blocks: &[BlockJson]) -> AppResult<()> {
+    for (index, block) in blocks.iter().enumerate() {
+        let known = is_known_type(&block.block_type);
+        let (block_type, attrs, language, filename) = if known {
+            (
+                block.block_type.clone(),
+                block.attrs.clone(),
+                block.language.clone(),
+                block.filename.clone(),
+            )
+        } else {
+            ("paragraph".into(), BlockAttrs::new(), None, None)
+        };
+        notes::create_block_with_attrs(
+            conn,
+            entity_id,
+            block_type,
+            block.content.clone(),
+            None,
+            language,
+            filename,
+            attrs,
+        )
+        .map_err(|e| match e {
+            AppError::InvalidInput(reason) => {
+                AppError::InvalidInput(format!("block {}: {reason}", index + 1))
+            }
+            other => other,
+        })?;
+    }
+    Ok(())
+}
+
+/// The blocks of a file as the import dialog lists them, with how many this version
+/// would turn into paragraphs.
+pub fn preview_blocks(blocks: &[BlockJson]) -> (Vec<PreviewItem>, usize) {
+    let items: Vec<PreviewItem> = blocks
+        .iter()
+        .map(|b| PreviewItem {
+            label: b.block_type.clone(),
+            text: first_line(&b.content),
+            converted: !is_known_type(&b.block_type),
+        })
+        .collect();
+    let converted = items.iter().filter(|i| i.converted).count();
+    (items, converted)
+}
+
+fn portable_preview(text: &str) -> AppResult<PortablePreview> {
+    let page = parse(text)?;
+    let (items, converted) = preview_blocks(&page.blocks);
+    Ok(PortablePreview {
+        format: FORMAT.into(),
+        kind: page.kind,
+        title: page.title,
+        facts: Vec::new(),
+        count: items.len(),
+        count_label: "block".into(),
+        items,
+        converted,
+        parent_type: None,
+    })
+}
+
+inventory::submit! {
+    PortableDef { entity_type: "note", format: FORMAT, version: VERSION, parent_type: None, noun: "page", export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
+}
+inventory::submit! {
+    PortableDef { entity_type: "jot", format: FORMAT, version: VERSION, parent_type: None, noun: "page", export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
 }
 
 /// The standard block types and every registered custom one.
@@ -733,26 +723,30 @@ mod tests {
             ]
         })
         .to_string();
-        let preview = preview_page_json(&text).unwrap();
+        let preview = portable_preview(&text).unwrap();
         assert_eq!(
             preview,
-            PagePreview {
+            PortablePreview {
+                format: "nookly-page".into(),
                 kind: "jot".into(),
                 title: "Quick".into(),
-                block_count: 2,
-                converted_blocks: 1,
-                blocks: vec![
-                    BlockPreview {
-                        block_type: "paragraph".into(),
-                        first_line: "a first line".into(),
+                facts: vec![],
+                count: 2,
+                count_label: "block".into(),
+                items: vec![
+                    PreviewItem {
+                        label: "paragraph".into(),
+                        text: "a first line".into(),
                         converted: false,
                     },
-                    BlockPreview {
-                        block_type: "hologram".into(),
-                        first_line: "b".into(),
+                    PreviewItem {
+                        label: "hologram".into(),
+                        text: "b".into(),
                         converted: true,
                     },
                 ],
+                converted: 1,
+                parent_type: None,
             }
         );
         assert_eq!(
@@ -761,16 +755,7 @@ mod tests {
                 .len(),
             before
         );
-        assert!(preview_page_json("{ nope").is_err());
-        assert!(preview_page_json(r#"{"format":"x"}"#).is_err());
-    }
-
-    #[test]
-    fn preview_cuts_a_long_first_line() {
-        let long = "x".repeat(200);
-        let line = first_line(&long);
-        assert_eq!(line.chars().count(), PREVIEW_LINE_CHARS + 3);
-        assert!(line.ends_with("..."));
-        assert_eq!(first_line(""), "");
+        assert!(portable_preview("{ nope").is_err());
+        assert!(portable_preview(r#"{"format":"x"}"#).is_err());
     }
 }

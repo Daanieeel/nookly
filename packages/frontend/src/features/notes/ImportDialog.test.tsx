@@ -9,13 +9,17 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { ImportButton, ImportDialog } from "./ImportDialog.tsx";
 
 const PREVIEW = {
+  format: "nookly-page",
   kind: "note",
   title: "Physics",
-  blockCount: 2,
-  convertedBlocks: 0,
-  blocks: [
-    { blockType: "heading1", firstLine: "Waves", converted: false },
-    { blockType: "paragraph", firstLine: "Light is a wave", converted: false },
+  facts: [],
+  count: 2,
+  countLabel: "block",
+  converted: 0,
+  parentType: null,
+  items: [
+    { label: "heading1", text: "Waves", converted: false },
+    { label: "paragraph", text: "Light is a wave", converted: false },
   ],
 };
 
@@ -77,8 +81,8 @@ describe("ImportButton", () => {
       dispatchEvent: () => false,
     });
     mockCommand("plugin:dialog|open", "/tmp/Physics.nookly.json");
-    mockCommand("preview_page_json", PREVIEW);
-    mockCommand("preview_page_text", PREVIEW);
+    mockCommand("preview_entity_json", PREVIEW);
+    mockCommand("preview_entity_text", PREVIEW);
   });
 
   describe("opening", () => {
@@ -114,7 +118,7 @@ describe("ImportButton", () => {
       expect(await screen.findByRole("dialog", { name: "Import" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Choose File" })).toBeInTheDocument();
       expect(screen.getByText(/Drop a file here/)).toBeInTheDocument();
-      expect(screen.getByText("Nookly page file (.json)")).toBeInTheDocument();
+      expect(screen.getByText("Nookly file (.json)")).toBeInTheDocument();
       expect(screen.getByRole("combobox", { name: "Space" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
       expect(screen.queryByRole("button", { name: /^Import (Note|Jot)/ })).toBeNull();
@@ -133,12 +137,12 @@ describe("ImportButton", () => {
       const { user } = await openDialog();
       await chooseFile(user);
       await waitFor(() => expect(callsOf("plugin:dialog|open")).toHaveLength(1));
-      expect(callsOf("preview_page_json")).toHaveLength(0);
+      expect(callsOf("preview_entity_json")).toHaveLength(0);
       expect(screen.getByRole("button", { name: "Choose File" })).toBeInTheDocument();
     });
 
     it("shows why a file is refused and offers another choice", async () => {
-      mockCommandWith("preview_page_json", () => {
+      mockCommandWith("preview_entity_json", () => {
         throw new Error("this is not a Nookly page file");
       });
       const { user } = await openDialog();
@@ -148,15 +152,18 @@ describe("ImportButton", () => {
     });
 
     it("takes a dropped file through the text commands", async () => {
-      mockCommand("import_page_text", makeEntity({ id: "new-1", type: "note", title: "Physics" }));
+      mockCommand(
+        "import_entity_text",
+        makeEntity({ id: "new-1", type: "note", title: "Physics" }),
+      );
       await openDialog();
       const zone = await screen.findByTestId("import-drop-zone");
       await act(async () => {
         fireEvent.drop(zone, { dataTransfer: { files: [jsonFile()] } });
       });
       expect(await screen.findByText(/Note "Physics"/)).toBeInTheDocument();
-      expect(callsOf("preview_page_text")[0]).toEqual({ text: '{"format":"nookly-page"}' });
-      expect(callsOf("preview_page_json")).toHaveLength(0);
+      expect(callsOf("preview_entity_text")[0]).toEqual({ text: '{"format":"nookly-page"}' });
+      expect(callsOf("preview_entity_json")).toHaveLength(0);
     });
 
     it("refuses a dropped file that is not a page file, without asking the backend", async () => {
@@ -165,8 +172,8 @@ describe("ImportButton", () => {
       await act(async () => {
         fireEvent.drop(zone, { dataTransfer: { files: [jsonFile("notes.txt", "hello")] } });
       });
-      expect(await screen.findByRole("alert")).toHaveTextContent(/Nookly page file \(\.json\)/);
-      expect(callsOf("preview_page_text")).toHaveLength(0);
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Nookly file \(\.json\)/);
+      expect(callsOf("preview_entity_text")).toHaveLength(0);
     });
 
     it("takes pasted page text", async () => {
@@ -178,7 +185,7 @@ describe("ImportButton", () => {
         });
       });
       expect(await screen.findByText(/Note "Physics"/)).toBeInTheDocument();
-      expect(callsOf("preview_page_text")).toHaveLength(1);
+      expect(callsOf("preview_entity_text")).toHaveLength(1);
     });
   });
 
@@ -207,11 +214,11 @@ describe("ImportButton", () => {
     });
 
     it("marks a block this version converts", async () => {
-      mockCommand("preview_page_json", {
+      mockCommand("preview_entity_json", {
         ...PREVIEW,
-        convertedBlocks: 1,
-        blocks: [{ blockType: "hologram", firstLine: "still here", converted: true }],
-        blockCount: 1,
+        converted: 1,
+        items: [{ label: "hologram", text: "still here", converted: true }],
+        count: 1,
       });
       const { user } = await openDialog();
       await chooseFile(user);
@@ -220,7 +227,7 @@ describe("ImportButton", () => {
     });
 
     it("names the button after what is imported", async () => {
-      mockCommand("preview_page_json", { ...PREVIEW, kind: "jot" });
+      mockCommand("preview_entity_json", { ...PREVIEW, kind: "jot" });
       const { user } = await openDialog();
       await chooseFile(user);
       expect(await screen.findByRole("button", { name: "Import Jot" })).toBeInTheDocument();
@@ -234,7 +241,10 @@ describe("ImportButton", () => {
     });
 
     it("suggests matching items as chips and links nothing until one is clicked", async () => {
-      mockCommand("import_page_json", makeEntity({ id: "new-1", type: "note", title: "Physics" }));
+      mockCommand(
+        "import_entity_json",
+        makeEntity({ id: "new-1", type: "note", title: "Physics" }),
+      );
       mockCommand("create_relationship", {});
       mockCommand("touch_entity_opened", null);
       const { user } = await openDialog();
@@ -256,7 +266,7 @@ describe("ImportButton", () => {
 
     it("imports into the Space the user picks", async () => {
       mockCommand(
-        "import_page_json",
+        "import_entity_json",
         makeEntity({ id: "new-1", spaceId: "space-2", type: "note" }),
       );
       const { user } = await openDialog();
@@ -264,22 +274,23 @@ describe("ImportButton", () => {
       await user.click(await screen.findByRole("combobox", { name: "Space" }));
       await user.click(await screen.findByRole("option", { name: "School" }));
       await user.click(screen.getByRole("button", { name: "Import Note" }));
-      await waitFor(() => expect(callsOf("import_page_json")).toHaveLength(1));
-      expect(callsOf("import_page_json")[0]).toEqual({
+      await waitFor(() => expect(callsOf("import_entity_json")).toHaveLength(1));
+      expect(callsOf("import_entity_json")[0]).toEqual({
         spaceId: "space-2",
         path: "/tmp/Physics.nookly.json",
+        parentId: null,
       });
     });
 
     it("drops a chosen relation again", async () => {
-      mockCommand("import_page_json", makeEntity({ id: "new-1", type: "note" }));
+      mockCommand("import_entity_json", makeEntity({ id: "new-1", type: "note" }));
       mockCommand("create_relationship", {});
       const { user } = await openDialog();
       await chooseFile(user);
       await user.click(await screen.findByRole("button", { name: /Physics 101/ }));
       await user.click(await screen.findByRole("button", { name: "Remove relation" }));
       await user.click(screen.getByRole("button", { name: "Import Note" }));
-      await waitFor(() => expect(callsOf("import_page_json")).toHaveLength(1));
+      await waitFor(() => expect(callsOf("import_entity_json")).toHaveLength(1));
       expect(callsOf("create_relationship")).toHaveLength(0);
     });
 
@@ -296,18 +307,21 @@ describe("ImportButton", () => {
     const SAME = makeEntity({ id: "old-1", spaceId: "space-1", type: "note", title: "physics" });
 
     it("warns before importing, and offers a copy or a skip", async () => {
-      mockCommand("import_page_json", makeEntity({ id: "new-1", type: "note" }));
+      mockCommand("import_entity_json", makeEntity({ id: "new-1", type: "note" }));
       const { user } = await openDialog([SAME]);
       await chooseFile(user);
       expect(await screen.findByText("Already in this space")).toBeInTheDocument();
       expect(screen.getAllByText("physics").length).toBeGreaterThan(0);
       expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Import Note" })).toBeNull();
-      expect(callsOf("import_page_json")).toHaveLength(0);
+      expect(callsOf("import_entity_json")).toHaveLength(0);
     });
 
     it("imports a copy, titled as one", async () => {
-      mockCommand("import_page_json", makeEntity({ id: "new-1", type: "note", title: "Physics" }));
+      mockCommand(
+        "import_entity_json",
+        makeEntity({ id: "new-1", type: "note", title: "Physics" }),
+      );
       mockCommand("update_entity", makeEntity({ id: "new-1", title: "Physics (copy)" }));
       const { user } = await openDialog([SAME]);
       await chooseFile(user);
@@ -324,7 +338,7 @@ describe("ImportButton", () => {
       await chooseFile(user);
       await user.click(await screen.findByRole("button", { name: "Skip" }));
       expect(await screen.findByRole("button", { name: "Choose File" })).toBeInTheDocument();
-      expect(callsOf("import_page_json")).toHaveLength(0);
+      expect(callsOf("import_entity_json")).toHaveLength(0);
     });
 
     it("does not warn about another type or another space", async () => {
@@ -337,7 +351,7 @@ describe("ImportButton", () => {
   describe("after the import", () => {
     it("confirms with a toast that opens the new item, and does not navigate by itself", async () => {
       mockCommand(
-        "import_page_json",
+        "import_entity_json",
         makeEntity({ id: "new-1", spaceId: "space-1", type: "note", title: "Physics" }),
       );
       mockCommand("touch_entity_opened", null);
@@ -352,7 +366,7 @@ describe("ImportButton", () => {
     });
 
     it("keeps the file selected and shows the error when the import fails", async () => {
-      mockCommandWith("import_page_json", () => {
+      mockCommandWith("import_entity_json", () => {
         throw new Error("block 2: not valid");
       });
       const { user } = await openDialog([]);
@@ -365,7 +379,10 @@ describe("ImportButton", () => {
     });
 
     it("still imports and closes when a link fails", async () => {
-      mockCommand("import_page_json", makeEntity({ id: "new-1", type: "note", title: "Physics" }));
+      mockCommand(
+        "import_entity_json",
+        makeEntity({ id: "new-1", type: "note", title: "Physics" }),
+      );
       mockCommandWith("create_relationship", () => {
         throw new Error("nope");
       });
@@ -380,19 +397,210 @@ describe("ImportButton", () => {
     });
 
     it("imports a dropped file with the text command", async () => {
-      mockCommand("import_page_text", makeEntity({ id: "new-1", type: "note", title: "Physics" }));
+      mockCommand(
+        "import_entity_text",
+        makeEntity({ id: "new-1", type: "note", title: "Physics" }),
+      );
       const { user } = await openDialog([]);
       const zone = await screen.findByTestId("import-drop-zone");
       await act(async () => {
         fireEvent.drop(zone, { dataTransfer: { files: [jsonFile()] } });
       });
       await user.click(await screen.findByRole("button", { name: "Import Note" }));
-      await waitFor(() => expect(callsOf("import_page_text")).toHaveLength(1));
-      expect(callsOf("import_page_text")[0]).toEqual({
+      await waitFor(() => expect(callsOf("import_entity_text")).toHaveLength(1));
+      expect(callsOf("import_entity_text")[0]).toEqual({
         spaceId: "space-1",
         text: '{"format":"nookly-page"}',
+        parentId: null,
       });
-      expect(callsOf("import_page_json")).toHaveLength(0);
+      expect(callsOf("import_entity_json")).toHaveLength(0);
+    });
+  });
+
+  describe("other kinds of file", () => {
+    const TASK = {
+      format: "nookly-task",
+      kind: "task",
+      title: "Write the report",
+      facts: ["Status: In Progress", "Due 2026-03-10", "Effort 5"],
+      count: 2,
+      countLabel: "subtask",
+      converted: 0,
+      parentType: null,
+      items: [
+        { label: "Done", text: "Outline", converted: false },
+        { label: "Backlog", text: "Draft", converted: false },
+      ],
+    };
+    const DECK = {
+      format: "nookly-deck",
+      kind: "deck",
+      title: "Physics terms",
+      facts: ["Cards arrive as new, with no review history"],
+      count: 3,
+      countLabel: "card",
+      converted: 0,
+      parentType: null,
+      items: [{ label: "Card", text: "Force", converted: false }],
+    };
+    const ASSIGNMENT = {
+      format: "nookly-assignment",
+      kind: "assignment",
+      title: "Lab report 3",
+      facts: ["Status: Graded", "Due 2026-03-10"],
+      count: 1,
+      countLabel: "block",
+      converted: 0,
+      parentType: "course",
+      items: [{ label: "paragraph", text: "Hand in both parts", converted: false }],
+    };
+
+    it("shows a task with its facts and its subtasks, and names the button after it", async () => {
+      mockCommand("preview_entity_json", TASK);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      expect(await screen.findByText(/Task "Write the report"/)).toBeInTheDocument();
+      expect(screen.getByText(/Status: In Progress/)).toBeInTheDocument();
+      expect(screen.getByText(/Effort 5/)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /2 subtasks/ }));
+      expect(screen.getByText("Outline")).toBeInTheDocument();
+      expect(screen.getByText("Done")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Import Task" })).toBeInTheDocument();
+      // A task needs no parent.
+      expect(screen.queryByText(/File under/)).toBeNull();
+    });
+
+    it("imports a task into the chosen Space", async () => {
+      mockCommand("preview_entity_json", TASK);
+      mockCommand("import_entity_json", makeEntity({ id: "t-new", type: "task", title: "Write" }));
+      mockCommand("touch_entity_opened", null);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      await user.click(await screen.findByRole("button", { name: "Import Task" }));
+      await waitFor(() => expect(callsOf("import_entity_json")).toHaveLength(1));
+      expect(callsOf("import_entity_json")[0]).toEqual({
+        spaceId: "space-1",
+        path: "/tmp/Physics.nookly.json",
+        parentId: null,
+      });
+    });
+
+    it("shows a deck with its cards and the cards count", async () => {
+      mockCommand("preview_entity_json", DECK);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      expect(await screen.findByText(/Deck "Physics terms"/)).toBeInTheDocument();
+      expect(screen.getByText(/no review history/)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /3 cards/ }));
+      expect(screen.getByText("Force")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Import Deck" })).toBeInTheDocument();
+    });
+
+    it("warns about a duplicate deck by its own type, not another type's title", async () => {
+      mockCommand("preview_entity_json", DECK);
+      const { user } = await openDialog([
+        makeEntity({ id: "d-old", type: "index_card_deck", title: "Physics terms" }),
+      ]);
+      await chooseFile(user);
+      expect(await screen.findByText("Already in this space")).toBeInTheDocument();
+    });
+
+    it("does not call a note with the same title a duplicate of a deck", async () => {
+      mockCommand("preview_entity_json", DECK);
+      const { user } = await openDialog([
+        makeEntity({ id: "n-old", type: "note", title: "Physics terms" }),
+      ]);
+      await chooseFile(user);
+      expect(await screen.findByRole("button", { name: "Import Deck" })).toBeInTheDocument();
+    });
+
+    it("needs a course for an assignment, and says why", async () => {
+      mockCommand("preview_entity_json", ASSIGNMENT);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      expect(await screen.findByText(/Assignment "Lab report 3"/)).toBeInTheDocument();
+      expect(screen.getByText(/File under a course/)).toBeInTheDocument();
+      expect(screen.getByText(/belongs to one course/)).toBeInTheDocument();
+      // Nothing to confirm until a course is chosen.
+      expect(screen.getByRole("button", { name: "Import Assignment" })).toBeDisabled();
+    });
+
+    it("files an assignment under the course that was chosen", async () => {
+      mockCommand("preview_entity_json", ASSIGNMENT);
+      mockCommand("import_entity_json", makeEntity({ id: "a-new", type: "assignment" }));
+      mockCommand("touch_entity_opened", null);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      await user.click(await screen.findByRole("button", { name: /Choose a course/ }));
+      await user.click(await screen.findByText("Physics 101"));
+      const button = screen.getByRole("button", { name: "Import Assignment" });
+      expect(button).toBeEnabled();
+      await user.click(button);
+      await waitFor(() => expect(callsOf("import_entity_json")).toHaveLength(1));
+      expect(callsOf("import_entity_json")[0]).toEqual({
+        spaceId: "space-1",
+        path: "/tmp/Physics.nookly.json",
+        parentId: "course-1",
+      });
+    });
+
+    it("forgets the course when the Space changes, since it belongs to the other one", async () => {
+      mockCommand("preview_entity_json", ASSIGNMENT);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      await user.click(await screen.findByRole("button", { name: /Choose a course/ }));
+      await user.click(await screen.findByText("Physics 101"));
+      expect(screen.getByRole("button", { name: "Import Assignment" })).toBeEnabled();
+      await user.click(screen.getByRole("combobox", { name: "Space" }));
+      await user.click(await screen.findByRole("option", { name: "School" }));
+      expect(screen.getByRole("button", { name: "Import Assignment" })).toBeDisabled();
+    });
+
+    it("has no accessibility violations on the assignment step, with its course picker", async () => {
+      mockCommand("preview_entity_json", ASSIGNMENT);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      await screen.findByText(/File under a course/);
+      await expectNoA11yViolations();
+    });
+
+    it("has no accessibility violations on the task step, with its subtasks open", async () => {
+      mockCommand("preview_entity_json", TASK);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      await user.click(await screen.findByRole("button", { name: /2 subtasks/ }));
+      await expectNoA11yViolations();
+    });
+
+    it("does not offer the course relation or the due session as a relation", async () => {
+      mockCommand("preview_entity_json", ASSIGNMENT);
+      mockCommand("list_relationship_types", [
+        {
+          name: "assignment-course",
+          label: "Assignment for course",
+          inverseLabel: "has assignment",
+          description: "",
+          fromType: "assignment",
+          toType: "course",
+        },
+        {
+          name: "relates-to",
+          label: "Relates to",
+          inverseLabel: "relates to",
+          description: "",
+          fromType: null,
+          toType: null,
+        },
+      ]);
+      const { user } = await openDialog();
+      await chooseFile(user);
+      await user.click(await screen.findByRole("button", { name: "Relate to..." }));
+      // Relating to a course can only be a plain relation: the assignment's own course type
+      // is hidden, so there is one way to link and the step that asks how is skipped.
+      await user.click(await screen.findByRole("option", { name: /^Course/ }));
+      const trail = await screen.findByRole("navigation", { name: "Relation" });
+      expect(trail).toHaveTextContent(/Relates to/);
+      expect(trail).not.toHaveTextContent(/Assignment for course/);
     });
   });
 });

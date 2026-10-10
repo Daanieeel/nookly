@@ -1,5 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconDownload, IconFileDownload, IconFileExport } from "@tabler/icons-react";
+import { IconDownload, IconFileDownload } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -13,7 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { exportPageJson, exportPageMarkdown, renderPageMarkdown } from "#/lib/api/notes.ts";
+import { exportPageMarkdown, renderPageMarkdown } from "#/lib/api/notes.ts";
+import { SaveNooklyFileItem } from "#/features/portable/save-nookly-file.tsx";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 
@@ -67,17 +68,6 @@ export async function savePageMarkdownFile(entity: Entity): Promise<boolean> {
   return true;
 }
 
-/// Resolves `false` when the user cancels the native save dialog.
-export async function savePageJsonFile(entity: Entity): Promise<boolean> {
-  const path = await save({
-    defaultPath: `${fileBaseName(entity)}.nookly.json`,
-    filters: [{ name: "Nookly page", extensions: ["json"] }],
-  });
-  if (!path) return false;
-  await exportPageJson(entity.id, path);
-  return true;
-}
-
 /// The native save dialog can't carry feedback, so this item (which opened it) does.
 export function SaveMarkdownFileItem({ entity, onDone }: { entity: Entity; onDone: () => void }) {
   return (
@@ -87,20 +77,6 @@ export function SaveMarkdownFileItem({ entity, onDone }: { entity: Entity; onDon
       successLabel="Markdown file saved"
       errorLabel="Couldn't save file, try again"
       action={() => savePageMarkdownFile(entity)}
-      onDone={onDone}
-    />
-  );
-}
-
-/// A page file keeps every block as Nookly stores it, which markdown cannot.
-export function SaveNooklyPageItem({ entity, onDone }: { entity: Entity; onDone: () => void }) {
-  return (
-    <FeedbackMenuItem
-      icon={<IconFileExport size={14} className="text-muted-foreground" />}
-      label="Export as Nookly Page (.json)"
-      successLabel="Nookly page saved"
-      errorLabel="Couldn't save file, try again"
-      action={() => savePageJsonFile(entity)}
       onDone={onDone}
     />
   );
@@ -125,7 +101,7 @@ export function PageExportMenu({ entity }: { entity: Entity }) {
       <DropdownMenuContent align="end">
         <CopyPageMarkdownItem entity={entity} />
         <SaveMarkdownFileItem entity={entity} onDone={close} />
-        <SaveNooklyPageItem entity={entity} onDone={close} />
+        <SaveNooklyFileItem entity={entity} onDone={close} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

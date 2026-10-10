@@ -93,12 +93,12 @@ ipc_commands![
     notes::reorder_blocks,
     notes::render_page_markdown,
     notes::export_page_markdown,
-    notes::export_page_json,
-    notes::render_page_json,
-    notes::preview_page_json,
-    notes::import_page_json,
-    notes::preview_page_text,
-    notes::import_page_text,
+    portable::render_entity_json,
+    portable::export_entity_json,
+    portable::preview_entity_json,
+    portable::preview_entity_text,
+    portable::import_entity_json,
+    portable::import_entity_text,
     notes::get_note_code_language,
     notes::set_note_code_language,
     courses::create_course,
@@ -1735,170 +1735,6 @@ fn notes_render_and_export_markdown() {
         std::fs::read_to_string(&out).unwrap(),
         markdown.as_str().unwrap()
     );
-}
-
-#[test]
-fn notes_export_and_import_a_page_file_through_the_commands() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let other = h.space("Other");
-    let page = h.note(&space, "Shared");
-    h.ok(
-        "create_block",
-        json!({ "entityId": page, "blockType": "paragraph", "content": "Hello" }),
-    );
-    let out = h.dir.path().join("shared.nookly.json");
-    h.ok(
-        "export_page_json",
-        json!({ "entityId": page, "path": out.to_string_lossy() }),
-    );
-    assert_eq!(
-        std::fs::read_to_string(&out).unwrap(),
-        h.db(|c| db::page_json::export_page_json(c, &page).unwrap())
-    );
-    let imported = h.ok(
-        "import_page_json",
-        json!({ "spaceId": other, "path": out.to_string_lossy() }),
-    );
-    assert_eq!(imported["title"], "Shared");
-    assert_eq!(imported["spaceId"], other.as_str());
-    let blocks = h.ok("list_blocks", json!({ "entityId": imported["id"] }));
-    assert_eq!(blocks[0]["content"], "Hello");
-}
-
-#[test]
-fn notes_preview_reads_a_page_file_and_refuses_bad_ones() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let page = h.note(&space, "Preview me");
-    let out = h.dir.path().join("preview.nookly.json");
-    h.ok(
-        "export_page_json",
-        json!({ "entityId": page, "path": out.to_string_lossy() }),
-    );
-    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
-    let preview = h.ok(
-        "preview_page_json",
-        json!({ "path": out.to_string_lossy() }),
-    );
-    assert_eq!(preview["kind"], "note");
-    assert_eq!(preview["title"], "Preview me");
-    assert_eq!(preview["blockCount"], 0);
-    assert_eq!(preview["convertedBlocks"], 0);
-    let broken = h.dir.file("broken.json", b"{ nope");
-    h.app_err(
-        "preview_page_json",
-        json!({ "path": broken.to_string_lossy() }),
-        "InvalidInput",
-    );
-    h.app_err(
-        "preview_page_json",
-        json!({ "path": h.dir.path().join("missing.json").to_string_lossy() }),
-        "Io",
-    );
-    assert_eq!(
-        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
-        before
-    );
-}
-
-#[test]
-fn notes_render_page_json_matches_the_exported_file() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let page = h.note(&space, "Shared");
-    h.block(&page, "Hello");
-    let text = h.ok("render_page_json", json!({ "entityId": page }));
-    let out = h.dir.path().join("shared.nookly.json");
-    h.ok(
-        "export_page_json",
-        json!({ "entityId": page, "path": out.to_string_lossy() }),
-    );
-    assert_eq!(
-        text.as_str().unwrap(),
-        std::fs::read_to_string(&out).unwrap()
-    );
-    assert!(text.as_str().unwrap().contains("Hello"));
-    h.app_err(
-        "render_page_json",
-        json!({ "entityId": MISSING }),
-        "NotFound",
-    );
-    let task = h.task(&space, "Not a page");
-    h.app_err(
-        "render_page_json",
-        json!({ "entityId": task }),
-        "InvalidInput",
-    );
-}
-
-#[test]
-fn notes_text_variants_match_the_path_commands() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let other = h.space("Other");
-    let page = h.note(&space, "Dropped");
-    h.ok(
-        "create_block",
-        json!({ "entityId": page, "blockType": "paragraph", "content": "Hello" }),
-    );
-    let text = h.db(|c| db::page_json::export_page_json(c, &page).unwrap());
-    let preview = h.ok("preview_page_text", json!({ "text": text }));
-    assert_eq!(preview["title"], "Dropped");
-    assert_eq!(preview["blocks"][0]["firstLine"], "Hello");
-    let imported = h.ok(
-        "import_page_text",
-        json!({ "spaceId": other, "text": text }),
-    );
-    assert_eq!(imported["title"], "Dropped");
-    assert_eq!(imported["spaceId"], other.as_str());
-    // A refused text creates nothing.
-    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
-    h.app_err(
-        "preview_page_text",
-        json!({ "text": "{ nope" }),
-        "InvalidInput",
-    );
-    h.app_err(
-        "import_page_text",
-        json!({ "spaceId": space, "text": "{ nope" }),
-        "InvalidInput",
-    );
-    assert_eq!(
-        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
-        before
-    );
-}
-
-#[test]
-fn notes_import_refuses_bad_and_missing_files_and_creates_nothing() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
-    let broken = h.dir.file("broken.json", b"{ nope");
-    h.app_err(
-        "import_page_json",
-        json!({ "spaceId": space, "path": broken.to_string_lossy() }),
-        "InvalidInput",
-    );
-    h.app_err(
-        "import_page_json",
-        json!({ "spaceId": space, "path": h.dir.path().join("missing.json").to_string_lossy() }),
-        "Io",
-    );
-    h.args_err("import_page_json", json!({ "space": space }));
-    assert_eq!(
-        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
-        before
-    );
-    // An export of a page that is not there writes no file.
-    let out = h.dir.path().join("nothing.json");
-    h.app_err(
-        "export_page_json",
-        json!({ "entityId": MISSING, "path": out.to_string_lossy() }),
-        "NotFound",
-    );
-    assert!(!out.exists());
 }
 
 #[test]
@@ -4124,4 +3960,163 @@ fn settings_file_is_created_without_touching_an_existing_one() {
     std::fs::write(&path, "{\"a\": 1}").unwrap();
     ensure_settings_file(&dir).unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"a\": 1}");
+}
+
+// ---------------------------------------------------------------- portable
+
+#[test]
+fn portable_commands_export_preview_and_import_every_registered_type() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let other = h.space("Other");
+    let course = h.course(&other, "Physics");
+
+    let task = h.task(&space, "Write the report");
+    h.ok(
+        "create_subtask",
+        json!({ "parentEntityId": task, "title": "Outline" }),
+    );
+    let deck = h.deck(&space);
+    h.card(&deck);
+    let note = h.note(&space, "A page");
+    let assignment = id_of(&h.ok(
+        "create_assignment",
+        json!({ "spaceId": other, "title": "Lab", "courseId": course, "dueDate": "2026-03-10" }),
+    ));
+
+    for (id, format, kind, needs_course) in [
+        (&task, "nookly-task", "task", false),
+        (&deck, "nookly-deck", "deck", false),
+        (&note, "nookly-page", "note", false),
+        (&assignment, "nookly-assignment", "assignment", true),
+    ] {
+        // The text for sharing, and the same file written to a path.
+        let text = h.ok("render_entity_json", json!({ "entityId": id }));
+        let text = text.as_str().unwrap();
+        assert!(text.contains(format), "{format} in {text}");
+        let path = h.dir.path().join(format!("{kind}.json"));
+        h.ok(
+            "export_entity_json",
+            json!({ "entityId": id, "path": path.to_string_lossy() }),
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+
+        // What it would create, from the path and from the text, without creating it.
+        let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
+        let from_path = h.ok(
+            "preview_entity_json",
+            json!({ "path": path.to_string_lossy() }),
+        );
+        let from_text = h.ok("preview_entity_text", json!({ "text": text }));
+        assert_eq!(from_path, from_text);
+        assert_eq!(from_path["format"], format);
+        assert_eq!(from_path["kind"], kind);
+        assert_eq!(from_path["parentType"].as_str().is_some(), needs_course);
+        assert_eq!(
+            h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
+            before
+        );
+
+        // Imported as a new entity, from the path and from the text.
+        let parent = needs_course.then_some(course.as_str());
+        let imported = h.ok(
+            "import_entity_json",
+            json!({ "spaceId": other, "path": path.to_string_lossy(), "parentId": parent }),
+        );
+        let again = h.ok(
+            "import_entity_text",
+            json!({ "spaceId": other, "text": text, "parentId": parent }),
+        );
+        assert_ne!(imported["id"], again["id"]);
+        assert_ne!(imported["id"], json!(id));
+        assert_eq!(imported["spaceId"], other.as_str());
+        assert_eq!(
+            imported["type"],
+            if kind == "deck" {
+                "index_card_deck"
+            } else {
+                kind
+            }
+        );
+    }
+}
+
+#[test]
+fn portable_commands_refuse_what_they_cannot_import_and_create_nothing() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let course = h.course(&space, "Physics");
+    let assignment = id_of(&h.ok(
+        "create_assignment",
+        json!({ "spaceId": space, "title": "Lab", "courseId": course, "dueDate": null }),
+    ));
+    let text = h
+        .ok("render_entity_json", json!({ "entityId": assignment }))
+        .as_str()
+        .unwrap()
+        .to_string();
+    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
+
+    // An assignment has to be filed under a course.
+    let message = h.app_err(
+        "import_entity_text",
+        json!({ "spaceId": space, "text": text, "parentId": null }),
+        "InvalidInput",
+    );
+    assert!(message.contains("course"), "{message}");
+    // Not a Nookly file, a format it does not know, a missing file, a file too big.
+    h.app_err(
+        "import_entity_text",
+        json!({ "spaceId": space, "text": "{ nope", "parentId": null }),
+        "InvalidInput",
+    );
+    h.app_err(
+        "preview_entity_text",
+        json!({ "text": r#"{"format":"other"}"# }),
+        "InvalidInput",
+    );
+    h.app_err(
+        "preview_entity_json",
+        json!({ "path": h.dir.path().join("missing.json").to_string_lossy() }),
+        "Io",
+    );
+    let big = h.dir.file("big.json", &vec![b'x'; 21 * 1024 * 1024]);
+    h.app_err(
+        "preview_entity_json",
+        json!({ "path": big.to_string_lossy() }),
+        "InvalidInput",
+    );
+    h.args_err("import_entity_text", json!({ "spaceId": space }));
+    assert_eq!(
+        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
+        before
+    );
+
+    // A type with no file format is refused on export, and nothing is written.
+    let out = h.dir.path().join("course.json");
+    h.app_err(
+        "export_entity_json",
+        json!({ "entityId": course, "path": out.to_string_lossy() }),
+        "InvalidInput",
+    );
+    assert!(!out.exists());
+    h.app_err(
+        "render_entity_json",
+        json!({ "entityId": MISSING }),
+        "NotFound",
+    );
+}
+
+#[test]
+fn portable_export_to_an_unwritable_path_is_an_io_error() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let task = h.task(&space, "Task");
+    let out = h.dir.path().join("missing-dir").join("task.json");
+    h.app_err(
+        "export_entity_json",
+        json!({ "entityId": task, "path": out.to_string_lossy() }),
+        "Io",
+    );
+    assert!(!out.exists());
 }

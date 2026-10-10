@@ -12,3 +12,7 @@ Cards are records owned by the deck, not entities. They reach the CLI as the dec
 - **Studying:** Space turns the card over, 1 to 4 rate it, Z undoes the last rating. Each rating button shows when the card comes back.
 
 **Relationship:** a Deck can be filed under at most one Exam (`deck-exam`), and then also shows on that Exam's Decks tab. It needs none.
+
+## Export and Import
+
+A Deck exports as a `nookly-deck` file (version 1): title and its cards' front and back. Scheduling and review history stay behind, so imported cards start as new. Import creates a new Deck.

@@ -6,7 +6,7 @@ import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
 import { CommandsPalette } from "./commands-palette.tsx";
 
-describe("Import Page from File in the commands palette", () => {
+describe("Import from File in the commands palette", () => {
   beforeEach(() => {
     useNavStore.setState({ importOpen: false });
   });
@@ -18,7 +18,7 @@ describe("Import Page from File in the commands palette", () => {
     const { user } = renderWithProviders(<CommandsPalette />);
     act(() => useNavStore.getState().setCommandsOpen(true));
     await user.type(await screen.findByPlaceholderText("Run a command…"), "import page");
-    await user.click(await screen.findByText("Import Page from File"));
+    await user.click(await screen.findByText("Import from File"));
     expect(useNavStore.getState().importOpen).toBe(true);
     expect(useNavStore.getState().commandsOpen).toBe(false);
   });

@@ -7,7 +7,8 @@ import { Button } from "@nookly/ui/components/button";
 import { DropdownSubmenu } from "@nookly/ui/components/dropdown-submenu";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { renderPageJson, renderPageMarkdown } from "#/lib/api/notes.ts";
+import { renderPageMarkdown } from "#/lib/api/notes.ts";
+import { renderEntityJson } from "#/lib/api/portable.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { SHARE_FORMATS, type ShareFormat, sharePage } from "./share-page.ts";
@@ -27,7 +28,7 @@ function useShareText(entity: Entity, format: ShareFormat) {
   const options = {
     queryKey: format === "markdown" ? qk.pageMarkdown(entity.id) : qk.pageJson(entity.id),
     queryFn: () =>
-      format === "markdown" ? renderPageMarkdown(entity.id) : renderPageJson(entity.id),
+      format === "markdown" ? renderPageMarkdown(entity.id) : renderEntityJson(entity.id),
     staleTime: 0,
   };
   const { data } = useQuery(options);

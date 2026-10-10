@@ -14,7 +14,7 @@ const note = makeEntity({ id: "note-1", type: "note", title: "Physics" });
 
 function setup() {
   mockCommand("render_page_markdown", "# Physics");
-  mockCommand("render_page_json", '{"format":"nookly-page"}');
+  mockCommand("render_entity_json", '{"format":"nookly-page"}');
   return renderWithProviders(
     <EntityActions
       entity={note}

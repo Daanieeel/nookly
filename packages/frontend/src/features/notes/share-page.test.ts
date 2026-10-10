@@ -64,9 +64,9 @@ describe("sharePage", () => {
       throw new DOMException("no activation", "NotAllowedError");
     });
     mockCommand("plugin:dialog|save", "/tmp/Physics week 3.nookly.json");
-    mockCommand("export_page_json", null);
+    mockCommand("export_entity_json", null);
     expect(await sharePage(note, "json", "{}")).toBe("saved");
-    expect(callsOf("export_page_json")).toHaveLength(1);
+    expect(callsOf("export_entity_json")).toHaveLength(1);
   });
 
   it("is cancelled when the save dialog is", async () => {
