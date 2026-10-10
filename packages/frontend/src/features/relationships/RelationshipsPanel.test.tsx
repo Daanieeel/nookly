@@ -225,6 +225,27 @@ describe("RelatePicker, step 3: which one", () => {
     expect(screen.getByText(/Physics, /)).toBeTruthy();
   });
 
+  it.each(["mar 10", "10 march", "tuesday", "tue", "9:00", "9am", "2026-03-10", "physics tue"])(
+    "finds a session by %s",
+    async (query) => {
+      const { user } = openPicker();
+      await toItems(user, "Session");
+      await user.type(await screen.findByPlaceholderText(SEARCH), query);
+      expect(await screen.findByText(/Physics, /)).toBeTruthy();
+    },
+  );
+
+  it.each(["mar 11", "monday", "9pm", "november"])(
+    "does not find that session by %s",
+    async (query) => {
+      const { user } = openPicker();
+      await toItems(user, "Session");
+      await user.type(await screen.findByPlaceholderText(SEARCH), query);
+      expect(await screen.findByText("No matches.")).toBeTruthy();
+      expect(screen.queryByText(/Physics, /)).toBeNull();
+    },
+  );
+
   it("links with the relation that was chosen", async () => {
     const onSelect = vi.fn();
     const { user } = openPicker({

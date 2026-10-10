@@ -3,8 +3,9 @@ import type { Editor, Range } from "@tiptap/react";
 import { Extension } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import type { Entity } from "#/lib/api/types.ts";
+import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { compareKeys, matchesKey } from "#/lib/entity-key.ts";
+import { sessionMatches, sessionWhen } from "#/lib/session-search.ts";
 import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
@@ -15,6 +16,9 @@ export interface MentionOptions {
   getEntities: () => Entity[];
   /// Whether a File is shown page by page, so a mention of it can name a page.
   hasPages: (entity: Entity) => boolean;
+  /// The occurrence behind a session, so one is found by its day and time, not only by its
+  /// title (which is just its course).
+  sessionOf: (entity: Entity) => SessionOccurrence | undefined;
 }
 
 /// A page number for a file, typed after the search: `report#12`.
@@ -65,16 +69,19 @@ interface MentionItem {
   canAddPage: boolean;
   /// The file has pages, so a page in the query is meant.
   paged: boolean;
+  /// Set for a session, which is listed with its day and time.
+  session: SessionOccurrence | undefined;
 }
 
-function toListItem({ entity, page, canAddPage, paged }: MentionItem): SuggestionListItem {
+function toListItem({ entity, page, canAddPage, paged, session }: MentionItem): SuggestionListItem {
   const kind = `${entity.key} · ${labelForType(entity.type)}`;
+  const detail = session ? `${sessionWhen(session)} · ${kind}` : kind;
   return {
     key: entity.id,
     icon: <EntityIcon entity={entity} size={14} />,
     label: displayTitle(entity),
     // A page the query asked for shows only on a file, which is all that can take one.
-    description: paged && page ? `Page ${page} · ${kind}` : kind,
+    description: paged && page ? `Page ${page} · ${kind}` : detail,
     actionLabel: canAddPage ? "# Page" : undefined,
   };
 }
@@ -82,20 +89,27 @@ function toListItem({ entity, page, canAddPage, paged }: MentionItem): Suggestio
 /// Entities matching `query`, best first: a title that starts with it, then one that
 /// contains it, and only then those matched by their ID (`fil` or `FIL-2` finds files).
 /// An ID is never worth more than text.
-function rankMentions(entities: Entity[], query: string): Entity[] {
+function rankMentions(
+  entities: Entity[],
+  query: string,
+  sessionOf: (entity: Entity) => SessionOccurrence | undefined,
+): Entity[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return entities;
   const tier = (entity: Entity): number => {
     const title = displayTitle(entity).toLowerCase();
     if (title.startsWith(needle)) return 0;
     if (title.includes(needle)) return 1;
-    if (matchesKey(entity.key, query) || entity.key.toLowerCase().startsWith(needle)) return 2;
-    return 3;
+    // A session is also found by its day and time: `tue`, `mar`, `9am`.
+    const session = sessionOf(entity);
+    if (session && sessionMatches(session, needle)) return 2;
+    if (matchesKey(entity.key, query) || entity.key.toLowerCase().startsWith(needle)) return 3;
+    return 4;
   };
   return entities
     .map((entity) => ({ entity, rank: tier(entity) }))
-    .filter(({ rank }) => rank < 3)
-    .toSorted((a, b) => a.rank - b.rank || (a.rank === 2 ? compareKeys(a.entity, b.entity) : 0))
+    .filter(({ rank }) => rank < 4)
+    .toSorted((a, b) => a.rank - b.rank || (a.rank === 3 ? compareKeys(a.entity, b.entity) : 0))
     .map(({ entity }) => entity);
 }
 
@@ -106,7 +120,7 @@ export const Mention = Extension.create<MentionOptions>({
   name: "mention",
 
   addOptions() {
-    return { getEntities: () => [], hasPages: () => false };
+    return { getEntities: () => [], hasPages: () => false, sessionOf: () => undefined };
   },
 
   addProseMirrorPlugins() {
@@ -118,7 +132,7 @@ export const Mention = Extension.create<MentionOptions>({
         allow: allowOutsideCode,
         items: ({ query }) => {
           const { search, page } = parseMentionQuery(query);
-          return rankMentions(this.options.getEntities(), search)
+          return rankMentions(this.options.getEntities(), search, this.options.sessionOf)
             .slice(0, 8)
             .map((entity) => {
               const paged = entity.type === "file" && this.options.hasPages(entity);
@@ -128,6 +142,7 @@ export const Mention = Extension.create<MentionOptions>({
                 page: paged ? page : null,
                 paged,
                 canAddPage: paged && !query.includes("#"),
+                session: this.options.sessionOf(entity),
               };
             });
         },

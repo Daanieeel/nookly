@@ -7,6 +7,7 @@ import { notify } from "#/components/notify.tsx";
 import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
 import { listEntities } from "#/lib/api/entities.ts";
 import { listFiles } from "#/lib/api/files.ts";
+import { listSessions } from "#/lib/api/sessions.ts";
 import { hasPages } from "#/features/files/file-kind.ts";
 import {
   createBlock,
@@ -15,7 +16,7 @@ import {
   reorderBlocks,
   updateBlock,
 } from "#/lib/api/notes.ts";
-import type { Block } from "#/lib/api/types.ts";
+import type { Block, SessionOccurrence } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
@@ -141,6 +142,13 @@ function HydratedBlockEditor({
     queryKey: qk.files.bySpace(spaceId),
     queryFn: () => listFiles(spaceId),
   });
+  // A session is found by its day and time as well as its course, which is its title.
+  const { data: sessions = [] } = useQuery({
+    queryKey: qk.sessions.bySpace(spaceId),
+    queryFn: () => listSessions(spaceId),
+  });
+  const sessionsById = useRef(new Map<string, SessionOccurrence>());
+  sessionsById.current = new Map(sessions.map((s) => [s.entity.id, s]));
   const pagedFileIds = useRef(new Set<string>());
   pagedFileIds.current = new Set(files.filter(hasPages).map((f) => f.entity.id));
   // The note's own code language, read live when a code block is made. A Jot has none.
@@ -286,6 +294,7 @@ function HydratedBlockEditor({
       pageId: entityId,
       getEntities: () => entitiesRef.current,
       hasPages: (entity) => pagedFileIds.current.has(entity.id),
+      sessionOf: (entity) => sessionsById.current.get(entity.id),
       getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
     }),
     editorProps: {

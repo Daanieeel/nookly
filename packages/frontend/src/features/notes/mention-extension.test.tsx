@@ -3,7 +3,7 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Entity } from "#/lib/api/types.ts";
-import { makeEntity } from "#/test/fixtures.ts";
+import { makeEntity, makeSession } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
 import { parseMentionQuery } from "./mention-extension";
@@ -11,10 +11,18 @@ import { parseMentionQuery } from "./mention-extension";
 let editor: Editor | null = null;
 afterEach(() => editor?.destroy());
 
+/// The lecture is a session: its title is the course, its day and time tell it apart.
+const lecture = makeEntity({ id: "se1", type: "session", title: "Physics", key: "SES-1" });
+const lectureSession = makeSession(
+  { courseTitle: "Physics", date: "2026-03-10", startTime: "09:00", endTime: "10:30" },
+  { id: "se1", title: "Physics", key: "SES-1" },
+);
+
 const entities = [
   makeEntity({ id: "f1", type: "file", title: "Report", key: "FIL-1" }),
   makeEntity({ id: "n1", type: "note", title: "Notes", key: "NTE-1" }),
   makeEntity({ id: "f2", type: "file", title: "Photo", key: "FIL-2" }),
+  lecture,
 ];
 
 /// Only the report has pages; the other file is a picture.
@@ -27,6 +35,7 @@ async function open() {
       pageId: "p",
       getEntities: () => entities,
       hasPages: entitiesWithPages,
+      sessionOf: (entity) => (entity.id === lecture.id ? lectureSession : undefined),
     }),
     content: { type: "doc", content: [{ type: "paragraph" }] },
   });
@@ -217,5 +226,29 @@ describe("cancelling the mention menu", () => {
     await waitFor(() => expect(links(target).some((l) => l.href === "mention:f1")).toBe(true));
     target.commands.insertContent(" @rep");
     expect(await screen.findByRole("button", { name: "# Page" })).toBeTruthy();
+  });
+});
+
+describe("finding a session in the mention menu", () => {
+  it.each(["tue", "tuesday", "mar", "march", "2026-03-10", "9am", "09:00", "10:30"])(
+    "finds a session by %s",
+    async (query) => {
+      const { editor: target } = await open();
+      target.commands.insertContent(`@${query}`);
+      expect(await screen.findByText(/Physics, Mar 10/)).toBeTruthy();
+    },
+  );
+
+  it.each(["mon", "nov", "2025", "9pm"])("does not find it by %s", async (query) => {
+    const { editor: target } = await open();
+    target.commands.insertContent(`@${query}`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(/Physics, Mar 10/)).toBeNull();
+  });
+
+  it("still finds it by its course, ahead of a match by day", async () => {
+    const { editor: target } = await open();
+    target.commands.insertContent("@phys");
+    expect(await screen.findByText(/Physics, Mar 10/)).toBeTruthy();
   });
 });
