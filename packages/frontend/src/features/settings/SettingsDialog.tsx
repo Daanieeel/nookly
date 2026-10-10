@@ -1,5 +1,6 @@
 import {
   IconArchive,
+  IconFileCode,
   IconCalendar,
   IconKeyboard,
   IconNotes,
@@ -9,6 +10,10 @@ import {
   IconSettings,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
+import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { openSettingsFile } from "#/lib/api/settings-file.ts";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -134,6 +139,35 @@ function SearchResults({
   });
 }
 
+/// Opens `settings.json` in the user's editor. The result shows on the button.
+function OpenSettingsFileButton() {
+  const open = useMutation({ mutationFn: openSettingsFile });
+  const status = useActionStatus(open);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => !open.isPending && open.mutate()}
+        >
+          <StatusButtonContent
+            status={status}
+            icon={<IconFileCode size={16} />}
+            label="Open settings file"
+            errorLabel="Couldn't open, try again"
+          />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        Edit settings.json in your editor. Quit Nookly first, it saves over edits made while it
+        runs.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /// The full size Settings dialog: search on top, categories on the left, rows on the right.
 /// Opened from the titlebar, the command palette and Cmd+,.
 export function SettingsDialog() {
@@ -197,37 +231,42 @@ export function SettingsDialog() {
           />
         </div>
         <div className="flex min-h-0 flex-1">
-          <nav
-            aria-label="Settings categories"
-            className="flex w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border p-2"
-          >
-            {SETTING_CATEGORIES.map((id) => {
-              const { label, icon: Icon } = CATEGORY_META[id];
-              const count = results.filter((r) => r.category === id).length;
-              const active = !searching && category === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => pick(id)}
-                  className={cn(
-                    "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                    active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
-                    searching && count === 0 && "opacity-50",
-                  )}
-                >
-                  <Icon size={16} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{label}</span>
-                  {searching && (
-                    <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+          <div className="flex w-52 shrink-0 flex-col border-r border-border">
+            <nav
+              aria-label="Settings categories"
+              className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
+            >
+              {SETTING_CATEGORIES.map((id) => {
+                const { label, icon: Icon } = CATEGORY_META[id];
+                const count = results.filter((r) => r.category === id).length;
+                const active = !searching && category === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => pick(id)}
+                    className={cn(
+                      "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                      active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
+                      searching && count === 0 && "opacity-50",
+                    )}
+                  >
+                    <Icon size={16} className="shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    {searching && (
+                      <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="shrink-0 p-2 pt-0">
+              <OpenSettingsFileButton />
+            </div>
+          </div>
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
             <h2 className="pb-3 text-lg font-semibold">
               {searching ? "Search results" : CATEGORY_META[category].label}

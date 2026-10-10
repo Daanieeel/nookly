@@ -291,6 +291,11 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("write_agent_file", "agent_files_underlying_calls"),
     ("delete_agent_file", "agent_files_underlying_calls"),
     ("reveal_agent_dir", "agent_files_underlying_calls"),
+    // `AppHandle` parameter, and it opens an app: the part that can run is the file it makes.
+    (
+        "open_settings_file",
+        "settings_file_is_created_without_touching_an_existing_one",
+    ),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -3888,4 +3893,18 @@ fn agent_files_underlying_calls() {
     agent::delete(&dir, "PROFILE.md").unwrap();
     assert_eq!(agent::list(&dir).unwrap().len(), 1);
     assert!(agent::validate_name("../x.md").is_err());
+}
+
+#[test]
+fn settings_file_is_created_without_touching_an_existing_one() {
+    // `open_settings_file` takes an `AppHandle` and hands the file to the OS; this is
+    // the file it makes first.
+    use crate::commands::settings_file::ensure_settings_file;
+    let h = Harness::new();
+    let dir = h.dir.path().join("settings-data");
+    let path = ensure_settings_file(&dir).unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap().trim(), "{}");
+    std::fs::write(&path, "{\"a\": 1}").unwrap();
+    ensure_settings_file(&dir).unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"a\": 1}");
 }

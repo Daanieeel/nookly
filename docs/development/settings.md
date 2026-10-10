@@ -4,6 +4,10 @@ Hard settings live in `settings.json` in the app data folder, a flat JSON object
 
 Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `agent`, `shortcuts`. An id is never renamed once released.
 
+## Settings file
+
+"Open Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in every build (the store plugin ignores `.dev-data`), so a debug build edits the installed app's settings. Edit with the app closed: it saves its own copy over the file.
+
 ## Add a setting
 
 1. Add an entry to `SETTINGS` in `registry.ts` with a title, description, synonyms, a default and a `schema` (anything else on disk becomes the default).
