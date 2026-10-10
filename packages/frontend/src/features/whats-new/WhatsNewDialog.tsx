@@ -44,7 +44,7 @@ function HighlightRow({ highlight }: { highlight: WhatsNewHighlight }) {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <h4 className="text-sm font-semibold">{highlight.title}</h4>
           {highlight.tag && (
-            <Badge variant={highlight.tag === "New" ? "primary" : "positive"}>
+            <Badge variant={highlight.tag === "New" ? "positive" : "primary"}>
               {highlight.tag}
             </Badge>
           )}

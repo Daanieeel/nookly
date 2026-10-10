@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.2 (2026-10-10)
+
+### Changed
+
+- **What's new tags are clearer.** "New" shows in green and "Improved" in blue.
+
 ## 0.32.1 (2026-10-10)
 
 ### Changed
