@@ -29,6 +29,12 @@ export function labelForType(type: string): string {
   return TYPE_LABELS.get(type) ?? "Item";
 }
 
+/// The type as a list heading: "Notes", "Study Blocks", "Index card decks" as "Decks".
+export function pluralLabel(type: string): string {
+  const label = labelForType(type);
+  return label.endsWith("s") ? label : `${label}s`;
+}
+
 /// The title to render for an entity, falling back to "Untitled {Type}" when
 /// the real title is empty/whitespace-only — every read-only render site
 /// should go through this rather than rendering `entity.title` raw.
