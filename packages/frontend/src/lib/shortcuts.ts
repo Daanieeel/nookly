@@ -177,9 +177,9 @@ export const SHORTCUT_META = {
     scopes: GLOBAL,
   },
   quickJotSession: {
-    title: "Quick jot for the current session",
+    title: "Jot for the current session",
     description:
-      "Jot into the session happening now. Opens a plain quick jot when none is running.",
+      "Open the jot of the session happening now, creating it first. Shows an error when no session is running.",
     synonyms: ["capture", "session jot", "lecture", "class notes", "current session"],
     section: "Create",
     scopes: GLOBAL,
