@@ -64,7 +64,7 @@ describe("the session jot shortcut", () => {
     mockCommand("list_sessions_all", []);
     const { user } = setup();
     await user.keyboard(SESSION_JOT_KEYS);
-    expect(await screen.findByText("No session is running right now")).toBeTruthy();
+    expect(await screen.findByText("Quick session jot could not be created")).toBeTruthy();
     expect(useNavStore.getState().quickJotOpen).toBe(false);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(useNavStore.getState().view).toEqual({ kind: "dashboard" });
