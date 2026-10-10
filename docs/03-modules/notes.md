@@ -20,7 +20,7 @@ Custom blocks from third party modules are still future work.
 
 A Note or Jot exports as a `nookly-page` JSON file (version 1): `format`, `version`, `kind`, `title` and the `blocks` in order, each with `type`, `content`, `language`, `filename` and `attrs`, so every block type ports natively instead of through markdown. Ids, timestamps, labels, links, the icon and the Space are not exported.
 Mentions become plain text. A block that points at a File or another entity (image, video, audio, file, bookmark, entity card) becomes a paragraph with that item's name, since it does not exist for the reader. Media and embeds that hold a plain URL stay as they are.
-Import always creates a new page in the chosen Space from a file of up to 20 MB. An unknown block type becomes a paragraph, a block that fails its type's checks refuses the whole file, and nothing is created on any error.
+Import always creates a new page in the chosen Space from a file of up to 20 MB. An unknown block type becomes a paragraph, a block that fails its type's checks refuses the whole file, and nothing is created on any error. The titlebar Import button, Cmd+I (outside text fields) and the "Import Page from File" command open a dialog that picks the file, lists what it creates and leaves out, lets the user pick the Space and relations for the new page, and imports only after a confirmation.
 Code is in `src-tauri/src/db/page_json.rs`. It is an app level file action, not an entity or field, so it has no CLI schema entry.
 
 ## Markdown Everywhere

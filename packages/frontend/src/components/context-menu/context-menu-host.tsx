@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import {
   type ActionStatus,
   StatusAnnouncer,
@@ -534,7 +534,7 @@ function ActionItem<T>({
         }
         runAfterClose(() => {
           const result = perform(target, helpers);
-          if (isPending(result)) result.catch(() => toast.error(errorLabel));
+          if (isPending(result)) result.catch(() => notify.error(errorLabel));
         });
       }}
     >

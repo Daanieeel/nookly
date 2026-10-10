@@ -94,7 +94,10 @@ ipc_commands![
     notes::render_page_markdown,
     notes::export_page_markdown,
     notes::export_page_json,
+    notes::preview_page_json,
     notes::import_page_json,
+    notes::preview_page_text,
+    notes::import_page_text,
     notes::get_note_code_language,
     notes::set_note_code_language,
     courses::create_course,
@@ -1760,6 +1763,80 @@ fn notes_export_and_import_a_page_file_through_the_commands() {
     assert_eq!(imported["spaceId"], other.as_str());
     let blocks = h.ok("list_blocks", json!({ "entityId": imported["id"] }));
     assert_eq!(blocks[0]["content"], "Hello");
+}
+
+#[test]
+fn notes_preview_reads_a_page_file_and_refuses_bad_ones() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let page = h.note(&space, "Preview me");
+    let out = h.dir.path().join("preview.nookly.json");
+    h.ok(
+        "export_page_json",
+        json!({ "entityId": page, "path": out.to_string_lossy() }),
+    );
+    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
+    let preview = h.ok(
+        "preview_page_json",
+        json!({ "path": out.to_string_lossy() }),
+    );
+    assert_eq!(preview["kind"], "note");
+    assert_eq!(preview["title"], "Preview me");
+    assert_eq!(preview["blockCount"], 0);
+    assert_eq!(preview["convertedBlocks"], 0);
+    let broken = h.dir.file("broken.json", b"{ nope");
+    h.app_err(
+        "preview_page_json",
+        json!({ "path": broken.to_string_lossy() }),
+        "InvalidInput",
+    );
+    h.app_err(
+        "preview_page_json",
+        json!({ "path": h.dir.path().join("missing.json").to_string_lossy() }),
+        "Io",
+    );
+    assert_eq!(
+        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
+        before
+    );
+}
+
+#[test]
+fn notes_text_variants_match_the_path_commands() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let other = h.space("Other");
+    let page = h.note(&space, "Dropped");
+    h.ok(
+        "create_block",
+        json!({ "entityId": page, "blockType": "paragraph", "content": "Hello" }),
+    );
+    let text = h.db(|c| db::page_json::export_page_json(c, &page).unwrap());
+    let preview = h.ok("preview_page_text", json!({ "text": text }));
+    assert_eq!(preview["title"], "Dropped");
+    assert_eq!(preview["blocks"][0]["firstLine"], "Hello");
+    let imported = h.ok(
+        "import_page_text",
+        json!({ "spaceId": other, "text": text }),
+    );
+    assert_eq!(imported["title"], "Dropped");
+    assert_eq!(imported["spaceId"], other.as_str());
+    // A refused text creates nothing.
+    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
+    h.app_err(
+        "preview_page_text",
+        json!({ "text": "{ nope" }),
+        "InvalidInput",
+    );
+    h.app_err(
+        "import_page_text",
+        json!({ "spaceId": space, "text": "{ nope" }),
+        "InvalidInput",
+    );
+    assert_eq!(
+        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
+        before
+    );
 }
 
 #[test]

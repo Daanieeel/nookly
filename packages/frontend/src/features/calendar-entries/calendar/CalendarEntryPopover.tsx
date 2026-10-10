@@ -13,7 +13,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { z } from "zod";
 import {
   FieldError,
@@ -163,7 +163,7 @@ function CalendarEntrySummary({
     onSuccess: async () => {
       close();
       await refreshEntries(queryClient, entity.id);
-      toast.success("Entry moved to Trash", {
+      notify.success("Entry moved to Trash", {
         action: {
           label: "Undo",
           onClick: () =>

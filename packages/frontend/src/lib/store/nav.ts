@@ -131,6 +131,7 @@ interface NavState {
   switcherOpen: boolean;
   commandsOpen: boolean;
   settingsOpen: boolean;
+  importOpen: boolean;
   quickJotOpen: boolean;
   /// The session the open Quick Jot writes into; null for a plain Jot.
   quickJotSessionId: string | null;
@@ -164,6 +165,7 @@ interface NavState {
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setImportOpen: (open: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
   /// Opens the Quick Jot bound to one session occurrence.
   openQuickJotForSession: (sessionId: string) => void;
@@ -350,6 +352,7 @@ const NO_OVERLAY = {
   switcherOpen: false,
   commandsOpen: false,
   settingsOpen: false,
+  importOpen: false,
   bookmarkSheetId: null,
 };
 
@@ -363,6 +366,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   switcherOpen: false,
   commandsOpen: false,
   settingsOpen: false,
+  importOpen: false,
   quickJotOpen: false,
   quickJotSessionId: null,
   focusBlock: null,
@@ -531,6 +535,7 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(commandsOpen ? { ...NO_OVERLAY, commandsOpen } : { commandsOpen }),
   setSettingsOpen: (settingsOpen) =>
     set(settingsOpen ? { ...NO_OVERLAY, settingsOpen } : { settingsOpen }),
+  setImportOpen: (importOpen) => set(importOpen ? { ...NO_OVERLAY, importOpen } : { importOpen }),
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
     set(

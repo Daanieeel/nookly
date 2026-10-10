@@ -799,3 +799,30 @@
     right calc(var(--notch) - var(--notch-r)) bottom calc(var(--notch) - var(--notch-r));
   mask-repeat: no-repeat;
 }
+
+/* Sonner draws every toast with `--border-radius` (8px by default); the doubled attribute
+   selector outranks its own injected rule. */
+[data-sonner-toaster][data-sonner-toaster] {
+  --border-radius: 1rem;
+}
+
+/* The close button sits on the toast's corner and leaks a little outside it (Sonner's own
+   placement); Sonner shows it only on hover, here it is always there. */
+[data-sonner-toast][data-sonner-toast] [data-close-button] {
+  opacity: 1;
+}
+
+/* Toasts slide and fade in about 180 ms (Sonner's default is slower), and only fade when
+   the user asks for less motion. */
+[data-sonner-toast][data-sonner-toast] {
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease,
+    height 180ms ease,
+    box-shadow 180ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast][data-sonner-toast] {
+    transition: opacity 150ms linear;
+  }
+}

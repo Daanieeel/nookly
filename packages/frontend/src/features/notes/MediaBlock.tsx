@@ -27,7 +27,7 @@ import { getFile, importFile } from "#/lib/api/files.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { inheritPageContext } from "#/features/relationships/inherit-context.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import { asString, type JSONAttrValue } from "./block-markdown";
@@ -310,7 +310,9 @@ function MediaPicker({
   // The block still shows the file if attaching it to the page's context fails.
   const attachToPage = (fileId: string) =>
     void inheritPageContext(queryClient, pageId, fileId).catch(() => {
-      toast.error("Couldn't attach the file to this page");
+      notify.error("Couldn't attach the file to this page", {
+        description: "Try attaching it again.",
+      });
     });
   const pickExisting = (entity: Entity) => {
     attachToPage(entity.id);

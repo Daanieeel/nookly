@@ -30,7 +30,7 @@ function isJotSummaries(query: Query): boolean {
 /// `course-semester` gets its own bespoke section (`CourseSemesterPanel`) on a
 /// Course's own page, so hide it here only for Course entities — a Semester's
 /// page still lists its Courses through this generic panel as normal.
-export function hiddenRelationshipTypes(entity: Entity): Set<string> {
+export function hiddenRelationshipTypes(entity: Pick<Entity, "type">): Set<string> {
   return new Set([
     "attached-file",
     "course-note",

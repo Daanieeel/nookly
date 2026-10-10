@@ -14,7 +14,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { z } from "zod";
 import {
   FieldError,
@@ -185,7 +185,7 @@ export function SessionSummary({
       close();
       await refreshSessions(queryClient, entity.id);
       // The block is gone from the calendar, so nothing is left on screen to confirm it.
-      toast.success("Session moved to Trash", {
+      notify.success("Session moved to Trash", {
         action: {
           label: "Undo",
           onClick: () =>

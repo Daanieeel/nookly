@@ -3,7 +3,7 @@ import { Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
 import { listEntities } from "#/lib/api/entities.ts";
 import {
@@ -243,7 +243,7 @@ function HydratedBlockEditor({
     onError: () => {
       if (saveFailingRef.current) return;
       saveFailingRef.current = true;
-      toast.error("Couldn't save changes", {
+      notify.error("Couldn't save changes", {
         description: "They'll be saved again on your next edit.",
       });
     },

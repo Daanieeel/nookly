@@ -159,6 +159,67 @@ fn parse(text: &str) -> AppResult<PageJson> {
     Ok(page)
 }
 
+/// What an import of a document would create, read without touching the database.
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PagePreview {
+    pub kind: String,
+    pub title: String,
+    pub block_count: usize,
+    /// Blocks of a type this version does not know, which arrive as paragraphs.
+    pub converted_blocks: usize,
+    pub blocks: Vec<BlockPreview>,
+}
+
+/// One block of a file as the import dialog lists it.
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockPreview {
+    pub block_type: String,
+    /// The first line of text, cut to a length that fits a list row.
+    pub first_line: String,
+    /// The type is unknown to this version, so the block arrives as a paragraph.
+    pub converted: bool,
+}
+
+const PREVIEW_LINE_CHARS: usize = 80;
+
+fn first_line(content: &str) -> String {
+    let line = content
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .unwrap_or("");
+    match line.char_indices().nth(PREVIEW_LINE_CHARS) {
+        Some((cut, _)) => format!("{}...", &line[..cut]),
+        None => line.to_string(),
+    }
+}
+
+/// Checks a `nookly-page` document and says what importing it would create.
+pub fn preview_page_json(text: &str) -> AppResult<PagePreview> {
+    let page = parse(text)?;
+    Ok(PagePreview {
+        converted_blocks: page
+            .blocks
+            .iter()
+            .filter(|b| !is_known_type(&b.block_type))
+            .count(),
+        block_count: page.blocks.len(),
+        blocks: page
+            .blocks
+            .iter()
+            .map(|b| BlockPreview {
+                block_type: b.block_type.clone(),
+                first_line: first_line(&b.content),
+                converted: !is_known_type(&b.block_type),
+            })
+            .collect(),
+        kind: page.kind,
+        title: page.title,
+    })
+}
+
 /// Creates a new page in `space_id` from a `nookly-page` document. A block type this
 /// version does not know becomes a paragraph, so its text survives. A block that does
 /// not pass the usual checks for its type fails the whole import: nothing is created.
@@ -656,5 +717,60 @@ mod tests {
         .to_string();
         assert!(import_page_json(&fx.conn, "no-such-space", &json).is_err());
         assert_eq!(entity_count(&fx.conn), before);
+    }
+
+    #[test]
+    fn preview_says_what_an_import_creates_and_changes_nothing() {
+        let fx = fixture();
+        let before = crate::db::entities::list_entities(&fx.conn, None, false)
+            .unwrap()
+            .len();
+        let text = serde_json::json!({
+            "format": "nookly-page", "version": 1, "kind": "jot", "title": "Quick",
+            "blocks": [
+                { "type": "paragraph", "content": "\n  a first line\nsecond" },
+                { "type": "hologram", "content": "b" }
+            ]
+        })
+        .to_string();
+        let preview = preview_page_json(&text).unwrap();
+        assert_eq!(
+            preview,
+            PagePreview {
+                kind: "jot".into(),
+                title: "Quick".into(),
+                block_count: 2,
+                converted_blocks: 1,
+                blocks: vec![
+                    BlockPreview {
+                        block_type: "paragraph".into(),
+                        first_line: "a first line".into(),
+                        converted: false,
+                    },
+                    BlockPreview {
+                        block_type: "hologram".into(),
+                        first_line: "b".into(),
+                        converted: true,
+                    },
+                ],
+            }
+        );
+        assert_eq!(
+            crate::db::entities::list_entities(&fx.conn, None, false)
+                .unwrap()
+                .len(),
+            before
+        );
+        assert!(preview_page_json("{ nope").is_err());
+        assert!(preview_page_json(r#"{"format":"x"}"#).is_err());
+    }
+
+    #[test]
+    fn preview_cuts_a_long_first_line() {
+        let long = "x".repeat(200);
+        let line = first_line(&long);
+        assert_eq!(line.chars().count(), PREVIEW_LINE_CHARS + 3);
+        assert!(line.ends_with("..."));
+        assert_eq!(first_line(""), "");
     }
 }

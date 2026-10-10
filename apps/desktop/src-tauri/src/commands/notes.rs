@@ -158,6 +158,45 @@ pub fn export_page_json(state: State<DbState>, entity_id: String, path: String) 
     std::fs::write(&path, json).map_err(|err| AppError::Io(err.to_string()))
 }
 
+/// Reads a Nookly page file for the import dialog. 20 MB cap checked before the read.
+fn read_page_file(path: &str) -> AppResult<String> {
+    let size = std::fs::metadata(path)
+        .map_err(|err| AppError::Io(err.to_string()))?
+        .len();
+    if size > crate::db::page_json::MAX_IMPORT_BYTES {
+        return Err(AppError::InvalidInput(
+            "this file is too large to import (the limit is 20 MB)".into(),
+        ));
+    }
+    std::fs::read_to_string(path).map_err(|err| AppError::Io(err.to_string()))
+}
+
+/// Says what importing the file would create, without creating anything. Refuses the
+/// same files `import_page_json` refuses.
+#[tauri::command]
+pub fn preview_page_json(path: String) -> AppResult<crate::db::page_json::PagePreview> {
+    crate::db::page_json::preview_page_json(&read_page_file(&path)?)
+}
+
+/// `preview_page_json` for a file whose text the webview already holds (a drop or a
+/// paste, which hand over contents and no path). Same checks, same limit.
+#[tauri::command]
+pub fn preview_page_text(text: String) -> AppResult<crate::db::page_json::PagePreview> {
+    crate::db::page_json::preview_page_json(&text)
+}
+
+/// `import_page_json` for text the webview already holds. Creates a new page the same
+/// way, whole or not at all.
+#[tauri::command]
+pub fn import_page_text(
+    state: State<DbState>,
+    space_id: String,
+    text: String,
+) -> AppResult<Entity> {
+    let conn = state.0.lock().unwrap();
+    crate::db::page_json::import_page_json(&conn, &space_id, &text)
+}
+
 /// Creates a new page in `space_id` from a Nookly page file the user picked. Never
 /// changes an existing page, and creates nothing when the file is refused.
 #[tauri::command]
@@ -166,15 +205,7 @@ pub fn import_page_json(
     space_id: String,
     path: String,
 ) -> AppResult<Entity> {
-    let size = std::fs::metadata(&path)
-        .map_err(|err| AppError::Io(err.to_string()))?
-        .len();
-    if size > crate::db::page_json::MAX_IMPORT_BYTES {
-        return Err(AppError::InvalidInput(
-            "this file is too large to import (the limit is 20 MB)".into(),
-        ));
-    }
-    let text = std::fs::read_to_string(&path).map_err(|err| AppError::Io(err.to_string()))?;
+    let text = read_page_file(&path)?;
     let conn = state.0.lock().unwrap();
     crate::db::page_json::import_page_json(&conn, &space_id, &text)
 }

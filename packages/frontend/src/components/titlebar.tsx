@@ -21,6 +21,7 @@ import { EntityKey } from "#/components/entity-key.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { ImportButton } from "#/features/notes/ImportDialog.tsx";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { getView } from "#/lib/api/views.ts";
@@ -383,6 +384,7 @@ export function Titlebar() {
           Search
           <ShortcutKbd name="search" />
         </Button>
+        <ImportButton />
         <SettingsButton />
       </div>
     </div>
