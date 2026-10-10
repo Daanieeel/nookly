@@ -301,6 +301,7 @@ export const FIXED_SHORTCUTS: FixedShortcut[] = [
   { label: "Copy", keys: ["Mod+C"], scopes: GLOBAL },
   { label: "Cut", keys: ["Mod+X"], scopes: GLOBAL },
   { label: "Paste", keys: ["Mod+V"], scopes: GLOBAL },
+  { label: "Paste without formatting", keys: ["Mod+Shift+V"], scopes: GLOBAL },
   { label: "Select all", keys: ["Mod+A"], scopes: GLOBAL },
   { label: "Undo", keys: ["Mod+Z"], scopes: GLOBAL },
   { label: "Redo", keys: ["Mod+Shift+Z", "Mod+Y"], scopes: GLOBAL },
