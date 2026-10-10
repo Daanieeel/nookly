@@ -147,6 +147,38 @@ pub fn export_page_markdown(
     std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }
 
+/// Writes the page as a Nookly page file (`nookly-page` JSON, see `db::page_json`).
+/// `path` comes from the native save dialog.
+#[tauri::command]
+pub fn export_page_json(state: State<DbState>, entity_id: String, path: String) -> AppResult<()> {
+    let json = {
+        let conn = state.0.lock().unwrap();
+        crate::db::page_json::export_page_json(&conn, &entity_id)?
+    };
+    std::fs::write(&path, json).map_err(|err| AppError::Io(err.to_string()))
+}
+
+/// Creates a new page in `space_id` from a Nookly page file the user picked. Never
+/// changes an existing page, and creates nothing when the file is refused.
+#[tauri::command]
+pub fn import_page_json(
+    state: State<DbState>,
+    space_id: String,
+    path: String,
+) -> AppResult<Entity> {
+    let size = std::fs::metadata(&path)
+        .map_err(|err| AppError::Io(err.to_string()))?
+        .len();
+    if size > crate::db::page_json::MAX_IMPORT_BYTES {
+        return Err(AppError::InvalidInput(
+            "this file is too large to import (the limit is 20 MB)".into(),
+        ));
+    }
+    let text = std::fs::read_to_string(&path).map_err(|err| AppError::Io(err.to_string()))?;
+    let conn = state.0.lock().unwrap();
+    crate::db::page_json::import_page_json(&conn, &space_id, &text)
+}
+
 #[tauri::command]
 pub fn get_note_code_language(
     state: State<DbState>,

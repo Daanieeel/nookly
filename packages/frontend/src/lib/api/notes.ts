@@ -84,6 +84,17 @@ export function exportPageMarkdown(entityId: string, path: string): Promise<void
   return invoke("export_page_markdown", { entityId, path });
 }
 
+/// Writes the page as a Nookly page file: every block, ported natively, with nothing that
+/// belongs to this instance (ids, labels, links, files).
+export function exportPageJson(entityId: string, path: string): Promise<void> {
+  return invoke("export_page_json", { entityId, path });
+}
+
+/// Creates a new page in the Space from a Nookly page file. Never changes an existing page.
+export function importPageJson(spaceId: string, path: string): Promise<Entity> {
+  return invoke("import_page_json", { spaceId, path });
+}
+
 /// The language a new code block in this note starts with, or null to follow the app default.
 export function getNoteCodeLanguage(entityId: string): Promise<string | null> {
   return invoke("get_note_code_language", { entityId });

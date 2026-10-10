@@ -327,3 +327,11 @@ The overviews can be saved as Views (modules `tasks-overview` and `assignments-o
 Settings has an Agent tab for markdown files (`AGENTS.md` and others) in a folder the user hands to their own coding agent. Nookly only manages the files. It runs no agent, calls no model and stores no keys.
 
 **Why:** The app stays free of AI features and API keys, while a shared folder of instructions still lets a coding agent work through the `nookly` CLI.
+
+---
+
+### Pages port between Nookly instances as JSON, not markdown
+
+A Note or Jot exports as a `nookly-page` JSON file that keeps every block with its settings, and imports as a new page. Markdown stays the format for reading elsewhere.
+
+**Why:** the markdown export flattens custom blocks into ASCII figures, so a page could not come back whole. Links, labels and files belong to one instance and stay behind: mentions become text, and media blocks become a paragraph with the file name.

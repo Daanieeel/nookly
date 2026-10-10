@@ -33,6 +33,7 @@ mod migrations;
 pub mod notes;
 mod ocr;
 mod office_text;
+pub mod page_json;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;

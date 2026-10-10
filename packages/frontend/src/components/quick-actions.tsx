@@ -10,6 +10,7 @@ import {
   IconMoon,
   IconPin,
   IconFileCode,
+  IconFileImport,
   IconSettings,
   IconSun,
   IconTrash,
@@ -43,6 +44,8 @@ import { openSettingsFile } from "#/lib/api/settings-file.ts";
 import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
+import { importFailureReason, importPageFromFile } from "#/features/notes/import-page.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
 import { type ModuleKey, useNavStore, type View } from "#/lib/store/nav.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
@@ -439,6 +442,28 @@ export function QuickActions({
             node: createItem(intent ?? { ...c, title: "" }),
           };
         })
+      : []),
+    ...(spaces.length > 0
+      ? [
+          {
+            id: "import-page",
+            category: "create" as const,
+            words: "Import Page from File nookly json open",
+            node: simpleItem("import-page", IconFileImport, "Import Page from File", () => {
+              const spaceId = activeSpaceId ?? spaces[0]?.id;
+              onDone();
+              if (!spaceId) return;
+              // The palette is gone while the file dialog is up, so a toast reports the result.
+              importPageFromFile(spaceId, queryClient)
+                .then((page) => {
+                  if (!page) return;
+                  openEntity(page.id, page.spaceId);
+                  toast.success(`Imported ${displayTitle(page)}`);
+                })
+                .catch((error: Error) => toast.error(importFailureReason(error)));
+            }),
+          },
+        ]
       : []),
     ...[
       { id: "dashboard", icon: IconLayoutDashboard, label: "Dashboard", keywords: "home overview" },

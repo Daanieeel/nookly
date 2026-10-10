@@ -92,6 +92,8 @@ ipc_commands![
     notes::reorder_blocks,
     notes::render_page_markdown,
     notes::export_page_markdown,
+    notes::export_page_json,
+    notes::import_page_json,
     notes::get_note_code_language,
     notes::set_note_code_language,
     courses::create_course,
@@ -1683,6 +1685,66 @@ fn notes_render_and_export_markdown() {
         std::fs::read_to_string(&out).unwrap(),
         markdown.as_str().unwrap()
     );
+}
+
+#[test]
+fn notes_export_and_import_a_page_file_through_the_commands() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let other = h.space("Other");
+    let page = h.note(&space, "Shared");
+    h.ok(
+        "create_block",
+        json!({ "entityId": page, "blockType": "paragraph", "content": "Hello" }),
+    );
+    let out = h.dir.path().join("shared.nookly.json");
+    h.ok(
+        "export_page_json",
+        json!({ "entityId": page, "path": out.to_string_lossy() }),
+    );
+    assert_eq!(
+        std::fs::read_to_string(&out).unwrap(),
+        h.db(|c| db::page_json::export_page_json(c, &page).unwrap())
+    );
+    let imported = h.ok(
+        "import_page_json",
+        json!({ "spaceId": other, "path": out.to_string_lossy() }),
+    );
+    assert_eq!(imported["title"], "Shared");
+    assert_eq!(imported["spaceId"], other.as_str());
+    let blocks = h.ok("list_blocks", json!({ "entityId": imported["id"] }));
+    assert_eq!(blocks[0]["content"], "Hello");
+}
+
+#[test]
+fn notes_import_refuses_bad_and_missing_files_and_creates_nothing() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let before = h.db(|c| db::entities::list_entities(c, None, false).unwrap().len());
+    let broken = h.dir.file("broken.json", b"{ nope");
+    h.app_err(
+        "import_page_json",
+        json!({ "spaceId": space, "path": broken.to_string_lossy() }),
+        "InvalidInput",
+    );
+    h.app_err(
+        "import_page_json",
+        json!({ "spaceId": space, "path": h.dir.path().join("missing.json").to_string_lossy() }),
+        "Io",
+    );
+    h.args_err("import_page_json", json!({ "space": space }));
+    assert_eq!(
+        h.db(|c| db::entities::list_entities(c, None, false).unwrap().len()),
+        before
+    );
+    // An export of a page that is not there writes no file.
+    let out = h.dir.path().join("nothing.json");
+    h.app_err(
+        "export_page_json",
+        json!({ "entityId": MISSING, "path": out.to_string_lossy() }),
+        "NotFound",
+    );
+    assert!(!out.exists());
 }
 
 #[test]
