@@ -193,7 +193,7 @@ export function AgentFilesTab() {
           </Tooltip>
         </PageTabsBar>
 
-        <PageTabsContent value={selected} className="flex min-h-72 flex-col gap-2">
+        <PageTabsContent value={selected} className="flex flex-col gap-2">
           <Textarea
             aria-label="File content"
             spellCheck={false}
@@ -201,7 +201,7 @@ export function AgentFilesTab() {
             readOnly={readFailed}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={() => void persist()}
-            className="min-h-64 flex-1 font-mono text-xs/relaxed"
+            className="h-120 max-h-[60vh] min-h-64 font-mono text-xs/relaxed"
           />
           <div className="flex min-h-7 items-center gap-2 text-xs">
             <span

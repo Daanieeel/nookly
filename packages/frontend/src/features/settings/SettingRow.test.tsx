@@ -58,3 +58,14 @@ describe("a setting row id", () => {
     expect(screen.queryByRole("button", { name: /Copy setting ID/ })).toBeNull();
   });
 });
+
+describe("a setting row with a wide footer", () => {
+  it("lets the footer shrink to the dialog instead of pushing past its edge", () => {
+    renderWithProviders(
+      <SettingRow title="Agent files" description="d" control={null} footer={<p>wide</p>} />,
+    );
+    // A fieldset is as wide as its widest content unless told otherwise, which made a long
+    // folder path run out of the Settings dialog.
+    expect(screen.getByRole("group", { name: "Agent files" })).toHaveClass("min-w-0");
+  });
+});
