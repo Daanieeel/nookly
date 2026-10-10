@@ -29,6 +29,8 @@ import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import "#/context-actions.ts";
 
+import { CrashFallback, ErrorBoundary } from "#/components/error-boundary.tsx";
+
 const queryClient = new QueryClient();
 
 function MainContent() {
@@ -113,7 +115,13 @@ function Shell() {
               <div
                 className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
               >
-                <MainContent />
+                <ErrorBoundary
+                  // A view that crashes is dropped when the user navigates elsewhere.
+                  resetKeys={[view]}
+                  fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
+                >
+                  <MainContent />
+                </ErrorBoundary>
               </div>
             </div>
           </SidebarInset>

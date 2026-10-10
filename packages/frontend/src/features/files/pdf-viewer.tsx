@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import {
   type ComponentProps,
+  type ComponentType,
   type CSSProperties,
   type ReactNode,
   type RefObject,
@@ -183,7 +184,29 @@ function ScaledPage({
 /// and a find-in-document search, with Nookly's own toolbar instead of
 /// WebKit's built-in PDF chrome. Also used for docx/pptx, which convert
 /// through LibreOffice into a PDF first (`office-viewers.tsx`).
-export function PdfViewer({ src, name }: { src: string; name: string }) {
+/// What the viewer asks of the pdf.js document loader, so a test can swap it.
+export interface PdfDocumentProps {
+  file: string;
+  onLoadSuccess: (doc: PDFDocumentProxy) => void;
+  onLoadError: (error: Error) => void;
+  onSourceError: (error: Error) => void;
+  suspense: boolean;
+  loading: ReactNode;
+  error: ReactNode;
+  className: string;
+  children: ReactNode;
+}
+
+export function PdfViewer({
+  src,
+  name,
+  documentComponent: PdfDocument = Document,
+}: {
+  src: string;
+  name: string;
+  /// The pdf.js document loader; tests pass a fake that fails on demand.
+  documentComponent?: ComponentType<PdfDocumentProps>;
+}) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -200,6 +223,36 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
   const [defaultSize, setDefaultSize] = useState<PageSize>(FALLBACK_PAGE_SIZE);
   // Real sizes of the pages seen so far, so a placeholder matches its page.
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
+  // A load that failed (an iCloud file not downloaded yet, say) can be tried again;
+  // `retry` remounts the Document so pdf.js starts over.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+
+  // A different file starts clean, never with the previous file's pages.
+  const [shownSrc, setShownSrc] = useState(src);
+  if (shownSrc !== src) {
+    setShownSrc(src);
+    setPdf(null);
+    setNumPages(0);
+    setPageSizes({});
+    setLoadFailed(false);
+  }
+
+  // The file often becomes reachable while the user is elsewhere, so coming back to
+  // the window tries again on its own.
+  useEffect(() => {
+    if (!loadFailed) return;
+    const again = () => setRetry((n) => n + 1);
+    window.addEventListener("focus", again);
+    return () => window.removeEventListener("focus", again);
+  }, [loadFailed]);
+
+  const clearOnError = () => {
+    setLoadFailed(true);
+    setPdf(null);
+    setNumPages(0);
+    setPageSizes({});
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useRememberedScroll(scrollRef, `pdf:${src}`, numPages > 0);
@@ -749,25 +802,40 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
           {(pageClass) => (
             <div ref={scrollRef} className="size-full overflow-auto p-4">
               <div>
-                <Document
+                <PdfDocument
+                  key={retry}
                   file={src}
                   onLoadSuccess={(doc) => {
+                    setLoadFailed(false);
                     setPdf(doc);
                     setNumPages(doc.numPages);
                     setPageSizes({});
-                    void doc.getPage(1).then((first) => {
-                      const view = first.getViewport({ scale: 1 });
-                      setDefaultSize({
-                        width: view.width,
-                        height: view.height,
-                      });
-                    });
+                    doc
+                      .getPage(1)
+                      .then((first) => {
+                        const view = first.getViewport({ scale: 1 });
+                        setDefaultSize({
+                          width: view.width,
+                          height: view.height,
+                        });
+                      })
+                      // The pages still render at the fallback size.
+                      .catch(() => undefined);
                   }}
+                  onLoadError={clearOnError}
+                  onSourceError={clearOnError}
                   // No <Suspense> boundary anywhere in this app; use the plain
                   // loading/error props instead of thrown promises.
                   suspense={false}
                   loading={<p className="p-4 text-sm text-muted-foreground">Loading {name}…</p>}
-                  error={<p className="p-4 text-sm text-destructive">Couldn't load {name}.</p>}
+                  error={
+                    <div className="flex items-center gap-3 p-4">
+                      <p className="text-sm text-destructive">Couldn't load {name}.</p>
+                      <Button variant="secondary" size="sm" onClick={() => setRetry((n) => n + 1)}>
+                        Try Again
+                      </Button>
+                    </div>
+                  }
                   // A flex `items-center` (or `justify-center`) column only
                   // lets an overflowing child scroll toward the end, never
                   // the start — a well known flexbox-centering quirk. Plain
@@ -820,7 +888,7 @@ export function PdfViewer({ src, name }: { src: string; name: string }) {
                       </div>
                     );
                   })}
-                </Document>
+                </PdfDocument>
               </div>
             </div>
           )}

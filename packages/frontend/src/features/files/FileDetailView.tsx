@@ -61,6 +61,8 @@ import {
   officeFormat,
 } from "./file-kind";
 
+import { CrashFallback, ErrorBoundary } from "#/components/error-boundary.tsx";
+
 const REVEAL_LABEL = navigator.userAgent.includes("Mac") ? "Reveal in Finder" : "Show in Folder";
 
 const MAX_TEXT_BYTES = 1_000_000;
@@ -81,7 +83,12 @@ export function FileDetailView({ entity }: { entity: Entity }) {
       scrollReady={!!file}
     >
       {file ? (
-        <FileViewer file={file} />
+        <ErrorBoundary
+          resetKeys={[file.entity.id, filePath(file)]}
+          fallback={(reset) => <CrashFallback reset={reset} what="this file" />}
+        >
+          <FileViewer file={file} />
+        </ErrorBoundary>
       ) : (
         <div className="size-full animate-pulse rounded-lg bg-muted/40" />
       )}
