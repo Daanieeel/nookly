@@ -76,6 +76,15 @@ describe("openCurrentSessionJot", () => {
     expect(useNavStore.getState().quickJotOpen).toBe(false);
   });
 
+  it("shows it as a warning, which goes away by itself, not as an error that stays", async () => {
+    mockCommand("list_sessions_all", [later]);
+    run();
+    const title = await screen.findByText("Quick session jot could not be created");
+    // A warning is announced politely; an error would be an alert.
+    expect(title.closest("[role]")).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("ignores a cancelled session", async () => {
     mockCommand("list_sessions_all", [{ ...running, cancelled: true }]);
     run();
