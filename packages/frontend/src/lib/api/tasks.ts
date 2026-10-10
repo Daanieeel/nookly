@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Task, TaskDueTodaySummary, TaskStatus } from "./types";
+import type { RepeatRule, Task, TaskDueTodaySummary, TaskStatus } from "./types";
 
 export function listTaskStatuses(): Promise<TaskStatus[]> {
   return invoke("list_task_statuses");
@@ -72,4 +72,10 @@ export function updateTaskEffort(entityId: string, effort: number | null): Promi
 /// Turns a top-level Task without Sub-tasks into a Sub-task of `parentEntityId`.
 export function convertToSubtask(entityId: string, parentEntityId: string): Promise<Task> {
   return invoke("convert_to_subtask", { entityId, parentEntityId });
+}
+
+/// Sets the Task's repeat rule, or removes it with `null`. Finishing a repeating Task
+/// creates the next one.
+export function setTaskRepeat(entityId: string, repeat: RepeatRule | null): Promise<void> {
+  return invoke("set_task_repeat", { entityId, repeat });
 }

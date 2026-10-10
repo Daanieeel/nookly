@@ -34,7 +34,7 @@ Sub-tasks are their own page type, linked through the structural Task and Sub-ta
 
 ## Recurring Tasks
 
-Out of scope for v1. Do not build.
+A Task has an optional repeat rule: every N days, weeks or months (1 to 365), set in the Repeat property or with the `repeat` field of the CLI. Finishing it as Done creates the next one. Cancelling does not, and saving Done again does not create a second one. The next Task has the same title, effort, Labels, `relates-to` links, rule and Sub-tasks (reset to open), is due one step after the old due date (or after today without one), and its start date moves by the same amount. A month that is too short clamps the day. It is not a template with generated occurrences like a Session series: each Task is its own, and the rule only decides what comes after it.
 
 ## Layout Direction
 

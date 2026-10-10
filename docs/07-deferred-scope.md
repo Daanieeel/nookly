@@ -7,7 +7,7 @@ Do **not** build any of these unless explicitly told to. Each one was considered
 - **Anki `.apkg` import and export, and card images.** Planned next for decks. Imported cards become the deck's own cards, never a separate Anki collection.
 - **Git-backed local versioning, rollback, or persistent undo and redo.** Rejected because of attachment bloat. v1 has no durable history; undo and redo live in memory for the current session only (see [entity model](02-entity-model.md#no-version-history) and [the decision](06-decisions-log.md#no-git-backed-local-repo-and-no-version-history)).
 - **Notifications and reminders.** Entirely out of scope, even though Tasks, Exams, Assignments, and Sessions have date fields. Do not build notification scheduling or delivery.
-- **Recurring Tasks.** Sessions have full recurrence (templates generating occurrences). Tasks do not get anything equivalent in v1.
+- **Task series.** Sessions have full recurrence (templates generating occurrences). Tasks only repeat by creating the next one when finished (see [Recurring Tasks](03-modules/tasks.md#recurring-tasks)), with no template or generated occurrences.
 - **Runtime plugin architecture.** In v1, modules are compiled into the binary (see [philosophy](01-philosophy.md#compile-time-modules)). A dynamic module system that installs from inside the app is a future evolution, once the module API is proven.
 - **Per-Space Dashboards.** v1 has only the single global Dashboard. Dashboards that users create inside individual Spaces are a future feature.
 - **Third party custom blocks.** Core ships a few custom blocks (see [Notes](03-modules/notes.md)); blocks contributed by community modules are future work.

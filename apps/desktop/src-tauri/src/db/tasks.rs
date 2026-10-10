@@ -1,8 +1,9 @@
 use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
+use chrono::{Datelike, Months, NaiveDate};
 use rusqlite::{params, Connection};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     RelationshipTypeDef { name: "sub-task-of", label: "Sub-task of", description: "Makes this task a sub-task of another task.", from_type: Some("sub_task"), to_type: Some("task"), inverse_label: "has sub-task", cardinality: Cardinality::OneToPerFrom, moves_with: MovesWith::FromFollowsTo }
@@ -34,6 +35,61 @@ pub fn list_task_statuses(conn: &Connection) -> AppResult<Vec<TaskStatus>> {
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// How often a repeating Task comes back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RepeatUnit {
+    Day,
+    Week,
+    Month,
+}
+
+/// A Task's repeat rule: every `every` days, weeks or months. Stored as JSON in
+/// `tasks.repeat_rule`. Finishing the Task (not cancelling it) creates the next one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepeatRule {
+    pub every: u32,
+    pub unit: RepeatUnit,
+}
+
+/// The most a rule may skip: a year of days is the longest sensible gap.
+const MAX_REPEAT_EVERY: u32 = 365;
+
+impl RepeatRule {
+    pub fn validate(&self) -> AppResult<()> {
+        if (1..=MAX_REPEAT_EVERY).contains(&self.every) {
+            Ok(())
+        } else {
+            Err(AppError::InvalidInput(format!(
+                "a repeat rule's 'every' must be between 1 and {MAX_REPEAT_EVERY}, got {}",
+                self.every
+            )))
+        }
+    }
+
+    /// Reads and checks a rule from JSON, `{"every": N, "unit": "day"|"week"|"month"}`.
+    pub fn parse(json: &str) -> AppResult<RepeatRule> {
+        let rule: RepeatRule = serde_json::from_str(json).map_err(|e| {
+            AppError::InvalidInput(format!(
+                "a repeat rule looks like {{\"every\": 1, \"unit\": \"week\"}} with a unit of \
+                 day, week or month ({e})"
+            ))
+        })?;
+        rule.validate()?;
+        Ok(rule)
+    }
+
+    /// `from` plus one step of the rule. A month that is too short clamps the day
+    /// (31 January plus a month is the last day of February).
+    pub fn next_after(&self, from: NaiveDate) -> Option<NaiveDate> {
+        match self.unit {
+            RepeatUnit::Day => from.checked_add_days(chrono::Days::new(u64::from(self.every))),
+            RepeatUnit::Week => from.checked_add_days(chrono::Days::new(u64::from(self.every) * 7)),
+            RepeatUnit::Month => from.checked_add_months(Months::new(self.every)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Task {
@@ -47,6 +103,9 @@ pub struct Task {
     /// The effort estimate as a step of the shared scale (see `EFFORT_STEPS`). T-shirt
     /// sizes and points are only two names for these same values.
     pub effort: Option<i64>,
+    /// How often the Task comes back; finishing it creates the next one. `None` when it
+    /// does not repeat.
+    pub repeat: Option<RepeatRule>,
     /// Ids of this Task's Labels, ordered by label name. Only `list_tasks` fills it;
     /// everywhere else it stays empty.
     pub label_ids: Vec<String>,
@@ -73,6 +132,10 @@ fn task_row_to_task(
         due_date: row.get("due_date")?,
         completed_at: row.get("completed_at")?,
         effort: row.get("effort")?,
+        // A rule that cannot be read (a hand edited database) just means no repeat.
+        repeat: row
+            .get::<_, Option<String>>("repeat_rule")?
+            .and_then(|json| RepeatRule::parse(&json).ok()),
         label_ids: Vec::new(),
         course_ids: Vec::new(),
         semester_ids: Vec::new(),
@@ -98,6 +161,7 @@ pub fn create_task(
         due_date,
         completed_at: None,
         effort: None,
+        repeat: None,
         label_ids: Vec::new(),
         course_ids: Vec::new(),
         semester_ids: Vec::new(),
@@ -137,6 +201,7 @@ pub fn create_subtask(
         due_date: None,
         completed_at: None,
         effort: None,
+        repeat: None,
         label_ids: Vec::new(),
         course_ids: Vec::new(),
         semester_ids: Vec::new(),
@@ -197,7 +262,7 @@ pub fn convert_to_subtask(
 
 pub fn list_subtasks(conn: &Connection, parent_entity_id: &str) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort, t.repeat_rule
          FROM relationships r
          JOIN entities e ON e.id = r.from_entity_id
          JOIN tasks t ON t.entity_id = e.id
@@ -237,7 +302,7 @@ fn row_to_task_joined(row: &rusqlite::Row) -> rusqlite::Result<Task> {
 
 pub fn get_task(conn: &Connection, entity_id: &str) -> AppResult<Task> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort, t.repeat_rule
          FROM entities e JOIN tasks t ON t.entity_id = e.id
          WHERE e.id = ?1",
     )?;
@@ -261,7 +326,7 @@ pub fn get_task_with_labels(conn: &Connection, entity_id: &str) -> AppResult<Tas
 
 pub fn list_tasks(conn: &Connection, space_id: &str) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort, t.repeat_rule
          FROM entities e JOIN tasks t ON t.entity_id = e.id
          WHERE e.space_id = ?1 AND e.type = 'task' AND e.deleted_at IS NULL
          ORDER BY e.created_at ASC",
@@ -364,32 +429,180 @@ fn fill_courses_and_semesters(
 /// Moves a Task to a status. `completed_at` is stamped when the status changes into a
 /// finished one (doneness 100, so Done or Cancelled), kept while it stays in the same
 /// one, and cleared when the task is reopened. No other edit touches it.
+///
+/// Finishing a repeating Task as Done (not Cancelled) also creates the next one, once:
+/// only the move into a finished state that had no completion stamp does, so saving
+/// Done again changes nothing. Both happen together or not at all.
 pub fn update_task_status(conn: &Connection, entity_id: &str, status_id: &str) -> AppResult<()> {
-    let doneness: i64 = conn
-        .query_row(
-            "SELECT doneness FROM task_statuses WHERE id = ?1",
-            params![status_id],
-            |row| row.get(0),
-        )
-        .map_err(|_| AppError::NotFound(format!("task status {status_id}")))?;
-    let affected = if doneness >= 100 {
-        conn.execute(
-            "UPDATE tasks SET
-                completed_at = CASE
-                    WHEN status_id = ?1 AND completed_at IS NOT NULL THEN completed_at
-                    ELSE ?3 END,
-                status_id = ?1
-             WHERE entity_id = ?2",
-            params![status_id, entity_id, crate::db::now()],
-        )?
+    update_task_status_on(
+        conn,
+        entity_id,
+        status_id,
+        chrono::Local::now().date_naive(),
+    )
+}
+
+/// `update_task_status` with the day it counts as today, which the next task's dates fall
+/// back on when the finished one had no due date.
+pub(crate) fn update_task_status_on(
+    conn: &Connection,
+    entity_id: &str,
+    status_id: &str,
+    today: NaiveDate,
+) -> AppResult<()> {
+    crate::db::atomically(conn, || {
+        let doneness: i64 = conn
+            .query_row(
+                "SELECT doneness FROM task_statuses WHERE id = ?1",
+                params![status_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| AppError::NotFound(format!("task status {status_id}")))?;
+        let previously_completed: Option<String> = conn
+            .query_row(
+                "SELECT completed_at FROM tasks WHERE entity_id = ?1",
+                params![entity_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| AppError::NotFound(format!("task {entity_id}")))?;
+        let affected = if doneness >= 100 {
+            conn.execute(
+                "UPDATE tasks SET
+                    completed_at = CASE
+                        WHEN status_id = ?1 AND completed_at IS NOT NULL THEN completed_at
+                        ELSE ?3 END,
+                    status_id = ?1
+                 WHERE entity_id = ?2",
+                params![status_id, entity_id, crate::db::now()],
+            )?
+        } else {
+            conn.execute(
+                "UPDATE tasks SET status_id = ?1, completed_at = NULL WHERE entity_id = ?2",
+                params![status_id, entity_id],
+            )?
+        };
+        if affected == 0 {
+            return Err(AppError::NotFound(format!("task {entity_id}")));
+        }
+        if doneness >= 100 && status_id != "cancelled" && previously_completed.is_none() {
+            create_next_occurrence(conn, entity_id, today)?;
+        }
+        Ok(())
+    })
+}
+
+/// Sets or clears a Task's repeat rule.
+pub fn set_task_repeat(
+    conn: &Connection,
+    entity_id: &str,
+    repeat: Option<RepeatRule>,
+) -> AppResult<()> {
+    if let Some(rule) = &repeat {
+        rule.validate()?;
+    }
+    let json =
+        repeat.map(|rule| serde_json::to_string(&rule).expect("RepeatRule always serializes"));
+    let affected = conn.execute(
+        "UPDATE tasks SET repeat_rule = ?1 WHERE entity_id = ?2",
+        params![json, entity_id],
+    )?;
+    crate::db::require_row(affected, "task", entity_id)
+}
+
+fn parse_day(date: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(date.get(..10)?, "%Y-%m-%d").ok()
+}
+
+/// Creates the Task that follows `finished`, when it has a repeat rule: the same title,
+/// effort, Labels, `relates-to` links, rule and (reset to open) Sub-tasks, due one step
+/// after the old due date, or after `today` when there was none. The start date moves by
+/// the same amount. Not `schema::duplicate`, which copies the status and appends "(copy)".
+fn create_next_occurrence(conn: &Connection, finished_id: &str, today: NaiveDate) -> AppResult<()> {
+    let finished = get_task(conn, finished_id)?;
+    let Some(rule) = finished.repeat else {
+        return Ok(());
+    };
+    let overflow = || AppError::InvalidInput("the next date is out of range".into());
+
+    let old_due = finished.due_date.as_deref().and_then(parse_day);
+    let due = rule
+        .next_after(old_due.unwrap_or(today))
+        .ok_or_else(overflow)?;
+    let start = match (finished.start_date.as_deref().and_then(parse_day), old_due) {
+        (Some(start), Some(old_due)) => Some(
+            start
+                .checked_add_signed(due - old_due)
+                .ok_or_else(overflow)?,
+        ),
+        (Some(start), None) => Some(rule.next_after(start).ok_or_else(overflow)?),
+        (None, _) => None,
+    };
+    let fmt = |date: NaiveDate| format!("{:04}-{:02}-{:02}", date.year(), date.month(), date.day());
+
+    let next = if finished.entity.entity_type == "sub_task" {
+        let parent: String = conn
+            .query_row(
+                "SELECT to_entity_id FROM relationships
+                 WHERE from_entity_id = ?1 AND relationship_type = 'sub-task-of'",
+                params![finished_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| AppError::NotFound(format!("parent of {finished_id}")))?;
+        let next = create_subtask(conn, parent, finished.entity.title.clone())?;
+        update_task_dates(conn, &next.entity.id, start.map(fmt), Some(fmt(due)))?;
+        next
     } else {
-        conn.execute(
-            "UPDATE tasks SET status_id = ?1, completed_at = NULL WHERE entity_id = ?2",
-            params![status_id, entity_id],
+        create_task(
+            conn,
+            finished.entity.space_id.clone(),
+            finished.entity.title.clone(),
+            start.map(fmt),
+            Some(fmt(due)),
         )?
     };
-    if affected == 0 {
-        return Err(AppError::NotFound(format!("task {entity_id}")));
+    let next_id = &next.entity.id;
+    set_task_repeat(conn, next_id, Some(rule))?;
+    if finished.effort.is_some() {
+        update_task_effort(conn, next_id, finished.effort)?;
+    }
+
+    let mut stmt = conn.prepare("SELECT label_id FROM entity_labels WHERE entity_id = ?1")?;
+    let labels = stmt
+        .query_map(params![finished_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    for label_id in labels {
+        crate::db::labels::attach_label(conn, next_id, &label_id)?;
+    }
+
+    for link in crate::db::relationships::list_relationships(
+        conn,
+        finished_id,
+        crate::db::relationships::Direction::Both,
+    )? {
+        if link.relationship_type != "relates-to" {
+            continue;
+        }
+        let (from, to) = if link.from_entity_id == finished_id {
+            (next_id.clone(), link.to_entity_id)
+        } else {
+            (link.from_entity_id, next_id.clone())
+        };
+        crate::db::relationships::create_relationship(
+            conn,
+            from,
+            to,
+            "relates-to".into(),
+            link.from_block_id,
+            link.to_block_id,
+        )?;
+    }
+
+    if finished.entity.entity_type == "task" {
+        for step in list_subtasks(conn, finished_id)? {
+            if step.entity.deleted_at.is_none() {
+                create_subtask(conn, next_id.clone(), step.entity.title)?;
+            }
+        }
     }
     Ok(())
 }
@@ -462,7 +675,7 @@ pub fn count_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<i64> {
 /// the Dashboard's briefing sentence and its Today widget.
 pub fn list_open_tasks_due_or_overdue(conn: &Connection) -> AppResult<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort
+        "SELECT e.*, t.status_id, t.start_date, t.due_date, t.completed_at, t.effort, t.repeat_rule
          FROM entities e JOIN tasks t ON t.entity_id = e.id
          JOIN task_statuses s ON s.id = t.status_id
          WHERE e.deleted_at IS NULL AND t.due_date IS NOT NULL
@@ -534,6 +747,14 @@ const FIELD_COMPLETED_AT: FieldDef = FieldDef {
     description: "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
 };
 
+const FIELD_REPEAT: FieldDef = FieldDef {
+    name: "repeat",
+    kind: FieldKind::Object,
+    required_on_create: false,
+    writable_on_update: true,
+    description: "Repeat rule {\"every\": N, \"unit\": \"day\"|\"week\"|\"month\"}, N from 1 to 365. Finishing the task (not cancelling it) creates the next one, due one step after this one. null removes the rule. Also accepted as a JSON string.",
+};
+
 const TASK_UPDATE_FIELDS: &[FieldDef] = &[
     FieldDef {
         name: "parentId",
@@ -546,6 +767,7 @@ const TASK_UPDATE_FIELDS: &[FieldDef] = &[
     FIELD_START_DATE,
     FIELD_DUE_DATE,
     FIELD_EFFORT,
+    FIELD_REPEAT,
     FIELD_COMPLETED_AT,
 ];
 
@@ -561,13 +783,29 @@ const SUB_TASK_FIELDS: &[FieldDef] = &[
     FIELD_START_DATE,
     FIELD_DUE_DATE,
     FIELD_EFFORT,
+    FIELD_REPEAT,
     FIELD_COMPLETED_AT,
 ];
+
+/// A `repeat` field value: the rule as an object (how `get` reports it) or as a JSON
+/// string; `null` and an empty string remove it.
+fn repeat_from_field(value: &serde_json::Value) -> AppResult<Option<RepeatRule>> {
+    match value {
+        serde_json::Value::Null => Ok(None),
+        serde_json::Value::String(text) if text.trim().is_empty() => Ok(None),
+        serde_json::Value::String(text) => RepeatRule::parse(text).map(Some),
+        object => RepeatRule::parse(&object.to_string()).map(Some),
+    }
+}
 
 fn apply_task_fields(conn: &Connection, entity_id: &str, fields: &JsonMap) -> AppResult<()> {
     let is_task = crate::db::entities::get_entity(conn, entity_id)?.entity_type == "task";
     if let Some(parent_id) = crate::db::schema::field_str(fields, "parentId").filter(|_| is_task) {
         convert_to_subtask(conn, entity_id, &parent_id)?;
+    }
+    // Before the status, so a call that sets the rule and finishes the task repeats it.
+    if let Some(value) = fields.get("repeat") {
+        set_task_repeat(conn, entity_id, repeat_from_field(value)?)?;
     }
     if let Some(status_id) = crate::db::schema::field_str(fields, "statusId") {
         update_task_status(conn, entity_id, &status_id)?;

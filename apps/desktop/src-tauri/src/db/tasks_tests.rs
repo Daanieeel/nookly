@@ -1049,3 +1049,417 @@ fn a_blocks_link_does_not_make_a_task_part_of_a_course() {
         .course_ids
         .is_empty());
 }
+
+// --- recurring tasks ---------------------------------------------------------------
+
+fn day(date: &str) -> chrono::NaiveDate {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap()
+}
+
+fn rule(every: u32, unit: RepeatUnit) -> RepeatRule {
+    RepeatRule { every, unit }
+}
+
+/// A task due on `due` that repeats by `rule`.
+fn repeating(conn: &Connection, space_id: &str, due: Option<&str>, rule: RepeatRule) -> Task {
+    let t = create_task(
+        conn,
+        space_id.into(),
+        "Water plants".into(),
+        None,
+        due.map(str::to_string),
+    )
+    .unwrap();
+    set_task_repeat(conn, &t.entity.id, Some(rule)).unwrap();
+    get_task(conn, &t.entity.id).unwrap()
+}
+
+fn open_tasks(conn: &Connection, space_id: &str) -> Vec<Task> {
+    list_tasks(conn, space_id).unwrap()
+}
+
+#[test]
+fn a_repeat_rule_is_stored_and_read_back() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = task(&conn, &space.id, "T");
+    assert_eq!(get_task(&conn, &t.entity.id).unwrap().repeat, None);
+    set_task_repeat(&conn, &t.entity.id, Some(rule(2, RepeatUnit::Week))).unwrap();
+    assert_eq!(
+        get_task(&conn, &t.entity.id).unwrap().repeat,
+        Some(rule(2, RepeatUnit::Week))
+    );
+    assert_eq!(
+        open_tasks(&conn, &space.id)[0].repeat,
+        Some(rule(2, RepeatUnit::Week))
+    );
+    set_task_repeat(&conn, &t.entity.id, None).unwrap();
+    assert_eq!(get_task(&conn, &t.entity.id).unwrap().repeat, None);
+}
+
+#[test]
+fn a_repeat_rule_serializes_the_way_the_app_reads_it() {
+    let json = serde_json::to_value(rule(3, RepeatUnit::Day)).unwrap();
+    assert_eq!(json, serde_json::json!({ "every": 3, "unit": "day" }));
+    assert_eq!(
+        RepeatRule::parse("{\"every\":1,\"unit\":\"month\"}").unwrap(),
+        rule(1, RepeatUnit::Month)
+    );
+}
+
+#[test]
+fn invalid_repeat_rules_are_refused_and_change_nothing() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = task(&conn, &space.id, "T");
+    set_task_repeat(&conn, &t.entity.id, Some(rule(1, RepeatUnit::Day))).unwrap();
+    for bad in [rule(0, RepeatUnit::Day), rule(366, RepeatUnit::Week)] {
+        assert!(matches!(
+            set_task_repeat(&conn, &t.entity.id, Some(bad)),
+            Err(AppError::InvalidInput(_))
+        ));
+    }
+    for bad in [
+        "",
+        "{",
+        "{\"every\":0,\"unit\":\"day\"}",
+        "{\"every\":400,\"unit\":\"day\"}",
+        "{\"every\":1,\"unit\":\"year\"}",
+        "{\"every\":-1,\"unit\":\"day\"}",
+        "{\"unit\":\"day\"}",
+        "[1]",
+    ] {
+        assert!(
+            matches!(RepeatRule::parse(bad), Err(AppError::InvalidInput(_))),
+            "{bad}"
+        );
+    }
+    assert_eq!(
+        get_task(&conn, &t.entity.id).unwrap().repeat,
+        Some(rule(1, RepeatUnit::Day))
+    );
+    assert!(matches!(
+        set_task_repeat(&conn, "ghost", Some(rule(1, RepeatUnit::Day))),
+        Err(AppError::NotFound(_))
+    ));
+}
+
+#[test]
+fn a_stored_rule_that_cannot_be_read_never_breaks_the_task() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = task(&conn, &space.id, "T");
+    conn.execute(
+        "UPDATE tasks SET repeat_rule = 'not json' WHERE entity_id = ?1",
+        params![t.entity.id],
+    )
+    .unwrap();
+    assert_eq!(get_task(&conn, &t.entity.id).unwrap().repeat, None);
+    // Finishing it just does not repeat.
+    update_task_status(&conn, &t.entity.id, "done").unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 1);
+}
+
+#[test]
+fn finishing_a_repeating_task_creates_the_next_one() {
+    for (every, unit, due, expected) in [
+        (1, RepeatUnit::Day, "2026-03-10", "2026-03-11"),
+        (1, RepeatUnit::Week, "2026-03-10", "2026-03-17"),
+        (3, RepeatUnit::Day, "2026-03-10", "2026-03-13"),
+        (2, RepeatUnit::Week, "2026-03-10", "2026-03-24"),
+        (1, RepeatUnit::Month, "2026-03-10", "2026-04-10"),
+        (2, RepeatUnit::Month, "2026-12-15", "2027-02-15"),
+        (365, RepeatUnit::Day, "2026-03-10", "2027-03-10"),
+    ] {
+        let conn = test_conn();
+        let space = test_space(&conn, "S");
+        let t = repeating(&conn, &space.id, Some(due), rule(every, unit));
+        update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-12")).unwrap();
+        let tasks = open_tasks(&conn, &space.id);
+        assert_eq!(tasks.len(), 2, "{every} {unit:?}");
+        let next = tasks.iter().find(|x| x.entity.id != t.entity.id).unwrap();
+        assert_eq!(next.due_date.as_deref(), Some(expected), "{every} {unit:?}");
+        assert_eq!(next.entity.title, "Water plants");
+        assert_eq!(next.status_id, "backlog");
+        assert_eq!(next.completed_at, None);
+        assert_eq!(next.repeat, Some(rule(every, unit)));
+        // The finished one stays as it was.
+        let done = get_task(&conn, &t.entity.id).unwrap();
+        assert_eq!(done.status_id, "done");
+        assert_eq!(done.due_date.as_deref(), Some(due));
+    }
+}
+
+#[test]
+fn a_month_that_is_too_short_clamps_the_day() {
+    for (due, expected) in [
+        ("2026-01-31", "2026-02-28"),
+        ("2028-01-31", "2028-02-29"),
+        ("2026-03-31", "2026-04-30"),
+    ] {
+        let conn = test_conn();
+        let space = test_space(&conn, "S");
+        let t = repeating(&conn, &space.id, Some(due), rule(1, RepeatUnit::Month));
+        update_task_status_on(&conn, &t.entity.id, "done", day("2026-01-01")).unwrap();
+        let next = open_tasks(&conn, &space.id)
+            .into_iter()
+            .find(|x| x.entity.id != t.entity.id)
+            .unwrap();
+        assert_eq!(next.due_date.as_deref(), Some(expected), "{due}");
+    }
+}
+
+#[test]
+fn a_task_without_a_due_date_repeats_from_today() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(&conn, &space.id, None, rule(1, RepeatUnit::Week));
+    update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-12")).unwrap();
+    let next = open_tasks(&conn, &space.id)
+        .into_iter()
+        .find(|x| x.entity.id != t.entity.id)
+        .unwrap();
+    assert_eq!(next.due_date.as_deref(), Some("2026-03-19"));
+}
+
+#[test]
+fn the_start_date_moves_by_the_same_amount_as_the_due_date() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(
+        &conn,
+        &space.id,
+        Some("2026-03-10"),
+        rule(1, RepeatUnit::Week),
+    );
+    update_task_dates(
+        &conn,
+        &t.entity.id,
+        Some("2026-03-08".into()),
+        Some("2026-03-10".into()),
+    )
+    .unwrap();
+    update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-10")).unwrap();
+    let next = open_tasks(&conn, &space.id)
+        .into_iter()
+        .find(|x| x.entity.id != t.entity.id)
+        .unwrap();
+    assert_eq!(next.start_date.as_deref(), Some("2026-03-15"));
+    assert_eq!(next.due_date.as_deref(), Some("2026-03-17"));
+}
+
+#[test]
+fn cancelling_does_not_repeat_the_task() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(
+        &conn,
+        &space.id,
+        Some("2026-03-10"),
+        rule(1, RepeatUnit::Day),
+    );
+    update_task_status_on(&conn, &t.entity.id, "cancelled", day("2026-03-10")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 1);
+}
+
+#[test]
+fn unfinished_statuses_and_tasks_without_a_rule_do_not_repeat() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(
+        &conn,
+        &space.id,
+        Some("2026-03-10"),
+        rule(1, RepeatUnit::Day),
+    );
+    update_task_status_on(&conn, &t.entity.id, "in_progress", day("2026-03-10")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 1);
+
+    let plain = task(&conn, &space.id, "Plain");
+    update_task_status_on(&conn, &plain.entity.id, "done", day("2026-03-10")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 2);
+
+    // A rule removed before finishing means no next one.
+    set_task_repeat(&conn, &t.entity.id, None).unwrap();
+    update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-10")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 2);
+}
+
+#[test]
+fn marking_done_twice_creates_only_one_next_task() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(
+        &conn,
+        &space.id,
+        Some("2026-03-10"),
+        rule(1, RepeatUnit::Day),
+    );
+    update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-10")).unwrap();
+    update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-10")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 2);
+    // Finishing the next one carries on the series.
+    let next = open_tasks(&conn, &space.id)
+        .into_iter()
+        .find(|x| x.entity.id != t.entity.id)
+        .unwrap();
+    update_task_status_on(&conn, &next.entity.id, "done", day("2026-03-11")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 3);
+}
+
+#[test]
+fn the_next_task_carries_effort_labels_links_and_sub_tasks() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(
+        &conn,
+        &space.id,
+        Some("2026-03-10"),
+        rule(1, RepeatUnit::Week),
+    );
+    let id = &t.entity.id;
+    update_task_effort(&conn, id, Some(5)).unwrap();
+    let label =
+        crate::db::labels::create_label(&conn, space.id.clone(), "Home".into(), "#f00".into())
+            .unwrap();
+    crate::db::labels::attach_label(&conn, id, &label.id).unwrap();
+    let course = crate::db::entities::create_entity(
+        &conn,
+        space.id.clone(),
+        "course".into(),
+        "Maths".into(),
+        None,
+    )
+    .unwrap();
+    crate::db::relationships::create_relationship(
+        &conn,
+        id.clone(),
+        course.id.clone(),
+        "relates-to".into(),
+        None,
+        None,
+    )
+    .unwrap();
+    let sub_a = create_subtask(&conn, id.clone(), "Fill can".into()).unwrap();
+    create_subtask(&conn, id.clone(), "Pour".into()).unwrap();
+    update_task_status(&conn, &sub_a.entity.id, "done").unwrap();
+    let trashed = create_subtask(&conn, id.clone(), "Old step".into()).unwrap();
+    soft_delete_entity(&conn, &trashed.entity.id).unwrap();
+
+    update_task_status_on(&conn, id, "done", day("2026-03-10")).unwrap();
+
+    let next = open_tasks(&conn, &space.id)
+        .into_iter()
+        .find(|x| x.entity.id != *id)
+        .unwrap();
+    assert_eq!(next.effort, Some(5));
+    assert_eq!(next.label_ids, vec![label.id.clone()]);
+    assert_eq!(next.course_ids, vec![course.id.clone()]);
+    let steps = list_subtasks(&conn, &next.entity.id).unwrap();
+    let mut names = titles(&steps);
+    names.sort();
+    // Live sub-tasks come back reset to open; a trashed one stays behind.
+    assert_eq!(names, vec!["Fill can", "Pour"]);
+    assert!(steps
+        .iter()
+        .all(|s| s.status_id == "backlog" && s.completed_at.is_none()));
+    // The finished task keeps all of its own.
+    assert_eq!(get_task(&conn, id).unwrap().effort, Some(5));
+    assert_eq!(list_subtasks(&conn, id).unwrap().len(), 3);
+}
+
+#[test]
+fn a_repeating_sub_task_stays_under_its_parent() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let parent = task(&conn, &space.id, "Parent");
+    let sub = create_subtask(&conn, parent.entity.id.clone(), "Step".into()).unwrap();
+    update_task_dates(&conn, &sub.entity.id, None, Some("2026-03-10".into())).unwrap();
+    set_task_repeat(&conn, &sub.entity.id, Some(rule(1, RepeatUnit::Day))).unwrap();
+    update_task_status_on(&conn, &sub.entity.id, "done", day("2026-03-10")).unwrap();
+    let steps = list_subtasks(&conn, &parent.entity.id).unwrap();
+    assert_eq!(steps.len(), 2);
+    let next = steps.iter().find(|s| s.entity.id != sub.entity.id).unwrap();
+    assert_eq!(next.due_date.as_deref(), Some("2026-03-11"));
+    assert_eq!(next.entity.entity_type, "sub_task");
+}
+
+#[test]
+fn finishing_a_task_is_all_or_nothing() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = repeating(
+        &conn,
+        &space.id,
+        Some("2026-03-10"),
+        rule(1, RepeatUnit::Month),
+    );
+    let before = entity_count(&conn);
+    // Creating the next task fails halfway through, after the status already moved.
+    conn.execute_batch(
+        "CREATE TRIGGER no_new_entities BEFORE INSERT ON entities
+         BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+    )
+    .unwrap();
+    assert!(update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-10")).is_err());
+    conn.execute_batch("DROP TRIGGER no_new_entities").unwrap();
+    let unchanged = get_task(&conn, &t.entity.id).unwrap();
+    assert_eq!(unchanged.status_id, "backlog");
+    assert_eq!(unchanged.completed_at, None);
+    assert_eq!(entity_count(&conn), before);
+    // And it still works once nothing is in the way.
+    update_task_status_on(&conn, &t.entity.id, "done", day("2026-03-10")).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 2);
+}
+
+#[test]
+fn the_cli_sets_and_clears_the_repeat_rule_through_task_fields() {
+    let def = crate::db::schema::lookup("task").unwrap();
+    let field = def.fields.iter().find(|f| f.name == "repeat").unwrap();
+    assert!(field.writable_on_update && !field.required_on_create);
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = task(&conn, &space.id, "T");
+    let set = |value: serde_json::Value| {
+        let fields = serde_json::json!({ "repeat": value });
+        (def.update)(&conn, &t.entity.id, fields.as_object().unwrap())
+    };
+    // As the object `get` reports it, and as a JSON string.
+    let got = set(serde_json::json!({ "every": 2, "unit": "day" })).unwrap();
+    assert_eq!(
+        got["repeat"],
+        serde_json::json!({ "every": 2, "unit": "day" })
+    );
+    let got = set(serde_json::json!("{\"every\":1,\"unit\":\"week\"}")).unwrap();
+    assert_eq!(
+        got["repeat"],
+        serde_json::json!({ "every": 1, "unit": "week" })
+    );
+    assert!(set(serde_json::json!({ "every": 0, "unit": "day" })).is_err());
+    assert_eq!(
+        get_task(&conn, &t.entity.id).unwrap().repeat,
+        Some(rule(1, RepeatUnit::Week))
+    );
+    let got = set(serde_json::Value::Null).unwrap();
+    assert!(got["repeat"].is_null());
+    set(serde_json::json!({ "every": 1, "unit": "day" })).unwrap();
+    assert!(set(serde_json::json!("")).unwrap()["repeat"].is_null());
+}
+
+#[test]
+fn setting_the_rule_and_finishing_in_one_cli_call_repeats() {
+    let def = crate::db::schema::lookup("task").unwrap();
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let t = create_task(
+        &conn,
+        space.id.clone(),
+        "T".into(),
+        None,
+        Some("2026-03-10".into()),
+    )
+    .unwrap();
+    let fields = serde_json::json!({ "statusId": "done", "repeat": { "every": 1, "unit": "day" } });
+    (def.update)(&conn, &t.entity.id, fields.as_object().unwrap()).unwrap();
+    assert_eq!(open_tasks(&conn, &space.id).len(), 2);
+}

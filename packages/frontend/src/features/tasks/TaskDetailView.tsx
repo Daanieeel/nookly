@@ -30,10 +30,11 @@ import {
   listTasks,
   subtaskProgress,
   updateTaskDates,
+  setTaskRepeat,
   updateTaskEffort,
   updateTaskStatus,
 } from "#/lib/api/tasks.ts";
-import type { Entity, Task } from "#/lib/api/types.ts";
+import type { Entity, RepeatRule, Task } from "#/lib/api/types.ts";
 import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -49,6 +50,8 @@ import {
   useToggleTaskLabel,
 } from "./task-controls";
 import { dueTone, formatTimestamp, groupTasks, orderTasks, readDisplay } from "./task-model";
+import { RepeatPicker } from "./RepeatPicker";
+import { repeatLabel } from "./task-repeat";
 import { useTaskParent } from "./task-parent";
 import {
   DueDatePicker,
@@ -540,6 +543,12 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
       await refresh();
     },
   });
+  const setRepeat = useMutation({
+    mutationFn: async (repeat: RepeatRule | null) => {
+      await setTaskRepeat(task.entity.id, repeat);
+      await refresh();
+    },
+  });
   const toggleLabel = useToggleTaskLabel(task, refresh);
   const createLabel = useCreateLabel(spaceId);
   const dateField = setDates.variables?.field;
@@ -634,6 +643,23 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
             )}
           </button>
         </EffortPicker>
+      </PropertyRow>
+
+      <PropertyRow label="Repeat">
+        <RepeatPicker value={task.repeat} align="end" onSelect={(next) => setRepeat.mutate(next)}>
+          <button
+            type="button"
+            aria-label={setRepeat.isError ? "Couldn't set repeat, try again" : "Change Repeat"}
+            className={PROPERTY_VALUE}
+          >
+            <PendingIcon pending={setRepeat.isPending} failed={setRepeat.isError} idle={null} />
+            {task.repeat ? (
+              repeatLabel(task.repeat)
+            ) : (
+              <span className="text-muted-foreground">Does not repeat</span>
+            )}
+          </button>
+        </RepeatPicker>
       </PropertyRow>
 
       {progress != null && (
