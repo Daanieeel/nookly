@@ -198,8 +198,8 @@ describe("AgentFilesTab layout", () => {
   it("gives the text room: tall by default, and never taller than the window", async () => {
     setup();
     const box = await editor();
-    expect(box).toHaveClass("h-120");
-    expect(box).toHaveClass("max-h-[60vh]");
+    expect(box).toHaveClass("h-96");
+    expect(box).toHaveClass("max-h-[50vh]");
   });
 });
 

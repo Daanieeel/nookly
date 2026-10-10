@@ -201,7 +201,7 @@ export function AgentFilesTab() {
             readOnly={readFailed}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={() => void persist()}
-            className="h-120 max-h-[60vh] min-h-64 font-mono text-xs/relaxed"
+            className="h-96 max-h-[50vh] min-h-64 font-mono text-xs/relaxed"
           />
           <div className="flex min-h-7 items-center gap-2 text-xs">
             <span
