@@ -265,7 +265,7 @@ function HydratedBlockEditor({
     reconcile.mutate(nodes);
   }
 
-  const pasteFiles = usePasteFiles(spaceId);
+  const pasteFiles = usePasteFiles(spaceId, entityId);
 
   const editor = useEditor({
     content: {

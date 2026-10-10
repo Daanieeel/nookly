@@ -42,7 +42,28 @@ function setup(labels: Label[] = []) {
   mockCommand("list_labels", labels);
   mockCommand("create_label", makeLabel({ id: "label-new", name: "Pasted" }));
   mockCommand("attach_label", null);
-  const { result } = renderHook(() => usePasteFiles("space-1"), { wrapper });
+  mockCommand("list_relationships", [
+    {
+      id: "r1",
+      fromEntityId: "session-1",
+      toEntityId: "page-1",
+      relationshipType: "session-note",
+      fromBlockId: null,
+      toBlockId: null,
+      createdAt: "",
+    },
+    {
+      id: "r2",
+      fromEntityId: "course-1",
+      toEntityId: "page-1",
+      relationshipType: "course-notes",
+      fromBlockId: null,
+      toBlockId: null,
+      createdAt: "",
+    },
+  ]);
+  mockCommand("create_relationship", null);
+  const { result } = renderHook(() => usePasteFiles("space-1", "page-1"), { wrapper });
   result.current.handlePaste(fakeView(), pasteEvent());
 }
 
@@ -59,5 +80,22 @@ describe("usePasteFiles labels", () => {
     await waitFor(() => expect(callsOf("attach_label")).toHaveLength(1));
     expect(callsOf("create_label")).toHaveLength(0);
     expect(callsOf("attach_label")[0]).toMatchObject({ labelId: "label-old" });
+  });
+});
+
+describe("usePasteFiles context", () => {
+  it("attaches the pasted file to the page and the session and course it belongs to", async () => {
+    setup();
+    await waitFor(() => expect(callsOf("create_relationship")).toHaveLength(3));
+    const calls = callsOf("create_relationship");
+    for (const owner of ["course-1", "page-1", "session-1"]) {
+      expect(calls).toContainEqual(
+        expect.objectContaining({
+          fromEntityId: owner,
+          toEntityId: "file-9",
+          relationshipType: "attached-file",
+        }),
+      );
+    }
   });
 });

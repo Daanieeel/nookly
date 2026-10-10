@@ -27,6 +27,8 @@ import { getFile, importFile } from "#/lib/api/files.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { toast } from "sonner";
+import { inheritPageContext } from "#/features/relationships/inherit-context.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import { asString, type JSONAttrValue } from "./block-markdown";
 import { ToolbarButton } from "./ToolbarButton";
@@ -37,6 +39,8 @@ export interface MediaBlockOptions {
   kind: MediaKind;
   /// The page's Space, where uploads land as File entities.
   spaceId: string;
+  /// The page the block sits on; imported files are attached to it and its context.
+  pageId: string;
 }
 
 interface MediaKindInfo {
@@ -126,7 +130,7 @@ function useSource(content: string): SourceState {
 /// the page's Space on upload, so it also appears under Files) or a web URL.
 export function MediaBlock({ node, updateAttributes, extension, editor }: ReactNodeViewProps) {
   // SAFETY: media nodes are always created with `MediaBlockOptions` (`custom-block-extensions.ts`).
-  const { kind, spaceId } = extension.options as MediaBlockOptions;
+  const { kind, spaceId, pageId } = extension.options as MediaBlockOptions;
   // SAFETY: media nodes only ever write `rows` as a string.
   const content = asString(node.attrs.rows as JSONAttrValue | undefined) ?? "";
   // SAFETY: media nodes only ever write `caption` as a string or null.
@@ -146,7 +150,12 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   if (!content.trim()) {
     return (
       <NodeViewWrapper className="my-1" contentEditable={false}>
-        <MediaPicker kind={kind} spaceId={spaceId} onPick={(rows) => updateAttributes({ rows })} />
+        <MediaPicker
+          kind={kind}
+          spaceId={spaceId}
+          pageId={pageId}
+          onPick={(rows) => updateAttributes({ rows })}
+        />
       </NodeViewWrapper>
     );
   }
@@ -249,10 +258,12 @@ const linkSchema = z.object({
 function MediaPicker({
   kind,
   spaceId,
+  pageId,
   onPick,
 }: {
   kind: MediaKind;
   spaceId: string;
+  pageId: string;
   onPick: (rows: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -279,11 +290,20 @@ function MediaPicker({
       if (!file) return;
       void queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) });
       void queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) });
+      attachToPage(file.entity.id);
       onPick(mentionMarkdown(file.originalFilename ?? displayTitle(file.entity), file.entity.id));
     },
   });
   const status = useActionStatus(upload);
-  const pickExisting = (entity: Entity) => onPick(mentionMarkdown(displayTitle(entity), entity.id));
+  // The block still shows the file if attaching it to the page's context fails.
+  const attachToPage = (fileId: string) =>
+    void inheritPageContext(queryClient, pageId, fileId).catch(() => {
+      toast.error("Couldn't attach the file to this page");
+    });
+  const pickExisting = (entity: Entity) => {
+    attachToPage(entity.id);
+    onPick(mentionMarkdown(displayTitle(entity), entity.id));
+  };
 
   return (
     <div className="media-picker">

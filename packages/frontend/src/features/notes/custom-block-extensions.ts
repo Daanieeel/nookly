@@ -107,7 +107,7 @@ export const EntityCard = atomBlock("entity_card", EntityCardBlock).extend<Entit
 function mediaBlock(kind: Extract<MediaKind, AtomBlockType>) {
   return atomBlock(kind, MediaBlock).extend<MediaBlockOptions>({
     addOptions() {
-      return { kind, spaceId: "" };
+      return { kind, spaceId: "", pageId: "" };
     },
   });
 }

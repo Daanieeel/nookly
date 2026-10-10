@@ -10,6 +10,7 @@ import { importFileFromBytes } from "#/lib/api/files.ts";
 import { attachLabel, createLabel, listLabels } from "#/lib/api/labels.ts";
 import { labelColorFor } from "#/components/label-manager.tsx";
 import { qk } from "#/lib/query-keys.ts";
+import { inheritPageContext } from "#/features/relationships/inherit-context.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import type { MediaKind } from "./MediaBlock";
 
@@ -47,7 +48,7 @@ function nameOf(file: File, kind: MediaKind): string {
 
 /// Pasting files into the editor stores each as a File in the page's Space, embeds it
 /// as the matching media block, then offers a popover to rename it.
-export function usePasteFiles(spaceId: string) {
+export function usePasteFiles(spaceId: string, pageId: string) {
   const queryClient = useQueryClient();
   const [queue, setQueue] = useState<Naming[]>([]);
   const [name, setName] = useState("");
@@ -73,6 +74,10 @@ export function usePasteFiles(spaceId: string) {
         toast.error(`Couldn't label ${filename} as ${PASTED_LABEL}`);
       });
       void queryClient.invalidateQueries({ queryKey: qk.labels.bySpace(spaceId) });
+      // Same for the page's context: the file stays imported if attaching fails.
+      await inheritPageContext(queryClient, pageId, stored.entity.id).catch(() => {
+        toast.error(`Couldn't attach ${filename} to this page`);
+      });
       const node = view.state.schema.nodes[kind]?.create({
         rows: mentionMarkdown(filename, stored.entity.id),
       });
