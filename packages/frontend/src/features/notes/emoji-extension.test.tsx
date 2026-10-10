@@ -52,11 +52,42 @@ describe("the colon emoji and symbol picker", () => {
     expect(screen.queryByText("Symbols")).toBeNull();
   });
 
-  it("does not open for a lone colon", async () => {
+  it("opens at once on a lone colon, showing symbols and emoji to pick from", async () => {
     const { editor: target } = await open();
     target.commands.insertContent(":");
+    expect(await screen.findByText("Symbols")).toBeTruthy();
+    expect(screen.getByText("Emojis")).toBeTruthy();
+    expect((await screen.findAllByRole("button")).length).toBeGreaterThan(5);
+  });
+
+  it("opens on a colon after a space too, and not inside a word", async () => {
+    const { editor: target } = await open();
+    target.commands.insertContent("see:");
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.queryByText("Emojis")).toBeNull();
+    expect(screen.queryByText("Symbols")).toBeNull();
+    target.commands.insertContent(" :");
+    expect(await screen.findByText("Symbols")).toBeTruthy();
+  });
+
+  it("narrows the list as letters follow the colon, and picks from the full list", async () => {
+    const { user, editor: target } = await open();
+    target.commands.insertContent(":");
+    await screen.findByText("Symbols");
+    target.commands.insertContent("smile");
+    const [first] = searchEmoji("smile");
+    await waitFor(async () =>
+      expect((await screen.findAllByRole("button"))[0]).toHaveTextContent(first?.name ?? ""),
+    );
+    await user.click((await screen.findAllByRole("button"))[0] ?? document.body);
+    await waitFor(() => expect(text(target)).toBe(first?.emoji));
+  });
+
+  it("closes again when what follows the colon matches nothing", async () => {
+    const { editor: target } = await open();
+    target.commands.insertContent(":");
+    await screen.findByText("Symbols");
+    target.commands.insertContent("zzzzqx");
+    await waitFor(() => expect(screen.queryByText("Symbols")).toBeNull());
   });
 
   it("inserts the chosen emoji and removes what was typed", async () => {

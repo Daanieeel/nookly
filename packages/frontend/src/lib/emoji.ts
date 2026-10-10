@@ -143,3 +143,33 @@ export function searchEmoji(query: string, limit = 10): EmojiEntry[] {
 export function searchSymbols(query: string, limit = 6): SymbolEntry[] {
   return search(SYMBOLS, query, (s) => [s.name, ...s.keywords], limit);
 }
+
+/// What the picker shows right after the colon, before anything is typed: the symbols
+/// people reach for most, then the emoji they use most.
+const FEATURED_SYMBOL_COUNT = 8;
+const FEATURED_EMOJI = [
+  "😀",
+  "😂",
+  "🙂",
+  "😍",
+  "🤔",
+  "👍",
+  "🙏",
+  "👏",
+  "🎉",
+  "🔥",
+  "❤️",
+  "✅",
+  "⭐",
+  "💡",
+  "📌",
+  "⚠️",
+];
+
+export function featuredSymbols(): SymbolEntry[] {
+  return SYMBOLS.slice(0, FEATURED_SYMBOL_COUNT);
+}
+
+export function featuredEmoji(): EmojiEntry[] {
+  return FEATURED_EMOJI.flatMap((emoji) => ALL_EMOJI.find((e) => e.emoji === emoji) ?? []);
+}

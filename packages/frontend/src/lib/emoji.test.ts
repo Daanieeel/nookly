@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ALL_EMOJI, searchEmoji, searchSymbols, SYMBOLS } from "./emoji.ts";
+import {
+  ALL_EMOJI,
+  featuredEmoji,
+  featuredSymbols,
+  searchEmoji,
+  searchSymbols,
+  SYMBOLS,
+} from "./emoji.ts";
 
 describe("searchEmoji", () => {
   it("finds smiling faces for smile", () => {
@@ -31,6 +38,22 @@ describe("searchSymbols", () => {
   });
   it("lists each character once", () => {
     const chars = SYMBOLS.map((s) => s.char);
+    expect(new Set(chars).size).toBe(chars.length);
+  });
+});
+
+describe("the lists shown before anything is typed", () => {
+  it("offer a few symbols and the common emoji, each from the full sets", () => {
+    expect(featuredSymbols().length).toBeGreaterThanOrEqual(6);
+    expect(featuredEmoji().length).toBeGreaterThanOrEqual(10);
+    const known = new Set(ALL_EMOJI.map((e) => e.emoji));
+    for (const entry of featuredEmoji()) expect(known.has(entry.emoji)).toBe(true);
+    const symbols = new Set(SYMBOLS.map((s) => s.char));
+    for (const entry of featuredSymbols()) expect(symbols.has(entry.char)).toBe(true);
+  });
+
+  it("have no character twice", () => {
+    const chars = [...featuredSymbols().map((s) => s.char), ...featuredEmoji().map((e) => e.emoji)];
     expect(new Set(chars).size).toBe(chars.length);
   });
 });
