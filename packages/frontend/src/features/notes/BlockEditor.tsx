@@ -27,9 +27,8 @@ import {
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { newCodeBlockLanguage } from "./default-code-language";
 import { usePasteFiles } from "./paste-files";
-import { parseMentionHref } from "#/features/relationships/mention-utils.ts";
 import { editorExtensions } from "./editor-extensions";
-import { openExternalLink } from "./open-link";
+import { openLink } from "./open-link";
 import { TableControls } from "./TableControls";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
@@ -127,7 +126,6 @@ function HydratedBlockEditor({
   onSectionsChange?: (sections: PageSection[]) => void;
 }) {
   const queryClient = useQueryClient();
-  const openEntity = useNavStore((s) => s.openEntity);
   const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
   const { data: entities = [] } = useQuery({
     queryKey: qk.entities.bySpace(spaceId),
@@ -286,24 +284,7 @@ function HydratedBlockEditor({
         ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
       },
       handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
-      handleClickOn: (_view, _pos, _node, _nodePos, event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLElement) || target.tagName !== "A") return false;
-        const href = target.getAttribute("href");
-        const mention = href ? parseMentionHref(href) : null;
-        if (mention) {
-          event.preventDefault();
-          // `mention:<id>#<blockId>` links one block of a page, `mention:<id>#p12` one page of a file.
-          const { entityId: targetId, blockId, page } = mention;
-          openEntity(
-            targetId,
-            spaceId,
-            blockId || page ? { entityId: targetId, blockId, page } : undefined,
-          );
-          return true;
-        }
-        return openExternalLink(event);
-      },
+      handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
     },
     onUpdate: () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
