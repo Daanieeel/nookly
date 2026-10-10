@@ -27,6 +27,7 @@ import {
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { newCodeBlockLanguage } from "./default-code-language";
 import { usePasteFiles } from "./paste-files";
+import { parseMentionHref } from "#/features/relationships/mention-utils.ts";
 import { editorExtensions } from "./editor-extensions";
 import { TableControls } from "./TableControls";
 import { TableRowHandles } from "./TableRowHandles";
@@ -34,7 +35,6 @@ import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
-const MENTION_HREF_PREFIX = "mention:";
 
 /// What a block was last saved as, compared on every save to skip unchanged ones.
 interface PersistedBlock {
@@ -288,11 +288,16 @@ function HydratedBlockEditor({
         const target = event.target;
         if (!(target instanceof HTMLElement) || target.tagName !== "A") return false;
         const href = target.getAttribute("href");
-        if (href?.startsWith(MENTION_HREF_PREFIX)) {
+        const mention = href ? parseMentionHref(href) : null;
+        if (mention) {
           event.preventDefault();
-          // `mention:<id>#<blockId>` links one block of the page.
-          const [targetId, blockId] = href.slice(MENTION_HREF_PREFIX.length).split("#");
-          openEntity(targetId, spaceId, blockId ? { entityId: targetId, blockId } : undefined);
+          // `mention:<id>#<blockId>` links one block of a page, `mention:<id>#p12` one page of a file.
+          const { entityId: targetId, blockId, page } = mention;
+          openEntity(
+            targetId,
+            spaceId,
+            blockId || page ? { entityId: targetId, blockId, page } : undefined,
+          );
           return true;
         }
         return false;
@@ -330,11 +335,12 @@ function HydratedBlockEditor({
   const focusBlock = useNavStore((s) => s.focusBlock);
   const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
   useEffect(() => {
-    if (!editor || focusBlock?.entityId !== entityId) return;
+    // A page of a file is for the file viewer, not for a page's editor.
+    if (!editor || focusBlock?.entityId !== entityId || !focusBlock.blockId) return;
+    const { blockId } = focusBlock;
     // Blocks created earlier in this editor session still carry their client
     // id, so map the server id back first.
-    const clientId =
-      [...idMap].find(([, serverId]) => serverId === focusBlock.blockId)?.[0] ?? focusBlock.blockId;
+    const clientId = [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId;
     let frame = 0;
     let settle: ReturnType<typeof setTimeout> | undefined;
     let tries = 0;

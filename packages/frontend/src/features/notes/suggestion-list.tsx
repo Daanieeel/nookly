@@ -38,8 +38,10 @@ export const SuggestionList = forwardRef<
     /// Inside a surface that already draws the card (a popover): no border,
     /// background or shadow of its own, and the host's width.
     embedded?: boolean;
+    /// A hint under the list, such as how to refine the search.
+    footer?: string;
   }
->(function SuggestionList({ items, onSelect, searchable = false, embedded = false }, ref) {
+>(function SuggestionList({ items, onSelect, searchable = false, embedded = false, footer }, ref) {
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,11 @@ export const SuggestionList = forwardRef<
               </button>
             </Fragment>
           ))}
+        </div>
+      )}
+      {footer && (
+        <div className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
+          {footer}
         </div>
       )}
     </div>

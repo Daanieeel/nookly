@@ -773,8 +773,15 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
 /// the provider URL for a linked one. Mentions of Bookmarks point at their URL.
 /// Every other mention stays as it is.
 fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
-    static TARGET: std::sync::LazyLock<regex::Regex> =
-        std::sync::LazyLock::new(|| regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)\)").unwrap());
+    // The optional `#...` is a block of a page, or `#p12`, a page of a file.
+    static TARGET: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)(#[a-zA-Z0-9_-]+)?\)").unwrap()
+    });
+    /// Where an export points, and whether that is a File (whose `#p12` stays).
+    struct Target {
+        url: String,
+        is_file: bool,
+    }
     let mut targets = std::collections::HashMap::new();
     for id in TARGET.captures_iter(markdown).map(|c| c[1].to_string()) {
         if targets.contains_key(&id) {
@@ -785,21 +792,38 @@ fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
             Some(f) => match (f.local_path, f.url) {
                 (Some(path), _) => url::Url::from_file_path(&path).ok().map(|u| u.to_string()),
                 (None, url) => url,
-            },
+            }
+            .map(|url| Target { url, is_file: true }),
             None => crate::db::bookmarks::get_bookmark(conn, &id)
                 .ok()
-                .map(|b| b.url),
+                .map(|b| Target {
+                    url: b.url,
+                    is_file: false,
+                }),
         };
         targets.insert(id, target);
     }
     Ok(TARGET
         .replace_all(markdown, |caps: &regex::Captures| {
             match targets.get(&caps[1]) {
-                Some(Some(target)) => format!("]({target})"),
+                Some(Some(target)) => {
+                    let fragment = caps.get(2).map_or("", |m| m.as_str());
+                    // A page of a file keeps its `#p12`; a block fragment means nothing
+                    // outside Nookly, and a bookmark's URL is not ours to extend.
+                    let page = target.is_file && is_page_fragment(fragment);
+                    format!("]({}{})", target.url, if page { fragment } else { "" })
+                }
                 _ => caps[0].to_string(),
             }
         })
         .into_owned())
+}
+
+/// `#p12`: the page of a file a mention points at.
+fn is_page_fragment(fragment: &str) -> bool {
+    fragment
+        .strip_prefix("#p")
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// Search and the mention index read a custom block's raw content, not its
@@ -1634,6 +1658,65 @@ mod tests {
         // The stored copy wins over the link it was downloaded from.
         assert!(markdown.contains("[Slides](file://"));
         assert!(markdown.contains(&format!("[Other](mention:{})", other.id)));
+    }
+
+    #[test]
+    fn export_keeps_the_page_of_a_file_mention() {
+        let conn = crate::db::test_conn();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
+        let file = crate::db::files::store_file(
+            &conn,
+            &std::env::temp_dir().join(format!("nookly-test-{}", crate::db::new_id())),
+            space.id,
+            "slides.pdf",
+            b"%PDF",
+            None,
+        )
+        .unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            format!("See [Slides (p. 12)](mention:{}#p12).", file.entity.id),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let markdown = render_page_markdown(&conn, &page.id).unwrap();
+        assert!(markdown.contains("[Slides (p. 12)](file://"), "{markdown}");
+        assert!(markdown.contains(".pdf#p12)"), "{markdown}");
+        assert!(!markdown.contains("mention:"), "{markdown}");
+    }
+
+    #[test]
+    fn export_leaves_a_page_mention_of_something_else_alone() {
+        let conn = crate::db::test_conn();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let page = create_page(&conn, space.id.clone(), "note", "Doc".into()).unwrap();
+        let other = create_page(&conn, space.id, "note", "Other".into()).unwrap();
+        create_block(
+            &conn,
+            &page.id,
+            "paragraph".into(),
+            format!("See [Other](mention:{}#p12).", other.id),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let markdown = render_page_markdown(&conn, &page.id).unwrap();
+        assert!(markdown.contains(&format!("[Other](mention:{}#p12)", other.id)));
+    }
+
+    #[test]
+    fn extract_mention_ids_reads_a_file_page_mention() {
+        let ids = extract_mention_ids("[Slides (p. 3)](mention:abc-123#p3) and [x](mention:def)");
+        assert_eq!(ids.into_iter().collect::<Vec<_>>(), ["abc-123", "def"]);
     }
 
     #[test]

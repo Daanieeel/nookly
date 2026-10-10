@@ -33,8 +33,8 @@ function FakeDocument({ onLoadSuccess, onLoadError, error, children }: PdfDocume
   return failing ? error : <div>{children}</div>;
 }
 
-const viewer = () => (
-  <PdfViewer src="asset://a.pdf" name="a.pdf" documentComponent={FakeDocument} />
+const viewer = (props: { initialPage?: number; onInitialPageShown?: () => void } = {}) => (
+  <PdfViewer src="asset://a.pdf" name="a.pdf" documentComponent={FakeDocument} {...props} />
 );
 
 beforeEach(() => {
@@ -94,5 +94,32 @@ describe("ErrorBoundary", () => {
     );
     expect(screen.getByText("sibling")).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Try Again" })).toBeTruthy();
+  });
+});
+
+describe("PdfViewer opening on a page", () => {
+  it("goes to the requested page once the document has loaded, then hands the request back", async () => {
+    const shown = vi.fn();
+    renderWithProviders(viewer({ initialPage: 2, onInitialPageShown: shown }));
+    await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
+    expect(screen.getByDisplayValue("2")).toBeTruthy();
+  });
+
+  it("waits for the document while it fails to load, and still goes there after a retry", async () => {
+    loads.failures = 1;
+    const shown = vi.fn();
+    const { user } = renderWithProviders(viewer({ initialPage: 2, onInitialPageShown: shown }));
+    await screen.findByRole("button", { name: "Try Again" });
+    expect(shown).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Try Again" }));
+    await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
+  });
+
+  it("stays on the first page without a request", async () => {
+    const shown = vi.fn();
+    renderWithProviders(viewer({ onInitialPageShown: shown }));
+    await screen.findByText("/ 2");
+    expect(shown).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("1")).toBeTruthy();
   });
 });
