@@ -68,4 +68,27 @@ describe("AppToaster", () => {
     await user.click(close);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull());
   });
+
+  it("lifts the stack above the Clear all bar without moving it sideways", async () => {
+    renderWithProviders(<AppToaster />);
+    const offsets = () => {
+      const stack = document.querySelector("[data-sonner-toaster]");
+      if (!(stack instanceof HTMLElement)) throw new Error("no toaster");
+      return {
+        right: stack.style.getPropertyValue("--offset-right"),
+        left: stack.style.getPropertyValue("--offset-left"),
+        bottom: stack.style.getPropertyValue("--offset-bottom"),
+      };
+    };
+    act(() => void toast("One"));
+    await screen.findByText("One");
+    const alone = offsets();
+    act(() => void toast("Two"));
+    await screen.findByRole("button", { name: "Clear all" });
+    const stacked = offsets();
+    // Only the bottom changes, to make room for the bar.
+    expect(stacked.right).toBe(alone.right);
+    expect(stacked.left).toBe(alone.left);
+    expect(stacked.bottom).not.toBe(alone.bottom);
+  });
 });
