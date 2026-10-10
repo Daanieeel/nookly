@@ -93,7 +93,7 @@ export function SaveMarkdownFileItem({ entity, onDone }: { entity: Entity; onDon
 }
 
 /// A page file keeps every block as Nookly stores it, which markdown cannot.
-function SaveNooklyPageItem({ entity, onDone }: { entity: Entity; onDone: () => void }) {
+export function SaveNooklyPageItem({ entity, onDone }: { entity: Entity; onDone: () => void }) {
   return (
     <FeedbackMenuItem
       icon={<IconFileExport size={14} className="text-muted-foreground" />}
