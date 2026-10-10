@@ -38,4 +38,34 @@ describe("AppToaster", () => {
     expect(screen.queryByText("Two")).toBeNull();
     expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull();
   });
+
+  it("draws Clear all as part of the stack: a bar on the toast surface that says how many", async () => {
+    renderWithProviders(<AppToaster />);
+    act(() => {
+      void toast("One");
+      void toast("Two");
+      void toast("Three");
+    });
+    const clear = await screen.findByRole("button", { name: "Clear all" });
+    const bar = clear.closest("[data-toast-clear]");
+    if (!(bar instanceof HTMLElement)) throw new Error("the Clear all bar is missing");
+    expect(bar).toHaveTextContent("3 notifications");
+    // The same surface as a toast, not a loose button floating over the page.
+    for (const surface of ["bg-popover", "border", "rounded-2xl", "shadow-lg"]) {
+      expect(bar).toHaveClass(surface);
+    }
+  });
+
+  it("counts down, and goes when one is left", async () => {
+    const { user } = renderWithProviders(<AppToaster />);
+    act(() => {
+      void toast("One");
+      void toast("Two");
+    });
+    await screen.findByText("2 notifications");
+    const close = (await screen.findAllByRole("button", { name: /close toast/i }))[0];
+    if (!close) throw new Error("no close button");
+    await user.click(close);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull());
+  });
 });
