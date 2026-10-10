@@ -27,6 +27,12 @@ export function useUpdatedNotice(): UpdatedNotice {
   }, [running, seen]);
 
   const updated = running && seen !== null && compareVersions(running, seen) > 0;
+
+  // Where "what is new" starts from: the version the user was on, kept until they update
+  // again so the dialog can be opened from Settings after the card is gone.
+  useEffect(() => {
+    if (updated && seen !== null) preferences.set(STORAGE_KEYS.whatsNewSince, seen);
+  }, [updated, seen]);
   return {
     version: updated ? running : null,
     dismiss: () => {

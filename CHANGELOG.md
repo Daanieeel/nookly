@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.1 (2026-10-10)
+
+### Changed
+
+- **What's new covers every update you skipped.** After a jump over several versions the dialog lists each one since the version you were on, newest first, instead of only the latest.
+
 ## 0.32.0 (2026-10-10)
 
 ### Added

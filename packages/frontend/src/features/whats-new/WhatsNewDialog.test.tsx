@@ -1,6 +1,8 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CHANGELOG_URL } from "#/lib/changelog.ts";
+import { preferences } from "#/lib/preferences.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { displayText } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
@@ -65,6 +67,7 @@ function open(version: string) {
 }
 
 beforeEach(() => {
+  preferences.remove(STORAGE_KEYS.whatsNewSince);
   useNavStore.setState({ whatsNewOpen: false });
 });
 
@@ -203,5 +206,81 @@ describe("WhatsNewDialog", () => {
     open("0.31.10");
     await screen.findByText("Import a page");
     await expectNoA11yViolations();
+  });
+
+  describe("after a jump over several versions", () => {
+    it("shows every release since the one last seen, newest first, each under its version", async () => {
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.20.0");
+      open("0.31.10");
+      expect(await screen.findByRole("dialog", { name: /What.s new since 0\.20\.0/ })).toBeTruthy();
+      expect(await screen.findByText("Pages travel now")).toBeTruthy();
+      expect(await screen.findByText("An older release")).toBeTruthy();
+      const headings = screen
+        .getAllByRole("heading", { name: /^Version / })
+        .map((h) => h.textContent);
+      expect(headings).toEqual([
+        expect.stringContaining("0.31.10"),
+        expect.stringContaining("0.30.2"),
+      ]);
+    });
+
+    it("leaves out the version that was last seen", async () => {
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.30.2");
+      open("0.31.10");
+      await screen.findByText("Pages travel now");
+      expect(screen.queryByText("An older release")).toBeNull();
+      // One release: no version headings, the dialog reads as it does for a single version.
+      expect(screen.queryAllByRole("heading", { name: /^Version / })).toHaveLength(0);
+      expect(screen.getByRole("dialog", { name: /What.s new in 0\.31\.10/ })).toBeTruthy();
+    });
+
+    it("shows a release that is only in the changelog, as its bullet points", async () => {
+      const text = `${CHANGELOG}
+## 0.31.5 (2026-09-20)
+
+### Fixed
+
+- Written only in the changelog
+`;
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.30.2");
+      mockCommand("plugin:app|version", "0.31.10");
+      renderWithProviders(<WhatsNewDialog notes={NOTES} changelog={text} />);
+      act(() => useNavStore.getState().setWhatsNewOpen(true));
+      expect(await screen.findByText("Pages travel now")).toBeTruthy();
+      expect(await screen.findByText("Written only in the changelog")).toBeTruthy();
+    });
+
+    it("stops after a few releases and points at the full changelog", async () => {
+      const entry = (n: number) => ({
+        version: `0.${40 - n}.0`,
+        date: "2026-01-01",
+        title: `Release ${40 - n}`,
+        summary: "S",
+        highlights: [],
+        more: {},
+      });
+      const many = { versions: Array.from({ length: 7 }, (_, i) => entry(i)) };
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.1.0");
+      mockCommand("plugin:app|version", "0.40.0");
+      renderWithProviders(<WhatsNewDialog notes={many} changelog="" />);
+      act(() => useNavStore.getState().setWhatsNewOpen(true));
+      expect(await screen.findByText("Release 40")).toBeTruthy();
+      expect(screen.getAllByRole("heading", { name: /^Version / })).toHaveLength(4);
+      expect(screen.getByText(/and 3 earlier versions/)).toBeTruthy();
+    });
+
+    it("ignores a last seen version that is not older than the running one", async () => {
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.31.10");
+      open("0.31.10");
+      expect(await screen.findByRole("dialog", { name: /What.s new in 0\.31\.10/ })).toBeTruthy();
+      expect(await screen.findByText("Pages travel now")).toBeTruthy();
+    });
+
+    it("has no accessibility violations with several releases", async () => {
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.20.0");
+      open("0.31.10");
+      await screen.findByText("An older release");
+      await expectNoA11yViolations();
+    });
   });
 });
