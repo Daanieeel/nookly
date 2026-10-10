@@ -3293,3 +3293,79 @@ fn get_summary_outline_and_blocks_paging_through_the_cli() {
     assert_eq!(g["count"], 1);
     assert!(cli(&fx.conn, &["note", "grep", &note, "(", "--regex"]).is_err());
 }
+
+/// The `view` attr stored on the only block of `note`, `None` when it has none.
+fn stored_view(fx: &Fx, note: &str) -> Option<String> {
+    let blocks = cli(&fx.conn, &["note", "blocks", note]).unwrap();
+    blocks["items"][0]["attrs"]["view"]
+        .as_str()
+        .map(str::to_string)
+}
+
+#[test]
+fn source_blocks_made_through_the_cli_start_on_the_preview() {
+    for block_type in ["equation", "math", "diagram", "circuit"] {
+        let fx = fx();
+        let (note, _) = new_note(&fx, "Preview");
+        cli(
+            &fx.conn,
+            &[
+                "note",
+                "add-block",
+                &note,
+                "--type",
+                block_type,
+                "--content",
+                "x",
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            stored_view(&fx, &note).as_deref(),
+            Some("rendered"),
+            "{block_type}"
+        );
+    }
+}
+
+#[test]
+fn an_explicit_view_wins_over_the_cli_default() {
+    let fx = fx();
+    let (note, _) = new_note(&fx, "Source");
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &note,
+            "--type",
+            "math",
+            "--content",
+            "x",
+            "--attr",
+            "view=source",
+        ],
+    )
+    .unwrap();
+    assert_eq!(stored_view(&fx, &note).as_deref(), Some("source"));
+}
+
+#[test]
+fn other_block_types_get_no_view_from_the_cli() {
+    let fx = fx();
+    let (note, _) = new_note(&fx, "Plain");
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &note,
+            "--type",
+            "paragraph",
+            "--content",
+            "x",
+        ],
+    )
+    .unwrap();
+    assert_eq!(stored_view(&fx, &note), None);
+}
