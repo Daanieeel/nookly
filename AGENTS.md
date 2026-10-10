@@ -16,6 +16,8 @@ Do not touch the major version. Report back to the user if a major version bump 
 
 A new feature users will notice also gets a card in `whats-new.json` (repo root), which is what the What's new dialog shows for the running version: a `title` and `summary` for the version, `highlights` (each a short `title`, a one sentence `description`, an `icon` from `features/whats-new/icons.ts`, an optional `tag` of `New` or `Improved`, and an optional `shortcut` like `Mod+Shift+J`) and `more` for the smaller lines under `Improved` and `Fixed`. Text is markdown, and a shortcut in code (`` `Mod+K` ``) shows as the system writes it. Newest version first. A version with no entry shows its `CHANGELOG.md` section instead. The dialog shows every version since the one the user last saw, so a jump over several versions lists them all: keep one entry per version you bump to, never merge them.
 
+**After every version bump, `CHANGELOG.md` and `whats-new.json` must be brought up to date in the same commit.** The bumped version needs its `## x.y.z` section in the changelog, and an entry in `whats-new.json` as well: a card under `highlights` for a feature, or just a line under `more` (with a `title` and `summary`, and empty `highlights`) for a smaller improvement or fix. Never leave either file behind the version in `package.json`.
+
 Quick map:
 
 - Where does code go, how do imports work? Read `development/monorepo.md`.

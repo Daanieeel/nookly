@@ -1,6 +1,30 @@
 {
   "versions": [
     {
+      "version": "0.32.4",
+      "date": "2026-10-10",
+      "title": "A cleaner page edge",
+      "summary": "The main area now matches the sidebar.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The page has the same border as the left navigation, and it goes away when the sidebar is collapsed."
+        ]
+      }
+    },
+    {
+      "version": "0.32.1",
+      "date": "2026-10-10",
+      "title": "What's new covers every update",
+      "summary": "Updating after a few versions shows all of them.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "What's new lists every version since the one you were on, newest first, instead of only the latest."
+        ]
+      }
+    },
+    {
       "version": "0.32.0",
       "date": "2026-10-10",
       "title": "Tasks, decks and assignments travel too",
