@@ -2,6 +2,51 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.31.10 (2026-10-10)
+
+### Added
+
+- **Import a page.** The new Import button in the title bar (or Cmd+I) brings in a page exported from Nookly. Drop the file in, choose the Space, relate it to things you already have, and see what it contains before you confirm.
+- **Share a page.** A Share button in the details sidebar of a page, and Share in its more actions menu, send it as Markdown or as a Nookly page file through the share menu of your system.
+- **Nookly page files.** Export a page with everything on it, and bring it back with Import.
+- **Agent files.** Settings has a new Agent tab with markdown files for your own coding agent. It starts with an AGENTS.md and a NOOKLY.md that explains how to work with Nookly. Files save when you leave the text.
+- **Repeating tasks.** A task can repeat, and finishing it creates the next one.
+- **Jot for the session now.** Cmd+Shift+J opens the jot of the session that is running right now, or tells you there is none.
+- **Symbols and emoji.** Type a colon in a note and pick a symbol or an emoji, with the common ones ready right away.
+- **Mention a page of a file.** Mention a file with @, press the right arrow or type #12 to pick a page, and clicking the mention opens the file on that page.
+- **Move table columns.** Drag a column of a table to a new place.
+- **Indent with Tab.** Tab and Shift+Tab indent and outdent text in a note.
+- **Paste without formatting.** Cmd+Shift+V pastes plain text.
+- **Open links with a click.** Cmd or Ctrl and a click opens links, images and files.
+- **Scroll position per tab.** Every tab remembers where you were.
+- **Hide board columns.** Hide a column on a board, and finished statuses in the open views.
+- **Next assignment at a glance.** The Assignments item in the sidebar shows the next one that is due.
+- **Open the settings file.** From the command palette or the Settings dialog.
+- **Recalculate a formula.** A button on inline formulas recalculates their width.
+- **Today in the calendar.** The current weekday is highlighted.
+- **What's new.** After an update a card in the sidebar says it worked and shows what changed. Settings has the same button next to the version.
+
+### Changed
+
+- **Relating things is easier.** The Relate to picker now asks one thing at a time: what type, how, and which one. It suggests what belongs with the item, such as the notes of the same course, and shows sessions with their course and time.
+- **Sessions are found by date and time.** Search by day or time (Mar 10, Tuesday, 9am) when you relate to a session, mention one, or pick one.
+- **The @ menu is grouped by type.** Notes, files, sessions and the rest each have their own heading.
+- **Mentions stay up to date.** Renaming a note, a task, a file or anything else updates the mentions of it.
+- **Notifications look better.** They have a close button, a Clear all bar when there are several, and their own icon for success, warning, caution and error. Errors stay until you close them, the rest go by themselves.
+- **Escape goes back.** In a file it returns to the list instead of leaving full screen.
+- **Files from a note stay with it.** A file you add to a note is connected to the note and its course.
+- **Wide tables scroll sideways** instead of squeezing their columns.
+- **The time field is easier to click.** A click anywhere in it starts at the hour.
+- **Blocks added with the CLI open on their preview** for math, equations, diagrams and circuits.
+
+### Fixed
+
+- A PDF that comes back after being unavailable no longer leaves Nookly blank, and can be tried again.
+- The menus for @ and / open again after you have closed them.
+- Mentions of a file keep their name when the file is renamed.
+- The caret no longer ends up inside the hidden code of a block that shows its preview.
+- Long folder paths no longer run out of the Settings dialog.
+
 ## 0.18.46 (2026-10-09)
 
 ### Added

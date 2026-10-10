@@ -132,6 +132,7 @@ interface NavState {
   commandsOpen: boolean;
   settingsOpen: boolean;
   importOpen: boolean;
+  whatsNewOpen: boolean;
   quickJotOpen: boolean;
   /// The session the open Quick Jot writes into; null for a plain Jot.
   focusBlock: FocusBlock | null;
@@ -165,6 +166,7 @@ interface NavState {
   setCommandsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
+  setWhatsNewOpen: (open: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -350,6 +352,7 @@ const NO_OVERLAY = {
   commandsOpen: false,
   settingsOpen: false,
   importOpen: false,
+  whatsNewOpen: false,
   bookmarkSheetId: null,
 };
 
@@ -364,6 +367,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   commandsOpen: false,
   settingsOpen: false,
   importOpen: false,
+  whatsNewOpen: false,
   quickJotOpen: false,
   focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
@@ -532,6 +536,8 @@ export const useNavStore = create<NavState>((set, get) => ({
   setSettingsOpen: (settingsOpen) =>
     set(settingsOpen ? { ...NO_OVERLAY, settingsOpen } : { settingsOpen }),
   setImportOpen: (importOpen) => set(importOpen ? { ...NO_OVERLAY, importOpen } : { importOpen }),
+  setWhatsNewOpen: (whatsNewOpen) =>
+    set(whatsNewOpen ? { ...NO_OVERLAY, whatsNewOpen } : { whatsNewOpen }),
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),

@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   recents: "nookly:recents",
   tabs: "nookly:tabs",
   cliInstallCardDismissed: "nookly:cli-install-card-dismissed",
+  lastSeenVersion: "nookly:last-seen-version",
   fileViewerTheme: "nookly:file-viewer-theme",
   fileViewerThemeBackfill: "nookly:file-viewer-theme-backfill",
   notesSort: "nookly:notes-sort",
