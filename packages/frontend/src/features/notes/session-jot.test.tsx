@@ -70,7 +70,7 @@ describe("openCurrentSessionJot", () => {
     mockCommand("list_sessions_all", [later]);
     mockCommand("get_session_pages", { jot: null, note: null });
     run();
-    await screen.findByText("No session is running right now");
+    await screen.findByText("Quick session jot could not be created");
     expect(callsOf("create_session_page")).toHaveLength(0);
     expect(useNavStore.getState().view).toEqual({ kind: "dashboard" });
     expect(useNavStore.getState().quickJotOpen).toBe(false);
@@ -79,14 +79,18 @@ describe("openCurrentSessionJot", () => {
   it("ignores a cancelled session", async () => {
     mockCommand("list_sessions_all", [{ ...running, cancelled: true }]);
     run();
-    await screen.findByText("No session is running right now");
+    await screen.findByText("Quick session jot could not be created");
     expect(callsOf("create_session_page")).toHaveLength(0);
   });
 
-  it("says what to do next when nothing is running", async () => {
+  it("says why, and what to do next, when nothing is running", async () => {
     mockCommand("list_sessions_all", []);
     run();
-    expect(await screen.findByText(/while a session is running/)).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "No session is running right now. Create a session in the calendar first.",
+      ),
+    ).toBeTruthy();
   });
 
   it("shows an error when the jot cannot be made, and opens nothing", async () => {
