@@ -3,7 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { IconCalendarEvent, IconChevronDown, IconFeather } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { FieldError, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
 import { DialogPortal } from "@nookly/ui/components/dialog";
@@ -208,7 +208,6 @@ export function QuickJotDialog() {
 function QuickJotSurface({ onClose }: { onClose: () => void }) {
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
   const sessionId = useNavStore((s) => s.quickJotSessionId);
-  const openEntity = useNavStore((s) => s.openEntity);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const { data: sessions } = useQuery({
     queryKey: qk.sessions.all,
@@ -229,9 +228,7 @@ function QuickJotSurface({ onClose }: { onClose: () => void }) {
     onSaved: (entity) => {
       onClose();
       // The dialog is gone, so nothing on screen is left to confirm the save.
-      toast.success("Jot saved", {
-        action: { label: "Open", onClick: () => openEntity(entity.id, entity.spaceId) },
-      });
+      notify.success("Jot saved", { entity });
     },
   });
 

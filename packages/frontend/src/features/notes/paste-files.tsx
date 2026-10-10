@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { EditorView } from "@tiptap/pm/view";
 import { type CSSProperties, useRef, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@nookly/ui/components/popover";
@@ -72,12 +72,16 @@ export function usePasteFiles(spaceId: string, pageId: string) {
       );
       // A label that fails to apply must not lose the pasted file.
       await labelPasted(spaceId, stored.entity.id).catch(() => {
-        toast.error(`Couldn't label ${filename} as ${PASTED_LABEL}`);
+        notify.error(`Couldn't label ${filename} as ${PASTED_LABEL}`, {
+          description: "Add the label by hand.",
+        });
       });
       void queryClient.invalidateQueries({ queryKey: qk.labels.bySpace(spaceId) });
       // Same for the page's context: the file stays imported if attaching fails.
       await inheritPageContext(queryClient, pageId, stored.entity.id).catch(() => {
-        toast.error(`Couldn't attach ${filename} to this page`);
+        notify.error(`Couldn't attach ${filename} to this page`, {
+          description: "Relate it to the page by hand.",
+        });
       });
       const node = view.state.schema.nodes[kind]?.create({
         rows: mentionMarkdown(filename, stored.entity.id),
@@ -90,7 +94,7 @@ export function usePasteFiles(spaceId: string, pageId: string) {
         return [...q, { entityId: stored.entity.id, filename, ...at }];
       });
     } catch {
-      toast.error(`Couldn't paste ${filename}`);
+      notify.error(`Couldn't paste ${filename}`, { description: "Try pasting it again." });
     }
   }
 
@@ -124,7 +128,7 @@ export function usePasteFiles(spaceId: string, pageId: string) {
         refresh(current.entityId);
         void refreshAfterFileRename(queryClient);
       } catch {
-        toast.error("Couldn't rename the file");
+        notify.error("Couldn't rename the file", { description: "Rename it from its own page." });
       } finally {
         saving.current = false;
       }

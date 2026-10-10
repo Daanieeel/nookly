@@ -184,6 +184,14 @@ export const SHORTCUT_META = {
     section: "Create",
     scopes: GLOBAL,
   },
+  import: {
+    title: "Import",
+    description:
+      "Open the import dialog. Inside a text field it stays with the editor, where it makes text italic.",
+    synonyms: ["import page", "open file", "load", "nookly file", "bring in"],
+    section: "Create",
+    scopes: GLOBAL,
+  },
   create: {
     title: "Create",
     description: "Create a new item in the list or calendar you are on.",

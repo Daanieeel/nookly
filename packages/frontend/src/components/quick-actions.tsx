@@ -19,7 +19,7 @@ import {
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import type { ReactNode } from "react";
 import {
   StatusAnnouncer,
@@ -44,8 +44,6 @@ import { openSettingsFile } from "#/lib/api/settings-file.ts";
 import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
-import { importFailureReason, importPageFromFile } from "#/features/notes/import-page.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
 import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
 import { type ModuleKey, useNavStore, type View } from "#/lib/store/nav.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
@@ -450,17 +448,8 @@ export function QuickActions({
             category: "create" as const,
             words: "Import Page from File nookly json open",
             node: simpleItem("import-page", IconFileImport, "Import Page from File", () => {
-              const spaceId = activeSpaceId ?? spaces[0]?.id;
-              onDone();
-              if (!spaceId) return;
-              // The palette is gone while the file dialog is up, so a toast reports the result.
-              importPageFromFile(spaceId, queryClient)
-                .then((page) => {
-                  if (!page) return;
-                  openEntity(page.id, page.spaceId);
-                  toast.success(`Imported ${displayTitle(page)}`);
-                })
-                .catch((error: Error) => toast.error(importFailureReason(error)));
+              // Opening the dialog closes the palette: overlays never stack.
+              useNavStore.getState().setImportOpen(true);
             }),
           },
         ]
@@ -537,7 +526,9 @@ export function QuickActions({
       node: simpleItem("open-settings-file", IconFileCode, "Open Settings File", () => {
         onDone();
         // The palette is gone by the time this can fail, so a toast is all that is left.
-        openSettingsFile().catch(() => toast.error("Couldn't open the settings file"));
+        openSettingsFile().catch(() =>
+          notify.error("Couldn't open the settings file", { description: "Try again." }),
+        );
       }),
     },
     ...(view.kind === "entity"

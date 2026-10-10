@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSpaceExams } from "#/features/courses/course-queries.ts";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "#/components/notify.tsx";
 import { StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
@@ -218,7 +218,7 @@ function MiniCard({ card, onOpen }: { card: IndexCard; onOpen: () => void }) {
     onSuccess: async () => {
       await invalidateDeck(queryClient, card.deckEntityId);
       // The card is gone from the grid, so nothing is left on screen to confirm it.
-      toast.success("Card deleted", {
+      notify.success("Card deleted", {
         action: {
           label: "Undo",
           onClick: () =>
