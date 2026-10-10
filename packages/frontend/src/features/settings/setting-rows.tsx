@@ -60,6 +60,8 @@ export interface RowSpec extends Searchable {
   section: string;
   control: ReactNode;
   footer?: ReactNode;
+  /// The row's own category heading says what it is, so its title is not drawn.
+  hideTitle?: boolean;
 }
 
 /// Headings within a category, in display order.
@@ -152,6 +154,7 @@ const ACTION_ROWS: RowSpec[] = [
     category: "agent",
     section: "Files",
     title: "Agent files",
+    hideTitle: true,
     description:
       "Instructions for your own coding agent, kept as .md files. Open an agent inside this folder and tell it to read AGENTS.md. Nookly never runs an agent for you.",
     synonyms: [

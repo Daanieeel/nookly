@@ -54,6 +54,7 @@ function Row({ row }: { row: RowSpec }) {
       settingId={row.setting}
       control={row.control}
       footer={row.footer}
+      hideTitle={row.hideTitle}
     />
   );
 }

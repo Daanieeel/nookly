@@ -68,4 +68,32 @@ describe("a setting row with a wide footer", () => {
     // folder path run out of the Settings dialog.
     expect(screen.getByRole("group", { name: "Agent files" })).toHaveClass("min-w-0");
   });
+
+  it("gives the description the whole row when there is no control beside it", () => {
+    const { container } = renderWithProviders(
+      <SettingRow title="Agent files" description="A long description" control={null} />,
+    );
+    // The control column is 18rem wide, which a row without a control must not keep.
+    expect(container.querySelector(".w-72")).toBeNull();
+  });
+
+  it("keeps the control column when there is a control", () => {
+    const { container } = renderWithProviders(
+      <SettingRow title="Theme" description="d" control={<button type="button">x</button>} />,
+    );
+    expect(container.querySelector(".w-72")).not.toBeNull();
+  });
+
+  it("can leave the title off the screen while it still names the row", () => {
+    renderWithProviders(
+      <SettingRow title="Agent files" description="d" control={null} hideTitle />,
+    );
+    expect(screen.getByRole("group", { name: "Agent files" })).toBeTruthy();
+    expect(screen.getByText("Agent files")).toHaveClass("sr-only");
+  });
+
+  it("shows the title otherwise", () => {
+    renderWithProviders(<SettingRow title="Theme" description="d" control={null} />);
+    expect(screen.getByText("Theme")).not.toHaveClass("sr-only");
+  });
 });
