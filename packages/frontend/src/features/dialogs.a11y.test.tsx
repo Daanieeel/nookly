@@ -18,6 +18,7 @@ import { QuickCreateSessionDialog } from "#/features/sessions/calendar/QuickCrea
 import { QuickCreateTask } from "#/features/tasks/QuickCreateTask.tsx";
 import { TasksDataContext } from "#/features/tasks/task-controls.tsx";
 import { STATUSES } from "#/test/fixtures.ts";
+import { RelatePicker } from "#/features/relationships/RelatePickerPopover.tsx";
 import { CreateNameDialog } from "./CreateNameDialog.tsx";
 
 // Each one is rendered open, the way a user meets it, and checked with axe.
@@ -37,6 +38,36 @@ describe("dialogs and menus have no axe violations", () => {
         entitiesKey={qk.entities.bySpace("space-1")}
       />,
     );
+    await expectNoA11yViolations();
+  });
+
+  it("RelatePicker target step", async () => {
+    mockCommand("list_entities", [
+      makeEntity({ id: "n1", type: "note", title: "Wave notes" }),
+      makeEntity({ id: "t1", type: "task", title: "Read chapter" }),
+    ]);
+    mockCommand("list_sessions", []);
+    mockCommand("list_relationships", []);
+    const { user } = renderWithProviders(
+      <RelatePicker
+        spaceId="space-1"
+        exclude="me"
+        entityType="note"
+        types={[
+          {
+            name: "relates-to",
+            label: "Related to",
+            inverseLabel: "related from",
+            description: "",
+            fromType: null,
+            toType: null,
+          },
+        ]}
+        onSelect={() => {}}
+      />,
+    );
+    await user.click(await screen.findByText("Related to"));
+    await screen.findByRole("group", { name: "Note" });
     await expectNoA11yViolations();
   });
 
