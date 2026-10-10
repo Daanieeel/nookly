@@ -2,7 +2,7 @@
 
 Hard settings live in `settings.json` in the app data folder, a flat JSON object keyed by setting id. Code reads and writes them through [`packages/frontend/src/lib/settings/settings.ts`](../../packages/frontend/src/lib/settings/settings.ts); the list is [`registry.ts`](../../packages/frontend/src/lib/settings/registry.ts). View state (sorts, tabs, filters, display options, dismissed cards) stays in `preferences.json`, see [`preference-keys.md`](preference-keys.md).
 
-Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `shortcuts`. An id is never renamed once released.
+Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `agent`, `shortcuts`. An id is never renamed once released.
 
 ## Add a setting
 
@@ -17,6 +17,10 @@ A setting read where it is used (a calendar length, the snap, the notes editor's
 A row with no stored value (a button that opens a dialog or runs something, like Back up now) goes in `ACTION_ROWS` instead.
 
 The Backup tab holds everything about backups inline: the folder, the daily switch, Back up now and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
+
+## Agent files
+
+The Agent tab edits plain `.md` files in `agent/` inside the app data folder (`.dev-data` in debug builds), for the user's own coding agent. The first visit creates the folder and an `AGENTS.md` starter, which is never overwritten and cannot be deleted. Writes go through a temp file and a rename. A deleted file moves to `agent/.trash/<timestamp>-<name>`. The tab shows the folder path with a copy button. Code is in `commands/agent_files.rs` and `features/settings/AgentFilesTab.tsx`.
 
 ## Shortcuts
 

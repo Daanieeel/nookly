@@ -19,6 +19,7 @@ export type SettingCategory =
   | "calendar"
   | "notes"
   | "backup"
+  | "agent"
   | "shortcuts";
 
 export const SETTING_CATEGORIES: SettingCategory[] = [
@@ -27,6 +28,7 @@ export const SETTING_CATEGORIES: SettingCategory[] = [
   "calendar",
   "notes",
   "backup",
+  "agent",
   "shortcuts",
 ];
 

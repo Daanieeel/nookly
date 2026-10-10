@@ -284,6 +284,13 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "restore_backup",
         "backup_create_and_restore_underlying_calls",
     ),
+    // `AppHandle` parameter: each resolves the folder, then calls the same functions.
+    ("agent_dir_path", "agent_files_underlying_calls"),
+    ("list_agent_files", "agent_files_underlying_calls"),
+    ("read_agent_file", "agent_files_underlying_calls"),
+    ("write_agent_file", "agent_files_underlying_calls"),
+    ("delete_agent_file", "agent_files_underlying_calls"),
+    ("reveal_agent_dir", "agent_files_underlying_calls"),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -3865,4 +3872,20 @@ fn backup_create_and_restore_underlying_calls() {
     let staged =
         crate::backup::stage_restore(&restore_into, std::path::Path::new(&info.path)).unwrap();
     assert_eq!(to_json(staged), manifest);
+}
+
+#[test]
+fn agent_files_underlying_calls() {
+    // The agent file commands take an `AppHandle` for the app data folder; these are
+    // the calls they make, against a temp folder. `reveal_agent_dir` only opens it.
+    use crate::commands::agent_files as agent;
+    let h = Harness::new();
+    let dir = h.dir.path().join("agent");
+    let listed = agent::list(&dir).unwrap();
+    assert_eq!(listed[0].name, "AGENTS.md");
+    agent::write(&dir, "PROFILE.md", "hello").unwrap();
+    assert_eq!(agent::read(&dir, "PROFILE.md").unwrap(), "hello");
+    agent::delete(&dir, "PROFILE.md").unwrap();
+    assert_eq!(agent::list(&dir).unwrap().len(), 1);
+    assert!(agent::validate_name("../x.md").is_err());
 }

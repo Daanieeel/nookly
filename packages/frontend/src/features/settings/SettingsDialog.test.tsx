@@ -47,7 +47,7 @@ describe("the settings dialog", () => {
       within(nav)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["General", "Appearance", "Calendar", "Notes", "Backup", "Shortcuts"]);
+    ).toEqual(["General", "Appearance", "Calendar", "Notes", "Backup", "Agent", "Shortcuts"]);
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -88,7 +88,7 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(5);
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(6);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {

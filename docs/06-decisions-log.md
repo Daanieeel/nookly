@@ -319,3 +319,11 @@ A Tasks page below Calendar lists every Space's tasks, and an Assignments page b
 The overviews can be saved as Views (modules `tasks-overview` and `assignments-overview`) and take the view presets. Like every entity, a View still belongs to one Space, which is the active one when saving, and is listed under the Tasks row of the sidebar. Trashing that Space trashes its Views with it.
 
 **Rejected:** a View without a Space (breaks one Space per entity), and a cross-Space task create (a task needs a Space to live in).
+
+---
+
+### Agent files are plain files, with no AI integration
+
+Settings has an Agent tab for markdown files (`AGENTS.md` and others) in a folder the user hands to their own coding agent. Nookly only manages the files. It runs no agent, calls no model and stores no keys.
+
+**Why:** The app stays free of AI features and API keys, while a shared folder of instructions still lets a coding agent work through the `nookly` CLI.
