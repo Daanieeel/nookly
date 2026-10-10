@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useRef } from "react";
+import { type KeyboardEvent, type MouseEvent, useRef } from "react";
 import { clockCycle, useDateTimeSettings } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
 
@@ -52,6 +52,15 @@ export function TimeInput({
 
   function focusSegment(segment: Segment | undefined) {
     if (segment) refs.current[segment]?.focus();
+  }
+
+  /// A click on the field's empty space (padding, the colon) lands on the segment
+  /// nearest it: the hours left of the minutes, the minutes from there on.
+  function onGroupMouseDown(e: MouseEvent<HTMLDivElement>) {
+    if (e.target instanceof Element && e.target.closest("[role=spinbutton]")) return;
+    e.preventDefault();
+    const minuteLeft = refs.current.minute?.getBoundingClientRect().left ?? 0;
+    focusSegment(e.clientX < minuteLeft ? "hour" : "minute");
   }
 
   function type(segment: Segment, digit: number) {
@@ -122,6 +131,7 @@ export function TimeInput({
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a fieldset would add default borders
       role="group"
       aria-label={ariaLabel}
+      onMouseDown={onGroupMouseDown}
       onBlur={(e) => {
         if (e.currentTarget.contains(e.relatedTarget)) return;
         typed.current = "";
@@ -146,6 +156,11 @@ export function TimeInput({
             aria-label={`${ariaLabel ?? "Time"} ${names[segment]}`}
             aria-valuetext={text[segment]}
             aria-valuenow={segment === "period" ? undefined : Number(text[segment])}
+            onMouseDown={(e) => {
+              // Some webviews leave focus where it was on a click; focus it ourselves.
+              e.preventDefault();
+              focusSegment(segment);
+            }}
             onFocus={() => {
               typed.current = "";
             }}
