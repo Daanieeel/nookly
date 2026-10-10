@@ -129,7 +129,7 @@ describe("mentioning a page of a file", () => {
   it("does not offer a page on a note, and the right arrow does nothing there", async () => {
     const { user, editor: target } = await open();
     target.commands.insertContent("@notes");
-    await screen.findByText("Notes");
+    await screen.findAllByText("Notes");
     expect(screen.queryByRole("button", { name: "# Page" })).toBeNull();
     await user.keyboard("{ArrowRight}");
     expect(target.getText()).toBe("@notes");
@@ -250,5 +250,110 @@ describe("finding a session in the mention menu", () => {
     const { editor: target } = await open();
     target.commands.insertContent("@phys");
     expect(await screen.findByText(/Physics, Mar 10/)).toBeTruthy();
+  });
+});
+
+/// The heading of a group, as opposed to a row that happens to share its name.
+async function heading(name: string): Promise<HTMLElement> {
+  const found = (await screen.findAllByText(name)).find((el) =>
+    el.className.includes("font-medium text-muted-foreground"),
+  );
+  if (!found) throw new Error(`no ${name} heading`);
+  return found;
+}
+
+describe("grouping in the mention menu", () => {
+  /// Several of each kind, so a group can be told from the whole list.
+  async function openMany(extra: Entity[]) {
+    const many = [...entities, ...extra];
+    editor = new Editor({
+      extensions: editorExtensions({
+        spaceId: "s",
+        pageId: "p",
+        getEntities: () => many,
+        hasPages: entitiesWithPages,
+        sessionOf: (entity) => (entity.id === lecture.id ? lectureSession : undefined),
+      }),
+      content: { type: "doc", content: [{ type: "paragraph" }] },
+    });
+    const view = renderWithProviders(<EditorContent editor={editor} />);
+    editor.commands.focus();
+    return { ...view, editor };
+  }
+
+  const notes = (count: number, prefix = "Study note") =>
+    Array.from({ length: count }, (_, i) =>
+      makeEntity({
+        id: `bulk-${prefix}-${i}`,
+        type: "note",
+        title: `${prefix} ${i}`,
+        key: `NTE-${i + 10}`,
+      }),
+    );
+
+  it("lists the entities under a heading for each type", async () => {
+    const { editor: target } = await openMany([]);
+    target.commands.insertContent("@");
+    for (const name of ["Notes", "Files", "Sessions"]) {
+      expect(await heading(name)).toBeTruthy();
+    }
+  });
+
+  it("keeps every item under its own heading, and the headings apart", async () => {
+    const { editor: target } = await openMany([]);
+    target.commands.insertContent("@");
+    const sessions = await heading("Sessions");
+    const files = await heading("Files");
+    const report = screen.getByText("Report");
+    const lectureRow = screen.getByText(/Physics, Mar 10/);
+    // Each item is after its own heading, and the headings come in a fixed order.
+    expect(files.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      sessions.compareDocumentPosition(lectureRow) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      lectureRow.compareDocumentPosition(files) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows only a few of each type, so one big type cannot push the rest out of sight", async () => {
+    const { editor: target } = await openMany(notes(12));
+    target.commands.insertContent("@");
+    await heading("Notes");
+    // Five notes in all: the one every test has, and four of the twelve.
+    expect(screen.queryAllByText(/^Study note \d+$/)).toHaveLength(4);
+    // The files and sessions are still listed.
+    expect(screen.getByText("Report")).toBeTruthy();
+    expect(screen.getByText(/Physics, Mar 10/)).toBeTruthy();
+  });
+
+  it("puts the type with the best match first once something is typed", async () => {
+    const { editor: target } = await openMany([
+      makeEntity({ id: "wr", type: "note", title: "Weekly report", key: "NTE-30" }),
+    ]);
+    target.commands.insertContent("@report");
+    const files = await heading("Files");
+    const noteHeading = await heading("Notes");
+    // A file called "Report" starts with the word; the note only contains it.
+    expect(
+      files.compareDocumentPosition(noteHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("drops a heading nothing matches", async () => {
+    const { editor: target } = await openMany([]);
+    target.commands.insertContent("@report");
+    await heading("Files");
+    expect(screen.queryByText("Sessions")).toBeNull();
+    expect(screen.queryByText("Notes")).toBeNull();
+  });
+
+  it("still picks with the keyboard and the mouse across headings", async () => {
+    const { user, editor: target } = await openMany([]);
+    target.commands.insertContent("@");
+    await user.click(await screen.findByText("Report"));
+    await waitFor(() =>
+      expect(links(target)).toContainEqual({ text: "Report", href: "mention:f1" }),
+    );
   });
 });

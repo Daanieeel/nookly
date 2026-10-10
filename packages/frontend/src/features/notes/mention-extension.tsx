@@ -6,7 +6,7 @@ import { EntityIcon } from "#/components/entity-icon.tsx";
 import type { Entity, SessionOccurrence } from "#/lib/api/types.ts";
 import { compareKeys, matchesKey } from "#/lib/entity-key.ts";
 import { sessionMatches, sessionWhen } from "#/lib/session-search.ts";
-import { displayTitle, labelForType } from "#/lib/entity-title.ts";
+import { displayTitle, pluralLabel } from "#/lib/entity-title.ts";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
 
@@ -74,7 +74,8 @@ interface MentionItem {
 }
 
 function toListItem({ entity, page, canAddPage, paged, session }: MentionItem): SuggestionListItem {
-  const kind = `${entity.key} · ${labelForType(entity.type)}`;
+  // The type is the heading it is listed under, so the key is all that needs saying.
+  const kind = entity.key;
   const detail = session ? `${sessionWhen(session)} · ${kind}` : kind;
   return {
     key: entity.id,
@@ -82,8 +83,43 @@ function toListItem({ entity, page, canAddPage, paged, session }: MentionItem): 
     label: displayTitle(entity),
     // A page the query asked for shows only on a file, which is all that can take one.
     description: paged && page ? `Page ${page} · ${kind}` : detail,
+    group: pluralLabel(entity.type),
     actionLabel: canAddPage ? "# Page" : undefined,
   };
+}
+
+/// Shown per type, so one big type cannot push the others out of sight.
+const GROUP_CAP = 5;
+
+/// The order the types are listed in before anything is typed.
+const TYPE_ORDER = [
+  "note",
+  "jot",
+  "task",
+  "course",
+  "session",
+  "exam",
+  "assignment",
+  "file",
+  "bookmark",
+];
+
+/// Items grouped by type, each group adjacent (the list draws a heading per run). With
+/// nothing typed the types go in a fixed order; once something is typed the type of the
+/// best match comes first.
+function groupByType(items: MentionItem[], blank: boolean): MentionItem[] {
+  const groups = new Map<string, MentionItem[]>();
+  for (const item of items) {
+    const group = groups.get(item.entity.type) ?? [];
+    if (group.length < GROUP_CAP) groups.set(item.entity.type, [...group, item]);
+  }
+  const order = (type: string) => {
+    const index = TYPE_ORDER.indexOf(type);
+    return index === -1 ? TYPE_ORDER.length : index;
+  };
+  const ordered = [...groups.entries()];
+  if (blank) ordered.sort((a, b) => order(a[0]) - order(b[0]));
+  return ordered.flatMap(([, group]) => group);
 }
 
 /// Entities matching `query`, best first: a title that starts with it, then one that
@@ -132,19 +168,22 @@ export const Mention = Extension.create<MentionOptions>({
         allow: allowOutsideCode,
         items: ({ query }) => {
           const { search, page } = parseMentionQuery(query);
-          return rankMentions(this.options.getEntities(), search, this.options.sessionOf)
-            .slice(0, 8)
-            .map((entity) => {
-              const paged = entity.type === "file" && this.options.hasPages(entity);
-              return {
-                entity,
-                // Only a file with pages takes one; the number is dropped for anything else.
-                page: paged ? page : null,
-                paged,
-                canAddPage: paged && !query.includes("#"),
-                session: this.options.sessionOf(entity),
-              };
-            });
+          const ranked = rankMentions(
+            this.options.getEntities(),
+            search,
+            this.options.sessionOf,
+          ).map((entity) => {
+            const paged = entity.type === "file" && this.options.hasPages(entity);
+            return {
+              entity,
+              // Only a file with pages takes one; the number is dropped for anything else.
+              page: paged ? page : null,
+              paged,
+              canAddPage: paged && !query.includes("#"),
+              session: this.options.sessionOf(entity),
+            };
+          });
+          return groupByType(ranked, search.trim() === "");
         },
         command: ({ editor, range, props }) =>
           insertMention(editor, range, props.entity, props.page),
