@@ -25,6 +25,7 @@ export function SettingRow({
   settingId,
   control,
   footer,
+  hideTitle = false,
 }: {
   title: string;
   description: string;
@@ -33,6 +34,9 @@ export function SettingRow({
   control: ReactNode;
   /// Full width content under the row.
   footer?: ReactNode;
+  /// The title stays the row's accessible name and what search matches, but is not drawn:
+  /// for a row whose category heading already says it.
+  hideTitle?: boolean;
 }) {
   const labelId = useId();
   return (
@@ -45,14 +49,16 @@ export function SettingRow({
         <div className="flex min-w-0 flex-col gap-0.5">
           {settingId && <CopyIdButton settingId={settingId} />}
           <div className="flex items-center gap-1.5">
-            <span id={labelId} className="text-sm font-medium">
+            <span id={labelId} className={cn("text-sm font-medium", hideTitle && "sr-only")}>
               {title}
             </span>
             {settingId && <ResetButton settingId={settingId} title={title} />}
           </div>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
-        <div className="flex w-72 shrink-0 items-center justify-end">{control}</div>
+        {control != null && (
+          <div className="flex w-72 shrink-0 items-center justify-end">{control}</div>
+        )}
       </div>
       {footer}
     </fieldset>
