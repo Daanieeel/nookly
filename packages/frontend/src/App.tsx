@@ -1,6 +1,6 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useRef } from "react";
 import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
@@ -25,6 +25,7 @@ import { useExternalCalendarSync } from "#/features/sessions/external-calendars/
 import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
+import { useTabScroll } from "#/hooks/use-tab-scroll.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -75,6 +76,8 @@ function Shell() {
   useAutoBackup();
   useScopedSelectAll();
   usePastePlainText();
+  const pageRef = useRef<HTMLDivElement>(null);
+  useTabScroll(pageRef, "page");
   // Formatters read the date settings directly; re-rendering from the root applies
   // a changed format everywhere at once.
   useDateTimeSettings((s) => `${s.timezone}|${s.dateFormat}|${s.timeFormat}`);
@@ -115,6 +118,7 @@ function Shell() {
           <SidebarInset className="min-h-0 min-w-0">
             <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-md group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none">
               <div
+                ref={pageRef}
                 className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
               >
                 <ErrorBoundary

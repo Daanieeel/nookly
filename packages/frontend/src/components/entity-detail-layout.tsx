@@ -59,7 +59,9 @@ export function EntityDetailLayout({
   const bodyRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
-  useRememberedScroll(bodyRef, scrollKey ?? "", scrollKey !== undefined && scrollReady);
+  // A tab keeps where each of its pages was scrolled, unless the page keys it itself.
+  const activeTabId = useNavStore((s) => s.activeTabId);
+  useRememberedScroll(bodyRef, scrollKey ?? `tab:${activeTabId}:${entity.id}`, scrollReady);
 
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
   // A fresh page opens with an empty title, so land the cursor there to type. Only on
