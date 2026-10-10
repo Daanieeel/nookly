@@ -105,6 +105,7 @@ function SessionNotes({ occurrence }: { occurrence: SessionOccurrence }) {
     <MarkdownEditor
       key={occurrence.entity.id}
       value={occurrence.notes ?? ""}
+      spaceId={occurrence.entity.spaceId}
       onSave={(markdown) => save.mutate(markdown)}
       placeholder="Notes for this session…"
       className="min-h-10"

@@ -4,7 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
 import { cn } from "@nookly/ui/lib/utils";
-import { openExternalLink } from "#/features/notes/open-link.ts";
+import { openLink } from "#/features/notes/open-link.ts";
 import { Emoji } from "#/features/notes/emoji-extension.tsx";
 import { letterListExtensions } from "#/features/notes/ordered-list-extension.ts";
 
@@ -16,11 +16,14 @@ const SAVE_DELAY_MS = 600;
 /// typing stops, and right away when the editor loses focus or goes away.
 export function MarkdownEditor({
   value,
+  spaceId,
   onSave,
   placeholder,
   className,
 }: {
   value: string;
+  /// Where a mention in the text opens.
+  spaceId: string;
   onSave: (markdown: string) => void;
   placeholder?: string;
   className?: string;
@@ -29,6 +32,8 @@ export function MarkdownEditor({
   const timer = useRef<number | undefined>(undefined);
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
+  const spaceIdRef = useRef(spaceId);
+  spaceIdRef.current = spaceId;
 
   const editor = useEditor({
     content: value,
@@ -42,7 +47,7 @@ export function MarkdownEditor({
     ],
     editorProps: {
       attributes: { class: cn("tiptap-content min-h-32 text-sm/relaxed", className) },
-      handleClickOn: (_view, _pos, _node, _nodePos, event) => openExternalLink(event),
+      handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceIdRef.current),
     },
     onUpdate: ({ editor: current }) => {
       window.clearTimeout(timer.current);
