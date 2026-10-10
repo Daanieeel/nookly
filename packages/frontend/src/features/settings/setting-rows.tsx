@@ -23,6 +23,7 @@ import {
   useExternalCalendarStatus,
 } from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { AgentFilesTab } from "./AgentFilesTab.tsx";
 import { ShortcutControl } from "./ShortcutControl.tsx";
 import {
   NumberControl,
@@ -68,6 +69,7 @@ const SECTIONS = {
   calendar: ["Defaults", "Week and day", "Connections"],
   notes: ["Code", "Editing"],
   backup: ["Backup", "Restore"],
+  agent: ["Files"],
   shortcuts: [...SHORTCUT_SECTIONS],
 } satisfies Record<SettingCategory, string[]>;
 
@@ -145,6 +147,26 @@ const SETTING_UI = {
 
 /// Rows that open something or run something instead of storing a value.
 const ACTION_ROWS: RowSpec[] = [
+  {
+    id: "agent.files",
+    category: "agent",
+    section: "Files",
+    title: "Agent files",
+    description:
+      "Instructions for your own coding agent, kept as .md files. Open an agent inside this folder and tell it to read AGENTS.md. Nookly never runs an agent for you.",
+    synonyms: [
+      "ai",
+      "claude",
+      "llm",
+      "agents.md",
+      "instructions",
+      "prompt",
+      "assistant",
+      "coding agent",
+    ],
+    control: null,
+    footer: <AgentFilesTab />,
+  },
   {
     id: "calendar.connections",
     category: "calendar",

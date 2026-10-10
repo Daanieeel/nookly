@@ -150,6 +150,11 @@ export const qk = {
     root: ["backups"] as const,
     inFolder: (folder: string | null) => ["backups", folder] as const,
   },
+  agentFiles: {
+    dir: ["agent-files", "dir"] as const,
+    list: ["agent-files", "list"] as const,
+    file: (name: string) => ["agent-files", "file", name] as const,
+  },
   appVersion: ["app-version"] as const,
   appUpdate: ["app-update"] as const,
   cliInstallStatus: ["cli-install-status"] as const,

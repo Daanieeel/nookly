@@ -326,6 +326,12 @@ pub fn run() {
             commands::backup::list_backups,
             commands::backup::inspect_backup,
             commands::backup::restore_backup,
+            commands::agent_files::agent_dir_path,
+            commands::agent_files::list_agent_files,
+            commands::agent_files::read_agent_file,
+            commands::agent_files::write_agent_file,
+            commands::agent_files::delete_agent_file,
+            commands::agent_files::reveal_agent_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

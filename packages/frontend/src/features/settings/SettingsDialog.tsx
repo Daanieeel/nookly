@@ -4,6 +4,7 @@ import {
   IconKeyboard,
   IconNotes,
   IconPalette,
+  IconRobot,
   IconSearch,
   IconSettings,
   type Icon as TablerIcon,
@@ -36,6 +37,7 @@ const CATEGORY_META = {
   calendar: { label: "Calendar", icon: IconCalendar },
   notes: { label: "Notes", icon: IconNotes },
   backup: { label: "Backup", icon: IconArchive },
+  agent: { label: "Agent", icon: IconRobot },
   shortcuts: { label: "Shortcuts", icon: IconKeyboard },
 } satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
 

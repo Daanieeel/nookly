@@ -1,3 +1,4 @@
+pub mod agent_files;
 pub mod assignments;
 pub mod backup;
 pub mod bookmark_screenshot;
