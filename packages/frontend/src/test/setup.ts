@@ -16,6 +16,14 @@ class NoopResizeObserver {
 }
 globalThis.ResizeObserver ??= NoopResizeObserver;
 Element.prototype.scrollIntoView ??= () => {};
+// ProseMirror measures ranges when it scrolls the caret into view; there is no layout to measure.
+function emptyRects(): DOMRectList {
+  // SAFETY: an empty list is all any caller reads, and jsdom has no `DOMRectList` to construct.
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- jsdom lacks DOMRectList, so the empty list is cast through unknown
+  return Object.assign([], { item: () => null }) as unknown as DOMRectList;
+}
+Range.prototype.getClientRects ??= emptyRects;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.setPointerCapture ??= () => {};
 Element.prototype.releasePointerCapture ??= () => {};
