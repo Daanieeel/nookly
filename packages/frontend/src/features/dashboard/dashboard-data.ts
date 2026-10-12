@@ -8,10 +8,11 @@ import type { BriefingDeck } from "./briefing-clauses";
 import { listExamsAllSpaces } from "#/lib/api/exams.ts";
 import { countUnrefinedJotsAllSpaces, listUnrefinedJotsAllSpaces } from "#/lib/api/notes.ts";
 import { listSessionsBetween } from "#/lib/api/sessions.ts";
-import { listOpenTasksDueOrOverdue } from "#/lib/api/tasks.ts";
+import { listTaskStatuses, listTasksAll } from "#/lib/api/tasks.ts";
 import type { BriefingSession, Entity, PageSummary, Task } from "#/lib/api/types.ts";
 import { isDone } from "#/features/assignments/assignment-model.ts";
 import { toDay } from "#/features/tasks/task-model.ts";
+import { tasksFor } from "./dashboard-model";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -60,10 +61,14 @@ export function useDashboardData(): DashboardData {
   const now = useNow();
   const today = toDay(now);
 
-  const { data: tasks = [] } = useQuery({
-    queryKey: qk.tasks.openDueOrOverdueList,
-    queryFn: listOpenTasksDueOrOverdue,
+  // Worked out here, against the local day, not by the backend: its "today" is UTC, which
+  // is a day behind for hours around midnight and would hide what is due today.
+  const { data: allTasks = [] } = useQuery({ queryKey: qk.tasks.all, queryFn: listTasksAll });
+  const { data: statuses = [] } = useQuery({
+    queryKey: qk.tasks.statuses,
+    queryFn: listTaskStatuses,
   });
+  const tasks = tasksFor("today", allTasks, statuses, today);
   const { data: sessions = [] } = useQuery({
     queryKey: qk.sessions.todayBetween(today, today),
     queryFn: () => listSessionsBetween(today, today),
