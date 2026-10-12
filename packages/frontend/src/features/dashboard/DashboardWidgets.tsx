@@ -16,7 +16,7 @@ import { TasksPanel } from "./TasksPanel";
 /// scrolls when the window is shorter than the left column.
 export function DashboardWidgets({ data }: { data: DashboardData }) {
   return (
-    <div className="grid grid-cols-2 gap-x-10">
+    <div className="grid grid-cols-2 gap-x-10 lg:grid-cols-[3fr_2fr]">
       <div className="flex min-w-0 flex-col gap-4">
         <AssignmentsPanel today={data.today} />
         <TasksPanel today={data.today} />
