@@ -10,6 +10,11 @@ export function listDeckSummaries(spaceId: string): Promise<DeckSummary[]> {
   return invoke("list_deck_summaries", { spaceId });
 }
 
+/// Every Space's decks with their card counts, for the Dashboard.
+export function listDeckSummariesAllSpaces(): Promise<DeckSummary[]> {
+  return invoke("list_deck_summaries_all_spaces");
+}
+
 /// Files the deck under an Exam, or under none with `null`.
 export function setDeckExam(deckEntityId: string, examId: string | null): Promise<void> {
   return invoke("set_deck_exam", { deckEntityId, examId });

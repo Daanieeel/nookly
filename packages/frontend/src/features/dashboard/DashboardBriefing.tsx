@@ -62,7 +62,7 @@ export function DashboardBriefing({ data }: { data: DashboardData }) {
     briefing.clauses;
 
   return (
-    <div className="flow-root mb-8">
+    <div className="flow-root mb-4">
       <DashboardMascotCorner />
       <p className="text-2xl/relaxed text-foreground">
         <span className="font-semibold">{briefing.greeting}!</span>{" "}

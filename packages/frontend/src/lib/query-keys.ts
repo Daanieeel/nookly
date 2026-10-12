@@ -107,6 +107,7 @@ export const qk = {
   decks: {
     ...spaceList("decks"),
     summaries: ["deck-summaries"] as const,
+    summariesAll: ["deck-summaries", "all"] as const,
     summariesBySpace: (spaceId: string) => ["deck-summaries", spaceId] as const,
     cards: (deckId: string) => ["cards", deckId] as const,
     queue: (deckId: string) => ["study-queue", deckId] as const,

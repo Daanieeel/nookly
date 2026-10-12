@@ -28,6 +28,12 @@ pub fn list_deck_summaries(state: State<DbState>, space_id: String) -> AppResult
 }
 
 #[tauri::command]
+pub fn list_deck_summaries_all_spaces(state: State<DbState>) -> AppResult<Vec<DeckSummary>> {
+    let conn = state.0.lock().unwrap();
+    decks::list_deck_summaries_all_spaces(&conn)
+}
+
+#[tauri::command]
 pub fn set_deck_exam(
     state: State<DbState>,
     deck_entity_id: String,

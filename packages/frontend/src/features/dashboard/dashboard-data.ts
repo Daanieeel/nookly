@@ -1,21 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { addDays, endOfWeek, startOfWeek } from "date-fns";
 import { useEffect, useState } from "react";
 import { listAssignmentsAllSpaces } from "#/lib/api/assignments.ts";
 import { listExamsAllSpaces } from "#/lib/api/exams.ts";
 import { countUnrefinedJotsAllSpaces, listUnrefinedJotsAllSpaces } from "#/lib/api/notes.ts";
 import { listSessionsBetween } from "#/lib/api/sessions.ts";
-import { listOpenTasksDueOrOverdue, listTaskStatuses } from "#/lib/api/tasks.ts";
-import type { BriefingSession, Entity, PageSummary, Task, TaskStatus } from "#/lib/api/types.ts";
+import { listOpenTasksDueOrOverdue } from "#/lib/api/tasks.ts";
+import type { BriefingSession, Entity, PageSummary, Task } from "#/lib/api/types.ts";
 import { isDone } from "#/features/assignments/assignment-model.ts";
-import { findNextSession } from "#/features/sessions/next-session.ts";
-import { parseDay, toDay } from "#/features/tasks/task-model.ts";
+import { toDay } from "#/features/tasks/task-model.ts";
 import { qk } from "#/lib/query-keys.ts";
 
-/// How far ahead "next up" looks for a Session. Longer than a week.
-const LOOKAHEAD_DAYS = 30;
-/// Rows the Unrefined Jots widget shows.
-export const JOT_LIMIT = 5;
+/// Rows the Jots panel shows.
+const JOT_LIMIT = 3;
 
 /// An Exam or Assignment with a date whose status isn't finished: the two kinds
 /// of deadline. A grade alone doesn't close one, its status does.
@@ -30,17 +26,10 @@ export interface DashboardData {
   now: Date;
   today: string;
   tasks: Task[];
-  statuses: TaskStatus[];
   /// Today's Sessions, earliest first, whether or not they've started yet.
   todaySessions: BriefingSession[];
-  /// The first Session that hasn't started yet.
-  nextSession: BriefingSession | undefined;
-  weekSessions: BriefingSession[];
   /// Every deadline from today on, soonest first.
   deadlines: Deadline[];
-  weekDeadlines: Deadline[];
-  weekStart: Date;
-  weekEnd: Date;
   jots: PageSummary[];
   jotCount: number;
 }
@@ -56,28 +45,19 @@ function useNow(): Date {
   return now;
 }
 
-/// The one source both the briefing sentence and the widgets read, so the prose
-/// and the lists always describe the same facts.
+/// The one source the briefing sentence and the Jots panel read, so the prose and
+/// the list always describe the same facts.
 export function useDashboardData(): DashboardData {
   const now = useNow();
   const today = toDay(now);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-  const from = toDay(weekStart);
-  // Always past `weekEnd`, so one range covers both this week and "next up".
-  const to = toDay(addDays(now, LOOKAHEAD_DAYS));
 
   const { data: tasks = [] } = useQuery({
     queryKey: qk.tasks.openDueOrOverdueList,
     queryFn: listOpenTasksDueOrOverdue,
   });
-  const { data: statuses = [] } = useQuery({
-    queryKey: qk.tasks.statuses,
-    queryFn: listTaskStatuses,
-  });
   const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.todayBetween(from, to),
-    queryFn: () => listSessionsBetween(from, to),
+    queryKey: qk.sessions.todayBetween(today, today),
+    queryFn: () => listSessionsBetween(today, today),
   });
   const { data: exams = [] } = useQuery({ queryKey: qk.exams.all, queryFn: listExamsAllSpaces });
   const { data: assignments = [] } = useQuery({
@@ -94,8 +74,6 @@ export function useDashboardData(): DashboardData {
   });
 
   const todaySessions = sessions.filter((s) => s.date === today);
-  const nextSession = findNextSession(sessions, now);
-  const weekSessions = sessions.filter((s) => parseDay(s.date) <= weekEnd);
 
   const deadlines: Deadline[] = [
     ...exams.flatMap((e) =>
@@ -111,20 +89,13 @@ export function useDashboardData(): DashboardData {
   ]
     .filter((d) => d.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
-  const weekDeadlines = deadlines.filter((d) => parseDay(d.date) <= weekEnd);
 
   return {
     now,
     today,
     tasks,
-    statuses,
     todaySessions,
-    nextSession,
-    weekSessions,
     deadlines,
-    weekDeadlines,
-    weekStart,
-    weekEnd,
     jots,
     jotCount,
   };

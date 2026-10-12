@@ -132,12 +132,6 @@ function DeckTile({ deck, exam }: { deck: DeckSummary; exam: Exam | undefined })
   const { entity, stats } = deck;
   const toStudy = studyCount(stats);
   const open = () => openEntity(entity.id, entity.spaceId);
-  const counts = [
-    { group: "new", value: stats.new, label: "new" },
-    { group: "learning", value: stats.learning, label: "learning" },
-    { group: "review", value: stats.due, label: "due" },
-  ] as const;
-
   return (
     <div className="group relative" {...entityTarget(entity)}>
       <button
@@ -158,47 +152,69 @@ function DeckTile({ deck, exam }: { deck: DeckSummary; exam: Exam | undefined })
           <span className="truncate text-sm font-medium">{displayTitle(entity)}</span>
           {exam && <ExamLine exam={exam} />}
         </div>
-        <div className="flex items-center gap-3 text-xs tabular-nums">
-          {counts.map((c) => (
-            <span
-              key={c.group}
-              className={cn(
-                "flex items-center gap-1",
-                c.value > 0 ? STATE_TONE[c.group] : "text-muted-foreground/60",
-              )}
-            >
-              <span className="font-medium">{c.value}</span>
-              <span className="text-muted-foreground">{c.label}</span>
-            </span>
-          ))}
-        </div>
+        <DeckCounts stats={stats} />
       </button>
       {toStudy > 0 && (
         <span className="absolute top-3 right-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                aria-label={`Study ${toStudy} cards of ${displayTitle(entity)}`}
-                onClick={() => {
-                  requestStudy(entity.id);
-                  open();
-                }}
-              >
-                <IconPlayerPlayFilled />
-                {toStudy}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Study Now</TooltipContent>
-          </Tooltip>
+          <StudyButton deck={deck} />
         </span>
       )}
     </div>
   );
 }
 
+/// The new, learning and due card counts, in the Anki colors.
+export function DeckCounts({ stats }: { stats: DeckSummary["stats"] }) {
+  const counts = [
+    { group: "new", value: stats.new, label: "new" },
+    { group: "learning", value: stats.learning, label: "learning" },
+    { group: "review", value: stats.due, label: "due" },
+  ] as const;
+  return (
+    <div className="flex items-center gap-3 text-xs tabular-nums">
+      {counts.map((c) => (
+        <span
+          key={c.group}
+          className={cn(
+            "flex items-center gap-1",
+            c.value > 0 ? STATE_TONE[c.group] : "text-muted-foreground/60",
+          )}
+        >
+          <span className="font-medium">{c.value}</span>
+          <span className="text-muted-foreground">{c.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/// Opens the deck straight into a study session.
+export function StudyButton({ deck }: { deck: DeckSummary }) {
+  const openEntity = useNavStore((s) => s.openEntity);
+  const { entity } = deck;
+  const toStudy = studyCount(deck.stats);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="sm"
+          aria-label={`Study ${toStudy} cards of ${displayTitle(entity)}`}
+          onClick={() => {
+            requestStudy(entity.id);
+            openEntity(entity.id, entity.spaceId);
+          }}
+        >
+          <IconPlayerPlayFilled />
+          {toStudy}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Study Now</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /// The Exam a deck prepares for, with how close it is.
-function ExamLine({ exam }: { exam: Exam }) {
+export function ExamLine({ exam }: { exam: Exam }) {
   const days = exam.examDate ? differenceInCalendarDays(parseISO(exam.examDate), new Date()) : null;
   const when =
     days === null || days < 0

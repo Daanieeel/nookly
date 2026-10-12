@@ -212,6 +212,22 @@ fn summaries_carry_exam_and_card_counts() {
 }
 
 #[test]
+fn summaries_across_spaces_cover_every_space_and_skip_trashed_decks() {
+    let conn = test_conn();
+    let a = test_space(&conn, "A");
+    let b = test_space(&conn, "B");
+    let d1 = deck(&conn, &a.id, "One");
+    let d2 = deck(&conn, &b.id, "Two");
+    let gone = deck(&conn, &b.id, "Gone");
+    card(&conn, &d2.id, "x");
+    crate::db::entities::soft_delete_entity(&conn, &gone.id).unwrap();
+    let all = list_deck_summaries_all_spaces(&conn).unwrap();
+    let ids: Vec<_> = all.iter().map(|s| s.entity.id.as_str()).collect();
+    assert_eq!(ids, vec![d1.id.as_str(), d2.id.as_str()]);
+    assert_eq!(all[1].stats.total, 1);
+}
+
+#[test]
 fn a_trashed_deck_keeps_its_cards_and_restores_with_them() {
     let conn = test_conn();
     let space = test_space(&conn, "S");

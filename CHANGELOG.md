@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.0 (2026-10-12)
+
+### Changed
+
+- **A new Dashboard.** Below the greeting, Assignments, Tasks, Decks, Jots and today's calendar now sit side by side. Assignments and Tasks have tabs and show your five most important items, decks with cards to study today show a play button, and Jots list the oldest first.
+- **Show more buttons are quieter.** Longer lists end with a faded button that opens the full list.
+
 ## 0.32.6 (2026-10-11)
 
 ### Changed

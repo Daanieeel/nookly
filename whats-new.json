@@ -1,6 +1,26 @@
 {
   "versions": [
     {
+      "version": "0.33.0",
+      "date": "2026-10-12",
+      "title": "A Dashboard for your day",
+      "summary": "Everything for today.",
+      "highlights": [
+        {
+          "title": "Your day at a glance",
+          "description": "Assignments, Tasks, Decks, Jots and today's calendar sit side by side, each showing what matters most first.",
+          "icon": "sparkles",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Decks with cards to study today show a play button and leave once you are done.",
+          "Jots now list the oldest first."
+        ]
+      }
+    },
+    {
       "version": "0.32.6",
       "date": "2026-10-11",
       "title": "Agent files in folders",

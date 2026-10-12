@@ -106,6 +106,27 @@ pub fn list_deck_summaries(conn: &Connection, space_id: &str) -> AppResult<Vec<D
         .collect()
 }
 
+/// Every Space's decks, oldest first, for the Dashboard's study cards.
+pub fn list_deck_summaries_all_spaces(conn: &Connection) -> AppResult<Vec<DeckSummary>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.* FROM entities e JOIN index_card_decks d ON d.entity_id = e.id
+         WHERE e.deleted_at IS NULL ORDER BY e.created_at ASC",
+    )?;
+    let decks = stmt
+        .query_map([], crate::db::entities::row_to_entity)?
+        .collect::<Result<Vec<_>, _>>()?;
+    decks
+        .into_iter()
+        .map(|entity| {
+            Ok(DeckSummary {
+                exam_id: deck_exam_id(conn, &entity.id)?,
+                stats: deck_stats(conn, &entity.id)?,
+                entity,
+            })
+        })
+        .collect()
+}
+
 pub fn list_decks(conn: &Connection, space_id: &str) -> AppResult<Vec<Entity>> {
     let mut stmt = conn.prepare(
         "SELECT e.* FROM entities e JOIN index_card_decks d ON d.entity_id = e.id

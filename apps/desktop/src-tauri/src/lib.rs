@@ -246,6 +246,7 @@ pub fn run() {
             commands::decks::create_deck,
             commands::decks::list_decks,
             commands::decks::list_deck_summaries,
+            commands::decks::list_deck_summaries_all_spaces,
             commands::decks::set_deck_exam,
             commands::decks::deck_stats,
             commands::decks::create_card,
