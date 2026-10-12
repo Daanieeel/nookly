@@ -2,7 +2,7 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.33.0 (2026-10-12)
+## 0.33.0 (2026-10-13)
 
 ### Changed
 
@@ -10,6 +10,13 @@ All notable changes to Nookly are listed here.
 - **Due dates on the Dashboard read naturally.** Within 10 days they say "Today", "Tomorrow" or "in 4 days", and further out they show the date.
 - **The Dashboard sentence reacts to your day.** It greets you by name, skips sessions that already started, opens with what matters most (a session about to begin, an exam today or tomorrow), mentions cards to study and your oldest Jot, and folds everything that is quiet into one friendly line of links. Set your name in Settings under General.
 - **Show more buttons are quieter.** Longer lists end with a faded button that opens the full list.
+- **Dashboard links open the right page.** Counts in the sentence and "Show more" open Tasks, Assignments or Jots with the matching filters already applied.
+- **Assignments "For today" is for the lecture.** It lists only assignments tied to a session that is today, including ones already submitted or graded, so you can find what you present.
+- **Space and ID on the Dashboard.** Assignments, Tasks, Jots and decks show their Space, and rows have a copyable ID.
+
+### Fixed
+
+- **Tasks due today no longer go missing around midnight.** The Dashboard sentence could say nothing was due for a couple of hours after midnight.
 
 ## 0.32.6 (2026-10-11)
 

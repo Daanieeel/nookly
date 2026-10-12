@@ -2,7 +2,7 @@
   "versions": [
     {
       "version": "0.33.0",
-      "date": "2026-10-12",
+      "date": "2026-10-13",
       "title": "A Dashboard for your day",
       "summary": "Everything for today.",
       "highlights": [
@@ -17,7 +17,13 @@
         "Improved": [
           "Decks with cards to study today show a play button and leave once you are done.",
           "Jots now list the oldest first.",
-          "The sentence at the top of the Dashboard greets you by name, leaves out sessions that already started and points out what matters most. Set your name in Settings under General."
+          "The sentence at the top of the Dashboard greets you by name, leaves out sessions that already started and points out what matters most. Set your name in Settings under General.",
+          "Dashboard links and Show more open Tasks, Assignments or Jots with the matching filters already applied.",
+          "Assignments \"For today\" lists only those tied to a session today, including submitted and graded ones, for presenting in lectures.",
+          "Dashboard rows show their Space and a copyable ID, and due dates read as Today, Tomorrow or in 4 days."
+        ],
+        "Fixed": [
+          "Tasks due today no longer go missing from the Dashboard sentence for a couple of hours after midnight."
         ]
       }
     },
