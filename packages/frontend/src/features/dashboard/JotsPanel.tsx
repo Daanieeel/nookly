@@ -15,7 +15,7 @@ import type { PageSummary } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { DashboardData } from "./dashboard-data";
-import { EmptyRow, Panel, ShowMore } from "./DashboardPanel";
+import { EmptyRow, ShowMore, TabbedPanel } from "./DashboardPanel";
 import { entityLink, listLink, useOpenTarget } from "./dashboard-links";
 
 function jotSnippet(jot: PageSummary): string {
@@ -88,14 +88,12 @@ export function JotsPanel({ data }: { data: DashboardData }) {
   const open = useOpenTarget();
   const { jots, jotCount } = data;
   return (
-    <Panel
+    <TabbedPanel
       icon={IconFeather}
       title="Jots"
-      action={
-        jotCount > 0 && (
-          <span className="text-xs text-muted-foreground tabular-nums">{jotCount}</span>
-        )
-      }
+      tabs={[{ id: "refine", label: "To be refined", count: jotCount }]}
+      tab="refine"
+      onTabChange={() => {}}
     >
       {jots.length === 0 && (
         <EmptyRow icon={IconSparkles}>Nothing waiting. Every Jot is refined.</EmptyRow>
@@ -116,6 +114,6 @@ export function JotsPanel({ data }: { data: DashboardData }) {
           )
         }
       />
-    </Panel>
+    </TabbedPanel>
   );
 }

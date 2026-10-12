@@ -10,7 +10,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { studyCount } from "#/features/exams/deck/deck-data.ts";
 import { DeckStack } from "#/features/exams/deck/index-card.tsx";
 import { DeckCounts, ExamLine, StudyButton } from "#/features/exams/DecksListView.tsx";
-import { EmptyRow, Panel, ShowMore } from "./DashboardPanel";
+import { EmptyRow, ShowMore, TabbedPanel } from "./DashboardPanel";
 import { listLink, useOpenTarget } from "./dashboard-links";
 
 /// Deck cards shown before "Show more".
@@ -59,7 +59,13 @@ export function DecksPanel() {
     );
 
   return (
-    <Panel icon={IconCards} title="Decks">
+    <TabbedPanel
+      icon={IconCards}
+      title="Decks"
+      tabs={[{ id: "today", label: "Learn today", count: ready.length }]}
+      tab="today"
+      onTabChange={() => {}}
+    >
       {ready.length === 0 ? (
         <EmptyRow icon={IconSparkles}>Nothing to study. Every deck is caught up.</EmptyRow>
       ) : (
@@ -84,6 +90,6 @@ export function DecksPanel() {
           )
         }
       />
-    </Panel>
+    </TabbedPanel>
   );
 }
