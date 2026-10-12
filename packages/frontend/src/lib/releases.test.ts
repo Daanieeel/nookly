@@ -78,11 +78,23 @@ describe("releasesSince", () => {
     expect(versions("0.30.2", "0.30.4")).toEqual([]);
   });
 
-  it("stops after a few releases and says how many it left out", () => {
-    const many = { versions: Array.from({ length: 7 }, (_, i) => entry(`0.${40 - i}.0`)) };
-    const result = releasesSince("0.1.0", "0.40.0", many, "");
+  it("stops after a great many releases and says how many it left out", () => {
+    const total = MAX_RELEASES + 3;
+    const many = { versions: Array.from({ length: total }, (_, i) => entry(`0.${total - i}.0`)) };
+    const result = releasesSince("0.0.1", `0.${total}.0`, many, "");
     expect(result.releases).toHaveLength(MAX_RELEASES);
-    expect(result.hidden).toBe(7 - MAX_RELEASES);
-    expect(result.releases[0]?.version).toBe("0.40.0");
+    expect(result.hidden).toBe(3);
+    expect(result.releases[0]?.version).toBe(`0.${total}.0`);
+  });
+
+  it("lists every release from 0.18.46 on for a long jump", () => {
+    const changelog = Array.from(
+      { length: 60 },
+      (_, i) =>
+        `## 0.${18 + Math.floor(i / 10)}.${(i % 10) + 47} (2026-01-01)\n\n### Added\n\n- x\n`,
+    ).join("\n");
+    const result = releasesSince("0.18.46", "0.23.56", undefined, changelog);
+    expect(result.releases.length + result.hidden).toBe(60);
+    expect(result.hidden).toBe(0);
   });
 });

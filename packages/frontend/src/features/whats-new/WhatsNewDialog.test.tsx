@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CHANGELOG_URL } from "#/lib/changelog.ts";
+import { MAX_RELEASES } from "#/lib/releases.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { displayText } from "#/lib/shortcuts.ts";
@@ -252,22 +253,23 @@ describe("WhatsNewDialog", () => {
       expect(await screen.findByText("Written only in the changelog")).toBeTruthy();
     });
 
-    it("stops after a few releases and points at the full changelog", async () => {
+    it("stops after a great many releases and points at the full changelog", async () => {
+      const total = MAX_RELEASES + 3;
       const entry = (n: number) => ({
-        version: `0.${40 - n}.0`,
+        version: `0.${total - n}.0`,
         date: "2026-01-01",
-        title: `Release ${40 - n}`,
+        title: `Release ${total - n}`,
         summary: "S",
         highlights: [],
         more: {},
       });
-      const many = { versions: Array.from({ length: 7 }, (_, i) => entry(i)) };
-      preferences.set(STORAGE_KEYS.whatsNewSince, "0.1.0");
-      mockCommand("plugin:app|version", "0.40.0");
+      const many = { versions: Array.from({ length: total }, (_, i) => entry(i)) };
+      preferences.set(STORAGE_KEYS.whatsNewSince, "0.0.1");
+      mockCommand("plugin:app|version", `0.${total}.0`);
       renderWithProviders(<WhatsNewDialog notes={many} changelog="" />);
       act(() => useNavStore.getState().setWhatsNewOpen(true));
-      expect(await screen.findByText("Release 40")).toBeTruthy();
-      expect(screen.getAllByRole("heading", { name: /^Version / })).toHaveLength(4);
+      expect(await screen.findByText(`Release ${total}`)).toBeTruthy();
+      expect(screen.getAllByRole("heading", { name: /^Version / })).toHaveLength(MAX_RELEASES);
       expect(screen.getByText(/and 3 earlier versions/)).toBeTruthy();
     });
 

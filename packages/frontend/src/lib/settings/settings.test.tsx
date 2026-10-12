@@ -89,7 +89,10 @@ async function launch() {
   return { ...mod, preferences };
 }
 
-const MARKER = { "nookly:file-viewer-theme-backfill": "1" };
+const MARKER = {
+  "nookly:file-viewer-theme-backfill": "1",
+  "nookly:last-seen-version-backfill": "1",
+};
 
 describe("settings", () => {
   it("falls back to the defaults before and without a file", async () => {
