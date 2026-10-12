@@ -14,7 +14,17 @@ import { requestFilters } from "#/features/views/pending-filters.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { EmptyRow, LIST_LIMIT, Row, RowList, ShowMore, TabbedPanel } from "./DashboardPanel";
+import { SpaceChip } from "#/components/space-chip.tsx";
+import type { Space } from "#/lib/api/types.ts";
+import {
+  EmptyRow,
+  useSpaceById,
+  LIST_LIMIT,
+  Row,
+  RowList,
+  ShowMore,
+  TabbedPanel,
+} from "./DashboardPanel";
 import { type AssignmentTab, assignmentFilters, assignmentsFor } from "./dashboard-model";
 
 const TABS: { id: AssignmentTab; label: string }[] = [
@@ -42,7 +52,13 @@ export function dueText(day: string): DueText {
   return { text: formatShortDate(day), overdue: false };
 }
 
-function AssignmentRow({ assignment }: { assignment: Assignment }) {
+function AssignmentRow({
+  assignment,
+  space,
+}: {
+  assignment: Assignment;
+  space: Space | undefined;
+}) {
   const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = assignment;
   const status = assignmentStatus(assignment.status);
@@ -53,7 +69,12 @@ function AssignmentRow({ assignment }: { assignment: Assignment }) {
       icon={<TaskStatusIcon status={status} kind={statusKindOf(status.id)} />}
       onClick={() => openEntity(entity.id, entity.spaceId)}
       {...entityTarget(entity)}
-      meta={due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
+      meta={
+        <>
+          {space && <SpaceChip space={space} />}
+          {due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
+        </>
+      }
     >
       <span className="truncate">{displayTitle(entity)}</span>
     </Row>
@@ -64,6 +85,7 @@ function AssignmentRow({ assignment }: { assignment: Assignment }) {
 /// then the closest due date.
 export function AssignmentsPanel({ today }: { today: string }) {
   const setView = useNavStore((s) => s.setView);
+  const spaces = useSpaceById();
   const [tab, setTab] = useState<AssignmentTab>("today");
   const { data: all = [] } = useQuery({
     queryKey: qk.assignments.all,
@@ -85,7 +107,7 @@ export function AssignmentsPanel({ today }: { today: string }) {
           <EmptyRow icon={IconMoodSmile}>Nothing here. Enjoy the calm.</EmptyRow>
         )}
         {items.slice(0, LIST_LIMIT).map((a) => (
-          <AssignmentRow key={a.entity.id} assignment={a} />
+          <AssignmentRow key={a.entity.id} assignment={a} space={spaces.get(a.entity.spaceId)} />
         ))}
         <ShowMore
           count={items.length - LIST_LIMIT}

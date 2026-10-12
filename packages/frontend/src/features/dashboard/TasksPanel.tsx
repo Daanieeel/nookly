@@ -5,7 +5,7 @@ import { entityTarget } from "#/components/context-menu/registry.ts";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { sortStatuses, statusKind } from "#/features/tasks/task-model.ts";
 import { listTaskStatuses, listTasksAll } from "#/lib/api/tasks.ts";
-import type { Task, TaskStatus } from "#/lib/api/types.ts";
+import type { Space, Task, TaskStatus } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { requestFilters } from "#/features/views/pending-filters.ts";
@@ -13,7 +13,16 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { dueText } from "./AssignmentsPanel";
-import { EmptyRow, LIST_LIMIT, Row, RowList, ShowMore, TabbedPanel } from "./DashboardPanel";
+import { SpaceChip } from "#/components/space-chip.tsx";
+import {
+  EmptyRow,
+  useSpaceById,
+  LIST_LIMIT,
+  Row,
+  RowList,
+  ShowMore,
+  TabbedPanel,
+} from "./DashboardPanel";
 import { type TaskTab, taskFilters, tasksFor } from "./dashboard-model";
 
 const TABS: { id: TaskTab; label: string }[] = [
@@ -23,7 +32,15 @@ const TABS: { id: TaskTab; label: string }[] = [
   { id: "noDate", label: "No date" },
 ];
 
-function TaskRow({ task, statuses }: { task: Task; statuses: TaskStatus[] }) {
+function TaskRow({
+  task,
+  statuses,
+  space,
+}: {
+  task: Task;
+  statuses: TaskStatus[];
+  space: Space | undefined;
+}) {
   const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = task;
   const status = statuses.find((s) => s.id === task.statusId);
@@ -40,7 +57,12 @@ function TaskRow({ task, statuses }: { task: Task; statuses: TaskStatus[] }) {
       }
       onClick={() => openEntity(entity.id, entity.spaceId)}
       {...entityTarget(entity)}
-      meta={due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
+      meta={
+        <>
+          {space && <SpaceChip space={space} />}
+          {due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
+        </>
+      }
     >
       <span className="truncate">{displayTitle(entity)}</span>
     </Row>
@@ -50,6 +72,7 @@ function TaskRow({ task, statuses }: { task: Task; statuses: TaskStatus[] }) {
 /// Open tasks that need attention, soonest due first.
 export function TasksPanel({ today }: { today: string }) {
   const setView = useNavStore((s) => s.setView);
+  const spaces = useSpaceById();
   const [tab, setTab] = useState<TaskTab>("today");
   const { data: all = [] } = useQuery({ queryKey: qk.tasks.all, queryFn: listTasksAll });
   const { data: rawStatuses = [] } = useQuery({
@@ -67,7 +90,12 @@ export function TasksPanel({ today }: { today: string }) {
           <EmptyRow icon={IconMoodSmile}>Nothing here. Enjoy the calm.</EmptyRow>
         )}
         {items.slice(0, LIST_LIMIT).map((t) => (
-          <TaskRow key={t.entity.id} task={t} statuses={statuses} />
+          <TaskRow
+            key={t.entity.id}
+            task={t}
+            statuses={statuses}
+            space={spaces.get(t.entity.spaceId)}
+          />
         ))}
         <ShowMore
           count={items.length - LIST_LIMIT}

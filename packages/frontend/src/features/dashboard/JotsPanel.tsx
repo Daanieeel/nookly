@@ -11,11 +11,12 @@ import { entityTarget } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
 import { previewLines } from "#/features/notes/note-preview.ts";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
-import type { PageSummary } from "#/lib/api/types.ts";
+import type { PageSummary, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { DashboardData } from "./dashboard-data";
-import { EmptyRow, ShowMore, TabbedPanel } from "./DashboardPanel";
+import { SpaceChip } from "#/components/space-chip.tsx";
+import { EmptyRow, ShowMore, TabbedPanel, useSpaceById } from "./DashboardPanel";
 import { entityLink, listLink, useOpenTarget } from "./dashboard-links";
 
 function jotSnippet(jot: PageSummary): string {
@@ -57,7 +58,7 @@ function RefineButton({ jot }: { jot: PageSummary }) {
   );
 }
 
-function JotRow({ jot }: { jot: PageSummary }) {
+function JotRow({ jot, space }: { jot: PageSummary; space: Space | undefined }) {
   const open = useOpenTarget();
   const snippet = jotSnippet(jot);
   return (
@@ -78,6 +79,7 @@ function JotRow({ jot }: { jot: PageSummary }) {
           {snippet}
         </span>
       </button>
+      {space && <SpaceChip space={space} />}
       <RefineButton jot={jot} />
     </div>
   );
@@ -86,6 +88,7 @@ function JotRow({ jot }: { jot: PageSummary }) {
 /// The oldest Jots still waiting to be refined, the most overdue first.
 export function JotsPanel({ data }: { data: DashboardData }) {
   const open = useOpenTarget();
+  const spaces = useSpaceById();
   const { jots, jotCount } = data;
   return (
     <TabbedPanel
@@ -100,7 +103,7 @@ export function JotsPanel({ data }: { data: DashboardData }) {
       )}
       <div className="flex flex-col">
         {jots.map((jot) => (
-          <JotRow key={jot.entity.id} jot={jot} />
+          <JotRow key={jot.entity.id} jot={jot} space={spaces.get(jot.entity.spaceId)} />
         ))}
       </div>
       <ShowMore

@@ -7,8 +7,17 @@ import {
   PageTabsList,
   PageTabsTrigger,
 } from "@nookly/ui/components/page-tabs";
+import { useQuery } from "@tanstack/react-query";
 import { EntityKeyCopyInline } from "#/components/entity-key.tsx";
+import { listSpaces } from "#/lib/api/spaces.ts";
+import { qk } from "#/lib/query-keys.ts";
 import { type ContextTargetProps } from "#/components/context-menu/registry.ts";
+
+/// Every Space by id, to tag each resource with the one it lives in.
+export function useSpaceById() {
+  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  return new Map(spaces.map((space) => [space.id, space]));
+}
 
 /// Rows a list panel shows before "Show more".
 export const LIST_LIMIT = 5;
