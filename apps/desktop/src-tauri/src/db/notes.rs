@@ -129,8 +129,8 @@ pub fn count_unrefined_jots_all_spaces(conn: &Connection) -> AppResult<i64> {
     Ok(count)
 }
 
-/// Unrefined Jots across every Space, most recently edited first, with a content
-/// preview each: the Dashboard's refine queue.
+/// Unrefined Jots across every Space, oldest first (the most overdue to refine), with
+/// a content preview each: the Dashboard's refine queue.
 pub fn list_unrefined_jots_all_spaces(
     conn: &Connection,
     limit: i64,
@@ -141,7 +141,7 @@ pub fn list_unrefined_jots_all_spaces(
          LEFT JOIN (SELECT entity_id, MAX(updated_at) AS updated_at FROM blocks GROUP BY entity_id) b
            ON b.entity_id = e.id
          WHERE e.type = 'jot' AND e.deleted_at IS NULL AND NOT EXISTS ({LINKED_NOTE})
-         ORDER BY last_edited_at DESC
+         ORDER BY e.created_at ASC, e.id ASC
          LIMIT ?1"
     ))?;
     let mut summaries = stmt
@@ -1355,6 +1355,28 @@ mod tests {
         assert!(alone.linked.is_empty() && alone.session.is_none());
         assert_eq!(count_unrefined_jots(&conn, &space.id).unwrap(), 1);
         assert!(summaries.iter().all(|s| s.entity.id != other.id));
+    }
+
+    #[test]
+    fn unrefined_jots_across_spaces_list_the_oldest_first() {
+        let conn = crate::db::test_conn();
+        let space =
+            crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+        let newer = create_page(&conn, space.id.clone(), "jot", "".into()).unwrap();
+        let older = create_page(&conn, space.id.clone(), "jot", "".into()).unwrap();
+        conn.execute(
+            "UPDATE entities SET created_at = '2020-01-01T00:00:00Z' WHERE id = ?1",
+            params![older.id],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE entities SET created_at = '2021-01-01T00:00:00Z' WHERE id = ?1",
+            params![newer.id],
+        )
+        .unwrap();
+        let jots = list_unrefined_jots_all_spaces(&conn, 10).unwrap();
+        let ids: Vec<_> = jots.iter().map(|j| j.entity.id.as_str()).collect();
+        assert_eq!(ids, vec![older.id.as_str(), newer.id.as_str()]);
     }
 
     #[test]

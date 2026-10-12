@@ -114,9 +114,11 @@ The exceptions are Dashboard, Pinned, and Search, plus Recents, which was added 
 
 ---
 
-### Dashboard widgets: Today, Unrefined Jots, This Week
+### Dashboard panels: Assignments, Jots, Tasks, Calendar, Decks
 
-Exactly three, in that order. Every count in the briefing sentence opens its module's list, every name opens that entity and renders as a bounded pill. They render as flat sections, not cards.
+Reworked in 0.33.0 from Today, Unrefined Jots and This Week. Five flat panels in two columns under the briefing,.
+
+Originally exactly three, in that order. Every count in the briefing sentence opens its module's list, every name opens that entity and renders as a bounded pill. They render as flat sections, not cards.
 
 **Rejected:** Recent, Pinned, Spaces and Overview cards. Pinned and Spaces repeat the sidebar, Recents lives in the palette, and raw counts are not useful. A bento grid of cards was also dropped; the user preferred the content flat.
 

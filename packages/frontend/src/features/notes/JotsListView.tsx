@@ -41,6 +41,7 @@ import type { Entity, Label, PageSummary, SessionContext, Space } from "#/lib/ap
 import { displayTitle } from "#/lib/entity-title.ts";
 import {} from "#/lib/relative-time.ts";
 import {} from "#/lib/entity-key.ts";
+import { pendingFilters } from "#/features/views/pending-filters.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
@@ -143,8 +144,16 @@ function filterKey(filters: ActiveFilter[]): string {
 
 const PRESET_BY_KEY = new Map(PRESETS.map((p) => [filterKey(p.filters), p.id]));
 
-/// The last picked preset's filters, so the page reopens on the same view.
-function readStoredPresetFilters(): ActiveFilter[] {
+/// The Jots still to refine, which the Dashboard opens the page on.
+export const UNREFINED_JOT_FILTERS: ActiveFilter[] = [
+  { fieldId: "link", operator: "is", values: ["unlinked"] },
+];
+
+/// What the page opens with: filters another page asked for this visit (the Dashboard's
+/// Jots links), else the last picked preset's filters, so it reopens on the same view.
+export function initialJotFilters(): ActiveFilter[] {
+  const requested = pendingFilters(STORAGE_KEYS.jotsPreset);
+  if (requested) return requested;
   const id = preferences.get(STORAGE_KEYS.jotsPreset);
   return (PRESETS.find((p) => p.id === id) ?? PRESETS[0])?.filters ?? [];
 }
@@ -195,7 +204,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   const jotKey = useShortcut("quickJot");
   useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<ActiveFilter[]>(readStoredPresetFilters);
+  const [filters, setFilters] = useState<ActiveFilter[]>(initialJotFilters);
   const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.

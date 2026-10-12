@@ -1,4 +1,11 @@
-import { IconCalendarEvent, IconCircleDot, IconSchool, IconStar } from "@tabler/icons-react";
+import { format } from "date-fns";
+import {
+  IconCalendarEvent,
+  IconChalkboard,
+  IconCircleDot,
+  IconSchool,
+  IconStar,
+} from "@tabler/icons-react";
 import { entityFilterOption, type FilterField } from "#/components/filter-menu.tsx";
 import { AGE_FILTER_FIELDS } from "#/features/tasks/shared-view-defs.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
@@ -9,6 +16,7 @@ import {
   GRADE_FILTER,
   ageBucket,
   deadlineBucket,
+  sessionDay,
   statusKindOf,
 } from "./assignment-model";
 
@@ -39,6 +47,12 @@ export function assignmentFilterFields(courses: Entity[]): FilterField[] {
       options: DEADLINE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
     },
     {
+      id: "session",
+      label: "Session",
+      icon: IconChalkboard,
+      options: [{ value: "today", label: "Today" }],
+    },
+    {
       id: "grade",
       label: "Grade",
       icon: IconStar,
@@ -57,6 +71,8 @@ export function assignmentFilterValue(
   if (fieldId === "space") return a.entity.spaceId;
   if (fieldId === "course") return courseOf.get(a.entity.id)?.id ?? "";
   if (fieldId === "due") return deadlineBucket(a);
+  if (fieldId === "session")
+    return sessionDay(a) === format(new Date(), "yyyy-MM-dd") ? "today" : "none";
   if (fieldId === "grade") return a.grade === null ? "none" : "graded";
   if (fieldId === "created") return ageBucket(a.entity.createdAt);
   if (fieldId === "updated") return ageBucket(a.entity.updatedAt);

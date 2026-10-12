@@ -17,7 +17,7 @@ export function countUnrefinedJotsAllSpaces(): Promise<number> {
   return invoke("count_unrefined_jots_all_spaces");
 }
 
-/// Unrefined Jots across every Space, most recently edited first.
+/// Unrefined Jots across every Space, oldest first.
 export function listUnrefinedJotsAllSpaces(limit: number): Promise<PageSummary[]> {
   return invoke("list_unrefined_jots_all_spaces", { limit });
 }

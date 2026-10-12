@@ -160,6 +160,16 @@ export const SETTINGS = {
     schema: FILE_VIEWER_THEMES,
     legacyKey: "nookly:file-viewer-theme",
   }),
+  "general.displayName": define({
+    id: "general.displayName",
+    category: "general",
+    title: "Your name",
+    description:
+      "What the Dashboard greeting calls you. Leave it empty to be greeted without a name.",
+    synonyms: ["name", "nickname", "greeting", "profile", "username", "call me", "first name"],
+    default: "",
+    schema: z.string().max(40),
+  }),
   "general.timezone": define({
     id: "general.timezone",
     category: "general",

@@ -151,6 +151,7 @@ ipc_commands![
     decks::create_deck,
     decks::list_decks,
     decks::list_deck_summaries,
+    decks::list_deck_summaries_all_spaces,
     decks::set_deck_exam,
     decks::deck_stats,
     decks::create_card,
@@ -2333,6 +2334,11 @@ fn decks_create_list_and_summaries() {
     assert_eq!(
         summaries,
         h.db(|c| to_json(db::decks::list_deck_summaries(c, &space).unwrap()))
+    );
+    let all = h.ok("list_deck_summaries_all_spaces", json!({}));
+    assert_eq!(
+        all,
+        h.db(|c| to_json(db::decks::list_deck_summaries_all_spaces(c).unwrap()))
     );
 }
 

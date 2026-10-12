@@ -12,9 +12,11 @@ import {
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import {
+  addDays,
   addWeeks,
   differenceInCalendarDays,
   endOfWeek,
+  format,
   isBefore,
   isSameDay,
   parseISO,
@@ -53,6 +55,13 @@ export function statusKindOf(id: string): StatusKind {
   if (id === "graded") return "completed";
   if (id === "in_progress" || id === "submitted") return "started";
   return "unstarted";
+}
+
+/// The day of the session an assignment's due date follows, when it follows one: the
+/// resolved due day plus the days it is due before the session.
+export function sessionDay(a: Assignment): string | null {
+  if (a.dueDate == null || a.dueSessionOffsetDays == null) return null;
+  return format(addDays(parseISO(a.dueDate.slice(0, 10)), a.dueSessionOffsetDays), "yyyy-MM-dd");
 }
 
 export function isDone(assignment: Assignment): boolean {

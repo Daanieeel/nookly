@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { DashboardMascotCorner } from "./DashboardMascotCorner";
-import { buildBriefing, type Clause } from "./briefing-clauses";
+import { buildBriefing, type Clause, type Run } from "./briefing-clauses";
 import type { DashboardData } from "./dashboard-data";
 import { EntityPill, type LinkTarget, LinkToken, useOpenTarget } from "./dashboard-links";
 
@@ -10,37 +10,34 @@ function Filler({ children }: { children: ReactNode }) {
   return <span className="text-foreground/45">{children}</span>;
 }
 
-/// The clause's emoji rides inside its first clickable run rather than floating
-/// as separate plain text. For a clause with no link (e.g. "your calendar's
-/// clear"), the icon prefixes the plain text instead, since there's nothing to
-/// click.
-function renderClause(clause: Clause, open: (target: LinkTarget) => void): ReactNode {
-  const hasLink = clause.runs.some((run) => run.kind !== "text");
-  let iconPlaced = false;
+/// One run of the sentence: glue text, a clickable token or a name pill.
+function renderRun(run: Run, key: number, open: (target: LinkTarget) => void, icon?: ReactNode) {
+  if (run.kind === "text") return <Filler key={key}>{run.text}</Filler>;
+  if (run.kind === "name") {
+    return (
+      <span key={key}>
+        {icon}
+        <EntityPill title={run.text} onClick={() => open(run.target)} />
+      </span>
+    );
+  }
+  return (
+    <LinkToken key={key} onClick={() => open(run.target)}>
+      {icon}
+      {run.text}
+    </LinkToken>
+  );
+}
 
+/// The clause's emoji rides inside its first clickable run rather than floating
+/// as separate plain text. A clause with no link prefixes its plain text instead.
+function renderClause(clause: Clause, open: (target: LinkTarget) => void): ReactNode {
+  const firstLink = clause.runs.findIndex((run) => run.kind !== "text");
+  const icon = <span className="mr-1">{clause.icon}</span>;
   return (
     <span key={clause.key}>
-      {!hasLink && <span className="mr-1">{clause.icon}</span>}
-      {clause.runs.map((run, i) => {
-        if (run.kind === "text") return <Filler key={i}>{run.text}</Filler>;
-        const showIcon = !iconPlaced;
-        iconPlaced = true;
-        const icon = showIcon && <span className="mr-1">{clause.icon}</span>;
-        if (run.kind === "name") {
-          return (
-            <span key={i}>
-              {icon}
-              <EntityPill title={run.text} onClick={() => open(run.target)} />
-            </span>
-          );
-        }
-        return (
-          <LinkToken key={i} onClick={() => open(run.target)}>
-            {icon}
-            {run.text}
-          </LinkToken>
-        );
-      })}
+      {firstLink === -1 && icon}
+      {clause.runs.map((run, i) => renderRun(run, i, open, i === firstLink ? icon : undefined))}
     </span>
   );
 }
@@ -51,30 +48,33 @@ function renderClause(clause: Clause, open: (target: LinkTarget) => void): React
 export function DashboardBriefing({ data }: { data: DashboardData }) {
   const open = useOpenTarget();
   const briefing = buildBriefing({
+    name: data.name,
     sessions: data.todaySessions,
     tasks: data.tasks,
     deadlines: data.deadlines,
+    decks: data.studyDecks,
     jotCount: data.jotCount,
+    oldestJotAt: data.jots[0]?.entity.createdAt ?? null,
     jotSpaceIds: data.jots.map((j) => j.entity.spaceId),
     now: data.now,
   });
-  const [sessionsClause, tasksClause, examsClause, assignmentsClause, jotsClause] =
-    briefing.clauses;
 
   return (
-    <div className="flow-root mb-8">
+    <div className="flow-root">
       <DashboardMascotCorner />
-      <p className="text-2xl/relaxed text-foreground">
-        <span className="font-semibold">{briefing.greeting}!</span>{" "}
-        {renderClause(sessionsClause, open)}
-        <Filler>{briefing.connectors[0]}</Filler>
-        {renderClause(tasksClause, open)}
-        <Filler>{briefing.connectors[1]}</Filler>
-        {renderClause(examsClause, open)}
-        <Filler>{briefing.connectors[2]}</Filler>
-        {renderClause(assignmentsClause, open)}
-        <Filler>{briefing.connectors[3]}</Filler>
-        {renderClause(jotsClause, open)}
+      <p className="text-xl/relaxed text-foreground">
+        <span className="font-semibold">
+          {briefing.greeting}
+          {briefing.mark}
+        </span>{" "}
+        {briefing.lead.map((run, i) => renderRun(run, i, open))}
+        <Filler>{briefing.bridge}</Filler>
+        {briefing.clauses.map((clause, i) => (
+          <span key={clause.key}>
+            {i > 0 && <Filler>{briefing.connectors[i - 1]}</Filler>}
+            {renderClause(clause, open)}
+          </span>
+        ))}
         <Filler>.</Filler>
       </p>
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import { getView, updateViewConfig, type ViewModule } from "#/lib/api/views.ts";
 import { preferences } from "#/lib/preferences.ts";
+import { pendingFilters } from "./pending-filters";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { viewTarget } from "./view-target";
 import {
@@ -53,7 +54,9 @@ export function useViewPage<D>({
   };
   const [plain, setPlain] = useState(readPlain);
   const [display, setDisplayState] = useState<D>(plain.display);
-  const [filters, setFilters] = useState<ActiveFilter[]>(plain.filters);
+  const [filters, setFilters] = useState<ActiveFilter[]>(
+    () => (viewId ? undefined : pendingFilters(key)) ?? plain.filters,
+  );
 
   const { data: view } = useQuery({
     queryKey: qk.views.byId(viewId),
