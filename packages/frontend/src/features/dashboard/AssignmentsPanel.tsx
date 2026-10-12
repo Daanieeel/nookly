@@ -29,14 +29,17 @@ export interface DueText {
   overdue: boolean;
 }
 
-/// "Overdue", "Today" or the weekday within the coming week, from a due day.
+/// "Overdue, Oct 8", "Today, Oct 12", "Tomorrow, Oct 13" or "Mon, Oct 19" within the
+/// coming week, and a short date beyond it. The date is always there.
 export function dueText(day: string): DueText {
   const days = daysUntil(day);
-  if (days < 0) return { text: `Overdue, ${formatShortDate(day)}`, overdue: true };
-  if (days === 0) return { text: "Today", overdue: false };
-  if (days === 1) return { text: "Tomorrow", overdue: false };
-  if (days < 7) return { text: formatWeekday(parseDay(day), "short"), overdue: false };
-  return { text: formatShortDate(day), overdue: false };
+  const date = formatShortDate(day);
+  if (days < 0) return { text: `Overdue, ${date}`, overdue: true };
+  if (days === 0) return { text: `Today, ${date}`, overdue: false };
+  if (days === 1) return { text: `Tomorrow, ${date}`, overdue: false };
+  if (days < 7)
+    return { text: `${formatWeekday(parseDay(day), "short")}, ${date}`, overdue: false };
+  return { text: date, overdue: false };
 }
 
 function AssignmentRow({ assignment }: { assignment: Assignment }) {
