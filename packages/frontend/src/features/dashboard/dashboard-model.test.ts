@@ -48,25 +48,37 @@ function task(id: string, over: Partial<Task> = {}): Task {
 const ids = (items: { entity: { id: string } }[]) => items.map((i) => i.entity.id);
 
 describe("assignmentsFor", () => {
-  it("For today holds overdue and due today, soonest first, session today before all", () => {
+  it("For today holds only those tied to a session that is today, handed in or not", () => {
     const list = [
+      // Due the day before a session that is today, so it is overdue as well.
+      assignment("session", { dueDate: "2026-10-11", dueSessionOffsetDays: 1 }),
+      assignment("graded", { dueDate: "2026-10-12", dueSessionOffsetDays: 0, status: "graded" }),
+      assignment("submitted", {
+        dueDate: "2026-10-10",
+        dueSessionOffsetDays: 2,
+        status: "submitted",
+      }),
       assignment("overdue", { dueDate: "2026-10-08" }),
       assignment("today", { dueDate: TODAY }),
       assignment("later", { dueDate: "2026-10-20" }),
-      // Due the day before a session that is today.
-      assignment("session", { dueDate: "2026-10-11", dueSessionOffsetDays: 1 }),
+      // Follows a session that is not today.
+      assignment("tomorrow", { dueDate: "2026-10-12", dueSessionOffsetDays: 1 }),
       assignment("none"),
     ];
-    expect(ids(assignmentsFor("today", list, TODAY))).toEqual(["session", "overdue", "today"]);
+    expect(ids(assignmentsFor("today", list, TODAY)).toSorted()).toEqual([
+      "graded",
+      "session",
+      "submitted",
+    ]);
   });
 
-  it("leaves out handed in assignments", () => {
+  it("leaves out handed in assignments from the other tabs", () => {
     const list = [
       assignment("done", { dueDate: TODAY, status: "submitted" }),
       assignment("graded", { dueDate: TODAY, status: "graded" }),
       assignment("open", { dueDate: TODAY }),
     ];
-    expect(ids(assignmentsFor("today", list, TODAY))).toEqual(["open"]);
+    expect(ids(assignmentsFor("dueToday", list, TODAY))).toEqual(["open"]);
   });
 
   it("Due today holds only today", () => {
@@ -173,8 +185,7 @@ describe("Show more filters", () => {
       values: ["not_started", "in_progress"],
     };
     expect(assignmentFilters("today")).toEqual([
-      notHandedIn,
-      { fieldId: "due", operator: "is", values: ["overdue", "today"] },
+      { fieldId: "session", operator: "is", values: ["today"] },
     ]);
     expect(assignmentFilters("dueToday")).toEqual([
       notHandedIn,
@@ -197,6 +208,12 @@ describe("overviewFilters", () => {
     expect(overviewFilters({ view: "tasks", due: ["overdue"] }, statuses)).toEqual([
       { fieldId: "status", operator: "is", values: ["todo"] },
       { fieldId: "due", operator: "is", values: ["overdue"] },
+    ]);
+  });
+
+  it("opens Assignments on those tied to a session today, handed in or not", () => {
+    expect(overviewFilters({ view: "assignments", due: [], session: "today" }, statuses)).toEqual([
+      { fieldId: "session", operator: "is", values: ["today"] },
     ]);
   });
 

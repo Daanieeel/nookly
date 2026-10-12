@@ -98,6 +98,7 @@ describe("assignment filters", () => {
       "course",
       "status",
       "due",
+      "session",
       "grade",
       "created",
       "updated",
@@ -122,6 +123,14 @@ describe("assignment filters", () => {
     expect(assignmentFilterValue(open, "grade", courseOf)).toBe("none");
     expect(assignmentFilterValue(open, "created", courseOf)).toBe("earlier");
     expect(assignmentFilterValue(open, "status", courseOf)).toBe("in_progress");
+  });
+
+  it("tells an assignment tied to a session today from the rest", () => {
+    freezeTime("2026-03-11T10:00:00");
+    // Due the day before a session that is today.
+    const tied = makeAssignment({ dueDate: "2026-03-10", dueSessionOffsetDays: 1 }, { id: "t" });
+    expect(assignmentFilterValue(tied, "session", courseOf)).toBe("today");
+    expect(assignmentFilterValue(open, "session", courseOf)).toBe("none");
   });
 
   it("reads the status for any unknown field", () => {

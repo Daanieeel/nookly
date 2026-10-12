@@ -1,6 +1,6 @@
 import { addDays } from "date-fns";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
-import { isDone } from "#/features/assignments/assignment-model.ts";
+import { isDone, sessionDay } from "#/features/assignments/assignment-model.ts";
 import { parseDay, sortStatuses, statusKind, toDay } from "#/features/tasks/task-model.ts";
 import type { Assignment, Task, TaskStatus } from "#/lib/api/types.ts";
 
@@ -13,12 +13,6 @@ export type TaskTab = "today" | "inProgress" | "upcoming" | "noDate";
 /// Days the "Next 7 days" tabs look ahead, counting from tomorrow.
 const WEEK_DAYS = 7;
 
-/// The day of the session an assignment's due date follows, when it follows one.
-function sessionDay(a: Assignment): string | null {
-  if (a.dueDate == null || a.dueSessionOffsetDays == null) return null;
-  return toDay(addDays(parseDay(a.dueDate.slice(0, 10)), a.dueSessionOffsetDays));
-}
-
 const dayOf = (iso: string | null) => iso?.slice(0, 10) ?? null;
 
 function inNextWeek(day: string | null, today: string): boolean {
@@ -26,24 +20,20 @@ function inNextWeek(day: string | null, today: string): boolean {
   return day > today && day <= toDay(addDays(parseDay(today), WEEK_DAYS));
 }
 
-/// Most important first: an assignment tied to a session that is today outranks any
-/// other, then the earliest due date.
+/// Most important first. "For today" is the assignments tied to a session that is
+/// today, handed in or not, since those get presented in the lecture, and they stay
+/// even when overdue. The other tabs hold open assignments by due date.
 export function assignmentsFor(tab: AssignmentTab, all: Assignment[], today: string): Assignment[] {
-  const open = all.filter((a) => !isDone(a) && a.entity.deletedAt == null);
-  const sessionToday = (a: Assignment) => sessionDay(a) === today;
+  const live = all.filter((a) => a.entity.deletedAt == null);
+  const byDue = (a: Assignment, b: Assignment) =>
+    (dayOf(a.dueDate) ?? "9999").localeCompare(dayOf(b.dueDate) ?? "9999") ||
+    a.entity.createdAt.localeCompare(b.entity.createdAt);
+  if (tab === "today") return live.filter((a) => sessionDay(a) === today).sort(byDue);
   const keep = {
-    today: (a: Assignment) => sessionToday(a) || (dayOf(a.dueDate) ?? "9999") <= today,
     dueToday: (a: Assignment) => dayOf(a.dueDate) === today,
     week: (a: Assignment) => inNextWeek(dayOf(a.dueDate), today),
   }[tab];
-  return open
-    .filter(keep)
-    .sort(
-      (a, b) =>
-        Number(sessionToday(b)) - Number(sessionToday(a)) ||
-        (dayOf(a.dueDate) ?? "9999").localeCompare(dayOf(b.dueDate) ?? "9999") ||
-        a.entity.createdAt.localeCompare(b.entity.createdAt),
-    );
+  return live.filter((a) => !isDone(a) && keep(a)).sort(byDue);
 }
 
 /// Tasks that still need doing, soonest due first and undated ones last.
@@ -83,11 +73,15 @@ const filter = (fieldId: string, ...values: string[]): ActiveFilter => ({
 export interface OverviewLink {
   view: "tasks" | "assignments";
   due: string[];
+  /// Assignments only: those tied to a session that is today, in place of the open and
+  /// due filters.
+  session?: "today";
 }
 
 /// The filters an overview opens with for `link`. Tasks keep the ones still open and
 /// Assignments the ones not handed in yet.
 export function overviewFilters(link: OverviewLink, statuses: TaskStatus[]): ActiveFilter[] {
+  if (link.session) return [filter("session", link.session)];
   const sorted = sortStatuses(statuses);
   const open =
     link.view === "tasks"
@@ -123,7 +117,7 @@ export function taskFilters(tab: TaskTab, statuses: TaskStatus[]): ActiveFilter[
 export function assignmentFilters(tab: AssignmentTab): ActiveFilter[] {
   const due = (...buckets: string[]) => overviewFilters({ view: "assignments", due: buckets }, []);
   return {
-    today: due("overdue", "today"),
+    today: overviewFilters({ view: "assignments", due: [], session: "today" }, []),
     dueToday: due("today"),
     week: due("week", "next"),
   }[tab];
