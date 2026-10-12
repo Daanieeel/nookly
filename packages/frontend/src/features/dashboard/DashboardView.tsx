@@ -10,7 +10,7 @@ import { DashboardWidgets } from "#/features/dashboard/DashboardWidgets.tsx";
 export function DashboardView() {
   const data = useDashboardData();
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <DashboardBriefing data={data} />
       <DashboardWidgets data={data} />
     </div>

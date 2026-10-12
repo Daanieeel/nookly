@@ -60,7 +60,7 @@ export function DashboardBriefing({ data }: { data: DashboardData }) {
   });
 
   return (
-    <div className="flow-root mb-4">
+    <div className="flow-root">
       <DashboardMascotCorner />
       <p className="text-xl/relaxed text-foreground">
         <span className="font-semibold">{briefing.greeting}!</span>{" "}
