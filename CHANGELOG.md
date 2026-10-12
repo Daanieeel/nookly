@@ -7,7 +7,7 @@ All notable changes to Nookly are listed here.
 ### Changed
 
 - **A new Dashboard.** Below the greeting, Assignments, Tasks, Decks, Jots and today's calendar now sit side by side. Assignments and Tasks have tabs and show your five most important items, decks with cards to study today show a play button, and Jots list the oldest first.
-- **Due dates on the Dashboard show the date.** Even within the same week, a due date reads like "Mon, Oct 19" instead of only the weekday.
+- **Due dates on the Dashboard read naturally.** Within 10 days they say "Today", "Tomorrow" or "in 4 days", and further out they show the date.
 - **Show more buttons are quieter.** Longer lists end with a faded button that opens the full list.
 
 ## 0.32.6 (2026-10-11)

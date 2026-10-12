@@ -7,14 +7,13 @@ import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { daysUntil } from "#/features/tasks/task-model.ts";
 import { listAssignmentsAllSpaces } from "#/lib/api/assignments.ts";
 import type { Assignment } from "#/lib/api/types.ts";
-import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
+import { formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { requestFilters } from "#/features/views/pending-filters.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { parseDay } from "#/features/tasks/task-model.ts";
 import { EmptyRow, LIST_LIMIT, Row, RowList, ShowMore, TabbedPanel } from "./DashboardPanel";
 import { type AssignmentTab, assignmentFilters, assignmentsFor } from "./dashboard-model";
 
@@ -29,17 +28,18 @@ export interface DueText {
   overdue: boolean;
 }
 
-/// "Overdue, Oct 8", "Today, Oct 12", "Tomorrow, Oct 13" or "Mon, Oct 19" within the
-/// coming week, and a short date beyond it. The date is always there.
+/// Days ahead up to which a due date reads as relative.
+const RELATIVE_DAYS = 10;
+
+/// "Overdue, Oct 8", then "Today", "Tomorrow" and "in 4 days" up to 10 days out, and a
+/// short date beyond that.
 export function dueText(day: string): DueText {
   const days = daysUntil(day);
-  const date = formatShortDate(day);
-  if (days < 0) return { text: `Overdue, ${date}`, overdue: true };
-  if (days === 0) return { text: `Today, ${date}`, overdue: false };
-  if (days === 1) return { text: `Tomorrow, ${date}`, overdue: false };
-  if (days < 7)
-    return { text: `${formatWeekday(parseDay(day), "short")}, ${date}`, overdue: false };
-  return { text: date, overdue: false };
+  if (days < 0) return { text: `Overdue, ${formatShortDate(day)}`, overdue: true };
+  if (days === 0) return { text: "Today", overdue: false };
+  if (days === 1) return { text: "Tomorrow", overdue: false };
+  if (days <= RELATIVE_DAYS) return { text: `in ${days} days`, overdue: false };
+  return { text: formatShortDate(day), overdue: false };
 }
 
 function AssignmentRow({ assignment }: { assignment: Assignment }) {
