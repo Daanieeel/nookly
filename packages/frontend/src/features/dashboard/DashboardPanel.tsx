@@ -20,7 +20,7 @@ export function useSpaceById() {
 }
 
 /// Rows a list panel shows before "Show more".
-export const LIST_LIMIT = 5;
+export const LIST_LIMIT = 4;
 
 /// A whole clickable row with its copyable ID, a primary label and trailing meta.
 export function Row({
@@ -78,10 +78,10 @@ export function ShowMore({ count, onClick }: { count: number; onClick: () => voi
   );
 }
 
-/// The rows of a list and its "Show more", kept `LIST_LIMIT` + 1 rows tall (h-7 each) so
+/// The rows of a list and its "Show more", kept `LIST_LIMIT` + 1 rows tall (h-7 each, 5 rows) so
 /// switching tabs never moves what is below.
 export function RowList({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-42 flex-col">{children}</div>;
+  return <div className="flex min-h-35 flex-col">{children}</div>;
 }
 
 export interface TabDef<Id extends string> {
