@@ -1,6 +1,5 @@
 import type { Icon as TablerIcon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import {
   PageTabs,
@@ -107,11 +106,9 @@ export function TabbedPanel<Id extends string>({
         className="gap-2"
       >
         <PageTabsBar>
-          <h2 className="mr-2 shrink-0">
-            <Badge size="lg" className="gap-1.5">
-              <Icon size={14} />
-              {title}
-            </Badge>
+          <h2 className="mr-2 flex shrink-0 items-center gap-2 text-sm font-medium">
+            <Icon size={14} className="text-muted-foreground" />
+            {title}
           </h2>
           <PageTabsList>
             {tabs.map((t) => (
