@@ -108,7 +108,7 @@ describe("buildBriefing", () => {
     expect(text).not.toMatch(/\b0 /);
     const rest = briefing.clauses.at(-1);
     expect(rest?.key).toBe("rest");
-    expect(linked(rest?.runs ?? []).length).toHaveLength(3);
+    expect(linked(rest?.runs ?? [])).toHaveLength(3);
     expect(linked(rest?.runs ?? []).every((r) => r.kind === "token")).toBe(true);
   });
 
@@ -121,7 +121,8 @@ describe("buildBriefing", () => {
       oldestJotAt: "2026-10-02T09:00:00Z",
       jotSpaceIds: ["space"],
     });
-    expect(briefing.clauses).toHaveLength(3);
+    // Monday opens with a remark, which leaves room for two parts.
+    expect(briefing.clauses).toHaveLength(2);
     expect(briefing.clauses.some((c) => c.key === "rest")).toBe(false);
   });
 
