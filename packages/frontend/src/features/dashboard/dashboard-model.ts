@@ -1,6 +1,6 @@
 import { addDays } from "date-fns";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
-import { ASSIGNMENT_STATUSES, isDone } from "#/features/assignments/assignment-model.ts";
+import { isDone } from "#/features/assignments/assignment-model.ts";
 import { parseDay, sortStatuses, statusKind, toDay } from "#/features/tasks/task-model.ts";
 import type { Assignment, Task, TaskStatus } from "#/lib/api/types.ts";
 
@@ -78,32 +78,53 @@ const filter = (fieldId: string, ...values: string[]): ActiveFilter => ({
   values,
 });
 
+/// Where a Dashboard link into the Tasks or Assignments overview lands: open items,
+/// narrowed to these due buckets (none for all of them).
+export interface OverviewLink {
+  view: "tasks" | "assignments";
+  due: string[];
+}
+
+/// The filters an overview opens with for `link`. Tasks keep the ones still open and
+/// Assignments the ones not handed in yet.
+export function overviewFilters(link: OverviewLink, statuses: TaskStatus[]): ActiveFilter[] {
+  const sorted = sortStatuses(statuses);
+  const open =
+    link.view === "tasks"
+      ? filter(
+          "status",
+          ...sorted
+            .filter((s) => ["backlog", "unstarted", "started"].includes(statusKind(s, sorted)))
+            .map((s) => s.id),
+        )
+      : filter("status", "not_started", "in_progress");
+  return link.due.length > 0 ? [open, filter("due", ...link.due)] : [open];
+}
+
 /// The Tasks page filters that show what a Tasks tab counts, for its "Show more".
 export function taskFilters(tab: TaskTab, statuses: TaskStatus[]): ActiveFilter[] {
   const sorted = sortStatuses(statuses);
-  const ids = (kinds: string[]) =>
-    sorted.filter((s) => kinds.includes(statusKind(s, sorted))).map((s) => s.id);
-  const open = filter("status", ...ids(["backlog", "unstarted", "started"]));
+  const due = (...buckets: string[]) => overviewFilters({ view: "tasks", due: buckets }, statuses);
   return {
-    today: [open, filter("due", "overdue", "today")],
-    inProgress: [filter("status", ...ids(["started"]))],
-    upcoming: [open, filter("due", "week")],
-    noDate: [open, filter("due", "none")],
+    today: due("overdue", "today"),
+    inProgress: [
+      filter(
+        "status",
+        ...sorted.filter((s) => statusKind(s, sorted) === "started").map((s) => s.id),
+      ),
+    ],
+    upcoming: due("week"),
+    noDate: due("none"),
   }[tab];
 }
 
 /// The same for Assignments. Their "week" and "next" due buckets stand in for the next
 /// 7 days, which the page has no exact filter for.
 export function assignmentFilters(tab: AssignmentTab): ActiveFilter[] {
-  const notHandedIn = filter(
-    "status",
-    ...ASSIGNMENT_STATUSES.map((s) => s.id).filter(
-      (id) => id === "not_started" || id === "in_progress",
-    ),
-  );
+  const due = (...buckets: string[]) => overviewFilters({ view: "assignments", due: buckets }, []);
   return {
-    today: [notHandedIn, filter("due", "overdue", "today")],
-    dueToday: [notHandedIn, filter("due", "today")],
-    week: [notHandedIn, filter("due", "week", "next")],
+    today: due("overdue", "today"),
+    dueToday: due("today"),
+    week: due("week", "next"),
   }[tab];
 }

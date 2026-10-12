@@ -4,7 +4,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { formatClock, formatShortDate } from "#/lib/datetime.ts";
 import { parseDay, toDay } from "#/features/tasks/task-model.ts";
 import type { Deadline } from "./dashboard-data";
-import { entityLink, type LinkTarget, listLink } from "./dashboard-links";
+import { entityLink, type LinkTarget, listLink, overviewLink } from "./dashboard-links";
 
 /// A run of the sentence. Every data backed run links somewhere: a `token` (a
 /// count, time or day) renders as bold clickable text, a `name` (an entity title)
@@ -194,12 +194,10 @@ function sessionsPart(upcoming: BriefingSession[], finished: number, seed: numbe
 function tasksPart(tasks: Task[], today: string, seed: number): Part {
   const overdue = tasks.filter((t) => (t.dueDate ?? "9999").slice(0, 10) < today);
   const dueToday = tasks.filter((t) => !overdue.includes(t));
-  const list = listLink(
-    "tasks",
-    tasks.map((t) => t.entity.spaceId),
-  );
+  const todayList = overviewLink("tasks", ["today"]);
+  const overdueList = overviewLink("tasks", ["overdue"]);
   if (tasks.length === 0) {
-    return { quiet: { key: "tasks", run: token("tasks", listLink("tasks")) } };
+    return { quiet: { key: "tasks", run: token("tasks", overviewLink("tasks")) } };
   }
   const one = (task: Task) =>
     name(displayTitle(task.entity), entityLink(task.entity.id, task.entity.spaceId));
@@ -218,7 +216,7 @@ function tasksPart(tasks: Task[], today: string, seed: number): Part {
             ),
           ]
         : [
-            token(plural(dueToday.length, "task"), list),
+            token(plural(dueToday.length, "task"), todayList),
             text(
               pick(seed, SALT.tasks, [
                 " due today",
@@ -232,7 +230,7 @@ function tasksPart(tasks: Task[], today: string, seed: number): Part {
       overdue.length === 1
         ? [one(overdue[0]), text(" slipped past its date")]
         : [
-            token(plural(overdue.length, "task"), list),
+            token(plural(overdue.length, "task"), overdueList),
             text(
               pick(seed, SALT.tasks, [
                 " overdue to catch up on",
@@ -242,9 +240,9 @@ function tasksPart(tasks: Task[], today: string, seed: number): Part {
           ];
   } else {
     runs = [
-      token(plural(dueToday.length, "task"), list),
+      token(plural(dueToday.length, "task"), todayList),
       text(" due today and "),
-      token(`${overdue.length} overdue`, list),
+      token(`${overdue.length} overdue`, overdueList),
     ];
   }
   return { clause: { key: "tasks", icon: overdue.length > 0 ? "⏰" : "✅", runs } };
@@ -274,7 +272,8 @@ function urgentPart(
   seed: number,
 ): Part {
   if (items.length === 0) {
-    return { quiet: { key, run: token(quietText, listLink(key)) } };
+    const target = key === "assignments" ? overviewLink("assignments") : listLink(key);
+    return { quiet: { key, run: token(quietText, target) } };
   }
   if (items.length === 1) {
     const item = items[0];
@@ -288,13 +287,17 @@ function urgentPart(
     ];
     return { clause: { key, icon, runs: pick(seed, SALT[key], templates) } };
   }
-  const count = token(
-    plural(items.length, noun),
-    listLink(
-      key,
-      items.map((d) => d.entity.spaceId),
-    ),
-  );
+  const target =
+    key === "assignments"
+      ? overviewLink(
+          "assignments",
+          items.every((d) => d.date === today) ? ["today"] : ["week", "next"],
+        )
+      : listLink(
+          key,
+          items.map((d) => d.entity.spaceId),
+        );
+  const count = token(plural(items.length, noun), target);
   const templates: readonly Run[][] = [
     [count, text(" coming up")],
     [count, text(" on the way")],

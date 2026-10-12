@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Assignment, Task, TaskStatus } from "#/lib/api/types.ts";
-import { assignmentFilters, assignmentsFor, taskFilters, tasksFor } from "./dashboard-model";
+import {
+  assignmentFilters,
+  assignmentsFor,
+  overviewFilters,
+  taskFilters,
+  tasksFor,
+} from "./dashboard-model";
 
 const TODAY = "2026-10-12";
 
@@ -177,6 +183,33 @@ describe("Show more filters", () => {
     expect(assignmentFilters("week")).toEqual([
       notHandedIn,
       { fieldId: "due", operator: "is", values: ["week", "next"] },
+    ]);
+  });
+});
+
+describe("overviewFilters", () => {
+  const statuses: TaskStatus[] = [
+    { id: "todo", name: "Todo", color: "#000", doneness: 0, position: 0 },
+    { id: "done", name: "Done", color: "#000", doneness: 100, position: 1 },
+  ];
+
+  it("opens Tasks on open tasks in the asked due buckets", () => {
+    expect(overviewFilters({ view: "tasks", due: ["overdue"] }, statuses)).toEqual([
+      { fieldId: "status", operator: "is", values: ["todo"] },
+      { fieldId: "due", operator: "is", values: ["overdue"] },
+    ]);
+  });
+
+  it("opens Assignments on those not handed in", () => {
+    expect(overviewFilters({ view: "assignments", due: ["today"] }, statuses)).toEqual([
+      { fieldId: "status", operator: "is", values: ["not_started", "in_progress"] },
+      { fieldId: "due", operator: "is", values: ["today"] },
+    ]);
+  });
+
+  it("filters on status alone without due buckets", () => {
+    expect(overviewFilters({ view: "tasks", due: [] }, statuses)).toEqual([
+      { fieldId: "status", operator: "is", values: ["todo"] },
     ]);
   });
 });

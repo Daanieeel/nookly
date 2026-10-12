@@ -17,10 +17,14 @@ function session(startTime: string, title = "Algorithms"): BriefingSession {
   };
 }
 
+function entityOf(id: string): Entity {
+  // SAFETY: the briefing only reads the id, space and title of an entity.
+  return { id, spaceId: "space", title: id } as Entity;
+}
+
 function task(id: string, dueDate: string): Task {
   return {
-    // SAFETY: the briefing only reads the id and space of an entity.
-    entity: { id, spaceId: "space", title: id } as Entity,
+    entity: entityOf(id),
     statusId: "todo",
     startDate: null,
     dueDate,
@@ -131,6 +135,49 @@ describe("buildBriefing", () => {
     expect(text).toMatch(
       /all quiet on .*exams.*assignments|nothing waiting on .*exams.*assignments|clear on .*exams.*assignments/i,
     );
+  });
+
+  it("opens tasks on the page narrowed to what the words say", () => {
+    const { briefing } = sentence({
+      tasks: [task("a", "2026-10-09"), task("b", "2026-10-12"), task("c", "2026-10-12")],
+    });
+    const tokens = linked(briefing.clauses.find((c) => c.key === "tasks")?.runs ?? []);
+    const targets = tokens.map((t) => (t.kind === "token" ? t.target : null));
+    expect(targets).toEqual([
+      { kind: "overview", view: "tasks", due: ["today"] },
+      { kind: "overview", view: "tasks", due: ["overdue"] },
+    ]);
+  });
+
+  it("opens assignments on the urgent ones, and a quiet name on all open ones", () => {
+    const { briefing } = sentence({
+      deadlines: [
+        {
+          kind: "assignment",
+          date: "2026-10-12",
+          entity: entityOf("x"),
+        },
+        {
+          kind: "assignment",
+          date: "2026-10-12",
+          entity: entityOf("y"),
+        },
+      ],
+    });
+    const urgent = briefing.clauses.find((c) => c.key === "assignments");
+    expect(urgent?.runs.find((r) => r.kind === "token")).toMatchObject({
+      target: { kind: "overview", view: "assignments", due: ["today"] },
+    });
+    const quiet = sentence({}).briefing.clauses.at(-1);
+    expect(
+      quiet?.runs
+        .filter((r) => r.kind === "token")
+        .map((r) => (r.kind === "token" ? r.target : null)),
+    ).toContainEqual({
+      kind: "overview",
+      view: "tasks",
+      due: [],
+    });
   });
 
   it("calls it a clear day when nothing is waiting", () => {

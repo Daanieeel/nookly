@@ -2,7 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type { ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { requestFilters } from "#/features/views/pending-filters.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
+import { listTaskStatuses } from "#/lib/api/tasks.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { type OverviewLink, overviewFilters } from "./dashboard-model";
 import { type ModuleKey, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
@@ -11,10 +15,16 @@ import { qk } from "#/lib/query-keys.ts";
 /// opens that exact entity.
 export type LinkTarget =
   | { kind: "list"; module: ModuleKey; spaceIds: string[] }
+  /// The cross Space Tasks or Assignments page, opened on open items in these due buckets.
+  | ({ kind: "overview" } & OverviewLink)
   | { kind: "entity"; entityId: string; spaceId: string };
 
 export function listLink(module: ModuleKey, spaceIds: string[] = []): LinkTarget {
   return { kind: "list", module, spaceIds: [...new Set(spaceIds)] };
+}
+
+export function overviewLink(view: OverviewLink["view"], due: string[] = []): LinkTarget {
+  return { kind: "overview", view, due };
 }
 
 export function entityLink(entityId: string, spaceId: string): LinkTarget {
@@ -30,11 +40,25 @@ export function useOpenTarget(): (target: LinkTarget) => void {
   const openEntity = useNavStore((s) => s.openEntity);
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const { data: statuses = [] } = useQuery({
+    queryKey: qk.tasks.statuses,
+    queryFn: listTaskStatuses,
+  });
 
   return useCallback(
     (target: LinkTarget) => {
       if (target.kind === "entity") {
         openEntity(target.entityId, target.spaceId);
+        return;
+      }
+      if (target.kind === "overview") {
+        requestFilters(
+          target.view === "tasks"
+            ? STORAGE_KEYS.tasksOverviewFilters
+            : STORAGE_KEYS.assignmentsOverviewFilters,
+          overviewFilters(target, statuses),
+        );
+        setView({ kind: target.view });
         return;
       }
       const { spaceIds } = target;
@@ -46,7 +70,7 @@ export function useOpenTarget(): (target: LinkTarget) => void {
             : (spaceIds[0] ?? spaces[0]?.id);
       if (spaceId) setView({ kind: "module", spaceId, module: target.module });
     },
-    [activeSpaceId, openEntity, setView, spaces],
+    [activeSpaceId, openEntity, setView, spaces, statuses],
   );
 }
 
