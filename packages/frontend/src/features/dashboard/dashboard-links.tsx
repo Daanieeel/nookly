@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type { ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { UNREFINED_JOT_FILTERS } from "#/features/notes/JotsListView.tsx";
 import { requestFilters } from "#/features/views/pending-filters.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { listTaskStatuses } from "#/lib/api/tasks.ts";
@@ -68,6 +69,9 @@ export function useOpenTarget(): (target: LinkTarget) => void {
           : activeSpaceId && (spaceIds.length === 0 || spaceIds.includes(activeSpaceId))
             ? activeSpaceId
             : (spaceIds[0] ?? spaces[0]?.id);
+      // Jots count what is still to refine, so the page opens on those, not on the
+      // preset last picked.
+      if (target.module === "jots") requestFilters(STORAGE_KEYS.jotsPreset, UNREFINED_JOT_FILTERS);
       if (spaceId) setView({ kind: "module", spaceId, module: target.module });
     },
     [activeSpaceId, openEntity, setView, spaces, statuses],
