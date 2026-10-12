@@ -18,8 +18,9 @@ export interface ReleasesSince {
   hidden: number;
 }
 
-/// The most versions one dialog shows; older ones are left to the full changelog.
-export const MAX_RELEASES = 4;
+/// The most versions one dialog shows; older ones are left to the full changelog. High
+/// enough for a long jump to list every release it skipped.
+export const MAX_RELEASES = 100;
 
 /// What is new since the version the user last saw: every release after it, up to the one
 /// running, newest first. A release counts whether or not it was ever shipped on its own,
