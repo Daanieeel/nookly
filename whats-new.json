@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.32.6",
+      "date": "2026-10-11",
+      "title": "Agent files in folders",
+      "summary": "The Agent settings now list your files down the side, with folders.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Agent files appear in a list beside the text instead of tabs above it, and you can keep them in folders."
+        ]
+      }
+    },
+    {
       "version": "0.32.5",
       "date": "2026-10-10",
       "title": "What's new after any update",

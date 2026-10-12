@@ -1,7 +1,7 @@
 //! Plain markdown files the user keeps for their own coding agent, in `<app data>/agent/`.
 //! Nookly never reads them or talks to an AI: this is file management only. The folder
 //! starts with an `AGENTS.md` and a `NOOKLY.md` guide, and holds whatever other `.md` files
-//! the user adds.
+//! the user adds, optionally inside folders (up to `MAX_DEPTH` levels).
 //!
 //! The logic takes the folder as a parameter so tests run against a temp folder. The
 //! commands at the bottom only resolve it from the app handle.
@@ -17,6 +17,9 @@ use tauri::{AppHandle, Manager};
 const ENTRY_FILE: &str = "AGENTS.md";
 const TRASH_DIR: &str = ".trash";
 const MAX_NAME_LEN: usize = 100;
+/// Folder levels plus the file itself, so `a/b/c/d/file.md` is the deepest path.
+const MAX_DEPTH: usize = 5;
+const MAX_PATH_LEN: usize = 300;
 const MAX_CONTENT_BYTES: usize = 1024 * 1024;
 
 /// What a new `AGENTS.md` says: a short entry point that sends the agent to the guide and
@@ -37,23 +40,57 @@ pub struct AgentFile {
     pub modified: String,
 }
 
-/// A name is a plain `.md` file name: no folders, no hidden files, no `..`.
-pub fn validate_name(name: &str) -> AppResult<()> {
-    let first_ok = name
+fn invalid_name(name: &str) -> AppError {
+    AppError::InvalidInput(format!(
+        "\"{name}\" is not a valid file name. Use letters, numbers, spaces, dots, dashes or underscores and end with .md"
+    ))
+}
+
+/// One path segment: no hidden names, no `..`, a short run of plain characters.
+fn segment_ok(segment: &str) -> bool {
+    segment
         .chars()
         .next()
-        .is_some_and(|c| c.is_ascii_alphanumeric());
-    let chars_ok = name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | ' ' | '-'));
-    if name.len() > MAX_NAME_LEN
-        || !name.ends_with(".md")
-        || !first_ok
-        || !chars_ok
-        || name.contains("..")
+        .is_some_and(|c| c.is_ascii_alphanumeric())
+        && segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | ' ' | '-'))
+        && segment.len() <= MAX_NAME_LEN
+        && !segment.contains("..")
+}
+
+/// A name is a path of plain segments below the agent folder, ending in a `.md` file:
+/// `PROFILE.md` or `Work/PROFILE.md`. No absolute paths, hidden names or `..`.
+pub fn validate_name(name: &str) -> AppResult<()> {
+    let segments: Vec<&str> = name.split('/').collect();
+    let Some((file, folders)) = segments.split_last() else {
+        return Err(invalid_name(name));
+    };
+    if name.len() > MAX_PATH_LEN
+        || segments.len() > MAX_DEPTH
+        || !file.ends_with(".md")
+        || !segment_ok(file)
+        || !folders.iter().all(|f| folder_segment_ok(f))
+    {
+        return Err(invalid_name(name));
+    }
+    Ok(())
+}
+
+/// A folder name may not look like a file, so a path never reads two ways.
+fn folder_segment_ok(segment: &str) -> bool {
+    segment_ok(segment) && !segment.to_lowercase().ends_with(".md")
+}
+
+/// A folder path: plain segments joined by `/`, at most `MAX_DEPTH - 1` deep.
+pub fn validate_folder(path: &str) -> AppResult<()> {
+    let segments: Vec<&str> = path.split('/').collect();
+    if path.len() > MAX_PATH_LEN
+        || segments.len() >= MAX_DEPTH
+        || !segments.iter().all(|s| folder_segment_ok(s))
     {
         return Err(AppError::InvalidInput(format!(
-            "\"{name}\" is not a valid file name. Use letters, numbers, spaces, dots, dashes or underscores and end with .md"
+            "\"{path}\" is not a valid folder name. Use letters, numbers, spaces, dots, dashes or underscores"
         )));
     }
     Ok(())
@@ -79,31 +116,74 @@ pub fn ensure_dir(dir: &Path) -> AppResult<()> {
     Ok(())
 }
 
-pub fn list(dir: &Path) -> AppResult<Vec<AgentFile>> {
-    ensure_dir(dir)?;
-    let mut files = Vec::new();
-    for entry in fs::read_dir(dir)
-        .map_err(|e| AppError::Io(e.to_string()))?
-        .flatten()
-    {
+/// Every valid entry below `dir`, as `(relative path, metadata)`. Links, hidden entries and
+/// anything with an invalid name are skipped, so the trash and temp files never show.
+fn walk(dir: &Path, prefix: &str, depth: usize, out: &mut Vec<(String, bool, fs::Metadata)>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         let Ok(meta) = entry.metadata() else { continue };
-        if !meta.is_file() || validate_name(&name).is_err() {
-            continue;
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}/{name}")
+        };
+        if meta.is_dir() {
+            if folder_segment_ok(&name) && depth + 1 < MAX_DEPTH {
+                out.push((path.clone(), true, meta));
+                walk(&entry.path(), &path, depth + 1, out);
+            }
+        } else if meta.is_file() && validate_name(&path).is_ok() {
+            out.push((path, false, meta));
         }
-        let modified = meta
-            .modified()
-            .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-            .unwrap_or_default();
-        files.push(AgentFile {
-            name,
-            size: meta.len(),
-            modified,
-        });
     }
+}
+
+pub fn list(dir: &Path) -> AppResult<Vec<AgentFile>> {
+    ensure_dir(dir)?;
+    let mut entries = Vec::new();
+    walk(dir, "", 0, &mut entries);
+    let mut files: Vec<AgentFile> = entries
+        .into_iter()
+        .filter(|(_, is_dir, _)| !is_dir)
+        .map(|(name, _, meta)| {
+            let modified = meta
+                .modified()
+                .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
+                .unwrap_or_default();
+            AgentFile {
+                name,
+                size: meta.len(),
+                modified,
+            }
+        })
+        .collect();
     // The entry file leads, the rest read alphabetically.
     files.sort_by_key(|f| (f.name != ENTRY_FILE, f.name.to_lowercase()));
     Ok(files)
+}
+
+/// Every folder, empty ones included, as a path like `Work/Deep`, alphabetically.
+pub fn list_folders(dir: &Path) -> AppResult<Vec<String>> {
+    ensure_dir(dir)?;
+    let mut entries = Vec::new();
+    walk(dir, "", 0, &mut entries);
+    let mut folders: Vec<String> = entries
+        .into_iter()
+        .filter(|(_, is_dir, _)| *is_dir)
+        .map(|(path, _, _)| path)
+        .collect();
+    folders.sort_by_key(|f| f.to_lowercase());
+    Ok(folders)
+}
+
+/// Creates the folder and any parent. One that exists is left as it is.
+pub fn create_folder(dir: &Path, path: &str) -> AppResult<()> {
+    validate_folder(path)?;
+    ensure_dir(dir)?;
+    fs::create_dir_all(dir.join(path)).map_err(|e| AppError::Io(e.to_string()))
 }
 
 pub fn read(dir: &Path, name: &str) -> AppResult<String> {
@@ -125,7 +205,11 @@ pub fn write(dir: &Path, name: &str, content: &str) -> AppResult<()> {
         ));
     }
     ensure_dir(dir)?;
-    let temp = dir.join(format!(".{name}.tmp-{}", crate::db::new_id()));
+    let target = dir.join(name);
+    let parent = target.parent().unwrap_or(dir);
+    fs::create_dir_all(parent).map_err(|e| AppError::Io(e.to_string()))?;
+    let file_name = name.rsplit('/').next().unwrap_or(name);
+    let temp = parent.join(format!(".{file_name}.tmp-{}", crate::db::new_id()));
     let result = (|| -> std::io::Result<()> {
         let mut file = OpenOptions::new()
             .write(true)
@@ -133,7 +217,7 @@ pub fn write(dir: &Path, name: &str, content: &str) -> AppResult<()> {
             .open(&temp)?;
         file.write_all(content.as_bytes())?;
         file.sync_all()?;
-        fs::rename(&temp, dir.join(name))
+        fs::rename(&temp, &target)
     })();
     if let Err(e) = result {
         let _ = fs::remove_file(&temp);
@@ -142,8 +226,23 @@ pub fn write(dir: &Path, name: &str, content: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// Moves the file to `.trash/<timestamp>-<name>` so a delete can always be undone by
-/// hand. The standard files cannot be deleted.
+/// A free name in the trash for `label`, stamped so a second delete never replaces the first.
+fn trash_target(dir: &Path, label: &str) -> AppResult<PathBuf> {
+    let trash = dir.join(TRASH_DIR);
+    fs::create_dir_all(&trash).map_err(|e| AppError::Io(e.to_string()))?;
+    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S%3f");
+    let mut target = trash.join(format!("{stamp}-{label}"));
+    let mut n = 1;
+    // `rename` replaces an existing file, and the trash must never lose one.
+    while target.exists() {
+        target = trash.join(format!("{stamp}-{n}-{label}"));
+        n += 1;
+    }
+    Ok(target)
+}
+
+/// Moves the file to `.trash/<timestamp>-<path>` so a delete can always be undone by
+/// hand. The standard files at the top cannot be deleted.
 pub fn delete(dir: &Path, name: &str) -> AppResult<()> {
     validate_name(name)?;
     if STANDARD_FILES
@@ -158,16 +257,18 @@ pub fn delete(dir: &Path, name: &str) -> AppResult<()> {
     if !source.is_file() {
         return Err(AppError::NotFound(name.to_string()));
     }
-    let trash = dir.join(TRASH_DIR);
-    fs::create_dir_all(&trash).map_err(|e| AppError::Io(e.to_string()))?;
-    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S%3f");
-    let mut target = trash.join(format!("{stamp}-{name}"));
-    let mut n = 1;
-    // `rename` replaces an existing file, and the trash must never lose one.
-    while target.exists() {
-        target = trash.join(format!("{stamp}-{n}-{name}"));
-        n += 1;
+    let target = trash_target(dir, &name.replace('/', "__"))?;
+    fs::rename(&source, &target).map_err(|e| AppError::Io(e.to_string()))
+}
+
+/// Moves the folder with everything in it to `.trash/<timestamp>-<path>`.
+pub fn delete_folder(dir: &Path, path: &str) -> AppResult<()> {
+    validate_folder(path)?;
+    let source = dir.join(path);
+    if !source.is_dir() {
+        return Err(AppError::NotFound(path.to_string()));
     }
+    let target = trash_target(dir, &path.replace('/', "__"))?;
     fs::rename(&source, &target).map_err(|e| AppError::Io(e.to_string()))
 }
 
@@ -190,6 +291,21 @@ pub fn agent_dir_path(app: AppHandle) -> AppResult<String> {
 #[tauri::command]
 pub fn list_agent_files(app: AppHandle) -> AppResult<Vec<AgentFile>> {
     list(&agent_dir(&app)?)
+}
+
+#[tauri::command]
+pub fn list_agent_folders(app: AppHandle) -> AppResult<Vec<String>> {
+    list_folders(&agent_dir(&app)?)
+}
+
+#[tauri::command]
+pub fn create_agent_folder(app: AppHandle, path: String) -> AppResult<()> {
+    create_folder(&agent_dir(&app)?, &path)
+}
+
+#[tauri::command]
+pub fn delete_agent_folder(app: AppHandle, path: String) -> AppResult<()> {
+    delete_folder(&agent_dir(&app)?, &path)
 }
 
 #[tauri::command]
@@ -230,7 +346,12 @@ mod tests {
     fn names_must_be_plain_markdown_files() {
         for bad in [
             "../x.md",
-            "a/b.md",
+            "a/../b.md",
+            "/a.md",
+            "a//b.md",
+            "a/.hidden/b.md",
+            "a/b",
+            "a.md/b.md",
             "a\\b.md",
             "x.txt",
             "x",
@@ -249,6 +370,8 @@ mod tests {
             "my notes.md",
             "style-v2_final.md",
             "a.b.md",
+            "Work/PROFILE.md",
+            "Work/Deep/style.md",
         ] {
             assert!(validate_name(good).is_ok(), "{good:?} should be accepted");
         }
@@ -377,5 +500,132 @@ mod tests {
             delete(&dir, "GONE.md"),
             Err(AppError::NotFound(_))
         ));
+    }
+
+    #[test]
+    fn files_in_folders_round_trip_and_are_listed_with_their_path() {
+        let dir = temp_dir();
+        write(&dir, "Work/Deep/style.md", "short").unwrap();
+        write(&dir, "Work/PROFILE.md", "me").unwrap();
+        assert_eq!(read(&dir, "Work/Deep/style.md").unwrap(), "short");
+        let names: Vec<String> = list(&dir).unwrap().into_iter().map(|f| f.name).collect();
+        assert_eq!(
+            names,
+            [
+                "AGENTS.md",
+                "NOOKLY.md",
+                "Work/Deep/style.md",
+                "Work/PROFILE.md"
+            ]
+        );
+        let leftovers = fs::read_dir(dir.join("Work"))
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp-"))
+            .count();
+        assert_eq!(leftovers, 0);
+    }
+
+    #[test]
+    fn folders_can_be_created_and_listed_even_when_empty() {
+        let dir = temp_dir();
+        create_folder(&dir, "Empty").unwrap();
+        create_folder(&dir, "Work/Deep").unwrap();
+        // Creating one that exists is fine and changes nothing.
+        write(&dir, "Work/a.md", "keep").unwrap();
+        create_folder(&dir, "Work").unwrap();
+        assert_eq!(read(&dir, "Work/a.md").unwrap(), "keep");
+        assert_eq!(list_folders(&dir).unwrap(), ["Empty", "Work", "Work/Deep"]);
+        for bad in ["", "../x", "a/../b", ".trash", "x.md", "a//b", "a/.b"] {
+            assert!(create_folder(&dir, bad).is_err(), "{bad:?}");
+        }
+        // The trash is not a folder of the list.
+        delete(&dir, "Work/a.md").unwrap();
+        assert!(!list_folders(&dir)
+            .unwrap()
+            .iter()
+            .any(|f| f.contains("trash")));
+    }
+
+    #[test]
+    fn a_folder_cannot_be_nested_past_the_depth_limit() {
+        let dir = temp_dir();
+        assert!(create_folder(&dir, "a/b/c/d").is_ok());
+        assert!(create_folder(&dir, "a/b/c/d/e").is_err());
+        assert!(write(&dir, "a/b/c/d/e.md", "x").is_ok());
+        assert!(write(&dir, "a/b/c/d/e/f.md", "x").is_err());
+    }
+
+    #[test]
+    fn a_standard_file_name_inside_a_folder_is_an_ordinary_file() {
+        let dir = temp_dir();
+        write(&dir, "Work/AGENTS.md", "mine").unwrap();
+        delete(&dir, "Work/AGENTS.md").unwrap();
+        assert!(dir.join("AGENTS.md").is_file());
+    }
+
+    #[test]
+    fn deleting_a_nested_file_keeps_it_in_the_trash() {
+        let dir = temp_dir();
+        write(&dir, "Work/STYLE.md", "short sentences").unwrap();
+        delete(&dir, "Work/STYLE.md").unwrap();
+        assert!(matches!(
+            read(&dir, "Work/STYLE.md"),
+            Err(AppError::NotFound(_))
+        ));
+        let trashed: Vec<PathBuf> = fs::read_dir(dir.join(TRASH_DIR))
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        assert_eq!(trashed.len(), 1);
+        assert_eq!(fs::read_to_string(&trashed[0]).unwrap(), "short sentences");
+        // The folder stays, now empty.
+        assert_eq!(list_folders(&dir).unwrap(), ["Work"]);
+    }
+
+    #[test]
+    fn deleting_a_folder_moves_it_whole_to_the_trash() {
+        let dir = temp_dir();
+        write(&dir, "Work/Deep/a.md", "one").unwrap();
+        write(&dir, "Work/b.md", "two").unwrap();
+        delete_folder(&dir, "Work").unwrap();
+        assert!(list_folders(&dir).unwrap().is_empty());
+        assert!(list(&dir)
+            .unwrap()
+            .iter()
+            .all(|f| !f.name.starts_with("Work")));
+        let trashed: Vec<PathBuf> = fs::read_dir(dir.join(TRASH_DIR))
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        assert_eq!(trashed.len(), 1);
+        assert_eq!(
+            fs::read_to_string(trashed[0].join("Deep/a.md")).unwrap(),
+            "one"
+        );
+        assert_eq!(fs::read_to_string(trashed[0].join("b.md")).unwrap(), "two");
+        assert!(matches!(
+            delete_folder(&dir, "Work"),
+            Err(AppError::NotFound(_))
+        ));
+        assert!(delete_folder(&dir, "../x").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_folder_is_ignored() {
+        let dir = temp_dir();
+        let outside = temp_dir();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.md"), "x").unwrap();
+        ensure_dir(&dir).unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("Link")).unwrap();
+        assert!(list(&dir)
+            .unwrap()
+            .iter()
+            .all(|f| !f.name.starts_with("Link")));
+        assert!(list_folders(&dir).unwrap().is_empty());
     }
 }

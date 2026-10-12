@@ -155,6 +155,7 @@ export const qk = {
   agentFiles: {
     dir: ["agent-files", "dir"] as const,
     list: ["agent-files", "list"] as const,
+    folders: ["agent-files", "folders"] as const,
     file: (name: string) => ["agent-files", "file", name] as const,
   },
   appVersion: ["app-version"] as const,

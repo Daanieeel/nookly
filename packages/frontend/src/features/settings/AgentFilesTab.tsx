@@ -1,6 +1,6 @@
-import { IconFile, IconFolderOpen, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconFilePlus, IconFolderOpen, IconFolderPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,13 +13,6 @@ import {
 } from "@nookly/ui/components/alert-dialog";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
-import {
-  PageTabs,
-  PageTabsBar,
-  PageTabsContent,
-  PageTabsList,
-  PageTabsTrigger,
-} from "@nookly/ui/components/page-tabs";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -34,31 +27,52 @@ import { MiddleEllipsis } from "#/components/middle-ellipsis.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import {
   AGENT_ENTRY_FILE,
+  AGENT_MAX_DEPTH,
+  agentDepth,
   agentDirPath,
+  agentParent,
   deleteAgentFile,
+  deleteAgentFolder,
   isStandardAgentFile,
   listAgentFiles,
+  listAgentFolders,
   readAgentFile,
   revealAgentDir,
   writeAgentFile,
 } from "#/lib/api/agent-files.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { AgentFileTree, buildAgentTree } from "./AgentFileTree.tsx";
 import { NewAgentFileDialog } from "./NewAgentFileDialog.tsx";
 
 /// The Agent tab of Settings: the folder to hand to a coding agent and the markdown
-/// files in it, edited in place. Plain file management, no AI. A file is saved when the
+/// files in it, in a vertical explorer with folders, edited in place next to it. Plain file management, no AI. A file is saved when the
 /// cursor leaves its text, when another file is opened and when Settings closes.
 export function AgentFilesTab() {
   const queryClient = useQueryClient();
-  const { data: dir } = useQuery({ queryKey: qk.agentFiles.dir, queryFn: agentDirPath });
-  const { data: files = [] } = useQuery({ queryKey: qk.agentFiles.list, queryFn: listAgentFiles });
+  const { data: dir } = useQuery({
+    queryKey: qk.agentFiles.dir,
+    queryFn: agentDirPath,
+  });
+  const { data: files = [] } = useQuery({
+    queryKey: qk.agentFiles.list,
+    queryFn: listAgentFiles,
+  });
   const [selected, setSelected] = useState(AGENT_ENTRY_FILE);
   // The text being typed; null while it is the file's own text.
   const [draft, setDraft] = useState<string | null>(null);
   // A file chosen while the open one could not be saved, waiting for the user's answer.
   const [switchTo, setSwitchTo] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const { data: folders = [] } = useQuery({
+    queryKey: qk.agentFiles.folders,
+    queryFn: listAgentFolders,
+  });
+  const [creating, setCreating] = useState<"file" | "folder" | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
+  // Folders that are open in the explorer, and the one new entries are made in.
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [activeFolder, setActiveFolder] = useState("");
+  const tree = useMemo(() => buildAgentTree(files, folders), [files, folders]);
 
   const { data: saved, isError: readFailed } = useQuery({
     queryKey: qk.agentFiles.file(selected),
@@ -67,9 +81,14 @@ export function AgentFilesTab() {
   const text = draft ?? saved ?? "";
   const dirty = draft !== null && draft !== saved;
 
-  const refresh = () =>
+  const refreshTree = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: qk.agentFiles.list }),
+      queryClient.invalidateQueries({ queryKey: qk.agentFiles.folders }),
+    ]);
+  const refresh = () =>
+    Promise.all([
+      refreshTree(),
       queryClient.invalidateQueries({ queryKey: qk.agentFiles.file(selected) }),
     ]);
 
@@ -114,27 +133,65 @@ export function AgentFilesTab() {
   const remove = useMutation({
     mutationFn: () => deleteAgentFile(selected),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: qk.agentFiles.list });
+      await refreshTree();
       queryClient.removeQueries({ queryKey: qk.agentFiles.file(selected) });
       setDeleting(false);
-      setDraft(null);
-      setSelected(AGENT_ENTRY_FILE);
+      goTo(AGENT_ENTRY_FILE);
+    },
+  });
+
+  // Moves the folder to the trash. An open file inside it is saved first and closes.
+  const removeFolder = useMutation({
+    mutationFn: async (path: string) => {
+      const inside = selected.startsWith(`${path}/`);
+      if (inside && !(await persist())) throw new Error("unsaved");
+      await deleteAgentFolder(path);
+      return inside;
+    },
+    onSuccess: async (inside, path) => {
+      await refreshTree();
+      if (inside) {
+        queryClient.removeQueries({ queryKey: qk.agentFiles.file(selected) });
+        goTo(AGENT_ENTRY_FILE);
+      } else if (activeFolder === path || activeFolder.startsWith(`${path}/`)) {
+        setActiveFolder(agentParent(path));
+      }
+      setDeletingFolder(null);
     },
   });
 
   const reveal = useMutation({ mutationFn: revealAgentDir });
 
-  const goTo = (name: string) => {
+  function goTo(name: string) {
     setSwitchTo(null);
     setSelected(name);
+    const parent = agentParent(name);
+    setActiveFolder(parent);
+    // Show where the file is: every folder above it opens.
+    if (parent) {
+      setOpen((now) => {
+        const next = new Set(now);
+        for (let at = parent; at; at = agentParent(at)) next.add(at);
+        return next;
+      });
+    }
     setDraft(null);
     save.reset();
-  };
+  }
   const select = (name: string) => {
     if (name === selected) return;
     if (!dirty) goTo(name);
     else void persist().then((ok) => (ok ? goTo(name) : setSwitchTo(name)));
   };
+  const toggleFolder = (path: string) => {
+    setActiveFolder(path);
+    setOpen((now) => {
+      const next = new Set(now);
+      if (!next.delete(path)) next.add(path);
+      return next;
+    });
+  };
+  const canMakeFolder = agentDepth(activeFolder) + 1 < AGENT_MAX_DEPTH;
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -167,33 +224,54 @@ export function AgentFilesTab() {
       </div>
       <FieldError message={reveal.isError && "Couldn't open the folder."} />
 
-      <PageTabs value={selected} onValueChange={select}>
-        <PageTabsBar>
-          <PageTabsList aria-label="Agent files">
-            {files.map((file) => (
-              <PageTabsTrigger key={file.name} value={file.name} title={file.name}>
-                <IconFile />
-                <span className="max-w-40 truncate">{file.name}</span>
-              </PageTabsTrigger>
-            ))}
-          </PageTabsList>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="mb-0.5 size-7 shrink-0"
-                aria-label="New File"
-                onClick={() => setCreating(true)}
-              >
-                <IconPlus size={14} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>New File</TooltipContent>
-          </Tooltip>
-        </PageTabsBar>
+      <div className="flex min-w-0 gap-3">
+        <div className="flex h-96 max-h-[50vh] min-h-64 w-56 shrink-0 flex-col rounded-md border border-border">
+          <div className="flex items-center gap-0.5 border-b border-border p-1">
+            <span className="min-w-0 flex-1 truncate px-1.5 text-xs text-muted-foreground">
+              {activeFolder ? `In ${activeFolder}` : "Files"}
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  aria-label="New File"
+                  onClick={() => setCreating("file")}
+                >
+                  <IconFilePlus size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New File</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  aria-label="New Folder"
+                  disabled={!canMakeFolder}
+                  onClick={() => setCreating("folder")}
+                >
+                  <IconFolderPlus size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New Folder</TooltipContent>
+            </Tooltip>
+          </div>
+          <AgentFileTree
+            nodes={tree}
+            selected={selected}
+            activeFolder={activeFolder}
+            open={open}
+            onOpenFile={select}
+            onToggleFolder={toggleFolder}
+            onDeleteFolder={setDeletingFolder}
+          />
+        </div>
 
-        <PageTabsContent value={selected} className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Textarea
             aria-label="File content"
             spellCheck={false}
@@ -231,17 +309,45 @@ export function AgentFilesTab() {
             )}
           </div>
           <FieldError message={readFailed && `Couldn't read ${selected}.`} />
-        </PageTabsContent>
-      </PageTabs>
+        </div>
+      </div>
 
       <NewAgentFileDialog
-        open={creating}
-        onOpenChange={setCreating}
-        existing={files.map((f) => f.name)}
-        onCreated={(name) => {
-          void queryClient.invalidateQueries({ queryKey: qk.agentFiles.list });
-          goTo(name);
+        open={creating !== null}
+        onOpenChange={(next) => !next && setCreating(null)}
+        kind={creating ?? "file"}
+        parent={activeFolder}
+        existing={[...files.map((f) => f.name), ...folders]}
+        onCreated={(path) => {
+          void refreshTree();
+          if (creating === "folder") {
+            setOpen((now) => new Set(now).add(path));
+            setActiveFolder(path);
+          } else goTo(path);
         }}
+      />
+
+      <ConfirmPermanentDialog
+        open={deletingFolder !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setDeletingFolder(null);
+            removeFolder.reset();
+          }
+        }}
+        title={
+          <>
+            Delete <code className="rounded bg-muted px-1 py-0.5 font-mono">{deletingFolder}</code>?
+          </>
+        }
+        description="The folder and every file in it leave this list and are kept in the .trash folder inside your agent folder. Your coding agent will no longer see them."
+        actionLabel="Delete Folder"
+        errorLabel="Couldn't delete, try again"
+        status={statusOf(removeFolder)}
+        error={removeFolder.isError && "Couldn't delete the folder."}
+        onConfirm={() =>
+          deletingFolder && !removeFolder.isPending && removeFolder.mutate(deletingFolder)
+        }
       />
 
       <ConfirmPermanentDialog

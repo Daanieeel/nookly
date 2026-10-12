@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.32.6 (2026-10-11)
+
+### Changed
+
+- **Agent files sit in a file list with folders.** In Settings, the Agent tab now shows your files down the left instead of as tabs, and you can organize them in folders.
+
 ## 0.32.5 (2026-10-10)
 
 ### Fixed

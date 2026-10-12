@@ -5,8 +5,19 @@ import { z } from "zod";
 import { statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { NameFormField } from "#/components/name-form-field.tsx";
 import { SubmitDialogFooter } from "#/components/submit-dialog-footer.tsx";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@nookly/ui/components/dialog";
-import { writeAgentFile } from "#/lib/api/agent-files.ts";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@nookly/ui/components/dialog";
+import {
+  AGENT_MAX_DEPTH,
+  agentDepth,
+  createAgentFolder,
+  writeAgentFile,
+} from "#/lib/api/agent-files.ts";
 
 /// Letters, numbers, spaces, dots, dashes and underscores, starting with a letter or number.
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/;
@@ -17,33 +28,51 @@ function agentFileName(typed: string): string {
   return name.toLowerCase().endsWith(".md") ? name : `${name}.md`;
 }
 
-/// A new, empty agent file. The name gets `.md` added and may not clash with a file
-/// already in the folder, however it is capitalized.
+/// A new, empty agent file or a new folder, made inside `parent` ("" is the top). A file
+/// name gets `.md` added. Neither may clash with an entry of the same folder, however it
+/// is capitalized.
 export function NewAgentFileDialog({
   open,
   onOpenChange,
   existing,
+  kind = "file",
+  parent = "",
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /// Full paths of the files and folders already there.
   existing: string[];
+  kind?: "file" | "folder";
+  parent?: string;
   onCreated: (name: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const taken = new Set(existing.map((n) => n.toLowerCase()));
+  const folder = kind === "folder";
+  const finalName = (typed: string) => (folder ? typed.trim() : agentFileName(typed));
+  const pathOf = (typed: string) => (parent ? `${parent}/${finalName(typed)}` : finalName(typed));
+  const label = folder ? "Folder" : "File";
 
   const schema = z.object({
     name: z
       .string()
       .trim()
-      .min(1, "Give the file a name")
-      .refine((v) => NAME.test(agentFileName(v)), "Use letters, numbers, spaces, dots or dashes")
-      .refine((v) => agentFileName(v).length <= 100, "Keep the name under 100 characters")
-      .refine((v) => !agentFileName(v).includes(".."), "Do not use two dots in a row")
+      .min(1, `Give the ${label.toLowerCase()} a name`)
+      .refine((v) => NAME.test(finalName(v)), "Use letters, numbers, spaces, dots or dashes")
+      .refine((v) => finalName(v).length <= 100, "Keep the name under 100 characters")
+      .refine((v) => !finalName(v).includes(".."), "Do not use two dots in a row")
       .refine(
-        (v) => !taken.has(agentFileName(v).toLowerCase()),
-        "A file with this name already exists",
+        (v) => !folder || !finalName(v).toLowerCase().endsWith(".md"),
+        "A folder name cannot end in .md",
+      )
+      .refine(
+        () => agentDepth(parent) + 1 < AGENT_MAX_DEPTH + (folder ? 0 : 1),
+        "Folders can only go four levels deep",
+      )
+      .refine(
+        (v) => !taken.has(pathOf(v).toLowerCase()),
+        `A ${label.toLowerCase()} with this name already exists`,
       ),
   });
 
@@ -51,14 +80,16 @@ export function NewAgentFileDialog({
     defaultValues: { name: "" },
     validators: { onChange: schema, onSubmit: schema },
     onSubmit: ({ value }) => {
-      if (!create.isPending && !create.isSuccess) create.mutate(agentFileName(value.name));
+      if (!create.isPending && !create.isSuccess) create.mutate(pathOf(value.name));
     },
   });
 
-  // Never writes over a file: the name was checked against the list above.
+  // Never writes over a file: the name was checked against the list above. Making a
+  // folder that exists changes nothing.
   const create = useMutation({
     mutationFn: async (name: string) => {
-      await writeAgentFile(name, "");
+      if (folder) await createAgentFolder(name);
+      else await writeAgentFile(name, "");
       return name;
     },
   });
@@ -80,7 +111,8 @@ export function NewAgentFileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>New File</DialogTitle>
+          <DialogTitle>New {label}</DialogTitle>
+          {parent && <DialogDescription>In {parent}</DialogDescription>}
         </DialogHeader>
         <form
           onSubmit={(event) => {
@@ -94,7 +126,7 @@ export function NewAgentFileDialog({
                 field={field}
                 id="agent-file-name"
                 inputRef={inputRef}
-                placeholder="e.g. PROFILE"
+                placeholder={folder ? "e.g. Work" : "e.g. PROFILE"}
               />
             )}
           </form.Field>

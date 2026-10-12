@@ -9,16 +9,22 @@ const FILES = [
   { name: "AGENTS.md", size: 120, modified: "2026-01-01T00:00:00Z" },
   { name: "NOOKLY.md", size: 900, modified: "2026-01-01T00:00:00Z" },
   { name: "PROFILE.md", size: 20, modified: "2026-01-02T00:00:00Z" },
+  { name: "Work/style.md", size: 10, modified: "2026-01-02T00:00:00Z" },
 ];
+const FOLDERS = ["Empty", "Work"];
 const CONTENT = new Map([
   ["AGENTS.md", "# Agents"],
   ["NOOKLY.md", "# NOOKLY.md"],
   ["PROFILE.md", "I study."],
+  ["Work/style.md", "Short."],
 ]);
 
 function setup() {
   mockCommand("agent_dir_path", "/data/agent");
   mockCommand("list_agent_files", FILES);
+  mockCommand("list_agent_folders", FOLDERS);
+  mockCommand("create_agent_folder", null);
+  mockCommand("delete_agent_folder", null);
   mockCommandWith("read_agent_file", (args) =>
     CONTENT.get(String(args && "name" in args && args.name)),
   );
@@ -34,19 +40,82 @@ describe("AgentFilesTab", () => {
   it("shows the folder, its files and the entry file open", async () => {
     setup();
     expect(await screen.findByTitle("/data/agent")).toBeTruthy();
-    expect(await screen.findByRole("tab", { name: /PROFILE\.md/ })).toBeTruthy();
-    expect(await screen.findByRole("tab", { name: /AGENTS\.md/ })).toHaveAttribute(
-      "aria-selected",
+    expect(await screen.findByRole("button", { name: /PROFILE\.md/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /AGENTS\.md/ })).toHaveAttribute(
+      "aria-current",
       "true",
     );
     expect(await editor()).toHaveValue("# Agents");
   });
 
-  it("lists the files as tabs above the text, in that order", async () => {
+  it("lists the files in a vertical explorer beside the text, not tabs above it", async () => {
     setup();
-    const tab = await screen.findByRole("tab", { name: /AGENTS\.md/ });
+    const nav = await screen.findByRole("navigation", { name: "Agent files" });
+    expect(screen.queryByRole("tab")).toBeNull();
     const box = await editor();
-    expect(tab.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(nav.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Each file is its own row, one below the other, with the entry file first and folders ahead of files.
+    const names = within(nav)
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("title"))
+      .filter(Boolean);
+    expect(names).toEqual(["AGENTS.md", "Empty", "Work", "NOOKLY.md", "PROFILE.md"]);
+    // The entry file leads, then folders, then the other files.
+  });
+
+  it("opens and closes folders, and opens a file inside one", async () => {
+    const { user } = setup();
+    expect(screen.queryByRole("button", { name: /style\.md/ })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Work" }));
+    expect(screen.getByRole("button", { name: "Work" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: /style\.md/ }));
+    expect(await screen.findByDisplayValue("Short.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Work" }));
+    expect(screen.queryByRole("button", { name: /style\.md/ })).toBeNull();
+  });
+
+  it("shows an empty folder as empty", async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Empty" }));
+    expect(screen.getByText("Empty", { selector: "p" })).toBeTruthy();
+  });
+
+  it("makes a new file inside the folder that was last opened", async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Work" }));
+    await user.click(screen.getByRole("button", { name: "New File" }));
+    await user.type(await screen.findByRole("textbox", { name: /Name/ }), "tone");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(callsOf("write_agent_file")).toHaveLength(1));
+    expect(callsOf("write_agent_file")[0]).toEqual({
+      name: "Work/tone.md",
+      content: "",
+    });
+  });
+
+  it("makes a new folder, and refuses one that exists", async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "New Folder" }));
+    const name = await screen.findByRole("textbox", { name: /Name/ });
+    await user.type(name, "work");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByText(/already exists/)).toBeTruthy();
+    expect(callsOf("create_agent_folder")).toHaveLength(0);
+    await user.clear(name);
+    await user.type(name, "Notes");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(callsOf("create_agent_folder")).toHaveLength(1));
+    expect(callsOf("create_agent_folder")[0]).toEqual({ path: "Notes" });
+  });
+
+  it("deletes a folder only after confirming", async () => {
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Delete Folder Empty" }));
+    expect(callsOf("delete_agent_folder")).toHaveLength(0);
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete Folder" }));
+    await waitFor(() => expect(callsOf("delete_agent_folder")).toHaveLength(1));
+    expect(callsOf("delete_agent_folder")[0]).toEqual({ path: "Empty" });
   });
 
   it("shortens a long folder path in the middle, keeping its end and the full path", async () => {
@@ -88,7 +157,10 @@ describe("AgentFilesTab", () => {
     expect(callsOf("write_agent_file")).toHaveLength(0);
     await user.tab();
     await waitFor(() => expect(callsOf("write_agent_file")).toHaveLength(1));
-    expect(callsOf("write_agent_file")[0]).toEqual({ name: "AGENTS.md", content: "new text" });
+    expect(callsOf("write_agent_file")[0]).toEqual({
+      name: "AGENTS.md",
+      content: "new text",
+    });
     expect(await screen.findByText("Saved")).toBeTruthy();
   });
 
@@ -105,7 +177,7 @@ describe("AgentFilesTab", () => {
     const { user } = setup();
     await screen.findByDisplayValue("# Agents");
     await user.type(await editor(), " more");
-    await user.click(screen.getByRole("tab", { name: /PROFILE\.md/ }));
+    await user.click(screen.getByRole("button", { name: /PROFILE\.md/ }));
     expect(await screen.findByDisplayValue("I study.")).toBeTruthy();
     expect(callsOf("write_agent_file")).toHaveLength(1);
     expect(callsOf("write_agent_file")[0]).toEqual({
@@ -147,7 +219,10 @@ describe("AgentFilesTab", () => {
     await user.type(await screen.findByRole("textbox", { name: /Name/ }), "STYLE");
     await user.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(callsOf("write_agent_file")).toHaveLength(1));
-    expect(callsOf("write_agent_file")[0]).toEqual({ name: "STYLE.md", content: "" });
+    expect(callsOf("write_agent_file")[0]).toEqual({
+      name: "STYLE.md",
+      content: "",
+    });
   });
 
   it("refuses a name that is taken, ignoring case", async () => {
@@ -161,7 +236,7 @@ describe("AgentFilesTab", () => {
 
   it("deletes a file only after confirming", async () => {
     const { user } = setup();
-    await user.click(await screen.findByRole("tab", { name: /PROFILE\.md/ }));
+    await user.click(await screen.findByRole("button", { name: /PROFILE\.md/ }));
     await user.click(await screen.findByRole("button", { name: "Delete File" }));
     expect(callsOf("delete_agent_file")).toHaveLength(0);
     const dialog = await screen.findByRole("alertdialog");
@@ -174,7 +249,7 @@ describe("AgentFilesTab", () => {
     const { user } = setup();
     await editor();
     expect(screen.queryByRole("button", { name: "Delete File" })).toBeNull();
-    await user.click(await screen.findByRole("tab", { name: /NOOKLY\.md/ }));
+    await user.click(await screen.findByRole("button", { name: /NOOKLY\.md/ }));
     await screen.findByDisplayValue("# NOOKLY.md");
     expect(screen.queryByRole("button", { name: "Delete File" })).toBeNull();
   });
@@ -186,7 +261,7 @@ describe("AgentFilesTab", () => {
     });
     await screen.findByDisplayValue("# Agents");
     await user.type(await editor(), " more");
-    await user.click(screen.getByRole("tab", { name: /PROFILE\.md/ }));
+    await user.click(screen.getByRole("button", { name: /PROFILE\.md/ }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/Couldn't save AGENTS\.md/)).toBeTruthy();
     await user.click(within(dialog).getByRole("button", { name: "Discard" }));
@@ -211,7 +286,7 @@ describe("AgentFilesTab dialogs", () => {
     await expectNoA11yViolations();
   });
 
-  it("has no axe violations with the tabs and the text", async () => {
+  it("has no axe violations with the explorer and the text", async () => {
     setup();
     await editor();
     await expectNoA11yViolations();
@@ -219,7 +294,7 @@ describe("AgentFilesTab dialogs", () => {
 
   it("has no axe violations in the delete dialog", async () => {
     const { user } = setup();
-    await user.click(await screen.findByRole("tab", { name: /PROFILE\.md/ }));
+    await user.click(await screen.findByRole("button", { name: /PROFILE\.md/ }));
     await user.click(await screen.findByRole("button", { name: "Delete File" }));
     await screen.findByRole("alertdialog");
     await expectNoA11yViolations();

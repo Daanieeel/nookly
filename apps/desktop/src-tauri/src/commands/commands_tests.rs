@@ -294,6 +294,9 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     // `AppHandle` parameter: each resolves the folder, then calls the same functions.
     ("agent_dir_path", "agent_files_underlying_calls"),
     ("list_agent_files", "agent_files_underlying_calls"),
+    ("list_agent_folders", "agent_files_underlying_calls"),
+    ("create_agent_folder", "agent_files_underlying_calls"),
+    ("delete_agent_folder", "agent_files_underlying_calls"),
     ("read_agent_file", "agent_files_underlying_calls"),
     ("write_agent_file", "agent_files_underlying_calls"),
     ("delete_agent_file", "agent_files_underlying_calls"),
@@ -3946,6 +3949,10 @@ fn agent_files_underlying_calls() {
     // Only the two standard files are left.
     assert_eq!(agent::list(&dir).unwrap().len(), 2);
     assert!(agent::validate_name("../x.md").is_err());
+    agent::create_folder(&dir, "Work").unwrap();
+    assert_eq!(agent::list_folders(&dir).unwrap(), ["Work"]);
+    agent::delete_folder(&dir, "Work").unwrap();
+    assert!(agent::list_folders(&dir).unwrap().is_empty());
 }
 
 #[test]
