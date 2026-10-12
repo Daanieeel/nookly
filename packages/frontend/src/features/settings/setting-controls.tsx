@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { Input } from "@nookly/ui/components/input";
 import { SelectField } from "#/components/select-field.tsx";
 import { NumberInput } from "@nookly/ui/components/number-input";
 import { Switch } from "@nookly/ui/components/switch";
@@ -45,6 +47,31 @@ export function NumberControl({
       />
       <span className="text-xs text-muted-foreground">{unit}</span>
     </div>
+  );
+}
+
+/// The name the Dashboard greets. Typed freely and saved, trimmed, when the field is left.
+export function DisplayNameControl() {
+  const [saved, setSaved] = useSetting("general.displayName");
+  const [draft, setDraft] = useState(saved);
+  // A reset or another window changing the name replaces what is typed.
+  useEffect(() => setDraft(saved), [saved]);
+  const commit = () => {
+    const next = draft.trim();
+    setDraft(next);
+    if (next !== saved) setSaved(next);
+  };
+  return (
+    <Input
+      aria-label="Your name"
+      maxLength={40}
+      placeholder="Your first name"
+      className="w-56"
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => event.key === "Enter" && commit()}
+    />
   );
 }
 

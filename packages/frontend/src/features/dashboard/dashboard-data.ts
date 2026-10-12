@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { listAssignmentsAllSpaces } from "#/lib/api/assignments.ts";
+import { listDeckSummariesAllSpaces } from "#/lib/api/decks.ts";
+import { studyCount } from "#/features/exams/deck/deck-data.ts";
+import { useSetting } from "#/lib/settings/settings.ts";
+import type { BriefingDeck } from "./briefing-clauses";
 import { listExamsAllSpaces } from "#/lib/api/exams.ts";
 import { countUnrefinedJotsAllSpaces, listUnrefinedJotsAllSpaces } from "#/lib/api/notes.ts";
 import { listSessionsBetween } from "#/lib/api/sessions.ts";
@@ -8,6 +12,7 @@ import { listOpenTasksDueOrOverdue } from "#/lib/api/tasks.ts";
 import type { BriefingSession, Entity, PageSummary, Task } from "#/lib/api/types.ts";
 import { isDone } from "#/features/assignments/assignment-model.ts";
 import { toDay } from "#/features/tasks/task-model.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 /// Rows the Jots panel shows.
@@ -23,6 +28,8 @@ export interface Deadline {
 }
 
 export interface DashboardData {
+  /// What to call the person, empty when never set.
+  name: string;
   now: Date;
   today: string;
   tasks: Task[];
@@ -32,6 +39,8 @@ export interface DashboardData {
   deadlines: Deadline[];
   jots: PageSummary[];
   jotCount: number;
+  /// Decks with cards to study today, most cards first.
+  studyDecks: BriefingDeck[];
 }
 
 /// Ticks on each minute so greetings, "today" and "next up" follow the clock
@@ -73,6 +82,21 @@ export function useDashboardData(): DashboardData {
     queryFn: countUnrefinedJotsAllSpaces,
   });
 
+  const { data: decks = [] } = useQuery({
+    queryKey: qk.decks.summariesAll,
+    queryFn: listDeckSummariesAllSpaces,
+  });
+  const [name] = useSetting("general.displayName");
+  const studyDecks = decks
+    .filter((d) => studyCount(d.stats) > 0)
+    .map((d) => ({
+      entityId: d.entity.id,
+      spaceId: d.entity.spaceId,
+      title: displayTitle(d.entity),
+      cards: studyCount(d.stats),
+    }))
+    .sort((a, b) => b.cards - a.cards);
+
   const todaySessions = sessions.filter((s) => s.date === today);
 
   const deadlines: Deadline[] = [
@@ -91,6 +115,7 @@ export function useDashboardData(): DashboardData {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
+    name,
     now,
     today,
     tasks,
@@ -98,5 +123,6 @@ export function useDashboardData(): DashboardData {
     deadlines,
     jots,
     jotCount,
+    studyDecks,
   };
 }

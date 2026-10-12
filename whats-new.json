@@ -16,7 +16,8 @@
       "more": {
         "Improved": [
           "Decks with cards to study today show a play button and leave once you are done.",
-          "Jots now list the oldest first."
+          "Jots now list the oldest first.",
+          "The sentence at the top of the Dashboard greets you by name, leaves out sessions that already started and points out what matters most. Set your name in Settings under General."
         ]
       }
     },

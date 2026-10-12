@@ -27,6 +27,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { AgentFilesTab } from "./AgentFilesTab.tsx";
 import { ShortcutControl } from "./ShortcutControl.tsx";
 import {
+  DisplayNameControl,
   NumberControl,
   SnapControl,
   SwitchControl,
@@ -67,7 +68,7 @@ export interface RowSpec extends Searchable {
 
 /// Headings within a category, in display order.
 const SECTIONS = {
-  general: ["Date and time", "Tasks", "About"],
+  general: ["Profile", "Date and time", "Tasks", "About"],
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Connections"],
   notes: ["Code", "Editing"],
@@ -93,6 +94,7 @@ const SETTING_UI = {
   ...SHORTCUT_UI,
   "appearance.theme": { section: "Theme", control: <ThemeToggle /> },
   "appearance.fileViewerTheme": { section: "Theme", control: <FileViewerThemeToggle /> },
+  "general.displayName": { section: "Profile", control: <DisplayNameControl /> },
   "general.timezone": { section: "Date and time", control: <TimezoneSetting /> },
   "general.dateFormat": { section: "Date and time", control: <DateFormatSetting /> },
   "general.timeFormat": { section: "Date and time", control: <TimeFormatSetting /> },
