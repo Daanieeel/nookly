@@ -1,4 +1,3 @@
-import { IconCalendarWeek } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { startOfDay } from "date-fns";
 import { useMemo } from "react";
@@ -6,8 +5,8 @@ import { TimeGrid } from "#/features/sessions/calendar/TimeGrid.tsx";
 import { useCrossSpaceColumns } from "#/features/sessions/calendar/use-cross-space-columns.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { cn } from "@nookly/ui/lib/utils";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { Panel } from "./DashboardPanel";
 
 /// Hours of lead shown above the current time when the panel opens.
 const LEAD_MINUTES = 60;
@@ -24,7 +23,7 @@ export function CalendarPanel({ now, className }: { now: Date; className?: strin
   const spaceColor = (spaceId: string) => spaces.find((s) => s.id === spaceId)?.color;
 
   return (
-    <Panel icon={IconCalendarWeek} title="Calendar" className={className}>
+    <section aria-label="Calendar" className={cn("flex min-w-0 flex-col", className)}>
       {/* The grid fills the box without adding to the row's height, which the left column sets. */}
       <div className="relative min-h-96 flex-1">
         <div className="absolute inset-0 flex flex-col overflow-hidden rounded-lg border">
@@ -42,6 +41,6 @@ export function CalendarPanel({ now, className }: { now: Date; className?: strin
           />
         </div>
       </div>
-    </Panel>
+    </section>
   );
 }

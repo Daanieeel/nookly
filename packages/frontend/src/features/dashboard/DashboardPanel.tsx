@@ -1,5 +1,6 @@
 import type { Icon as TablerIcon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import {
   PageTabs,
@@ -9,36 +10,9 @@ import {
 } from "@nookly/ui/components/page-tabs";
 import { EntityKeyCopyInline } from "#/components/entity-key.tsx";
 import { type ContextTargetProps } from "#/components/context-menu/registry.ts";
-import { cn } from "@nookly/ui/lib/utils";
 
 /// Rows a list panel shows before "Show more".
 export const LIST_LIMIT = 5;
-
-/// A flat Dashboard panel: a quiet heading with rows sitting directly on the page.
-export function Panel({
-  icon: Icon,
-  title,
-  action,
-  className,
-  children,
-}: {
-  icon: TablerIcon;
-  title: string;
-  action?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={cn("flex min-h-0 min-w-0 flex-col gap-2", className)}>
-      <header className="flex h-8 items-center gap-2">
-        <Icon size={14} className="shrink-0 text-muted-foreground" />
-        <h2 className="text-sm font-medium">{title}</h2>
-        {action && <div className="ml-auto flex items-center gap-2">{action}</div>}
-      </header>
-      {children}
-    </section>
-  );
-}
 
 /// A whole clickable row with its copyable ID, a primary label and trailing meta.
 export function Row({
@@ -133,9 +107,11 @@ export function TabbedPanel<Id extends string>({
         className="gap-2"
       >
         <PageTabsBar>
-          <h2 className="mr-2 flex shrink-0 items-center gap-2 text-sm font-medium">
-            <Icon size={14} className="text-muted-foreground" />
-            {title}
+          <h2 className="mr-2 shrink-0">
+            <Badge size="lg" className="gap-1.5">
+              <Icon size={14} />
+              {title}
+            </Badge>
           </h2>
           <PageTabsList>
             {tabs.map((t) => (
