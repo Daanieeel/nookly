@@ -67,6 +67,13 @@ describe("buildBriefing", () => {
     );
   });
 
+  it("asks the small hours a question instead of greeting them", () => {
+    const late = sentence({ name: "Daniel", now: new Date(2026, 9, 13, 2) }).briefing;
+    expect(late.greeting).toBe("Still up, Daniel");
+    expect(late.mark).toBe("?");
+    expect(sentence({}).briefing.mark).toBe("!");
+  });
+
   it("leaves out sessions that already started", () => {
     const { text } = sentence({
       sessions: [

@@ -63,7 +63,10 @@ export function DashboardBriefing({ data }: { data: DashboardData }) {
     <div className="flow-root">
       <DashboardMascotCorner />
       <p className="text-xl/relaxed text-foreground">
-        <span className="font-semibold">{briefing.greeting}!</span>{" "}
+        <span className="font-semibold">
+          {briefing.greeting}
+          {briefing.mark}
+        </span>{" "}
         {briefing.lead.map((run, i) => renderRun(run, i, open))}
         <Filler>{briefing.bridge}</Filler>
         {briefing.clauses.map((clause, i) => (

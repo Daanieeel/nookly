@@ -62,6 +62,8 @@ export interface BriefingInputs {
 export interface Briefing {
   /// "Good morning, Daniel", without the mark that ends it.
   greeting: string;
+  /// What ends the greeting: "!" or, for the small hours, "?".
+  mark: "!" | "?";
   /// An opening remark about what stands out most, or nothing.
   lead: Run[];
   /// Text between the lead and the first clause; empty without a lead.
@@ -518,5 +520,12 @@ export function buildBriefing({
       i === 0 ? lead.length === 0 || bridge === " " : connectors[i - 1] === ". ";
     return sentenceStart ? { ...clause, runs: capitalize(clause.runs) } : clause;
   });
-  return { greeting: greetingFor(now, who.trim()), lead, bridge, clauses: worded, connectors };
+  return {
+    greeting: greetingFor(now, who.trim()),
+    mark: now.getHours() < 5 ? "?" : "!",
+    lead,
+    bridge,
+    clauses: worded,
+    connectors,
+  };
 }
