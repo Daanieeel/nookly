@@ -62,7 +62,7 @@ export function DashboardBriefing({ data }: { data: DashboardData }) {
   return (
     <div className="flow-root mb-4">
       <DashboardMascotCorner />
-      <p className="text-2xl/relaxed text-foreground">
+      <p className="text-xl/relaxed text-foreground">
         <span className="font-semibold">{briefing.greeting}!</span>{" "}
         {briefing.lead.map((run, i) => renderRun(run, i, open))}
         <Filler>{briefing.bridge}</Filler>
