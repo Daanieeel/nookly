@@ -108,8 +108,21 @@ describe("buildBriefing", () => {
     expect(text).not.toMatch(/\b0 /);
     const rest = briefing.clauses.at(-1);
     expect(rest?.key).toBe("rest");
-    expect(linked(rest?.runs ?? []).length).toBeGreaterThanOrEqual(5);
+    expect(linked(rest?.runs ?? []).length).toHaveLength(3);
     expect(linked(rest?.runs ?? []).every((r) => r.kind === "token")).toBe(true);
+  });
+
+  it("stays short when there is a lot going on", () => {
+    const { briefing } = sentence({
+      sessions: [session("14:00")],
+      tasks: [task("a", "2026-10-09"), task("b", "2026-10-12")],
+      decks: [{ entityId: "d", spaceId: "space", title: "Deck", cards: 5 }],
+      jotCount: 4,
+      oldestJotAt: "2026-10-02T09:00:00Z",
+      jotSpaceIds: ["space"],
+    });
+    expect(briefing.clauses).toHaveLength(3);
+    expect(briefing.clauses.some((c) => c.key === "rest")).toBe(false);
   });
 
   it("calls it a clear day when nothing is waiting", () => {

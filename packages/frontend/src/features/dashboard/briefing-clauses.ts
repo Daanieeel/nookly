@@ -429,6 +429,12 @@ function leadFor(
   return [];
 }
 
+/// Parts of the day one sentence names, with and without an opening remark.
+const MAX_CLAUSES = 3;
+const MAX_WITH_LEAD = 2;
+/// Quiet parts the closing line lists.
+const MAX_QUIET = 3;
+
 const QUIET_LEAD_IN = [
   "everything else is calm: ",
   "nothing else is pressing: ",
@@ -502,12 +508,17 @@ export function buildBriefing({
   const named = lead.some(
     (r) => r.kind === "name" && r.target.kind === "entity" && r.target.entityId === examId,
   );
-  const clauses = named ? active.filter((c) => c.key !== "exams") : active;
-  if (quiet.length > 0) {
+  // The sentence stays short: a few parts at most, the rest is on the panels below.
+  const clauses = (named ? active.filter((c) => c.key !== "exams") : active).slice(
+    0,
+    lead.length > 0 ? MAX_WITH_LEAD : MAX_CLAUSES,
+  );
+  // Quiet parts only speak up when there is little else to say.
+  if (quiet.length > 0 && clauses.length <= 1) {
     clauses.push({
       key: "rest",
       icon: "✨",
-      runs: [text(pick(seed, SALT.rest, QUIET_LEAD_IN)), ...joinQuiet(quiet)],
+      runs: [text(pick(seed, SALT.rest, QUIET_LEAD_IN)), ...joinQuiet(quiet.slice(0, MAX_QUIET))],
     });
   }
 
