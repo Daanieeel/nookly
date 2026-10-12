@@ -142,7 +142,7 @@ function sessionsPart(upcoming: BriefingSession[], finished: number, seed: numbe
     upcoming.map((s) => s.spaceId),
   );
   if (upcoming.length === 0 && finished === 0) {
-    return { quiet: { key: "sessions", run: token("no sessions today", listLink("sessions")) } };
+    return { quiet: { key: "sessions", run: token("sessions", listLink("sessions")) } };
   }
   if (upcoming.length === 0) {
     const done = pick(seed, SALT.sessions, [
@@ -199,7 +199,7 @@ function tasksPart(tasks: Task[], today: string, seed: number): Part {
     tasks.map((t) => t.entity.spaceId),
   );
   if (tasks.length === 0) {
-    return { quiet: { key: "tasks", run: token("no tasks due", listLink("tasks")) } };
+    return { quiet: { key: "tasks", run: token("tasks", listLink("tasks")) } };
   }
   const one = (task: Task) =>
     name(displayTitle(task.entity), entityLink(task.entity.id, task.entity.spaceId));
@@ -307,7 +307,7 @@ function urgentPart(
 
 function decksPart(decks: BriefingDeck[], seed: number): Part {
   if (decks.length === 0) {
-    return { quiet: { key: "decks", run: token("no cards to study", listLink("decks")) } };
+    return { quiet: { key: "decks", run: token("decks", listLink("decks")) } };
   }
   const total = decks.reduce((sum, d) => sum + d.cards, 0);
   const list = listLink(
@@ -343,22 +343,15 @@ function jotsPart(
   seed: number,
 ): Part {
   if (count === 0) {
-    return { quiet: { key: "jots", run: token("every jot refined", listLink("jots")) } };
+    return { quiet: { key: "jots", run: token("jots", listLink("jots")) } };
   }
   const jots = token(plural(count, "jot"), listLink("jots", spaceIds));
   const age = oldestAt ? differenceInCalendarDays(now, parseISO(oldestAt)) : 0;
   const tail =
     age >= 2
-      ? pick(seed, SALT.jots, [
-          `, the oldest from ${age} days ago`,
-          `, the oldest waiting ${age} days`,
-        ] as const)
+      ? pick(seed, SALT.jots, [`, oldest ${age} days old`, `, the oldest ${age} days old`] as const)
       : "";
-  const templates: readonly string[] = [
-    " waiting to be refined",
-    " still raw, waiting for a second pass",
-    " sitting in the queue",
-  ];
+  const templates: readonly string[] = [" to refine", " waiting to be refined", " in the queue"];
   return {
     clause: {
       key: "jots",
@@ -429,17 +422,7 @@ function leadFor(
   return [];
 }
 
-/// Parts of the day one sentence names, with and without an opening remark.
-const MAX_CLAUSES = 3;
-const MAX_WITH_LEAD = 2;
-/// Quiet parts the closing line lists.
-const MAX_QUIET = 3;
-
-const QUIET_LEAD_IN = [
-  "everything else is calm: ",
-  "nothing else is pressing: ",
-  "the rest is quiet: ",
-] as const;
+const QUIET_LEAD_IN = ["all quiet on ", "nothing waiting on ", "clear on "] as const;
 
 function joinQuiet(items: Quiet[]): Run[] {
   return items.flatMap((item, i) => [
@@ -480,16 +463,8 @@ export function buildBriefing({
   const parts: Part[] = [
     sessionsPart(upcoming, finished, seed),
     tasksPart(tasks, today, seed),
-    urgentPart("exams", "📚", "exam", "no exams close by", exams, today, seed),
-    urgentPart(
-      "assignments",
-      "📄",
-      "assignment",
-      "no assignments due soon",
-      assignments,
-      today,
-      seed,
-    ),
+    urgentPart("exams", "📚", "exam", "exams", exams, today, seed),
+    urgentPart("assignments", "📄", "assignment", "assignments", assignments, today, seed),
     decksPart(decks, seed),
     jotsPart(jotCount, oldestJotAt, jotSpaceIds, now, seed),
   ];
@@ -508,17 +483,13 @@ export function buildBriefing({
   const named = lead.some(
     (r) => r.kind === "name" && r.target.kind === "entity" && r.target.entityId === examId,
   );
-  // The sentence stays short: a few parts at most, the rest is on the panels below.
-  const clauses = (named ? active.filter((c) => c.key !== "exams") : active).slice(
-    0,
-    lead.length > 0 ? MAX_WITH_LEAD : MAX_CLAUSES,
-  );
-  // Quiet parts only speak up when there is little else to say.
-  if (quiet.length > 0 && clauses.length <= 1) {
+  const clauses = named ? active.filter((c) => c.key !== "exams") : active;
+  // Everything with nothing in it is named once, briefly, as links.
+  if (quiet.length > 0) {
     clauses.push({
       key: "rest",
       icon: "✨",
-      runs: [text(pick(seed, SALT.rest, QUIET_LEAD_IN)), ...joinQuiet(quiet.slice(0, MAX_QUIET))],
+      runs: [text(pick(seed, SALT.rest, QUIET_LEAD_IN)), ...joinQuiet(quiet)],
     });
   }
 

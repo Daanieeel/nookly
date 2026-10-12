@@ -108,12 +108,12 @@ describe("buildBriefing", () => {
     expect(text).not.toMatch(/\b0 /);
     const rest = briefing.clauses.at(-1);
     expect(rest?.key).toBe("rest");
-    expect(linked(rest?.runs ?? [])).toHaveLength(3);
+    expect(linked(rest?.runs ?? [])).toHaveLength(6);
     expect(linked(rest?.runs ?? []).every((r) => r.kind === "token")).toBe(true);
   });
 
-  it("stays short when there is a lot going on", () => {
-    const { briefing } = sentence({
+  it("names every part: busy ones in full, quiet ones in one short line", () => {
+    const { briefing, text } = sentence({
       sessions: [session("14:00")],
       tasks: [task("a", "2026-10-09"), task("b", "2026-10-12")],
       decks: [{ entityId: "d", spaceId: "space", title: "Deck", cards: 5 }],
@@ -121,9 +121,16 @@ describe("buildBriefing", () => {
       oldestJotAt: "2026-10-02T09:00:00Z",
       jotSpaceIds: ["space"],
     });
-    // Monday opens with a remark, which leaves room for two parts.
-    expect(briefing.clauses).toHaveLength(2);
-    expect(briefing.clauses.some((c) => c.key === "rest")).toBe(false);
+    expect(briefing.clauses.map((c) => c.key)).toEqual([
+      "sessions",
+      "tasks",
+      "decks",
+      "jots",
+      "rest",
+    ]);
+    expect(text).toMatch(
+      /all quiet on .*exams.*assignments|nothing waiting on .*exams.*assignments|clear on .*exams.*assignments/i,
+    );
   });
 
   it("calls it a clear day when nothing is waiting", () => {
