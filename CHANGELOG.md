@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.14 (2026-10-13)
+
+### Fixed
+
+- **Math blocks recover when you clear them.** Typing `^` and deleting it again no longer leaves the block showing an old error instead of its empty state.
+
 ## 0.33.13 (2026-10-13)
 
 ### Fixed

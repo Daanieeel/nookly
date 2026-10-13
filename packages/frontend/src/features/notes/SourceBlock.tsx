@@ -107,7 +107,11 @@ export function SourceBlock({
 
   useEffect(() => {
     const element = previewRef.current;
-    if (!rendered || !element || !source.trim()) return;
+    if (!rendered || !element || !source.trim()) {
+      // Nothing to draw, so an error from earlier code no longer applies.
+      setError(null);
+      return;
+    }
     let cancelled = false;
     void options.render(source, element, dark).then((message) => {
       if (!cancelled) setError(message);

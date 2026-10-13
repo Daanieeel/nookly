@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
@@ -257,4 +257,47 @@ describe("arrow keys next to a block that shows its preview", () => {
     const code = document.querySelector("pre.code-block-body");
     expect(code).toHaveAttribute("contenteditable", "false");
   });
+});
+
+// Reported (#124): in an empty math block, `^` followed by another key or Backspace
+// broke the whole block. Half typed LaTeX such as `^` is not valid, so the preview says
+// what is wrong, and the block keeps working while the code changes under it.
+describe("half typed LaTeX in a math block", () => {
+  const setCode = (target: Editor, code: string) => {
+    const { state, view } = target;
+    const node = state.doc.firstChild;
+    if (!node) throw new Error("no block");
+    view.dispatch(
+      code
+        ? state.tr.replaceWith(1, 1 + node.content.size, state.schema.text(code))
+        : state.tr.delete(1, 1 + node.content.size),
+    );
+  };
+
+  it.each(["math", "equation"] as const)(
+    "keeps the %s block working through ^, ^x and an emptied code",
+    async (type) => {
+      const { editor: target } = await open({
+        type,
+        attrs: { blockId: "m1", view: "rendered" },
+      });
+      expect(screen.getByText(/^Empty (math block|equation)$/)).toBeInTheDocument();
+
+      act(() => setCode(target, "^"));
+      expect(await screen.findByText(/Expected group after/)).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "View" })).toBeInTheDocument();
+
+      act(() => setCode(target, "^x"));
+      await waitFor(() => expect(screen.queryByText(/Expected group after/)).toBeNull());
+      expect(document.querySelector(".katex")).not.toBeNull();
+
+      act(() => setCode(target, "^"));
+      expect(await screen.findByText(/Expected group after/)).toBeInTheDocument();
+
+      act(() => setCode(target, ""));
+      expect(await screen.findByText(/^Empty (math block|equation)$/)).toBeInTheDocument();
+      expect(screen.queryByText(/Expected group after/)).toBeNull();
+      expect(target.getJSON().content?.[0]?.type).toBe(type);
+    },
+  );
 });

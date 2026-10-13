@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.14",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "A math block or equation no longer keeps showing an old error after you clear its LaTeX."
+        ]
+      }
+    },
+    {
       "version": "0.33.13",
       "date": "2026-10-13",
       "highlights": [],
