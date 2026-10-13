@@ -4,6 +4,7 @@ import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeEntity, makeFile } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
+import { useNavStore } from "#/lib/store/nav.ts";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
 import { editorExtensions } from "./editor-extensions";
 
@@ -57,5 +58,22 @@ describe("opening media with Cmd or Ctrl and a click", () => {
     expect(callsOf("plugin:opener|open_path")).toEqual([
       expect.objectContaining({ path: "/data/files/syllabus.pdf" }),
     ]);
+  });
+});
+
+describe("opening an embedded file in Nookly", () => {
+  it("opens the file's page when its card is clicked", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" } });
+    await open("file", "syllabus.pdf");
+    fireEvent.click(await screen.findByText("syllabus.pdf"));
+    expect(useNavStore.getState().view).toMatchObject({ kind: "entity", entityId: "f1" });
+    expect(callsOf("plugin:opener|open_path")).toHaveLength(0);
+  });
+
+  it("has an Open in Nookly button on the toolbar", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" } });
+    await open("image", "campus.png");
+    fireEvent.click(await screen.findByRole("button", { name: "Open in Nookly" }));
+    expect(useNavStore.getState().view).toMatchObject({ kind: "entity", entityId: "f1" });
   });
 });
