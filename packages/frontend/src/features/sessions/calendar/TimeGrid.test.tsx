@@ -126,3 +126,35 @@ describe("TimeGrid today", () => {
     expect(view.container.querySelector(".text-primary")).toBeNull();
   });
 });
+
+// #119: the current day's tint follows the colour and intensity settings.
+describe("TimeGrid marking today", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 2, 11, 10));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    settings.set("calendar.todayColor", "primary");
+    settings.set("calendar.todayIntensity", "default");
+  });
+
+  it("tints today's column as it always did by default", () => {
+    const { column } = setup();
+    expect(column.className).toContain("bg-primary/5");
+  });
+
+  it("follows the intensity setting", () => {
+    settings.set("calendar.todayIntensity", "high");
+    expect(setup().column.className).toContain("bg-primary/15");
+  });
+
+  it("turns grey with the neutral colour, in the tint and the day number", () => {
+    settings.set("calendar.todayColor", "neutral");
+    const { column, view } = setup();
+    expect(column.className).toContain("bg-foreground/6");
+    expect(column.className).not.toContain("bg-primary");
+    expect(view.container.querySelector(".bg-foreground")).not.toBeNull();
+    expect(view.container.querySelector(".bg-primary")).toBeNull();
+  });
+});

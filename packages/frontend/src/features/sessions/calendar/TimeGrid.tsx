@@ -29,6 +29,7 @@ import {
   topPxFor,
 } from "./calendar-model";
 import { SessionBlock } from "./SessionBlock";
+import { useTodayStyle } from "./today-style";
 
 const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i);
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -139,6 +140,7 @@ export function TimeGrid({
   /// What a click on empty time creates, which sets how long the proposed range is.
   createKind?: SlotKind;
 }) {
+  const today = useTodayStyle();
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -210,15 +212,13 @@ export function TimeGrid({
                 isWeekend(day) && "bg-weekend",
               )}
             >
-              <span className={cn("truncate", isToday(day) && "font-medium text-primary")}>
+              <span className={cn("truncate", isToday(day) && today.label)}>
                 {formatWeekday(day, single ? "long" : "short")}
               </span>
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-full text-sm tabular-nums",
-                  isToday(day)
-                    ? "bg-primary font-medium text-primary-foreground"
-                    : "text-foreground",
+                  isToday(day) ? today.pill : "text-foreground",
                 )}
               >
                 {format(day, "d")}
@@ -306,7 +306,7 @@ export function TimeGrid({
               className={cn(
                 "relative min-w-0 flex-1 touch-none border-l border-border select-none",
                 isWeekend(day) && "bg-weekend",
-                isToday(day) && "bg-primary/5",
+                isToday(day) && today.column,
               )}
               onPointerDown={(e) => {
                 if (e.button !== 0 || !onSelect) return;

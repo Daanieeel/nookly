@@ -356,6 +356,33 @@ export const SETTINGS = {
     default: 7,
     schema: z.number().int().min(0).max(23),
   }),
+  "calendar.todayColor": define({
+    id: "calendar.todayColor",
+    category: "calendar",
+    title: "Current day colour",
+    description:
+      "The colour that marks today in the week, day and month views. Primary is the app's blue, Neutral a quiet grey.",
+    synonyms: ["today", "current day", "highlight", "colour", "color", "grey", "gray", "calendar"],
+    default: "primary",
+    schema: z.enum(["primary", "neutral"]),
+  }),
+  "calendar.todayIntensity": define({
+    id: "calendar.todayIntensity",
+    category: "calendar",
+    title: "Current day intensity",
+    description: "How strongly today's column is tinted in the week and day views.",
+    synonyms: [
+      "today",
+      "current day",
+      "contrast",
+      "highlight",
+      "strength",
+      "brightness",
+      "calendar",
+    ],
+    default: "default",
+    schema: z.enum(["low", "default", "high"]),
+  }),
   "calendar.snapMinutes": define({
     id: "calendar.snapMinutes",
     category: "calendar",

@@ -30,6 +30,8 @@ import {
   DisplayNameControl,
   NumberControl,
   SnapControl,
+  TodayColorControl,
+  TodayIntensityControl,
   SwitchControl,
   WeekStartControl,
 } from "./setting-controls.tsx";
@@ -70,7 +72,7 @@ export interface RowSpec extends Searchable {
 const SECTIONS = {
   general: ["Profile", "Date and time", "Tasks", "About"],
   appearance: ["Theme"],
-  calendar: ["Defaults", "Week and day", "Connections"],
+  calendar: ["Defaults", "Week and day", "Current day", "Connections"],
   notes: ["Code", "Editing"],
   backup: ["Backup", "Restore"],
   agent: ["Files"],
@@ -144,6 +146,8 @@ const SETTING_UI = {
     ),
   },
   "calendar.snapMinutes": { section: "Week and day", control: <SnapControl /> },
+  "calendar.todayColor": { section: "Current day", control: <TodayColorControl /> },
+  "calendar.todayIntensity": { section: "Current day", control: <TodayIntensityControl /> },
   "notes.arrowLigatures": {
     section: "Editing",
     control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,

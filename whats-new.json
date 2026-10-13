@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.33.26",
+      "date": "2026-10-13",
+      "title": "A calendar you can tune",
+      "summary": "Choose how the current day is marked.",
+      "highlights": [
+        {
+          "title": "Make today stand out",
+          "description": "Pick a colour and intensity for the current day in the calendar under Settings.",
+          "icon": "sparkles",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.33.25",
       "date": "2026-10-13",
       "highlights": [],

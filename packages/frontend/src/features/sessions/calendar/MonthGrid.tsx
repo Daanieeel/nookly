@@ -1,4 +1,5 @@
 import { format, isSameMonth, isToday, isWeekend } from "date-fns";
+import { useTodayStyle } from "./today-style";
 import { formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { CalendarEntryChip } from "../../calendar-entries/calendar/CalendarEntryBlock";
@@ -44,6 +45,7 @@ export function MonthGrid({
   /// What clicking an empty spot creates, which sets how long the proposed range is.
   createKind: SlotKind;
 }) {
+  const today = useTodayStyle();
   const weeks = Array.from({ length: Math.ceil(columns.length / 7) }, (_, i) =>
     columns.slice(i * 7, i * 7 + 7),
   );
@@ -173,8 +175,7 @@ export function MonthGrid({
                     aria-label={`Open ${formatWeekday(day)} ${format(day, "d")} on its own`}
                     className={cn(
                       "flex size-6 shrink-0 items-center justify-center self-start rounded-full text-xs tabular-nums hover:bg-accent",
-                      isToday(day) &&
-                        "bg-primary font-medium text-primary-foreground hover:bg-primary/90",
+                      isToday(day) && cn(today.pill, today.pillHover),
                     )}
                   >
                     {format(day, "d")}

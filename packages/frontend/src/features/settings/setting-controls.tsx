@@ -112,6 +112,47 @@ export function SnapControl() {
   );
 }
 
+const TODAY_COLOR_OPTIONS = [
+  { value: "primary", label: "Primary" },
+  { value: "neutral", label: "Neutral" },
+] satisfies { value: SettingValue<"calendar.todayColor">; label: string }[];
+
+/// The colour that marks the current day in the calendar.
+export function TodayColorControl() {
+  const [value, setValue] = useSetting("calendar.todayColor");
+  return (
+    <SelectField
+      aria-label="Current day colour"
+      options={TODAY_COLOR_OPTIONS}
+      value={value}
+      onChange={(next) =>
+        setValue(TODAY_COLOR_OPTIONS.find((o) => o.value === next)?.value ?? "primary")
+      }
+    />
+  );
+}
+
+const TODAY_INTENSITY_OPTIONS = [
+  { value: "low", label: "Low" },
+  { value: "default", label: "Default" },
+  { value: "high", label: "High" },
+] satisfies { value: SettingValue<"calendar.todayIntensity">; label: string }[];
+
+/// How strongly the current day is tinted in the calendar.
+export function TodayIntensityControl() {
+  const [value, setValue] = useSetting("calendar.todayIntensity");
+  return (
+    <SelectField
+      aria-label="Current day intensity"
+      options={TODAY_INTENSITY_OPTIONS}
+      value={value}
+      onChange={(next) =>
+        setValue(TODAY_INTENSITY_OPTIONS.find((o) => o.value === next)?.value ?? "default")
+      }
+    />
+  );
+}
+
 /// A plain on or off setting.
 export function SwitchControl({
   settingId,
