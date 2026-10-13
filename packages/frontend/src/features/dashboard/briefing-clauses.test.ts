@@ -97,14 +97,15 @@ describe("buildBriefing", () => {
     expect(text).not.toMatch(/\d+ sessions?/);
   });
 
-  it("says the same for every wording", () => {
+  it("always says it as next up, however the sentence is worded otherwise", () => {
     for (let seed = 0; seed < 40; seed++) {
       const { text } = sentence({
         name: `Name ${seed}`,
         sessions: [session("12:00", "Next"), session("14:00", "After")],
       });
-      expect(text).toContain("Next");
-      expect(text).not.toMatch(/\d+ sessions?/);
+      expect(text).toContain("next up: Next at");
+      expect(text).not.toContain("After");
+      expect(text).not.toMatch(/\d+ sessions?|next session/i);
     }
   });
 
