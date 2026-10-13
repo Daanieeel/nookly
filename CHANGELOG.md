@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.25 (2026-10-13)
+
+### Fixed
+
+- **The Dashboard fits your window.** A long daily summary stops after four lines with a Show all button, and the lists below show only the rows that fit, so the page no longer scrolls in a full screen window.
+
 ## 0.33.24 (2026-10-13)
 
 ### Fixed

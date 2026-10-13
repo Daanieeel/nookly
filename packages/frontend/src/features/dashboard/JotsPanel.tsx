@@ -16,7 +16,7 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { DashboardData } from "./dashboard-data";
 import { SpaceChip } from "#/components/space-chip.tsx";
-import { EmptyRow, ShowMore, TabbedPanel, useSpaceById } from "./DashboardPanel";
+import { EmptyRow, ShowMore, TabbedPanel, useListLimit, useSpaceById } from "./DashboardPanel";
 import { entityLink, listLink, useOpenTarget } from "./dashboard-links";
 
 function jotSnippet(jot: PageSummary): string {
@@ -89,7 +89,9 @@ function JotRow({ jot, space }: { jot: PageSummary; space: Space | undefined }) 
 export function JotsPanel({ data }: { data: DashboardData }) {
   const open = useOpenTarget();
   const spaces = useSpaceById();
-  const { jots, jotCount } = data;
+  const { jotCount } = data;
+  // Fewer when the window is short; the rest sits behind "Show more".
+  const jots = data.jots.slice(0, useListLimit());
   return (
     <TabbedPanel
       icon={IconFeather}
