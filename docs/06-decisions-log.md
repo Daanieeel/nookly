@@ -411,3 +411,31 @@ Migration 42 makes `idx_entities_key` non unique. Two devices can give new entit
 A File's row syncs (title, name, URL), its local path and the file itself do not. Later, file content goes to S3 like storage: the server hands out presigned upload and download URLs per file, stored by content hash so a file uploaded twice is stored once, and a device downloads a file when it is opened.
 
 **Why:** attachments are large and binary; the MVP keeps sync small and safe first.
+
+---
+
+### The sync server: Bun, Elysia, Postgres, one process
+
+The server is optional (see [server](development/server.md)). Drizzle with postgres.js for typed queries and SQL migrations, jose for access tokens, argon2id through Bun. Rate limits and the live socket registry live in memory.
+
+**Why:** one process on one VPS is the deployment the project targets; in memory state keeps it simple, and Postgres row locks give per account ordering without a queue.
+
+**Rejected:** a hosted backend (the server must be self hostable), Redis for rate limits and fan out (one more service for a single machine; LISTEN/NOTIFY can replace the in memory hub if it ever runs as several processes), and syncing through a file service (no live updates, no sharing).
+
+---
+
+### Sharing hands out one page, conservatively
+
+A recipient gets the shared page, its blocks and its settings only, inside a Space of their own named after the owner. Relationships, labels, other entities and the owner's Space never leave the owner. Viewers can't write; editors may change the title, icon and blocks, never move or trash the page. Sharing needs a confirmed email, and an invite link only works for the address it was sent to.
+
+**Why:** a recipient must never get anything that wasn't explicitly shared, and the owner's Space wall stays where it is.
+
+**Rejected:** giving recipients the owner's Space (leaks its name and invites edits to it), and sharing related items along (one share would quietly reach further than the owner meant). Sharing a whole Space is designed but not built (see [server](development/server.md)).
+
+---
+
+### Deleting an account removes its server data for real
+
+Soft delete is the rule for entities on devices. Account deletion is different: it removes every server row of the account (sessions, records, conflicts, shares both ways). The devices keep their own data.
+
+**Why:** people expect "delete my account" to delete it, and a server should not keep data its owner asked it to drop.

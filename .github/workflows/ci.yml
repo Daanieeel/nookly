@@ -31,14 +31,28 @@ jobs:
       - run: bun run whats-new:check
 
   frontend:
-    name: Typecheck + lint + test + build (frontend)
+    name: Typecheck + lint + test + build (frontend, shared, server)
     runs-on: ubuntu-latest
+    # The server's integration tests run against a real Postgres.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: nookly
+          POSTGRES_PASSWORD: nookly
+          POSTGRES_DB: nookly_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nookly" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://nookly:nookly@localhost:5432/nookly_test
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run lint:js
       - run: bun run format:check:js
+      - run: bun run typecheck
       - run: bun run test
       - run: bun run build
 

@@ -46,10 +46,13 @@ export class ApiRequestError extends Error {
   }
 }
 
+/// `fetch`, as far as the client uses it.
+export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+
 export interface ApiClientOptions {
   baseUrl: string;
   tokens: TokenStore;
-  fetch?: typeof fetch;
+  fetch?: FetchLike;
   /// Builds the live sync socket; defaults to the global `WebSocket`.
   webSocket?: (url: string) => WebSocket;
   /// Told when the account signs out on its own, like a revoked session.
@@ -74,7 +77,7 @@ type Body = { [key: string]: JsonValue };
 export class ApiClient {
   readonly baseUrl: string;
   private readonly store: TokenStore;
-  private readonly fetchImpl: typeof fetch;
+  private readonly fetchImpl: FetchLike;
   private readonly webSocket: (url: string) => WebSocket;
   private readonly onSignedOut?: () => void;
   private accessToken: string | null = null;
@@ -83,7 +86,7 @@ export class ApiClient {
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.store = options.tokens;
-    this.fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
+    this.fetchImpl = options.fetch ?? ((url, init) => fetch(url, init));
     this.webSocket = options.webSocket ?? ((url) => new WebSocket(url));
     this.onSignedOut = options.onSignedOut;
   }
@@ -305,12 +308,15 @@ export class ApiClient {
     const url = `${this.baseUrl.replace(/^http/, "ws")}/v1/sync/ws`;
     let socket: WebSocket | null = null;
     let closed = false;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
     void (async () => {
       if (!this.accessToken) await this.refresh().catch(() => false);
       if (closed) return;
       socket = this.webSocket(url);
       socket.addEventListener("open", () => {
         socket?.send(JSON.stringify({ type: "hello", token: this.accessToken ?? "" }));
+        // Keeps proxies from closing a quiet connection.
+        heartbeat = setInterval(() => socket?.send(JSON.stringify({ type: "ping" })), 25_000);
       });
       socket.addEventListener("message", (event) => {
         let message: ServerMessage;
@@ -326,6 +332,7 @@ export class ApiClient {
         }
       });
       socket.addEventListener("close", () => {
+        if (heartbeat) clearInterval(heartbeat);
         if (!closed) handlers.onClose();
       });
     })();

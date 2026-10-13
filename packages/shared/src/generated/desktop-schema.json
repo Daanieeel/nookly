@@ -1679,7 +1679,9 @@
         "CREATE INDEX idx_entities_space ON entities(space_id)",
         "CREATE INDEX idx_entities_type ON entities(type)"
       ],
-      "localColumns": [],
+      "localColumns": [
+        "last_opened_at"
+      ],
       "merge": "field",
       "name": "entities",
       "pk": [

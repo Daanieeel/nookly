@@ -1,0 +1,8 @@
+{
+  "extends": "@nookly/config/typescript/base.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "test", "drizzle.config.ts"]
+}

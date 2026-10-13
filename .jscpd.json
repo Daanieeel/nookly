@@ -3,7 +3,8 @@
     "packages/frontend/src",
     "packages/ui/src",
     "packages/shared/src",
-    "apps/desktop/src-tauri/src"
+    "apps/desktop/src-tauri/src",
+    "apps/server/src"
   ],
   "format": ["typescript", "tsx", "rust"],
   "ignore": [

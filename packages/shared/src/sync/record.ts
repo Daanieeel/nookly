@@ -113,3 +113,20 @@ export function findLosses(base: RecordState, local: RecordState, remote: Record
   }
   return losses;
 }
+
+/// What a pushed change loses, or makes the stored record lose, on the server. The
+/// change carries `baseClocks`, the clock each field had where it was edited: a
+/// stored clock that differs means someone else edited the field meanwhile.
+/// "local" is the pushed change, "remote" the stored record.
+export function findPushLosses(
+  stored: RecordState | null,
+  change: RecordState & { baseClocks: Record<string, string> },
+): Loss[] {
+  if (!stored) return [];
+  const changed = new Set(Object.keys(change.clocks));
+  const clocks = Object.fromEntries([
+    ...Object.entries(stored.clocks).filter(([name]) => !changed.has(name)),
+    ...Object.entries(change.baseClocks).filter(([name]) => changed.has(name)),
+  ]);
+  return findLosses({ fields: {}, clocks, deletedClock: stored.deletedClock }, change, stored);
+}

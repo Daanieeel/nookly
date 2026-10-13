@@ -78,7 +78,12 @@ pub const SYNCED_TABLES: &[SyncedTable] = &[
     table("labels", ID, Scope::None),
     table("task_statuses", ID, Scope::None),
     table("recipe_tags", ID, Scope::None),
-    table("entities", ID, Scope::Column { column: "id" }),
+    // When a page was last opened is this device's own business (and opening a shared
+    // page must not write to its owner's data).
+    SyncedTable {
+        local_columns: &["last_opened_at"],
+        ..table("entities", ID, Scope::Column { column: "id" })
+    },
     table(
         "relationships",
         ID,

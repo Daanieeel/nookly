@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { makeClock } from "./hlc.ts";
-import { EMPTY_RECORD, type RecordState, findLosses, isAlive, mergeRecords } from "./record.ts";
+import {
+  EMPTY_RECORD,
+  type RecordState,
+  findLosses,
+  findPushLosses,
+  isAlive,
+  mergeRecords,
+} from "./record.ts";
 
 const c = (wall: number, device = "a") => makeClock(wall, 0, device);
 
@@ -119,5 +126,33 @@ describe("merging is safe to repeat and to reorder", () => {
 
   it("changes nothing when merged with itself", () => {
     for (const x of samples) expect(mergeRecords(x, x)).toEqual(x);
+  });
+});
+
+describe("finding what a push loses", () => {
+  const stored = rec({ title: "Server", due: "mon" }, { title: c(5, "b"), due: c(1) });
+
+  it("reports nothing for an edit that saw the stored value", () => {
+    const change = { ...rec({ title: "Mine" }, { title: c(7) }), baseClocks: { title: c(5, "b") } };
+    expect(findPushLosses(stored, change)).toEqual([]);
+  });
+
+  it("reports the stored value a concurrent, newer edit replaces", () => {
+    const change = { ...rec({ title: "Mine" }, { title: c(7) }), baseClocks: { title: c(1) } };
+    expect(findPushLosses(stored, change)).toEqual([
+      { side: "remote", field: "title", value: "Server", clock: c(5, "b"), winningClock: c(7) },
+    ]);
+  });
+
+  it("reports the pushed value when the stored one is newer", () => {
+    const change = { ...rec({ title: "Mine" }, { title: c(3) }), baseClocks: {} };
+    expect(findPushLosses(stored, change)).toEqual([
+      { side: "local", field: "title", value: "Mine", clock: c(3), winningClock: c(5, "b") },
+    ]);
+  });
+
+  it("reports nothing for a record new to the server", () => {
+    const change = { ...rec({ title: "New" }, { title: c(3) }), baseClocks: {} };
+    expect(findPushLosses(null, change)).toEqual([]);
   });
 });
