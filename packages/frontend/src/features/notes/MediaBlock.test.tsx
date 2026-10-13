@@ -104,24 +104,49 @@ describe("a file block that opens on a page", () => {
     expect(useNavStore.getState().focusBlock).toBeNull();
   });
 
-  it("sets the page from a number field, and clears it again", async () => {
+  it("sets the page from a field that takes digits only, and clears it again", async () => {
     const { user } = await open("file", "syllabus.pdf");
-    const field = await screen.findByRole("spinbutton", { name: "Open on page" });
-    await user.type(field, "12");
+    const field = await screen.findByRole("textbox", { name: "Open on page" });
+    expect(field).toHaveAttribute("placeholder", "...");
+    expect(field).toHaveValue("");
+    await user.type(field, "1a2");
     await waitFor(() => expect(pageOf()).toBe("12"));
+    expect(field).toHaveValue("12");
     await user.clear(field);
     await waitFor(() => expect(pageOf()).toBeNull());
+    await user.type(field, "0");
+    await waitFor(() => expect(pageOf()).toBeNull());
+  });
+
+  it("shows the field in the line under the name, in place of Stored in Nookly", async () => {
+    await open("file", "syllabus.pdf");
+    await screen.findByRole("textbox", { name: "Open on page" });
+    expect(screen.queryByText("Stored in Nookly")).toBeNull();
+  });
+
+  it("does not open the file when the field is clicked", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
+    const { user } = await open("file", "syllabus.pdf");
+    await user.click(await screen.findByRole("textbox", { name: "Open on page" }));
+    expect(useNavStore.getState().view).toMatchObject({ kind: "dashboard" });
+  });
+
+  it("reads Page 12 as text when the block cannot be edited", async () => {
+    await open("file", "syllabus.pdf", { page: "12" });
+    editor?.setEditable(false);
+    expect(await screen.findByText("Page 12")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Open on page" })).toBeNull();
   });
 
   it("does not offer a page for a file that is not shown page by page", async () => {
     await open("file", "notes.txt");
     await screen.findByText("notes.txt");
-    expect(screen.queryByRole("spinbutton", { name: "Open on page" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Open on page" })).toBeNull();
   });
 
   it("does not offer a page on an image", async () => {
     await open("image", "campus.png");
     await screen.findByRole("img", { name: "campus.png" });
-    expect(screen.queryByRole("spinbutton", { name: "Open on page" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Open on page" })).toBeNull();
   });
 });

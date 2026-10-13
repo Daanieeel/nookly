@@ -244,17 +244,18 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-sm font-medium">{source.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {source.localPath ? "Stored in Nookly" : (source.url ?? "")}
-                </span>
+                {kind === "file" && source.paged && (editable || page) ? (
+                  <PageField
+                    page={page}
+                    editable={editable}
+                    onChange={(next) => updateAttributes({ page: next ? String(next) : null })}
+                  />
+                ) : (
+                  source.url && (
+                    <span className="truncate text-xs text-muted-foreground">{source.url}</span>
+                  )
+                )}
               </span>
-              {kind === "file" && source.paged && (editable || page) && (
-                <PageField
-                  page={page}
-                  editable={editable}
-                  onChange={(next) => updateAttributes({ page: next ? String(next) : null })}
-                />
-              )}
             </div>
             {kind === "audio" &&
               source.src && (
@@ -309,8 +310,9 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   );
 }
 
-/// The page of a file the block opens on: a number field while editing, plain text
-/// otherwise. Clicking it must not open the file.
+/// The page of a file the block opens on, in the line under its name. It reads as text, not
+/// as a field: a "Page" label and a bare digits field, no box.  Plain text when the block is read only.
+/// Clicking it must not open the file.
 function PageField({
   page,
   editable,
@@ -321,23 +323,29 @@ function PageField({
   onChange: (page: number | null) => void;
 }) {
   if (!editable) {
-    return <span className="ml-auto shrink-0 text-xs text-muted-foreground">Page {page}</span>;
+    return <span className="truncate text-xs text-muted-foreground">Page {page}</span>;
   }
   return (
-    <Input
-      type="number"
-      min={1}
-      step={1}
-      value={page ?? ""}
-      placeholder="Page"
-      aria-label="Open on page"
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- only keeps a click on the label from reaching the card, which opens the file
+    <label
+      className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-within:text-foreground"
       onClick={(event) => event.stopPropagation()}
-      onChange={(event) => {
-        const next = Math.floor(Number(event.target.value));
-        onChange(event.target.value !== "" && next >= 1 ? next : null);
-      }}
-      className="ml-auto h-7 w-20 shrink-0 text-xs"
-    />
+    >
+      Page
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={page ?? ""}
+        placeholder="..."
+        aria-label="Open on page"
+        onChange={(event) => {
+          const next = Number(event.target.value.replaceAll(/\D/g, "").slice(0, 5));
+          onChange(next >= 1 ? next : null);
+        }}
+        className="w-16 min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
+      />
+    </label>
   );
 }
 
