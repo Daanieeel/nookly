@@ -132,6 +132,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [
@@ -880,6 +886,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [
@@ -1234,6 +1246,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [
@@ -1971,6 +1989,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [
@@ -2316,6 +2340,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [
@@ -3301,6 +3331,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [
@@ -3685,6 +3721,12 @@
               "description": "Optional caption shown under the media, and its text in markdown.",
               "kind": "text",
               "name": "caption"
+            },
+            {
+              "description": "Page of the file to open it on, for a PDF or other file shown page by page.",
+              "kind": "integer",
+              "min": 1,
+              "name": "page"
             }
           ],
           "heading1 to heading6": [

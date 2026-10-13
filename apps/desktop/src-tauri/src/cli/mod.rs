@@ -779,7 +779,7 @@ nookly cli note add-block <id> --type checklist --content "$(printf '[x] Buy not
 nookly cli note add-block <id> --type divider --content ''
 nookly cli note add-block <id> --type entity_card --content '[Midterm](mention:<exam-id>)'
 nookly cli note add-block <id> --type image --content '[campus.jpg](mention:<file-id>)' --attr caption='Main campus'
-nookly cli note add-block <id> --type file --content '[syllabus.pdf](mention:<file-id>)'   # also video, audio
+nookly cli note add-block <id> --type file --content '[syllabus.pdf](mention:<file-id>)' --attr page=12   # opens on page 12; also video, audio
 nookly cli note add-block <id> --type bookmark --content '[Rust Book](mention:<bookmark-id>)'
 nookly cli note add-block <id> --type embed --content 'https://www.youtube.com/watch?v=<id>'
 nookly cli note add-block <id> --type toggle --content "$(printf 'What is a monad?\nA monoid in the category of endofunctors.')"

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ declare global {
 let editor: Editor | null = null;
 afterEach(() => editor?.destroy());
 
-async function open(type: "image" | "file", name: string) {
+async function open(type: "image" | "file", name: string, attrs: Record<string, string> = {}) {
   // The IPC mock has no asset protocol; an imported copy loads from an asset URL.
   window.__TAURI_INTERNALS__.convertFileSrc = (path: string) => `asset://localhost${path}`;
   mockCommand(
@@ -31,7 +31,7 @@ async function open(type: "image" | "file", name: string) {
     extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
     content: {
       type: "doc",
-      content: [{ type, attrs: { blockId: "m1", rows: `[${name}](mention:f1)` } }],
+      content: [{ type, attrs: { blockId: "m1", rows: `[${name}](mention:f1)`, ...attrs } }],
     },
   });
   return renderWithProviders(<EditorContent editor={editor} />);
@@ -75,5 +75,53 @@ describe("opening an embedded file in Nookly", () => {
     await open("image", "campus.png");
     fireEvent.click(await screen.findByRole("button", { name: "Open in Nookly" }));
     expect(useNavStore.getState().view).toMatchObject({ kind: "entity", entityId: "f1" });
+  });
+});
+
+// #136: a file block opens its PDF on a chosen page, so the same file linked from
+// different notes can start in different places.
+describe("a file block that opens on a page", () => {
+  const pageOf = () => editor?.getJSON().content?.[0]?.attrs?.page;
+
+  it("opens the file on that page when its card is clicked", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
+    await open("file", "syllabus.pdf", { page: "12" });
+    fireEvent.click(await screen.findByText("syllabus.pdf"));
+    expect(useNavStore.getState().focusBlock).toMatchObject({ entityId: "f1", page: 12 });
+  });
+
+  it("opens from the toolbar on that page too", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
+    await open("file", "syllabus.pdf", { page: "3" });
+    fireEvent.click(await screen.findByRole("button", { name: "Open in Nookly" }));
+    expect(useNavStore.getState().focusBlock).toMatchObject({ entityId: "f1", page: 3 });
+  });
+
+  it("opens on the first page when none is set", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
+    await open("file", "syllabus.pdf");
+    fireEvent.click(await screen.findByText("syllabus.pdf"));
+    expect(useNavStore.getState().focusBlock).toBeNull();
+  });
+
+  it("sets the page from a number field, and clears it again", async () => {
+    const { user } = await open("file", "syllabus.pdf");
+    const field = await screen.findByRole("spinbutton", { name: "Open on page" });
+    await user.type(field, "12");
+    await waitFor(() => expect(pageOf()).toBe("12"));
+    await user.clear(field);
+    await waitFor(() => expect(pageOf()).toBeNull());
+  });
+
+  it("does not offer a page for a file that is not shown page by page", async () => {
+    await open("file", "notes.txt");
+    await screen.findByText("notes.txt");
+    expect(screen.queryByRole("spinbutton", { name: "Open on page" })).toBeNull();
+  });
+
+  it("does not offer a page on an image", async () => {
+    await open("image", "campus.png");
+    await screen.findByRole("img", { name: "campus.png" });
+    expect(screen.queryByRole("spinbutton", { name: "Open on page" })).toBeNull();
   });
 });

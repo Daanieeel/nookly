@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.33.17",
+      "date": "2026-10-13",
+      "title": "Files that open on the right page",
+      "summary": "Link the same PDF from many notes, each to its own page.",
+      "highlights": [
+        {
+          "title": "Open a file on a page",
+          "description": "Set a page number on a file in a note and it opens on that page, so each note can point to its own part of the same PDF.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.33.16",
       "date": "2026-10-13",
       "highlights": [],
