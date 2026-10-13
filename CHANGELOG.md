@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.11 (2026-10-13)
+
+### Fixed
+
+- **Search finds names with accents.** Typing `Ü` or `ubung` now finds a file called Übungsblatt in mentions, lists, the Trash and relationship suggestions, however the name was saved.
+
 ## 0.33.10 (2026-10-13)
 
 ### Fixed

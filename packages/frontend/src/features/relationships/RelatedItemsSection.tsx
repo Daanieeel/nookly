@@ -37,6 +37,7 @@ import { formatEditedAt } from "#/lib/relative-time.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { foldText } from "#/lib/text-search.ts";
 
 const NOTE_TYPES = ["note", "jot"];
 
@@ -375,11 +376,11 @@ const MAX_SUGGESTIONS = 5;
 /// holding every typed word in any order. ID matches first, then titles starting
 /// with the query.
 function suggest(candidates: Entity[], query: string): Entity[] {
-  const needle = query.trim().toLowerCase();
+  const needle = foldText(query.trim());
   if (!needle) return [];
   const words = needle.split(/\s+/);
   const scored = candidates.flatMap((entity) => {
-    const title = displayTitle(entity).toLowerCase();
+    const title = foldText(displayTitle(entity));
     if (matchesKey(entity.key, query)) return [{ entity, score: 0 }];
     if (!words.every((w) => title.includes(w))) return [];
     return [{ entity, score: title.startsWith(needle) ? 1 : 2 }];

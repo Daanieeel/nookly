@@ -39,6 +39,7 @@ import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { formatEditedAt } from "#/lib/relative-time.ts";
 import { typeGroupFor } from "#/lib/search-results.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
+import { includesFolded } from "#/lib/text-search.ts";
 
 interface TrashRow {
   entity: Entity;
@@ -195,8 +196,7 @@ export function TrashView() {
     () =>
       applyFilters(
         rows.filter(
-          (r) =>
-            !needle || r.title.toLowerCase().includes(needle) || matchesKey(r.entity.key, query),
+          (r) => !needle || includesFolded(r.title, needle) || matchesKey(r.entity.key, query),
         ),
         filters,
         (row, fieldId) => (fieldId === "space" ? row.entity.spaceId : row.type.key),

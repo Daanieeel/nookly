@@ -15,6 +15,7 @@ import { formatEditedAt } from "#/lib/relative-time.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import type { DataTableFeatures } from "#/lib/table-features.ts";
 import { prefetchBlocks } from "./blocks-query";
+import { includesFolded } from "#/lib/text-search.ts";
 
 /// Pieces shared by the Notes and Jots list tables.
 
@@ -86,8 +87,8 @@ export function matchesQuery(
 ): boolean {
   return (
     !needle ||
-    row.title.toLowerCase().includes(needle) ||
-    row.preview.toLowerCase().includes(needle) ||
+    includesFolded(row.title, needle) ||
+    includesFolded(row.preview, needle) ||
     matchesKey(row.summary.entity.key, query)
   );
 }

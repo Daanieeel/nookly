@@ -9,6 +9,7 @@ import { sessionMatches, sessionWhen } from "#/lib/session-search.ts";
 import { displayTitle, pluralLabel } from "#/lib/entity-title.ts";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
+import { foldText } from "#/lib/text-search.ts";
 
 export interface MentionOptions {
   /// Read live so the popup always sees the Space's current entities without
@@ -125,15 +126,15 @@ function groupByType(items: MentionItem[], blank: boolean): MentionItem[] {
 /// Entities matching `query`, best first: a title that starts with it, then one that
 /// contains it, and only then those matched by their ID (`fil` or `FIL-2` finds files).
 /// An ID is never worth more than text.
-function rankMentions(
+export function rankMentions(
   entities: Entity[],
   query: string,
   sessionOf: (entity: Entity) => SessionOccurrence | undefined,
 ): Entity[] {
-  const needle = query.trim().toLowerCase();
+  const needle = foldText(query.trim());
   if (!needle) return entities;
   const tier = (entity: Entity): number => {
-    const title = displayTitle(entity).toLowerCase();
+    const title = foldText(displayTitle(entity));
     if (title.startsWith(needle)) return 0;
     if (title.includes(needle)) return 1;
     // A session is also found by its day and time: `tue`, `mar`, `9am`.

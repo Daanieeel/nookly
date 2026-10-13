@@ -1,3 +1,4 @@
+import { foldText } from "#/lib/text-search.ts";
 import type { SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate } from "#/lib/datetime.ts";
 
@@ -62,7 +63,7 @@ const tokenCache = new WeakMap<SessionOccurrence, string[]>();
 function tokensOf(session: SessionOccurrence): string[] {
   let tokens = tokenCache.get(session);
   if (!tokens) {
-    tokens = sessionSearchText(session).toLowerCase().split(/\s+/);
+    tokens = foldText(sessionSearchText(session)).split(/\s+/);
     tokenCache.set(session, tokens);
   }
   return tokens;
@@ -72,7 +73,7 @@ function tokensOf(session: SessionOccurrence): string[] {
 /// its search text (so `mar 10`, `tue 9am` or `physics 9:00` all work, while `mar 11` does
 /// not drift onto another day). A blank query finds everything.
 export function sessionMatches(session: SessionOccurrence, query: string): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = foldText(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
   const tokens = tokensOf(session);
   return words.every((word) => tokens.some((token) => token.startsWith(word)));

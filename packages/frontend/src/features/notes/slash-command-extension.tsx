@@ -46,6 +46,7 @@ import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { insertMention } from "./mention-extension";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
+import { includesFolded } from "#/lib/text-search.ts";
 
 interface SlashItem {
   title: string;
@@ -416,7 +417,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
           const q = query.toLowerCase();
           return SLASH_ITEMS.filter(
             (item) =>
-              item.title.toLowerCase().includes(q) ||
+              includesFolded(item.title, q) ||
               item.keywords?.some((keyword) => keyword.includes(q)),
           );
         },
