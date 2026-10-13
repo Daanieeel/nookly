@@ -101,12 +101,6 @@ All notable changes to Nookly are listed here.
 
 - **Cmd+Left works on lines with inline math.** It goes to the start of the line, and Cmd+Right, Home and End go to its end, instead of jumping to the top of the note.
 
-## 0.33.14 (2026-10-13)
-
-### Fixed
-
-- **Math blocks recover when you clear them.** Typing `^` and deleting it again no longer leaves the block showing an old error instead of its empty state.
-
 ## 0.33.13 (2026-10-13)
 
 ### Fixed
