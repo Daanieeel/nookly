@@ -121,7 +121,8 @@ function Shell() {
         <SidebarProvider className="min-h-full">
           <AppSidebar />
           <SidebarInset className="min-h-0 min-w-0">
-            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border bg-card shadow-md group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none">
+            {/* `isolate` keeps the page's own z-indexes (a calendar's sticky header and now line) below the corner slot. */}
+            <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border bg-card shadow-md group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none">
               <div
                 ref={pageRef}
                 className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
