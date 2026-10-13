@@ -6,7 +6,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/react";
 
 /// Most columns a table can keep in place; the stylesheet has one rule per count.
-export const MAX_PINNED_COLUMNS = 5;
+const MAX_PINNED_COLUMNS = 5;
 
 /// How many of a table's leftmost columns stay in place while the rest scrolls sideways:
 /// what the table saved, at most `MAX_PINNED_COLUMNS` and never all of its columns, so
