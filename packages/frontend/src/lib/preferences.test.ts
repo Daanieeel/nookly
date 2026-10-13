@@ -35,9 +35,7 @@ describe("preferences", () => {
 
   it("writes changes through to the store", async () => {
     mockCommand("plugin:store|load", 7);
-    mockCommand("plugin:store|entries", [
-      ["nookly:file-viewer-theme-backfill", "1"],
-    ]);
+    mockCommand("plugin:store|entries", [["nookly:file-viewer-theme-backfill", "1"]]);
     mockCommand("plugin:store|set", null);
     mockCommand("plugin:store|delete", true);
     const { initPreferences, preferences } = await freshPreferences();
