@@ -52,7 +52,7 @@ export function CodeBlockComponent({ node, updateAttributes, editor, getPos }: R
         onFormat={format}
       />
       <pre className="code-block-body">
-        <NodeViewContent<"code"> as="code" />
+        <NodeViewContent<"div"> as="div" />
         {hovered && (
           <div className="absolute right-2 top-2 animate-in fade-in-0" contentEditable={false}>
             <Tooltip>

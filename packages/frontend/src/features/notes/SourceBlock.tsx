@@ -210,7 +210,7 @@ function SourceBlockView({
         hidden={view !== "source"}
         contentEditable={view === "source" ? undefined : false}
       >
-        <NodeViewContent<"code"> as="code" />
+        <NodeViewContent<"div"> as="div" />
       </pre>
       {Legend && view === "source" && (
         <div
