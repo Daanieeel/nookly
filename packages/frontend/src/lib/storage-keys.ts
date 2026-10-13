@@ -10,7 +10,6 @@ export const STORAGE_KEYS = {
   tabs: "nookly:tabs",
   cliInstallCardDismissed: "nookly:cli-install-card-dismissed",
   lastSeenVersion: "nookly:last-seen-version",
-  lastSeenVersionBackfill: "nookly:last-seen-version-backfill",
   whatsNewSince: "nookly:whats-new-since",
   fileViewerTheme: "nookly:file-viewer-theme",
   fileViewerThemeBackfill: "nookly:file-viewer-theme-backfill",
