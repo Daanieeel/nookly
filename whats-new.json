@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.15",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Cmd+Left on a line with inline math goes to the start of the line, not the top of the note."
+        ]
+      }
+    },
+    {
       "version": "0.33.14",
       "date": "2026-10-13",
       "highlights": [],

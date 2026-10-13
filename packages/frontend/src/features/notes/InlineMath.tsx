@@ -13,6 +13,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { Popover, PopoverAnchor, PopoverContent } from "@nookly/ui/components/popover";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { cn } from "@nookly/ui/lib/utils";
+import { TextSelection } from "@tiptap/pm/state";
+import { lineEdge } from "./line-edge";
 import { renderMath } from "./math";
 
 /// `$…$` with no space just inside either dollar and no digit right after the
@@ -48,6 +50,37 @@ export const InlineMath = Node.create({
   },
   addNodeView() {
     return ReactNodeViewRenderer(InlineMathView);
+  },
+  // Cmd+Left/Right and Home/End on a line with a formula: the browser loses the line and
+  // jumps to the first line of the note, so the editor finds the line's edge itself.
+  addKeyboardShortcuts() {
+    const toEdge = (direction: -1 | 1, extend: boolean) => () => {
+      const { state, view } = this.editor;
+      const { selection } = state;
+      const { $head } = selection;
+      if (!$head.parent.isTextblock) return false;
+      let hasFormula = false;
+      $head.parent.forEach((child) => {
+        if (child.type === this.type) hasFormula = true;
+      });
+      if (!hasFormula) return false;
+      const target = lineEdge(view, $head.pos, $head.start(), $head.end(), direction);
+      const anchor = extend ? selection.anchor : target;
+      view.dispatch(
+        state.tr.setSelection(TextSelection.create(state.doc, anchor, target)).scrollIntoView(),
+      );
+      return true;
+    };
+    return {
+      "Meta-ArrowLeft": toEdge(-1, false),
+      "Meta-ArrowRight": toEdge(1, false),
+      "Shift-Meta-ArrowLeft": toEdge(-1, true),
+      "Shift-Meta-ArrowRight": toEdge(1, true),
+      Home: toEdge(-1, false),
+      End: toEdge(1, false),
+      "Shift-Home": toEdge(-1, true),
+      "Shift-End": toEdge(1, true),
+    };
   },
   addInputRules() {
     return [
