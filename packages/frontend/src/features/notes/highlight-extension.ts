@@ -1,4 +1,6 @@
 import { getMarkRange, InputRule, Mark, markPasteRule, mergeAttributes } from "@tiptap/core";
+import type { EditorState } from "@tiptap/pm/state";
+import type { Mark as PMMark } from "@tiptap/pm/model";
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   type HighlightColorId,
@@ -19,6 +21,39 @@ declare module "@tiptap/core" {
       setHighlightColor: (color: HighlightColorId) => ReturnType;
     };
   }
+}
+
+/// The highlight the caret is in, or null. Right before the first character of a highlight is
+/// in it too, as far as the person looking at the caret can tell, even though what is typed
+/// there is plain; a caret that has stepped out of the highlight is not.
+export function highlightAtCaret(state: EditorState): PMMark | null {
+  const type = state.schema.marks.highlight;
+  if (!type) return null;
+  const { selection, storedMarks } = state;
+  if (!selection.empty) {
+    let found: PMMark | null = null;
+    state.doc.nodesBetween(selection.from, selection.to, (node) => {
+      found ??= node.marks.find((m) => m.type === type) ?? null;
+    });
+    return state.doc.rangeHasMark(selection.from, selection.to, type) ? found : null;
+  }
+  const { $from } = selection;
+  const marks = storedMarks ?? $from.marks();
+  const inside = marks.find((m) => m.type === type);
+  if (inside) return inside;
+  if (storedMarks) return null;
+  return $from.nodeAfter?.marks.find((m) => m.type === type) ?? null;
+}
+
+/// The whole highlight around the caret: before its first character, inside it or after its end.
+function highlightRangeAtCaret(state: EditorState): { from: number; to: number } | null {
+  const type = state.schema.marks.highlight;
+  const { $from } = state.selection;
+  if (!type) return null;
+  if ($from.nodeAfter?.marks.some((m) => m.type === type)) {
+    return getMarkRange(state.doc.resolve($from.pos + 1), type) ?? null;
+  }
+  return getMarkRange($from, type) ?? null;
 }
 
 /// Marker style highlight, stored in the page as `==text==`, or `=={green}text==` for a colour
@@ -81,13 +116,14 @@ export const Highlight = Mark.create({
             color: color === DEFAULT_HIGHLIGHT_COLOR ? null : color,
           });
           const { $from, empty } = state.selection;
-          const range = empty ? getMarkRange($from, type) : null;
+          if (!highlightAtCaret(state)) return false;
+          const range = empty ? highlightRangeAtCaret(state) : state.selection;
           if (range) {
             if (dispatch) tr.addMark(range.from, range.to, mark);
             return true;
           }
+          // Started, and nothing typed in it yet: the colour is for the text to come.
           const active = state.storedMarks ?? $from.marks();
-          if (!empty || !active.some((m) => m.type === type)) return false;
           if (dispatch) tr.setStoredMarks([...active.filter((m) => m.type !== type), mark]);
           return true;
         },

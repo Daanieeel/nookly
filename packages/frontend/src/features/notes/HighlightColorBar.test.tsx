@@ -44,6 +44,50 @@ describe("the highlight colour bar", () => {
     }
   });
 
+  // The caret right before the first character is at the highlight's edge, and still in it
+  // as far as the person looking at it can tell.
+  it("shows with the caret before the first character of a highlight", async () => {
+    setup("a ==bcd== e", 3);
+    expect(await screen.findByRole("toolbar", { name: "Highlight colour" })).toBeInTheDocument();
+  });
+
+  it("colours the highlight from there", async () => {
+    const { user, editor: target } = setup("a ==bcd== e", 3);
+    await user.click(await screen.findByRole("button", { name: "Green" }));
+    expect(stored(target)).toBe("a =={green}bcd== e");
+    expect(target.state.selection.from).toBe(3);
+  });
+
+  it("shows the colour of the highlight that starts at the caret", async () => {
+    setup("a =={pink}bcd== e", 3);
+    expect(await screen.findByRole("button", { name: "Pink" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("is not there with the caret just after the highlight's end only if it stepped out", async () => {
+    const { editor: target } = setup("a ==bcd==", 6);
+    await screen.findByRole("toolbar", { name: "Highlight colour" });
+    act(() => {
+      target.view.someProp("handleKeyDown", (f) =>
+        f(target.view, new KeyboardEvent("keydown", { key: "ArrowRight" })),
+      );
+    });
+    await waitFor(() => expect(screen.queryByRole("toolbar")).toBeNull());
+  });
+
+  it("is not there after stepping out to the left of a highlight at the start of a line", async () => {
+    const { editor: target } = setup("==bcd== e", 1);
+    await screen.findByRole("toolbar", { name: "Highlight colour" });
+    act(() => {
+      target.view.someProp("handleKeyDown", (f) =>
+        f(target.view, new KeyboardEvent("keydown", { key: "ArrowLeft" })),
+      );
+    });
+    await waitFor(() => expect(screen.queryByRole("toolbar")).toBeNull());
+  });
+
   it("is not there outside a highlight", async () => {
     setup("a ==bcd== e", 1);
     await waitFor(() => expect(screen.queryByRole("toolbar")).toBeNull());

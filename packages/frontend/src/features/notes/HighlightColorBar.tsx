@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { cn } from "@nookly/ui/lib/utils";
 import { useMeasureOnTransaction } from "./drag-overlays";
 import { HIGHLIGHT_COLORS, parseHighlightColor } from "./highlight-colors";
+import { highlightAtCaret } from "./highlight-extension";
 
 interface Spot {
   top: number;
@@ -19,11 +20,12 @@ export function HighlightColorBar({ editor }: { editor: Editor | null }) {
 
   // Measured once per frame after a change, like the table controls.
   useMeasureOnTransaction(editor, () => {
-    if (!editor || !editor.isEditable || !editor.isActive("highlight")) {
+    const highlight = editor && editor.isEditable ? highlightAtCaret(editor.state) : null;
+    if (!editor || !highlight) {
       setSpot((previous) => (previous === null ? previous : null));
       return;
     }
-    const color = parseHighlightColor(editor.getAttributes("highlight").color) ?? "yellow";
+    const color = parseHighlightColor(highlight.attrs.color) ?? "yellow";
     let top = 0;
     let left = 0;
     try {
