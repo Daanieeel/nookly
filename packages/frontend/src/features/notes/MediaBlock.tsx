@@ -17,17 +17,9 @@ import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import {
-  type ComponentType,
-  type MouseEvent,
-  useEffect,
-  useState,
-} from "react";
+import { type ComponentType, type MouseEvent, useEffect, useState } from "react";
 import { z } from "zod";
-import {
-  StatusButtonContent,
-  useActionStatus,
-} from "#/components/action-feedback.tsx";
+import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
@@ -132,7 +124,7 @@ function useSource(content: string): SourceState {
   return {
     source: {
       src:
-        file.localPath ?? file.sourcePath
+        (file.localPath ?? file.sourcePath)
           ? convertFileSrc(file.localPath ?? file.sourcePath ?? "")
           : file.url,
       name: displayTitle(entity ?? file.entity),
@@ -146,19 +138,13 @@ function useSource(content: string): SourceState {
 
 /// Image, video, audio and file blocks. Each shows a File entity (imported into
 /// the page's Space on upload, so it also appears under Files) or a web URL.
-export function MediaBlock({
-  node,
-  updateAttributes,
-  extension,
-  editor,
-}: ReactNodeViewProps) {
+export function MediaBlock({ node, updateAttributes, extension, editor }: ReactNodeViewProps) {
   // SAFETY: media nodes are always created with `MediaBlockOptions` (`custom-block-extensions.ts`).
   const { kind, spaceId, pageId } = extension.options as MediaBlockOptions;
   // SAFETY: media nodes only ever write `rows` as a string.
   const content = asString(node.attrs.rows as JSONAttrValue | undefined) ?? "";
   // SAFETY: media nodes only ever write `caption` as a string or null.
-  const caption =
-    asString(node.attrs.caption as JSONAttrValue | undefined) ?? "";
+  const caption = asString(node.attrs.caption as JSONAttrValue | undefined) ?? "";
   const { source, missing } = useSource(content);
   const editable = editor.isEditable;
 
@@ -166,12 +152,9 @@ export function MediaBlock({
   // backend rewrites saved blocks; this catches a page open while it happened).
   const mention = MENTION.exec(content.trim());
   const fresh =
-    mention && source
-      ? mentionMarkdown(source.name.replace(/[[\]]/g, ""), mention[2])
-      : null;
+    mention && source ? mentionMarkdown(source.name.replace(/[[\]]/g, ""), mention[2]) : null;
   useEffect(() => {
-    if (editable && fresh && fresh !== content.trim())
-      updateAttributes({ rows: fresh });
+    if (editable && fresh && fresh !== content.trim()) updateAttributes({ rows: fresh });
   }, [editable, fresh, content, updateAttributes]);
 
   if (!content.trim()) {
@@ -195,10 +178,7 @@ export function MediaBlock({
   /// Cmd or Ctrl and a click on the media itself opens it; a plain click is left alone
   /// (it selects the block, and a video or audio player has its own controls).
   const openInNookly = () => {
-    if (source?.entity)
-      useNavStore
-        .getState()
-        .openEntity(source.entity.id, source.entity.spaceId);
+    if (source?.entity) useNavStore.getState().openEntity(source.entity.id, source.entity.spaceId);
   };
   const openOnModifierClick = (event: MouseEvent<HTMLElement>) => {
     if (event.metaKey || event.ctrlKey) openSource();
@@ -216,17 +196,13 @@ export function MediaBlock({
         className={cn(
           "group/media relative",
           // An image keeps its own width, so the toolbar sits on its corner.
-          kind === "image" && source && !missing
-            ? "w-fit min-w-32 max-w-full"
-            : "w-full",
+          kind === "image" && source && !missing ? "w-fit min-w-32 max-w-full" : "w-full",
         )}
       >
         {missing || !source ? (
           <div className={cn("media-card", !missing && "h-14 animate-pulse")}>
             {missing && (
-              <span className="text-sm text-muted-foreground">
-                This file no longer exists.
-              </span>
+              <span className="text-sm text-muted-foreground">This file no longer exists.</span>
             )}
           </div>
         ) : kind === "image" && source.src ? (
@@ -239,12 +215,7 @@ export function MediaBlock({
           />
         ) : kind === "video" && source.src ? (
           // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own video, no captions to offer
-          <video
-            src={source.src}
-            controls
-            preload="metadata"
-            className="media-video"
-          />
+          <video src={source.src} controls preload="metadata" className="media-video" />
         ) : (
           // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- Cmd or Ctrl and click is a pointer shortcut; the toolbar's Open File is the keyboard way
           <div
@@ -259,23 +230,17 @@ export function MediaBlock({
                 <Icon className="size-4.5" />
               </span>
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {source.name}
-                </span>
+                <span className="truncate text-sm font-medium">{source.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {source.localPath ? "Stored in Nookly" : source.url ?? ""}
+                  {source.localPath ? "Stored in Nookly" : (source.url ?? "")}
                 </span>
               </span>
             </div>
-            {kind === "audio" && source.src && (
-              // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
-              <audio
-                src={source.src}
-                controls
-                preload="metadata"
-                className="w-full"
-              />
-            )}
+            {kind === "audio" &&
+              source.src && (
+                // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
+                <audio src={source.src} controls preload="metadata" className="w-full" />
+              )}
           </div>
         )}
         <div className="media-toolbar">
@@ -295,9 +260,7 @@ export function MediaBlock({
           {source?.localPath && (
             <ToolbarButton
               label="Show in Folder"
-              onClick={() =>
-                source.localPath && void revealItemInDir(source.localPath)
-              }
+              onClick={() => source.localPath && void revealItemInDir(source.localPath)}
             >
               <IconFolderOpen className="size-3.5" />
             </ToolbarButton>
@@ -312,20 +275,16 @@ export function MediaBlock({
           )}
         </div>
       </div>
-      {(kind === "image" || kind === "video") &&
-        source &&
-        (editable || caption) && (
-          <input
-            value={caption}
-            onChange={(event) =>
-              updateAttributes({ caption: event.target.value || null })
-            }
-            readOnly={!editable}
-            placeholder="Add a caption"
-            aria-label="Caption"
-            className="media-caption"
-          />
-        )}
+      {(kind === "image" || kind === "video") && source && (editable || caption) && (
+        <input
+          value={caption}
+          onChange={(event) => updateAttributes({ caption: event.target.value || null })}
+          readOnly={!editable}
+          placeholder="Add a caption"
+          aria-label="Caption"
+          className="media-caption"
+        />
+      )}
     </NodeViewWrapper>
   );
 }
@@ -364,8 +323,7 @@ function MediaPicker({
       const selected = await open({
         multiple: false,
         directory: false,
-        filters:
-          extensions.length > 0 ? [{ name: noun, extensions }] : undefined,
+        filters: extensions.length > 0 ? [{ name: noun, extensions }] : undefined,
       });
       if (selected === null) return null;
       return importFile(spaceId, selected);
@@ -379,12 +337,7 @@ function MediaPicker({
         queryKey: qk.entities.bySpace(spaceId),
       });
       attachToPage(file.entity.id);
-      onPick(
-        mentionMarkdown(
-          file.originalFilename ?? displayTitle(file.entity),
-          file.entity.id,
-        ),
-      );
+      onPick(mentionMarkdown(file.originalFilename ?? displayTitle(file.entity), file.entity.id));
     },
   });
   const status = useActionStatus(upload);
@@ -422,9 +375,7 @@ function MediaPicker({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
-                onKeyDown={(event) =>
-                  event.key === "Escape" && setLinking(false)
-                }
+                onKeyDown={(event) => event.key === "Escape" && setLinking(false)}
                 placeholder="https://"
                 aria-label={`Link to the ${noun}`}
                 className="h-7 min-w-0 flex-1 text-xs"
