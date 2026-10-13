@@ -24,6 +24,7 @@ import {
   IconLayoutDashboard,
   IconPin,
   IconSettings,
+  IconTrash,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
@@ -32,7 +33,13 @@ import { SidebarMenuButton, SidebarMenuItem } from "@nookly/ui/components/sideba
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { ASSIGNMENTS_OVERVIEW, TASKS_OVERVIEW } from "#/lib/api/views.ts";
-import { type SidebarItemId, type SidebarItemPref, useSidebarItems } from "#/lib/sidebar-items.ts";
+import {
+  type SidebarFixedId,
+  type SidebarItemId,
+  type SidebarItemPref,
+  useSidebarHidden,
+  useSidebarItems,
+} from "#/lib/sidebar-items.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
 import { AssignmentsOverviewMeta } from "./module-row-meta";
 import { OverviewNavItem } from "./overview-nav-item";
@@ -93,6 +100,27 @@ export function SidebarNavItems() {
     });
 }
 
+/// The Trash row at the bottom of the sidebar, unless the user hid it. It stays reachable
+/// from the command palette and the quick switcher.
+export function SidebarTrashItem() {
+  const view = useNavStore((s) => s.view);
+  const setView = useNavStore((s) => s.setView);
+  const hidden = useSidebarHidden((s) => s.hidden.includes("trash"));
+  if (hidden) return null;
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        tooltip="Trash"
+        isActive={view.kind === "trash"}
+        onClick={() => setView({ kind: "trash" })}
+      >
+        <IconTrash />
+        <span>Trash</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
 /// A small settings button under the mascot. Its popover lists every cross-Space
 /// item with an eye to show or hide it and a handle to move it.
 export function SidebarCustomizeButton() {
@@ -122,7 +150,7 @@ export function SidebarCustomizeButton() {
           </TooltipTrigger>
           <TooltipContent>Customize sidebar</TooltipContent>
         </Tooltip>
-        <PopoverContent align="end" className="w-56 p-1.5">
+        <PopoverContent align="end" className="w-56 p-1.5" aria-label="Customize sidebar">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext
               items={items.map((item) => item.id)}
@@ -135,9 +163,43 @@ export function SidebarCustomizeButton() {
               </ul>
             </SortableContext>
           </DndContext>
+          <ul className="mt-1 flex flex-col gap-0.5 border-t border-border pt-1">
+            <FixedRow id="trash" label="Trash" icon={IconTrash} />
+          </ul>
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+/// An entry at a fixed place in the sidebar: it can be shown or hidden but not moved.
+function FixedRow({
+  id,
+  label,
+  icon: Icon,
+}: {
+  id: SidebarFixedId;
+  label: string;
+  icon: TablerIcon;
+}) {
+  const hidden = useSidebarHidden((s) => s.hidden.includes(id));
+  const toggle = useSidebarHidden((s) => s.toggle);
+  const toggleLabel = `${hidden ? "Show" : "Hide"} ${label}`;
+  return (
+    <li className="flex h-8 items-center gap-1.5 rounded-md bg-popover pr-1 pl-2 text-sm">
+      <Icon size={15} className={cn("shrink-0", hidden && "text-muted-foreground")} />
+      <span className={cn("min-w-0 flex-1 truncate", hidden && "text-muted-foreground")}>
+        {label}
+      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="iconSm" aria-label={toggleLabel} onClick={() => toggle(id)}>
+            {hidden ? <IconEyeOff /> : <IconEye />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{toggleLabel}</TooltipContent>
+      </Tooltip>
+    </li>
   );
 }
 

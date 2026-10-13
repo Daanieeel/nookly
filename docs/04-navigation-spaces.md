@@ -20,7 +20,7 @@ The active Space's color carries into the UI beyond its sidebar label: active st
 
 - Each Space shows a flat list. There are **no** sub-groups or category headers such as "Personal" or "Study." Remove them entirely.
 - Only show the modules and pages a Space actually uses. Do not list every available module type by default. Rows appear as content is created, or when a module is added explicitly through the ghost "+".
-- Dashboard, Calendar, Tasks, Assignments, Pinned and Quick Jot sit in a block above the list of Spaces, since they span all Spaces. A settings button under the mascot opens a popover to hide each of them and drag them into a different order. The choice is a device preference (`nookly:sidebar-items`).
+- Dashboard, Calendar, Tasks, Assignments, Pinned and Quick Jot sit in a block above the list of Spaces, since they span all Spaces. A settings button under the mascot opens a popover to hide each of them and drag them into a different order. The popover also hides Trash at the bottom. The choices are device preferences (`nookly:sidebar-items`, `nookly:sidebar-hidden`).
 - Trash and System are pinned to the bottom. They look quieter than the main content (muted and smaller) because they are utilities, not content.
 - A module row's context menu has Remove Module. It asks to either hide the module (everything stays saved, hidden from every list, search and Pinned, and back when the module is added again) or move all its content to Trash.
 - Each Space has a ghost "+" that appears on hover, for adding modules or pages to that Space. It is not a permanent, bold element.

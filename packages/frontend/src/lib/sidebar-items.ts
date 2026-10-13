@@ -76,3 +76,37 @@ export const useSidebarItems = create<SidebarItemsState>((set) => ({
     set({ items });
   },
 }));
+
+/// Entries that sit at fixed places in the sidebar, outside the block above the Spaces, and
+/// can be hidden but not moved.
+export const SIDEBAR_FIXED_IDS = ["trash"] as const;
+
+export type SidebarFixedId = (typeof SIDEBAR_FIXED_IDS)[number];
+
+const hiddenSchema = z.array(z.string());
+
+/// The fixed entries the user hid. Anything unknown, repeated or not a list is dropped.
+export function readHiddenSidebarItems(): SidebarFixedId[] {
+  try {
+    const raw = preferences.get(STORAGE_KEYS.sidebarHidden);
+    const parsed = hiddenSchema.safeParse(raw ? JSON.parse(raw) : []);
+    return parsed.success ? SIDEBAR_FIXED_IDS.filter((id) => parsed.data.includes(id)) : [];
+  } catch {
+    return [];
+  }
+}
+
+interface SidebarHiddenState {
+  hidden: SidebarFixedId[];
+  toggle: (id: SidebarFixedId) => void;
+}
+
+export const useSidebarHidden = create<SidebarHiddenState>((set, get) => ({
+  hidden: readHiddenSidebarItems(),
+  toggle: (id) => {
+    const current = get().hidden;
+    const hidden = current.includes(id) ? current.filter((h) => h !== id) : [...current, id];
+    preferences.set(STORAGE_KEYS.sidebarHidden, JSON.stringify(hidden));
+    set({ hidden });
+  },
+}));

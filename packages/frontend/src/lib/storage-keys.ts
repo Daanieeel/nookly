@@ -22,6 +22,7 @@ export const STORAGE_KEYS = {
   tasksFilters: "nookly:tasks-filters",
   tasksOverviewFilters: "nookly:tasks-overview-filters",
   sidebarItems: "nookly:sidebar-items",
+  sidebarHidden: "nookly:sidebar-hidden",
   assignmentsDisplay: "nookly:assignments-display",
   assignmentsOverview: "nookly:assignments-overview",
   assignmentsFilters: "nookly:assignments-filters",
