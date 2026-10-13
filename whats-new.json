@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.33.16",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Improved": ["Attachments in the detail sidebar are grouped by type, like Relationships."]
+      }
+    },
+    {
       "version": "0.33.15",
       "date": "2026-10-13",
       "highlights": [],

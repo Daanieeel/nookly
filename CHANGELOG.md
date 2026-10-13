@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.16 (2026-10-13)
+
+### Changed
+
+- **Attachments are grouped by type.** Notes, journals, sessions, courses and other attachments each get their own heading in the sidebar, like Relationships.
+
 ## 0.33.15 (2026-10-13)
 
 ### Fixed

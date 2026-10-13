@@ -10,6 +10,7 @@ import {
   listRelationships,
 } from "#/lib/api/relationships.ts";
 import type { Entity } from "#/lib/api/types.ts";
+import { TypeGroups } from "./EntityGroups";
 import { EntityRow } from "./EntityRow";
 import { RemoveLinkButton } from "./RemoveLinkButton";
 import { SidebarHint, SidebarSection } from "./SidebarSection";
@@ -66,33 +67,33 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
         <SidebarHint>Attach this from any page to see it listed here.</SidebarHint>
       )}
 
-      <div className="flex flex-col gap-0.5">
-        {attachments.map((r) => {
+      <TypeGroups
+        items={attachments.map((r) => {
           const isOutgoing = r.fromEntityId === entity.id;
-          const otherId = isOutgoing ? r.toEntityId : r.fromEntityId;
-          return (
-            <div key={r.id} className="group flex items-center gap-1">
-              <div className="min-w-0 flex-1">
-                <EntityRow
-                  entityId={otherId}
-                  currentSpaceId={entity.spaceId}
-                  label={isOutgoing ? undefined : "attached to"}
-                />
-              </div>
-              <RemoveLinkButton
-                label="Remove attachment"
-                errorLabel="Couldn't remove attachment, try again"
-                onRemove={async () => {
-                  await deleteRelationship(r.id);
-                  await queryClient.invalidateQueries({
-                    queryKey: qk.relationships.of(entity.id),
-                  });
-                }}
-              />
-            </div>
-          );
+          return {
+            key: r.id,
+            entityId: isOutgoing ? r.toEntityId : r.fromEntityId,
+            label: isOutgoing ? undefined : "attached to",
+          };
         })}
-      </div>
+        renderRow={(a) => (
+          <div className="group flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <EntityRow entityId={a.entityId} currentSpaceId={entity.spaceId} label={a.label} />
+            </div>
+            <RemoveLinkButton
+              label="Remove attachment"
+              errorLabel="Couldn't remove attachment, try again"
+              onRemove={async () => {
+                await deleteRelationship(a.key);
+                await queryClient.invalidateQueries({
+                  queryKey: qk.relationships.of(entity.id),
+                });
+              }}
+            />
+          </div>
+        )}
+      />
     </SidebarSection>
   );
 }
