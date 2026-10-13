@@ -103,6 +103,22 @@ describe("settings registry", () => {
     expect(SETTINGS["notes.arrowLigatures"].parse(false)).toBe(false);
   });
 
+  // #119: the current day in the calendar can be made stronger, weaker or grey.
+  it("defaults the current day highlight to what the calendar always looked like", () => {
+    expect(SETTINGS["calendar.todayColor"].default).toBe("primary");
+    expect(SETTINGS["calendar.todayIntensity"].default).toBe("default");
+  });
+
+  it("validates the current day highlight and falls back to the default", () => {
+    const color = SETTINGS["calendar.todayColor"];
+    for (const ok of ["primary", "neutral"]) expect(color.parse(ok)).toBe(ok);
+    expect(color.parse("red")).toBe("primary");
+    const intensity = SETTINGS["calendar.todayIntensity"];
+    for (const ok of ["low", "default", "high"]) expect(intensity.parse(ok)).toBe(ok);
+    expect(intensity.parse("max")).toBe("default");
+    expect(intensity.parse(3)).toBe("default");
+  });
+
   it("registers one setting per shortcut, defaulting to its current key", () => {
     for (const name of SHORTCUT_NAMES) {
       const def = SETTINGS[shortcutSettingId(name)];

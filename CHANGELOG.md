@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.26 (2026-10-13)
+
+### Added
+
+- **Choose how today is marked.** Settings under Calendar set the current day's colour (Primary or Neutral) and intensity (Low, Default or High) in the week, day and month views.
+
 ## 0.33.25 (2026-10-13)
 
 ### Fixed
