@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.24",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The main content panel lines up with the left navigation panel at the top and bottom."
+        ]
+      }
+    },
+    {
       "version": "0.33.23",
       "date": "2026-10-13",
       "highlights": [],
