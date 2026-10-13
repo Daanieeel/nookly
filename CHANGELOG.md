@@ -8,6 +8,12 @@ All notable changes to Nookly are listed here.
 
 - **Copy ID in the right click menu.** Every item can copy its ID, right below Copy Link.
 
+## 0.35.0 (2026-10-13)
+
+### Added
+
+- **Open embedded files in Nookly.** Click a file in a page to open it, or use Open in Nookly on its toolbar.
+
 ## 0.33.2 (2026-10-13)
 
 ### Changed
