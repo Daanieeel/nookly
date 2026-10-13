@@ -2,49 +2,49 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.35.6 (2026-10-13)
+## 0.33.10 (2026-10-13)
 
 ### Fixed
 
 - **The Dashboard calendar no longer overlaps the corner.** Its date header, current time line and scrollbar stay behind the mascot cutout when scrolled.
 
-## 0.35.5 (2026-10-13)
+## 0.33.9 (2026-10-13)
 
 ### Fixed
 
 - **Notes keep their scroll position when you switch tabs.** A long note no longer jumps to the bottom while it is still loading.
 
-## 0.35.4 (2026-10-13)
+## 0.33.8 (2026-10-13)
 
 ### Fixed
 
 - **Copy ID copies the readable ID.** It gives you the ID you see on the item, like TSK-12.
 
-## 0.35.3 (2026-10-13)
+## 0.33.7 (2026-10-13)
 
 ### Fixed
 
 - **PDFs keep their zoom when you switch tabs.** A zoomed PDF comes back at the same zoom and position, and spreadsheets come back on the same sheet.
 
-## 0.35.2 (2026-10-13)
+## 0.33.6 (2026-10-13)
 
 ### Changed
 
 - **Smaller cleanup.** Removed a one time What's new reset that already did its job.
 
-## 0.35.1 (2026-10-13)
+## 0.33.5 (2026-10-13)
 
 ### Fixed
 
 - **Typing after @ is fast again.** Mentioning with many sessions no longer lags.
 
-## 0.35.0 (2026-10-13)
+## 0.33.4 (2026-10-13)
 
 ### Added
 
 - **Open embedded files in Nookly.** Click a file in a page to open it, or use Open in Nookly on its toolbar.
 
-## 0.34.0 (2026-10-13)
+## 0.33.3 (2026-10-13)
 
 ### Added
 
