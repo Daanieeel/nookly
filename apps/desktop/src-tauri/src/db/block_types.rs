@@ -145,6 +145,47 @@ pub fn numbered_marker(attrs: &BlockAttrs, index: usize) -> String {
     format!("{}{delimiter}", String::from_utf8_lossy(&letters))
 }
 
+/// One line of a list block: how deep it is nested, the marker it shows and its text.
+pub struct ListItem<'a> {
+    pub depth: usize,
+    pub marker: String,
+    pub text: &'a str,
+}
+
+/// The lines of a list block with their nesting: each leading tab puts a line one level
+/// under the line above it (never more than one level deeper, and never nested on the
+/// first line). `bullet` is the marker of a bulleted list; `None` counts a numbered one,
+/// starting over under each parent, with the `marker` attr applying to the top level only.
+pub fn list_items<'a>(
+    attrs: &BlockAttrs,
+    lines: impl Iterator<Item = &'a str>,
+    bullet: Option<&str>,
+) -> Vec<ListItem<'a>> {
+    let mut counts: Vec<usize> = Vec::new();
+    let mut items = Vec::new();
+    for line in lines {
+        let text = line.trim_start_matches('\t');
+        let wanted = line.len() - text.len();
+        let depth = wanted.min(counts.len());
+        counts.truncate(depth + 1);
+        if counts.len() == depth {
+            counts.push(0);
+        }
+        counts[depth] += 1;
+        let marker = match bullet {
+            Some(bullet) => bullet.to_string(),
+            None if depth == 0 => numbered_marker(attrs, counts[depth] - 1),
+            None => numbered_marker(&BlockAttrs::new(), counts[depth] - 1),
+        };
+        items.push(ListItem {
+            depth,
+            marker,
+            text,
+        });
+    }
+    items
+}
+
 /// The attrs `block_type` accepts: a custom block's own, the heading attrs, or none.
 pub fn declared_attrs(block_type: &str) -> &'static [BlockAttrDef] {
     match block_type {
@@ -1379,6 +1420,37 @@ mod tests {
         assert_eq!(md, "a) One\nb) Two");
         let plain = crate::db::notes::block_to_markdown(&block("numbered_list", "One\nTwo", &[]));
         assert_eq!(plain, "1. One\n2. Two");
+    }
+
+    #[test]
+    fn a_tab_in_front_of_a_list_line_nests_it() {
+        let nested = "One\n\tOne a\n\tOne b\n\t\tDeep\nTwo";
+        let bullets = crate::db::notes::block_to_markdown(&block("bulleted_list", nested, &[]));
+        assert_eq!(
+            bullets,
+            "- One\n    - One a\n    - One b\n        - Deep\n- Two"
+        );
+        let numbers = crate::db::notes::block_to_markdown(&block("numbered_list", nested, &[]));
+        assert_eq!(
+            numbers,
+            "1. One\n    1. One a\n    2. One b\n        1. Deep\n2. Two"
+        );
+        // Counting starts over under each parent, and only the top level is lettered.
+        let lettered = crate::db::notes::block_to_markdown(&block(
+            "numbered_list",
+            "A\n\tx\nB\n\ty",
+            &[("marker", "a.")],
+        ));
+        assert_eq!(lettered, "a. A\n    1. x\nb. B\n    1. y");
+    }
+
+    #[test]
+    fn a_nested_line_cannot_skip_a_level() {
+        let items = list_items(&BlockAttrs::new(), "One\n\t\t\tToo deep".lines(), Some("-"));
+        assert_eq!(items.iter().map(|i| i.depth).collect::<Vec<_>>(), [0, 1]);
+        // The first line of a list cannot be nested at all.
+        let first = list_items(&BlockAttrs::new(), "\tStart".lines(), Some("-"));
+        assert_eq!((first[0].depth, first[0].text), (0, "Start"));
     }
 
     #[test]

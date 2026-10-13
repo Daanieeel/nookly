@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.19",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Tab nests a bullet under the one above it, nested items are saved with the page, and Tab no longer jumps out of the editor on the first bullet."
+        ]
+      }
+    },
+    {
       "version": "0.33.18",
       "date": "2026-10-13",
       "highlights": [],

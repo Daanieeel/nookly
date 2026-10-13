@@ -394,7 +394,7 @@ pub fn describe_json(def: &EntitySchemaDef) -> Value {
                 "heading1 to heading6": "The heading text, no leading '#'.",
                 "quote": "The quote text, no leading '>'.",
                 "code": "The raw code. Set --language/--filename for the header row.",
-                "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
+                "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
                 "table": "Rows separated by newlines, cells by a literal tab, first row is the header, no separator row.",
         });
         let mut attrs = serde_json::Map::new();

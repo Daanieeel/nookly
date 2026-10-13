@@ -183,17 +183,14 @@ export function blockToNode(block: Block): JSONNode {
       };
     case "bulleted_list":
     case "numbered_list": {
-      const lines = block.content.length > 0 ? block.content.split("\n") : [""];
+      const listType = block.blockType === "bulleted_list" ? "bulletList" : "orderedList";
       return {
-        type: block.blockType === "bulleted_list" ? "bulletList" : "orderedList",
+        type: listType,
         attrs:
           block.blockType === "numbered_list"
             ? { blockId, marker: block.attrs.marker ?? null }
             : { blockId },
-        content: lines.map((line) => ({
-          type: "listItem",
-          content: [{ type: "paragraph", content: nonEmpty(decodeInline(line)) }],
-        })),
+        content: listItems(block.content, listType),
       };
     }
     case "callout":
@@ -250,8 +247,48 @@ export function blockToNode(block: Block): JSONNode {
   }
 }
 
-function listLines(node: JSONNode): string {
-  return (node.content ?? []).map((item) => encodeInline(item.content?.[0]?.content)).join("\n");
+const LIST_TYPES = new Set(["bulletList", "orderedList"]);
+
+/// A list's items, one line each, a nested item with one leading tab per level (the
+/// same format the backend reads, `list_items` in `block_types.rs`). Only the first
+/// paragraph of an item and the lists under it are kept.
+function listLines(node: JSONNode, depth = 0): string {
+  return (node.content ?? [])
+    .flatMap((item) => {
+      const [first, ...rest] = item.content ?? [];
+      const nested = rest
+        .filter((child) => LIST_TYPES.has(child.type))
+        .map((child) => listLines(child, depth + 1))
+        .filter((lines) => lines !== "");
+      return ["\t".repeat(depth) + encodeInline(first?.content), ...nested];
+    })
+    .join("\n");
+}
+
+/// The inverse of `listLines`: list items with their nested lists. A line nests at most
+/// one level under the line above it, and the first line cannot nest.
+function listItems(content: string, listType: string): JSONNode[] {
+  const root: JSONNode[] = [];
+  // The items of the list at each level, down to the one the last line went into.
+  const levels: JSONNode[][] = [root];
+  for (const line of content.length > 0 ? content.split("\n") : [""]) {
+    const text = line.replace(/^\t+/, "");
+    const last = levels[levels.length - 1] ?? root;
+    const deepest = last.length > 0 ? levels.length : levels.length - 1;
+    const depth = Math.min(line.length - text.length, deepest);
+    if (depth === levels.length) {
+      const nested: JSONNode = { type: listType, content: [] };
+      (last[last.length - 1]?.content ?? []).push(nested);
+      levels.push(nested.content ?? []);
+    } else {
+      levels.length = depth + 1;
+    }
+    levels[depth]?.push({
+      type: "listItem",
+      content: [{ type: "paragraph", content: nonEmpty(decodeInline(text)) }],
+    });
+  }
+  return root;
 }
 
 const HEADING_BLOCK_TYPES = {
