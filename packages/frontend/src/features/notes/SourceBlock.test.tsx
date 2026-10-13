@@ -1,11 +1,12 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
-import { EditorContent } from "@tiptap/react";
+import { EditorContent, type ReactNodeViewProps } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { settings } from "#/lib/settings/settings.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
+import { SourceBlock } from "./SourceBlock";
 
 let editor: Editor | null = null;
 afterEach(() => editor?.destroy());
@@ -346,5 +347,28 @@ describe("the editable code of a source block", () => {
     });
     expect(pre()?.hasAttribute("hidden")).toBe(true);
     expect(pre()?.getAttribute("contenteditable")).toBe("false");
+  });
+});
+
+// The block of a page that breaks while it is drawn says so and can be loaded again, instead of
+// staying broken until the app is restarted.
+describe("a source block that cannot be drawn", () => {
+  it("says so, with the reason, and keeps the rest of the page", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    // SAFETY: a node view without its props, which is what makes it throw while rendering.
+    const broken = {} as ReactNodeViewProps;
+    renderWithProviders(
+      <div>
+        <p>the rest of the page</p>
+        <SourceBlock {...broken} />
+      </div>,
+    );
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("This block could not be shown");
+    expect(alert).toHaveTextContent("Its content is safe");
+    expect(alert).toHaveTextContent(/undefined|options/i);
+    expect(screen.getByText("the rest of the page")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload Block" })).toBeInTheDocument();
+    error.mockRestore();
   });
 });

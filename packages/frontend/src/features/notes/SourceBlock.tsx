@@ -3,6 +3,7 @@ import { Selection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { type ComponentType, Fragment, useEffect, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
+import { ErrorBoundary } from "#/components/error-boundary.tsx";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -83,7 +84,7 @@ function useIsDark(): boolean {
 /// A code block that can also show what its code draws: LaTeX as a formula,
 /// Mermaid as a diagram. The `view` attr (`source` / `rendered`) picks the side;
 /// the code stays in the document either way, so switching loses nothing.
-export function SourceBlock({
+function SourceBlockView({
   node,
   updateAttributes,
   extension,
@@ -260,5 +261,33 @@ export function SourceBlock({
         </div>
       )}
     </NodeViewWrapper>
+  );
+}
+
+/// The source block behind an error boundary: a block that cannot be drawn says why and can be
+/// reloaded, instead of staying broken until the app is restarted. What it holds is the
+/// document's, untouched.
+export function SourceBlock(props: ReactNodeViewProps) {
+  const [crash, setCrash] = useState<string | null>(null);
+  return (
+    <ErrorBoundary
+      onError={(error) => setCrash(error.message)}
+      fallback={(reset) => (
+        <NodeViewWrapper className="source-block my-1" contentEditable={false}>
+          <div role="alert" className="flex items-center gap-2 px-3 py-2 text-xs">
+            <IconAlertTriangle className="size-3.5 shrink-0 text-destructive" />
+            <span className="min-w-0 flex-1 wrap-break-word text-muted-foreground">
+              This block could not be shown. Its content is safe.
+              {crash && <span className="block font-mono text-destructive">{crash}</span>}
+            </span>
+            <Button variant="secondary" size="sm" onClick={reset}>
+              Reload Block
+            </Button>
+          </div>
+        </NodeViewWrapper>
+      )}
+    >
+      <SourceBlockView {...props} />
+    </ErrorBoundary>
   );
 }
