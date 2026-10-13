@@ -247,6 +247,52 @@ describe("the settings dialog", () => {
     expect(settings.get("notes.arrowLigatures")).toBe(false);
   });
 
+  describe("the current day settings", () => {
+    async function openCalendar() {
+      const view = renderOpen();
+      await view.user.click(await screen.findByRole("button", { name: "Calendar" }));
+      return view;
+    }
+
+    it("are segmented tabs, not dropdowns, with the saved choice selected", async () => {
+      settings.set("calendar.todayColor", "neutral");
+      settings.set("calendar.todayIntensity", "high");
+      await openCalendar();
+      const color = screen.getByRole("tablist", { name: "Current day colour" });
+      expect(
+        within(color)
+          .getAllByRole("tab")
+          .map((t) => t.textContent),
+      ).toEqual(["Primary", "Neutral"]);
+      expect(within(color).getByRole("tab", { name: "Neutral" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      const intensity = screen.getByRole("tablist", { name: "Current day intensity" });
+      expect(
+        within(intensity)
+          .getAllByRole("tab")
+          .map((t) => t.textContent),
+      ).toEqual(["Low", "Default", "High"]);
+      expect(within(intensity).getByRole("tab", { name: "High" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(screen.queryByRole("button", { name: "Current day colour" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Current day intensity" })).toBeNull();
+    });
+
+    it("save the tab that is clicked", async () => {
+      settings.set("calendar.todayColor", "primary");
+      settings.set("calendar.todayIntensity", "default");
+      const { user } = await openCalendar();
+      await user.click(screen.getByRole("tab", { name: "Neutral" }));
+      expect(settings.get("calendar.todayColor")).toBe("neutral");
+      await user.click(screen.getByRole("tab", { name: "Low" }));
+      expect(settings.get("calendar.todayIntensity")).toBe("low");
+    });
+  });
+
   describe("the LaTeX page under Editor", () => {
     it("is a child of Editor in the navigation, indented under it", async () => {
       renderOpen();
