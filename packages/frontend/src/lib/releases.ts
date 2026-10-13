@@ -51,3 +51,12 @@ export function releasesSince(
     });
   return { releases: all.slice(0, MAX_RELEASES), hidden: Math.max(0, all.length - MAX_RELEASES) };
 }
+
+/// Every version written up in `whats-new.json`, up to the one running, newest first, with
+/// no cap. The full history that Settings opens.
+export function allReleases(running: string, notes?: WhatsNewFile): Release[] {
+  return parseWhatsNew(notes)
+    .filter((entry) => compareVersions(entry.version, running) <= 0)
+    .toSorted((a, b) => compareVersions(b.version, a.version))
+    .map((entry) => ({ version: entry.version, date: entry.date ?? null, notes: entry }));
+}

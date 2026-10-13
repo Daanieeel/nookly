@@ -69,7 +69,7 @@ function open(version: string) {
 
 beforeEach(() => {
   preferences.remove(STORAGE_KEYS.whatsNewSince);
-  useNavStore.setState({ whatsNewOpen: false });
+  useNavStore.setState({ whatsNewOpen: false, whatsNewHistory: false });
 });
 
 describe("WhatsNewDialog", () => {
@@ -309,5 +309,36 @@ describe("WhatsNewDialog", () => {
       await screen.findByText("An older release");
       await expectNoA11yViolations();
     });
+  });
+});
+
+describe("WhatsNewDialog history", () => {
+  it("lists every written up version when opened from Settings, whatever was last seen", async () => {
+    preferences.set(STORAGE_KEYS.whatsNewSince, "0.31.9");
+    mockCommand("plugin:app|version", "0.31.10");
+    renderWithProviders(<WhatsNewDialog notes={NOTES} changelog={CHANGELOG} />);
+    act(() => useNavStore.getState().setWhatsNewOpen(true, true));
+    expect(await screen.findByRole("dialog", { name: "What's new history" })).toBeTruthy();
+    expect(await screen.findByText("Pages travel now")).toBeTruthy();
+    expect(screen.getByText("An older release")).toBeTruthy();
+    expect(screen.queryByText("An older change from the changelog")).toBeNull();
+  });
+
+  it("says the newest version it lists, not the running one, when that has no entry yet", async () => {
+    mockCommand("plugin:app|version", "0.31.12");
+    renderWithProviders(<WhatsNewDialog notes={NOTES} changelog={CHANGELOG} />);
+    act(() => useNavStore.getState().setWhatsNewOpen(true, true));
+    expect(await screen.findByText("Every version, up to 0.31.10")).toBeTruthy();
+  });
+
+  it("is back to the difference since the last seen version when opened from the card", async () => {
+    useNavStore.getState().setWhatsNewOpen(true, true);
+    useNavStore.getState().setWhatsNewOpen(false);
+    preferences.set(STORAGE_KEYS.whatsNewSince, "0.30.2");
+    mockCommand("plugin:app|version", "0.31.10");
+    renderWithProviders(<WhatsNewDialog notes={NOTES} changelog={CHANGELOG} />);
+    act(() => useNavStore.getState().setWhatsNewOpen(true));
+    expect(await screen.findByRole("dialog", { name: /What.s new in 0\.31\.10/ })).toBeTruthy();
+    expect(screen.queryByText("An older release")).toBeNull();
   });
 });

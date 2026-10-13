@@ -133,6 +133,8 @@ interface NavState {
   settingsOpen: boolean;
   importOpen: boolean;
   whatsNewOpen: boolean;
+  /// The open What's new dialog lists every version, not just what changed since the last one seen.
+  whatsNewHistory: boolean;
   quickJotOpen: boolean;
   /// The session the open Quick Jot writes into; null for a plain Jot.
   focusBlock: FocusBlock | null;
@@ -166,7 +168,7 @@ interface NavState {
   setCommandsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
-  setWhatsNewOpen: (open: boolean) => void;
+  setWhatsNewOpen: (open: boolean, history?: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -368,6 +370,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   settingsOpen: false,
   importOpen: false,
   whatsNewOpen: false,
+  whatsNewHistory: false,
   quickJotOpen: false,
   focusBlock: null,
   sidebarCollapsed: readStoredCollapsed(),
@@ -536,8 +539,12 @@ export const useNavStore = create<NavState>((set, get) => ({
   setSettingsOpen: (settingsOpen) =>
     set(settingsOpen ? { ...NO_OVERLAY, settingsOpen } : { settingsOpen }),
   setImportOpen: (importOpen) => set(importOpen ? { ...NO_OVERLAY, importOpen } : { importOpen }),
-  setWhatsNewOpen: (whatsNewOpen) =>
-    set(whatsNewOpen ? { ...NO_OVERLAY, whatsNewOpen } : { whatsNewOpen }),
+  setWhatsNewOpen: (whatsNewOpen, whatsNewHistory = false) =>
+    set(
+      whatsNewOpen
+        ? { ...NO_OVERLAY, whatsNewOpen, whatsNewHistory }
+        : { whatsNewOpen, whatsNewHistory: false },
+    ),
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
