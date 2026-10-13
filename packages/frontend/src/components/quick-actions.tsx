@@ -9,7 +9,6 @@ import {
   IconLayoutSidebarRight,
   IconMoon,
   IconPin,
-  IconPlus,
   IconFileCode,
   IconFileImport,
   IconHighlight,
@@ -330,7 +329,7 @@ export function QuickActions({
 
   function simpleItem(
     id: string,
-    icon: TablerIcon,
+    icon: TablerIcon | null,
     label: string,
     run: () => void,
     hint?: ReactNode,
@@ -339,7 +338,7 @@ export function QuickActions({
     return (
       <SpotlightItem key={id} value={`action-${id}`} onSelect={run}>
         <ActionGlyph />
-        <Icon size={16} className="shrink-0 text-muted-foreground" />
+        {Icon && <Icon size={16} className="shrink-0 text-muted-foreground" />}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {hint}
       </SpotlightItem>
@@ -457,7 +456,7 @@ export function QuickActions({
       words: "New Tab open another tab blank",
       node: simpleItem(
         "new-tab",
-        IconPlus,
+        null,
         "New Tab",
         () => {
           useNavStore.getState().openInNewTab();
