@@ -160,7 +160,8 @@ function sessionsPart(upcoming: BriefingSession[], finished: number, seed: numbe
       },
     };
   }
-  // Only the next one: how many others follow later in the day is not part of the sentence.
+  // Only "next up" and the one session: not how many others follow later in the day, and no
+  // other wording for it.
   const next = upcoming[0];
   const course = name(
     next.courseTitle || next.title || "Untitled Session",
@@ -169,12 +170,8 @@ function sessionsPart(upcoming: BriefingSession[], finished: number, seed: numbe
       : entityLink(next.entityId, next.spaceId),
   );
   const time = token(formatClock(next.startTime), entityLink(next.entityId, next.spaceId));
-  const templates: readonly Run[][] = [
-    [text("next up: "), course, text(" at "), time],
-    [course, text(" is up next at "), time],
-    [text("your next session is "), course, text(" at "), time],
-  ];
-  return { clause: { key: "sessions", icon: "📅", runs: pick(seed, SALT.sessions, templates) } };
+  const runs = [text("next up: "), course, text(" at "), time];
+  return { clause: { key: "sessions", icon: "📅", runs } };
 }
 
 // Tasks
