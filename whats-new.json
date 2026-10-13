@@ -8,7 +8,7 @@
       "highlights": [
         {
           "title": "Vim keys in pages",
-          "description": "Turn on **Vim keys in pages** under Settings, Editor. Press `?` in normal mode to see every key.",
+          "description": "An early version of Vim controls, for pages only. Turn on **Vim keys in pages** under Settings, Editor, and press `?` in normal mode for the keys.",
           "icon": "keyboard",
           "tag": "New"
         },

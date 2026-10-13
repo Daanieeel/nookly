@@ -6,7 +6,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Vim keys in pages.** Turn on Vim keys under Settings, Editor to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.
+- **Vim keys in pages (early version).** Vim controls for pages only, not the rest of the app. Turn on Vim keys under Settings, Editor to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.
 - **Highlight text.** Type `==text==` or press `Mod+Shift+H` to highlight a selection, or pick Highlight in the Format menu or the command palette. Highlights work with bold, italic and inline math, and bold with italic no longer comes back with stray asterisks.
 - **Your own LaTeX commands.** Define macros as a list under Settings, Editor, LaTeX, each with a live preview, and use them in every math block and inline formula. Mistakes show before you save, and copied or saved Markdown carries the commands it uses.
 - **Pin table columns.** Pin the first columns of a wide table so row labels stay in view while the rest scrolls sideways.
