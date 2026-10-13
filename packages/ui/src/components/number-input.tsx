@@ -12,6 +12,8 @@ interface NumberInputProps {
   increments?: number;
   "aria-label"?: string;
   className?: string;
+  /** `sm` is a compact control for inside a line of text or a card. */
+  size?: "default" | "sm";
 }
 
 /** A stepper control styled like a `Button` `variant="secondary"` (same border/background),
@@ -26,7 +28,9 @@ export function NumberInput({
   increments = step,
   "aria-label": ariaLabel,
   className,
+  size = "default",
 }: NumberInputProps) {
+  const small = size === "sm";
   // What is being typed, kept while the field has focus so a number on its way to a
   // valid one (a "4" on the way to "45", below a minimum of 5) isn't snapped back.
   const [draft, setDraft] = useState<string | null>(null);
@@ -42,7 +46,8 @@ export function NumberInput({
   return (
     <div
       className={cn(
-        "inline-flex h-8 items-stretch overflow-hidden rounded-md border border-input bg-accent text-xs",
+        "inline-flex items-stretch overflow-hidden rounded-md border border-input bg-accent text-xs",
+        small ? "h-6" : "h-8",
         className,
       )}
     >
@@ -54,9 +59,12 @@ export function NumberInput({
           setDraft(null);
           onChange(clamp(value - increments));
         }}
-        className="flex w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        className={cn(
+          "flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
+          small ? "w-5" : "w-8",
+        )}
       >
-        <MinusIcon className="size-3.5" />
+        <MinusIcon className={small ? "size-3" : "size-3.5"} />
       </button>
       <input
         type="number"
@@ -71,7 +79,10 @@ export function NumberInput({
           if (!Number.isNaN(next)) onChange(clamp(next));
         }}
         onBlur={() => setDraft(null)}
-        className="min-w-8 flex-1 border-x border-input bg-transparent px-2 text-center tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className={cn(
+          "flex-1 border-x border-input bg-transparent text-center tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          small ? "w-8 min-w-6 px-1" : "min-w-8 px-2",
+        )}
       />
       <button
         type="button"
@@ -81,9 +92,12 @@ export function NumberInput({
           setDraft(null);
           onChange(clamp(value + increments));
         }}
-        className="flex w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        className={cn(
+          "flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
+          small ? "w-5" : "w-8",
+        )}
       >
-        <PlusIcon className="size-3.5" />
+        <PlusIcon className={small ? "size-3" : "size-3.5"} />
       </button>
     </div>
   );
