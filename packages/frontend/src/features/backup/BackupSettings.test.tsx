@@ -36,13 +36,13 @@ beforeEach(() => {
 });
 
 describe("the Backup tab in Settings", () => {
-  it("is a category of its own after Notes, and General no longer has a backup row", async () => {
+  it("is a category of its own after Editor and LaTeX, and General no longer has a backup row", async () => {
     const { user } = await openBackupTab();
     const nav = screen.getByRole("navigation", { name: "Settings categories" });
     const names = within(nav)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(names.indexOf("Backup")).toBe(names.indexOf("Notes") + 1);
+    expect(names.indexOf("Backup")).toBe(names.indexOf("LaTeX") + 1);
     expect(screen.getByRole("heading", { level: 2, name: "Backup" })).toBeInTheDocument();
     await user.click(within(nav).getByRole("button", { name: "General" }));
     expect(screen.queryByText("Back up and restore")).toBeNull();

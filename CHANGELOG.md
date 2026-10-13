@@ -15,7 +15,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Vim keys in pages.** Turn on Vim keys under Settings, Notes to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.
+- **Vim keys in pages.** Turn on Vim keys under Settings, Editor to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.
 
 ## 0.33.29 (2026-10-13)
 
@@ -27,7 +27,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Your own LaTeX commands.** Define `\newcommand` macros under Settings, Notes, Math and use them in every math block and inline formula. Mistakes show with their line, and copied or saved Markdown carries the commands it uses.
+- **Your own LaTeX commands.** Define macros as a list under Settings, Editor, LaTeX, each with a live preview, and use them in every math block and inline formula. Mistakes show before you save, and copied or saved Markdown carries the commands it uses.
 
 ## 0.33.27 (2026-10-13)
 

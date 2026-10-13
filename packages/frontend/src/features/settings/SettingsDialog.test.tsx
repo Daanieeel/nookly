@@ -4,7 +4,7 @@ import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
-import { SETTING_CATEGORIES, SETTING_IDS } from "#/lib/settings/registry.ts";
+import { SETTING_IDS } from "#/lib/settings/registry.ts";
 import { settings } from "#/lib/settings/settings.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useThemeStore } from "#/lib/theme.ts";
@@ -47,7 +47,16 @@ describe("the settings dialog", () => {
       within(nav)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["General", "Appearance", "Calendar", "Notes", "Backup", "Agent", "Shortcuts"]);
+    ).toEqual([
+      "General",
+      "Appearance",
+      "Calendar",
+      "Editor",
+      "LaTeX",
+      "Backup",
+      "Agent",
+      "Shortcuts",
+    ]);
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -68,8 +77,10 @@ describe("the settings dialog", () => {
     const { user } = renderOpen();
     await screen.findByRole("dialog");
     const found = new Set<string>();
-    for (const category of SETTING_CATEGORIES) {
-      await user.click(screen.getByRole("button", { name: new RegExp(`^${category}`, "i") }));
+    // Every page of the navigation: the categories, and LaTeX under Editor.
+    const pages = ["General", "Appearance", "Calendar", "Editor", "LaTeX", "Backup", "Agent"];
+    for (const label of [...pages, "Shortcuts"]) {
+      await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
         const id = row.getAttribute("data-setting-id") ?? "";
         found.add(id);
@@ -88,7 +99,7 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(6);
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {
@@ -231,9 +242,38 @@ describe("the settings dialog", () => {
     await user.click(await screen.findByRole("option", { name: "30 minutes" }));
     expect(settings.get("calendar.snapMinutes")).toBe(30);
 
-    await user.click(screen.getByRole("button", { name: "Notes" }));
+    await user.click(screen.getByRole("button", { name: "Editor" }));
     await user.click(screen.getByRole("switch", { name: "Turn arrows into symbols" }));
     expect(settings.get("notes.arrowLigatures")).toBe(false);
+  });
+
+  describe("the LaTeX page under Editor", () => {
+    it("is a child of Editor in the navigation, indented under it", async () => {
+      renderOpen();
+      const nav = await screen.findByRole("navigation", { name: "Settings categories" });
+      const editor = within(nav).getByRole("button", { name: "Editor" });
+      const latex = within(nav).getByRole("button", { name: "LaTeX" });
+      expect(editor.compareDocumentPosition(latex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(latex.className).toMatch(/pl-/);
+    });
+
+    it("holds the LaTeX macros, and the Editor page does not", async () => {
+      const { user } = renderOpen();
+      await user.click(await screen.findByRole("button", { name: "Editor" }));
+      expect(screen.getByRole("heading", { level: 2, name: "Editor" })).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: "Turn arrows into symbols" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add macro" })).toBeNull();
+      await user.click(screen.getByRole("button", { name: "LaTeX" }));
+      expect(screen.getByRole("heading", { level: 2, name: "LaTeX" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add macro" })).toBeInTheDocument();
+      expect(screen.queryByRole("switch", { name: "Turn arrows into symbols" })).toBeNull();
+    });
+
+    it("is found by searching for it, under Editor", async () => {
+      const { user } = renderOpen();
+      await user.type(await screen.findByRole("searchbox"), "newcommand");
+      expect(rowFor("notes.latexMacros")).not.toBeNull();
+    });
   });
 
   it("opens and closes with Ctrl and a comma", async () => {
