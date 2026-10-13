@@ -696,10 +696,35 @@
     --mark-bg: color-mix(in oklab, #a78bfa 40%, transparent);
   }
   /* Where the caret is after stepping out of a highlight or inline code
-     (`inline-mark-cleanup.ts`). */
+     (`inline-mark-cleanup.ts`): a small gap with a caret of our own on its outer edge, while the
+     real caret is hidden. */
+  .tiptap-content.mark-exited {
+    caret-color: transparent;
+  }
   .tiptap-content .mark-exit {
+    position: relative;
     display: inline-block;
     width: 0.3em;
+  }
+  .tiptap-content .mark-exit::after {
+    content: "";
+    position: absolute;
+    top: 0.15em;
+    bottom: 0.1em;
+    width: 1px;
+    background: var(--foreground);
+    animation: mark-caret-blink 1.1s steps(1) infinite;
+  }
+  .tiptap-content .mark-exit-left::after {
+    left: 0;
+  }
+  .tiptap-content .mark-exit-right::after {
+    right: 0;
+  }
+  @keyframes mark-caret-blink {
+    50% {
+      opacity: 0;
+    }
   }
   .tiptap-content p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);

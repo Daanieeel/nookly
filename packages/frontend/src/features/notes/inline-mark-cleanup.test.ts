@@ -226,4 +226,44 @@ describe.each(MARKS)("inline $name", ({ name, wrap, tag }) => {
       expect(key(target, "ArrowLeft")).toBeFalsy();
     });
   });
+
+  // The caret cannot always be drawn on the outer side of the mark's edge, so while it is out a
+  // caret of our own is drawn there and the real one is hidden.
+  describe("the caret drawn while it is outside the mark", () => {
+    const exited = (target: Editor) => target.view.dom.classList.contains("mark-exited");
+
+    it("is drawn at the outer edge of the gap, on the left at the start of a line", () => {
+      const target = page(`${wrap("abc")} def`);
+      select(target, 1);
+      key(target, "ArrowLeft");
+      const gap = target.view.dom.querySelector(".mark-exit");
+      expect(gap?.classList.contains("mark-exit-left")).toBe(true);
+      expect(gap?.classList.contains("mark-exit-right")).toBe(false);
+      expect(exited(target)).toBe(true);
+    });
+
+    it("is drawn at the outer edge of the gap, on the right at the end of the mark", () => {
+      const target = page(`${wrap("abc")}def`);
+      select(target, 4);
+      key(target, "ArrowRight");
+      const gap = target.view.dom.querySelector(".mark-exit");
+      expect(gap?.classList.contains("mark-exit-right")).toBe(true);
+      expect(exited(target)).toBe(true);
+    });
+
+    it("goes away with the gap, and the real caret comes back", () => {
+      const target = page(`${wrap("abc")} def`);
+      select(target, 1);
+      key(target, "ArrowLeft");
+      type(target, "x");
+      expect(target.view.dom.querySelector(".mark-exit")).toBeNull();
+      expect(exited(target)).toBe(false);
+    });
+
+    it("is not there while the caret is simply in the text", () => {
+      const target = page(`${wrap("abc")} def`);
+      select(target, 2);
+      expect(exited(target)).toBe(false);
+    });
+  });
 });
