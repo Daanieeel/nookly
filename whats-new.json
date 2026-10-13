@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.25",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "A long summary on the Dashboard stops after four lines, with Show all, and the lists fit the window so the page no longer scrolls."
+        ]
+      }
+    },
+    {
       "version": "0.33.24",
       "date": "2026-10-13",
       "highlights": [],
