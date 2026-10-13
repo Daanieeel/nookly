@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { makeSession } from "#/test/fixtures.ts";
 import { sessionMatches, sessionSearchText } from "./session-search.ts";
 
@@ -53,5 +53,19 @@ describe("sessionSearchText", () => {
   it("copes with a session that has no course", () => {
     const plain = makeSession({ courseTitle: null });
     expect(sessionSearchText(plain)).toContain("Lecture");
+  });
+});
+
+describe("sessionMatches speed", () => {
+  // The "@" menu asks about every session on every keystroke; building the search text
+  // formats dates each time, which made typing after "@" lag.
+  it("builds a session's search text once, however often it is asked", () => {
+    const fresh = makeSession({ date: "2026-04-02", startTime: "13:00", endTime: "14:00" });
+    sessionMatches(fresh, "a");
+    const formatter = vi.spyOn(Intl, "DateTimeFormat");
+    sessionMatches(fresh, "ap");
+    sessionMatches(fresh, "apr");
+    expect(formatter).not.toHaveBeenCalled();
+    formatter.mockRestore();
   });
 });

@@ -14,6 +14,12 @@ All notable changes to Nookly are listed here.
 
 - **Open embedded files in Nookly.** Click a file in a page to open it, or use Open in Nookly on its toolbar.
 
+## 0.35.1 (2026-10-13)
+
+### Fixed
+
+- **Typing after @ is fast again.** Mentioning with many sessions no longer lags.
+
 ## 0.33.2 (2026-10-13)
 
 ### Changed
