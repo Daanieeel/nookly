@@ -33,6 +33,7 @@ import { TabIndent } from "./tab-indent-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
 import { CircuitBlock, Diagram, Equation, MathBlock } from "./source-block-extensions";
+import { PinnedColumns } from "./table-pinned-columns";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { UniqueBlockId } from "./unique-block-id";
 
@@ -84,6 +85,7 @@ export function editorExtensions({
     Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
     // `cellMinWidth` is the narrowest a column gets before the table scrolls sideways.
     TableKit.configure({ table: { resizable: true, cellMinWidth: 120 } }),
+    PinnedColumns,
     UniqueBlockId,
     HeadingAnchors,
     ArrowLigatures,

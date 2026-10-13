@@ -1,6 +1,8 @@
 import {
   IconColumnInsertRight,
   IconColumnRemove,
+  IconPin,
+  IconPinnedOff,
   IconRowInsertBottom,
   IconRowRemove,
   IconTableOff,
@@ -12,10 +14,13 @@ import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useMeasureOnTransaction } from "./drag-overlays";
 import { keepIfEqual } from "./pointer-frame";
+import { pinState, togglePinnedColumn } from "./table-pinned-columns";
 
 interface TableRect {
   top: number;
   left: number;
+  /// What the pin button does for the column the caret is in.
+  pin: "pin" | "unpin" | "none";
 }
 
 /// Small floating toolbar for the table the caret is currently inside (§ table
@@ -41,7 +46,11 @@ export function TableControls({ editor }: { editor: Editor | null }) {
         const tableBox = tableEl.getBoundingClientRect();
         const visibleBox = (tableEl.parentElement ?? tableEl).getBoundingClientRect();
         const editorBox = editor.view.dom.getBoundingClientRect();
-        const next = { top: tableBox.top - editorBox.top, left: visibleBox.left - editorBox.left };
+        const next: TableRect = {
+          top: tableBox.top - editorBox.top,
+          left: visibleBox.left - editorBox.left,
+          pin: pinState(editor),
+        };
         setRect((prev) => keepIfEqual(prev, next));
       }
       return;
@@ -80,6 +89,19 @@ export function TableControls({ editor }: { editor: Editor | null }) {
         onClick: () => editor.chain().focus().toggleHeaderRow().run(),
         iconClassName: "text-muted-foreground",
       },
+      ...(rect.pin === "none"
+        ? []
+        : [
+            {
+              icon: rect.pin === "unpin" ? IconPinnedOff : IconPin,
+              label: rect.pin === "unpin" ? "Unpin column" : "Pin column",
+              onClick: () => {
+                togglePinnedColumn(editor);
+                editor.view.focus();
+              },
+              iconClassName: "text-muted-foreground",
+            },
+          ]),
     ],
     [
       {
@@ -117,7 +139,13 @@ export function TableControls({ editor }: { editor: Editor | null }) {
           {group.map(({ icon: Icon, label, onClick, iconClassName }) => (
             <Tooltip key={label}>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-6" onClick={onClick}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  aria-label={label}
+                  onClick={onClick}
+                >
                   <Icon size={14} className={iconClassName} />
                 </Button>
               </TooltipTrigger>

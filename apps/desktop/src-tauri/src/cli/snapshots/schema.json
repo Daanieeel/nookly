@@ -210,6 +210,14 @@
                 "name": "title"
               }
             ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
+              }
+            ],
             "timeline": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -964,6 +972,14 @@
                 "name": "title"
               }
             ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
+              }
+            ],
             "timeline": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -1322,6 +1338,14 @@
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
                 "kind": "text",
                 "name": "title"
+              }
+            ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
               }
             ],
             "timeline": [
@@ -2067,6 +2091,14 @@
                 "name": "title"
               }
             ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
+              }
+            ],
             "timeline": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -2416,6 +2448,14 @@
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
                 "kind": "text",
                 "name": "title"
+              }
+            ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
               }
             ],
             "timeline": [
@@ -3409,6 +3449,14 @@
                 "name": "title"
               }
             ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
+              }
+            ],
             "timeline": [
               {
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -3797,6 +3845,14 @@
                 "description": "Optional heading shown above the block, and as the frame title in markdown.",
                 "kind": "text",
                 "name": "title"
+              }
+            ],
+            "table": [
+              {
+                "description": "How many of the leftmost columns stay in place while a wide table scrolls sideways. Omit for none. Never all columns: at most one less than the table has, and 5.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pinned"
               }
             ],
             "timeline": [
