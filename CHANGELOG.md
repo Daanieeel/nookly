@@ -38,6 +38,12 @@ All notable changes to Nookly are listed here.
 
 - **Copy ID copies the readable ID.** It gives you the ID you see on the item, like TSK-12.
 
+## 0.35.5 (2026-10-13)
+
+### Fixed
+
+- **Notes keep their scroll position when you switch tabs.** A long note no longer jumps to the bottom while it is still loading.
+
 ## 0.33.2 (2026-10-13)
 
 ### Changed

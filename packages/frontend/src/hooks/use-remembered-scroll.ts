@@ -13,14 +13,17 @@ export function forgetScroll(prefix: string): void {
 }
 
 /// How many frames a restore keeps trying while the content is not tall enough yet.
-const MAX_RESTORE_FRAMES = 60;
+const MAX_RESTORE_FRAMES = 600;
+
+/// What the user does to take over scrolling, which ends a restore that is still trying.
+const TAKEOVER_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
 
 /// Puts the element at `ref` back where the user left it under `key`, and
 /// keeps that position up to date while they scroll. A key nobody scrolled under
 /// starts at the top, so a scroller reused for another view does not carry the last
 /// one's position along. `ready` holds the restore back until the content is
 /// tall enough to scroll that far. A list that loads after the view mounts is
-/// waited for: the restore retries for about a second, and the scrolls it causes along
+/// waited for: the restore retries for up to ten seconds, until the user scrolls themselves, and the scrolls it causes along
 /// the way are not taken for the user's.
 export function useRememberedScroll(
   ref: RefObject<HTMLElement | null>,
@@ -35,7 +38,12 @@ export function useRememberedScroll(
     let restoring = el.scrollTop !== saved;
     let frame = 0;
     let frames = 0;
+    const takeOver = () => {
+      restoring = false;
+      cancelAnimationFrame(frame);
+    };
     const retry = () => {
+      if (!restoring) return;
       el.scrollTop = saved;
       if (el.scrollTop === saved || ++frames >= MAX_RESTORE_FRAMES) {
         restoring = false;
@@ -43,7 +51,10 @@ export function useRememberedScroll(
       }
       frame = requestAnimationFrame(retry);
     };
-    if (restoring) frame = requestAnimationFrame(retry);
+    if (restoring) {
+      frame = requestAnimationFrame(retry);
+      for (const type of TAKEOVER_EVENTS) el.addEventListener(type, takeOver, { passive: true });
+    }
     const onScroll = () => {
       if (!restoring) positions.set(key, el.scrollTop);
     };
@@ -51,6 +62,7 @@ export function useRememberedScroll(
     return () => {
       cancelAnimationFrame(frame);
       el.removeEventListener("scroll", onScroll);
+      for (const type of TAKEOVER_EVENTS) el.removeEventListener(type, takeOver);
     };
   }, [ref, key, ready]);
 }

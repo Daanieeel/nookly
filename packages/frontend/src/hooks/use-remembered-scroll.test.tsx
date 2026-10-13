@@ -123,4 +123,49 @@ describe("restoring before the content is tall enough", () => {
     });
     expect(top).toBe(300);
   });
+
+  /// A scroller that can only scroll as far as its content is tall, like a real one.
+  function clamped() {
+    const el = scroller();
+    const state = { height: 0, top: 0 };
+    Object.defineProperty(el.current, "scrollTop", {
+      get: () => state.top,
+      set: (value: number) => {
+        state.top = Math.min(value, state.height);
+      },
+    });
+    return { el, state };
+  }
+
+  it("still gets there when the content takes several seconds to grow, not the bottom", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    scrolled("tab:slower:note", 300);
+    const { el, state } = clamped();
+    state.height = 100;
+    renderHook(() => useRememberedScroll(el, "tab:slower:note"));
+    act(() => {
+      vi.advanceTimersByTime(2500);
+    });
+    // Never settles at the bottom of the little content there was so far.
+    state.height = 1000;
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(state.top).toBe(300);
+  });
+
+  it("lets go as soon as the user scrolls by hand", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    scrolled("tab:hand:note", 300);
+    const { el, state } = clamped();
+    state.height = 100;
+    renderHook(() => useRememberedScroll(el, "tab:hand:note"));
+    el.current.dispatchEvent(new Event("wheel"));
+    state.top = 40;
+    state.height = 1000;
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(state.top).toBe(40);
+  });
 });
