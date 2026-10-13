@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.15 (2026-10-13)
+
+### Fixed
+
+- **Cmd+Left works on lines with inline math.** It goes to the start of the line, and Cmd+Right, Home and End go to its end, instead of jumping to the top of the note.
+
 ## 0.33.14 (2026-10-13)
 
 ### Fixed
