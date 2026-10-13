@@ -96,7 +96,7 @@ import { UpdateCard } from "#/components/update-card.tsx";
 import { UpdatedCard } from "#/components/updated-card.tsx";
 import { CliInstallCard } from "./sidebar/cli-install-card";
 import { ModuleRowMeta } from "./sidebar/module-row-meta";
-import { SidebarCustomizeButton, SidebarNavItems } from "./sidebar/sidebar-items";
+import { SidebarCustomizeButton, SidebarNavItems, SidebarTrashItem } from "./sidebar/sidebar-items";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
@@ -132,7 +132,7 @@ function ModuleDragPreview({ moduleKey }: { moduleKey: ModuleKey }) {
 }
 
 export function AppSidebar() {
-  const { view, setView, expandedSpaceIds } = useNavStore();
+  const { expandedSpaceIds } = useNavStore();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
@@ -263,16 +263,7 @@ export function AppSidebar() {
             <UpdateCard className="group-data-[collapsible=icon]:hidden" />
             <UpdatedCard className="group-data-[collapsible=icon]:hidden" />
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Trash"
-              isActive={view.kind === "trash"}
-              onClick={() => setView({ kind: "trash" })}
-            >
-              <IconTrash />
-              <span>Trash</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <SidebarTrashItem />
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip={{

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.29 (2026-10-13)
+
+### Added
+
+- **Hide Trash from the sidebar.** The Customize sidebar menu now also hides the Trash row, next to the items it already hid and moved.
+
 ## 0.33.28 (2026-10-13)
 
 ### Added

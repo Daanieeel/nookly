@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.33.29",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Improved": ["Customize sidebar can now hide Trash too."]
+      }
+    },
+    {
       "version": "0.33.28",
       "date": "2026-10-13",
       "title": "Math, your way",
