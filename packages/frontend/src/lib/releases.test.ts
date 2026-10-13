@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_RELEASES, releasesSince } from "./releases.ts";
+import { MAX_RELEASES, allReleases, releasesSince } from "./releases.ts";
 
 const entry = (version: string) => ({
   version,
@@ -96,5 +96,23 @@ describe("releasesSince", () => {
     const result = releasesSince("0.18.46", "0.23.56", undefined, changelog);
     expect(result.releases.length + result.hidden).toBe(60);
     expect(result.hidden).toBe(0);
+  });
+});
+
+describe("allReleases", () => {
+  it("is every version written up in whats-new.json up to the running one, newest first", () => {
+    const result = allReleases("0.31.10", NOTES);
+    expect(result.map((r) => r.version)).toEqual(["0.31.10", "0.30.2", "0.29.0"]);
+    expect(result.every((r) => r.notes)).toBe(true);
+  });
+
+  it("leaves out versions only in the changelog", () => {
+    expect(allReleases("0.32.0", NOTES).map((r) => r.version)).not.toContain("0.31.5");
+  });
+
+  it("does not stop at the cap of one dialog", () => {
+    const total = MAX_RELEASES + 3;
+    const many = { versions: Array.from({ length: total }, (_, i) => entry(`0.${total - i}.0`)) };
+    expect(allReleases(`0.${total}.0`, many)).toHaveLength(total);
   });
 });

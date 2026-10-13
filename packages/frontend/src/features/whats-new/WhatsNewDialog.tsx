@@ -13,7 +13,7 @@ import {
 import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { CHANGELOG_URL } from "#/lib/changelog.ts";
 import { preferences } from "#/lib/preferences.ts";
-import { type Release, releasesSince } from "#/lib/releases.ts";
+import { type Release, allReleases, releasesSince } from "#/lib/releases.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { displayParts } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -125,13 +125,16 @@ function ReleaseBody({ release }: { release: Release }) {
 export function WhatsNewDialog({ notes, changelog }: { notes?: WhatsNewFile; changelog?: string }) {
   const open = useNavStore((s) => s.whatsNewOpen);
   const setOpen = useNavStore((s) => s.setWhatsNewOpen);
+  const history = useNavStore((s) => s.whatsNewHistory);
   const version = useAppVersion();
   // Where the last update came from, kept until the next one (see `useUpdatedNotice`).
   const since = preferences.get(STORAGE_KEYS.whatsNewSince);
-  const { releases, hidden } = version
-    ? releasesSince(since, version, notes, changelog)
-    : { releases: [], hidden: 0 };
-  const several = releases.length > 1 && since !== null;
+  const { releases, hidden } = !version
+    ? { releases: [], hidden: 0 }
+    : history
+      ? { releases: allReleases(version, notes), hidden: 0 }
+      : releasesSince(since, version, notes, changelog);
+  const several = history || (releases.length > 1 && since !== null);
   const [first] = releases;
   const date = first?.date ?? null;
 
@@ -140,14 +143,20 @@ export function WhatsNewDialog({ notes, changelog }: { notes?: WhatsNewFile; cha
       <DialogContent className="flex max-h-[min(44rem,calc(100vh-3rem))] max-w-2xl flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>
-            {several ? `What's new since ${since}` : `What's new${version ? ` in ${version}` : ""}`}
+            {history
+              ? "What's new history"
+              : several
+                ? `What's new since ${since}`
+                : `What's new${version ? ` in ${version}` : ""}`}
           </DialogTitle>
           <DialogDescription>
-            {several
-              ? `${releases.length + hidden} versions, up to ${version}`
-              : date
-                ? `Released ${longDate(date)}`
-                : "The changes in this version."}
+            {history
+              ? `Every version, up to ${first?.version ?? version}`
+              : several
+                ? `${releases.length + hidden} versions, up to ${version}`
+                : date
+                  ? `Released ${longDate(date)}`
+                  : "The changes in this version."}
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-6 py-5">

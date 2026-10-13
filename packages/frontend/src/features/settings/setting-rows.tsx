@@ -281,7 +281,7 @@ function VersionControl() {
       <Button
         variant="secondary"
         size="sm"
-        onClick={() => useNavStore.getState().setWhatsNewOpen(true)}
+        onClick={() => useNavStore.getState().setWhatsNewOpen(true, true)}
       >
         <IconSparkles size={14} />
         See what's new
