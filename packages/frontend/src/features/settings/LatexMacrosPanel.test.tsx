@@ -67,6 +67,59 @@ describe("the macro list", () => {
   });
 });
 
+describe("a macro row", () => {
+  const STACK = "\\newcommand{\\zz}{\\mathrel{\\substack{z\\\\z}}}";
+
+  it("draws its preview in full: it grows to fit and never scrolls or clips", () => {
+    settings.set("notes.latexMacros", STACK);
+    renderWithProviders(<LatexMacrosPanel />);
+    const preview = within(rowOf("\\zz")).getByTestId("macro-preview");
+    expect(preview.querySelector(".katex")).not.toBeNull();
+    expect(preview.outerHTML).not.toMatch(/overflow-(x-|y-)?(auto|scroll|hidden)/);
+    expect(preview.className).not.toMatch(/(^|\s)h-\d/);
+  });
+
+  it("names the command in plain monospace text, not in a field, with its arguments under it", () => {
+    settings.set("notes.latexMacros", ABS);
+    renderWithProviders(<LatexMacrosPanel />);
+    const row = rowOf("\\abs");
+    const name = within(row).getByText("\\abs", { selector: "[data-macro-name]" });
+    expect(name.className).toMatch(/font-mono/);
+    expect(row.querySelector("input")).toBeNull();
+    expect(name.nextElementSibling).toHaveTextContent("1 argument");
+  });
+
+  it("keeps the expansion to one line, with the whole source on hover", () => {
+    const long = "\\mathbb{R}".repeat(30);
+    settings.set("notes.latexMacros", `\\newcommand{\\long}{${long}}`);
+    renderWithProviders(<LatexMacrosPanel />);
+    const expansion = within(rowOf("\\long")).getByText(long);
+    expect(expansion).toHaveAttribute("title", long);
+    expect(expansion.className).toMatch(/truncate/);
+    expect(expansion.className).not.toMatch(/\bbg-/);
+  });
+
+  it("groups copy, edit and delete as one set of icon buttons, in a fixed order", () => {
+    settings.set("notes.latexMacros", N);
+    renderWithProviders(<LatexMacrosPanel />);
+    const actions = within(rowOf("\\N")).getByRole("group", { name: "Actions for \\N" });
+    expect(
+      within(actions)
+        .getAllByRole("button")
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual(["Copy \\N", "Edit \\N", "Delete \\N"]);
+    // Muted until hovered: the destructive colour is only on the delete icon, while hovered.
+    const icon = within(actions).getByRole("button", { name: "Delete \\N" }).querySelector("svg");
+    expect(icon?.getAttribute("class")).toMatch(/hover_&\]:text-destructive/);
+    expect(
+      within(actions)
+        .getByRole("button", { name: "Edit \\N" })
+        .querySelector("svg")
+        ?.getAttribute("class"),
+    ).not.toMatch(/destructive/);
+  });
+});
+
 describe("adding a macro", () => {
   async function openForm() {
     const view = renderWithProviders(<LatexMacrosPanel />);
