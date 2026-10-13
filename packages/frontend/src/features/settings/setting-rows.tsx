@@ -1,3 +1,4 @@
+import { LatexMacrosPanel } from "./LatexMacrosPanel";
 import { IconCalendarUser, IconRefresh, IconSparkles } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
@@ -29,7 +30,6 @@ import { ShortcutControl } from "./ShortcutControl.tsx";
 import {
   DisplayNameControl,
   NumberControl,
-  LatexMacrosControl,
   SnapControl,
   TodayColorControl,
   TodayIntensityControl,
@@ -74,7 +74,7 @@ const SECTIONS = {
   general: ["Profile", "Date and time", "Tasks", "About"],
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Current day", "Connections"],
-  notes: ["Code", "Math", "Editing"],
+  notes: ["Code", "Editing", "LaTeX"],
   backup: ["Backup", "Restore"],
   agent: ["Files"],
   shortcuts: [...SHORTCUT_SECTIONS],
@@ -149,7 +149,8 @@ const SETTING_UI = {
   "calendar.snapMinutes": { section: "Week and day", control: <SnapControl /> },
   "calendar.todayColor": { section: "Current day", control: <TodayColorControl /> },
   "calendar.todayIntensity": { section: "Current day", control: <TodayIntensityControl /> },
-  "notes.latexMacros": { section: "Math", control: <LatexMacrosControl /> },
+  // The list of macros takes the width of the page, under the row's title.
+  "notes.latexMacros": { section: "LaTeX", control: null, footer: <LatexMacrosPanel /> },
   "notes.formatCodeOnPaste": {
     section: "Code",
     control: <SwitchControl settingId="notes.formatCodeOnPaste" label="Format code when pasted" />,
@@ -162,7 +163,7 @@ const SETTING_UI = {
     section: "Editing",
     control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,
   },
-} satisfies Record<SettingId, { section: string; control: ReactNode }>;
+} satisfies Record<SettingId, { section: string; control: ReactNode; footer?: ReactNode }>;
 
 /// Rows that open something or run something instead of storing a value.
 const ACTION_ROWS: RowSpec[] = [

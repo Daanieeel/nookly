@@ -87,7 +87,7 @@ export function VimIndicator({ editor }: { editor: Editor | null }) {
           <DialogHeader>
             <DialogTitle>Vim keys</DialogTitle>
             <DialogDescription>
-              The keys for pages in normal mode. Turn Vim mode off under Settings, Notes.
+              The keys for pages in normal mode. Turn Vim mode off under Settings, Editor.
             </DialogDescription>
           </DialogHeader>
           {KEY_GROUPS.map((group) => (

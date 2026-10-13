@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { mathPreamble, parseLatexMacros, withMathPreamble } from "./latex-macros";
+import {
+  formatMacro,
+  macroArgumentCount,
+  macroEntries,
+  mathPreamble,
+  parseLatexMacros,
+  serializeLatexMacros,
+  withMathPreamble,
+} from "./latex-macros";
 
 describe("parseLatexMacros", () => {
   it("reads \\newcommand definitions, with and without arguments", () => {
@@ -140,5 +148,42 @@ describe("withMathPreamble", () => {
 
   it("leaves the page alone without macros", () => {
     expect(withMathPreamble("$\\N$", "")).toBe("$\\N$");
+  });
+});
+
+// The macros as a list of entries, for the Settings page: name, arguments and definition.
+describe("macro entries", () => {
+  it("counts the arguments a definition uses", () => {
+    expect(macroArgumentCount("\\mathbb{N}")).toBe(0);
+    expect(macroArgumentCount("\\left|#1\\right|")).toBe(1);
+    expect(macroArgumentCount("(#1, #2) and #2")).toBe(2);
+    expect(macroArgumentCount("## is not an argument")).toBe(0);
+  });
+
+  it("writes one definition, with its argument count when it has arguments", () => {
+    expect(formatMacro("\\N", "\\mathbb{N}")).toBe("\\newcommand{\\N}{\\mathbb{N}}");
+    expect(formatMacro("\\abs", "\\left|#1\\right|")).toBe(
+      "\\newcommand{\\abs}[1]{\\left|#1\\right|}",
+    );
+  });
+
+  it("lists the parsed macros in order, with their argument counts", () => {
+    const { macros } = parseLatexMacros(
+      "\\newcommand{\\N}{\\mathbb{N}}\n\\newcommand{\\abs}[1]{|#1|}",
+    );
+    expect(macroEntries(macros)).toEqual([
+      { name: "\\N", body: "\\mathbb{N}", args: 0 },
+      { name: "\\abs", body: "|#1|", args: 1 },
+    ]);
+  });
+
+  it("writes entries back as the setting, which reads back the same", () => {
+    const entries = [
+      { name: "\\N", body: "\\mathbb{N}", args: 0 },
+      { name: "\\pair", body: "(#1, #2)", args: 2 },
+    ];
+    const text = serializeLatexMacros(entries);
+    expect(text).toBe("\\newcommand{\\N}{\\mathbb{N}}\n\\newcommand{\\pair}[2]{(#1, #2)}");
+    expect(macroEntries(parseLatexMacros(text).macros)).toEqual(entries);
   });
 });

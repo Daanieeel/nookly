@@ -81,8 +81,8 @@ function readName(source: Source, braced: boolean): string {
   return text;
 }
 
-/// The highest `#n` a body uses.
-function highestArgument(body: string): number {
+/// The highest `#n` a body uses: how many arguments the command takes.
+export function macroArgumentCount(body: string): number {
   const used = [...body.replaceAll("##", "").matchAll(/#(\d)/g)].map((m) => Number(m[1]));
   return Math.max(0, ...used);
 }
@@ -97,8 +97,8 @@ function readDefinition(source: Source, definer: string): [string, string] {
     source.skipSpace();
     const body = source.group();
     if (body === null) throw new DefinitionError("The body is missing its closing brace.");
-    if (highestArgument(body) > declared) {
-      throw new DefinitionError(`The body uses #${highestArgument(body)} without declaring it.`);
+    if (macroArgumentCount(body) > declared) {
+      throw new DefinitionError(`The body uses #${macroArgumentCount(body)} without declaring it.`);
     }
     return [name, body];
   }
@@ -125,9 +125,9 @@ function readDefinition(source: Source, definer: string): [string, string] {
   if (definer === "DeclareMathOperator") {
     return [name, `\\operatorname${star ? "*" : ""}{${body}}`];
   }
-  if (highestArgument(body) > declared) {
+  if (macroArgumentCount(body) > declared) {
     throw new DefinitionError(
-      `The body uses #${highestArgument(body)} but only ${declared} argument${declared === 1 ? " is" : "s are"} declared.`,
+      `The body uses #${macroArgumentCount(body)} but only ${declared} argument${declared === 1 ? " is" : "s are"} declared.`,
     );
   }
   return [name, body];
@@ -164,15 +164,37 @@ export function parseLatexMacros(text: string): ParsedMacros {
   return { macros, errors };
 }
 
+/// One macro as the `\\newcommand` that defines it.
+export function formatMacro(name: string, body: string): string {
+  const args = macroArgumentCount(body);
+  return `\\newcommand{${name}}${args > 0 ? `[${args}]` : ""}{${body}}`;
+}
+
+/// A macro as the Settings list shows it.
+export interface MacroEntry {
+  name: string;
+  body: string;
+  args: number;
+}
+
+/// The parsed macros in order, with how many arguments each takes.
+export function macroEntries(macros: Record<string, string>): MacroEntry[] {
+  return Object.entries(macros).map(([name, body]) => ({
+    name,
+    body,
+    args: macroArgumentCount(body),
+  }));
+}
+
+/// The setting's text for a list of macros, one definition per line.
+export function serializeLatexMacros(entries: readonly MacroEntry[]): string {
+  return entries.map((entry) => formatMacro(entry.name, entry.body)).join("\n");
+}
+
 /// The definitions of `text` that parse, written out in full and one per line, for a reader
 /// that has none of the user's commands: an exported page.
 export function mathPreamble(text: string): string {
-  return Object.entries(parseLatexMacros(text).macros)
-    .map(([name, body]) => {
-      const args = highestArgument(body);
-      return `\\newcommand{${name}}${args > 0 ? `[${args}]` : ""}{${body}}`;
-    })
-    .join("\n");
+  return serializeLatexMacros(macroEntries(parseLatexMacros(text).macros));
 }
 
 /// The math block that defines the user's commands, for a page that uses any of them, or

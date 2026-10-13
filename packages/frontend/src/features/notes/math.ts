@@ -30,6 +30,8 @@ export function renderMath(
   latex: string,
   element: HTMLElement,
   displayMode: boolean,
+  /// Definitions to draw with on top of the saved ones, for a macro not saved yet.
+  extraMacros: Record<string, string> = {},
 ): string | null {
   try {
     katex.render(latex, element, {
@@ -38,7 +40,7 @@ export function renderMath(
       strict: "ignore",
       trust: false,
       // KaTeX writes a macro's definitions into this object, so each call gets a copy.
-      macros: { ...GATE_MACROS, ...userMacros() },
+      macros: { ...GATE_MACROS, ...userMacros(), ...extraMacros },
       output: "htmlAndMathml",
     });
     return null;

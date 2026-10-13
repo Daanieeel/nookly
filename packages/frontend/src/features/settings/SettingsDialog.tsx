@@ -3,6 +3,7 @@ import {
   IconFileCode,
   IconCalendar,
   IconKeyboard,
+  IconMathFunction,
   IconNotes,
   IconPalette,
   IconRobot,
@@ -40,11 +41,44 @@ const CATEGORY_META = {
   general: { label: "General", icon: IconSettings },
   appearance: { label: "Appearance", icon: IconPalette },
   calendar: { label: "Calendar", icon: IconCalendar },
-  notes: { label: "Notes", icon: IconNotes },
+  notes: { label: "Editor", icon: IconNotes },
   backup: { label: "Backup", icon: IconArchive },
   agent: { label: "Agent", icon: IconRobot },
   shortcuts: { label: "Shortcuts", icon: IconKeyboard },
 } satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
+
+/// A page of the dialog: a category, or the LaTeX page that sits under Editor.
+type PageId = SettingCategory | "latex";
+
+interface NavItem {
+  id: PageId;
+  category: SettingCategory;
+  label: string;
+  icon: TablerIcon;
+  /// Drawn indented under the item before it.
+  child?: boolean;
+}
+
+/// The navigation: every category, and under Editor its LaTeX page.
+const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => {
+  const item = { id, category: id, ...CATEGORY_META[id] };
+  if (id !== "notes") return [item];
+  return [
+    item,
+    { id: "latex", category: "notes", label: "LaTeX", icon: IconMathFunction, child: true },
+  ];
+});
+
+/// The section of Editor that has a page of its own.
+const LATEX_SECTION = "LaTeX";
+
+/// Whether a row belongs to a page: the LaTeX page holds the LaTeX section of Editor, the
+/// Editor page the rest of it.
+function onPage(row: RowSpec, page: NavItem): boolean {
+  if (row.category !== page.category) return false;
+  if (page.category !== "notes") return true;
+  return (row.section === LATEX_SECTION) === (page.id === "latex");
+}
 
 function Row({ row }: { row: RowSpec }) {
   return (
@@ -59,11 +93,15 @@ function Row({ row }: { row: RowSpec }) {
   );
 }
 
-/// One category's rows under their section headings, in display order.
-function CategoryRows({ category }: { category: SettingCategory }) {
-  const rows = ROWS.filter((r) => r.category === category);
-  const showHeadings = sectionsOf(category).length > 1;
-  const sections = sectionsOf(category).map((section) => (
+/// One page's rows under their section headings, in display order.
+function CategoryRows({ page }: { page: NavItem }) {
+  const { category } = page;
+  const rows = ROWS.filter((r) => onPage(r, page));
+  const pageSections = sectionsOf(category).filter((section) =>
+    rows.some((r) => r.section === section),
+  );
+  const showHeadings = pageSections.length > 1;
+  const sections = pageSections.map((section) => (
     <Fragment key={section}>
       {showHeadings && (
         <h3 className="pt-5 pb-1 text-xs font-medium text-muted-foreground first:pt-0">
@@ -175,7 +213,8 @@ export function SettingsDialog() {
   const open = useNavStore((s) => s.settingsOpen);
   const setOpen = useNavStore((s) => s.setSettingsOpen);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<SettingCategory>("general");
+  const [pageId, setPageId] = useState<PageId>("general");
+  const page = NAV.find((item) => item.id === pageId) ?? NAV[0];
   const searchRef = useRef<HTMLInputElement>(null);
   const searching = query.trim() !== "";
   const results = searchSettings(query, useSearchableRows());
@@ -190,11 +229,11 @@ export function SettingsDialog() {
 
   useAppHotkey("settings", () => setOpen(!useNavStore.getState().settingsOpen));
 
-  function pick(next: SettingCategory) {
-    setCategory(next);
+  function pick(next: NavItem) {
+    setPageId(next.id);
     if (!searching) return;
     document
-      .getElementById(`settings-results-${next}`)
+      .getElementById(`settings-results-${next.category}`)
       ?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
@@ -237,23 +276,24 @@ export function SettingsDialog() {
               aria-label="Settings categories"
               className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
             >
-              {SETTING_CATEGORIES.map((id) => {
-                const { label, icon: Icon } = CATEGORY_META[id];
-                const count = results.filter((r) => r.category === id).length;
-                const active = !searching && category === id;
+              {NAV.map((item) => {
+                const { label, icon: Icon } = item;
+                const count = results.filter((r) => onPage(r, item)).length;
+                const active = !searching && page.id === item.id;
                 return (
                   <button
-                    key={id}
+                    key={item.id}
                     type="button"
                     aria-current={active ? "page" : undefined}
-                    onClick={() => pick(id)}
+                    onClick={() => pick(item)}
                     className={cn(
                       "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                      item.child && "pl-7",
                       active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
                       searching && count === 0 && "opacity-50",
                     )}
                   >
-                    <Icon size={16} className="shrink-0" />
+                    <Icon size={item.child ? 14 : 16} className="shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{label}</span>
                     {searching && (
                       <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
@@ -270,12 +310,12 @@ export function SettingsDialog() {
           </div>
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
             <h2 className="pb-3 text-lg font-semibold">
-              {searching ? "Search results" : CATEGORY_META[category].label}
+              {searching ? "Search results" : page.label}
             </h2>
             {searching ? (
               <SearchResults results={results} query={query} onClear={() => setQuery("")} />
             ) : (
-              <CategoryRows category={category} />
+              <CategoryRows page={page} />
             )}
           </div>
         </div>

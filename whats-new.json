@@ -8,7 +8,7 @@
       "highlights": [
         {
           "title": "Vim keys in pages",
-          "description": "Turn on **Vim keys in pages** under Settings, Notes. Press `?` in normal mode to see every key.",
+          "description": "Turn on **Vim keys in pages** under Settings, Editor. Press `?` in normal mode to see every key.",
           "icon": "keyboard",
           "tag": "New"
         }
@@ -37,7 +37,7 @@
       "highlights": [
         {
           "title": "Your own LaTeX commands",
-          "description": "Add `\\newcommand` definitions under Settings, Notes, Math, like `\\newcommand{\\abs}[1]{\\left|#1\\right|}`, and use them in every formula in every Space.",
+          "description": "Add your own commands under Settings, Editor, LaTeX, each with a live preview, and use them in every formula.",
           "icon": "sparkles",
           "tag": "New"
         }

@@ -82,6 +82,16 @@ describe("custom LaTeX macros", () => {
     expect(render("A \\xor B").html).toContain("xor");
   });
 
+  it("draws with a definition that is not saved, over the saved ones", () => {
+    set("\\newcommand{\\v}{1}");
+    const element = document.createElement("div");
+    expect(renderMath("\\v \\w", element, false, { "\\v": "a", "\\w": "b" })).toBeNull();
+    expect(element.innerHTML).toContain(">a<");
+    expect(element.innerHTML).toContain(">b<");
+    // and leaves the saved ones as they were
+    expect(render("\\v").html).toContain(">1<");
+  });
+
   it("does not let a command loop forever", () => {
     set("\\newcommand{\\loop}{\\loop}");
     expect(render("\\loop").error).toMatch(/too many expansions/i);
