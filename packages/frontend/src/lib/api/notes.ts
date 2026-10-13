@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { preambleFor, withMathPreamble } from "#/lib/latex-macros.ts";
+import { settings } from "#/lib/settings/settings.ts";
 import type { Block, BlockAttrs, BlockPatch, BlockType, Entity, PageSummary } from "./types";
 
 export function createNote(spaceId: string, title: string): Promise<Entity> {
@@ -76,12 +78,17 @@ export function reorderBlocks(entityId: string, orderedBlockIds: string[]): Prom
   return invoke("reorder_blocks", { entityId, orderedBlockIds });
 }
 
-export function renderPageMarkdown(entityId: string): Promise<string> {
-  return invoke("render_page_markdown", { entityId });
+/// The page as markdown, with the user's LaTeX commands defined in front of it when it uses
+/// any, so the copy still reads right where those commands do not exist.
+export async function renderPageMarkdown(entityId: string): Promise<string> {
+  const markdown = await invoke<string>("render_page_markdown", { entityId });
+  return withMathPreamble(markdown, settings.get("notes.latexMacros"));
 }
 
-export function exportPageMarkdown(entityId: string, path: string): Promise<void> {
-  return invoke("export_page_markdown", { entityId, path });
+export async function exportPageMarkdown(entityId: string, path: string): Promise<void> {
+  const markdown = await invoke<string>("render_page_markdown", { entityId });
+  const preamble = preambleFor(markdown, settings.get("notes.latexMacros"));
+  return invoke("export_page_markdown", { entityId, path, preamble });
 }
 
 /// The language a new code block in this note starts with, or null to follow the app default.

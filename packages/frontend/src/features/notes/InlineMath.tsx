@@ -15,6 +15,7 @@ import { Textarea } from "@nookly/ui/components/textarea";
 import { cn } from "@nookly/ui/lib/utils";
 import { TextSelection } from "@tiptap/pm/state";
 import { lineEdge } from "./line-edge";
+import { useSetting } from "#/lib/settings/settings.ts";
 import { renderMath } from "./math";
 
 /// `$…$` with no space just inside either dollar and no digit right after the
@@ -108,6 +109,8 @@ function InlineMathView({
   // SAFETY: the node only ever writes `latex` as a string.
   const latex = node.attrs.latex as string;
   const ref = useRef<HTMLSpanElement>(null);
+  // The formula is drawn again when the user's LaTeX commands change.
+  const [macros] = useSetting("notes.latexMacros");
   const [error, setError] = useState<string | null>(null);
   // A formula typed moments ago opens straight into editing when it's empty.
   const [editing, setEditing] = useState(latex === "");
@@ -118,7 +121,7 @@ function InlineMathView({
 
   useLayoutEffect(() => {
     if (ref.current) setError(latex ? renderMath(latex, ref.current, false) : null);
-  }, [latex, renderTick]);
+  }, [latex, renderTick, macros]);
   useEffect(() => {
     if (editing) setDraft(latex);
   }, [editing, latex]);

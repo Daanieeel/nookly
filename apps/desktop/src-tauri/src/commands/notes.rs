@@ -133,16 +133,21 @@ pub fn render_page_markdown(state: State<DbState>, entity_id: String) -> AppResu
     notes::render_page_markdown(&conn, &entity_id)
 }
 
-/// `path` comes from the native save dialog, so the user chose it explicitly.
+/// `path` comes from the native save dialog, so the user chose it explicitly. `preamble` is
+/// what goes in front of the page: the user's LaTeX commands, which only the app knows.
 #[tauri::command]
 pub fn export_page_markdown(
     state: State<DbState>,
     entity_id: String,
     path: String,
+    preamble: Option<String>,
 ) -> AppResult<()> {
     let markdown = {
         let conn = state.0.lock().unwrap();
-        notes::render_page_markdown(&conn, &entity_id)?
+        notes::with_preamble(
+            preamble.as_deref(),
+            notes::render_page_markdown(&conn, &entity_id)?,
+        )
     };
     std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }

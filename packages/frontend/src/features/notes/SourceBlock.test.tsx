@@ -3,6 +3,7 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { settings } from "#/lib/settings/settings.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
 
@@ -300,4 +301,21 @@ describe("half typed LaTeX in a math block", () => {
       expect(target.getJSON().content?.[0]?.type).toBe(type);
     },
   );
+});
+
+// #122: editing a macro in Settings draws every open formula again.
+describe("custom LaTeX macros in an open page", () => {
+  afterEach(() => settings.set("notes.latexMacros", ""));
+
+  it("redraws a math block when a command it uses is defined", async () => {
+    await open({
+      type: "math",
+      attrs: { blockId: "m1", view: "rendered" },
+      content: [{ type: "text", text: "x \\in \\NN" }],
+    });
+    expect(await screen.findByText(/undefined control sequence/i)).toBeInTheDocument();
+    act(() => settings.set("notes.latexMacros", "\\newcommand{\\NN}{\\mathbb{N}}"));
+    await waitFor(() => expect(screen.queryByText(/undefined control sequence/i)).toBeNull());
+    expect(document.querySelector(".katex")).not.toBeNull();
+  });
 });

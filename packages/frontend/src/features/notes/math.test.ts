@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { settings } from "#/lib/settings/settings.ts";
 import { renderMath } from "./math";
 
 function render(latex: string) {
@@ -34,5 +35,55 @@ describe("logic gate operators", () => {
 
   it("still reports an unknown command", () => {
     expect(render("A \\nope B").error).toMatch(/Undefined control sequence/);
+  });
+});
+
+// #122: the user's own commands from Settings work in every formula.
+describe("custom LaTeX macros", () => {
+  afterEach(() => settings.set("notes.latexMacros", ""));
+  const set = (macros: string) => settings.set("notes.latexMacros", macros);
+
+  it("has no effect while the setting is empty", () => {
+    expect(render("\\NN").error).toMatch(/undefined control sequence/i);
+  });
+
+  it("renders a command from \\newcommand", () => {
+    set("\\newcommand{\\NN}{\\mathbb{N}}");
+    const { error, html } = render("x \\in \\NN");
+    expect(error).toBeNull();
+    expect(html).toContain("double-struck");
+  });
+
+  it("renders a command with arguments", () => {
+    set("\\newcommand{\\abs}[1]{\\left|#1\\right|}\\newcommand{\\pair}[2]{(#1, #2)}");
+    expect(render("\\abs{x} + \\pair{a}{b}").error).toBeNull();
+  });
+
+  it("renders the stacked z.z. symbol from the issue", () => {
+    set("\\newcommand{\\zz}{\\mathrel{\\substack{\\mathrm{z}\\\\\\mathrm{z}}}}");
+    expect(render("a \\zz b").error).toBeNull();
+  });
+
+  it("follows an edit on the next render", () => {
+    set("\\newcommand{\\v}{1}");
+    expect(render("\\v").html).toContain(">1<");
+    set("\\newcommand{\\v}{2}");
+    expect(render("\\v").html).toContain(">2<");
+  });
+
+  it("keeps working when a definition is wrong", () => {
+    set("\\newcommand{\\broken}{unclosed\n\\newcommand{\\ok}{\\alpha}");
+    expect(render("\\ok").error).toBeNull();
+    expect(render("x^2").error).toBeNull();
+  });
+
+  it("lets a custom command replace one of the built in gate operators", () => {
+    set("\\newcommand{\\xor}{\\text{xor}}");
+    expect(render("A \\xor B").html).toContain("xor");
+  });
+
+  it("does not let a command loop forever", () => {
+    set("\\newcommand{\\loop}{\\loop}");
+    expect(render("\\loop").error).toMatch(/too many expansions/i);
   });
 });

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.28 (2026-10-13)
+
+### Added
+
+- **Your own LaTeX commands.** Define `\newcommand` macros under Settings, Notes, Math and use them in every math block and inline formula. Mistakes show with their line, and copied or saved Markdown carries the commands it uses.
+
 ## 0.33.27 (2026-10-13)
 
 ### Added
