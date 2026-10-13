@@ -541,19 +541,19 @@
     left: var(--pin-5, 0px);
   }
   .tiptap-content .tableWrapper[data-pinned="1"] tr > :nth-child(1) {
-    border-right: 4px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+    border-right: 4px solid color-mix(in oklab, var(--foreground) 32%, transparent);
   }
   .tiptap-content .tableWrapper[data-pinned="2"] tr > :nth-child(2) {
-    border-right: 4px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+    border-right: 4px solid color-mix(in oklab, var(--foreground) 32%, transparent);
   }
   .tiptap-content .tableWrapper[data-pinned="3"] tr > :nth-child(3) {
-    border-right: 4px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+    border-right: 4px solid color-mix(in oklab, var(--foreground) 32%, transparent);
   }
   .tiptap-content .tableWrapper[data-pinned="4"] tr > :nth-child(4) {
-    border-right: 4px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+    border-right: 4px solid color-mix(in oklab, var(--foreground) 32%, transparent);
   }
   .tiptap-content .tableWrapper[data-pinned="5"] tr > :nth-child(5) {
-    border-right: 4px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+    border-right: 4px solid color-mix(in oklab, var(--foreground) 32%, transparent);
   }
   .tiptap-content th {
     /* `--muted` equals `--background` in light mode (both #f2f2f2) — the header row would be
