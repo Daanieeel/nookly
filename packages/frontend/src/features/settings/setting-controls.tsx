@@ -5,6 +5,7 @@ import { parseLatexMacros } from "#/lib/latex-macros.ts";
 import { SelectField } from "#/components/select-field.tsx";
 import { NumberInput } from "@nookly/ui/components/number-input";
 import { Switch } from "@nookly/ui/components/switch";
+import { Tabs, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import type { SettingId, SettingValue } from "#/lib/settings/registry.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
 
@@ -157,6 +158,38 @@ export function SnapControl() {
   );
 }
 
+/// A few choices as segmented tabs, for a setting with two or three values that are worth seeing
+/// side by side.
+function TabsControl<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <Tabs
+      value={value}
+      onValueChange={(next) => {
+        const chosen = options.find((o) => o.value === next);
+        if (chosen) onChange(chosen.value);
+      }}
+    >
+      <TabsList aria-label={label} className="w-full">
+        {options.map((o) => (
+          <TabsTrigger key={o.value} value={o.value}>
+            {o.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+}
+
 const TODAY_COLOR_OPTIONS = [
   { value: "primary", label: "Primary" },
   { value: "neutral", label: "Neutral" },
@@ -166,13 +199,11 @@ const TODAY_COLOR_OPTIONS = [
 export function TodayColorControl() {
   const [value, setValue] = useSetting("calendar.todayColor");
   return (
-    <SelectField
-      aria-label="Current day colour"
+    <TabsControl
+      label="Current day colour"
       options={TODAY_COLOR_OPTIONS}
       value={value}
-      onChange={(next) =>
-        setValue(TODAY_COLOR_OPTIONS.find((o) => o.value === next)?.value ?? "primary")
-      }
+      onChange={setValue}
     />
   );
 }
@@ -187,13 +218,11 @@ const TODAY_INTENSITY_OPTIONS = [
 export function TodayIntensityControl() {
   const [value, setValue] = useSetting("calendar.todayIntensity");
   return (
-    <SelectField
-      aria-label="Current day intensity"
+    <TabsControl
+      label="Current day intensity"
       options={TODAY_INTENSITY_OPTIONS}
       value={value}
-      onChange={(next) =>
-        setValue(TODAY_INTENSITY_OPTIONS.find((o) => o.value === next)?.value ?? "default")
-      }
+      onChange={setValue}
     />
   );
 }
