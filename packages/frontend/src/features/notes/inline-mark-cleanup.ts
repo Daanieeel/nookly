@@ -1,4 +1,5 @@
 import { type Editor, Extension, getMarkRange } from "@tiptap/core";
+import Code from "@tiptap/extension-code";
 import type { Mark, MarkType } from "@tiptap/pm/model";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -172,3 +173,9 @@ function deleteWholeRun(editor: Editor, range: { from: number; to: number }): bo
   }
   return false;
 }
+
+/// Inline code without Tiptap's own exit: at the end of a line its right arrow adds a space and
+/// leaves the code, which would act on the arrow after `InlineMarkCleanup` already stepped out
+/// and add a space nobody asked for. The arrow keys are handled in `InlineMarkCleanup` for the
+/// highlight and for code alike.
+export const InlineCode = Code.extend({ exitable: false });

@@ -27,7 +27,7 @@ import {
 } from "./custom-block-extensions";
 import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
-import { InlineMarkCleanup } from "./inline-mark-cleanup";
+import { InlineCode, InlineMarkCleanup } from "./inline-mark-cleanup";
 import { Highlight } from "./highlight-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
@@ -74,6 +74,8 @@ export function editorExtensions({
       },
       // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
       codeBlock: false,
+      // Replaced by `InlineCode`, which leaves the arrow keys to `InlineMarkCleanup`.
+      code: false,
       // Replaced by `Divider`, the same rule saved as a `divider` block.
       horizontalRule: false,
       // Replaced by `letterListExtensions`, which also start from `a.` and `a)`.
@@ -94,6 +96,7 @@ export function editorExtensions({
     HeadingAnchors,
     ArrowLigatures,
     Highlight,
+    InlineCode,
     InlineMarkCleanup,
     BlockSelection,
     SlashCommand.configure({ getEntities }),
