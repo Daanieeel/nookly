@@ -2,17 +2,11 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.34.0 (2026-10-13)
+## 0.35.2 (2026-10-13)
 
-### Added
+### Changed
 
-- **Copy ID in the right click menu.** Every item can copy its ID, right below Copy Link.
-
-## 0.35.0 (2026-10-13)
-
-### Added
-
-- **Open embedded files in Nookly.** Click a file in a page to open it, or use Open in Nookly on its toolbar.
+- **Smaller cleanup.** Removed a one time What's new reset that already did its job.
 
 ## 0.35.1 (2026-10-13)
 
@@ -20,11 +14,17 @@ All notable changes to Nookly are listed here.
 
 - **Typing after @ is fast again.** Mentioning with many sessions no longer lags.
 
-## 0.35.2 (2026-10-13)
+## 0.35.0 (2026-10-13)
 
-### Changed
+### Added
 
-- **Smaller cleanup.** Removed a one time What's new reset that already did its job.
+- **Open embedded files in Nookly.** Click a file in a page to open it, or use Open in Nookly on its toolbar.
+
+## 0.34.0 (2026-10-13)
+
+### Added
+
+- **Copy ID in the right click menu.** Every item can copy its ID, right below Copy Link.
 
 ## 0.33.2 (2026-10-13)
 
