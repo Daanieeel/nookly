@@ -10,6 +10,7 @@ import {
   START_BUCKETS,
   type StatusKind,
   dayBucket,
+  dueBucket,
 } from "./task-model";
 import { TaskStatusIcon } from "./task-properties";
 import { ageGroupDefs, spaceGroupDefs } from "./shared-view-defs";
@@ -86,6 +87,8 @@ function dateGroupDefs(
         )}
       />
     ),
-    match: (t) => dayBucket(day(t)) === b.id,
+    // Only due dates tell finished work from late work, so the start buckets stay as they are.
+    match: (t) =>
+      (urgent ? dueBucket(day(t), new Date(), t.completedAt != null) : dayBucket(day(t))) === b.id,
   }));
 }

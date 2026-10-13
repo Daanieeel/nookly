@@ -71,10 +71,29 @@ describe("taskGroupDefs", () => {
       ["week", []],
       ["later", []],
       ["none", ["b"]],
+      ["done", []],
     ]);
     const start = buildGroups(tasks, taskGroupDefs("start", STATUSES, labels, kindOf) ?? [], null);
     expect(start.find((g) => g.id === "later")?.items.map((t) => t.entity.id)).toEqual(["a"]);
     expect(start.map((g) => g.name)).toContain("No start date");
+  });
+
+  // Reported (#132): finished tasks past their date are not overdue.
+  it("keeps a finished task past its due date out of Overdue", () => {
+    freezeTime("2026-03-11T10:00:00");
+    const tasks = [
+      makeTask({ dueDate: "2026-03-01", completedAt: null }, { id: "open" }),
+      makeTask({ dueDate: "2026-03-01", completedAt: "2026-03-02T10:00:00Z" }, { id: "finished" }),
+    ];
+    const due = buildGroups(tasks, taskGroupDefs("due", STATUSES, labels, kindOf) ?? [], null);
+    expect(due.map((g) => [g.id, ids(g.items)])).toEqual([
+      ["overdue", ["open"]],
+      ["today", []],
+      ["week", []],
+      ["later", []],
+      ["none", []],
+      ["done", ["finished"]],
+    ]);
   });
 
   it("groups by created and updated age", () => {
@@ -147,6 +166,7 @@ describe("taskFilterFields", () => {
       "Next 7 days",
       "Later",
       "No due date",
+      "Done",
     ]);
     expect(fields[5].options.at(-1)).toMatchObject({ value: "none", label: "Not completed" });
   });

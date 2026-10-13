@@ -100,6 +100,20 @@ describe("days", () => {
   });
 });
 
+// Reported (#132): a finished task is late by no one, so it leaves the Overdue bucket.
+describe("dueBucket for finished tasks", () => {
+  it("puts a finished task past its date in the Done bucket, not Overdue", () => {
+    expect(dueBucket("2026-03-10", NOW, true)).toBe("done");
+    expect(dueBucket("2026-03-10", NOW, false)).toBe("overdue");
+  });
+
+  it("buckets a finished task due today or later like any other", () => {
+    expect(dueBucket("2026-03-11", NOW, true)).toBe("today");
+    expect(dueBucket("2026-03-19", NOW, true)).toBe("later");
+    expect(dueBucket(null, NOW, true)).toBe("none");
+  });
+});
+
 describe("formatDay", () => {
   it("leaves out this year's year", () => {
     setDateTimeSettings({ dateFormat: "american" });
