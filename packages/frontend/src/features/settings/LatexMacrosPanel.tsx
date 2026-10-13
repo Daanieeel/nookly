@@ -50,12 +50,24 @@ function useFormula(latex: string, definitions: Record<string, string>) {
   return { ref, error };
 }
 
-function Preview({ entry }: { entry: MacroEntry }) {
+/// The command used on sample arguments, drawn at body size on a quiet surface. It grows to fit a
+/// tall result (`\\substack`, `\\frac`) instead of scrolling or clipping it. A result wider than
+/// its column cannot break anywhere, so it tells the row, which gives it a line of its own.
+function Preview({ entry, onTooWide }: { entry: MacroEntry; onTooWide: () => void }) {
   const { ref, error } = useFormula(sampleUse(entry.name, entry.args), {
     [entry.name]: entry.body,
   });
+  const box = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (element && element.scrollWidth > element.clientWidth) onTooWide();
+  });
   return (
-    <span className="flex min-w-0 items-center justify-end overflow-x-auto text-sm">
+    <span
+      ref={box}
+      data-testid="macro-preview"
+      className="flex min-h-10 min-w-0 items-center justify-center rounded-md border border-border/60 bg-card px-3 py-2 text-center text-base [&_.katex]:whitespace-normal"
+    >
       <span ref={ref} className={cn(error && "hidden")} />
       {error && <span className="text-xs text-muted-foreground">No preview</span>}
     </span>
@@ -235,25 +247,45 @@ function MacroRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const [wide, setWide] = useState(false);
+  // One grid for every row, so the columns line up down the list. Under 640px, or when the
+  // preview is too wide for its column, it drops below the expansion on a line of its own.
   return (
-    <li className="grid grid-cols-[8rem_1fr_9rem_auto] items-center gap-3 border-b border-border/60 py-2 last:border-b-0">
-      <span className="flex min-w-0 flex-col">
-        <code data-macro-name className="truncate font-mono text-sm font-medium">
+    <li className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-md border-b border-border/60 px-2 py-3 transition-colors last:border-b-0 hover:bg-muted/30 sm:grid-cols-[9rem_minmax(0,1fr)_11rem_auto]">
+      <span className="flex min-w-0 flex-col sm:col-start-1 sm:row-start-1">
+        <span data-macro-name className="truncate font-mono text-sm font-medium">
           {entry.name}
-        </code>
+        </span>
         <span className="text-xs text-muted-foreground">{argumentsText(entry.args)}</span>
       </span>
-      <code className="min-w-0 truncate font-mono text-xs text-muted-foreground" title={entry.body}>
+      <span
+        className={cn(
+          "order-3 col-span-2 min-w-0 truncate font-mono text-xs text-muted-foreground sm:order-0 sm:col-span-1 sm:col-start-2 sm:row-start-1",
+          wide && "sm:col-span-2",
+        )}
+        title={entry.body}
+      >
         {entry.body}
-      </code>
-      <Preview entry={entry} />
-      <span className="flex items-center">
+      </span>
+      <div
+        className={cn(
+          "order-4 col-span-2 sm:order-0 sm:col-span-1 sm:col-start-3 sm:row-start-1",
+          wide && "sm:col-span-4 sm:col-start-1 sm:row-start-2",
+        )}
+      >
+        <Preview entry={entry} onTooWide={() => setWide(true)} />
+      </div>
+      <span
+        role="group"
+        aria-label={`Actions for ${entry.name}`}
+        className="flex items-center gap-0.5 text-muted-foreground opacity-60 sm:col-start-4 sm:row-start-1 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+      >
         <Tooltip>
           <TooltipTrigger asChild>
             <CopyButton
               value={formatMacro(entry.name, entry.body)}
               aria-label={`Copy ${entry.name}`}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground"
             />
           </TooltipTrigger>
           <TooltipContent>Copy definition</TooltipContent>
@@ -262,7 +294,8 @@ function MacroRow({
           <IconPencil />
         </IconAction>
         <IconAction label={`Delete ${entry.name}`} disabled={locked} onClick={onDelete}>
-          <IconTrash />
+          {/* Red only while the button is hovered or focused, like the rest of the row's icons. */}
+          <IconTrash className="[button:hover_&]:text-destructive [button:focus-visible_&]:text-destructive" />
         </IconAction>
       </span>
     </li>
