@@ -26,6 +26,12 @@ All notable changes to Nookly are listed here.
 
 - **Copy ID in the right click menu.** Every item can copy its ID, right below Copy Link.
 
+## 0.35.3 (2026-10-13)
+
+### Fixed
+
+- **PDFs keep their zoom when you switch tabs.** A zoomed PDF comes back at the same zoom and position, and spreadsheets come back on the same sheet.
+
 ## 0.33.2 (2026-10-13)
 
 ### Changed

@@ -182,6 +182,10 @@ function ScaledPage({
   );
 }
 
+/// The zoom each file was left at, so coming back to its tab shows the same zoom the
+/// scroll position was saved under. Lives for the session, like the scroll positions.
+const rememberedZoom = new Map<string, number>();
+
 /// Our own PDF viewer, on top of `react-pdf` (pdf.js): a page-by-page zoom
 /// and a find-in-document search, with Nookly's own toolbar instead of
 /// WebKit's built-in PDF chrome. Also used for docx/pptx, which convert
@@ -219,7 +223,10 @@ export function PdfViewer({
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(() => rememberedZoom.get(src) ?? 1);
+  useEffect(() => {
+    rememberedZoom.set(src, scale);
+  }, [src, scale]);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const pageNumbers = useMemo(() => Array.from({ length: numPages }, (_, i) => i + 1), [numPages]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -285,7 +292,7 @@ export function PdfViewer({
   // stretched with a CSS transform in the meantime, so a click or a pinch
   // gesture reads as one smooth zoom and the layout (and scroll position)
   // only changes once per step, never again when the render catches up.
-  const [renderScale, setRenderScale] = useState(1);
+  const [renderScale, setRenderScale] = useState(scale);
   useEffect(() => {
     const id = setTimeout(() => setRenderScale(scale), 150);
     return () => clearTimeout(id);
@@ -294,10 +301,10 @@ export function PdfViewer({
   // Every page grows or shrinks with `scale`, so the same scroll offset would
   // point somewhere else. The spot at the middle of the viewport is noted
   // before the layout changes and put back right after.
-  const scaleRef = useRef(1);
+  const scaleRef = useRef(scale);
   // Unrounded zoom: a trackpad pinch sends many tiny wheel deltas, each far
   // under the 1% the shown scale rounds to, so they must add up here.
-  const targetScaleRef = useRef(1);
+  const targetScaleRef = useRef(scale);
   const zoomAnchor = useRef<ZoomAnchor | null>(null);
   const applyScale = (next: number) => {
     targetScaleRef.current = clampScale(next);
