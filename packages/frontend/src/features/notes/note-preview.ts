@@ -1,6 +1,8 @@
 const LINK = /!?\[([^\]]*)\]\([^)]*\)/g;
 const PAIRED_MARKS = /(\*\*|__|~~|==)(.+?)\1/g;
 const SINGLE_MARKS = /(^|[^\w*])[*_](\S(?:.*?\S)?)[*_](?=[^\w*]|$)/g;
+/// A highlight's stored colour, `=={green}text==`.
+const HIGHLIGHT_COLOR = /==\{[a-z]+\}/g;
 const INLINE_CODE = /`([^`]+)`/g;
 const LINE_PREFIX = /^\s*(?:#{1,3}\s+|>\s?|[-*+]\s+|\d+[.)]\s+|\[[ xX]\]\s+)/;
 
@@ -14,6 +16,7 @@ export function previewLines(markdown: string): string[] {
         .replace(LINE_PREFIX, "")
         .replace(LINK, "$1")
         .replace(INLINE_CODE, "$1")
+        .replace(HIGHLIGHT_COLOR, "==")
         .replace(PAIRED_MARKS, "$2")
         .replace(SINGLE_MARKS, "$1$2")
         .replaceAll("\\$", "$")

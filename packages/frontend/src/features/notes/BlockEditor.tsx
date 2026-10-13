@@ -33,6 +33,7 @@ import { usePasteFiles } from "./paste-files";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
 import { openLink } from "./open-link";
+import { HighlightColorBar } from "./HighlightColorBar";
 import { TableControls } from "./TableControls";
 import { VimIndicator } from "./VimIndicator";
 import { TableColumnHandles } from "./TableColumnHandles";
@@ -546,6 +547,7 @@ function HydratedBlockEditor({
       <TableRowHandles editor={editor} />
       <TableColumnHandles editor={editor} />
       <BlockHandles editor={editor} />
+      <HighlightColorBar editor={editor} />
       <EditorContent editor={editor} />
       <VimIndicator editor={editor} />
       {pasteFiles.popover}

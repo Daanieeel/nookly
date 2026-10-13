@@ -1,4 +1,5 @@
 import type { BlockAttrs, Block, BlockType } from "#/lib/api/types.ts";
+import { HIGHLIGHT_COLOR_PATTERN, parseHighlightColor } from "./highlight-colors";
 import { ATOM_BLOCK_ATTRS, isAtomBlockType } from "./custom-block-rows";
 
 /// The only attribute value shapes this module ever reads or writes (`blockId`
@@ -63,8 +64,20 @@ export function asNumber(value: JSONAttrValue | undefined): number | undefined {
 /// them, an escaped `\$` and inline math `$…$`: no space just inside either dollar and no
 /// digit right after the closing one, so "$5 and $10" stays text (the pandoc rule). A
 /// highlight is `==text==` with no space just inside either pair, so "a == b" stays text.
-const INLINE_PATTERN =
-  /\\\$|\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)|\[([^\]]+)\]\(([^)]+)\)|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|==(?!\s)(.+?)(?<!\s)==|`([^`]+)`|\*([^*]+)\*/g;
+const INLINE_PATTERN = new RegExp(
+  [
+    String.raw`\\\$`,
+    String.raw`\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)`,
+    String.raw`\[([^\]]+)\]\(([^)]+)\)`,
+    String.raw`\*\*\*(.+?)\*\*\*`,
+    String.raw`\*\*(.+?)\*\*`,
+    // A highlight, with an optional colour: `=={green}text==`.
+    String.raw`==(?:\{(${HIGHLIGHT_COLOR_PATTERN})\})?(?!\s)(.+?)(?<!\s)==`,
+    "`([^`]+)`",
+    String.raw`\*([^*]+)\*`,
+  ].join("|"),
+  "g",
+);
 
 type Mark = NonNullable<JSONNode["marks"]>[number];
 
@@ -95,8 +108,18 @@ export function decodeInline(text: string): JSONNode[] {
   for (const match of text.matchAll(INLINE_PATTERN)) {
     const index = match.index ?? 0;
     if (index > lastIndex) nodes.push({ type: "text", text: text.slice(lastIndex, index) });
-    const [, latex, linkText, linkHref, boldItalic, boldText, highlightText, codeText, italicText] =
-      match;
+    const [
+      ,
+      latex,
+      linkText,
+      linkHref,
+      boldItalic,
+      boldText,
+      highlightColor,
+      highlightText,
+      codeText,
+      italicText,
+    ] = match;
     if (match[0] === "\\$") {
       nodes.push({ type: "text", text: "$" });
     } else if (latex !== undefined) {
@@ -108,7 +131,13 @@ export function decodeInline(text: string): JSONNode[] {
     } else if (boldText !== undefined) {
       nodes.push(...withMarks(decodeInline(boldText), { type: "bold" }));
     } else if (highlightText !== undefined) {
-      nodes.push(...withMarks(decodeInline(highlightText), { type: "highlight" }));
+      const color = parseHighlightColor(highlightColor);
+      nodes.push(
+        ...withMarks(
+          decodeInline(highlightText),
+          color ? { type: "highlight", attrs: { color } } : { type: "highlight" },
+        ),
+      );
     } else if (codeText !== undefined) {
       nodes.push({ type: "text", text: codeText, marks: [{ type: "code" }] });
     } else if (italicText !== undefined) {
@@ -123,14 +152,22 @@ export function decodeInline(text: string): JSONNode[] {
 const hasMark = (node: JSONNode | undefined, type: string) =>
   node?.marks?.some((m) => m.type === type) ?? false;
 
-/// A run of nodes that are all highlighted, written once as `==…==`. The highlight's
-/// markers hug the text, so spaces at either end of the run go outside them.
+/// The colour a node's highlight has, null for the default one.
+function highlightColorOf(node: JSONNode | undefined): string | null {
+  const mark = node?.marks?.find((m) => m.type === "highlight");
+  return parseHighlightColor(asString(mark?.attrs?.color));
+}
+
+/// A run of nodes that are all highlighted in one colour, written once as `==…==` (with the
+/// colour as `=={green}…==` unless it is the default). The markers hug the text, so spaces at
+/// either end of the run go outside them.
 function encodeHighlight(run: JSONNode[]): string {
   const inner = encodeInline(
     run.map((node) => ({ ...node, marks: node.marks?.filter((m) => m.type !== "highlight") })),
   );
   const [, before = "", body = "", after = ""] = /^(\s*)([\s\S]*?)(\s*)$/.exec(inner) ?? [];
-  return body ? `${before}==${body}==${after}` : inner;
+  const color = highlightColorOf(run[0]);
+  return body ? `${before}==${color ? `{${color}}` : ""}${body}==${after}` : inner;
 }
 
 export function encodeInline(nodes: JSONNode[] = []): string {
@@ -140,7 +177,11 @@ export function encodeInline(nodes: JSONNode[] = []): string {
     if (!node) continue;
     if (hasMark(node, "highlight")) {
       let end = i;
-      while (hasMark(nodes[end + 1], "highlight")) end++;
+      while (
+        hasMark(nodes[end + 1], "highlight") &&
+        highlightColorOf(nodes[end + 1]) === highlightColorOf(node)
+      )
+        end++;
       parts.push(encodeHighlight(nodes.slice(i, end + 1)));
       i = end;
       continue;

@@ -4,6 +4,7 @@ import {
   IconCode,
   IconChevronRight,
   IconHeading,
+  IconHighlight,
   IconInfoCircle,
   IconMovie,
   IconMusic,
@@ -67,6 +68,19 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Plain paragraph",
     icon: <IconLetterCase size={15} />,
     run: (editor, range) => editor.chain().focus().deleteRange(range).setParagraph().run(),
+  },
+  {
+    title: "Highlight",
+    group: "Text",
+    description: "Mark text with a highlighter, or type ==",
+    icon: <IconHighlight size={15} />,
+    keywords: ["mark", "marker", "highlighter", "==", "color", "colour"],
+    // The mark waits for the next typed character, so what is typed from here on is marked.
+    // Set on its own: inside the same chain as the delete it does not survive.
+    run: (editor, range) => {
+      editor.chain().focus().deleteRange(range).run();
+      editor.commands.setMark("highlight");
+    },
   },
   {
     title: "Heading 1",

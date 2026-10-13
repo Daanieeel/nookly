@@ -87,6 +87,55 @@ describe("highlighted text", () => {
   });
 });
 
+// The colour of a highlight lives in the stored page only: `=={green}text==`. Markdown
+// export turns it back into plain `==text==` (see `block_to_markdown` in `notes.rs`).
+describe("highlight colours", () => {
+  const colored = (value: string, color: string): JSONNode => ({
+    type: "text",
+    text: value,
+    marks: [{ type: "highlight", attrs: { color } }],
+  });
+
+  it("reads =={color}text== as a coloured highlight", () => {
+    expect(decodeInline("a =={green}b== c")).toEqual([
+      text("a "),
+      colored("b", "green"),
+      text(" c"),
+    ]);
+  });
+
+  it("writes a coloured highlight with its colour, and the default one without", () => {
+    expect(encodeInline([text("a "), colored("b", "pink"), text(" c")])).toBe("a =={pink}b== c");
+    expect(encodeInline([colored("b", "yellow")])).toBe("==b==");
+    expect(encodeInline([text("b", "highlight")])).toBe("==b==");
+  });
+
+  it("keeps every colour through a save and reload", () => {
+    for (const color of ["green", "blue", "pink", "orange", "purple"]) {
+      const markdown = `x =={${color}}marked== y`;
+      expect(roundTrip(markdown)).toBe(markdown);
+    }
+    expect(roundTrip("=={yellow}marked==")).toBe("==marked==");
+  });
+
+  it("starts a new highlight where the colour changes", () => {
+    const nodes = [colored("a", "green"), colored("b", "blue"), colored("c", "blue")];
+    expect(encodeInline(nodes)).toBe("=={green}a===={blue}bc==");
+    expect(decodeInline("=={green}a===={blue}bc==")).toEqual([
+      colored("a", "green"),
+      colored("bc", "blue"),
+    ]);
+  });
+
+  it("reads an unknown colour as plain text inside a plain highlight", () => {
+    expect(decodeInline("=={chartreuse}b==")).toEqual([text("{chartreuse}b", "highlight")]);
+  });
+
+  it("keeps the colour next to bold and inline math", () => {
+    expect(roundTrip("=={blue}**b** and $x$==")).toBe("=={blue}**b** and $x$==");
+  });
+});
+
 describe("bold and italic together", () => {
   // Used to come back as "*" + bold + "*": the asterisks of ***both*** were not read.
   it("read ***text*** as bold and italic, and write it back", () => {

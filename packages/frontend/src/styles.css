@@ -636,31 +636,53 @@
   /* Highlight (`==text==`): a marker stroke. Dark text on the light yellow, and the normal
      text color on a dimmed yellow in dark mode, so both keep their contrast. */
   .tiptap-content mark {
-    padding: 0 0.125rem;
+    --mark-bg: #fef08a;
+    /* The same breathing room as inline code. */
+    padding: 0.1em 0.4em;
+    /* A highlight that wraps keeps its padding on every line. */
+    box-decoration-break: clone;
     border-radius: 0.25rem;
-    background: #fef08a;
+    background: var(--mark-bg);
     color: #1c1917;
   }
+  .tiptap-content mark[data-color="green"] {
+    --mark-bg: #bbf7d0;
+  }
+  .tiptap-content mark[data-color="blue"] {
+    --mark-bg: #bfdbfe;
+  }
+  .tiptap-content mark[data-color="pink"] {
+    --mark-bg: #fbcfe8;
+  }
+  .tiptap-content mark[data-color="orange"] {
+    --mark-bg: #fed7aa;
+  }
+  .tiptap-content mark[data-color="purple"] {
+    --mark-bg: #ddd6fe;
+  }
   :is(.dark) .tiptap-content mark {
-    background: color-mix(in oklab, #facc15 38%, transparent);
+    --mark-bg: color-mix(in oklab, #facc15 38%, transparent);
     color: inherit;
   }
-  /* Vim mode (`vim-extension.ts`): in normal and visual mode the caret is a block over the
-     character it is on, so the editor's own caret is hidden. */
-  .tiptap-content.vim-normal,
-  .tiptap-content.vim-visual,
-  .tiptap-content.vim-visual-line {
-    caret-color: transparent;
+  :is(.dark) .tiptap-content mark[data-color="green"] {
+    --mark-bg: color-mix(in oklab, #4ade80 34%, transparent);
   }
-  .tiptap-content .vim-cursor {
-    background: color-mix(in oklab, var(--foreground) 55%, transparent);
-    color: var(--background);
+  :is(.dark) .tiptap-content mark[data-color="blue"] {
+    --mark-bg: color-mix(in oklab, #60a5fa 38%, transparent);
   }
-  .tiptap-content .vim-cursor-empty::before {
-    content: "\200b";
+  :is(.dark) .tiptap-content mark[data-color="pink"] {
+    --mark-bg: color-mix(in oklab, #f472b6 38%, transparent);
+  }
+  :is(.dark) .tiptap-content mark[data-color="orange"] {
+    --mark-bg: color-mix(in oklab, #fb923c 38%, transparent);
+  }
+  :is(.dark) .tiptap-content mark[data-color="purple"] {
+    --mark-bg: color-mix(in oklab, #a78bfa 40%, transparent);
+  }
+  /* Where the caret is after stepping out of a highlight (`highlight-extension.ts`). */
+  .tiptap-content .highlight-exit {
     display: inline-block;
-    width: 0.6em;
-    background: color-mix(in oklab, var(--foreground) 55%, transparent);
+    width: 0.3em;
   }
   .tiptap-content p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);

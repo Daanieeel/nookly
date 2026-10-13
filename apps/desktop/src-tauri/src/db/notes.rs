@@ -696,7 +696,27 @@ fn list_to_markdown(block: &Block, bullet: Option<&str>) -> String {
         .join("\n")
 }
 
+/// Block types whose content is not prose, so `=={green}` in it is just text.
+const LITERAL_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "circuit"];
+
+/// A highlight's colour (`=={green}text==`) is kept in the page only; a markdown export has
+/// the plain `==text==`.
+fn strip_highlight_colors(markdown: String) -> String {
+    static COLOR: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let color = COLOR.get_or_init(|| regex::Regex::new(r"==\{[a-z]+\}").unwrap());
+    color.replace_all(&markdown, "==").into_owned()
+}
+
 pub fn block_to_markdown(block: &Block) -> String {
+    let markdown = block_to_markdown_raw(block);
+    if LITERAL_BLOCK_TYPES.contains(&block.block_type.as_str()) {
+        markdown
+    } else {
+        strip_highlight_colors(markdown)
+    }
+}
+
+fn block_to_markdown_raw(block: &Block) -> String {
     if let Some(def) = block_types::lookup(&block.block_type) {
         return (def.to_markdown)(block);
     }
@@ -1078,6 +1098,43 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_markdown_export_drops_the_colour_of_a_highlight() {
+        let block = |block_type: &str, content: &str| Block {
+            id: "b".into(),
+            entity_id: "e".into(),
+            position: 0,
+            block_type: block_type.into(),
+            content: content.into(),
+            language: None,
+            filename: None,
+            attrs: BlockAttrs::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        assert_eq!(
+            block_to_markdown(&block(
+                "paragraph",
+                "a =={green}b== and =={pink}c== d ==e=="
+            )),
+            "a ==b== and ==c== d ==e=="
+        );
+        assert_eq!(
+            block_to_markdown(&block("bulleted_list", "=={blue}one==\ntwo")),
+            "- ==one==\n- two"
+        );
+        assert_eq!(
+            block_to_markdown(&block("heading2", "=={orange}Title==")),
+            "## ==Title=="
+        );
+        // Code is text, and so is a formula.
+        assert!(block_to_markdown(&block("code", "x =={green}")).contains("=={green}"));
+        assert_eq!(
+            block_to_markdown(&block("math", "a =={b}")),
+            "$$\na =={b}\n$$"
+        );
+    }
 
     #[test]
     fn a_preamble_goes_in_front_of_the_markdown_and_nothing_is_added_without_one() {
