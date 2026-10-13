@@ -28,6 +28,30 @@ describe("Import from File in the commands palette", () => {
   });
 });
 
+describe("New Tab in the commands palette", () => {
+  beforeEach(() => {
+    mockCommand("list_spaces", []);
+  });
+
+  it("opens a new tab and closes the palette", async () => {
+    const before = useNavStore.getState().tabs.length;
+    const { user } = renderWithProviders(<CommandsPalette />);
+    act(() => useNavStore.getState().setCommandsOpen(true));
+    await user.type(await screen.findByPlaceholderText("Run a command…"), "new tab");
+    await user.click(await screen.findByText("New Tab"));
+    expect(useNavStore.getState().tabs.length).toBe(before + 1);
+    expect(useNavStore.getState().commandsOpen).toBe(false);
+  });
+
+  it("shows the shortcut next to the action", async () => {
+    const { user } = renderWithProviders(<CommandsPalette />);
+    act(() => useNavStore.getState().setCommandsOpen(true));
+    await user.type(await screen.findByPlaceholderText("Run a command…"), "new tab");
+    const action = (await screen.findByText("New Tab")).closest("[cmdk-item]");
+    expect(action?.querySelector("kbd")).not.toBeNull();
+  });
+});
+
 describe("Highlight Selected Text in the commands palette", () => {
   let editor: Editor | null = null;
   afterEach(() => {

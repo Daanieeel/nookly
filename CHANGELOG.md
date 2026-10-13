@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.23 (2026-10-13)
+
+### Added
+
+- **New Tab in the command palette.** Type "new tab" in Cmd+K or Cmd+Shift+P to open a new tab without the mouse.
+
 ## 0.33.22 (2026-10-13)
 
 ### Fixed
