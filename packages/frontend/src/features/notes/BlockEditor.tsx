@@ -17,7 +17,8 @@ import {
   updateBlock,
 } from "#/lib/api/notes.ts";
 import type { Block, SessionOccurrence } from "#/lib/api/types.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
+import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   asString,
@@ -39,6 +40,7 @@ import { VimIndicator } from "./VimIndicator";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
+import { usePageEditLock } from "./page-edit-lock.ts";
 import { type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
@@ -340,7 +342,8 @@ function HydratedBlockEditor({
 
   // Scrolls to a block requested from outside (a block level search result)
   // once the page has hydrated, then hands the request back.
-  const focusBlock = useNavStore((s) => s.focusBlock);
+  const { groupId } = useTabGroupScope();
+  const focusBlock = useNavStore((s) => focusBlockIn(s, groupId));
   const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
   useEffect(() => {
     // A page of a file is for the file viewer, not for a page's editor.
@@ -496,6 +499,21 @@ function HydratedBlockEditor({
     }
   };
   useEffect(() => syncFromServerRef.current(), [serverBlocks, reconcile.isPending]);
+
+  // Split view: the same page open in the other, focused group writes; this copy stays
+  // read only and follows along. It also waits for a save the other copy still has in
+  // flight, so it never starts typing over an older document.
+  const locked = usePageEditLock(entityId);
+  const savesInFlight = useIsMutating({ mutationKey: saveBlocksKey(entityId) });
+  const othersSaving = savesInFlight > (reconcile.isPending ? 1 : 0);
+  const readOnly = locked || othersSaving;
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (readOnly && debounceRef.current) flushRef.current();
+    // No update event, so handing over never saves by itself.
+    editor.setEditable(!readOnly, false);
+    if (!readOnly) syncFromServerRef.current();
+  }, [editor, readOnly]);
 
   // Leaving the page inside the debounce window saves right away instead of
   // dropping the last edits. `useEditor` destroys its editor on a later tick, so

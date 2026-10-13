@@ -1,6 +1,6 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type CSSProperties, useRef } from "react";
+import type { CSSProperties } from "react";
 import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
@@ -8,6 +8,7 @@ import { QuickSwitcher } from "#/components/quick-switcher.tsx";
 import { EntityDetailRouter } from "#/components/entity-detail-router.tsx";
 import { ModuleView } from "#/components/module-view.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
+import { OtherGroupButton, SplitView, useSplitShown } from "#/components/split-view.tsx";
 import { TabBar, useTabInteractions } from "#/components/tab-bar.tsx";
 import { Titlebar } from "#/components/titlebar.tsx";
 import { SidebarInset, SidebarProvider } from "@nookly/ui/components/sidebar";
@@ -16,7 +17,6 @@ import { TooltipProvider } from "@nookly/ui/components/tooltip";
 import { AssignmentsOverviewView } from "#/features/assignments/AssignmentsOverviewView.tsx";
 import { TasksOverviewView } from "#/features/tasks/TasksOverviewView.tsx";
 import { UnifiedCalendarView } from "#/features/calendar/UnifiedCalendarView.tsx";
-import { DASHBOARD_CORNER_SLOT } from "#/features/dashboard/DashboardMascotCorner.tsx";
 import { DashboardView } from "#/features/dashboard/DashboardView.tsx";
 import { PinnedView } from "#/features/dashboard/PinnedView.tsx";
 import { QuickJotDialog } from "#/features/notes/QuickJot.tsx";
@@ -28,20 +28,16 @@ import { useExternalCalendarSync } from "#/features/sessions/external-calendars/
 import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
-import { useTabScroll } from "#/hooks/use-tab-scroll.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
 import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { type View, useNavStore } from "#/lib/store/nav.ts";
 import "#/context-actions.ts";
-
-import { CrashFallback, ErrorBoundary } from "#/components/error-boundary.tsx";
 
 const queryClient = new QueryClient();
 
-function MainContent() {
-  const view = useNavStore((s) => s.view);
-
+/// A tab group's active view.
+function MainContent({ view }: { view: View }) {
   switch (view.kind) {
     case "dashboard":
       return <DashboardView />;
@@ -73,43 +69,27 @@ function MainContent() {
 
 function Shell() {
   useRefreshBlocksOnRename();
-  const view = useNavStore((s) => s.view);
-  const showTabBar = useNavStore((s) => s.tabs.length > 1);
+  const splitShown = useSplitShown();
+  const focusedGroupId = useNavStore((s) => s.focusedGroupId);
+  const twoGroups = useNavStore((s) => s.groups.length > 1);
+  // With one group (or no room for two) its tabs sit under the titlebar, while there
+  // is more than one tab or another group to switch to. Split, each group has its own.
+  const showTabBar = useNavStore((s) => !splitShown && (s.tabs.length > 1 || twoGroups));
   useTabInteractions();
   useExternalDbChanges();
   useExternalCalendarSync();
   useAutoBackup();
   useScopedSelectAll();
   usePastePlainText();
-  const pageRef = useRef<HTMLDivElement>(null);
-  useTabScroll(pageRef, "page");
   // Formatters read the date settings directly; re-rendering from the root applies
   // a changed format everywhere at once.
   useDateTimeSettings((s) => `${s.timezone}|${s.dateFormat}|${s.timeFormat}`);
-  const isEntityView = view.kind === "entity";
-  // Views drawing their own edge to edge chrome, like the Linear style Tasks page.
-  const isBleedView =
-    isEntityView ||
-    view.kind === "calendar" ||
-    view.kind === "tasks" ||
-    view.kind === "assignments" ||
-    (view.kind === "module" &&
-      [
-        "tasks",
-        "sessions",
-        "calendar",
-        "assignments",
-        "exams",
-        "decks",
-        "files",
-        "bookmarks",
-      ].includes(view.module));
 
   return (
     <div
       className="flex h-screen flex-col bg-background text-foreground"
       // SAFETY: `--titlebar-height` only ever receives this fixed rem value,
-      // matching `Titlebar`'s own `h-11`, plus the `h-9` tab bar while more than one tab is open — `CSSProperties` just doesn't model
+      // matching `Titlebar`'s own `h-11`, plus the `h-9` tab bar while it shows — `CSSProperties` just doesn't model
       // custom properties. Read by the sidebar primitive's fixed rail so it
       // starts below the titlebar instead of painting over it.
       style={
@@ -119,7 +99,9 @@ function Shell() {
       }
     >
       <Titlebar />
-      {showTabBar && <TabBar />}
+      {showTabBar && (
+        <TabBar groupId={focusedGroupId} trailing={twoGroups ? <OtherGroupButton /> : undefined} />
+      )}
       {/* With the sidebar collapsed the page goes edge to edge: no padding, corners or shadow.
           The vertical padding is the floating sidebar's own (`p-2`), so the page and the sidebar
           panel share their top and bottom edges. */}
@@ -127,26 +109,7 @@ function Shell() {
         <SidebarProvider className="min-h-full">
           <AppSidebar />
           <SidebarInset className="min-h-0 min-w-0">
-            {/* `isolate` keeps the page's own z-indexes (a calendar's sticky header and now line) below the corner slot. */}
-            <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border bg-card shadow-md group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none">
-              <div
-                ref={pageRef}
-                className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${isBleedView ? "" : "p-6"}`}
-              >
-                <ErrorBoundary
-                  // A view that crashes is dropped when the user navigates elsewhere.
-                  resetKeys={[view]}
-                  fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
-                >
-                  <MainContent />
-                </ErrorBoundary>
-              </div>
-            </div>
-            {/* The Dashboard draws its mascot cutout here, above the page's own border. */}
-            <div
-              id={DASHBOARD_CORNER_SLOT}
-              className="pointer-events-none absolute top-px right-px z-10 size-0"
-            />
+            <SplitView renderGroup={(scope) => <MainContent view={scope.view} />} />
           </SidebarInset>
         </SidebarProvider>
       </div>

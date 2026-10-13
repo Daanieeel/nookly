@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { MascotFigure } from "#/components/mascot-figure.tsx";
 import { cn } from "@nookly/ui/lib/utils";
+import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 
-/// Id of the element in the app shell, at the page's top right corner, that the
-/// cutout draws into.
-export const DASHBOARD_CORNER_SLOT = "dashboard-corner-slot";
+/// Id of the element in a tab group, at its page's top right corner, that the
+/// cutout draws into. Each group has its own, so a Dashboard open in both draws in both.
+export function dashboardCornerSlot(groupId: string): string {
+  return `dashboard-corner-slot-${groupId}`;
+}
 
 /// The cutout, as a path in pixels from the page's top right corner (x grows right,
 /// y down), around the 128px square the mascot sits in. The page's own border (1px,
@@ -22,8 +25,9 @@ const FILL = `${BORDER} L 2 148 L 2 -3 L -148 -3 Z`;
 /// invisible float; the visible part is drawn in the app shell, over the page's
 /// border, so the border itself follows the curve and the mascot sits outside it.
 export function DashboardMascotCorner({ className }: { className?: string }) {
+  const { groupId } = useTabGroupScope();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => setSlot(document.getElementById(DASHBOARD_CORNER_SLOT)), []);
+  useEffect(() => setSlot(document.getElementById(dashboardCornerSlot(groupId))), [groupId]);
 
   return (
     <>

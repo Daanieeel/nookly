@@ -74,10 +74,12 @@ function TaskColumnLabels({ properties }: { properties: DisplayProperty[] }) {
         </span>
       )}
       {show("due") && <DueColumnLabels />}
-      {show("key") && <span className="hidden w-20 shrink-0 sm:block">ID</span>}
+      {show("key") && <span className="hidden w-20 shrink-0 @sm:block">ID</span>}
       <span className="min-w-0 flex-1">Title</span>
-      {show("labels") && <span className="max-md:hidden">Labels</span>}
-      {show("created") && <span className="hidden w-14 shrink-0 text-right lg:block">Created</span>}
+      {show("labels") && <span className="@max-lg:hidden">Labels</span>}
+      {show("created") && (
+        <span className="hidden w-14 shrink-0 text-right @3xl:block">Created</span>
+      )}
     </div>
   );
 }
@@ -114,7 +116,7 @@ export function TaskRow({
       {show("status") && <TaskStatusControl task={task} />}
       {show("due") && <TaskDueColumns task={task} />}
       {show("key") && (
-        <span className="relative hidden w-20 shrink-0 sm:flex">
+        <span className="relative hidden w-20 shrink-0 @sm:flex">
           <EntityKeyCopyInline entityKey={task.entity.key} className="-ml-1" />
         </span>
       )}
@@ -122,12 +124,12 @@ export function TaskRow({
       <RepeatIcon task={task} />
       <TaskSpaceChip task={task} />
       {show("effort") && task.effort != null && (
-        <span className="relative hidden shrink-0 sm:flex">
+        <span className="relative hidden shrink-0 @sm:flex">
           <TaskEffortControl task={task} />
         </span>
       )}
       {show("labels") && (
-        <span className="relative hidden min-w-0 md:flex">
+        <span className="relative hidden min-w-0 @lg:flex">
           <TaskLabelsControl task={task} align="end" />
         </span>
       )}
@@ -135,7 +137,7 @@ export function TaskRow({
         <time
           dateTime={task.entity.createdAt}
           title={`Created ${formatDateTime(task.entity.createdAt)}`}
-          className="pointer-events-none relative hidden w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums lg:block"
+          className="pointer-events-none relative hidden w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums @3xl:block"
         >
           {formatTimestamp(task.entity.createdAt)}
         </time>

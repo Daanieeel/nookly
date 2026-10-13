@@ -14,6 +14,7 @@ import { TaskDetailView } from "#/features/tasks/TaskDetailView.tsx";
 import { getEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { getView } from "#/lib/api/views.ts";
 import { GenericDetailView } from "./generic-detail-view";
 import { qk } from "#/lib/query-keys.ts";
@@ -65,9 +66,10 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
 /// Bookmarks open in the details sheet, never as a page.
 function BookmarkRedirect({ entity }: { entity: Entity }) {
   const showBookmark = useNavStore((s) => s.showBookmark);
+  const { groupId } = useTabGroupScope();
   useEffect(
-    () => showBookmark(entity.id, entity.spaceId),
-    [entity.id, entity.spaceId, showBookmark],
+    () => showBookmark(entity.id, entity.spaceId, groupId),
+    [entity.id, entity.spaceId, groupId, showBookmark],
   );
   return null;
 }
@@ -79,8 +81,9 @@ function SavedViewRedirect({ entity }: { entity: Entity }) {
     queryKey: qk.views.byId(entity.id),
     queryFn: () => getView(entity.id),
   });
+  const { groupId } = useTabGroupScope();
   useEffect(() => {
-    if (view) showSavedView(entity.id, entity.spaceId, view.module);
-  }, [view, entity.id, entity.spaceId, showSavedView]);
+    if (view) showSavedView(entity.id, entity.spaceId, view.module, groupId);
+  }, [view, entity.id, entity.spaceId, groupId, showSavedView]);
   return null;
 }

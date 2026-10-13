@@ -6,7 +6,20 @@ import type { ViewModule } from "#/lib/api/views.ts";
 import { touchEntityOpened } from "#/lib/api/entities.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
-import { type Tab, makeTab, moveTab, pinnedFirst, tabAfterClose } from "./tab-model.ts";
+import { type Tab, makeTab } from "./tab-model.ts";
+import * as groupModel from "./tab-groups.ts";
+import {
+  type GroupTarget,
+  type TabGroup,
+  type TabLayout,
+  MAX_GROUPS,
+  activeTab,
+  clampSplitRatio,
+  DEFAULT_SPLIT_RATIO,
+  findTab,
+  focusedGroup,
+  makeGroup,
+} from "./tab-groups.ts";
 
 export const MODULE_KEYS = [
   "tasks",
@@ -70,6 +83,9 @@ const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("entity"), entityId: z.string(), spaceId: z.string() }),
 ]);
 
+/// Every tab is listed flat in `tabs`, which is all a release from before split view
+/// reads. `groups` then says which tab sits in which group; an older release drops it
+/// when it saves, so its tabs load back into a single group.
 const storedTabsSchema = z.object({
   activeTabId: z.string(),
   tabs: z
@@ -83,6 +99,10 @@ const storedTabsSchema = z.object({
       }),
     )
     .min(1),
+  focusedGroupId: z.string().optional(),
+  groups: z
+    .array(z.object({ id: z.string(), tabIds: z.array(z.string()), activeTabId: z.string() }))
+    .optional(),
 });
 
 export interface RecentEntry {
@@ -106,17 +126,32 @@ export interface FocusBlock {
 
 interface NavState {
   view: View;
-  /// Every open tab. The active one's `view` and history live in `view`, `backStack`
-  /// and `forwardStack` below, so read tabs through `currentTabs`.
+  /// The focused group's tabs. The active one's `view` and history live in `view`,
+  /// `backStack` and `forwardStack` below, so read tabs through `currentTabs`.
   tabs: Tab[];
   activeTabId: string;
+  /// Every tab group, left then right. The focused one's entry is only brought up to
+  /// date when focus leaves it, so read groups through `tabGroups`.
+  groups: TabGroup[];
+  /// The group the sidebar, new tabs and tab shortcuts act on.
+  focusedGroupId: string;
+  focusGroup: (groupId: string) => void;
+  /// Focuses the left (0) or right (1) group, when it exists.
+  focusGroupAt: (index: number) => void;
+  /// Opens a copy of a tab (the active one by default) in the group on the right.
+  splitRight: (tabId?: string) => void;
+  /// Moves a tab into another group, or a new one on the right, at `toIndex`.
+  moveTabToGroup: (tabId: string, target: GroupTarget, toIndex?: number) => void;
+  /// The left group's share of the width while split.
+  splitRatio: number;
+  setSplitRatio: (ratio: number) => void;
   /// Opens a view in a new tab. Pass `activate: false` to leave it in the background.
   openInNewTab: (view?: View, options?: { activate?: boolean }) => void;
   switchTab: (id: string) => void;
-  /// Steps to the next (1) or previous (-1) tab, wrapping around.
+  /// Steps to the next (1) or previous (-1) tab of the focused group, wrapping around.
   cycleTab: (step: 1 | -1) => void;
   closeTab: (id: string) => void;
-  /// Closes every tab except the active one and the pinned ones.
+  /// Closes every tab of the focused group except the active one and the pinned ones.
   closeOtherTabs: () => void;
   pinTab: (id: string, pinned: boolean) => void;
   reorderTab: (id: string, toIndex: number) => void;
@@ -138,6 +173,9 @@ interface NavState {
   quickJotOpen: boolean;
   /// The session the open Quick Jot writes into; null for a plain Jot.
   focusBlock: FocusBlock | null;
+  /// The group `focusBlock` was opened in, so the same page open in the other group
+  /// doesn't scroll as well.
+  focusBlockGroupId: string | null;
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
   rightSidebarWidth: number;
@@ -156,11 +194,12 @@ interface NavState {
   bookmarkSheetId: string | null;
   /// Bookmarks have no page of their own: an entity view opened for one steps
   /// back to where it came from (or the Bookmarks page) and opens the sheet.
-  showBookmark: (entityId: string, spaceId: string) => void;
+  /// `groupId` names the group showing it, when that is not the focused one.
+  showBookmark: (entityId: string, spaceId: string, groupId?: string) => void;
   setBookmarkSheetId: (entityId: string | null) => void;
   /// Saved Views have no page of their own: an entity view opened for one becomes
   /// its module page with the View applied, replacing the entity view in history.
-  showSavedView: (entityId: string, spaceId: string, module: ViewModule) => void;
+  showSavedView: (entityId: string, spaceId: string, module: ViewModule, groupId?: string) => void;
   setActiveSpace: (spaceId: string | null) => void;
   toggleExpandedSpace: (spaceId: string) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -293,30 +332,97 @@ export function currentTabs(
   );
 }
 
-interface StoredTabs {
-  tabs: Tab[];
-  activeTabId: string;
+/// The block or page of a file to land on, for a view in `groupId`: only the group it
+/// was opened in scrolls there, not the same page open in the other group.
+export function focusBlockIn(
+  state: Pick<NavState, "focusBlock" | "focusBlockGroupId">,
+  groupId: string,
+): FocusBlock | null {
+  return state.focusBlockGroupId === null || state.focusBlockGroupId === groupId
+    ? state.focusBlock
+    : null;
 }
 
-function readStoredTabs(): StoredTabs {
+/// Every group with the focused one brought up to date from the live state.
+export function tabGroups(
+  state: Pick<
+    NavState,
+    "groups" | "focusedGroupId" | "tabs" | "activeTabId" | "view" | "backStack" | "forwardStack"
+  >,
+): TabGroup[] {
+  return state.groups.map((group) =>
+    group.id === state.focusedGroupId
+      ? { id: group.id, tabs: currentTabs(state), activeTabId: state.activeTabId }
+      : group,
+  );
+}
+
+function layoutOf(state: NavState): TabLayout {
+  return { groups: tabGroups(state), focusedGroupId: state.focusedGroupId };
+}
+
+function singleLayout(tabs: Tab[], activeTabId: string): TabLayout {
+  const group = makeGroup(tabs, activeTabId);
+  return { groups: [group], focusedGroupId: group.id };
+}
+
+/// Splits the saved flat tab list back into its groups. A tab no group lists (opened
+/// in an older release) joins the focused group, so nothing is lost, and the group
+/// holding the saved active tab is the focused one.
+function layoutFromStored(stored: z.infer<typeof storedTabsSchema>): TabLayout {
+  if (!stored.groups?.length) return singleLayout(stored.tabs, stored.activeTabId);
+  const byId = new Map(stored.tabs.map((tab) => [tab.id, tab]));
+  const placed = new Set<string>();
+  const groups = stored.groups.slice(0, MAX_GROUPS).map((group) => {
+    const tabs: Tab[] = [];
+    for (const id of group.tabIds) {
+      const tab = byId.get(id);
+      if (tab && !placed.has(id)) {
+        placed.add(id);
+        tabs.push(tab);
+      }
+    }
+    return { id: group.id, tabs, activeTabId: group.activeTabId };
+  });
+  const leftovers = stored.tabs.filter((tab) => !placed.has(tab.id));
+  const home = groups.find((g) => g.id === stored.focusedGroupId) ?? groups[0];
+  home.tabs.push(...leftovers);
+  const kept = groups
+    .filter((g) => g.tabs.length > 0)
+    .map((g) =>
+      g.tabs.some((t) => t.id === g.activeTabId) ? g : { ...g, activeTabId: g.tabs[0].id },
+    );
+  const focused = kept.find((g) => g.tabs.some((t) => t.id === stored.activeTabId)) ?? kept[0];
+  return {
+    groups: kept.map((g) => (g === focused ? { ...g, activeTabId: stored.activeTabId } : g)),
+    focusedGroupId: focused.id,
+  };
+}
+
+function readStoredTabs(): TabLayout {
   try {
     const raw = preferences.get(STORAGE_KEYS.tabs);
     if (raw) {
       const parsed = storedTabsSchema.safeParse(JSON.parse(raw));
       if (parsed.success && parsed.data.tabs.some((t) => t.id === parsed.data.activeTabId)) {
-        return parsed.data;
+        return layoutFromStored(parsed.data);
       }
     }
   } catch {
     // fall through to a single fresh tab
   }
   const tab = makeTab({ kind: "dashboard" });
-  return { tabs: [tab], activeTabId: tab.id };
+  return singleLayout([tab], tab.id);
 }
 
-const initialTabs = readStoredTabs();
-const initialTab =
-  initialTabs.tabs.find((t) => t.id === initialTabs.activeTabId) ?? initialTabs.tabs[0];
+function readStoredSplitRatio(): number {
+  const raw = preferences.get(STORAGE_KEYS.splitRatio);
+  return raw === null ? DEFAULT_SPLIT_RATIO : clampSplitRatio(Number(raw));
+}
+
+const initialLayout = readStoredTabs();
+const initialGroup = focusedGroup(initialLayout);
+const initialTab = activeTab(initialGroup);
 
 /// Set by a Cmd or middle click (`useNewTabClicks`) so the navigation that click triggers
 /// opens in a new tab. It clears itself right after the click has been handled.
@@ -344,6 +450,52 @@ function showTab(state: NavState, tab: Tab): Partial<NavState> {
     activeSpaceId,
     expandedSpaceIds,
     focusBlock: null,
+    focusBlockGroupId: null,
+  };
+}
+
+/// What showing `layout` changes: the focused group's tabs become the live ones, and
+/// its active tab's view and history too when another tab is now shown.
+function applyLayout(state: NavState, layout: TabLayout): Partial<NavState> {
+  const group = focusedGroup(layout);
+  const tab = activeTab(group);
+  const base = { groups: layout.groups, focusedGroupId: group.id, tabs: group.tabs };
+  return tab.id === state.activeTabId ? base : { ...base, ...showTab(state, tab) };
+}
+
+/// Forgets where the tabs `before` had and `after` lacks were scrolled.
+function forgetClosedScroll(before: TabLayout, after: TabLayout) {
+  const kept = new Set(after.groups.flatMap((g) => g.tabs.map((t) => t.id)));
+  for (const group of before.groups) {
+    for (const tab of group.tabs) if (!kept.has(tab.id)) forgetScroll(`tab:${tab.id}:`);
+  }
+}
+
+/// Changes the active tab of a group that isn't focused, while it still shows the
+/// entity view of `entityId`, so an effect running twice changes it once.
+function inOtherGroup(
+  state: NavState,
+  groupId: string,
+  entityId: string,
+  update: (tab: Tab) => Tab,
+): Partial<NavState> {
+  const layout = layoutOf(state);
+  const group = layout.groups.find((g) => g.id === groupId);
+  if (!group) return {};
+  const tab = activeTab(group);
+  if (tab.view.kind !== "entity" || tab.view.entityId !== entityId) return {};
+  return applyLayout(state, groupModel.updateTab(layout, tab.id, update));
+}
+
+/// A Bookmark's entity view steps back to where it came from, or the Bookmarks page.
+function stepBackFromBookmark(spaceId: string): (tab: Tab) => Tab {
+  return (tab) => {
+    const previous = tab.backStack.at(-1);
+    return {
+      ...tab,
+      view: previous ?? { kind: "module", spaceId, module: "bookmarks" },
+      backStack: previous ? tab.backStack.slice(0, -1) : tab.backStack,
+    };
   };
 }
 
@@ -360,7 +512,7 @@ const NO_OVERLAY = {
 
 export const useNavStore = create<NavState>((set, get) => ({
   view: initialTab.view,
-  tabs: initialTabs.tabs,
+  tabs: initialGroup.tabs,
   activeTabId: initialTab.id,
   activeSpaceId: readStoredActiveSpace(),
   expandedSpaceIds: readStoredExpandedSpaces(),
@@ -373,65 +525,74 @@ export const useNavStore = create<NavState>((set, get) => ({
   whatsNewHistory: false,
   quickJotOpen: false,
   focusBlock: null,
+  focusBlockGroupId: null,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
   rightSidebarWidth: readStoredRightSidebarWidth(),
   recents: readStoredRecents(),
   backStack: initialTab.backStack,
   forwardStack: initialTab.forwardStack,
-  openInNewTab: (view = { kind: "dashboard" }, { activate = true } = {}) =>
+  groups: initialLayout.groups,
+  focusedGroupId: initialLayout.focusedGroupId,
+  splitRatio: readStoredSplitRatio(),
+  setSplitRatio: (ratio) => {
+    const splitRatio = clampSplitRatio(ratio);
+    preferences.set(STORAGE_KEYS.splitRatio, String(splitRatio));
+    set({ splitRatio });
+  },
+  focusGroup: (groupId) =>
+    set((state) => applyLayout(state, groupModel.focusGroup(layoutOf(state), groupId))),
+  focusGroupAt: (index) => {
+    const group = get().groups[index];
+    if (group) get().focusGroup(group.id);
+  },
+  splitRight: (tabId) =>
     set((state) => {
-      const tab = makeTab(view);
-      const tabs = [...currentTabs(state), tab];
-      return activate ? { tabs, ...showTab(state, tab) } : { tabs };
+      const layout = layoutOf(state);
+      const id = tabId ?? state.activeTabId;
+      const tab = findTab(layout, id);
+      if (!tab) return {};
+      const copy: Tab = { ...tab, id: crypto.randomUUID(), pinned: false };
+      return applyLayout(state, groupModel.splitRight(layout, id, copy));
     }),
+  moveTabToGroup: (tabId, target, toIndex) =>
+    set((state) =>
+      applyLayout(state, groupModel.moveTabToGroup(layoutOf(state), tabId, target, toIndex)),
+    ),
+  openInNewTab: (view = { kind: "dashboard" }, { activate = true } = {}) =>
+    set((state) => applyLayout(state, groupModel.addTab(layoutOf(state), makeTab(view), activate))),
   switchTab: (id) =>
     set((state) => {
       if (id === state.activeTabId) return {};
-      const tabs = currentTabs(state);
-      const tab = tabs.find((t) => t.id === id);
-      return tab ? { tabs, ...showTab(state, tab) } : {};
+      return applyLayout(state, groupModel.activateTab(layoutOf(state), id));
     }),
   cycleTab: (step) =>
-    set((state) => {
-      const tabs = currentTabs(state);
-      if (tabs.length < 2) return {};
-      const index = tabs.findIndex((t) => t.id === state.activeTabId);
-      return { tabs, ...showTab(state, tabs[(index + step + tabs.length) % tabs.length]) };
-    }),
+    set((state) => applyLayout(state, groupModel.cycleTab(layoutOf(state), step))),
   closeTab: (id) =>
     set((state) => {
-      const tabs = currentTabs(state);
-      if (!tabs.some((t) => t.id === id)) return {};
-      forgetScroll(`tab:${id}:`);
-      // Closing the last tab leaves a fresh Dashboard one behind.
-      if (tabs.length === 1) {
-        const tab = makeTab({ kind: "dashboard" });
-        return { tabs: [tab], ...showTab(state, tab) };
-      }
-      const remaining = tabs.filter((t) => t.id !== id);
-      if (id !== state.activeTabId) return { tabs: remaining };
-      const next = tabAfterClose(tabs, id) ?? remaining[0];
-      return { tabs: remaining, ...showTab(state, next) };
+      const before = layoutOf(state);
+      const after = groupModel.closeTab(before, id, () => makeTab({ kind: "dashboard" }));
+      if (after === before) return {};
+      forgetClosedScroll(before, after);
+      return applyLayout(state, after);
     }),
   closeOtherTabs: () =>
     set((state) => {
-      const all = currentTabs(state);
-      const tabs = all.filter((t) => t.id === state.activeTabId || t.pinned);
-      for (const closed of all.filter((t) => !tabs.includes(t))) forgetScroll(`tab:${closed.id}:`);
-      return { tabs };
+      const before = layoutOf(state);
+      const after = groupModel.closeOtherTabs(before, state.activeTabId);
+      forgetClosedScroll(before, after);
+      return applyLayout(state, after);
     }),
   pinTab: (id, pinned) =>
-    set((state) => ({
-      tabs: pinnedFirst(currentTabs(state).map((t) => (t.id === id ? { ...t, pinned } : t))),
-    })),
+    set((state) => applyLayout(state, groupModel.pinTab(layoutOf(state), id, pinned))),
   draggingTabId: null,
   setDraggingTabId: (draggingTabId) => set({ draggingTabId }),
-  reorderTab: (id, toIndex) => set((state) => ({ tabs: moveTab(currentTabs(state), id, toIndex) })),
+  reorderTab: (id, toIndex) =>
+    set((state) => applyLayout(state, groupModel.reorderTab(layoutOf(state), id, toIndex))),
   setView: (view) =>
     set((state) => {
       if (consumeNewTabIntent()) {
-        return { tabs: [...currentTabs(state), makeTab(view)] };
+        return applyLayout(state, groupModel.addTab(layoutOf(state), makeTab(view), false));
       }
       const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
       return { view, activeSpaceId, expandedSpaceIds, ...pushHistory(state, view) };
@@ -488,12 +649,19 @@ export const useNavStore = create<NavState>((set, get) => ({
       expandedSpaceIds,
       recents,
       focusBlock: focus ?? null,
+      focusBlockGroupId: focus ? get().focusedGroupId : null,
       ...pushHistory(get(), view),
     });
   },
   bookmarkSheetId: null,
-  showBookmark: (entityId, spaceId) =>
+  showBookmark: (entityId, spaceId, groupId) =>
     set((state) => {
+      if (groupId && groupId !== state.focusedGroupId) {
+        return {
+          ...inOtherGroup(state, groupId, entityId, stepBackFromBookmark(spaceId)),
+          bookmarkSheetId: entityId,
+        };
+      }
       // Only the entity view opened for this Bookmark steps back. A second call
       // (an effect running twice) must not pop the history again, or it lands
       // on whatever was open before, like the last File page.
@@ -509,9 +677,12 @@ export const useNavStore = create<NavState>((set, get) => ({
       };
     }),
   setBookmarkSheetId: (bookmarkSheetId) => set({ bookmarkSheetId }),
-  showSavedView: (entityId, spaceId, module) =>
+  showSavedView: (entityId, spaceId, module, groupId) =>
     set((state) => {
       const view = viewTarget(module, spaceId, entityId);
+      if (groupId && groupId !== state.focusedGroupId) {
+        return inOtherGroup(state, groupId, entityId, (tab) => ({ ...tab, view }));
+      }
       // Only the entity view opened for this View is replaced, so an effect running
       // twice can't clobber whatever was navigated to since.
       if (state.view.kind !== "entity" || state.view.entityId !== entityId) return {};
@@ -569,6 +740,8 @@ let tabsWriteTimer: ReturnType<typeof setTimeout> | undefined;
 useNavStore.subscribe((state, previous) => {
   if (
     state.tabs === previous.tabs &&
+    state.groups === previous.groups &&
+    state.focusedGroupId === previous.focusedGroupId &&
     state.activeTabId === previous.activeTabId &&
     state.view === previous.view &&
     state.backStack === previous.backStack &&
@@ -579,9 +752,19 @@ useNavStore.subscribe((state, previous) => {
   clearTimeout(tabsWriteTimer);
   tabsWriteTimer = setTimeout(() => {
     const latest = useNavStore.getState();
+    const groups = tabGroups(latest);
     preferences.set(
       STORAGE_KEYS.tabs,
-      JSON.stringify({ activeTabId: latest.activeTabId, tabs: currentTabs(latest) }),
+      JSON.stringify({
+        activeTabId: latest.activeTabId,
+        tabs: groups.flatMap((g) => g.tabs),
+        focusedGroupId: latest.focusedGroupId,
+        groups: groups.map((g) => ({
+          id: g.id,
+          tabIds: g.tabs.map((t) => t.id),
+          activeTabId: g.activeTabId,
+        })),
+      }),
     );
   }, 300);
 });

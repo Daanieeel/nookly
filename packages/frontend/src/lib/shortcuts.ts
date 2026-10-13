@@ -169,6 +169,27 @@ export const SHORTCUT_META = {
     section: "Tabs",
     scopes: GLOBAL,
   },
+  splitRight: {
+    title: "Split right",
+    description: "Open the current tab again in a group on the right, side by side.",
+    synonyms: ["split view", "side by side", "two panes", "editor group"],
+    section: "Tabs",
+    scopes: GLOBAL,
+  },
+  focusLeftGroup: {
+    title: "Focus the left group",
+    description: "Move to the tabs on the left while the view is split.",
+    synonyms: ["split view", "pane", "editor group", "left side"],
+    section: "Tabs",
+    scopes: GLOBAL,
+  },
+  focusRightGroup: {
+    title: "Focus the right group",
+    description: "Move to the tabs on the right while the view is split.",
+    synonyms: ["split view", "pane", "editor group", "right side"],
+    section: "Tabs",
+    scopes: GLOBAL,
+  },
   quickJot: {
     title: "Quick jot",
     description: "Jot a thought down from anywhere. Refine it into a note later.",

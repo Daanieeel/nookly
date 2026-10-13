@@ -2,7 +2,18 @@ import type { HotkeyCallback, RegisterableHotkey } from "@tanstack/hotkeys";
 import { type UseHotkeyOptions, useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 import type { ShortcutName } from "#/lib/shortcuts.ts";
+import { useContext } from "react";
+import { TabGroupContext } from "#/components/tab-group-scope.ts";
+import { useNavStore } from "#/lib/store/nav.ts";
 import { useShortcut, useShortcutMap } from "./use-shortcut.ts";
+
+/// Whether shortcuts registered here may fire: always outside a tab group, and only in
+/// the focused group of a split, so a page open in both answers a key once.
+function useInFocusedGroup(): boolean {
+  const scope = useContext(TabGroupContext);
+  const focusedGroupId = useNavStore((s) => s.focusedGroupId);
+  return scope === null || scope.groupId === focusedGroupId;
+}
 
 /// Other listeners (capture phase handlers, editors) still need to see the event,
 /// and handlers decide for themselves when to swallow the key.
@@ -27,13 +38,14 @@ export function useAppHotkey(
   options: { enabled?: boolean } = {},
 ) {
   const hotkey = useShortcut(name);
+  const active = useInFocusedGroup();
   useHotkey(
     registrable(name, hotkey),
     (event, context) => {
       event.preventDefault();
       callback(event, context);
     },
-    { ...COMMON, ...options, enabled: hotkey !== null && (options.enabled ?? true) },
+    { ...COMMON, ...options, enabled: active && hotkey !== null && (options.enabled ?? true) },
   );
 }
 
@@ -45,10 +57,11 @@ export function useRawHotkey(
   options: { enabled?: boolean } = {},
 ) {
   const hotkey = useShortcut(name);
+  const active = useInFocusedGroup();
   useHotkey(registrable(name, hotkey), callback, {
     ...COMMON,
     ...options,
-    enabled: hotkey !== null && (options.enabled ?? true),
+    enabled: active && hotkey !== null && (options.enabled ?? true),
   });
 }
 
@@ -68,10 +81,11 @@ export function useScreenHotkey(
   options: { enabled?: boolean } = {},
 ) {
   const hotkey = useShortcut(name);
+  const active = useInFocusedGroup();
   useHotkey(registrable(name, hotkey), guarded(callback), {
     ...COMMON,
     ...options,
-    enabled: hotkey !== null && (options.enabled ?? true),
+    enabled: active && hotkey !== null && (options.enabled ?? true),
   });
 }
 
@@ -80,11 +94,15 @@ export function useScreenHotkeys(
   definitions: { shortcut: ShortcutName; callback: HotkeyCallback; options?: UseHotkeyOptions }[],
 ) {
   const map = useShortcutMap();
+  const active = useInFocusedGroup();
   useHotkeys(
     definitions.map(({ shortcut, callback, options }) => ({
       hotkey: registrable(shortcut, map[shortcut]),
       callback: guarded(callback),
-      options: { ...options, enabled: map[shortcut] !== null && (options?.enabled ?? true) },
+      options: {
+        ...options,
+        enabled: active && map[shortcut] !== null && (options?.enabled ?? true),
+      },
     })),
     COMMON,
   );
