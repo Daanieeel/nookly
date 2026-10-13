@@ -11,6 +11,7 @@ import {
   IconPin,
   IconFileCode,
   IconFileImport,
+  IconHighlight,
   IconSettings,
   IconSun,
   IconTrash,
@@ -44,6 +45,7 @@ import { openSettingsFile } from "#/lib/api/settings-file.ts";
 import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
+import { activeEditor } from "#/lib/active-editor.ts";
 import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
 import { type ModuleKey, useNavStore, type View } from "#/lib/store/nav.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
@@ -210,16 +212,17 @@ function SpacePickerItem({
   );
 }
 
-type Category = "create" | "navigate" | "spaces" | "settings";
+type Category = "create" | "text" | "navigate" | "spaces" | "settings";
 
 const CATEGORY_HEADINGS = {
   create: "Create",
+  text: "Text",
   navigate: "Go to",
   spaces: "Spaces",
   settings: "Settings",
 } satisfies Record<Category, string>;
 
-const CATEGORY_ORDER: Category[] = ["create", "navigate", "spaces", "settings"];
+const CATEGORY_ORDER: Category[] = ["create", "text", "navigate", "spaces", "settings"];
 
 interface ActionEntry {
   id: string;
@@ -425,6 +428,11 @@ export function QuickActions({
     );
   }
 
+  // Text commands act on the page the user was just writing in, if text is selected.
+  const lastEditor = activeEditor();
+  const editorWithSelection =
+    lastEditor?.schema.marks.highlight && !lastEditor.state.selection.empty ? lastEditor : null;
+
   // A typed title ("new task buy milk") wins over the bare "New Task" entry.
   const intents = matchQuickCreate(trimmed);
   const entries: ActionEntry[] = [
@@ -451,6 +459,24 @@ export function QuickActions({
               // Opening the dialog closes the palette: overlays never stack.
               useNavStore.getState().setImportOpen(true);
             }),
+          },
+        ]
+      : []),
+    ...(editorWithSelection
+      ? [
+          {
+            id: "highlight-selection",
+            category: "text" as const,
+            words: "Highlight selected text mark marker yellow format",
+            node: simpleItem(
+              "highlight-selection",
+              IconHighlight,
+              "Highlight Selected Text",
+              () => {
+                editorWithSelection.chain().focus().toggleHighlight().run();
+                onDone();
+              },
+            ),
           },
         ]
       : []),

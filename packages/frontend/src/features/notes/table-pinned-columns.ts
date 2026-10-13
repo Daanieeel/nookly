@@ -130,9 +130,7 @@ export const PinnedColumns = Extension.create({
           measurePins(view.dom);
           // The editor's width decides how wide columns get while the table fits.
           const observer =
-            typeof ResizeObserver === "undefined"
-              ? null
-              : new ResizeObserver(() => measurePins(view.dom));
+            "ResizeObserver" in globalThis ? new ResizeObserver(() => measurePins(view.dom)) : null;
           observer?.observe(view.dom);
           return {
             update: () => measurePins(view.dom),

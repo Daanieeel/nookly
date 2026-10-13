@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.21 (2026-10-13)
+
+### Added
+
+- **Highlight text.** Type `==text==` or press `Mod+Shift+H` to highlight a selection, or pick Highlight in the Format menu or the command palette. Highlights work with bold, italic and inline math, and bold with italic no longer comes back with stray asterisks.
+
 ## 0.33.20 (2026-10-13)
 
 ### Added

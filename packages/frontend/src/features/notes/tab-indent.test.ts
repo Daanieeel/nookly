@@ -1,9 +1,12 @@
 import { Editor, type JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
+import type { BlockType } from "#/lib/api/types.ts";
+import { makeBlock } from "#/test/fixtures.ts";
 import { blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { editorExtensions } from "./editor-extensions";
 
 let editor: Editor | null = null;
+const docOf = (target: Editor): JSONNode => target.getJSON();
 afterEach(() => editor?.destroy());
 
 function open(content: JSONContent[]) {
@@ -118,11 +121,11 @@ describe("nested lists", () => {
       { type: "bulletList", attrs: { blockId: "l1" }, content: [item("a"), item("b")] },
     ]);
     expect(press(target, "Tab")).toBe(true);
-    const nested = target.getJSON().content?.[0];
+    const nested = docOf(target).content?.[0];
     expect(nested?.content?.length).toBe(1);
     expect(nested?.content?.[0]?.content?.[1]?.type).toBe("bulletList");
     expect(press(target, "Tab", true)).toBe(true);
-    expect(target.getJSON().content?.[0]?.content?.length).toBe(2);
+    expect(docOf(target).content?.[0]?.content?.length).toBe(2);
   });
 
   // Was a known bug (#89): only the first paragraph of each item was saved, so an item
@@ -161,22 +164,12 @@ describe("nested lists", () => {
 });
 
 describe("a list block's lines", () => {
-  const block = (blockType: string, content: string, attrs: Record<string, string> = {}) => ({
-    id: "l1",
-    entityId: "e",
-    blockType,
-    content,
-    position: 0,
-    language: null,
-    filename: null,
-    attrs,
-    createdAt: "",
-    updatedAt: "",
-  });
-  const roundTrip = (blockType: string, content: string, attrs: Record<string, string> = {}) =>
-    nodeToBlockInput(blockToNode(block(blockType, content, attrs)) as JSONNode)?.content;
+  const block = (blockType: BlockType, content: string, attrs: Record<string, string> = {}) =>
+    makeBlock({ blockType, content, attrs });
+  const roundTrip = (blockType: BlockType, content: string, attrs: Record<string, string> = {}) =>
+    nodeToBlockInput(blockToNode(block(blockType, content, attrs)))?.content;
 
-  it.each(["bulleted_list", "numbered_list"])("keep their nesting in a %s", (type) => {
+  it.each(["bulleted_list", "numbered_list"] as const)("keep their nesting in a %s", (type) => {
     const content = "One\n\tOne a\n\tOne b\n\t\tDeep\nTwo\n\tTwo a";
     expect(roundTrip(type, content)).toBe(content);
   });

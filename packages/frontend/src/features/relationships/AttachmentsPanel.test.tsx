@@ -25,16 +25,14 @@ describe("AttachmentsPanel", () => {
       attached("r5", "c1", "me"),
     ]);
     mockCommand("list_spaces", []);
-    const types: Record<string, string> = {
-      n1: "note",
-      n2: "note",
-      j1: "jot",
-      s1: "session",
-      c1: "course",
-    };
+    const types = { n1: "note", n2: "note", j1: "jot", s1: "session", c1: "course" } as const;
     mockCommandWith("get_entity", (args) => {
       const id = args && "id" in args ? String(args.id) : "";
-      return makeEntity({ id, title: `Item ${id}`, type: types[id] ?? "note" });
+      return makeEntity({
+        id,
+        title: `Item ${id}`,
+        type: Object.entries(types).find(([key]) => key === id)?.[1] ?? "note",
+      });
     });
     renderWithProviders(<AttachmentsPanel entity={me} />);
 

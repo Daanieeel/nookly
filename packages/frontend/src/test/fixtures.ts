@@ -1,5 +1,6 @@
 import type {
   Assignment,
+  Block,
   Bookmark,
   CalendarEntry,
   Entity,
@@ -15,6 +16,22 @@ import type {
 /// Builders for the backend's records, each a valid default with `patch` on top.
 
 const STAMP = "2026-01-01T00:00:00.000Z";
+
+export function makeBlock(patch: Partial<Block> = {}): Block {
+  return {
+    id: "block-1",
+    entityId: "entity-1",
+    position: 0,
+    blockType: "paragraph",
+    content: "",
+    language: null,
+    filename: null,
+    attrs: {},
+    createdAt: STAMP,
+    updatedAt: STAMP,
+    ...patch,
+  };
+}
 
 export function makeEntity(patch: Partial<Entity> = {}): Entity {
   return {
