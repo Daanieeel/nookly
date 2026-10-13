@@ -372,3 +372,20 @@ describe("a source block that cannot be drawn", () => {
     error.mockRestore();
   });
 });
+
+// The `^` that broke a math block left its text in a chip like inline code and the block
+// without its background: the browser had pulled the code out of its <pre>. The editor puts
+// its content in a block element (a <div>), and a <div> inside an inline <code> is what a browser's
+// own editing then rearranges. The code views hold their content in a block, as every other
+// block does.
+describe("where the code of a source block holds its text", () => {
+  it.each(["math", "equation", "diagram", "circuit"] as const)(
+    "is a block element in a %s block, not an inline code element",
+    async (type) => {
+      await open({ type, attrs: { blockId: "b1" }, content: [{ type: "text", text: "x" }] });
+      const holder = document.querySelector("pre.code-block-body > [data-node-view-content]");
+      expect(holder?.tagName).toBe("DIV");
+      expect(document.querySelector("pre.code-block-body code")).toBeNull();
+    },
+  );
+});

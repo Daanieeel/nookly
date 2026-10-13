@@ -159,3 +159,13 @@ describe("formatting pasted code", () => {
     expect(textOf(target)).toBe("fn main(){}");
   });
 });
+
+describe("where a code block holds its text", () => {
+  it("is a block element, like the other blocks, not an inline code element", async () => {
+    const target = open([code("a", "javascript")]);
+    renderWithProviders(<EditorContent editor={target} />);
+    await screen.findByRole("button", { name: "Format code" });
+    const holder = document.querySelector("pre.code-block-body > [data-node-view-content]");
+    expect(holder?.tagName).toBe("DIV");
+  });
+});

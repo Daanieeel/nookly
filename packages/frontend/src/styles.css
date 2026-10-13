@@ -122,10 +122,6 @@
     tab-size: 4;
     overflow-x: auto;
   }
-  .tiptap-content pre.code-block-body code {
-    background: transparent;
-    padding: 0;
-  }
   /* Checklist (`TaskList`): the checkbox sits where a bullet would, and a done
      item recedes rather than disappears. */
   .tiptap-content ul[data-type="taskList"] {
