@@ -11,13 +11,13 @@ describe("the right click Copy ID", () => {
     expect(ids.indexOf("copy-id")).toBe(ids.indexOf("copy-link") + 1);
   });
 
-  it("copies the entity id", async () => {
+  it("copies the readable ID, not the internal one", async () => {
     mockCommand("plugin:clipboard-manager|write_text", null);
     const action = actionsFor("entity").find((a) => a.id === "copy-id");
     if (!action?.run) throw new Error("copy-id is not registered");
     expect(action.group).toBe("share");
     await action.run(
-      { entity: makeEntity({ id: "abc-123" }) },
+      { entity: makeEntity({ id: "abc-123", key: "TSK-12" }) },
       {
         queryClient: new QueryClient(),
         close: () => {},
@@ -26,6 +26,6 @@ describe("the right click Copy ID", () => {
         openDialog: () => {},
       },
     );
-    expect(callsOf("plugin:clipboard-manager|write_text")[0]).toMatchObject({ text: "abc-123" });
+    expect(callsOf("plugin:clipboard-manager|write_text")[0]).toMatchObject({ text: "TSK-12" });
   });
 });

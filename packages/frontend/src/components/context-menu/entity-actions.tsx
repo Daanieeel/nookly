@@ -174,7 +174,7 @@ registerActions("entity", [
     label: "Copy ID",
     icon: IconFingerprint,
     successLabel: "ID copied",
-    run: ({ entity }) => copyText(entity.id),
+    run: ({ entity }) => copyText(entity.key),
   },
   {
     // A page has its own export group (`features/notes/context-actions.tsx`).
