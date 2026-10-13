@@ -4,6 +4,10 @@ All notable changes to Nookly are listed here.
 
 ## 0.33.30 (2026-10-13)
 
+### Fixed
+
+- **Inline code and highlights leave cleanly.** Deleting everything inside one removes it, so the line is plain again, and the arrow keys step out of it at its end and at the start of a line.
+
 ### Added
 
 - **Vim keys in pages.** Turn on Vim keys under Settings, Notes to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.

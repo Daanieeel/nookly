@@ -184,7 +184,7 @@ describe("starting a highlight by typing ==", () => {
   it("shows a gap after the highlight while the caret is outside it, and only then", () => {
     const target = page("==abc==def");
     target.view.dispatch(target.state.tr.setSelection(TextSelection.create(target.state.doc, 4)));
-    const gap = () => target.view.dom.querySelectorAll(".highlight-exit");
+    const gap = () => target.view.dom.querySelectorAll(".mark-exit");
     expect(gap()).toHaveLength(0);
     arrowRight(target);
     expect(gap()).toHaveLength(1);
@@ -219,7 +219,7 @@ describe("starting a highlight by typing ==", () => {
     it("shows the gap between the caret and the highlight", () => {
       const target = atStart();
       arrowLeft(target);
-      const gap = target.view.dom.querySelector(".highlight-exit");
+      const gap = target.view.dom.querySelector(".mark-exit");
       expect(gap).not.toBeNull();
       expect(gap?.closest("mark")).toBeNull();
     });
@@ -254,9 +254,9 @@ describe("starting a highlight by typing ==", () => {
     const target = page("");
     typeInto(target, "==abc");
     arrowRight(target);
-    expect(target.view.dom.querySelectorAll(".highlight-exit")).toHaveLength(1);
+    expect(target.view.dom.querySelectorAll(".mark-exit")).toHaveLength(1);
     typeInto(target, "d");
-    expect(target.view.dom.querySelectorAll(".highlight-exit")).toHaveLength(0);
+    expect(target.view.dom.querySelectorAll(".mark-exit")).toHaveLength(0);
   });
 
   it("steps out of a highlight that text follows in the same way, then moves on", () => {
