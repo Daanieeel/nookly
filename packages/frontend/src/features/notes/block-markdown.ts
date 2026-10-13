@@ -271,13 +271,15 @@ export function blockToNode(block: Block): JSONNode {
     case "bulleted_list":
     case "numbered_list": {
       const listType = block.blockType === "bulleted_list" ? "bulletList" : "orderedList";
+      const marker = block.attrs.marker || null;
+      const start = Math.max(1, Math.floor(Number(block.attrs.start))) || 1;
       return {
         type: listType,
-        attrs:
-          block.blockType === "numbered_list"
-            ? { blockId, marker: block.attrs.marker ?? null }
-            : { blockId },
-        content: listItems(block.content, listType),
+        attrs: block.blockType === "numbered_list" ? { blockId, marker, start } : { blockId },
+        content: listItems(block.content, listType, {
+          marker,
+          nestedStarts: parseNestedStarts(block.attrs.nestedStarts),
+        }),
       };
     }
     case "callout":
@@ -336,35 +338,71 @@ export function blockToNode(block: Block): JSONNode {
 
 const LIST_TYPES = new Set(["bulletList", "orderedList"]);
 
-/// A list's items, one line each, a nested item with one leading tab per level (the
-/// same format the backend reads, `list_items` in `block_types.rs`). Only the first
-/// paragraph of an item and the lists under it are kept.
-function listLines(node: JSONNode, depth = 0): string {
-  return (node.content ?? [])
-    .flatMap((item) => {
+/// What a list saves as: its items, one line each, a nested item with one leading tab per
+/// level (the same format the backend reads, `list_items` in `block_types.rs`), and where each
+/// nested numbered list starts when it is not at one, as `line:start` pairs (the line is the
+/// nested list's first). Only the first paragraph of an item and the lists under it are kept.
+interface ListLines {
+  content: string;
+  nestedStarts: string;
+}
+
+function listLines(node: JSONNode): ListLines {
+  const lines: string[] = [];
+  const starts: string[] = [];
+  const collect = (list: JSONNode, depth: number) => {
+    for (const item of list.content ?? []) {
       const [first, ...rest] = item.content ?? [];
-      const nested = rest
-        .filter((child) => LIST_TYPES.has(child.type))
-        .map((child) => listLines(child, depth + 1))
-        .filter((lines) => lines !== "");
-      return ["\t".repeat(depth) + encodeInline(first?.content), ...nested];
-    })
-    .join("\n");
+      lines.push("\t".repeat(depth) + encodeInline(first?.content));
+      for (const child of rest) {
+        if (!LIST_TYPES.has(child.type) || (child.content ?? []).length === 0) continue;
+        const start = asNumber(child.attrs?.start) ?? 1;
+        if (child.type === "orderedList" && start > 1) starts.push(`${lines.length}:${start}`);
+        collect(child, depth + 1);
+      }
+    }
+  };
+  collect(node, 0);
+  return { content: lines.join("\n"), nestedStarts: starts.join(",") };
+}
+
+/// `line:start` pairs of a saved list, by line.
+function parseNestedStarts(saved: string | undefined): Map<number, number> {
+  const starts = new Map<number, number>();
+  for (const pair of (saved ?? "").split(",")) {
+    const [line, start] = pair.split(":").map(Number);
+    if (Number.isInteger(line) && Number.isInteger(start) && (start ?? 0) > 1) {
+      starts.set(Number(line), Number(start));
+    }
+  }
+  return starts;
 }
 
 /// The inverse of `listLines`: list items with their nested lists. A line nests at most
-/// one level under the line above it, and the first line cannot nest.
-function listItems(content: string, listType: string): JSONNode[] {
+/// one level under the line above it, and the first line cannot nest. A nested numbered list
+/// is counted like the list it is in, from where `nestedStarts` says.
+function listItems(
+  content: string,
+  listType: string,
+  style: { marker: string | null; nestedStarts: Map<number, number> },
+): JSONNode[] {
   const root: JSONNode[] = [];
   // The items of the list at each level, down to the one the last line went into.
   const levels: JSONNode[][] = [root];
-  for (const line of content.length > 0 ? content.split("\n") : [""]) {
+  const lines = content.length > 0 ? content.split("\n") : [""];
+  for (const [index, line] of lines.entries()) {
     const text = line.replace(/^\t+/, "");
     const last = levels[levels.length - 1] ?? root;
     const deepest = last.length > 0 ? levels.length : levels.length - 1;
     const depth = Math.min(line.length - text.length, deepest);
     if (depth === levels.length) {
-      const nested: JSONNode = { type: listType, content: [] };
+      const nested: JSONNode = {
+        type: listType,
+        ...(listType === "orderedList" && {
+          attrs: { marker: style.marker, start: style.nestedStarts.get(index) ?? 1 },
+        }),
+        content: [],
+      };
       (last[last.length - 1]?.content ?? []).push(nested);
       levels.push(nested.content ?? []);
     } else {
@@ -441,15 +479,23 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
         filename: asString(node.attrs?.filename),
       };
     case "bulletList":
-      return { blockId, blockType: "bulleted_list", content: listLines(node) };
-    case "orderedList":
+      return { blockId, blockType: "bulleted_list", content: listLines(node).content };
+    case "orderedList": {
+      const { content, nestedStarts } = listLines(node);
+      const start = asNumber(node.attrs?.start) ?? 1;
       return {
         blockId,
         blockType: "numbered_list",
-        content: listLines(node),
-        // Lettered lists only; `""` keeps a plain list counting 1, 2, 3.
-        attrs: { marker: asString(node.attrs?.marker) ?? "" },
+        content,
+        attrs: {
+          // Lettered lists only; `""` keeps a plain list counting 1, 2, 3.
+          marker: asString(node.attrs?.marker) ?? "",
+          // Where the list starts counting; `""` for one.
+          start: start > 1 ? String(start) : "",
+          nestedStarts,
+        },
       };
+    }
     case "taskList":
       return {
         blockId,
