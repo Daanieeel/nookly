@@ -645,6 +645,23 @@
     background: color-mix(in oklab, #facc15 38%, transparent);
     color: inherit;
   }
+  /* Vim mode (`vim-extension.ts`): in normal and visual mode the caret is a block over the
+     character it is on, so the editor's own caret is hidden. */
+  .tiptap-content.vim-normal,
+  .tiptap-content.vim-visual,
+  .tiptap-content.vim-visual-line {
+    caret-color: transparent;
+  }
+  .tiptap-content .vim-cursor {
+    background: color-mix(in oklab, var(--foreground) 55%, transparent);
+    color: var(--background);
+  }
+  .tiptap-content .vim-cursor-empty::before {
+    content: "\200b";
+    display: inline-block;
+    width: 0.6em;
+    background: color-mix(in oklab, var(--foreground) 55%, transparent);
+  }
   .tiptap-content p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;

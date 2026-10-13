@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.33.30",
+      "date": "2026-10-13",
+      "title": "Edit with Vim keys",
+      "summary": "An optional Vim mode for the page editor.",
+      "highlights": [
+        {
+          "title": "Vim keys in pages",
+          "description": "Turn on **Vim keys in pages** under Settings, Notes. Press `?` in normal mode to see every key.",
+          "icon": "keyboard",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.33.29",
       "date": "2026-10-13",
       "highlights": [],

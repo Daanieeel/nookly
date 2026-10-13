@@ -37,6 +37,7 @@ import { CircuitBlock, Diagram, Equation, MathBlock } from "./source-block-exten
 import { PinnedColumns } from "./table-pinned-columns";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { UniqueBlockId } from "./unique-block-id";
+import { VimMode } from "./vim-extension";
 
 export interface EditorExtensionOptions {
   spaceId: string;
@@ -87,6 +88,7 @@ export function editorExtensions({
     // `cellMinWidth` is the narrowest a column gets before the table scrolls sideways.
     TableKit.configure({ table: { resizable: true, cellMinWidth: 120 } }),
     PinnedColumns,
+    VimMode,
     UniqueBlockId,
     HeadingAnchors,
     ArrowLigatures,

@@ -203,7 +203,10 @@ export function SwitchControl({
   settingId,
   label,
 }: {
-  settingId: Extract<SettingId, "notes.arrowLigatures" | "notes.formatCodeOnPaste">;
+  settingId: Extract<
+    SettingId,
+    "notes.arrowLigatures" | "notes.formatCodeOnPaste" | "notes.vimMode"
+  >;
   label: string;
 }) {
   const [value, setValue] = useSetting(settingId);

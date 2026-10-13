@@ -34,6 +34,7 @@ import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
 import { openLink } from "./open-link";
 import { TableControls } from "./TableControls";
+import { VimIndicator } from "./VimIndicator";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
@@ -546,6 +547,7 @@ function HydratedBlockEditor({
       <TableColumnHandles editor={editor} />
       <BlockHandles editor={editor} />
       <EditorContent editor={editor} />
+      <VimIndicator editor={editor} />
       {pasteFiles.popover}
     </div>
   );
