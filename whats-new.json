@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.33.27",
+      "date": "2026-10-13",
+      "title": "Tidier code",
+      "summary": "Format the code in your notes.",
+      "highlights": [
+        {
+          "title": "Format code blocks",
+          "description": "Tidy a code block with the Format button in its header, or turn on **Format code when pasted** in Settings. Undo brings the old code back.",
+          "icon": "sparkles",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.33.26",
       "date": "2026-10-13",
       "title": "A calendar you can tune",

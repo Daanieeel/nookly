@@ -158,7 +158,7 @@ export function SwitchControl({
   settingId,
   label,
 }: {
-  settingId: Extract<SettingId, "notes.arrowLigatures">;
+  settingId: Extract<SettingId, "notes.arrowLigatures" | "notes.formatCodeOnPaste">;
   label: string;
 }) {
   const [value, setValue] = useSetting(settingId);
