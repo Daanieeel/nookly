@@ -235,7 +235,10 @@
     border-radius: 0.375rem;
     overflow: hidden;
   }
-  .tiptap-content .source-block pre.code-block-body[hidden] {
+  /* The code is hidden by the block's own view, not only by the attribute React puts on it, so a
+     browser that drops the attribute while editing cannot leave it showing next to the preview. */
+  .tiptap-content .source-block pre.code-block-body[hidden],
+  .tiptap-content .source-block:not([data-view="source"]) pre.code-block-body {
     display: none;
   }
   .tiptap-content .source-block-preview {
