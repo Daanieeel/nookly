@@ -67,9 +67,7 @@ function MainContent() {
     case "entity":
       // Keyed so switching between two pages remounts the editor instead of
       // keeping the previous page's hydrated state.
-      return (
-        <EntityDetailRouter key={view.entityId} entityId={view.entityId} />
-      );
+      return <EntityDetailRouter key={view.entityId} entityId={view.entityId} />;
   }
 }
 
@@ -136,9 +134,7 @@ function Shell() {
                 <ErrorBoundary
                   // A view that crashes is dropped when the user navigates elsewhere.
                   resetKeys={[view]}
-                  fallback={(reset) => (
-                    <CrashFallback reset={reset} what="this view" />
-                  )}
+                  fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
                 >
                   <MainContent />
                 </ErrorBoundary>
