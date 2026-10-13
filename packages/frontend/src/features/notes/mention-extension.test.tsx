@@ -6,7 +6,7 @@ import type { Entity } from "#/lib/api/types.ts";
 import { makeEntity, makeSession } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
-import { parseMentionQuery } from "./mention-extension";
+import { parseMentionQuery, rankMentions } from "./mention-extension";
 
 let editor: Editor | null = null;
 afterEach(() => editor?.destroy());
@@ -355,5 +355,26 @@ describe("grouping in the mention menu", () => {
     await waitFor(() =>
       expect(links(target)).toContainEqual({ text: "Report", href: "mention:f1" }),
     );
+  });
+});
+
+describe("rankMentions with accents", () => {
+  // macOS saves file names decomposed (`U` and a combining mark); a keyboard types `\u00dc`.
+  const sheet = makeEntity({
+    id: "f9",
+    type: "file",
+    title: "Analysis: U\u0308bungsblatt 1 - Logik.pdf",
+    key: "FIL-459",
+  });
+  const rank = (query: string) =>
+    rankMentions([sheet], query, () => undefined).map((entity) => entity.id);
+
+  it.each(["\u00dcbungsblatt", "U\u0308bungsblatt", "ubungsblatt", "ubung", "blatt", "Ana"])(
+    "finds it by %s",
+    (query) => expect(rank(query)).toEqual(["f9"]),
+  );
+
+  it("still leaves out what does not match", () => {
+    expect(rank("\u00dcbersicht")).toEqual([]);
   });
 });

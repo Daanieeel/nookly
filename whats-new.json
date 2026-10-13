@@ -1,7 +1,7 @@
 {
   "versions": [
     {
-      "version": "0.33.10",
+      "version": "0.33.11",
       "date": "2026-10-13",
       "title": "Small things, done",
       "summary": "Copy IDs, open embedded files and a handful of fixes.",
@@ -11,7 +11,8 @@
           "Typing after `@` in a page is fast again.",
           "PDFs keep their zoom when you switch tabs, and spreadsheets come back on the same sheet.",
           "Notes keep their scroll position when you switch tabs, and no longer jump to the bottom while loading.",
-          "The Dashboard calendar's date header, current time line and scrollbar no longer show over the corner cutout when scrolled."
+          "The Dashboard calendar's date header, current time line and scrollbar no longer show over the corner cutout when scrolled.",
+          "Searching finds names with accents, so `Ü` or `ubung` finds a file called Übungsblatt in mentions, lists, the Trash and relationship suggestions."
         ],
         "Improved": [
           "Right click any item and choose Copy ID, right below Copy Link, to copy the ID you see on it, like `TSK-12`.",

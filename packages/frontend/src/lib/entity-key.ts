@@ -1,3 +1,4 @@
+import { includesFolded } from "#/lib/text-search.ts";
 const KEY_QUERY = /^([a-z]{3})(?:[\s-]*(\d+)|-)$/i;
 
 /// Whether `query` is typed like an entity key (`TSK-14`, `tsk14`, `tsk 1`) and
@@ -30,8 +31,8 @@ export function matchesTitleOrKey(
   query: string,
   title = entity.title,
 ): boolean {
-  const needle = query.trim().toLowerCase();
-  return !needle || title.toLowerCase().includes(needle) || matchesKey(entity.key, query);
+  const needle = query.trim();
+  return !needle || includesFolded(title, needle) || matchesKey(entity.key, query);
 }
 
 /// cmdk `keywords` for an entity row, so `TSK-14` and `tsk14` both match it.
