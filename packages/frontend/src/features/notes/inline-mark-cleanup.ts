@@ -1,7 +1,7 @@
 import { type Editor, Extension, getMarkRange } from "@tiptap/core";
 import Code from "@tiptap/extension-code";
 import type { Mark, MarkType } from "@tiptap/pm/model";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { type EditorState, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 /// The inline marks that draw a box around their text: a highlight and inline code. They are
@@ -88,31 +88,43 @@ export const InlineMarkCleanup = Extension.create({
             return true;
           },
           // The caret has stepped out of a mark but sits at the same spot in the text, so a
-          // small gap, outside the mark, shows where it is.
-          decorations: ({ doc, selection, storedMarks }) => {
-            if (!selection.empty || !storedMarks) return null;
-            const { $from } = selection;
-            const type = boxedTypes(editor).find(
-              (t) => has($from.marks(), t) && !has(storedMarks, t),
-            );
-            if (!type) return null;
+          // small gap, outside the mark, shows where it is, with a caret of our own on its outer
+          // edge (the real one is hidden meanwhile, see `attributes`): where the browser draws
+          // the real one is not ours to choose.
+          decorations: (state) => {
+            const exit = exitOf(editor, state);
+            if (!exit) return null;
             const gap = document.createElement("span");
-            gap.className = "mark-exit";
-            // At the left edge the caret is before the mark and the gap after the caret.
-            const left = !$from.nodeBefore || !has($from.nodeBefore.marks, type);
-            return DecorationSet.create(doc, [
-              Decoration.widget(selection.from, gap, {
-                side: left ? 1 : -1,
+            gap.className = `mark-exit ${exit.left ? "mark-exit-left" : "mark-exit-right"}`;
+            return DecorationSet.create(state.doc, [
+              Decoration.widget(state.selection.from, gap, {
+                side: exit.left ? 1 : -1,
                 marks: [],
-                key: "mark-exit",
+                key: `mark-exit-${exit.left ? "left" : "right"}`,
               }),
             ]);
           },
+          attributes: (state): Record<string, string> =>
+            exitOf(editor, state) ? { class: "mark-exited" } : {},
         },
       }),
     ];
   },
 });
+
+/// The mark the caret has stepped out of, and whether it is the left edge: the caret has no
+/// mark stored that the text under it has. At the start of a line the text after the caret is
+/// the mark's; otherwise it is the text before.
+function exitOf(
+  editor: Editor,
+  { selection, storedMarks }: EditorState,
+): { type: MarkType; left: boolean } | null {
+  if (!selection.empty || !storedMarks) return null;
+  const { $from } = selection;
+  const type = boxedTypes(editor).find((t) => has($from.marks(), t) && !has(storedMarks, t));
+  if (!type) return null;
+  return { type, left: !$from.nodeBefore || !has($from.nodeBefore.marks, type) };
+}
 
 /// A highlight or code that was started (its mark is stored) but not typed in yet: Backspace
 /// takes the start back. Returns whether there was one.
