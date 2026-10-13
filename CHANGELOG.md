@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.24 (2026-10-13)
+
+### Fixed
+
+- **The page lines up with the sidebar.** The main content now starts and ends at the same height as the navigation panel on the left.
+
 ## 0.33.23 (2026-10-13)
 
 ### Added

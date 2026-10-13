@@ -120,8 +120,10 @@ function Shell() {
     >
       <Titlebar />
       {showTabBar && <TabBar />}
-      {/* With the sidebar collapsed the page goes edge to edge: no padding, corners or shadow. */}
-      <div className="group/app flex min-h-0 flex-1 gap-3 p-3 has-[[data-slot=sidebar][data-state=collapsed]]:p-0">
+      {/* With the sidebar collapsed the page goes edge to edge: no padding, corners or shadow.
+          The vertical padding is the floating sidebar's own (`p-2`), so the page and the sidebar
+          panel share their top and bottom edges. */}
+      <div className="group/app flex min-h-0 flex-1 gap-3 px-3 py-2 has-[[data-slot=sidebar][data-state=collapsed]]:p-0">
         <SidebarProvider className="min-h-full">
           <AppSidebar />
           <SidebarInset className="min-h-0 min-w-0">
