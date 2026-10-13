@@ -304,3 +304,19 @@ describe("a file that was unreachable becomes readable again (issue 81)", () => 
     expect(await screen.findByText("/ 2")).toBeTruthy();
   });
 });
+
+describe("PdfViewer across tab switches", () => {
+  it("comes back at the zoom it was left at", async () => {
+    const first = renderWithProviders(viewer());
+    await first.user.click(await screen.findByRole("button", { name: "Zoom In" }));
+    const zoomed = (screen.getByRole("textbox", { name: "Zoom Level" }) as HTMLInputElement).value;
+    expect(zoomed).not.toBe("100");
+    first.unmount();
+
+    renderWithProviders(viewer());
+    await screen.findByText("/ 2");
+    expect((screen.getByRole("textbox", { name: "Zoom Level" }) as HTMLInputElement).value).toBe(
+      zoomed,
+    );
+  });
+});

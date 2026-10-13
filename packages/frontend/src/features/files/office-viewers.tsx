@@ -199,6 +199,9 @@ function mergesOf(sheet: ExcelJS.Worksheet) {
   return { spans, covered };
 }
 
+/// The sheet each workbook was left on, so coming back to its tab shows the same one.
+const rememberedSheet = new Map<string, number>();
+
 /// Excel workbooks as a grid, one tab per sheet: values, fonts, fills, alignment,
 /// column widths and merged cells. Charts and formulas' logic aren't shown.
 function SheetViewer({
@@ -222,7 +225,10 @@ function SheetViewer({
       return { book, numberType: Excel.ValueType.Number };
     },
   });
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(() => rememberedSheet.get(src) ?? 0);
+  useEffect(() => {
+    rememberedSheet.set(src, active);
+  }, [src, active]);
 
   if (isError) return <ConvertedViewer file={file} name={name} fallback={fallback} />;
   if (!loaded) return <Loading label="Opening spreadsheet…" />;
