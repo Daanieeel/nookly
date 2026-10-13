@@ -25,7 +25,7 @@ export function CalendarPanel({ now, className }: { now: Date; className?: strin
   return (
     <section aria-label="Calendar" className={cn("flex min-w-0 flex-col", className)}>
       {/* The grid fills the box without adding to the row's height, which the left column sets. */}
-      <div className="relative min-h-[825px] flex-1">
+      <div className="relative min-h-200 flex-1">
         <div className="absolute inset-0 flex flex-col overflow-hidden rounded-lg border">
           <TimeGrid
             key={today}

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.2 (2026-10-13)
+
+### Changed
+
+- **The Dashboard calendar is a little shorter.** It keeps a minimum height of 800 pixels.
+
 ## 0.33.1 (2026-10-13)
 
 ### Changed
