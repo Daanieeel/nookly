@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.23",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The command palette has a New Tab action, with its shortcut shown next to it."
+        ]
+      }
+    },
+    {
       "version": "0.33.22",
       "date": "2026-10-13",
       "highlights": [],

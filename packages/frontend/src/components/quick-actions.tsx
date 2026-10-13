@@ -9,6 +9,7 @@ import {
   IconLayoutSidebarRight,
   IconMoon,
   IconPin,
+  IconPlus,
   IconFileCode,
   IconFileImport,
   IconHighlight,
@@ -28,6 +29,7 @@ import {
   statusOf,
   statusTextClass,
 } from "#/components/action-feedback.tsx";
+import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { SpaceGlyph, SpotlightItem } from "#/components/spotlight.tsx";
 import {
   Command as PickerCommand,
@@ -449,6 +451,21 @@ export function QuickActions({
           };
         })
       : []),
+    {
+      id: "new-tab",
+      category: "create",
+      words: "New Tab open another tab blank",
+      node: simpleItem(
+        "new-tab",
+        IconPlus,
+        "New Tab",
+        () => {
+          useNavStore.getState().openInNewTab();
+          onDone();
+        },
+        <ShortcutKbd name="newTab" />,
+      ),
+    },
     ...(spaces.length > 0
       ? [
           {
