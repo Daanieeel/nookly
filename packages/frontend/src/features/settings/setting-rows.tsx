@@ -154,6 +154,10 @@ const SETTING_UI = {
     section: "Code",
     control: <SwitchControl settingId="notes.formatCodeOnPaste" label="Format code when pasted" />,
   },
+  "notes.vimMode": {
+    section: "Editing",
+    control: <SwitchControl settingId="notes.vimMode" label="Vim keys in pages" />,
+  },
   "notes.arrowLigatures": {
     section: "Editing",
     control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,
