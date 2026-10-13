@@ -106,22 +106,97 @@ describe("indentation is saved", () => {
 });
 
 describe("nested lists", () => {
-  // Reported, not fixed here (#89): `listLines` in `block-markdown.ts` serializes only the
-  // first paragraph of each list item, so what Tab nests under an item is dropped on save.
-  // This test pins that known bug; when it is fixed, flip it to expect "a\nb" with nesting.
-  it("pins the known bug: a list item nested with Tab loses its nesting on save", () => {
-    const item = (text: string): JSONContent => ({
-      type: "listItem",
-      content: [{ type: "paragraph", content: [{ type: "text", text }] }],
-    });
+  const item = (text: string): JSONContent => ({
+    type: "listItem",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  });
+  const stored = (target: Editor) =>
+    nodeToBlockInput(target.getJSON().content?.[0] ?? { type: "doc" });
+
+  it("nests an item under the one above it with Tab, and Shift+Tab takes it back out", () => {
+    const target = open([
+      { type: "bulletList", attrs: { blockId: "l1" }, content: [item("a"), item("b")] },
+    ]);
+    expect(press(target, "Tab")).toBe(true);
+    const nested = target.getJSON().content?.[0];
+    expect(nested?.content?.length).toBe(1);
+    expect(nested?.content?.[0]?.content?.[1]?.type).toBe("bulletList");
+    expect(press(target, "Tab", true)).toBe(true);
+    expect(target.getJSON().content?.[0]?.content?.length).toBe(2);
+  });
+
+  // Was a known bug (#89): only the first paragraph of each item was saved, so an item
+  // nested with Tab vanished when the page was saved.
+  it("saves a nested item as an indented line", () => {
     const target = open([
       { type: "bulletList", attrs: { blockId: "l1" }, content: [item("a"), item("b")] },
     ]);
     press(target, "Tab");
-    const doc: JSONNode = target.getJSON();
-    const nested = doc.content?.[0];
-    expect(nested?.content?.[0]?.content?.length).toBe(2);
-    const saved = nodeToBlockInput(nested ?? { type: "doc" });
-    expect(saved?.content).toBe("a");
+    expect(stored(target)?.content).toBe("a\n\tb");
+  });
+
+  it("keeps focus in the editor when the first item cannot be nested", () => {
+    const target = open([
+      { type: "bulletList", attrs: { blockId: "l1" }, content: [item("only item")] },
+    ]);
+    const before = target.getJSON();
+    expect(press(target, "Tab")).toBe(true);
+    expect(target.getJSON()).toEqual(before);
+    expect(target.getText()).not.toContain("    ");
+  });
+
+  it("keeps focus in the editor for a checklist item too", () => {
+    const target = open([
+      {
+        type: "taskList",
+        attrs: { blockId: "t1" },
+        content: [
+          { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph" }] },
+        ],
+      },
+    ]);
+    expect(press(target, "Tab")).toBe(true);
+    expect(press(target, "Tab", true)).toBe(true);
+  });
+});
+
+describe("a list block's lines", () => {
+  const block = (blockType: string, content: string, attrs: Record<string, string> = {}) => ({
+    id: "l1",
+    entityId: "e",
+    blockType,
+    content,
+    position: 0,
+    language: null,
+    filename: null,
+    attrs,
+    createdAt: "",
+    updatedAt: "",
+  });
+  const roundTrip = (blockType: string, content: string, attrs: Record<string, string> = {}) =>
+    nodeToBlockInput(blockToNode(block(blockType, content, attrs)) as JSONNode)?.content;
+
+  it.each(["bulleted_list", "numbered_list"])("keep their nesting in a %s", (type) => {
+    const content = "One\n\tOne a\n\tOne b\n\t\tDeep\nTwo\n\tTwo a";
+    expect(roundTrip(type, content)).toBe(content);
+  });
+
+  it("read a nested line as a list inside the item above", () => {
+    const node = blockToNode(block("bulleted_list", "One\n\tOne a\nTwo"));
+    expect(node.content?.length).toBe(2);
+    const inner = node.content?.[0]?.content?.[1];
+    expect(inner?.type).toBe("bulletList");
+    expect(inner?.content?.length).toBe(1);
+    const numbered = blockToNode(block("numbered_list", "One\n\tOne a"));
+    expect(numbered.content?.[0]?.content?.[1]?.type).toBe("orderedList");
+  });
+
+  it("never nest deeper than one level below the line above, or on the first line", () => {
+    expect(roundTrip("bulleted_list", "\tStart\n\t\t\tToo deep")).toBe("Start\n\tToo deep");
+  });
+
+  it("leave a flat list as it was", () => {
+    expect(roundTrip("bulleted_list", "a\nb\n\nd")).toBe("a\nb\n\nd");
+    expect(roundTrip("bulleted_list", "")).toBe("");
   });
 });

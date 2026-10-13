@@ -732,7 +732,7 @@ One call per element: a heading, a paragraph, a code block, one list, one table.
 call with a whole document jammed into `--content`. A list is ONE block, not one block per
 item: `bulleted_list` and `numbered_list` content is every item of the list, one per line,
 with no `1. ` or `- ` markers (the editor numbers items within the block, so one block per
-item renders as a column of "1."s). An advisory `warning` flags either mistake, and every
+item renders as a column of "1."s). A leading tab nests an item under the one above it. An advisory `warning` flags either mistake, and every
 list block in `blocks` output carries `display`: the marker each line renders with in the
 editor (`1.`, `2.`, ... or `•`) and `restartsAfterList`, true when the block renders as a new
 list right after another list of the same type. Check it instead of guessing what the GUI shows.

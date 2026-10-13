@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.19 (2026-10-13)
+
+### Fixed
+
+- **Tab indents bullets.** Tab nests a bullet or numbered item under the one above it and Shift+Tab takes it back out, and nested items are now saved with the page instead of being lost. On the first item, Tab no longer jumps focus out of the editor.
+
 ## 0.33.18 (2026-10-13)
 
 ### Fixed

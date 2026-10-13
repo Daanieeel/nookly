@@ -149,18 +149,17 @@ pub fn list_display(block: &Block, previous: Option<&Block>) -> Option<Value> {
     } else {
         block.content.split('\n').collect()
     };
-    let items: Vec<Value> = lines
-        .iter()
-        .enumerate()
-        .map(|(i, text)| {
-            let marker = if numbered {
-                crate::db::block_types::numbered_marker(&block.attrs, i)
-            } else {
-                "•".to_string()
-            };
-            json!({ "ordinal": i + 1, "marker": marker, "text": text })
-        })
-        .collect();
+    let items: Vec<Value> = crate::db::block_types::list_items(
+        &block.attrs,
+        lines.iter().copied(),
+        (!numbered).then_some("•"),
+    )
+    .iter()
+    .enumerate()
+    .map(|(i, item)| {
+        json!({ "ordinal": i + 1, "marker": item.marker, "text": item.text, "depth": item.depth })
+    })
+    .collect();
     let restarts = previous.is_some_and(|p| p.block_type == block.block_type);
     Some(json!({ "items": items, "restartsAfterList": restarts }))
 }

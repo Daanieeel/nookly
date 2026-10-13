@@ -687,6 +687,15 @@ pub fn reorder_blocks(
 /// Every block type's plain-markdown serialization (§5.2/§8) — guarantees a complete,
 /// if not visually polished, export for any block. Custom blocks serialize through
 /// their own `block_types` definition.
+/// A list block as markdown, a nested line indented four spaces per level.
+fn list_to_markdown(block: &Block, bullet: Option<&str>) -> String {
+    block_types::list_items(&block.attrs, block.content.lines(), bullet)
+        .iter()
+        .map(|item| format!("{}{} {}", "    ".repeat(item.depth), item.marker, item.text))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub fn block_to_markdown(block: &Block) -> String {
     if let Some(def) = block_types::lookup(&block.block_type) {
         return (def.to_markdown)(block);
@@ -714,19 +723,8 @@ pub fn block_to_markdown(block: &Block) -> String {
             }
             format!("```{info}\n{}\n```", block.content)
         }
-        "bulleted_list" => block
-            .content
-            .lines()
-            .map(|l| format!("- {l}"))
-            .collect::<Vec<_>>()
-            .join("\n"),
-        "numbered_list" => block
-            .content
-            .lines()
-            .enumerate()
-            .map(|(i, l)| format!("{} {l}", block_types::numbered_marker(&block.attrs, i)))
-            .collect::<Vec<_>>()
-            .join("\n"),
+        "bulleted_list" => list_to_markdown(block, Some("-")),
+        "numbered_list" => list_to_markdown(block, None),
         // `content` is rows joined by "\n", cells within a row joined by "\t"
         // (§ table block), first row is the header — the editor's own storage
         // shape, not markdown; this is the one place it becomes real markdown.
