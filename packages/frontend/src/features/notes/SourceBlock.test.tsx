@@ -319,3 +319,32 @@ describe("custom LaTeX macros in an open page", () => {
     expect(document.querySelector(".katex")).not.toBeNull();
   });
 });
+
+// #124: typing `^` (a dead key on many layouts, which composes with the next key) broke an
+// empty math block in the app. The one difference to a code block, which takes the same keys,
+// was an explicit contenteditable="true" on the code's <pre>, inside the editor's own: a
+// nested editing element for the browser to start a composition in. The code is now
+// editable by being in the editor, like a code block's, and only a hidden one says it is not.
+describe("the editable code of a source block", () => {
+  const pre = () => document.querySelector("pre.code-block-body");
+
+  it.each(["math", "equation", "diagram", "circuit"] as const)(
+    "has no editing element of its own in a %s block",
+    async (type) => {
+      await open({ type, attrs: { blockId: "b1" }, content: [{ type: "text", text: "x" }] });
+      expect(pre()).not.toBeNull();
+      expect(pre()?.hasAttribute("contenteditable")).toBe(false);
+      expect(pre()?.hasAttribute("hidden")).toBe(false);
+    },
+  );
+
+  it("is hidden and not editable while the block shows its preview", async () => {
+    await open({
+      type: "math",
+      attrs: { blockId: "b1", view: "rendered" },
+      content: [{ type: "text", text: "x" }],
+    });
+    expect(pre()?.hasAttribute("hidden")).toBe(true);
+    expect(pre()?.getAttribute("contenteditable")).toBe("false");
+  });
+});

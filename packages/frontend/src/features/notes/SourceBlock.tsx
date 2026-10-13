@@ -200,11 +200,14 @@ export function SourceBlock({
           </fieldset>
         </div>
       </div>
-      {/* Hidden code is not editable either, so the caret has nowhere to go in it. */}
+      {/* The code is editable by being in the editor, like a code block's. Only hidden code says
+          it is not, so the caret has nowhere to go in it: an element of its own that is editable
+          would be a second one inside the editor's, which a browser can start a composition in
+          (the dead key of `^`) instead of the editor. */}
       <pre
         className="code-block-body"
         hidden={view !== "source"}
-        contentEditable={view === "source"}
+        contentEditable={view === "source" ? undefined : false}
       >
         <NodeViewContent<"code"> as="code" />
       </pre>
