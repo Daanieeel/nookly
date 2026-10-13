@@ -169,3 +169,92 @@ describe("restoring before the content is tall enough", () => {
     expect(state.top).toBe(40);
   });
 });
+
+describe("remembering the horizontal scroll too", () => {
+  afterEach(() => vi.useRealTimers());
+
+  /// A scroller that can only scroll as far as its content is big, in both directions.
+  function clamped2d() {
+    const el = scroller();
+    const state = { height: 0, width: 0, top: 0, left: 0 };
+    Object.defineProperty(el.current, "scrollTop", {
+      get: () => state.top,
+      set: (value: number) => {
+        state.top = Math.min(value, state.height);
+      },
+    });
+    Object.defineProperty(el.current, "scrollLeft", {
+      get: () => state.left,
+      set: (value: number) => {
+        state.left = Math.min(value, state.width);
+      },
+    });
+    return { el, state };
+  }
+
+  it("puts a remounted view back at the same column as well as the same row", () => {
+    const first = scroller();
+    const { unmount } = renderHook(() => useRememberedScroll(first, "h:file-a"));
+    first.current.scrollTop = 420;
+    first.current.scrollLeft = 150;
+    first.current.dispatchEvent(new Event("scroll"));
+    unmount();
+
+    const second = scroller();
+    renderHook(() => useRememberedScroll(second, "h:file-a"));
+    expect(second.current.scrollTop).toBe(420);
+    expect(second.current.scrollLeft).toBe(150);
+  });
+
+  it("remembers a view that was only scrolled sideways", () => {
+    const first = scroller();
+    const { unmount } = renderHook(() => useRememberedScroll(first, "h:sideways"));
+    first.current.scrollLeft = 80;
+    first.current.dispatchEvent(new Event("scroll"));
+    unmount();
+
+    const second = scroller();
+    renderHook(() => useRememberedScroll(second, "h:sideways"));
+    expect(second.current.scrollLeft).toBe(80);
+    expect(second.current.scrollTop).toBe(0);
+  });
+
+  it("starts a view nobody scrolled at the left edge, also when the scroller was reused", () => {
+    const el = scroller();
+    const { rerender } = renderHook(({ key }) => useRememberedScroll(el, key), {
+      initialProps: { key: "h:view-1" },
+    });
+    el.current.scrollLeft = 60;
+    el.current.dispatchEvent(new Event("scroll"));
+    rerender({ key: "h:view-2" });
+    expect(el.current.scrollLeft).toBe(0);
+    rerender({ key: "h:view-1" });
+    expect(el.current.scrollLeft).toBe(60);
+  });
+
+  it("keeps trying until the content is wide enough, even when it is tall enough at once", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    const seed = scroller();
+    const first = renderHook(() => useRememberedScroll(seed, "h:wide"));
+    seed.current.scrollTop = 200;
+    seed.current.scrollLeft = 300;
+    seed.current.dispatchEvent(new Event("scroll"));
+    first.unmount();
+
+    const { el, state } = clamped2d();
+    state.height = 1000;
+    state.width = 0;
+    renderHook(() => useRememberedScroll(el, "h:wide"));
+    expect(state.top).toBe(200);
+    expect(state.left).toBe(0);
+    // The restore's own clamped scroll must not overwrite what was remembered.
+    el.current.dispatchEvent(new Event("scroll"));
+
+    state.width = 900;
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(state.top).toBe(200);
+    expect(state.left).toBe(300);
+  });
+});
