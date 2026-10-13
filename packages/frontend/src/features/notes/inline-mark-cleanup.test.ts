@@ -163,6 +163,15 @@ describe.each(MARKS)("inline $name", ({ name, wrap, tag }) => {
       expect(stored(target)).toBe(`${wrap("abc")}x`);
     });
 
+    it("adds nothing at the end of the line on the arrow after that either", () => {
+      const target = page(wrap("abc"));
+      select(target, 4);
+      key(target, "ArrowRight");
+      key(target, "ArrowRight");
+      expect(target.state.doc.textContent).toBe("abc");
+      expect(stored(target)).toBe(wrap("abc"));
+    });
+
     it("shows a gap outside the mark while the caret is out, and only then", () => {
       const target = page(`${wrap("abc")}def`);
       select(target, 4);
