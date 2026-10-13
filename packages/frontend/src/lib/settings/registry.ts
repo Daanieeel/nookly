@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BACKUP_KEEP } from "#/lib/api/backup.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
+import { DEFAULT_LATEX_MACROS, serializeLatexMacros } from "#/lib/latex-macros.ts";
 import {
   SHORTCUT_META,
   SHORTCUT_NAMES,
@@ -418,7 +419,7 @@ export const SETTINGS = {
     category: "notes",
     title: "LaTeX macros",
     description:
-      "Your own LaTeX commands, one \\newcommand per definition, for every math block and inline formula in every Space. A command can take arguments, like \\newcommand{\\abs}[1]{\\left|#1\\right|}.",
+      "Your own LaTeX commands, for every math block and inline formula in every Space. It starts with a few common ones, like \\abs and \\norm.",
     synonyms: [
       "latex",
       "katex",
@@ -432,7 +433,7 @@ export const SETTINGS = {
       "custom",
       "notes",
     ],
-    default: "",
+    default: serializeLatexMacros(DEFAULT_LATEX_MACROS),
     schema: z.string().max(20_000),
   }),
   "notes.vimMode": define({

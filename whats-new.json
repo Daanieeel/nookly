@@ -37,7 +37,7 @@
       "highlights": [
         {
           "title": "Your own LaTeX commands",
-          "description": "Add your own commands under Settings, Editor, LaTeX, each with a live preview, and use them in every formula.",
+          "description": "Add your own commands under Settings, Editor, LaTeX, each with a live preview, starting with a few common ones, and use them in every formula.",
           "icon": "sparkles",
           "tag": "New"
         }

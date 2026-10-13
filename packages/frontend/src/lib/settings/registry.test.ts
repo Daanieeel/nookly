@@ -1,3 +1,4 @@
+import { parseLatexMacros } from "#/lib/latex-macros.ts";
 import { describe, expect, it } from "vitest";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 import { SHORTCUT_META, SHORTCUT_NAMES, shortcutSettingId } from "#/lib/shortcuts.ts";
@@ -49,6 +50,8 @@ describe("settings registry", () => {
         if ((id === "backup.auto" || id === "notes.arrowLigatures") && junk === false) {
           continue;
         }
+        // No macros at all is a value of its own, not garbage.
+        if (id === "notes.latexMacros" && junk === "") continue;
         // A shortcut's null means unassigned, which is a value of its own.
         if (id.startsWith("shortcuts.") && junk === null) continue;
         expect(def.parse(junk)).toEqual(def.default);
@@ -117,6 +120,14 @@ describe("settings registry", () => {
     for (const ok of ["low", "default", "high"]) expect(intensity.parse(ok)).toBe(ok);
     expect(intensity.parse("max")).toBe("default");
     expect(intensity.parse(3)).toBe("default");
+  });
+
+  it("starts the LaTeX macros with the common ones, which all parse", () => {
+    const { macros, errors } = parseLatexMacros(SETTINGS["notes.latexMacros"].default);
+    expect(errors).toEqual([]);
+    expect(Object.keys(macros)).toEqual(expect.arrayContaining(["\\abs", "\\norm", "\\inner"]));
+    expect(SETTINGS["notes.latexMacros"].parse("")).toBe("");
+    expect(SETTINGS["notes.latexMacros"].parse(5)).toBe(SETTINGS["notes.latexMacros"].default);
   });
 
   it("registers one setting per shortcut, defaulting to its current key", () => {

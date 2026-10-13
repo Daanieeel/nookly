@@ -1,14 +1,15 @@
-import { IconPencil, IconPlus, IconTrash, IconWand } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@nookly/ui/components/dropdown-menu";
 import { Input } from "@nookly/ui/components/input";
+import {
+  PageTabs,
+  PageTabsBar,
+  PageTabsContent,
+  PageTabsList,
+  PageTabsTrigger,
+} from "@nookly/ui/components/page-tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
@@ -23,23 +24,6 @@ import {
 } from "#/lib/latex-macros.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
 import { LatexMacrosControl } from "./setting-controls";
-
-/// Common macros to start from. KaTeX knows `\R`, `\N` and the like already, so these are the
-/// ones it does not.
-const PRESETS: MacroEntry[] = [
-  { name: "\\abs", body: "\\left|#1\\right|", args: 1 },
-  { name: "\\norm", body: "\\left\\lVert #1 \\right\\rVert", args: 1 },
-  { name: "\\floor", body: "\\left\\lfloor #1 \\right\\rfloor", args: 1 },
-  { name: "\\ceil", body: "\\left\\lceil #1 \\right\\rceil", args: 1 },
-  { name: "\\set", body: "\\left\\{ #1 \\right\\}", args: 1 },
-  { name: "\\inner", body: "\\left\\langle #1, #2 \\right\\rangle", args: 2 },
-  { name: "\\vect", body: "\\mathbf{#1}", args: 1 },
-  { name: "\\dd", body: "\\mathrm{d}", args: 0 },
-  { name: "\\E", body: "\\mathbb{E}", args: 0 },
-  { name: "\\Prob", body: "\\mathbb{P}", args: 0 },
-  { name: "\\eps", body: "\\varepsilon", args: 0 },
-  { name: "\\argmax", body: "\\operatorname*{arg\\,max}", args: 0 },
-].map((entry) => ({ ...entry, args: macroArgumentCount(entry.body) }));
 
 /// Placeholders for the arguments of a command in its preview: `\abs{x}`, `\pair{x}{y}`.
 const SAMPLE_ARGUMENTS = ["x", "y", "z", "a", "b", "c", "d", "e", "f"];
@@ -308,7 +292,6 @@ export function LatexMacrosPanel() {
         (e) => e.name.toLowerCase().includes(needle) || e.body.toLowerCase().includes(needle),
       )
     : entries;
-  const presets = PRESETS.filter((p) => !entries.some((e) => e.name === p.name));
 
   function save(entry: MacroEntry) {
     if (editing === "new" || editing === null) write([...entries, entry]);
@@ -317,70 +300,37 @@ export function LatexMacrosPanel() {
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <fieldset aria-label="View" className="flex items-center gap-0.5">
-          {(["list", "raw"] as const).map((view) => (
-            <Button
-              key={view}
-              variant={mode === view ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={mode === view}
-              onClick={() => {
-                setMode(view);
-                setEditing(null);
-              }}
-            >
-              {view === "list" ? "List" : "Raw"}
-            </Button>
-          ))}
-        </fieldset>
+    <PageTabs
+      value={mode}
+      onValueChange={(next) => {
+        setMode(next === "raw" ? "raw" : "list");
+        setEditing(null);
+      }}
+      className="w-full"
+    >
+      <PageTabsBar>
+        <PageTabsList aria-label="View">
+          <PageTabsTrigger value="list">List</PageTabsTrigger>
+          <PageTabsTrigger value="raw">Raw</PageTabsTrigger>
+        </PageTabsList>
         {mode === "list" && (
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Add from presets"
-                      disabled={broken || presets.length === 0}
-                    >
-                      <IconWand />
-                      Presets
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Add from presets</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
-                {presets.map((preset) => (
-                  <DropdownMenuItem key={preset.name} onSelect={() => write([...entries, preset])}>
-                    <code className="font-mono">{preset.name}</code>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {argumentsText(preset.args)}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={broken}
-              onClick={() => setEditing("new")}
-            >
-              <IconPlus />
-              Add macro
-            </Button>
-          </div>
+          <Button
+            variant="default"
+            size="sm"
+            className="mb-1 h-7 shrink-0"
+            disabled={broken}
+            onClick={() => setEditing("new")}
+          >
+            <IconPlus />
+            Add macro
+          </Button>
         )}
-      </div>
+      </PageTabsBar>
 
-      {mode === "raw" ? (
+      <PageTabsContent value="raw">
         <LatexMacrosControl />
-      ) : (
+      </PageTabsContent>
+      <PageTabsContent value="list" className="flex flex-col gap-3">
         <>
           {broken && (
             <div role="alert" className="flex flex-col gap-1.5 rounded-md bg-destructive/10 p-3">
@@ -428,7 +378,7 @@ export function LatexMacrosPanel() {
           )}
           {entries.length === 0 && editing !== "new" && !broken && (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              No macros yet. Add one, or start from the presets.
+              No macros yet. Add one to use it in every formula.
             </p>
           )}
           {entries.length > 0 && shown.length === 0 && (
@@ -461,7 +411,7 @@ export function LatexMacrosPanel() {
             </ul>
           )}
         </>
-      )}
+      </PageTabsContent>
 
       <ConfirmPermanentDialog
         open={deleting !== null}
@@ -476,6 +426,6 @@ export function LatexMacrosPanel() {
           setDeleting(null);
         }}
       />
-    </div>
+    </PageTabs>
   );
 }
