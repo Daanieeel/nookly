@@ -1,6 +1,26 @@
 {
   "versions": [
     {
+      "version": "0.33.13",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Inserting a Math block, Equation, Diagram or Circuit from the slash menu no longer swallows the text above it."
+        ]
+      }
+    },
+    {
+      "version": "0.33.12",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Search lists results that start with what you typed first, so `/in` shows Inline math before headings."
+        ]
+      }
+    },
+    {
       "version": "0.33.11",
       "date": "2026-10-13",
       "title": "Small things, done",

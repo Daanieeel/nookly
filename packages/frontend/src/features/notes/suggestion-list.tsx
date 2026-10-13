@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Input } from "@nookly/ui/components/input";
 import { cn } from "@nookly/ui/lib/utils";
-import { includesFolded } from "#/lib/text-search.ts";
+import { prefixFirst } from "#/lib/text-search.ts";
 
 export interface SuggestionListItem {
   key: string;
@@ -62,8 +62,8 @@ export const SuggestionList = forwardRef<
   }, [searchable]);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? items.filter((item) => includesFolded(item.label, q)) : items;
+    const q = query.trim();
+    return q ? prefixFirst(items, q, (item) => [item.label]) : items;
   }, [items, query]);
 
   useEffect(() => setSelected(0), [visible]);
