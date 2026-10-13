@@ -488,7 +488,8 @@
   }
   /* Pinned columns (`table-pinned-columns.ts`) stick to the left edge while the rest of the
      table scrolls. The wrapper's `data-pinned` says how many; `--pin-n` on the table is how far
-     in from the edge the nth one sticks. The last pinned column casts a soft edge. */
+     in from the edge the nth one sticks, set only on the columns that are pinned (an offset on one
+     that is not would still move it). The last pinned column has a thick right border. */
   .tiptap-content .tableWrapper[data-pinned="1"] tr > :nth-child(-n + 1) {
     position: sticky;
     z-index: 1;
@@ -509,35 +510,50 @@
     position: sticky;
     z-index: 1;
   }
-  .tiptap-content .tableWrapper[data-pinned] tr > :nth-child(1) {
+  .tiptap-content
+    .tableWrapper:is(
+      [data-pinned="1"],
+      [data-pinned="2"],
+      [data-pinned="3"],
+      [data-pinned="4"],
+      [data-pinned="5"]
+    )
+    tr
+    > :nth-child(1) {
     left: var(--pin-1, 0px);
   }
-  .tiptap-content .tableWrapper[data-pinned] tr > :nth-child(2) {
+  .tiptap-content
+    .tableWrapper:is([data-pinned="2"], [data-pinned="3"], [data-pinned="4"], [data-pinned="5"])
+    tr
+    > :nth-child(2) {
     left: var(--pin-2, 0px);
   }
-  .tiptap-content .tableWrapper[data-pinned] tr > :nth-child(3) {
+  .tiptap-content
+    .tableWrapper:is([data-pinned="3"], [data-pinned="4"], [data-pinned="5"])
+    tr
+    > :nth-child(3) {
     left: var(--pin-3, 0px);
   }
-  .tiptap-content .tableWrapper[data-pinned] tr > :nth-child(4) {
+  .tiptap-content .tableWrapper:is([data-pinned="4"], [data-pinned="5"]) tr > :nth-child(4) {
     left: var(--pin-4, 0px);
   }
-  .tiptap-content .tableWrapper[data-pinned] tr > :nth-child(5) {
+  .tiptap-content .tableWrapper:is([data-pinned="5"]) tr > :nth-child(5) {
     left: var(--pin-5, 0px);
   }
   .tiptap-content .tableWrapper[data-pinned="1"] tr > :nth-child(1) {
-    box-shadow: 4px 0 6px -4px color-mix(in oklab, var(--foreground) 30%, transparent);
+    border-right: 3px solid var(--table-border);
   }
   .tiptap-content .tableWrapper[data-pinned="2"] tr > :nth-child(2) {
-    box-shadow: 4px 0 6px -4px color-mix(in oklab, var(--foreground) 30%, transparent);
+    border-right: 3px solid var(--table-border);
   }
   .tiptap-content .tableWrapper[data-pinned="3"] tr > :nth-child(3) {
-    box-shadow: 4px 0 6px -4px color-mix(in oklab, var(--foreground) 30%, transparent);
+    border-right: 3px solid var(--table-border);
   }
   .tiptap-content .tableWrapper[data-pinned="4"] tr > :nth-child(4) {
-    box-shadow: 4px 0 6px -4px color-mix(in oklab, var(--foreground) 30%, transparent);
+    border-right: 3px solid var(--table-border);
   }
   .tiptap-content .tableWrapper[data-pinned="5"] tr > :nth-child(5) {
-    box-shadow: 4px 0 6px -4px color-mix(in oklab, var(--foreground) 30%, transparent);
+    border-right: 3px solid var(--table-border);
   }
   .tiptap-content th {
     /* `--muted` equals `--background` in light mode (both #f2f2f2) — the header row would be
