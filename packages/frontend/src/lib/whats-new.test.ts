@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import data from "../../../../whats-new.json";
 import { ICON_NAMES } from "../features/whats-new/icons.ts";
-import { parseWhatsNew, whatsNewFor } from "./whats-new.ts";
+import { parseWhatsNew, whatsNewFor, whatsNewIssues } from "./whats-new.ts";
 
 const entry = {
   version: "1.2.3",
@@ -68,6 +68,34 @@ describe("parseWhatsNew", () => {
       versions: [{ ...entry, highlights: [{ title: "x", description: "y", tag: "Hot" }] }],
     });
     expect(read).toEqual([]);
+  });
+});
+
+describe("whatsNewIssues", () => {
+  it("is empty when every version is valid", () => {
+    expect(whatsNewIssues({ versions: [entry] })).toEqual([]);
+  });
+
+  it("names each broken version and what is wrong with it", () => {
+    const { summary: _s, ...noSummary } = entry;
+    const issues = whatsNewIssues({
+      versions: [entry, noSummary, { ...entry, version: "2.0.0", date: "yesterday" }],
+    });
+    expect(issues).toHaveLength(2);
+    expect(issues[0]).toContain("1.2.3");
+    expect(issues[0]).toContain("title and summary");
+    expect(issues[1]).toContain("2.0.0");
+    expect(issues[1]).toContain("date");
+  });
+
+  it("reports a version number that cannot be read", () => {
+    expect(whatsNewIssues({ versions: [{ title: "x" }] })[0]).toContain("#1");
+  });
+
+  it("reports the same version listed twice", () => {
+    const issues = whatsNewIssues({ versions: [entry, entry] });
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toContain("twice");
   });
 });
 

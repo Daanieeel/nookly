@@ -37,6 +37,7 @@
     "unused:js": "knip",
     "unused:rust": "cargo machete apps/desktop/src-tauri",
     "unused": "bun run unused:js && bun run unused:rust",
+    "whats-new:check": "bun tools/check-whats-new.ts",
     "version:check": "bun tools/check-version.ts",
     "version:bump": "bun tools/bump-version.ts",
     "version:patch": "bun tools/bump-version.ts patch",

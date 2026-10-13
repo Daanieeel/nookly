@@ -42,6 +42,26 @@ export function parseWhatsNew(data: WhatsNewFile = file): WhatsNewEntry[] {
   });
 }
 
+/// What is wrong with `whats-new.json`, one line per problem, for CI. Empty when the file is
+/// fine; `parseWhatsNew` skips these versions quietly, this says which and why.
+export function whatsNewIssues(data: WhatsNewFile = file): string[] {
+  const seen = new Set<string>();
+  return data.versions.flatMap((candidate, index) => {
+    const raw = (candidate as { version?: unknown }).version;
+    const label = typeof raw === "string" ? raw : `#${index + 1}`;
+    const parsed = entry.safeParse(candidate);
+    if (!parsed.success) {
+      return parsed.error.issues.map((issue) => {
+        const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+        return `${label}: ${path}${issue.message}`;
+      });
+    }
+    if (seen.has(label)) return [`${label}: listed twice`];
+    seen.add(label);
+    return [];
+  });
+}
+
 /// The highlights of one version, and only that version.
 export function whatsNewFor(version: string, data: WhatsNewFile = file): WhatsNewEntry | undefined {
   return parseWhatsNew(data).find((e) => e.version === version);
