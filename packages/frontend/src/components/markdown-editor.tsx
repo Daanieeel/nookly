@@ -3,9 +3,11 @@ import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
+import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { openLink } from "#/features/notes/open-link.ts";
 import { Emoji } from "#/features/notes/emoji-extension.tsx";
+import { Highlight } from "#/features/notes/highlight-extension.ts";
 import { letterListExtensions } from "#/features/notes/ordered-list-extension.ts";
 
 const SAVE_DELAY_MS = 600;
@@ -43,6 +45,7 @@ export function MarkdownEditor({
       ...letterListExtensions,
       Markdown,
       Emoji,
+      Highlight,
       Placeholder.configure({ placeholder }),
     ],
     editorProps: {
@@ -55,6 +58,8 @@ export function MarkdownEditor({
     },
     onBlur: ({ editor: current }) => flush(current.getMarkdown()),
   });
+
+  useEffect(() => (editor ? trackActiveEditor(editor) : undefined), [editor]);
 
   function flush(markdown: string) {
     window.clearTimeout(timer.current);

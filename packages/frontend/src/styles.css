@@ -633,6 +633,18 @@
     text-underline-offset: 2px;
     cursor: pointer;
   }
+  /* Highlight (`==text==`): a marker stroke. Dark text on the light yellow, and the normal
+     text color on a dimmed yellow in dark mode, so both keep their contrast. */
+  .tiptap-content mark {
+    padding: 0 0.125rem;
+    border-radius: 0.25rem;
+    background: #fef08a;
+    color: #1c1917;
+  }
+  :is(.dark) .tiptap-content mark {
+    background: color-mix(in oklab, #facc15 38%, transparent);
+    color: inherit;
+  }
   .tiptap-content p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;

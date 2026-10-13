@@ -60,6 +60,8 @@ describe("moving to the edge of a line with inline math", () => {
         content: content.map((inline) => ({ type: "paragraph", content: inline })),
       },
     });
+    // SAFETY: only `coordsAtPos` is called on the view while the keys are handled, and the
+    // stub gives the plain rectangle it reads.
     vi.spyOn(editor.view, "coordsAtPos").mockImplementation(view.coordsAtPos as never);
     return editor;
   }

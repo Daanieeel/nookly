@@ -57,16 +57,36 @@ export function asNumber(value: JSONAttrValue | undefined): number | undefined {
 }
 
 /// Every inline run this editor round-trips: a mention link (§5.4, same
-/// `[title](mention:id)` shape `mention-utils.ts` already reads), bold, inline
-/// code, then italic — checked in that order since `**bold**` would otherwise be
-/// swallowed by a naive `*italic*` match. Before all of them, an escaped `\$` and
-/// inline math `$…$`: no space just inside either dollar and no digit right after
-/// the closing one, so "$5 and $10" stays text (the pandoc rule).
+/// `[title](mention:id)` shape `mention-utils.ts` already reads), bold and italic
+/// together, bold, a highlight, inline code, then italic — checked in that order since
+/// `**bold**` would otherwise be swallowed by a naive `*italic*` match. Before all of
+/// them, an escaped `\$` and inline math `$…$`: no space just inside either dollar and no
+/// digit right after the closing one, so "$5 and $10" stays text (the pandoc rule). A
+/// highlight is `==text==` with no space just inside either pair, so "a == b" stays text.
 const INLINE_PATTERN =
-  /\\\$|\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\*([^*]+)\*/g;
+  /\\\$|\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)|\[([^\]]+)\]\(([^)]+)\)|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|==(?!\s)(.+?)(?<!\s)==|`([^`]+)`|\*([^*]+)\*/g;
 
-/// Literal dollars are written `\$`, so they never read back as math.
-const unescapeDollars = (text: string) => text.replaceAll("\\$", "$");
+type Mark = NonNullable<JSONNode["marks"]>[number];
+
+/// `nodes` with `marks` added after the marks they have, adjacent text of the same
+/// marks joined back into one run.
+function withMarks(nodes: JSONNode[], ...marks: Mark[]): JSONNode[] {
+  const marked = nodes.map((node) =>
+    node.type === "text" || node.type === "inlineMath"
+      ? { ...node, marks: [...(node.marks ?? []), ...marks] }
+      : node,
+  );
+  return marked.reduce<JSONNode[]>((joined, node) => {
+    const last = joined[joined.length - 1];
+    const same = JSON.stringify(last?.marks) === JSON.stringify(node.marks);
+    if (last?.type === "text" && node.type === "text" && same) {
+      last.text = (last.text ?? "") + (node.text ?? "");
+    } else {
+      joined.push({ ...node });
+    }
+    return joined;
+  }, []);
+}
 
 export function decodeInline(text: string): JSONNode[] {
   if (!text) return [];
@@ -75,23 +95,24 @@ export function decodeInline(text: string): JSONNode[] {
   for (const match of text.matchAll(INLINE_PATTERN)) {
     const index = match.index ?? 0;
     if (index > lastIndex) nodes.push({ type: "text", text: text.slice(lastIndex, index) });
-    const [, latex, linkText, linkHref, boldText, codeText, italicText] = match;
+    const [, latex, linkText, linkHref, boldItalic, boldText, highlightText, codeText, italicText] =
+      match;
     if (match[0] === "\\$") {
       nodes.push({ type: "text", text: "$" });
     } else if (latex !== undefined) {
       nodes.push({ type: "inlineMath", attrs: { latex } });
     } else if (linkText !== undefined) {
-      nodes.push({
-        type: "text",
-        text: unescapeDollars(linkText),
-        marks: [{ type: "link", attrs: { href: linkHref } }],
-      });
+      nodes.push(...withMarks(decodeInline(linkText), { type: "link", attrs: { href: linkHref } }));
+    } else if (boldItalic !== undefined) {
+      nodes.push(...withMarks(decodeInline(boldItalic), { type: "bold" }, { type: "italic" }));
     } else if (boldText !== undefined) {
-      nodes.push({ type: "text", text: unescapeDollars(boldText), marks: [{ type: "bold" }] });
+      nodes.push(...withMarks(decodeInline(boldText), { type: "bold" }));
+    } else if (highlightText !== undefined) {
+      nodes.push(...withMarks(decodeInline(highlightText), { type: "highlight" }));
     } else if (codeText !== undefined) {
       nodes.push({ type: "text", text: codeText, marks: [{ type: "code" }] });
     } else if (italicText !== undefined) {
-      nodes.push({ type: "text", text: unescapeDollars(italicText), marks: [{ type: "italic" }] });
+      nodes.push(...withMarks(decodeInline(italicText), { type: "italic" }));
     }
     lastIndex = index + match[0].length;
   }
@@ -99,23 +120,48 @@ export function decodeInline(text: string): JSONNode[] {
   return nodes;
 }
 
+const hasMark = (node: JSONNode | undefined, type: string) =>
+  node?.marks?.some((m) => m.type === type) ?? false;
+
+/// A run of nodes that are all highlighted, written once as `==…==`. The highlight's
+/// markers hug the text, so spaces at either end of the run go outside them.
+function encodeHighlight(run: JSONNode[]): string {
+  const inner = encodeInline(
+    run.map((node) => ({ ...node, marks: node.marks?.filter((m) => m.type !== "highlight") })),
+  );
+  const [, before = "", body = "", after = ""] = /^(\s*)([\s\S]*?)(\s*)$/.exec(inner) ?? [];
+  return body ? `${before}==${body}==${after}` : inner;
+}
+
 export function encodeInline(nodes: JSONNode[] = []): string {
-  return nodes
-    .map((node) => {
-      if (node.type === "inlineMath") return `$${asString(node.attrs?.latex) ?? ""}$`;
-      if (node.type !== "text") return "";
-      let text = node.text ?? "";
-      const markTypes = new Set((node.marks ?? []).map((m) => m.type));
-      if (markTypes.has("code")) text = `\`${text}\``;
-      else text = text.replaceAll("$", "\\$");
-      if (markTypes.has("bold")) text = `**${text}**`;
-      if (markTypes.has("italic")) text = `*${text}*`;
-      const linkMark = node.marks?.find((m) => m.type === "link");
-      const href = asString(linkMark?.attrs?.href);
-      if (href) text = `[${text}](${href})`;
-      return text;
-    })
-    .join("");
+  const parts: string[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (!node) continue;
+    if (hasMark(node, "highlight")) {
+      let end = i;
+      while (hasMark(nodes[end + 1], "highlight")) end++;
+      parts.push(encodeHighlight(nodes.slice(i, end + 1)));
+      i = end;
+      continue;
+    }
+    if (node.type === "inlineMath") {
+      parts.push(`$${asString(node.attrs?.latex) ?? ""}$`);
+      continue;
+    }
+    if (node.type !== "text") continue;
+    let text = node.text ?? "";
+    const markTypes = new Set((node.marks ?? []).map((m) => m.type));
+    if (markTypes.has("code")) text = `\`${text}\``;
+    else text = text.replaceAll("$", "\\$");
+    if (markTypes.has("bold")) text = `**${text}**`;
+    if (markTypes.has("italic")) text = `*${text}*`;
+    const linkMark = node.marks?.find((m) => m.type === "link");
+    const href = asString(linkMark?.attrs?.href);
+    if (href) text = `[${text}](${href})`;
+    parts.push(text);
+  }
+  return parts.join("");
 }
 
 /// One checklist line: `[ ] ` or `[x] `, then the item's inline markdown.

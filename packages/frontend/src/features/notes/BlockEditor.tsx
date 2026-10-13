@@ -30,6 +30,7 @@ import {
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { newCodeBlockLanguage } from "./default-code-language";
 import { usePasteFiles } from "./paste-files";
+import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
 import { openLink } from "./open-link";
 import { TableControls } from "./TableControls";
@@ -310,6 +311,9 @@ function HydratedBlockEditor({
       debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
     },
   });
+
+  // The palette's text commands act on the page last typed in.
+  useEffect(() => (editor ? trackActiveEditor(editor) : undefined), [editor]);
 
   // Reports the headings after every change to the document, including edits
   // pulled in from outside, but only when the outline itself changed.

@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { afterEach, describe, expect, it } from "vitest";
+import { makeBlock } from "#/test/fixtures.ts";
 import { blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { editorExtensions } from "./editor-extensions";
 import { pinnedColumnCount, togglePinnedColumn } from "./table-pinned-columns";
@@ -8,18 +9,8 @@ import { pinnedColumnCount, togglePinnedColumn } from "./table-pinned-columns";
 let editor: Editor | null = null;
 afterEach(() => editor?.destroy());
 
-const block = (content: string, attrs: Record<string, string> = {}) => ({
-  id: "t1",
-  entityId: "e",
-  blockType: "table",
-  content,
-  position: 0,
-  language: null,
-  filename: null,
-  attrs,
-  createdAt: "",
-  updatedAt: "",
-});
+const block = (content: string, attrs: Record<string, string> = {}) =>
+  makeBlock({ blockType: "table", content, attrs });
 
 function open(attrs: Record<string, string> = {}) {
   editor = new Editor({
@@ -104,7 +95,8 @@ describe("pinned table columns", () => {
 });
 
 describe("saving pinned columns", () => {
-  const saved = (target: Editor) => nodeToBlockInput(target.getJSON().content?.[0] as JSONNode);
+  const docOf = (target: Editor): JSONNode => target.getJSON();
+  const saved = (target: Editor) => nodeToBlockInput(docOf(target).content?.[0] ?? { type: "doc" });
 
   it("keeps the pinned count with the table", () => {
     const target = open({ pinned: "2" });

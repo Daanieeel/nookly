@@ -1,6 +1,7 @@
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconBold,
+  IconHighlight,
   IconClipboard,
   IconCode,
   IconCopyPlus,
@@ -172,6 +173,13 @@ const INLINE_MARKS: InlineMark[] = [
     icon: <IconStrikethrough size={14} />,
     mark: "strike",
     toggle: (c) => c.toggleStrike(),
+  },
+  {
+    id: "highlight",
+    label: "Highlight",
+    icon: <IconHighlight size={14} />,
+    mark: "highlight",
+    toggle: (c) => c.toggleHighlight(),
   },
   {
     id: "code",

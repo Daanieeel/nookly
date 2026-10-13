@@ -27,6 +27,7 @@ import {
 } from "./custom-block-extensions";
 import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
+import { Highlight } from "./highlight-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
 import { TabIndent } from "./tab-indent-extension";
@@ -89,6 +90,7 @@ export function editorExtensions({
     UniqueBlockId,
     HeadingAnchors,
     ArrowLigatures,
+    Highlight,
     BlockSelection,
     SlashCommand.configure({ getEntities }),
     CodeCompletion,
