@@ -6,7 +6,9 @@ mod commands;
 mod db;
 mod error;
 mod external_calendars;
+mod keychain;
 mod store_guard;
+mod sync;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// The default menu minus "Close Window": its Cmd+W would close the whole app, and
@@ -322,6 +324,11 @@ pub fn run() {
             commands::bookmark_screenshot::capture_bookmark_screenshot,
             commands::cli_install::cli_install_status,
             commands::cli_install::install_cli,
+            commands::sync::sync_query,
+            commands::sync::sync_batch,
+            commands::sync::sync_reindex,
+            commands::sync::sync_refresh_token,
+            commands::sync::sync_set_refresh_token,
             commands::external_calendars::external_calendar_status,
             commands::external_calendars::connect_google_calendar,
             commands::external_calendars::cancel_google_calendar_connect,

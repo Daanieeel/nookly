@@ -10,6 +10,10 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "packages/ui": {},
-    "packages/config": {}
+    "packages/config": {},
+    "packages/shared": {
+      "entry": ["src/**/*.test.ts", "src/*/index.ts", "src/schema.ts"],
+      "project": ["src/**/*.ts"]
+    }
   }
 }

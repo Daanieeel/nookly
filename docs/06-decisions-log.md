@@ -365,3 +365,49 @@ Up to two tab groups sit side by side. The nav store keeps the focused group's t
 - **Narrow windows show one group.** Below twice the 360px minimum, only the focused group shows, with a button to switch.
 
 **Rejected:** more than two groups or vertical splits (more layout to manage than a personal tool needs), a store rewritten around a list of groups with derived live fields (touches every navigation call for no behavior gain), sharing one editor document between groups (a large editor refactor), and blocking the same page from opening twice (VS Code allows it and it is useful for long pages).
+
+---
+
+### Sync: local first, opt in, row records with per field clocks
+
+Each device's SQLite stays the source of truth; the app keeps working fully offline and with no account, and the server is never required. While sync is on, triggers mark changed rows, and every synced row becomes a record with a hybrid logical clock per field and a delete clock (see [sync protocol](development/sync-protocol.md)). Merges are last writer wins per field, as a CRDT, so devices converge in any order; losing concurrent edits go to a conflicts log on both ends.
+
+**Why:** rows already carry stable ids, and a per row record maps to every table without per module code. Triggers catch every write, including the CLI's. Field level clocks keep unrelated edits apart (a title on one device, a due date on another).
+
+**Rejected:** syncing whole entities as documents (every module would need its own serializer), operation logs replayed in order (needs a total order the offline devices don't have), and CRDT text for page bodies (a big dependency for a personal tool; blocks are already rows, which gives block level merges for free).
+
+---
+
+### Sync: one engine in TypeScript for every device
+
+The engine (collect, merge, apply) and the client (push, pull, live updates, backoff) live in `packages/shared` and run unchanged in the desktop's frontend, the mobile app and the tests. The desktop gives it a small SQL command (`sync_query`, `sync_batch`, one transaction with guards) and rebuilds its search index after remote changes.
+
+**Why:** the same code on every device can't disagree about merges, and every behavior is tested once against real SQLite.
+
+**Rejected:** a Rust engine for the desktop and a TypeScript one for mobile (two implementations of the subtlest code to keep identical), and syncing in Rust only (the phone can't run it).
+
+---
+
+### Sync: the desktop schema is the shared schema
+
+A Rust snapshot test writes the synced tables (with their SQL, columns, keys, scope and merge mode), sync's own tables and triggers, seed rows, and the registered entity and relationship types to `packages/shared/src/generated/desktop-schema.json`. The server validates against it, the mobile app builds its database from it. A test fails when a new table is neither synced nor excluded.
+
+**Why:** a new entity, field or table reaches every client by registration on the desktop, with nothing written by hand twice.
+
+---
+
+### Sync: entity keys may collide briefly
+
+Migration 42 makes `idx_entities_key` non unique. Two devices can give new entities the same key offline; after applying, the one created later moves to the next free number, which syncs like any edit.
+
+**Why:** a key is assigned offline and must stay readable (`TSK-14`); refusing the second row would stop sync.
+
+**Rejected:** keys handed out by the server (breaks offline creation), and keys with a device suffix (changes every key users already know).
+
+---
+
+### Files sync as metadata only
+
+A File's row syncs (title, name, URL), its local path and the file itself do not. Later, file content goes to S3 like storage: the server hands out presigned upload and download URLs per file, stored by content hash so a file uploaded twice is stored once, and a device downloads a file when it is opened.
+
+**Why:** attachments are large and binary; the MVP keeps sync small and safe first.

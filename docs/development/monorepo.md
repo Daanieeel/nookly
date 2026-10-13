@@ -2,17 +2,19 @@
 
 Nookly is a [Turborepo](https://turborepo.com) workspace managed with Bun.
 
-| Path                | Package            | Contents                                                                                                  |
-| ------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
-| `apps/desktop`      | `@nookly/desktop`  | The Tauri app: `src-tauri/` (Rust), `index.html`, `vite.config.ts` and the `src/main.tsx` bootstrap.      |
-| `packages/ui`       | `@nookly/ui`       | The design system: primitives in `src/components/`, tokens and theme in `src/styles.css`, fonts, `cn`.    |
-| `packages/frontend` | `@nookly/frontend` | Every other component, feature, hook, store and API client. Shared by the desktop app and any future app. |
-| `packages/config`   | `@nookly/config`   | Shared config: oxlint rules and the anti slop plugin, oxfmt options, TypeScript bases.                    |
-| `tools/`            |                    | Repo scripts (version check and bump).                                                                    |
+| Path                | Package            | Contents                                                                                                                                |
+| ------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/desktop`      | `@nookly/desktop`  | The Tauri app: `src-tauri/` (Rust), `index.html`, `vite.config.ts` and the `src/main.tsx` bootstrap.                                    |
+| `packages/ui`       | `@nookly/ui`       | The design system: primitives in `src/components/`, tokens and theme in `src/styles.css`, fonts, `cn`.                                  |
+| `packages/frontend` | `@nookly/frontend` | Every other component, feature, hook, store and API client. Shared by the desktop app and any future app.                               |
+| `packages/shared`   | `@nookly/shared`   | What every client and the server agree on: the exported desktop schema, the sync engine and protocol, the API client. No React, no DOM. |
+| `packages/config`   | `@nookly/config`   | Shared config: oxlint rules and the anti slop plugin, oxfmt options, TypeScript bases.                                                  |
+| `tools/`            |                    | Repo scripts (version check and bump).                                                                                                  |
 
 ## Where code goes
 
 - A new primitive goes in `packages/ui`. It may only import from `@nookly/ui` and npm packages, never from `@nookly/frontend`.
+- Logic, types and schemas the server, the desktop and the mobile app all need go in `packages/shared`. It imports nothing from the other packages.
 - Everything else goes in `packages/frontend`.
 - `apps/desktop` holds only what is specific to the desktop shell.
 

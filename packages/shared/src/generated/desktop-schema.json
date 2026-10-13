@@ -1,0 +1,3086 @@
+{
+  "entityTypes": [
+    {
+      "description": "A gradeable assignment belonging to exactly one Course.",
+      "entityType": "assignment",
+      "fields": [
+        {
+          "description": "The Course this assignment belongs to (structural: exactly one). Updating it moves the assignment.",
+          "kind": {
+            "entityType": "course",
+            "type": "entity_ref"
+          },
+          "name": "courseId",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "ISO date. Pass null to clear it.",
+          "kind": "date",
+          "name": "dueDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
+          "kind": "integer",
+          "name": "dueSessionOffsetDays",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "A session of the Course the due day follows, instead of its next session, shifted by dueSessionOffsetDays (0 when not given). dueDate reads the resolved day, which follows that session when it moves. Pass null to follow the next session again; setting dueDate drops it too.",
+          "kind": {
+            "entityType": "session",
+            "type": "entity_ref"
+          },
+          "name": "dueSessionId",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Its share of the Course's grade, as a fraction (0.25) or a whole percentage (25). Without one it splits what the weighted work leaves evenly. Pass null to clear it.",
+          "kind": "float",
+          "name": "weight",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Defaults to 'not_started' on creation.",
+          "kind": {
+            "type": "enum",
+            "values": [
+              "not_started",
+              "in_progress",
+              "submitted",
+              "graded"
+            ]
+          },
+          "name": "status",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Grade received.",
+          "kind": "float",
+          "name": "grade",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "ASG",
+      "moduleKeys": [
+        "assignments"
+      ],
+      "relationshipTypes": [
+        "assignment-course",
+        "assignment-due-session",
+        "relates-to"
+      ],
+      "supportsBlocks": true
+    },
+    {
+      "description": "A saved URL with auto-fetched preview metadata.",
+      "entityType": "bookmark",
+      "fields": [
+        {
+          "description": "The bookmarked URL. Metadata (favicon, preview, description) is fetched asynchronously by the GUI; changing the URL clears it until the next fetch.",
+          "kind": "text",
+          "name": "url",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Which fetched image wins for the card's cover, overriding the default (the captured screenshot when present, else the site's og:image). Update only; pass \"\" to clear back to the default.",
+          "kind": {
+            "type": "enum",
+            "values": [
+              "screenshot",
+              "preview"
+            ]
+          },
+          "name": "preferredImage",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "BMK",
+      "moduleKeys": [
+        "bookmarks"
+      ],
+      "relationshipTypes": [
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A single, dated personal calendar occurrence — either one-off, or generated from a calendar_entry_template. Has no required parent, unlike a Session (which must have a Course).",
+      "entityType": "calendar_entry",
+      "fields": [
+        {
+          "description": "ISO date this occurrence falls on.",
+          "kind": "date",
+          "name": "date",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional ISO end date (inclusive) for a multi-day entry. Omit for a single day, \"date\" alone.",
+          "kind": "date",
+          "name": "endDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+          "kind": "text",
+          "name": "startTime",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+          "kind": "text",
+          "name": "endTime",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "An all-day entry with no start/end time. Defaults to true when no times are given, otherwise false.",
+          "kind": "boolean",
+          "name": "allDay",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional free-text location.",
+          "kind": "text",
+          "name": "location",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional free-text description.",
+          "kind": "long_text",
+          "name": "description",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Mark this occurrence cancelled without deleting it.",
+          "kind": "boolean",
+          "name": "cancelled",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "CAL",
+      "moduleKeys": [
+        "calendar"
+      ],
+      "relationshipTypes": [
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A recurring personal calendar entry (daily/weekly/monthly). Use `calendar_entry` to create one-off occurrences (generating occurrences from a template is GUI-only for now). Updating startTime, endTime, allDay, location or description edits the series from applyFromDate on.",
+      "entityType": "calendar_entry_template",
+      "fields": [
+        {
+          "description": "How this calendar entry repeats.",
+          "kind": {
+            "type": "enum",
+            "values": [
+              "daily",
+              "weekly",
+              "monthly"
+            ]
+          },
+          "name": "recurrence",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+          "kind": "text",
+          "name": "startTime",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "\"HH:MM\", 24-hour. Leave out both times for an all-day entry.",
+          "kind": "text",
+          "name": "endTime",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "An all-day entry with no start/end time. Defaults to true when no times are given, otherwise false.",
+          "kind": "boolean",
+          "name": "allDay",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional free-text location.",
+          "kind": "text",
+          "name": "location",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional free-text description.",
+          "kind": "long_text",
+          "name": "description",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "This template's own first occurrence date; later ones follow from it on the chosen cadence.",
+          "kind": "date",
+          "name": "anchorDate",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "On update only: the first occurrence date a startTime, endTime, allDay, location or description change reaches (default today). Earlier occurrences are never rewritten, and occurrences overridden on their own keep their override.",
+          "kind": "date",
+          "name": "applyFromDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "CAL",
+      "moduleKeys": [
+        "calendar"
+      ],
+      "relationshipTypes": [
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A course within a Space, optionally linked to a Semester.",
+      "entityType": "course",
+      "fields": [
+        {
+          "description": "Who teaches the course. Pass null to clear it.",
+          "kind": "text",
+          "name": "professor",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "CRS",
+      "moduleKeys": [
+        "courses",
+        "semesters"
+      ],
+      "relationshipTypes": [
+        "sequel-of",
+        "course-semester",
+        "course-note",
+        "course-notes",
+        "course-jots",
+        "assignment-course",
+        "exam-course",
+        "session-course",
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A graded exam belonging to exactly one Course.",
+      "entityType": "exam",
+      "fields": [
+        {
+          "description": "The Course this exam belongs to (structural: exactly one). Updating it moves the exam.",
+          "kind": {
+            "entityType": "course",
+            "type": "entity_ref"
+          },
+          "name": "courseId",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "ISO date. Pass null to clear it.",
+          "kind": "date",
+          "name": "examDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Weight toward the course grade, as a fraction like 0.2. Pass null to clear it.",
+          "kind": "float",
+          "name": "weight",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Grade received. Pass null to clear it.",
+          "kind": "float",
+          "name": "grade",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Defaults to 'upcoming' on creation.",
+          "kind": {
+            "type": "enum",
+            "values": [
+              "upcoming",
+              "studying",
+              "done"
+            ]
+          },
+          "name": "status",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Where the exam takes place, like \"H 0104\". Pass null to clear it.",
+          "kind": "text",
+          "name": "room",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Start time as 24-hour HH:MM. Without it the exam shows as an all day event on the calendar. Pass null to clear it.",
+          "kind": "text",
+          "name": "examTime",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "EXM",
+      "moduleKeys": [
+        "exams"
+      ],
+      "relationshipTypes": [
+        "exam-course",
+        "deck-exam",
+        "study-block-exam",
+        "relates-to"
+      ],
+      "supportsBlocks": true
+    },
+    {
+      "description": "A file stored in Nookly: imported from disk or downloaded from a link.",
+      "entityType": "file",
+      "fields": [
+        {
+          "description": "Path to a local file to copy in and attach. Exactly one of localPath/url is required on create. On update it replaces the stored copy with a newer version (same entity, labels and relationships; the previous copy stays on disk).",
+          "kind": "text",
+          "name": "localPath",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Path to a local file to reference where it is, without copying it. It follows edits to the original but breaks if that is moved; set copyIntoStorage=true to copy it in.",
+          "kind": "text",
+          "name": "sourcePath",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+          "kind": "boolean",
+          "name": "copyIntoStorage",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "URL of a file to download and store, e.g. a PDF or a Google Drive, Dropbox or iCloud share link (the provider is detected). A URL that is a webpage is refused: make it a bookmark instead. Exactly one of localPath/url is required.",
+          "kind": "text",
+          "name": "url",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "When the file was added. Defaults to the day it was imported or downloaded; editable to correct it, e.g. for files brought in from another tool. Replaces the file's created date outright, so the detail view, lists and sort/group order all agree on it.",
+          "kind": "date",
+          "name": "added",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Update only: true re-runs content extraction for this File, even if it already has search content. For every File missing an index at once, use the `reindex` bulk action instead: nookly cli file reindex [--space <space-id>].",
+          "kind": "boolean",
+          "name": "reindexContent",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "FIL",
+      "moduleKeys": [
+        "files"
+      ],
+      "relationshipTypes": [
+        "attached-file",
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A deck of index cards studied with FSRS spaced repetition, optionally filed under one Exam. Its cards are the `cards` child collection.",
+      "entityType": "index_card_deck",
+      "fields": [
+        {
+          "description": "The Exam this deck prepares for, at most one. Optional; pass an empty value on update to unfile it.",
+          "kind": {
+            "entityType": "exam",
+            "type": "entity_ref"
+          },
+          "name": "examId",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "DCK",
+      "moduleKeys": [
+        "decks"
+      ],
+      "relationshipTypes": [
+        "deck-exam"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A quick, unrefined capture. Link it to the `note` it was refined into via `relates-to`.",
+      "entityType": "jot",
+      "fields": [],
+      "keyPrefix": "JOT",
+      "moduleKeys": [
+        "jots"
+      ],
+      "relationshipTypes": [
+        "relates-to",
+        "session-jot",
+        "course-jots"
+      ],
+      "supportsBlocks": true
+    },
+    {
+      "description": "A free-form page of block content.",
+      "entityType": "note",
+      "fields": [
+        {
+          "description": "The language a new code block in this note starts with, like 'rust' or 'python'. Without one, new code blocks use the app's default language. Pass null to clear it. Existing code blocks are not changed.",
+          "kind": "text",
+          "name": "codeLanguage",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "NOT",
+      "moduleKeys": [
+        "notes"
+      ],
+      "relationshipTypes": [
+        "relates-to",
+        "attached-file",
+        "course-notes",
+        "semester-notes",
+        "session-note"
+      ],
+      "supportsBlocks": true
+    },
+    {
+      "description": "A recipe: banner image, meal kind, an ingredient list and a step list. Duration is a manual override, or (when unset) the sum of the steps' own durationMinutes.",
+      "entityType": "recipe",
+      "fields": [
+        {
+          "description": "Meal kind. Defaults to other.",
+          "kind": {
+            "type": "enum",
+            "values": [
+              "breakfast",
+              "lunch",
+              "dinner",
+              "snack",
+              "dessert",
+              "other"
+            ]
+          },
+          "name": "kind",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Manual override, in minutes. Unset falls back to summing the steps' own durationMinutes — see the read only totalDurationMinutes. Pass an empty value on update to clear it back to automatic.",
+          "kind": "integer",
+          "name": "durationMinutes",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Path to a local image to copy in as the banner, replacing any existing one.",
+          "kind": "text",
+          "name": "bannerPath",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Comma-separated ids from the recipe_tags catalog (a fixed, curated set — see the read only tags field for the full list with name/icon/color; not the generic per-Space Labels). Replaces the recipe's whole tag set; pass an empty value to clear it.",
+          "kind": "text",
+          "name": "tagIds",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "RCP",
+      "moduleKeys": [
+        "recipes"
+      ],
+      "relationshipTypes": [
+        "relates-to",
+        "attached-file"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A Semester groups Courses within a Space.",
+      "entityType": "semester",
+      "fields": [
+        {
+          "description": "Cosmetic only — never used for sorting or 'current' detection (see termType/year).",
+          "kind": "date",
+          "name": "startDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Cosmetic only.",
+          "kind": "date",
+          "name": "endDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Typically one of: winter, spring, summer, fall. Source of truth for ordering.",
+          "kind": "text",
+          "name": "termType",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Source of truth for ordering, alongside termType.",
+          "kind": "integer",
+          "name": "year",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "SEM",
+      "moduleKeys": [
+        "semesters"
+      ],
+      "relationshipTypes": [
+        "course-semester",
+        "semester-notes",
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A single, dated class/meeting occurrence — either one-off, or generated from a session_template.",
+      "entityType": "session",
+      "fields": [
+        {
+          "description": "The Course this session belongs to (structural: exactly one).",
+          "kind": {
+            "entityType": "course",
+            "type": "entity_ref"
+          },
+          "name": "courseId",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "ISO date this occurrence falls on.",
+          "kind": "date",
+          "name": "date",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "\"HH:MM\", 24-hour.",
+          "kind": "text",
+          "name": "startTime",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "\"HH:MM\", 24-hour.",
+          "kind": "text",
+          "name": "endTime",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional free-text location.",
+          "kind": "text",
+          "name": "location",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Mark this occurrence cancelled without deleting it.",
+          "kind": "boolean",
+          "name": "cancelled",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Notes on this occurrence, as markdown. Edited in the Session page.",
+          "kind": "long_text",
+          "name": "notes",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "SES",
+      "moduleKeys": [
+        "sessions"
+      ],
+      "relationshipTypes": [
+        "session-course",
+        "session-jot",
+        "session-note",
+        "assignment-due-session"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A recurring weekly class/meeting slot. Use `session` to create one-off occurrences (generating occurrences from a template is GUI-only for now). Updating startTime, endTime or location edits the series from applyFromDate on.",
+      "entityType": "session_template",
+      "fields": [
+        {
+          "description": "The Course this weekly session belongs to (structural: exactly one).",
+          "kind": {
+            "entityType": "course",
+            "type": "entity_ref"
+          },
+          "name": "courseId",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "0 = Monday .. 6 = Sunday.",
+          "kind": "integer",
+          "name": "weekday",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "\"HH:MM\", 24-hour.",
+          "kind": "text",
+          "name": "startTime",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "\"HH:MM\", 24-hour.",
+          "kind": "text",
+          "name": "endTime",
+          "requiredOnCreate": true,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Optional free-text location.",
+          "kind": "text",
+          "name": "location",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "First date this weekly template is valid from.",
+          "kind": "date",
+          "name": "anchorDate",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "On update only: the first occurrence date a startTime, endTime or location change reaches (default today). Earlier occurrences are never rewritten, and occurrences overridden on their own keep their override.",
+          "kind": "date",
+          "name": "applyFromDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "SES",
+      "moduleKeys": [
+        "sessions"
+      ],
+      "relationshipTypes": [
+        "session-course"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A scheduled block of study time for an Exam.",
+      "entityType": "study_block",
+      "fields": [
+        {
+          "description": "The Exam this study block belongs to (structural: exactly one).",
+          "kind": {
+            "entityType": "exam",
+            "type": "entity_ref"
+          },
+          "name": "examId",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "ISO date. Set at creation only.",
+          "kind": "date",
+          "name": "date",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "\"HH:MM\", 24-hour. Set at creation only.",
+          "kind": "text",
+          "name": "startTime",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "\"HH:MM\", 24-hour. Set at creation only.",
+          "kind": "text",
+          "name": "endTime",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        }
+      ],
+      "keyPrefix": "STB",
+      "moduleKeys": [
+        "exams"
+      ],
+      "relationshipTypes": [
+        "study-block-exam"
+      ],
+      "supportsBlocks": false
+    },
+    {
+      "description": "A one-level-deep child of a Task. Cannot itself have sub-tasks.",
+      "entityType": "sub_task",
+      "fields": [
+        {
+          "description": "Parent task id. Sub-tasks cannot themselves have sub-tasks (one level max).",
+          "kind": {
+            "entityType": "task",
+            "type": "entity_ref"
+          },
+          "name": "parentId",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+          "kind": "text",
+          "name": "statusId",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "ISO date",
+          "kind": "date",
+          "name": "startDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "ISO date",
+          "kind": "date",
+          "name": "dueDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+          "kind": "integer",
+          "name": "effort",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Repeat rule {\"every\": N, \"unit\": \"day\"|\"week\"|\"month\"}, N from 1 to 365. Finishing the task (not cancelling it) creates the next one, due one step after this one. null removes the rule. Also accepted as a JSON string.",
+          "kind": "object",
+          "name": "repeat",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+          "kind": "datetime",
+          "name": "completedAt",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        }
+      ],
+      "keyPrefix": "TSK",
+      "moduleKeys": [
+        "tasks"
+      ],
+      "relationshipTypes": [
+        "sub-task-of",
+        "relates-to",
+        "blocks"
+      ],
+      "supportsBlocks": true
+    },
+    {
+      "description": "A to-do item. Progress rolls up from sub-tasks when any exist.",
+      "entityType": "task",
+      "fields": [
+        {
+          "description": "Setting it turns this task into a sub-task of that task. Only a task without sub-tasks of its own can be converted, and it can't be undone through this field.",
+          "kind": {
+            "entityType": "task",
+            "type": "entity_ref"
+          },
+          "name": "parentId",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Task status id — see `task_statuses` (default: backlog, todo, in_progress, done, cancelled)",
+          "kind": "text",
+          "name": "statusId",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "ISO date",
+          "kind": "date",
+          "name": "startDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "ISO date",
+          "kind": "date",
+          "name": "dueDate",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Effort estimate as Fibonacci points: 1, 2, 3, 5, 8 or 13 (the app shows them as XS, S, M, L, XL, XXL when set to T-shirt sizes)",
+          "kind": "integer",
+          "name": "effort",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Repeat rule {\"every\": N, \"unit\": \"day\"|\"week\"|\"month\"}, N from 1 to 365. Finishing the task (not cancelling it) creates the next one, due one step after this one. null removes the rule. Also accepted as a JSON string.",
+          "kind": "object",
+          "name": "repeat",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Read only. When the status last changed to a finished one (done or cancelled); empty while the task is open",
+          "kind": "datetime",
+          "name": "completedAt",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        }
+      ],
+      "keyPrefix": "TSK",
+      "moduleKeys": [
+        "tasks"
+      ],
+      "relationshipTypes": [
+        "sub-task-of",
+        "relates-to",
+        "blocks"
+      ],
+      "supportsBlocks": true
+    },
+    {
+      "description": "A saved View of a module page (Tasks or Assignments): a name plus the filters and display options to reopen it with.",
+      "entityType": "view",
+      "fields": [
+        {
+          "description": "The module page this View belongs to. Fixed once created.",
+          "kind": {
+            "type": "enum",
+            "values": [
+              "tasks",
+              "assignments",
+              "tasks-overview",
+              "assignments-overview"
+            ]
+          },
+          "name": "module",
+          "requiredOnCreate": true,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+          "kind": "long_text",
+          "name": "config",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Sidebar order among the Space's Views of this module, lowest first. New Views go last.",
+          "kind": "integer",
+          "name": "position",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        }
+      ],
+      "keyPrefix": "VEW",
+      "moduleKeys": [],
+      "relationshipTypes": [
+        "relates-to"
+      ],
+      "supportsBlocks": false
+    }
+  ],
+  "relationshipTypes": [
+    {
+      "description": "Ties an assignment to its course.",
+      "fromType": "assignment",
+      "inverseLabel": "has assignment",
+      "label": "Assignment for course",
+      "name": "assignment-course",
+      "toType": "course"
+    },
+    {
+      "description": "Ties an assignment to the one session its due day follows.",
+      "fromType": "assignment",
+      "inverseLabel": "is the due session of",
+      "label": "Due before session",
+      "name": "assignment-due-session",
+      "toType": "session"
+    },
+    {
+      "description": "A file attached to this item.",
+      "fromType": null,
+      "inverseLabel": "attached to",
+      "label": "Attached file",
+      "name": "attached-file",
+      "toType": null
+    },
+    {
+      "description": "This item has to be done before the other one can move.",
+      "fromType": null,
+      "inverseLabel": "blocked by",
+      "label": "Blocks",
+      "name": "blocks",
+      "toType": null
+    },
+    {
+      "description": "Links jots to a course, any number of them.",
+      "fromType": "course",
+      "inverseLabel": "jots for course",
+      "label": "Jots for course",
+      "name": "course-jots",
+      "toType": "jot"
+    },
+    {
+      "description": "The notes page built into a course, one per course.",
+      "fromType": "course",
+      "inverseLabel": "notes page for course",
+      "label": "Notes page of course",
+      "name": "course-note",
+      "toType": "course_notes"
+    },
+    {
+      "description": "Links regular notes to a course, any number of them.",
+      "fromType": "course",
+      "inverseLabel": "notes for course",
+      "label": "Notes for course",
+      "name": "course-notes",
+      "toType": "note"
+    },
+    {
+      "description": "Puts a course in a semester.",
+      "fromType": "course",
+      "inverseLabel": "has course",
+      "label": "Course in semester",
+      "name": "course-semester",
+      "toType": "semester"
+    },
+    {
+      "description": "Ties a flashcard deck to the exam it prepares for.",
+      "fromType": "index_card_deck",
+      "inverseLabel": "has deck",
+      "label": "Deck for exam",
+      "name": "deck-exam",
+      "toType": "exam"
+    },
+    {
+      "description": "Ties an exam to its course.",
+      "fromType": "exam",
+      "inverseLabel": "has exam",
+      "label": "Exam for course",
+      "name": "exam-course",
+      "toType": "course"
+    },
+    {
+      "description": "A plain link between two items, in either direction.",
+      "fromType": null,
+      "inverseLabel": "related from",
+      "label": "Related to",
+      "name": "relates-to",
+      "toType": null
+    },
+    {
+      "description": "Test type.",
+      "fromType": null,
+      "inverseLabel": "test inverse",
+      "label": "Test",
+      "name": "rtests-one-from-per-to",
+      "toType": null
+    },
+    {
+      "description": "The notes page of a semester.",
+      "fromType": "semester",
+      "inverseLabel": "notes for semester",
+      "label": "Notes for semester",
+      "name": "semester-notes",
+      "toType": "note"
+    },
+    {
+      "description": "Marks a course as the follow-up to another course.",
+      "fromType": "course",
+      "inverseLabel": "prequel-of",
+      "label": "Sequel of",
+      "name": "sequel-of",
+      "toType": "course"
+    },
+    {
+      "description": "Ties a session to the course it belongs to.",
+      "fromType": "session",
+      "inverseLabel": "has session",
+      "label": "Session of course",
+      "name": "session-course",
+      "toType": "course"
+    },
+    {
+      "description": "The jot typed during a session.",
+      "fromType": "session",
+      "inverseLabel": "jot for session",
+      "label": "Jot for session",
+      "name": "session-jot",
+      "toType": "jot"
+    },
+    {
+      "description": "The note written for a session.",
+      "fromType": "session",
+      "inverseLabel": "note for session",
+      "label": "Note for session",
+      "name": "session-note",
+      "toType": "note"
+    },
+    {
+      "description": "Ties a study block to the exam it prepares for.",
+      "fromType": "study_block",
+      "inverseLabel": "has study block",
+      "label": "Study block for exam",
+      "name": "study-block-exam",
+      "toType": "exam"
+    },
+    {
+      "description": "Makes this task a sub-task of another task.",
+      "fromType": "sub_task",
+      "inverseLabel": "has sub-task",
+      "label": "Sub-task of",
+      "name": "sub-task-of",
+      "toType": "task"
+    },
+    {
+      "description": "Test type.",
+      "fromType": null,
+      "inverseLabel": "test inverse",
+      "label": "Test",
+      "name": "test-one-to-per-from",
+      "toType": null
+    }
+  ],
+  "schemaVersion": 42,
+  "seeds": [
+    {
+      "rows": [
+        {
+          "color": "#94a3b8",
+          "doneness": 0,
+          "id": "backlog",
+          "name": "Backlog",
+          "position": 0
+        },
+        {
+          "color": "#ef4444",
+          "doneness": 100,
+          "id": "cancelled",
+          "name": "Cancelled",
+          "position": 4
+        },
+        {
+          "color": "#22c55e",
+          "doneness": 100,
+          "id": "done",
+          "name": "Done",
+          "position": 3
+        },
+        {
+          "color": "#3b82f6",
+          "doneness": 50,
+          "id": "in_progress",
+          "name": "In Progress",
+          "position": 2
+        },
+        {
+          "color": "#64748b",
+          "doneness": 0,
+          "id": "todo",
+          "name": "Todo",
+          "position": 1
+        }
+      ],
+      "table": "task_statuses"
+    },
+    {
+      "rows": [
+        {
+          "color": "#92400e",
+          "icon": "bread",
+          "id": "baking",
+          "name": "Baking",
+          "position": 9
+        },
+        {
+          "color": "#b91c1c",
+          "icon": "beef",
+          "id": "beef",
+          "name": "Beef",
+          "position": 1
+        },
+        {
+          "color": "#f59e0b",
+          "icon": "drumstick",
+          "id": "chicken",
+          "name": "Chicken",
+          "position": 0
+        },
+        {
+          "color": "#db2777",
+          "icon": "cake",
+          "id": "dessert",
+          "name": "Dessert",
+          "position": 10
+        },
+        {
+          "color": "#dc2626",
+          "icon": "flame",
+          "id": "grill",
+          "name": "Grill",
+          "position": 11
+        },
+        {
+          "color": "#ca8a04",
+          "icon": "chef",
+          "id": "pasta",
+          "name": "Pasta",
+          "position": 8
+        },
+        {
+          "color": "#ec4899",
+          "icon": "pig",
+          "id": "pork",
+          "name": "Pork",
+          "position": 2
+        },
+        {
+          "color": "#06b6d4",
+          "icon": "bolt",
+          "id": "quick",
+          "name": "Quick",
+          "position": 13
+        },
+        {
+          "color": "#84cc16",
+          "icon": "salad",
+          "id": "salad",
+          "name": "Salad",
+          "position": 6
+        },
+        {
+          "color": "#0ea5e9",
+          "icon": "fish",
+          "id": "seafood",
+          "name": "Seafood",
+          "position": 3
+        },
+        {
+          "color": "#f97316",
+          "icon": "soup",
+          "id": "soup",
+          "name": "Soup",
+          "position": 7
+        },
+        {
+          "color": "#e11d48",
+          "icon": "pepper",
+          "id": "spicy",
+          "name": "Spicy",
+          "position": 12
+        },
+        {
+          "color": "#15803d",
+          "icon": "seedling",
+          "id": "vegan",
+          "name": "Vegan",
+          "position": 5
+        },
+        {
+          "color": "#22c55e",
+          "icon": "leaf",
+          "id": "vegetarian",
+          "name": "Vegetarian",
+          "position": 4
+        }
+      ],
+      "table": "recipe_tags"
+    }
+  ],
+  "syncIndexes": [
+    "CREATE INDEX idx_sync_conflicts_open ON sync_conflicts(resolved_at, created_at)"
+  ],
+  "syncTables": [
+    "CREATE TABLE sync_conflicts (\n            id TEXT PRIMARY KEY,\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            field TEXT,\n            losing_value TEXT,\n            losing_clock TEXT,\n            winning_clock TEXT,\n            created_at TEXT NOT NULL,\n            resolved_at TEXT\n        )",
+    "CREATE TABLE sync_dirty (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            version INTEGER NOT NULL DEFAULT 1,\n            changed_at INTEGER NOT NULL,\n            PRIMARY KEY (tbl, pk)\n        )",
+    "CREATE TABLE sync_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+    "CREATE TABLE sync_rows (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            dataset TEXT NOT NULL,\n            scope TEXT,\n            fields TEXT NOT NULL,\n            clocks TEXT NOT NULL,\n            deleted_clock TEXT,\n            PRIMARY KEY (tbl, pk)\n        )"
+  ],
+  "syncTriggers": [
+    "CREATE TRIGGER sync_assignments_delete AFTER DELETE ON assignments\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_assignments_insert AFTER INSERT ON assignments\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_assignments_update AFTER UPDATE ON assignments\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'assignments', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_blocks_delete AFTER DELETE ON blocks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('blocks', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_blocks_insert AFTER INSERT ON blocks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('blocks', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_blocks_update AFTER UPDATE ON blocks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('blocks', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'blocks', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_bookmarks_delete AFTER DELETE ON bookmarks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('bookmarks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_bookmarks_insert AFTER INSERT ON bookmarks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('bookmarks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_bookmarks_update AFTER UPDATE ON bookmarks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('bookmarks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'bookmarks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_calendar_entries_delete AFTER DELETE ON calendar_entries\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entries', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_calendar_entries_insert AFTER INSERT ON calendar_entries\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entries', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_calendar_entries_update AFTER UPDATE ON calendar_entries\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entries', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'calendar_entries', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_calendar_entry_templates_delete AFTER DELETE ON calendar_entry_templates\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entry_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_calendar_entry_templates_insert AFTER INSERT ON calendar_entry_templates\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entry_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_calendar_entry_templates_update AFTER UPDATE ON calendar_entry_templates\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entry_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'calendar_entry_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_courses_delete AFTER DELETE ON courses\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('courses', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_courses_insert AFTER INSERT ON courses\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('courses', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_courses_update AFTER UPDATE ON courses\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('courses', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'courses', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entities_delete AFTER DELETE ON entities\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entities', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entities_insert AFTER INSERT ON entities\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entities', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entities_update AFTER UPDATE ON entities\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entities', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'entities', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entity_labels_delete AFTER DELETE ON entity_labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(OLD.entity_id, OLD.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entity_labels_insert AFTER INSERT ON entity_labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(NEW.entity_id, NEW.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entity_labels_update AFTER UPDATE ON entity_labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(NEW.entity_id, NEW.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'entity_labels', json_array(OLD.entity_id, OLD.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.entity_id, OLD.label_id) IS NOT json_array(NEW.entity_id, NEW.label_id)\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_exams_delete AFTER DELETE ON exams\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_exams_insert AFTER INSERT ON exams\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_exams_update AFTER UPDATE ON exams\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'exams', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_files_delete AFTER DELETE ON files\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('files', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_files_insert AFTER INSERT ON files\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('files', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_files_update AFTER UPDATE ON files\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('files', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'files', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_card_decks_delete AFTER DELETE ON index_card_decks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_decks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_card_decks_insert AFTER INSERT ON index_card_decks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_decks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_card_decks_update AFTER UPDATE ON index_card_decks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_decks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'index_card_decks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_card_reviews_delete AFTER DELETE ON index_card_reviews\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_reviews', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_card_reviews_insert AFTER INSERT ON index_card_reviews\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_reviews', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_card_reviews_update AFTER UPDATE ON index_card_reviews\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_reviews', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'index_card_reviews', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_cards_delete AFTER DELETE ON index_cards\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_cards', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_cards_insert AFTER INSERT ON index_cards\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_cards', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_index_cards_update AFTER UPDATE ON index_cards\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_cards', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'index_cards', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_labels_delete AFTER DELETE ON labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('labels', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_labels_insert AFTER INSERT ON labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('labels', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_labels_update AFTER UPDATE ON labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('labels', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'labels', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_note_settings_delete AFTER DELETE ON note_settings\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('note_settings', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_note_settings_insert AFTER INSERT ON note_settings\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('note_settings', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_note_settings_update AFTER UPDATE ON note_settings\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('note_settings', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'note_settings', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_ingredients_delete AFTER DELETE ON recipe_ingredients\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_ingredients', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_ingredients_insert AFTER INSERT ON recipe_ingredients\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_ingredients', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_ingredients_update AFTER UPDATE ON recipe_ingredients\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_ingredients', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'recipe_ingredients', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_steps_delete AFTER DELETE ON recipe_steps\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_steps', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_steps_insert AFTER INSERT ON recipe_steps\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_steps', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_steps_update AFTER UPDATE ON recipe_steps\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_steps', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'recipe_steps', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_tag_links_delete AFTER DELETE ON recipe_tag_links\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tag_links', json_array(OLD.recipe_entity_id, OLD.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_tag_links_insert AFTER INSERT ON recipe_tag_links\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tag_links', json_array(NEW.recipe_entity_id, NEW.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_tag_links_update AFTER UPDATE ON recipe_tag_links\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tag_links', json_array(NEW.recipe_entity_id, NEW.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'recipe_tag_links', json_array(OLD.recipe_entity_id, OLD.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.recipe_entity_id, OLD.tag_id) IS NOT json_array(NEW.recipe_entity_id, NEW.tag_id)\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_tags_delete AFTER DELETE ON recipe_tags\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tags', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_tags_insert AFTER INSERT ON recipe_tags\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tags', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipe_tags_update AFTER UPDATE ON recipe_tags\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tags', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'recipe_tags', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipes_delete AFTER DELETE ON recipes\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipes', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipes_insert AFTER INSERT ON recipes\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipes', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_recipes_update AFTER UPDATE ON recipes\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipes', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'recipes', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_relationships_delete AFTER DELETE ON relationships\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('relationships', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_relationships_insert AFTER INSERT ON relationships\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('relationships', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_relationships_update AFTER UPDATE ON relationships\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('relationships', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'relationships', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_semesters_delete AFTER DELETE ON semesters\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('semesters', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_semesters_insert AFTER INSERT ON semesters\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('semesters', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_semesters_update AFTER UPDATE ON semesters\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('semesters', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'semesters', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_series_slots_delete AFTER DELETE ON series_slots\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('series_slots', json_array(OLD.template_id, OLD.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_series_slots_insert AFTER INSERT ON series_slots\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('series_slots', json_array(NEW.template_id, NEW.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_series_slots_update AFTER UPDATE ON series_slots\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('series_slots', json_array(NEW.template_id, NEW.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'series_slots', json_array(OLD.template_id, OLD.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.template_id, OLD.slot_date) IS NOT json_array(NEW.template_id, NEW.slot_date)\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_session_templates_delete AFTER DELETE ON session_templates\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('session_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_session_templates_insert AFTER INSERT ON session_templates\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('session_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_session_templates_update AFTER UPDATE ON session_templates\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('session_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'session_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_sessions_delete AFTER DELETE ON sessions\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('sessions', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_sessions_insert AFTER INSERT ON sessions\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('sessions', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_sessions_update AFTER UPDATE ON sessions\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('sessions', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'sessions', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_space_modules_delete AFTER DELETE ON space_modules\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('space_modules', json_array(OLD.space_id, OLD.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_space_modules_insert AFTER INSERT ON space_modules\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('space_modules', json_array(NEW.space_id, NEW.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_space_modules_update AFTER UPDATE ON space_modules\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('space_modules', json_array(NEW.space_id, NEW.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'space_modules', json_array(OLD.space_id, OLD.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.space_id, OLD.module_key) IS NOT json_array(NEW.space_id, NEW.module_key)\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_spaces_delete AFTER DELETE ON spaces\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('spaces', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_spaces_insert AFTER INSERT ON spaces\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('spaces', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_spaces_update AFTER UPDATE ON spaces\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('spaces', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'spaces', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_study_blocks_delete AFTER DELETE ON study_blocks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('study_blocks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_study_blocks_insert AFTER INSERT ON study_blocks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('study_blocks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_study_blocks_update AFTER UPDATE ON study_blocks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('study_blocks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'study_blocks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_task_statuses_delete AFTER DELETE ON task_statuses\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('task_statuses', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_task_statuses_insert AFTER INSERT ON task_statuses\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('task_statuses', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_task_statuses_update AFTER UPDATE ON task_statuses\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('task_statuses', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'task_statuses', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_tasks_delete AFTER DELETE ON tasks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('tasks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_tasks_insert AFTER INSERT ON tasks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('tasks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_tasks_update AFTER UPDATE ON tasks\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('tasks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'tasks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_views_delete AFTER DELETE ON views\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('views', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_views_insert AFTER INSERT ON views\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('views', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_views_update AFTER UPDATE ON views\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('views', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'views', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END"
+  ],
+  "tables": [
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "name",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "icon",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "color",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "spaces",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "kind": "none"
+      },
+      "sql": "CREATE TABLE spaces (\n            id TEXT PRIMARY KEY,\n            name TEXT NOT NULL,\n            icon TEXT,\n            color TEXT NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL\n        , position INTEGER NOT NULL DEFAULT 0)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "space_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "module_key",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "added_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "hidden_at",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "space_modules",
+      "pk": [
+        "space_id",
+        "module_key"
+      ],
+      "scope": {
+        "kind": "none"
+      },
+      "sql": "CREATE TABLE space_modules (\n            space_id TEXT NOT NULL REFERENCES spaces(id),\n            module_key TEXT NOT NULL,\n            added_at TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0, hidden_at TEXT,\n            PRIMARY KEY (space_id, module_key)\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "space_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "name",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "color",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "labels",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "kind": "none"
+      },
+      "sql": "CREATE TABLE labels (\n            id TEXT PRIMARY KEY,\n            space_id TEXT NOT NULL REFERENCES spaces(id),\n            name TEXT NOT NULL,\n            color TEXT NOT NULL,\n            created_at TEXT NOT NULL\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "name",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "color",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "doneness",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "task_statuses",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "kind": "none"
+      },
+      "sql": "CREATE TABLE task_statuses (\n            id TEXT PRIMARY KEY,\n            name TEXT NOT NULL,\n            color TEXT NOT NULL,\n            doneness INTEGER NOT NULL,\n            position INTEGER NOT NULL\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "name",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "icon",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "color",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "recipe_tags",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "kind": "none"
+      },
+      "sql": "CREATE TABLE recipe_tags (\n            id TEXT PRIMARY KEY,\n            name TEXT NOT NULL,\n            icon TEXT NOT NULL,\n            color TEXT NOT NULL,\n            position INTEGER NOT NULL\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "space_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "type",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "title",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "icon",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "pinned",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "deleted_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "'ENT'",
+          "name": "key_prefix",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "key_number",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "last_opened_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "hidden_at",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_entities_key ON entities(key_prefix, key_number)",
+        "CREATE INDEX idx_entities_space ON entities(space_id)",
+        "CREATE INDEX idx_entities_type ON entities(type)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "entities",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE entities (\n            id TEXT PRIMARY KEY,\n            space_id TEXT NOT NULL REFERENCES spaces(id),\n            type TEXT NOT NULL,\n            title TEXT NOT NULL,\n            icon TEXT,\n            pinned INTEGER NOT NULL DEFAULT 0,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL,\n            deleted_at TEXT\n        , key_prefix TEXT NOT NULL DEFAULT 'ENT', key_number INTEGER NOT NULL DEFAULT 0, last_opened_at TEXT, hidden_at TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "from_entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "to_entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "relationship_type",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "from_block_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "to_block_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_rel_from ON relationships(from_entity_id, relationship_type)",
+        "CREATE INDEX idx_rel_to ON relationships(to_entity_id, relationship_type)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "relationships",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "from_entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE relationships (\n            id TEXT PRIMARY KEY,\n            from_entity_id TEXT NOT NULL REFERENCES entities(id),\n            to_entity_id TEXT NOT NULL REFERENCES entities(id),\n            relationship_type TEXT NOT NULL,\n            from_block_id TEXT,\n            to_block_id TEXT,\n            created_at TEXT NOT NULL\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "label_id",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "entity_labels",
+      "pk": [
+        "entity_id",
+        "label_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE entity_labels (\n            entity_id TEXT NOT NULL REFERENCES entities(id),\n            label_id TEXT NOT NULL REFERENCES labels(id),\n            PRIMARY KEY (entity_id, label_id)\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "status_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "start_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "due_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "completed_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "effort",
+          "notNull": false,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "repeat_rule",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "tasks",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE tasks (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            status_id TEXT NOT NULL REFERENCES task_statuses(id),\n            start_date TEXT,\n            due_date TEXT\n        , completed_at TEXT, effort INTEGER, repeat_rule TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "block_type",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "content",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "language",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "filename",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "attrs",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_blocks_entity ON blocks(entity_id, position)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "blocks",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE blocks (\n            id TEXT PRIMARY KEY,\n            entity_id TEXT NOT NULL REFERENCES entities(id),\n            position INTEGER NOT NULL,\n            block_type TEXT NOT NULL,\n            content TEXT NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL\n        , language TEXT, filename TEXT, attrs TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "code_language",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "note_settings",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE note_settings (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            code_language TEXT\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "professor",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "room",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "courses",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE courses (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id)\n        , professor TEXT, room TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "start_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "term_type",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "year",
+          "notNull": false,
+          "type": "INTEGER"
+        },
+        {
+          "default": "0",
+          "name": "is_current",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "manual_position",
+          "notNull": false,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "semesters",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE semesters (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id)\n        , start_date TEXT, end_date TEXT, term_type TEXT, year INTEGER, is_current INTEGER NOT NULL DEFAULT 0, manual_position INTEGER)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "weekday",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "start_time",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_time",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "location",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "anchor_date",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "series_end",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "legacy_filled",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "session_templates",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE session_templates (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            weekday INTEGER NOT NULL,\n            start_time TEXT NOT NULL,\n            end_time TEXT NOT NULL,\n            location TEXT,\n            anchor_date TEXT NOT NULL\n        , series_end TEXT, legacy_filled INTEGER NOT NULL DEFAULT 0)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "template_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "date",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "start_time",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_time",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "cancelled",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "location",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "notes",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "overridden_fields",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sessions_template ON sessions(template_id)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "sessions",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE sessions (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            template_id TEXT REFERENCES entities(id),\n            date TEXT NOT NULL,\n            start_time TEXT NOT NULL,\n            end_time TEXT NOT NULL,\n            cancelled INTEGER NOT NULL DEFAULT 0,\n            location TEXT,\n            notes TEXT\n        , overridden_fields INTEGER NOT NULL DEFAULT 0)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "template_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "slot_date",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "series_slots",
+      "pk": [
+        "template_id",
+        "slot_date"
+      ],
+      "scope": {
+        "column": "template_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE series_slots (\n            template_id TEXT NOT NULL,\n            slot_date TEXT NOT NULL,\n            PRIMARY KEY (template_id, slot_date)\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "recurrence",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "start_time",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_time",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "all_day",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "location",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "description",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "anchor_date",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "series_end",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "legacy_filled",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "calendar_entry_templates",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE \"calendar_entry_templates\" (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            recurrence TEXT NOT NULL,\n            start_time TEXT,\n            end_time TEXT,\n            all_day INTEGER NOT NULL DEFAULT 0,\n            location TEXT,\n            description TEXT,\n            anchor_date TEXT NOT NULL\n        , series_end TEXT, legacy_filled INTEGER NOT NULL DEFAULT 0)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "template_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "date",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "start_time",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_time",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "all_day",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": "0",
+          "name": "cancelled",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "location",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "description",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "overridden_fields",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_calendar_entries_template ON calendar_entries(template_id)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "calendar_entries",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE \"calendar_entries\" (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            template_id TEXT REFERENCES entities(id),\n            date TEXT NOT NULL,\n            start_time TEXT,\n            end_time TEXT,\n            all_day INTEGER NOT NULL DEFAULT 0,\n            cancelled INTEGER NOT NULL DEFAULT 0,\n            location TEXT,\n            description TEXT\n        , end_date TEXT, overridden_fields INTEGER NOT NULL DEFAULT 0)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "exam_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "weight",
+          "notNull": false,
+          "type": "REAL"
+        },
+        {
+          "default": null,
+          "name": "grade",
+          "notNull": false,
+          "type": "REAL"
+        },
+        {
+          "default": null,
+          "name": "status",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "room",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "exam_time",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "exams",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE exams (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            exam_date TEXT,\n            weight REAL,\n            grade REAL,\n            status TEXT NOT NULL\n        , room TEXT, exam_time TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "date",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "start_time",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "end_time",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "study_blocks",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE study_blocks (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            date TEXT NOT NULL,\n            start_time TEXT NOT NULL,\n            end_time TEXT NOT NULL\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "due_date",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "status",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "grade",
+          "notNull": false,
+          "type": "REAL"
+        },
+        {
+          "default": null,
+          "name": "due_session_offset_days",
+          "notNull": false,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "weight",
+          "notNull": false,
+          "type": "REAL"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "assignments",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE assignments (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            due_date TEXT,\n            status TEXT NOT NULL,\n            grade REAL\n        , due_session_offset_days INTEGER, weight REAL)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "index_card_decks",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE index_card_decks (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id)\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "deck_entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "front",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "back",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "due_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "'new'",
+          "name": "state",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "stability",
+          "notNull": true,
+          "type": "REAL"
+        },
+        {
+          "default": "0",
+          "name": "difficulty",
+          "notNull": true,
+          "type": "REAL"
+        },
+        {
+          "default": "0",
+          "name": "elapsed_days",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": "0",
+          "name": "scheduled_days",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": "0",
+          "name": "reps",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": "0",
+          "name": "lapses",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "last_review_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "deleted_at",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_index_cards_deck ON index_cards(deck_entity_id)"
+      ],
+      "localColumns": [],
+      "merge": "record",
+      "name": "index_cards",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "deck_entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE index_cards (\n            id TEXT PRIMARY KEY,\n            deck_entity_id TEXT NOT NULL REFERENCES entities(id),\n            front TEXT NOT NULL,\n            back TEXT NOT NULL,\n            due_at TEXT NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL\n        , state TEXT NOT NULL DEFAULT 'new', stability REAL NOT NULL DEFAULT 0, difficulty REAL NOT NULL DEFAULT 0, elapsed_days INTEGER NOT NULL DEFAULT 0, scheduled_days INTEGER NOT NULL DEFAULT 0, reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0, last_review_at TEXT, deleted_at TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "card_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "rating",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "state",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "elapsed_days",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "scheduled_days",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "previous",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "reviewed_at",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_index_card_reviews_card ON index_card_reviews(card_id, reviewed_at)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "index_card_reviews",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "card_id",
+        "kind": "via",
+        "scopeColumn": "deck_entity_id",
+        "table": "index_cards"
+      },
+      "sql": "CREATE TABLE index_card_reviews (\n            id TEXT PRIMARY KEY,\n            card_id TEXT NOT NULL REFERENCES index_cards(id),\n            rating TEXT NOT NULL,\n            state TEXT NOT NULL,\n            elapsed_days INTEGER NOT NULL,\n            scheduled_days INTEGER NOT NULL,\n            previous TEXT NOT NULL,\n            reviewed_at TEXT NOT NULL\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "local_path",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "provider",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "url",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "original_filename",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "source_path",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [
+        "local_path",
+        "source_path"
+      ],
+      "merge": "field",
+      "name": "files",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE files (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            local_path TEXT,\n            provider TEXT,\n            url TEXT,\n            original_filename TEXT\n        , source_path TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "url",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "fetched_title",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "favicon_url",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "preview_image_url",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "description",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "metadata_fetched_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "screenshot_path",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "preferred_image",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [
+        "screenshot_path"
+      ],
+      "merge": "field",
+      "name": "bookmarks",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE bookmarks (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            url TEXT NOT NULL,\n            fetched_title TEXT,\n            favicon_url TEXT,\n            preview_image_url TEXT,\n            description TEXT,\n            metadata_fetched_at TEXT\n        , screenshot_path TEXT, preferred_image TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": "'other'",
+          "name": "kind",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "duration_minutes",
+          "notNull": false,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "banner_path",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [
+        "banner_path"
+      ],
+      "merge": "field",
+      "name": "recipes",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE recipes (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            kind TEXT NOT NULL DEFAULT 'other',\n            duration_minutes INTEGER,\n            banner_path TEXT\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "recipe_entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "text",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "deleted_at",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_recipe_ingredients_recipe ON recipe_ingredients(recipe_entity_id, position)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "recipe_ingredients",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "recipe_entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE recipe_ingredients (\n            id TEXT PRIMARY KEY,\n            recipe_entity_id TEXT NOT NULL REFERENCES entities(id),\n            text TEXT NOT NULL,\n            position INTEGER NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL,\n            deleted_at TEXT\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "recipe_entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "text",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "duration_minutes",
+          "notNull": false,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "created_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "deleted_at",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_recipe_steps_recipe ON recipe_steps(recipe_entity_id, position)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "recipe_steps",
+      "pk": [
+        "id"
+      ],
+      "scope": {
+        "column": "recipe_entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE recipe_steps (\n            id TEXT PRIMARY KEY,\n            recipe_entity_id TEXT NOT NULL REFERENCES entities(id),\n            text TEXT NOT NULL,\n            duration_minutes INTEGER,\n            position INTEGER NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL,\n            deleted_at TEXT\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "recipe_entity_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "tag_id",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "recipe_tag_links",
+      "pk": [
+        "recipe_entity_id",
+        "tag_id"
+      ],
+      "scope": {
+        "column": "recipe_entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE recipe_tag_links (\n            recipe_entity_id TEXT NOT NULL REFERENCES entities(id),\n            tag_id TEXT NOT NULL REFERENCES recipe_tags(id),\n            PRIMARY KEY (recipe_entity_id, tag_id)\n        )"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "module",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "'{}'",
+          "name": "config",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": "0",
+          "name": "position",
+          "notNull": true,
+          "type": "INTEGER"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_views_module ON views(module)"
+      ],
+      "localColumns": [],
+      "merge": "field",
+      "name": "views",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE views (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            module TEXT NOT NULL,\n            config TEXT NOT NULL DEFAULT '{}'\n        , position INTEGER NOT NULL DEFAULT 0)"
+    }
+  ]
+}

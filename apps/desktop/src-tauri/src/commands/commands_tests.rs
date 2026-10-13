@@ -207,6 +207,9 @@ ipc_commands![
     bookmarks::update_bookmark_url,
     bookmarks::set_bookmark_preferred_image,
     cli_install::cli_install_status,
+    sync::sync_query,
+    sync::sync_batch,
+    sync::sync_reindex,
     external_calendars::external_calendar_status,
     external_calendars::cancel_google_calendar_connect,
     external_calendars::connect_icloud_calendar,
@@ -222,6 +225,15 @@ ipc_commands![
 /// covering the part that can run without the real runtime, a network, an
 /// install or the OS keychain.
 const NOT_INVOKED: &[(&str, &str)] = &[
+    // The OS keychain, which tests never touch.
+    (
+        "sync_refresh_token",
+        "sync_refresh_token_has_its_own_keychain_entry",
+    ),
+    (
+        "sync_set_refresh_token",
+        "sync_refresh_token_has_its_own_keychain_entry",
+    ),
     // `AppHandle` (Wry) parameter: the database part each one delegates to.
     ("import_file", "files_import_underlying_db_call"),
     (
@@ -4132,4 +4144,59 @@ fn portable_export_to_an_unwritable_path_is_an_io_error() {
         "Io",
     );
     assert!(!out.exists());
+}
+
+// -------------------------------------------------------------------- sync
+
+#[test]
+fn sync_query_and_batch_run_the_engines_sql() {
+    let h = Harness::new();
+    let done = h.ok(
+        "sync_batch",
+        json!({ "statements": [
+            { "sql": "INSERT INTO sync_meta (key, value) VALUES (?1, ?2)", "params": ["enabled", "1"] },
+            { "sql": "SELECT value FROM sync_meta WHERE key = 'enabled'", "params": [], "expect": "1" },
+        ] }),
+    );
+    assert_eq!(done, json!({ "outcome": "done" }));
+    let stale = h.ok(
+        "sync_batch",
+        json!({ "statements": [
+            { "sql": "DELETE FROM sync_meta", "params": [] },
+            { "sql": "SELECT (SELECT version FROM sync_dirty WHERE tbl = 'x')", "params": [], "expect": 3 },
+        ] }),
+    );
+    assert_eq!(stale, json!({ "outcome": "stale", "index": 1 }));
+    let rows = h.ok(
+        "sync_query",
+        json!({ "sql": "SELECT key, value FROM sync_meta", "params": [] }),
+    );
+    assert_eq!(rows, json!([{ "key": "enabled", "value": "1" }]));
+}
+
+#[test]
+fn sync_reindex_makes_arrived_pages_searchable() {
+    let h = Harness::new();
+    let space = h.space("Work");
+    let note = h.note(&space, "Arrived");
+    h.db(|c| {
+        c.execute(
+            "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at)
+             VALUES ('b1', ?1, 0, 'paragraph', 'synced zebra text', 'now', 'now')",
+            [&note],
+        )
+        .unwrap();
+    });
+    h.ok("sync_reindex", json!({ "entityIds": [note, "missing"] }));
+    let hits = h.db(|c| db::search::search(c, "zebra", None).unwrap());
+    assert!(hits.iter().any(|hit| hit.entity_id == note), "{hits:?}");
+}
+
+#[test]
+fn sync_refresh_token_has_its_own_keychain_entry() {
+    assert_ne!(
+        crate::sync::secrets::SERVICE,
+        "nookly-external-calendars",
+        "a sync sign out must never remove calendar credentials"
+    );
 }

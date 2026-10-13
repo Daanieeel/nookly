@@ -1,0 +1,25 @@
+{
+  "name": "@nookly/shared",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema.ts",
+    "./sync": "./src/sync/index.ts",
+    "./api": "./src/api/index.ts",
+    "./tokens": "./src/tokens.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@nookly/config": "workspace:*",
+    "@types/node": "^22",
+    "vitest": "^5.0.3"
+  }
+}

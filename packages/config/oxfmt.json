@@ -6,6 +6,7 @@
     "packages/config/oxlint/anti-slop/**",
     "CHANGELOG.md",
     "**/snapshots/**",
+    "**/generated/**",
     "**/*.icon/**"
   ]
 }

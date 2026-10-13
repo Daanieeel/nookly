@@ -56,6 +56,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (40, &[]),
     // A new column; nothing existing changes.
     (41, &[]),
+    // Sync tables and triggers; nothing existing changes.
+    (42, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

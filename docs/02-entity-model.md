@@ -19,6 +19,10 @@ Every entity has these fields:
 - Trash is never purged automatically by default. The user empties it by hand. Auto-purge is an opt-in setting.
 - A soft-deleted entity stays visible everywhere it is referenced: relationships, attachments, mentions, and pickers. It renders at reduced opacity. Deleting never removes it from the graph.
 
+## Sync Fields
+
+Sync adds nothing to entity tables. Its state lives beside them, per device: `sync_dirty` (rows changed since the last sync), `sync_rows` (each row as the server last had it, with a clock per field and a delete clock), `sync_conflicts` (edits that lost to newer ones) and `sync_meta` (device id, cursors). A delete syncs as a tombstone, the delete clock, never as a removed record. See [the sync protocol](development/sync-protocol.md).
+
 ## No Version History
 
 There is no git and no durable rollback system. Both were rejected because file attachments would bloat the history (see [the decision](06-decisions-log.md#no-git-backed-local-repo-and-no-version-history)).

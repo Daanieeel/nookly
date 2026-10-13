@@ -24,6 +24,7 @@ pub mod sessions;
 pub mod settings_file;
 pub mod spaces;
 pub mod study_blocks;
+pub mod sync;
 pub mod tasks;
 pub mod views;
 
