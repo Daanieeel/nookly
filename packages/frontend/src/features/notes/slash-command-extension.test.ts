@@ -1,4 +1,5 @@
 import { Editor } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import { describe, expect, it } from "vitest";
 import { editorExtensions } from "./editor-extensions";
 import { SLASH_ITEMS, slashItemsFor } from "./slash-command-extension";
@@ -69,5 +70,31 @@ describe("inserting a source block", () => {
     run(editor, title, "/x");
     expect(types(editor)).toEqual(["paragraph", title.toLowerCase()]);
     expect(editor.getText()).toContain("Hello");
+  });
+});
+
+describe("the Highlight item", () => {
+  it("is found by highlight, marker and ==", () => {
+    expect(titles("highl")).toContain("Highlight");
+    expect(titles("marker")).toContain("Highlight");
+    expect(titles("==")).toContain("Highlight");
+  });
+
+  it("starts a highlight, so what is typed next is marked", () => {
+    const editor = new Editor({
+      extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+      content: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "a /highl" }] }],
+      },
+    });
+    const to = editor.state.doc.firstChild!.nodeSize - 1;
+    // The caret is where the "/" menu was typed, at the end of the line.
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, to)));
+    SLASH_ITEMS.find((i) => i.title === "Highlight")!.run(editor, { from: to - 6, to });
+    editor.view.dispatch(editor.state.tr.insertText("x"));
+    expect(editor.getHTML()).toContain("<mark>x</mark>");
+    expect(editor.getText()).toContain("a x");
+    editor.destroy();
   });
 });

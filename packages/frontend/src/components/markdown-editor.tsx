@@ -8,6 +8,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import { openLink } from "#/features/notes/open-link.ts";
 import { Emoji } from "#/features/notes/emoji-extension.tsx";
 import { Highlight } from "#/features/notes/highlight-extension.ts";
+import { InlineMarkCleanup } from "#/features/notes/inline-mark-cleanup.ts";
 import { letterListExtensions } from "#/features/notes/ordered-list-extension.ts";
 
 const SAVE_DELAY_MS = 600;
@@ -46,6 +47,7 @@ export function MarkdownEditor({
       Markdown,
       Emoji,
       Highlight,
+      InlineMarkCleanup,
       Placeholder.configure({ placeholder }),
     ],
     editorProps: {

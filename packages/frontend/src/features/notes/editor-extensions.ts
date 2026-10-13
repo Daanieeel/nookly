@@ -27,6 +27,7 @@ import {
 } from "./custom-block-extensions";
 import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
+import { InlineMarkCleanup } from "./inline-mark-cleanup";
 import { Highlight } from "./highlight-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
@@ -93,6 +94,7 @@ export function editorExtensions({
     HeadingAnchors,
     ArrowLigatures,
     Highlight,
+    InlineMarkCleanup,
     BlockSelection,
     SlashCommand.configure({ getEntities }),
     CodeCompletion,
