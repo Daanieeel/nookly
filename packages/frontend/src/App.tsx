@@ -67,7 +67,9 @@ function MainContent() {
     case "entity":
       // Keyed so switching between two pages remounts the editor instead of
       // keeping the previous page's hydrated state.
-      return <EntityDetailRouter key={view.entityId} entityId={view.entityId} />;
+      return (
+        <EntityDetailRouter key={view.entityId} entityId={view.entityId} />
+      );
   }
 }
 
@@ -112,7 +114,11 @@ function Shell() {
       // matching `Titlebar`'s own `h-11`, plus the `h-9` tab bar while more than one tab is open — `CSSProperties` just doesn't model
       // custom properties. Read by the sidebar primitive's fixed rail so it
       // starts below the titlebar instead of painting over it.
-      style={{ "--titlebar-height": showTabBar ? "5rem" : "2.75rem" } as CSSProperties}
+      style={
+        {
+          "--titlebar-height": showTabBar ? "5rem" : "2.75rem",
+        } as CSSProperties
+      }
     >
       <Titlebar />
       {showTabBar && <TabBar />}
@@ -130,7 +136,9 @@ function Shell() {
                 <ErrorBoundary
                   // A view that crashes is dropped when the user navigates elsewhere.
                   resetKeys={[view]}
-                  fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
+                  fallback={(reset) => (
+                    <CrashFallback reset={reset} what="this view" />
+                  )}
                 >
                   <MainContent />
                 </ErrorBoundary>
