@@ -22,7 +22,7 @@ jobs:
       - run: bun run version:check
 
   whats-new:
-    name: whats-new.json is valid
+    name: Validate whats-new.json
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
