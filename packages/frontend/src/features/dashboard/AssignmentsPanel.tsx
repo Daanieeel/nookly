@@ -2,7 +2,8 @@ import { IconClipboardCheck, IconMoodSmile } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
-import { assignmentStatus, statusKindOf } from "#/features/assignments/assignment-model.ts";
+import { assignmentStatus, isDone, statusKindOf } from "#/features/assignments/assignment-model.ts";
+import { pastDayText } from "#/components/due-columns.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { daysUntil } from "#/features/tasks/task-model.ts";
 import { listAssignmentsAllSpaces } from "#/lib/api/assignments.ts";
@@ -42,9 +43,10 @@ export interface DueText {
 const RELATIVE_DAYS = 10;
 
 /// "Overdue, Oct 8", then "Today", "Tomorrow" and "in 4 days" up to 10 days out, and a
-/// short date beyond that.
-export function dueText(day: string): DueText {
+/// short date beyond that. Finished work is never overdue: a past date reads "3 days ago".
+export function dueText(day: string, done = false): DueText {
   const days = daysUntil(day);
+  if (days < 0 && done) return { text: pastDayText(-days), overdue: false };
   if (days < 0) return { text: `Overdue, ${formatShortDate(day)}`, overdue: true };
   if (days === 0) return { text: "Today", overdue: false };
   if (days === 1) return { text: "Tomorrow", overdue: false };
@@ -62,7 +64,9 @@ function AssignmentRow({
   const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = assignment;
   const status = assignmentStatus(assignment.status);
-  const due = assignment.dueDate ? dueText(assignment.dueDate.slice(0, 10)) : null;
+  const due = assignment.dueDate
+    ? dueText(assignment.dueDate.slice(0, 10), isDone(assignment))
+    : null;
   return (
     <Row
       entityKey={entity.key}

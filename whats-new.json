@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.22",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Done tasks and assignments with a past due date read like \"3 days ago\" and never show as overdue."
+        ]
+      }
+    },
+    {
       "version": "0.33.21",
       "date": "2026-10-13",
       "title": "Mark what matters",

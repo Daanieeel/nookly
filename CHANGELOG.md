@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.22 (2026-10-13)
+
+### Fixed
+
+- **Finished work is never overdue.** A done task or assignment with a past due date now reads "Yesterday" or "3 days ago" in lists and on the Dashboard, and tasks past their date that are done move out of the Overdue group.
+
 ## 0.33.21 (2026-10-13)
 
 ### Added

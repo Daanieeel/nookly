@@ -3,13 +3,20 @@ import type { ReactNode } from "react";
 import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
 
+/// A day in the past as plain relative text, "Yesterday" or "3 days ago". What finished
+/// work shows instead of "overdue": nothing is late once it is done.
+export function pastDayText(daysAgo: number): string {
+  return daysAgo === 1 ? "Yesterday" : `${daysAgo} days ago`;
+}
+
 /// How far away a due date is, like "in 3 days" or "2d overdue", with a tone for
-/// urgency: red once overdue, yellow on the day. Finished work gets no tone.
+/// urgency: red once overdue, yellow on the day. Finished work is never overdue: it reads
+/// as a plain date ("3 days ago") and gets no tone.
 export function relativeDue(dueDate: string, done: boolean) {
   const days = differenceInCalendarDays(parseISO(dueDate), new Date());
   if (days < 0) {
     return done
-      ? { text: `${-days}d ago`, tone: null }
+      ? { text: pastDayText(-days), tone: null }
       : { text: `${-days}d overdue`, tone: "text-destructive" };
   }
   if (days === 0) return { text: "Today", tone: done ? null : "text-caution" };

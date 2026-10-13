@@ -45,7 +45,7 @@ export function statusKind(status: TaskStatus, sorted: TaskStatus[]): StatusKind
 
 // Due dates
 
-export type DueBucket = "overdue" | "today" | "week" | "later" | "none";
+export type DueBucket = "overdue" | "today" | "week" | "later" | "none" | "done";
 
 export const DUE_BUCKETS: { id: DueBucket; label: string }[] = [
   { id: "overdue", label: "Overdue" },
@@ -53,6 +53,8 @@ export const DUE_BUCKETS: { id: DueBucket; label: string }[] = [
   { id: "week", label: "Next 7 days" },
   { id: "later", label: "Later" },
   { id: "none", label: "No due date" },
+  // Finished past their date: kept out of Overdue so that bucket only holds real misses.
+  { id: "done", label: "Done" },
 ];
 
 /// `YYYY-MM-DD` as a local midnight, so "today" never shifts with the timezone.
@@ -76,8 +78,10 @@ export function daysUntil(day: string, now = new Date()): number {
   return Math.round((parseDay(day).getTime() - startOfToday(now).getTime()) / 86_400_000);
 }
 
-export function dueBucket(dueDate: string | null, now = new Date()): DueBucket {
-  return dayBucket(dueDate, now);
+/// The due date's bucket. A finished task past its date is in Done, not Overdue.
+export function dueBucket(dueDate: string | null, now = new Date(), finished = false): DueBucket {
+  const bucket = dayBucket(dueDate, now);
+  return finished && bucket === "overdue" ? "done" : bucket;
 }
 
 /// Start dates split the same way as due dates, with labels that read as a start.
@@ -286,7 +290,9 @@ export function groupTasks(
         id: b.id,
         name: b.label,
         bucket: b.id,
-        tasks: tasks.filter((t) => dueBucket(t.dueDate) === b.id),
+        tasks: tasks.filter(
+          (t) => dueBucket(t.dueDate, new Date(), t.completedAt != null) === b.id,
+        ),
       }));
     case "created":
       return AGE_BUCKETS.map((b) => ({
@@ -340,7 +346,7 @@ export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "status") return [task.statusId];
   if (fieldId === "space") return [task.entity.spaceId];
   if (fieldId === "labels") return task.labelIds;
-  if (fieldId === "due") return [dueBucket(task.dueDate)];
+  if (fieldId === "due") return [dueBucket(task.dueDate, new Date(), task.completedAt != null)];
   if (fieldId === "start") return [dayBucket(task.startDate)];
   if (fieldId === "created") return [ageBucket(task.entity.createdAt)];
   if (fieldId === "updated") return [ageBucket(task.entity.updatedAt)];
