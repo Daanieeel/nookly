@@ -3,8 +3,6 @@
     {
       "version": "0.33.2",
       "date": "2026-10-13",
-      "title": "A slightly shorter Dashboard calendar",
-      "summary": "The calendar takes up a bit less room.",
       "highlights": [],
       "more": {
         "Improved": ["The Dashboard calendar keeps a minimum height of 800 pixels."]

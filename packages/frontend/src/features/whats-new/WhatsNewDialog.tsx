@@ -68,10 +68,12 @@ function Entry({ entry }: { entry: WhatsNewEntry }) {
   const groups = Object.entries(entry.more).filter(([, lines]) => lines.length > 0);
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-1.5 rounded-xl bg-accent/50 p-4">
-        <h3 className="text-lg/snug font-semibold">{entry.title}</h3>
-        <Rich text={entry.summary} className="text-sm text-muted-foreground" />
-      </section>
+      {entry.title !== undefined && entry.summary !== undefined && (
+        <section className="flex flex-col gap-1.5 rounded-xl bg-accent/50 p-4">
+          <h3 className="text-lg/snug font-semibold">{entry.title}</h3>
+          <Rich text={entry.summary} className="text-sm text-muted-foreground" />
+        </section>
+      )}
       {entry.highlights.length > 0 && (
         <ul className="divide-y divide-border">
           {entry.highlights.map((highlight) => (

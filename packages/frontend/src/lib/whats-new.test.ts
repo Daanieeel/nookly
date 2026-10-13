@@ -49,6 +49,20 @@ describe("parseWhatsNew", () => {
     expect(read.map((e) => e.version)).toEqual(["1.2.3"]);
   });
 
+  it("reads a version with neither a title nor a summary", () => {
+    const { title: _t, summary: _s, ...bare } = entry;
+    const [read] = parseWhatsNew({ versions: [bare] });
+    expect(read?.version).toBe("1.2.3");
+    expect(read?.title).toBeUndefined();
+    expect(read?.summary).toBeUndefined();
+  });
+
+  it("skips a version that has only one of title and summary", () => {
+    const { title: _t, ...noTitle } = entry;
+    const { summary: _s, ...noSummary } = entry;
+    expect(parseWhatsNew({ versions: [noTitle, noSummary] })).toEqual([]);
+  });
+
   it("refuses a tag that is not New or Improved", () => {
     const read = parseWhatsNew({
       versions: [{ ...entry, highlights: [{ title: "x", description: "y", tag: "Hot" }] }],
@@ -72,6 +86,10 @@ describe("the whats-new.json shipped with the app", () => {
   it("has every version valid, none skipped", () => {
     expect(entries).toHaveLength(data.versions.length);
     expect(entries.length).toBeGreaterThan(0);
+  });
+
+  it("gives every version both a title and a summary, or neither", () => {
+    for (const e of entries) expect(Boolean(e.title), e.version).toBe(Boolean(e.summary));
   });
 
   it("lists the newest version first", () => {

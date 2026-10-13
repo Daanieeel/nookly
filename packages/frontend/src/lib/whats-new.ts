@@ -11,15 +11,20 @@ const highlight = z.object({
   shortcut: z.string().optional(),
 });
 
-const entry = z.object({
-  version: z.string().regex(/^\d+\.\d+\.\d+$/),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  title: z.string().min(1),
-  summary: z.string().min(1),
-  highlights: z.array(highlight).default([]),
-  /// Short lines under a heading each (`Improved`, `Fixed`), for what is not a headline.
-  more: z.record(z.string(), z.array(z.string())).default({}),
-});
+const entry = z
+  .object({
+    version: z.string().regex(/^\d+\.\d+\.\d+$/),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    /// The headline box. `title` and `summary` come together or not at all.
+    title: z.string().min(1).optional(),
+    summary: z.string().min(1).optional(),
+    highlights: z.array(highlight).default([]),
+    /// Short lines under a heading each (`Improved`, `Fixed`), for what is not a headline.
+    more: z.record(z.string(), z.array(z.string())).default({}),
+  })
+  .refine((e) => (e.title === undefined) === (e.summary === undefined), {
+    message: "title and summary must both be set or both be left out",
+  });
 
 export type WhatsNewEntry = z.infer<typeof entry>;
 export type WhatsNewHighlight = z.infer<typeof highlight>;

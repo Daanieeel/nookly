@@ -81,6 +81,29 @@ describe("WhatsNewDialog", () => {
     expect(await screen.findByText("Bring pages in and send them out.")).toBeTruthy();
   });
 
+  it("leaves out the headline box for a version without a title and summary", async () => {
+    mockCommand("plugin:app|version", "0.31.11");
+    mockCommand("plugin:opener|open_url", null);
+    const bare = {
+      versions: [
+        {
+          version: "0.31.11",
+          date: "2026-10-11",
+          highlights: [],
+          more: { Improved: ["Only a small line."] },
+        },
+      ],
+    };
+    renderWithProviders(<WhatsNewDialog notes={bare} changelog={CHANGELOG} />);
+    act(() => useNavStore.getState().setWhatsNewOpen(true));
+    expect(await screen.findByText("Only a small line.")).toBeTruthy();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector("section.bg-accent\\/50")).toBeNull();
+    expect(within(dialog).queryByRole("heading", { level: 3, name: /./ })?.textContent).toBe(
+      "Improved",
+    );
+  });
+
   it("shows the highlights as cards with a tag and an icon, and the shortcut as keys", async () => {
     open("0.31.10");
     const card = (await screen.findByText("Import a page")).closest("li");
