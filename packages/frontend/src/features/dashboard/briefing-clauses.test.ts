@@ -85,7 +85,27 @@ describe("buildBriefing", () => {
     expect(text).not.toContain("Early");
     expect(text).not.toContain("Just started");
     expect(text).toContain("Later");
-    expect(text).toContain("1 session");
+  });
+
+  it("names only the next session, not how many more follow", () => {
+    const { text } = sentence({
+      sessions: [session("12:00", "Next"), session("14:00", "After"), session("16:00", "Last")],
+    });
+    expect(text).toContain("Next");
+    expect(text).not.toContain("After");
+    expect(text).not.toContain("Last");
+    expect(text).not.toMatch(/\d+ sessions?/);
+  });
+
+  it("says the same for every wording", () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const { text } = sentence({
+        name: `Name ${seed}`,
+        sessions: [session("12:00", "Next"), session("14:00", "After")],
+      });
+      expect(text).toContain("Next");
+      expect(text).not.toMatch(/\d+ sessions?/);
+    }
   });
 
   it("says the sessions are done once every one has started", () => {

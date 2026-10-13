@@ -4,6 +4,10 @@ All notable changes to Nookly are listed here.
 
 ## 0.33.30 (2026-10-13)
 
+### Changed
+
+- **The Dashboard sentence names the next session only.** It no longer counts the other sessions later in the day.
+
 ### Fixed
 
 - **Inline code and highlights leave cleanly.** Deleting everything inside one removes it, so the line is plain again, and the arrow keys step out of it at its end and at the start of a line.
@@ -36,12 +40,6 @@ All notable changes to Nookly are listed here.
 ### Added
 
 - **Choose how today is marked.** Settings under Calendar set the current day's colour (Primary or Neutral) and intensity (Low, Default or High) in the week, day and month views.
-
-## 0.33.25 (2026-10-13)
-
-### Fixed
-
-- **The Dashboard fits your window.** A long daily summary stops after four lines with a Show all button, and the lists below show only the rows that fit, so the page no longer scrolls in a full screen window.
 
 ## 0.33.24 (2026-10-13)
 

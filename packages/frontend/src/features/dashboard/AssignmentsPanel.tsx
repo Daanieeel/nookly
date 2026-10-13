@@ -20,7 +20,7 @@ import type { Space } from "#/lib/api/types.ts";
 import {
   EmptyRow,
   useSpaceById,
-  useListLimit,
+  LIST_LIMIT,
   Row,
   RowList,
   ShowMore,
@@ -97,7 +97,6 @@ export function AssignmentsPanel({ today }: { today: string }) {
   });
   const tabs = TABS.map((t) => ({ ...t, count: assignmentsFor(t.id, all, today).length }));
   const items = assignmentsFor(tab, all, today);
-  const limit = useListLimit();
 
   return (
     <TabbedPanel
@@ -111,11 +110,11 @@ export function AssignmentsPanel({ today }: { today: string }) {
         {items.length === 0 && (
           <EmptyRow icon={IconMoodSmile}>Nothing here. Enjoy the calm.</EmptyRow>
         )}
-        {items.slice(0, limit).map((a) => (
+        {items.slice(0, LIST_LIMIT).map((a) => (
           <AssignmentRow key={a.entity.id} assignment={a} space={spaces.get(a.entity.spaceId)} />
         ))}
         <ShowMore
-          count={items.length - limit}
+          count={items.length - LIST_LIMIT}
           onClick={() => {
             requestFilters(STORAGE_KEYS.assignmentsOverviewFilters, assignmentFilters(tab));
             setView({ kind: "assignments" });

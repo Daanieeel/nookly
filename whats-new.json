@@ -17,7 +17,8 @@
         "Fixed": [
           "Deleting everything inside inline code, or a highlight, removes it, so the line is plain again. The right arrow steps out of it at its end, and the left arrow at the start of a line, with a small gap showing where the caret is.",
           "Bullet points fixed: an indented item keeps its letter or number, and a numbered list can start anywhere, like `b)`, `c.` or `12.`, and carries on from there."
-        ]
+        ],
+        "Improved": ["The sentence at the top of the Dashboard names only your next session."]
       }
     },
     {
@@ -72,16 +73,6 @@
         }
       ],
       "more": {}
-    },
-    {
-      "version": "0.33.25",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "A long summary on the Dashboard stops after four lines, with Show all, and the lists fit the window so the page no longer scrolls."
-        ]
-      }
     },
     {
       "version": "0.33.24",

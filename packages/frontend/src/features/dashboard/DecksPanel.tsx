@@ -11,13 +11,11 @@ import { studyCount } from "#/features/exams/deck/deck-data.ts";
 import { DeckStack } from "#/features/exams/deck/index-card.tsx";
 import { DeckCounts, ExamLine, StudyButton } from "#/features/exams/DecksListView.tsx";
 import { SpaceChip } from "#/components/space-chip.tsx";
-import { EmptyRow, ShowMore, TabbedPanel, useListLimit, useSpaceById } from "./DashboardPanel";
+import { EmptyRow, ShowMore, TabbedPanel, useSpaceById } from "./DashboardPanel";
 import { listLink, useOpenTarget } from "./dashboard-links";
 
-/// Deck cards shown before "Show more": two rows of two, or one row when the window is short.
-function deckLimit(listLimit: number): number {
-  return listLimit >= 3 ? 4 : 2;
-}
+/// Deck cards shown before "Show more".
+const DECK_LIMIT = 4;
 
 function DeckCard({
   deck,
@@ -67,7 +65,6 @@ export function DecksPanel() {
     queryFn: listDeckSummariesAllSpaces,
   });
   const { data: exams = [] } = useQuery({ queryKey: qk.exams.all, queryFn: listExamsAllSpaces });
-  const limit = deckLimit(useListLimit());
   const examOf = new Map(exams.map((e) => [e.entity.id, e]));
   const examDate = (d: DeckSummary) => (d.examId && examOf.get(d.examId)?.examDate) || "9999-12-31";
   const ready = decks
@@ -88,7 +85,7 @@ export function DecksPanel() {
         <EmptyRow icon={IconSparkles}>Nothing to study. Every deck is caught up.</EmptyRow>
       ) : (
         <div className="grid grid-cols-2 gap-x-2 gap-y-4 pb-2">
-          {ready.slice(0, limit).map((deck) => (
+          {ready.slice(0, DECK_LIMIT).map((deck) => (
             <DeckCard
               key={deck.entity.id}
               deck={deck}
@@ -99,7 +96,7 @@ export function DecksPanel() {
         </div>
       )}
       <ShowMore
-        count={ready.length - limit}
+        count={ready.length - DECK_LIMIT}
         onClick={() =>
           open(
             listLink(
