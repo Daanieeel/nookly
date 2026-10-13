@@ -6,6 +6,8 @@ interface Props {
   fallback: (reset: () => void) => ReactNode;
   /// Tries the children again on its own whenever one of these changes.
   resetKeys?: readonly unknown[];
+  /// Told what crashed, for a fallback that says it.
+  onError?: (error: Error) => void;
   children: ReactNode;
 }
 
@@ -23,6 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("View crashed", error, info.componentStack);
+    this.props.onError?.(error);
   }
 
   componentDidUpdate(prev: Props) {
