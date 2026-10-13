@@ -755,6 +755,15 @@ pub fn block_to_markdown(block: &Block) -> String {
     }
 }
 
+/// `markdown` with `preamble` (a math block that defines the user's LaTeX commands, worked out
+/// by the app from its settings) in front of it. Nothing is added for an empty preamble.
+pub fn with_preamble(preamble: Option<&str>, markdown: String) -> String {
+    match preamble.map(str::trim).filter(|p| !p.is_empty()) {
+        Some(preamble) => format!("{preamble}\n\n{markdown}"),
+        None => markdown,
+    }
+}
+
 pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<String> {
     crate::db::entities::get_entity(conn, entity_id)?;
     let blocks = list_blocks(conn, entity_id)?;
@@ -1069,6 +1078,19 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_preamble_goes_in_front_of_the_markdown_and_nothing_is_added_without_one() {
+        assert_eq!(
+            with_preamble(
+                Some("$$\n\\newcommand{\\N}{\\mathbb{N}}\n$$"),
+                "Hi $\\N$".into()
+            ),
+            "$$\n\\newcommand{\\N}{\\mathbb{N}}\n$$\n\nHi $\\N$"
+        );
+        assert_eq!(with_preamble(None, "Hi".into()), "Hi");
+        assert_eq!(with_preamble(Some("  \n"), "Hi".into()), "Hi");
+    }
 
     #[test]
     fn note_code_language_defaults_to_none_and_can_be_set_and_cleared() {

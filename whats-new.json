@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.33.28",
+      "date": "2026-10-13",
+      "title": "Math, your way",
+      "summary": "Define LaTeX commands once and use them everywhere.",
+      "highlights": [
+        {
+          "title": "Your own LaTeX commands",
+          "description": "Add `\\newcommand` definitions under Settings, Notes, Math, like `\\newcommand{\\abs}[1]{\\left|#1\\right|}`, and use them in every formula in every Space.",
+          "icon": "sparkles",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.33.27",
       "date": "2026-10-13",
       "title": "Tidier code",

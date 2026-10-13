@@ -1,6 +1,8 @@
 import katex from "katex";
 import "katex/contrib/mhchem";
 import "katex/dist/katex.min.css";
+import { settings } from "#/lib/settings/settings.ts";
+import { parseLatexMacros } from "#/lib/latex-macros.ts";
 
 /// Logic gate operators, which LaTeX has no commands for: `A \nand B`. The negated
 /// gates are the plain symbol with a bar over it.
@@ -11,8 +13,18 @@ const GATE_MACROS = {
   "\\xnor": "\\mathbin{\\overline{\\oplus}}",
 };
 
+let parsed: { text: string; macros: Record<string, string> } | null = null;
+
+/// The user's own commands from Settings, read as they are now so a change applies to the
+/// next render. A definition that does not parse is left out; Settings says which.
+function userMacros(): Record<string, string> {
+  const text = settings.get("notes.latexMacros");
+  if (parsed?.text !== text) parsed = { text, macros: parseLatexMacros(text).macros };
+  return parsed.macros;
+}
+
 /// LaTeX rendering for the math blocks and inline math, through KaTeX with the
-/// mhchem extension (`\ce{H2O}`) and the gate operators above. Errors come back as a
+/// mhchem extension (`\ce{H2O}`), the gate operators above and the user's own commands. Errors come back as a
 /// message instead of a throw, so a half typed formula shows what's wrong rather than nothing.
 export function renderMath(
   latex: string,
@@ -26,7 +38,7 @@ export function renderMath(
       strict: "ignore",
       trust: false,
       // KaTeX writes a macro's definitions into this object, so each call gets a copy.
-      macros: { ...GATE_MACROS },
+      macros: { ...GATE_MACROS, ...userMacros() },
       output: "htmlAndMathml",
     });
     return null;

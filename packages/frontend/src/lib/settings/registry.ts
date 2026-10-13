@@ -413,6 +413,28 @@ export const SETTINGS = {
     default: false,
     schema: z.boolean(),
   }),
+  "notes.latexMacros": define({
+    id: "notes.latexMacros",
+    category: "notes",
+    title: "LaTeX macros",
+    description:
+      "Your own LaTeX commands, one \\newcommand per definition, for every math block and inline formula in every Space. A command can take arguments, like \\newcommand{\\abs}[1]{\\left|#1\\right|}.",
+    synonyms: [
+      "latex",
+      "katex",
+      "math",
+      "newcommand",
+      "macro",
+      "command",
+      "notation",
+      "formula",
+      "equation",
+      "custom",
+      "notes",
+    ],
+    default: "",
+    schema: z.string().max(20_000),
+  }),
   "notes.arrowLigatures": define({
     id: "notes.arrowLigatures",
     category: "notes",

@@ -56,6 +56,7 @@ describe("sharePage", () => {
     expect(callsOf("export_page_markdown")[0]).toEqual({
       entityId: "n1",
       path: "/tmp/Physics week 3.md",
+      preamble: null,
     });
   });
 

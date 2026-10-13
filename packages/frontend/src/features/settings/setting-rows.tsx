@@ -29,6 +29,7 @@ import { ShortcutControl } from "./ShortcutControl.tsx";
 import {
   DisplayNameControl,
   NumberControl,
+  LatexMacrosControl,
   SnapControl,
   TodayColorControl,
   TodayIntensityControl,
@@ -73,7 +74,7 @@ const SECTIONS = {
   general: ["Profile", "Date and time", "Tasks", "About"],
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Current day", "Connections"],
-  notes: ["Code", "Editing"],
+  notes: ["Code", "Math", "Editing"],
   backup: ["Backup", "Restore"],
   agent: ["Files"],
   shortcuts: [...SHORTCUT_SECTIONS],
@@ -148,6 +149,7 @@ const SETTING_UI = {
   "calendar.snapMinutes": { section: "Week and day", control: <SnapControl /> },
   "calendar.todayColor": { section: "Current day", control: <TodayColorControl /> },
   "calendar.todayIntensity": { section: "Current day", control: <TodayIntensityControl /> },
+  "notes.latexMacros": { section: "Math", control: <LatexMacrosControl /> },
   "notes.formatCodeOnPaste": {
     section: "Code",
     control: <SwitchControl settingId="notes.formatCodeOnPaste" label="Format code when pasted" />,

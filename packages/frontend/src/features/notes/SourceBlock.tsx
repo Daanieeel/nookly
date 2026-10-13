@@ -6,6 +6,7 @@ import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { useSetting } from "#/lib/settings/settings.ts";
 
 /// What a block's own editing view is given: the stored drawing, the block's code
 /// and a way to save a new drawing.
@@ -102,6 +103,8 @@ export function SourceBlock({
   const rendered = view === "rendered";
   const source = node.textContent;
   const dark = useIsDark();
+  // The formulas are drawn again when the user's LaTeX commands change.
+  const [macros] = useSetting("notes.latexMacros");
   const previewRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,7 +122,7 @@ export function SourceBlock({
     return () => {
       cancelled = true;
     };
-  }, [rendered, source, dark, options]);
+  }, [rendered, source, dark, options, macros]);
 
   const replaceSource = (code: string) => {
     const pos = getPos();
