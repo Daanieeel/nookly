@@ -51,4 +51,6 @@ UI work: dialogs and menus get an axe test (`vitest-axe`, see `src/test/axe.ts`)
 
 Report only checks, read them and do not silence them: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
 
+When adding new features or tests and you want confirm everything works as intended, make sure to run those tests in isolation from the others. This way we are saving time when implementing that would have otherwise been wasted by waiting on tests that are not needed for the feature. CI will catch bugs or unwanted behavior that have cross-contaminated other features.
+
 More specific skills are in `/docs/skills/`
