@@ -91,7 +91,6 @@ async function launch() {
 
 const MARKER = {
   "nookly:file-viewer-theme-backfill": "1",
-  "nookly:last-seen-version-backfill": "1",
 };
 
 describe("settings", () => {

@@ -1,5 +1,4 @@
 import { type Store, load } from "@tauri-apps/plugin-store";
-import { compareVersions } from "#/lib/changelog.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 
 /// Device preferences (theme, sidebar state, sort orders...), persisted with the
@@ -23,7 +22,6 @@ export async function initPreferences(): Promise<void> {
     return;
   }
   backfillFileViewerTheme();
-  backfillLastSeenVersion();
 }
 
 /// One time backfill: a saved "light" file viewer theme becomes the defaults.
@@ -35,23 +33,6 @@ function backfillFileViewerTheme() {
     preferences.set(STORAGE_KEYS.fileViewerTheme, "defaults");
   }
   preferences.set(STORAGE_KEYS.fileViewerThemeBackfill, "1");
-}
-
-/// The version everyone is sent back to once, so the What's new dialog lists every release
-/// since the big jump that went unseen.
-const WHATS_NEW_RESTART = "0.18.46";
-
-/// One time backfill: the last seen version becomes `WHATS_NEW_RESTART`, so the update card
-/// and What's new dialog cover every release after it. An older one (or none) already shows
-/// at least that much. Runs once, guarded by a marker, on whichever release first loads it,
-/// so a jump straight to a later release does the same.
-function backfillLastSeenVersion() {
-  if (cache.get(STORAGE_KEYS.lastSeenVersionBackfill) === "1") return;
-  const seen = cache.get(STORAGE_KEYS.lastSeenVersion);
-  if (seen === undefined || compareVersions(seen, WHATS_NEW_RESTART) > 0) {
-    preferences.set(STORAGE_KEYS.lastSeenVersion, WHATS_NEW_RESTART);
-  }
-  preferences.set(STORAGE_KEYS.lastSeenVersionBackfill, "1");
 }
 
 function persist(write: (store: Store) => Promise<void | boolean>) {

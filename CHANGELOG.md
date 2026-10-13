@@ -20,6 +20,12 @@ All notable changes to Nookly are listed here.
 
 - **Typing after @ is fast again.** Mentioning with many sessions no longer lags.
 
+## 0.35.2 (2026-10-13)
+
+### Changed
+
+- **Smaller cleanup.** Removed a one time What's new reset that already did its job.
+
 ## 0.33.2 (2026-10-13)
 
 ### Changed
