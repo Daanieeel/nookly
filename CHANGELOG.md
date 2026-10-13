@@ -7,6 +7,7 @@ All notable changes to Nookly are listed here.
 ### Fixed
 
 - **Inline code and highlights leave cleanly.** Deleting everything inside one removes it, so the line is plain again, and the arrow keys step out of it at its end and at the start of a line.
+- **Bullet points fixed.** An indented item keeps its letter or number, and a numbered list can start anywhere, like `b)`, `c.` or `12.`, and carries on from there.
 
 ### Added
 

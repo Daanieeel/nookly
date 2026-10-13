@@ -1,7 +1,8 @@
 import { Editor } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Block } from "../../lib/api/types";
-import { blockToNode, nodeToBlockInput } from "./block-markdown";
+import { blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { Markdown } from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
 import { editorExtensions } from "./editor-extensions";
@@ -36,8 +37,33 @@ describe("starting a numbered list", () => {
     expect(firstNode(target)?.attrs?.start).toBe(1);
   });
 
-  it.each(["b. ", "ab. ", "a.", "xa) ", "1) "])("%j stays a paragraph", (typed) => {
+  it.each(["ab. ", "a.", "xa) ", "1) ", "bb) "])("%j stays a paragraph", (typed) => {
     expect(firstNode(type(typed))?.type).toBe("paragraph");
+  });
+
+  // A list can start anywhere in its count, and goes on from there.
+  it.each([
+    ["b. ", 2, "a."],
+    ["c) ", 3, "a)"],
+    ["B. ", 2, "A."],
+    ["D) ", 4, "A)"],
+    ["z. ", 26, "a."],
+  ])("%j starts a lettered list at %i", (typed, start, marker) => {
+    const node = firstNode(type(typed));
+    expect(node?.type).toBe("orderedList");
+    expect(node?.attrs?.start).toBe(start);
+    expect(node?.attrs?.marker).toBe(marker);
+  });
+
+  it.each([
+    ["12. ", 12],
+    ["3. ", 3],
+    ["100. ", 100],
+  ])("%j starts a numbered list at %i", (typed, start) => {
+    const node = firstNode(type(typed));
+    expect(node?.type).toBe("orderedList");
+    expect(node?.attrs?.start).toBe(start);
+    expect(node?.attrs?.marker).toBeNull();
   });
 
   it("does not start a list from a letter in the middle of a sentence", () => {
@@ -77,12 +103,143 @@ describe("a lettered list keeps its letters", () => {
   it("saves the marker and loads it back", () => {
     const node = blockToNode(numberedList("One\nTwo", { marker: "A)" }));
     expect(node.attrs?.marker).toBe("A)");
-    expect(nodeToBlockInput(node)?.attrs).toEqual({ marker: "A)" });
+    expect(nodeToBlockInput(node)?.attrs).toMatchObject({ marker: "A)" });
   });
 
   it("clears the marker on a plain numbered list", () => {
     const node = blockToNode(numberedList("One", {}));
-    expect(nodeToBlockInput(node)?.attrs).toEqual({ marker: "" });
+    expect(nodeToBlockInput(node)?.attrs).toEqual({ marker: "", start: "", nestedStarts: "" });
+  });
+});
+
+describe("a list that starts later in its count", () => {
+  it("saves where it starts and loads it back, for letters and for numbers", () => {
+    for (const [marker, start] of [
+      ["a.", "3"],
+      ["A)", "2"],
+      ["", "12"],
+    ] as const) {
+      const node = blockToNode(numberedList("One\nTwo", { marker, start }));
+      expect(node.attrs?.start).toBe(Number(start));
+      expect(nodeToBlockInput(node)?.attrs).toEqual({ marker, start, nestedStarts: "" });
+    }
+  });
+
+  it("starts at one when no start was saved", () => {
+    expect(blockToNode(numberedList("One", { marker: "a." })).attrs?.start).toBe(1);
+  });
+
+  it("saves no start for a list that starts at one", () => {
+    const node = blockToNode(numberedList("One", { start: "1" }));
+    expect(nodeToBlockInput(node)?.attrs?.start).toBe("");
+  });
+});
+
+describe("indenting an item of a numbered list", () => {
+  function listEditor(marker: string | null, start = 1, items = ["One", "Two", "Three"]) {
+    editor = new Editor({
+      extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "orderedList",
+            attrs: { blockId: "l1", marker, start },
+            content: items.map((text) => ({
+              type: "listItem",
+              content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+            })),
+          },
+        ],
+      },
+    });
+    return editor;
+  }
+  const caretIn = (target: Editor, text: string) => {
+    let found = -1;
+    target.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === text) found = pos + 1;
+    });
+    target.view.dispatch(
+      target.state.tr.setSelection(TextSelection.create(target.state.doc, found)),
+    );
+  };
+  const tab = (target: Editor, shiftKey = false) =>
+    target.view.someProp("handleKeyDown", (f) =>
+      f(target.view, new KeyboardEvent("keydown", { key: "Tab", shiftKey })),
+    );
+  const docOf = (target: Editor): JSONNode => target.getJSON();
+  const nestedList = (target: Editor): JSONNode | undefined =>
+    docOf(target).content?.[0]?.content?.[0]?.content?.[1];
+
+  it("keeps the letters of a lettered list, starting at the letter the item had", () => {
+    const target = listEditor("a.");
+    caretIn(target, "Two");
+    expect(tab(target)).toBe(true);
+    const nested = nestedList(target);
+    expect(nested?.type).toBe("orderedList");
+    expect(nested?.attrs?.marker).toBe("a.");
+    expect(nested?.attrs?.start).toBe(2);
+    expect(target.getHTML()).toContain('data-marker="a."');
+  });
+
+  it("keeps the number of a numbered list too", () => {
+    const target = listEditor(null, 1);
+    caretIn(target, "Two");
+    tab(target);
+    expect(nestedList(target)?.attrs?.start).toBe(2);
+    expect(nestedList(target)?.attrs?.marker).toBeNull();
+  });
+
+  it("counts from where the outer list started", () => {
+    const target = listEditor("A)", 3);
+    caretIn(target, "Two");
+    tab(target);
+    expect(nestedList(target)?.attrs?.marker).toBe("A)");
+    expect(nestedList(target)?.attrs?.start).toBe(4);
+  });
+
+  it("goes on counting when a second item joins the nested list", () => {
+    const target = listEditor("a.");
+    caretIn(target, "Two");
+    tab(target);
+    caretIn(target, "Three");
+    tab(target);
+    const nested = nestedList(target);
+    expect(nested?.content?.length).toBe(2);
+    expect(nested?.attrs?.start).toBe(2);
+  });
+
+  it("leaves a bullet list alone", () => {
+    editor = new Editor({
+      extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+      content: "<ul><li><p>One</p></li><li><p>Two</p></li></ul>",
+    });
+    caretIn(editor, "Two");
+    expect(tab(editor)).toBe(true);
+    expect(nestedList(editor)?.type).toBe("bulletList");
+  });
+
+  it("is saved and loaded again with the nested start", () => {
+    const target = listEditor("a.");
+    caretIn(target, "Two");
+    tab(target);
+    const doc: JSONNode = target.getJSON();
+    const saved = nodeToBlockInput(doc.content?.[0] ?? { type: "doc" });
+    expect(saved?.content).toBe("One\n\tTwo\nThree");
+    expect(saved?.attrs).toEqual({ marker: "a.", start: "", nestedStarts: "1:2" });
+    const reloaded = blockToNode(numberedList(saved?.content ?? "", saved?.attrs ?? {}));
+    const nested = reloaded.content?.[0]?.content?.[1];
+    expect(nested?.attrs?.marker).toBe("a.");
+    expect(nested?.attrs?.start).toBe(2);
+  });
+
+  it("brings the item back out with Shift+Tab", () => {
+    const target = listEditor("a.");
+    caretIn(target, "Two");
+    tab(target);
+    tab(target, true);
+    expect(docOf(target).content?.[0]?.content?.length).toBe(3);
   });
 });
 

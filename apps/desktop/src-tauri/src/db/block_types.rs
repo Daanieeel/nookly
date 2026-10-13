@@ -114,14 +114,31 @@ const HEADING_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
 const LIST_MARKERS: &[&str] = &["a.", "a)", "A.", "A)"];
 
 /// A numbered list normally counts 1, 2, 3. This keeps one a writer typed as
-/// `a.` or `a)` (either case) as letters.
-const NUMBERED_LIST_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
-    name: "marker",
-    kind: AttrKind::Enum(LIST_MARKERS),
-    description:
-        "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', \
+/// `a.` or `a)` (either case) as letters, one that starts later in its count (`b)`, `12.`),
+/// and where nested lists start.
+const NUMBERED_LIST_ATTRS: &[BlockAttrDef] = &[
+    BlockAttrDef {
+        name: "marker",
+        kind: AttrKind::Enum(LIST_MARKERS),
+        description:
+            "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', \
                   'A.' or 'A)'. Omit for 1, 2, 3.",
-}];
+    },
+    BlockAttrDef {
+        name: "start",
+        kind: AttrKind::Integer { min: 1 },
+        description: "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d \
+                  in a lettered list. Omit for 1 (or a).",
+    },
+    BlockAttrDef {
+        name: "nestedStarts",
+        kind: AttrKind::Text,
+        description: "Where a nested numbered list does not start at 1: `line:start` pairs, \
+                  comma separated, the line (from 0) being the nested list's first. A nested list \
+                  counts in the style of its list. Example: `1:2` for a list nested at line 1 that \
+                  starts at 2 (b).",
+    },
+];
 
 /// A table keeps its leftmost columns in place while the rest scrolls sideways.
 const TABLE_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
@@ -132,12 +149,10 @@ const TABLE_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
                   Omit for none. Never all columns: at most one less than the table has, and 5.",
 }];
 
-/// The marker shown for item `index` (from 0) of a numbered list with `attrs`.
-pub fn numbered_marker(attrs: &BlockAttrs, index: usize) -> String {
-    let Some(first) = attrs
-        .get("marker")
-        .filter(|m| LIST_MARKERS.contains(&m.as_str()))
-    else {
+/// The marker shown for item `index` (from 0) of a list written with `marker` (`None` counts in
+/// numbers).
+fn marker_for(marker: Option<&str>, index: usize) -> String {
+    let Some(first) = marker.filter(|m| LIST_MARKERS.contains(m)) else {
         return format!("{}.", index + 1);
     };
     let base = if first.starts_with('A') { b'A' } else { b'a' };
@@ -154,6 +169,42 @@ pub fn numbered_marker(attrs: &BlockAttrs, index: usize) -> String {
     format!("{}{delimiter}", String::from_utf8_lossy(&letters))
 }
 
+/// The marker shown for item `index` (from 0) of a numbered list with `attrs`, counting from
+/// the list's `start`.
+#[cfg(test)]
+pub fn numbered_marker(attrs: &BlockAttrs, index: usize) -> String {
+    marker_for(
+        attrs.get("marker").map(String::as_str),
+        index + list_start(attrs) - 1,
+    )
+}
+
+/// Where a numbered list starts counting, one when `attrs` say nothing sensible.
+fn list_start(attrs: &BlockAttrs) -> usize {
+    attrs
+        .get("start")
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .filter(|n| *n >= 1)
+        .unwrap_or(1)
+}
+
+/// `line:start` pairs of the `nestedStarts` attr, by line.
+fn nested_starts(attrs: &BlockAttrs) -> std::collections::HashMap<usize, usize> {
+    attrs
+        .get("nestedStarts")
+        .map(|saved| {
+            saved
+                .split(',')
+                .filter_map(|pair| {
+                    let (line, start) = pair.split_once(':')?;
+                    let start = start.trim().parse::<usize>().ok().filter(|n| *n >= 1)?;
+                    Some((line.trim().parse::<usize>().ok()?, start))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// One line of a list block: how deep it is nested, the marker it shows and its text.
 pub struct ListItem<'a> {
     pub depth: usize,
@@ -164,27 +215,38 @@ pub struct ListItem<'a> {
 /// The lines of a list block with their nesting: each leading tab puts a line one level
 /// under the line above it (never more than one level deeper, and never nested on the
 /// first line). `bullet` is the marker of a bulleted list; `None` counts a numbered one,
-/// starting over under each parent, with the `marker` attr applying to the top level only.
+/// starting over under each parent, in the style of the `marker` attr, from the list's `start` and,
+/// for a nested list, from where `nestedStarts` says.
 pub fn list_items<'a>(
     attrs: &BlockAttrs,
     lines: impl Iterator<Item = &'a str>,
     bullet: Option<&str>,
 ) -> Vec<ListItem<'a>> {
+    let starts = nested_starts(attrs);
+    let marker_style = attrs.get("marker").map(String::as_str);
+    // Per level: how many items it has counted, and the count it started from.
     let mut counts: Vec<usize> = Vec::new();
+    let mut from: Vec<usize> = Vec::new();
     let mut items = Vec::new();
-    for line in lines {
+    for (line_index, line) in lines.enumerate() {
         let text = line.trim_start_matches('\t');
         let wanted = line.len() - text.len();
         let depth = wanted.min(counts.len());
         counts.truncate(depth + 1);
+        from.truncate(depth + 1);
         if counts.len() == depth {
             counts.push(0);
+            // The top list starts where it says; a nested one where `nestedStarts` says.
+            from.push(if depth == 0 {
+                list_start(attrs)
+            } else {
+                starts.get(&line_index).copied().unwrap_or(1)
+            });
         }
         counts[depth] += 1;
         let marker = match bullet {
             Some(bullet) => bullet.to_string(),
-            None if depth == 0 => numbered_marker(attrs, counts[depth] - 1),
-            None => numbered_marker(&BlockAttrs::new(), counts[depth] - 1),
+            None => marker_for(marker_style, counts[depth] - 1 + from[depth] - 1),
         };
         items.push(ListItem {
             depth,
@@ -1462,13 +1524,13 @@ mod tests {
             numbers,
             "1. One\n    1. One a\n    2. One b\n        1. Deep\n2. Two"
         );
-        // Counting starts over under each parent, and only the top level is lettered.
+        // Counting starts over under each parent, in the letters of the list.
         let lettered = crate::db::notes::block_to_markdown(&block(
             "numbered_list",
             "A\n\tx\nB\n\ty",
             &[("marker", "a.")],
         ));
-        assert_eq!(lettered, "a. A\n    1. x\nb. B\n    1. y");
+        assert_eq!(lettered, "a. A\n    a. x\nb. B\n    a. y");
     }
 
     #[test]
@@ -1478,6 +1540,77 @@ mod tests {
         // The first line of a list cannot be nested at all.
         let first = list_items(&BlockAttrs::new(), "\tStart".lines(), Some("-"));
         assert_eq!((first[0].depth, first[0].text), (0, "Start"));
+    }
+
+    #[test]
+    fn a_numbered_list_can_start_later_in_its_count() {
+        let attrs = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<BlockAttrs>()
+        };
+        let md = |attrs: &[(&str, &str)]| {
+            crate::db::notes::block_to_markdown(&block("numbered_list", "One\nTwo\nThree", attrs))
+        };
+        assert_eq!(md(&[("start", "12")]), "12. One\n13. Two\n14. Three");
+        assert_eq!(
+            md(&[("marker", "a."), ("start", "2")]),
+            "b. One\nc. Two\nd. Three"
+        );
+        assert_eq!(
+            md(&[("marker", "A)"), ("start", "3")]),
+            "C) One\nD) Two\nE) Three"
+        );
+        assert_eq!(md(&[("start", "1")]), "1. One\n2. Two\n3. Three");
+        // A start that is not a number from one is ignored.
+        assert_eq!(md(&[("start", "x")]), "1. One\n2. Two\n3. Three");
+        assert!(validate_attrs("numbered_list", &attrs(&[("start", "12")])).is_ok());
+        assert!(validate_attrs("numbered_list", &attrs(&[("start", "0")])).is_err());
+        assert!(validate_attrs("bulleted_list", &attrs(&[("start", "2")])).is_err());
+        assert!(validate_attrs("numbered_list", &attrs(&[("nestedStarts", "1:2")])).is_ok());
+    }
+
+    #[test]
+    fn a_nested_numbered_list_counts_like_its_list_from_where_it_starts() {
+        let attrs = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<BlockAttrs>()
+        };
+        // "Two" was indented under "One": it stays b.
+        let indented = crate::db::notes::block_to_markdown(&block(
+            "numbered_list",
+            "One\n\tTwo\nThree",
+            &[("marker", "a."), ("nestedStarts", "1:2")],
+        ));
+        assert_eq!(indented, "a. One\n    b. Two\nb. Three");
+        let numbers = crate::db::notes::block_to_markdown(&block(
+            "numbered_list",
+            "One\n\tTwo\n\tThree\nFour\n\tFive",
+            &[("nestedStarts", "1:2,4:5")],
+        ));
+        assert_eq!(
+            numbers,
+            "1. One\n    2. Two\n    3. Three\n2. Four\n    5. Five"
+        );
+        // Without a recorded start a nested list begins at one, in the style of its list.
+        let plain = crate::db::notes::block_to_markdown(&block(
+            "numbered_list",
+            "One\n\tTwo",
+            &[("marker", "A.")],
+        ));
+        assert_eq!(plain, "A. One\n    A. Two");
+        let items = list_items(
+            &attrs(&[("marker", "a."), ("start", "3"), ("nestedStarts", "1:2")]),
+            "One\n\tTwo\nThree".lines(),
+            None,
+        );
+        assert_eq!(
+            items.iter().map(|i| i.marker.as_str()).collect::<Vec<_>>(),
+            ["c.", "b.", "d."]
+        );
     }
 
     #[test]

@@ -180,6 +180,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
@@ -942,6 +953,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
@@ -1310,6 +1332,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
@@ -2061,6 +2094,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
@@ -2420,6 +2464,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
@@ -3419,6 +3474,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
@@ -3817,6 +3883,17 @@
                 "a)",
                 "a."
               ]
+            },
+            {
+              "description": "Where a nested numbered list does not start at 1: `line:start` pairs, comma separated, the line (from 0) being the nested list's first. A nested list counts in the style of its list. Example: `1:2` for a list nested at line 1 that starts at 2 (b).",
+              "kind": "text",
+              "name": "nestedStarts"
+            },
+            {
+              "description": "The number the list starts counting at: 12 for 12, 13, 14, or 2 for b, c, d in a lettered list. Omit for 1 (or a).",
+              "kind": "integer",
+              "min": 1,
+              "name": "start"
             }
           ],
           "progress": [
