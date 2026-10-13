@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.18 (2026-10-13)
+
+### Fixed
+
+- **Table controls stay in reach.** Scrolling a wide table sideways no longer carries its toolbar out of the editor.
+
 ## 0.33.17 (2026-10-13)
 
 ### Added

@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.33.18",
+      "date": "2026-10-13",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Scrolling a wide table sideways no longer carries the table controls out of reach."
+        ]
+      }
+    },
+    {
       "version": "0.33.17",
       "date": "2026-10-13",
       "title": "Files that open on the right page",

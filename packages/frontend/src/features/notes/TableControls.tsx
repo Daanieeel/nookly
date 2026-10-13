@@ -36,9 +36,12 @@ export function TableControls({ editor }: { editor: Editor | null }) {
       const dom = editor.view.nodeDOM($from.before(depth));
       const tableEl = dom instanceof HTMLElement ? dom.querySelector("table") : null;
       if (tableEl) {
+        // The table's own box scrolls sideways with its content; its wrapper does not, so
+        // the controls follow that and stay within reach.
         const tableBox = tableEl.getBoundingClientRect();
+        const visibleBox = (tableEl.parentElement ?? tableEl).getBoundingClientRect();
         const editorBox = editor.view.dom.getBoundingClientRect();
-        const next = { top: tableBox.top - editorBox.top, left: tableBox.left - editorBox.left };
+        const next = { top: tableBox.top - editorBox.top, left: visibleBox.left - editorBox.left };
         setRect((prev) => keepIfEqual(prev, next));
       }
       return;
