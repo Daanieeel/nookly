@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_LATEX_MACROS, serializeLatexMacros } from "#/lib/latex-macros.ts";
 import { settings } from "#/lib/settings/settings.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -187,15 +188,47 @@ describe("editing and deleting", () => {
   });
 });
 
-describe("presets", () => {
-  it("adds a common macro, and no longer offers one that is defined", async () => {
+describe("the macros everyone starts with", () => {
+  it("are in the list from the start, with no presets menu to add them from", () => {
+    settings.set("notes.latexMacros", serializeLatexMacros(DEFAULT_LATEX_MACROS));
+    renderWithProviders(<LatexMacrosPanel />);
+    for (const name of ["\\abs", "\\norm", "\\inner"]) {
+      expect(rowOf(name)).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: /preset/i })).toBeNull();
+    expect(screen.queryByText(/preset/i)).toBeNull();
+  });
+
+  it("can be edited and deleted like any other", async () => {
+    settings.set("notes.latexMacros", serializeLatexMacros(DEFAULT_LATEX_MACROS));
     const { user } = renderWithProviders(<LatexMacrosPanel />);
-    await user.click(screen.getByRole("button", { name: "Add from presets" }));
-    await user.click(await screen.findByRole("menuitem", { name: /\\norm/ }));
-    expect(saved()).toContain("\\newcommand{\\norm}[1]");
-    await user.click(screen.getByRole("button", { name: "Add from presets" }));
-    expect(screen.queryByRole("menuitem", { name: /\\norm/ })).toBeNull();
-    expect(await screen.findByRole("menuitem", { name: /\\abs/ })).toBeInTheDocument();
+    await user.click(within(rowOf("\\dd")).getByRole("button", { name: "Delete \\dd" }));
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }),
+    );
+    await waitFor(() => expect(saved()).not.toContain("\\dd}"));
+    expect(saved()).toContain("\\abs");
+  });
+});
+
+describe("the List and Raw tabs", () => {
+  it("are tabs, with List selected to begin with", () => {
+    renderWithProviders(<LatexMacrosPanel />);
+    expect(screen.getByRole("tablist", { name: "View" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "List" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Raw" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+  });
+
+  it("switch the panel, and hide the list's own buttons in the raw view", async () => {
+    settings.set("notes.latexMacros", N);
+    const { user } = renderWithProviders(<LatexMacrosPanel />);
+    await user.click(screen.getByRole("tab", { name: "Raw" }));
+    expect(screen.getByRole("tab", { name: "Raw" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("textbox", { name: "LaTeX macros" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add macro" })).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "List" }));
+    expect(screen.getByRole("button", { name: "Add macro" })).toBeInTheDocument();
   });
 });
 
@@ -203,13 +236,13 @@ describe("the raw view", () => {
   it("shows and edits the text, and the list follows it", async () => {
     settings.set("notes.latexMacros", N);
     const { user } = renderWithProviders(<LatexMacrosPanel />);
-    await user.click(screen.getByRole("button", { name: "Raw" }));
+    await user.click(screen.getByRole("tab", { name: "Raw" }));
     const field = screen.getByRole("textbox", { name: "LaTeX macros" });
     expect(field).toHaveValue(N);
     await user.click(field);
     await user.paste(`\n${ABS}`);
     await user.tab();
-    await user.click(screen.getByRole("button", { name: "List" }));
+    await user.click(screen.getByRole("tab", { name: "List" }));
     expect(rowOf("\\abs")).toBeInTheDocument();
   });
 });
@@ -252,7 +285,7 @@ describe("accessibility", () => {
     await user.click(screen.getByRole("button", { name: "Add macro" }));
     await expectNoA11yViolations(container);
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Raw" }));
+    await user.click(screen.getByRole("tab", { name: "Raw" }));
     await expectNoA11yViolations(container);
   });
 });

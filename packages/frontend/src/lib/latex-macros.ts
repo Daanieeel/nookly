@@ -186,6 +186,21 @@ export function macroEntries(macros: Record<string, string>): MacroEntry[] {
   }));
 }
 
+/// The macros a new install starts with: common commands KaTeX does not have. Left out are the
+/// ones it does (`\\R`, `\\N`, `\\set`, `\\argmax`), so no formula changes meaning.
+export const DEFAULT_LATEX_MACROS: MacroEntry[] = [
+  { name: "\\abs", body: "\\left|#1\\right|" },
+  { name: "\\norm", body: "\\left\\lVert #1 \\right\\rVert" },
+  { name: "\\floor", body: "\\left\\lfloor #1 \\right\\rfloor" },
+  { name: "\\ceil", body: "\\left\\lceil #1 \\right\\rceil" },
+  { name: "\\inner", body: "\\left\\langle #1, #2 \\right\\rangle" },
+  { name: "\\vect", body: "\\mathbf{#1}" },
+  { name: "\\dd", body: "\\mathrm{d}" },
+  { name: "\\E", body: "\\mathbb{E}" },
+  { name: "\\Prob", body: "\\mathbb{P}" },
+  { name: "\\eps", body: "\\varepsilon" },
+].map((m) => ({ ...m, args: macroArgumentCount(m.body) }));
+
 /// The setting's text for a list of macros, one definition per line.
 export function serializeLatexMacros(entries: readonly MacroEntry[]): string {
   return entries.map((entry) => formatMacro(entry.name, entry.body)).join("\n");

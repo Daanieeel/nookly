@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_LATEX_MACROS,
   formatMacro,
   macroArgumentCount,
   macroEntries,
@@ -185,5 +186,30 @@ describe("macro entries", () => {
     const text = serializeLatexMacros(entries);
     expect(text).toBe("\\newcommand{\\N}{\\mathbb{N}}\n\\newcommand{\\pair}[2]{(#1, #2)}");
     expect(macroEntries(parseLatexMacros(text).macros)).toEqual(entries);
+  });
+});
+
+// The macros everyone starts with.
+describe("the default macros", () => {
+  it("are common commands KaTeX does not have, each with its own definition", () => {
+    const { macros, errors } = parseLatexMacros(serializeLatexMacros(DEFAULT_LATEX_MACROS));
+    expect(errors).toEqual([]);
+    expect(Object.keys(macros)).toEqual(DEFAULT_LATEX_MACROS.map((m) => m.name));
+    for (const name of ["\\abs", "\\norm", "\\floor", "\\ceil", "\\inner", "\\vect", "\\dd"]) {
+      expect(macros[name], name).toBeDefined();
+    }
+  });
+
+  it("leave out what KaTeX already defines, so nothing it knows changes meaning", () => {
+    const names = DEFAULT_LATEX_MACROS.map((m) => m.name);
+    for (const builtin of ["\\set", "\\Set", "\\argmax", "\\R", "\\N", "\\Z", "\\Q", "\\C"]) {
+      expect(names).not.toContain(builtin);
+    }
+  });
+
+  it("count their arguments from their definitions", () => {
+    for (const entry of DEFAULT_LATEX_MACROS) {
+      expect(entry.args, entry.name).toBe(macroArgumentCount(entry.body));
+    }
   });
 });

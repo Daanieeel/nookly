@@ -1,9 +1,10 @@
 import { screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { settings } from "#/lib/settings/settings.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { LatexMacrosControl } from "./setting-controls";
 
+beforeEach(() => settings.set("notes.latexMacros", ""));
 afterEach(() => settings.set("notes.latexMacros", ""));
 
 describe("the LaTeX macros control", () => {
