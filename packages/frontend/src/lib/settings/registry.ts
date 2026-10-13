@@ -403,6 +403,16 @@ export const SETTINGS = {
     default: 15,
     schema: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]),
   }),
+  "notes.formatCodeOnPaste": define({
+    id: "notes.formatCodeOnPaste",
+    category: "notes",
+    title: "Format code when pasted",
+    description:
+      "Tidies the code in a code block right after you paste into it, for the languages that have a formatter. Undo reverts it.",
+    synonyms: ["format", "prettier", "indent", "tidy", "paste", "code block", "beautify", "notes"],
+    default: false,
+    schema: z.boolean(),
+  }),
   "notes.arrowLigatures": define({
     id: "notes.arrowLigatures",
     category: "notes",

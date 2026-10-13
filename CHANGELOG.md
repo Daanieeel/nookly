@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.27 (2026-10-13)
+
+### Added
+
+- **Format code blocks.** The new Format button in a code block tidies its code for JavaScript, TypeScript, JSON, CSS, HTML, Markdown and YAML, and a setting can do it whenever you paste.
+
 ## 0.33.26 (2026-10-13)
 
 ### Added

@@ -148,6 +148,10 @@ const SETTING_UI = {
   "calendar.snapMinutes": { section: "Week and day", control: <SnapControl /> },
   "calendar.todayColor": { section: "Current day", control: <TodayColorControl /> },
   "calendar.todayIntensity": { section: "Current day", control: <TodayIntensityControl /> },
+  "notes.formatCodeOnPaste": {
+    section: "Code",
+    control: <SwitchControl settingId="notes.formatCodeOnPaste" label="Format code when pasted" />,
+  },
   "notes.arrowLigatures": {
     section: "Editing",
     control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,

@@ -6,6 +6,8 @@ import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { CodeBlockComponent } from "./CodeBlockComponent";
+import { settings } from "#/lib/settings/settings.ts";
+import { formatCodeBlock } from "./format-code-block";
 import { ensureLanguage, highlightSpans, isLanguageLoaded, type TokenSpan } from "./highlighter";
 
 /// Per slice time budget for background tokenizing, so a page full of code blocks
@@ -180,6 +182,26 @@ function HighlightPlugin({ name, defaultLanguage }: { name: string; defaultLangu
 /// TSX/JSX than highlight.js's regex-based grammars were), and the React NodeView
 /// that renders the header (§ code block header). `language` is already a built-in `CodeBlock`
 /// attribute.
+/// With the `notes.formatCodeOnPaste` setting on, formats a code block right after text is
+/// pasted into it. The paste itself is left to the editor; this only looks at the block the
+/// caret ends up in once it has landed, as a separate step, so undo brings the pasted code back.
+function FormatOnPastePlugin(editor: Editor, name: string) {
+  return new Plugin({
+    key: new PluginKey("formatCodeOnPaste"),
+    props: {
+      handlePaste: (view) => {
+        if (settings.get("notes.formatCodeOnPaste")) {
+          setTimeout(() => {
+            const { $from } = view.state.selection;
+            if ($from.parent.type.name === name) void formatCodeBlock(editor, $from.before());
+          }, 0);
+        }
+        return false;
+      },
+    },
+  });
+}
+
 export const CodeBlockWithHeader = CodeBlock.extend<
   CodeBlockOptions & { getNewLanguage: () => string | null }
 >({
@@ -234,6 +256,7 @@ export const CodeBlockWithHeader = CodeBlock.extend<
   addProseMirrorPlugins() {
     return [
       ...(this.parent?.() ?? []),
+      FormatOnPastePlugin(this.editor, this.name),
       HighlightPlugin({
         name: this.name,
         defaultLanguage: this.options.defaultLanguage ?? "plaintext",

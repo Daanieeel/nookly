@@ -1,7 +1,12 @@
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
+import { IconWand } from "@tabler/icons-react";
 import { memo, useState } from "react";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
+import { notify } from "#/components/notify.tsx";
+import { resolveLanguageEntry } from "./code-languages";
+import { canFormat } from "./format-code";
+import { formatCodeBlock } from "./format-code-block";
 import { asString, type JSONAttrValue } from "./block-markdown";
 import { CodeBlockLanguagePicker } from "./CodeBlockLanguagePicker";
 
@@ -9,7 +14,7 @@ import { CodeBlockLanguagePicker } from "./CodeBlockLanguagePicker";
 /// only renders `<pre><code>`, so this NodeView adds the chrome around it. Both the
 /// header and the `pre` body use tokens distinct from the editor's own page background
 /// (`--accent` / `--card` vs `--background`) so the block reads as a raised surface.
-export function CodeBlockComponent({ node, updateAttributes }: ReactNodeViewProps) {
+export function CodeBlockComponent({ node, updateAttributes, editor, getPos }: ReactNodeViewProps) {
   // SAFETY: `CodeBlockWithHeader`'s attribute defs only ever write `language` as `string | null`,
   // a subset of `JSONAttrValue` — the shape `asString` parses.
   const language = asString(node.attrs.language as JSONAttrValue | undefined) ?? null;
@@ -19,6 +24,19 @@ export function CodeBlockComponent({ node, updateAttributes }: ReactNodeViewProp
   // The copy button only exists while the pointer is over the block, so a page of
   // code blocks doesn't mount a tooltip per block up front.
   const [hovered, setHovered] = useState(false);
+
+  const format = async () => {
+    const pos = getPos();
+    if (pos === undefined) return;
+    const result = await formatCodeBlock(editor, pos);
+    if (result === "failed") {
+      notify.error("Couldn't format the code", {
+        description: "It has a syntax error, so it was left as it is.",
+      });
+    } else if (result === "unchanged") {
+      notify.info("Already formatted");
+    }
+  };
 
   return (
     <NodeViewWrapper
@@ -30,6 +48,8 @@ export function CodeBlockComponent({ node, updateAttributes }: ReactNodeViewProp
         language={language}
         filename={filename}
         updateAttributes={updateAttributes}
+        editable={editor.isEditable}
+        onFormat={format}
       />
       <pre className="code-block-body">
         <NodeViewContent<"code"> as="code" />
@@ -57,10 +77,14 @@ const CodeBlockHeader = memo(function CodeBlockHeader({
   language,
   filename,
   updateAttributes,
+  editable,
+  onFormat,
 }: {
   language: string | null;
   filename: string;
   updateAttributes: ReactNodeViewProps["updateAttributes"];
+  editable: boolean;
+  onFormat: () => void;
 }) {
   return (
     <div className="code-block-header" contentEditable={false}>
@@ -71,6 +95,7 @@ const CodeBlockHeader = memo(function CodeBlockHeader({
         spellCheck={false}
         className="code-block-filename"
       />
+      {editable && <FormatButton language={language} onFormat={onFormat} />}
       <CodeBlockLanguagePicker
         value={language}
         onChange={(next) => updateAttributes({ language: next })}
@@ -78,3 +103,28 @@ const CodeBlockHeader = memo(function CodeBlockHeader({
     </div>
   );
 });
+
+/// Tidies the block's code with the formatter for its language. Off, saying why, where there is
+/// none; a disabled button gets no pointer events, so the tooltip hangs off a wrapper.
+function FormatButton({ language, onFormat }: { language: string | null; onFormat: () => void }) {
+  const available = canFormat(language);
+  const name = resolveLanguageEntry(language)?.label ?? "this language";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="flex">
+          <button
+            type="button"
+            aria-label="Format code"
+            disabled={!available}
+            onClick={onFormat}
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground enabled:hover:bg-accent enabled:hover:text-foreground disabled:opacity-40"
+          >
+            <IconWand size={14} />
+          </button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{available ? "Format code" : `No formatter for ${name}`}</TooltipContent>
+    </Tooltip>
+  );
+}
