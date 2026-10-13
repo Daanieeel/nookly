@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldText, includesFolded } from "./text-search.ts";
+import { foldText, includesFolded, prefixFirst } from "./text-search.ts";
 
 const COMPOSED = "Übungsblatt";
 const DECOMPOSED = "Übungsblatt";
@@ -99,5 +99,39 @@ describe("what folding must not do", () => {
   it("is safe on empty text and on emoji", () => {
     expect(foldText("")).toBe("");
     expect(foldText("Plan 📚 für Mai")).toBe("plan 📚 fur mai");
+  });
+});
+
+describe("prefixFirst", () => {
+  it("lists labels that start with the term before labels that only contain it", () => {
+    const labels = ["Heading 1", "Callout", "Inline math", "Linked item"];
+    expect(prefixFirst(labels, "in", (label) => [label])).toEqual([
+      "Inline math",
+      "Heading 1",
+      "Linked item",
+    ]);
+  });
+
+  it("ignores case and accents and keeps the given order inside each tier", () => {
+    const labels = ["Café au lait", "Decaf", "Cafe noir", "Latte"];
+    expect(prefixFirst(labels, "CAFÉ", (label) => [label])).toEqual(["Café au lait", "Cafe noir"]);
+    expect(prefixFirst(labels, "af", (label) => [label])).toEqual([
+      "Café au lait",
+      "Decaf",
+      "Cafe noir",
+    ]);
+  });
+
+  it("matches any of an item's terms and puts a prefix of any of them first", () => {
+    const items = [
+      { title: "Heading", aliases: ["title"] },
+      { title: "Toggle", aliases: ["fold"] },
+      { title: "Table of contents", aliases: ["toc"] },
+    ];
+    expect(prefixFirst(items, "t", (i) => [i.title, ...i.aliases]).map((i) => i.title)).toEqual([
+      "Heading",
+      "Toggle",
+      "Table of contents",
+    ]);
   });
 });

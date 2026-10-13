@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.13 (2026-10-13)
+
+### Fixed
+
+- **Math blocks from the slash menu keep your text.** Inserting a Math block, Equation, Diagram or Circuit below a line that has more text above it no longer pulls that text into the block.
+
+## 0.33.12 (2026-10-13)
+
+### Fixed
+
+- **Search lists best matches first.** Typing `/in` in the slash menu shows Inline math first, and results that start with what you typed come before ones that only contain it.
+
 ## 0.33.11 (2026-10-13)
 
 ### Fixed

@@ -46,7 +46,7 @@ import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { insertMention } from "./mention-extension";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
-import { includesFolded } from "#/lib/text-search.ts";
+import { prefixFirst } from "#/lib/text-search.ts";
 
 interface SlashItem {
   title: string;
@@ -263,14 +263,14 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "Math and diagrams",
     description: "One LaTeX formula, centered",
     icon: <IconMathFunction size={15} />,
-    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("equation").run(),
+    run: (editor, range) => setSourceBlock(editor, range, "equation"),
   },
   {
     title: "Math block",
     group: "Math and diagrams",
     description: "Lines of LaTeX for derivations and proofs",
     icon: <IconSum size={15} />,
-    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("math").run(),
+    run: (editor, range) => setSourceBlock(editor, range, "math"),
   },
   {
     title: "Inline math",
@@ -290,14 +290,14 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "Math and diagrams",
     description: "Flowcharts and more with Mermaid",
     icon: <IconSchema size={15} />,
-    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("diagram").run(),
+    run: (editor, range) => setSourceBlock(editor, range, "diagram"),
   },
   {
     title: "Circuit",
     group: "Math and diagrams",
     description: "Logic gates from a boolean expression, or drawn by hand",
     icon: <IconCpu size={15} />,
-    run: (editor, range) => editor.chain().focus().deleteRange(range).setNode("circuit").run(),
+    run: (editor, range) => setSourceBlock(editor, range, "circuit"),
   },
   {
     title: "Image",
@@ -350,6 +350,22 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
 ];
 
+/// Turns the block the command was typed in into a source block when nothing else is in
+/// it. A paragraph that still holds text (a line above a soft break, or words before the
+/// "/") keeps it, and the new block goes below, so the text never ends up in the code.
+function setSourceBlock(editor: Editor, range: Range, type: string) {
+  editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .command(({ state, commands }) => {
+      const { $from } = state.selection;
+      if ($from.parent.content.size === 0) return commands.setNode(type);
+      return commands.insertContentAt($from.after(), { type });
+    })
+    .run();
+}
+
 /// Replaces the (usually empty) block the command was typed in with a row block,
 /// then moves focus into its first input.
 function insertRowBlock(editor: Editor, range: Range, type: string, rows: string) {
@@ -378,6 +394,12 @@ export function toListItem(item: SlashItem): SuggestionListItem {
 export interface SlashCommandOptions {
   /// Read live, like the mention menu's, so `/FIL-23` can offer entities by ID.
   getEntities: () => Entity[];
+}
+
+/// The items for what was typed after "/": a title or keyword that starts with it
+/// comes before one that only contains it.
+export function slashItemsFor(query: string): SlashItem[] {
+  return prefixFirst(SLASH_ITEMS, query, (item) => [item.title, ...(item.keywords ?? [])]);
 }
 
 function entityItem(entity: Entity): SlashItem {
@@ -414,12 +436,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
               .slice(0, 8)
               .map(entityItem);
           }
-          const q = query.toLowerCase();
-          return SLASH_ITEMS.filter(
-            (item) =>
-              includesFolded(item.title, q) ||
-              item.keywords?.some((keyword) => keyword.includes(q)),
-          );
+          return slashItemsFor(query);
         },
         command: ({ editor, range, props }) => props.run(editor, range),
         render: createSuggestionRender(toListItem),
