@@ -3,69 +3,46 @@
     {
       "version": "0.33.30",
       "date": "2026-10-13",
-      "title": "Edit with Vim keys",
-      "summary": "An optional Vim mode for the page editor.",
+      "title": "A big batch of improvements",
+      "summary": "Vim keys, highlights, pinned columns, your own LaTeX commands and many smaller fixes.",
       "highlights": [
         {
           "title": "Vim keys in pages",
           "description": "Turn on **Vim keys in pages** under Settings, Editor. Press `?` in normal mode to see every key.",
           "icon": "keyboard",
           "tag": "New"
-        }
-      ],
-      "more": {
-        "Fixed": [
-          "Deleting everything inside inline code, or a highlight, removes it, so the line is plain again. The right arrow steps out of it at its end, and the left arrow at the start of a line, with a small gap showing where the caret is.",
-          "Bullet points fixed: an indented item keeps its letter or number, and a numbered list can start anywhere, like `b)`, `c.` or `12.`, and carries on from there.",
-          "A zoomed PDF or document keeps its sideways scroll position when you switch tabs, as well as its place down the page."
-        ],
-        "Improved": ["The sentence at the top of the Dashboard names only your next session."]
-      }
-    },
-    {
-      "version": "0.33.29",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Improved": ["Customize sidebar can now hide Trash too."]
-      }
-    },
-    {
-      "version": "0.33.28",
-      "date": "2026-10-13",
-      "title": "Math, your way",
-      "summary": "Define LaTeX commands once and use them everywhere.",
-      "highlights": [
+        },
+        {
+          "title": "Highlight text",
+          "description": "Type `==text==` or select text and press `Mod+Shift+H` to mark it with a highlighter.",
+          "icon": "sparkles",
+          "tag": "New",
+          "shortcut": "Mod+Shift+H"
+        },
         {
           "title": "Your own LaTeX commands",
           "description": "Add your own commands under Settings, Editor, LaTeX, each with a live preview, starting with a few common ones, and use them in every formula.",
           "icon": "sparkles",
           "tag": "New"
-        }
-      ],
-      "more": {}
-    },
-    {
-      "version": "0.33.27",
-      "date": "2026-10-13",
-      "title": "Tidier code",
-      "summary": "Format the code in your notes.",
-      "highlights": [
+        },
+        {
+          "title": "Pin table columns",
+          "description": "Use the pin button in the table toolbar to keep the first columns in place while a wide table scrolls sideways.",
+          "icon": "table",
+          "tag": "New"
+        },
         {
           "title": "Format code blocks",
           "description": "Tidy a code block with the Format button in its header, or turn on **Format code when pasted** in Settings. Undo brings the old code back.",
           "icon": "sparkles",
           "tag": "New"
-        }
-      ],
-      "more": {}
-    },
-    {
-      "version": "0.33.26",
-      "date": "2026-10-13",
-      "title": "A calendar you can tune",
-      "summary": "Choose how the current day is marked.",
-      "highlights": [
+        },
+        {
+          "title": "Open a file on a page",
+          "description": "Set a page number on a file in a note and it opens on that page, so each note can point to its own part of the same PDF.",
+          "icon": "file-text",
+          "tag": "New"
+        },
         {
           "title": "Make today stand out",
           "description": "Pick a colour and intensity for the current day in the calendar under Settings.",
@@ -73,139 +50,24 @@
           "tag": "New"
         }
       ],
-      "more": {}
-    },
-    {
-      "version": "0.33.24",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "The main content panel lines up with the left navigation panel at the top and bottom."
-        ]
-      }
-    },
-    {
-      "version": "0.33.23",
-      "date": "2026-10-13",
-      "highlights": [],
       "more": {
         "Improved": [
-          "The command palette has a New Tab action, with its shortcut shown next to it."
-        ]
-      }
-    },
-    {
-      "version": "0.33.22",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Done tasks and assignments with a past due date read like \"3 days ago\" and never show as overdue."
-        ]
-      }
-    },
-    {
-      "version": "0.33.21",
-      "date": "2026-10-13",
-      "title": "Mark what matters",
-      "summary": "Highlight text in your pages.",
-      "highlights": [
-        {
-          "title": "Highlight text",
-          "description": "Type `==text==` or select text and press `Mod+Shift+H` to mark it with a highlighter.",
-          "icon": "sparkles",
-          "tag": "New",
-          "shortcut": "Mod+Shift+H"
-        }
-      ],
-      "more": {}
-    },
-    {
-      "version": "0.33.20",
-      "date": "2026-10-13",
-      "title": "Wide tables, easier to read",
-      "summary": "Keep row labels in view while a table scrolls.",
-      "highlights": [
-        {
-          "title": "Pin table columns",
-          "description": "Use the pin button in the table toolbar to keep the first columns in place while a wide table scrolls sideways.",
-          "icon": "table",
-          "tag": "New"
-        }
-      ],
-      "more": {}
-    },
-    {
-      "version": "0.33.19",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Tab nests a bullet under the one above it, nested items are saved with the page, and Tab no longer jumps out of the editor on the first bullet."
-        ]
-      }
-    },
-    {
-      "version": "0.33.18",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Scrolling a wide table sideways no longer carries the table controls out of reach."
-        ]
-      }
-    },
-    {
-      "version": "0.33.17",
-      "date": "2026-10-13",
-      "title": "Files that open on the right page",
-      "summary": "Link the same PDF from many notes, each to its own page.",
-      "highlights": [
-        {
-          "title": "Open a file on a page",
-          "description": "Set a page number on a file in a note and it opens on that page, so each note can point to its own part of the same PDF.",
-          "icon": "file-text",
-          "tag": "New"
-        }
-      ],
-      "more": {}
-    },
-    {
-      "version": "0.33.16",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Improved": ["Attachments in the detail sidebar are grouped by type, like Relationships."]
-      }
-    },
-    {
-      "version": "0.33.15",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Cmd+Left on a line with inline math goes to the start of the line, not the top of the note."
-        ]
-      }
-    },
-    {
-      "version": "0.33.13",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Inserting a Math block, Equation, Diagram or Circuit from the slash menu no longer swallows the text above it."
-        ]
-      }
-    },
-    {
-      "version": "0.33.12",
-      "date": "2026-10-13",
-      "highlights": [],
-      "more": {
-        "Fixed": [
+          "The command palette has a New Tab action, with its shortcut shown next to it.",
+          "Attachments in the detail sidebar are grouped by type, like Relationships.",
+          "Customize sidebar can now hide Trash too.",
+          "The sentence at the top of the Dashboard names only your next session.",
           "Search lists results that start with what you typed first, so `/in` shows Inline math before headings."
+        ],
+        "Fixed": [
+          "Deleting everything inside inline code, or a highlight, removes it, so the line is plain again. The right arrow steps out of it at its end, and the left arrow at the start of a line, with a small gap showing where the caret is.",
+          "Bullet points fixed: an indented item keeps its letter or number, and a numbered list can start anywhere, like `b)`, `c.` or `12.`, and carries on from there.",
+          "Tab nests a bullet under the one above it, nested items are saved with the page, and Tab no longer jumps out of the editor on the first bullet.",
+          "A zoomed PDF or document keeps its sideways scroll position when you switch tabs, as well as its place down the page.",
+          "Scrolling a wide table sideways no longer carries the table controls out of reach.",
+          "Inserting a Math block, Equation, Diagram or Circuit from the slash menu no longer swallows the text above it.",
+          "Cmd+Left on a line with inline math goes to the start of the line, not the top of the note.",
+          "Done tasks and assignments with a past due date read like \"3 days ago\" and never show as overdue.",
+          "The main content panel lines up with the left navigation panel at the top and bottom."
         ]
       }
     },

@@ -4,115 +4,35 @@ All notable changes to Nookly are listed here.
 
 ## 0.33.30 (2026-10-13)
 
+### Added
+
+- **Vim keys in pages.** Turn on Vim keys under Settings, Editor to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.
+- **Highlight text.** Type `==text==` or press `Mod+Shift+H` to highlight a selection, or pick Highlight in the Format menu or the command palette. Highlights work with bold, italic and inline math, and bold with italic no longer comes back with stray asterisks.
+- **Your own LaTeX commands.** Define macros as a list under Settings, Editor, LaTeX, each with a live preview, and use them in every math block and inline formula. Mistakes show before you save, and copied or saved Markdown carries the commands it uses.
+- **Pin table columns.** Pin the first columns of a wide table so row labels stay in view while the rest scrolls sideways.
+- **Format code blocks.** The new Format button in a code block tidies its code for JavaScript, TypeScript, JSON, CSS, HTML, Markdown and YAML, and a setting can do it whenever you paste.
+- **Open a file on a page.** A file in a note can open on a page you choose, so notes that link the same PDF can each start where they need to.
+- **Choose how today is marked.** Settings under Calendar set the current day's colour (Primary or Neutral) and intensity (Low, Default or High) in the week, day and month views.
+- **New Tab in the command palette.** Type "new tab" in Cmd+K or Cmd+Shift+P to open a new tab without the mouse.
+- **Hide Trash from the sidebar.** The Customize sidebar menu now also hides the Trash row, next to the items it already hid and moved.
+
 ### Changed
 
 - **The Dashboard sentence names the next session only.** It no longer counts the other sessions later in the day.
+- **Attachments are grouped by type.** Notes, journals, sessions, courses and other attachments each get their own heading in the sidebar, like Relationships.
+- **Search lists best matches first.** Typing `/in` in the slash menu shows Inline math first, and results that start with what you typed come before ones that only contain it.
 
 ### Fixed
 
 - **Inline code and highlights leave cleanly.** Deleting everything inside one removes it, so the line is plain again, and the arrow keys step out of it at its end and at the start of a line.
 - **Bullet points fixed.** An indented item keeps its letter or number, and a numbered list can start anywhere, like `b)`, `c.` or `12.`, and carries on from there.
-- **PDFs and documents keep their sideways position.** A zoomed PDF or document comes back scrolled to the same spot across as well as down when you switch tabs.
-
-### Added
-
-- **Vim keys in pages.** Turn on Vim keys under Settings, Editor to edit pages in normal, insert and visual mode with motions, operators, text objects and counts. A mode indicator shows where you are, and ? lists the keys.
-
-## 0.33.29 (2026-10-13)
-
-### Added
-
-- **Hide Trash from the sidebar.** The Customize sidebar menu now also hides the Trash row, next to the items it already hid and moved.
-
-## 0.33.28 (2026-10-13)
-
-### Added
-
-- **Your own LaTeX commands.** Define macros as a list under Settings, Editor, LaTeX, each with a live preview, and use them in every math block and inline formula. Mistakes show before you save, and copied or saved Markdown carries the commands it uses.
-
-## 0.33.27 (2026-10-13)
-
-### Added
-
-- **Format code blocks.** The new Format button in a code block tidies its code for JavaScript, TypeScript, JSON, CSS, HTML, Markdown and YAML, and a setting can do it whenever you paste.
-
-## 0.33.26 (2026-10-13)
-
-### Added
-
-- **Choose how today is marked.** Settings under Calendar set the current day's colour (Primary or Neutral) and intensity (Low, Default or High) in the week, day and month views.
-
-## 0.33.24 (2026-10-13)
-
-### Fixed
-
-- **The page lines up with the sidebar.** The main content now starts and ends at the same height as the navigation panel on the left.
-
-## 0.33.23 (2026-10-13)
-
-### Added
-
-- **New Tab in the command palette.** Type "new tab" in Cmd+K or Cmd+Shift+P to open a new tab without the mouse.
-
-## 0.33.22 (2026-10-13)
-
-### Fixed
-
-- **Finished work is never overdue.** A done task or assignment with a past due date now reads "Yesterday" or "3 days ago" in lists and on the Dashboard, and tasks past their date that are done move out of the Overdue group.
-
-## 0.33.21 (2026-10-13)
-
-### Added
-
-- **Highlight text.** Type `==text==` or press `Mod+Shift+H` to highlight a selection, or pick Highlight in the Format menu or the command palette. Highlights work with bold, italic and inline math, and bold with italic no longer comes back with stray asterisks.
-
-## 0.33.20 (2026-10-13)
-
-### Added
-
-- **Pin table columns.** Pin the first columns of a wide table so row labels stay in view while the rest scrolls sideways.
-
-## 0.33.19 (2026-10-13)
-
-### Fixed
-
 - **Tab indents bullets.** Tab nests a bullet or numbered item under the one above it and Shift+Tab takes it back out, and nested items are now saved with the page instead of being lost. On the first item, Tab no longer jumps focus out of the editor.
-
-## 0.33.18 (2026-10-13)
-
-### Fixed
-
+- **PDFs and documents keep their sideways position.** A zoomed PDF or document comes back scrolled to the same spot across as well as down when you switch tabs.
 - **Table controls stay in reach.** Scrolling a wide table sideways no longer carries its toolbar out of the editor.
-
-## 0.33.17 (2026-10-13)
-
-### Added
-
-- **Open a file on a page.** A file in a note can open on a page you choose, so notes that link the same PDF can each start where they need to.
-
-## 0.33.16 (2026-10-13)
-
-### Changed
-
-- **Attachments are grouped by type.** Notes, journals, sessions, courses and other attachments each get their own heading in the sidebar, like Relationships.
-
-## 0.33.15 (2026-10-13)
-
-### Fixed
-
-- **Cmd+Left works on lines with inline math.** It goes to the start of the line, and Cmd+Right, Home and End go to its end, instead of jumping to the top of the note.
-
-## 0.33.13 (2026-10-13)
-
-### Fixed
-
 - **Math blocks from the slash menu keep your text.** Inserting a Math block, Equation, Diagram or Circuit below a line that has more text above it no longer pulls that text into the block.
-
-## 0.33.12 (2026-10-13)
-
-### Fixed
-
-- **Search lists best matches first.** Typing `/in` in the slash menu shows Inline math first, and results that start with what you typed come before ones that only contain it.
+- **Cmd+Left works on lines with inline math.** It goes to the start of the line, and Cmd+Right, Home and End go to its end, instead of jumping to the top of the note.
+- **Finished work is never overdue.** A done task or assignment with a past due date now reads "Yesterday" or "3 days ago" in lists and on the Dashboard, and tasks past their date that are done move out of the Overdue group.
+- **The page lines up with the sidebar.** The main content now starts and ends at the same height as the navigation panel on the left.
 
 ## 0.33.11 (2026-10-13)
 
