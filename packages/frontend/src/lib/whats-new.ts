@@ -47,8 +47,8 @@ export function parseWhatsNew(data: WhatsNewFile = file): WhatsNewEntry[] {
 export function whatsNewIssues(data: WhatsNewFile = file): string[] {
   const seen = new Set<string>();
   return data.versions.flatMap((candidate, index) => {
-    const raw = (candidate as { version?: unknown }).version;
-    const label = typeof raw === "string" ? raw : `#${index + 1}`;
+    const named = z.object({ version: z.string() }).safeParse(candidate);
+    const label = named.success ? named.data.version : `#${index + 1}`;
     const parsed = entry.safeParse(candidate);
     if (!parsed.success) {
       return parsed.error.issues.map((issue) => {
