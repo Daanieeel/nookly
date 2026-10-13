@@ -123,6 +123,15 @@ const NUMBERED_LIST_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
                   'A.' or 'A)'. Omit for 1, 2, 3.",
 }];
 
+/// A table keeps its leftmost columns in place while the rest scrolls sideways.
+const TABLE_ATTRS: &[BlockAttrDef] = &[BlockAttrDef {
+    name: "pinned",
+    kind: AttrKind::Integer { min: 1 },
+    description:
+        "How many of the leftmost columns stay in place while a wide table scrolls sideways. \
+                  Omit for none. Never all columns: at most one less than the table has, and 5.",
+}];
+
 /// The marker shown for item `index` (from 0) of a numbered list with `attrs`.
 pub fn numbered_marker(attrs: &BlockAttrs, index: usize) -> String {
     let Some(first) = attrs
@@ -193,6 +202,7 @@ pub fn declared_attrs(block_type: &str) -> &'static [BlockAttrDef] {
             HEADING_ATTRS
         }
         "numbered_list" => NUMBERED_LIST_ATTRS,
+        "table" => TABLE_ATTRS,
         _ => lookup(block_type).map_or(&[], |def| def.attrs),
     }
 }
@@ -1420,6 +1430,23 @@ mod tests {
         assert_eq!(md, "a) One\nb) Two");
         let plain = crate::db::notes::block_to_markdown(&block("numbered_list", "One\nTwo", &[]));
         assert_eq!(plain, "1. One\n2. Two");
+    }
+
+    #[test]
+    fn a_table_takes_a_pinned_column_count() {
+        let pinned = |n: &str| BlockAttrs::from([("pinned".to_string(), n.to_string())]);
+        assert!(validate_attrs("table", &pinned("2")).is_ok());
+        assert!(validate_attrs("table", &pinned("0")).is_err());
+        assert!(validate_attrs("table", &pinned("two")).is_err());
+        assert!(validate_attrs("paragraph", &pinned("2")).is_err());
+        let mut attrs = pinned("2");
+        merge_attrs("table", &mut attrs, BlockAttrs::new());
+        assert_eq!(attrs.get("pinned").map(String::as_str), Some("2"));
+        // The markdown export of a table is the same pinned or not.
+        let plain = crate::db::notes::block_to_markdown(&block("table", "A\tB\n1\t2", &[]));
+        let on =
+            crate::db::notes::block_to_markdown(&block("table", "A\tB\n1\t2", &[("pinned", "1")]));
+        assert_eq!(plain, on);
     }
 
     #[test]

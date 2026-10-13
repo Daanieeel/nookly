@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.20 (2026-10-13)
+
+### Added
+
+- **Pin table columns.** Pin the first columns of a wide table so row labels stay in view while the rest scrolls sideways.
+
 ## 0.33.19 (2026-10-13)
 
 ### Fixed

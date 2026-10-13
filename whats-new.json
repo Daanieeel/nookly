@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.33.20",
+      "date": "2026-10-13",
+      "title": "Wide tables, easier to read",
+      "summary": "Keep row labels in view while a table scrolls.",
+      "highlights": [
+        {
+          "title": "Pin table columns",
+          "description": "Use the pin button in the table toolbar to keep the first columns in place while a wide table scrolls sideways.",
+          "icon": "table",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.33.19",
       "date": "2026-10-13",
       "highlights": [],

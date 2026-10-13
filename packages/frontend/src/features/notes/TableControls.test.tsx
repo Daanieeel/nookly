@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
@@ -49,5 +49,50 @@ describe("the table controls", () => {
     await vi.waitFor(() => expect(controls()).not.toBeNull());
     expect(controls()?.style.getPropertyValue("--controls-top")).toBe("60px");
     expect(controls()?.style.getPropertyValue("--controls-left")).toBe("0px");
+  });
+});
+
+describe("the pin button of the table controls", () => {
+  async function open() {
+    editor = new Editor({
+      extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+      content: `<table><tr>${cells("th")}</tr><tr>${cells("td")}</tr></table>`,
+    });
+    const view = renderWithProviders(
+      <div>
+        <EditorContent editor={editor} />
+        <TableControls editor={editor} />
+      </div>,
+    );
+    act(() => {
+      const { doc } = editor!.state;
+      editor!.view.dispatch(editor!.state.tr.setSelection(TextSelection.near(doc.resolve(4))));
+    });
+    return view;
+  }
+  const pinned = () => editor?.getJSON().content?.[0]?.attrs?.pinned;
+
+  it("pins the columns up to the caret and then offers to unpin", async () => {
+    const { user } = await open();
+    await user.click(await screen.findByRole("button", { name: "Pin column" }));
+    await waitFor(() => expect(pinned()).toBe("1"));
+    expect(await screen.findByRole("button", { name: "Unpin column" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Unpin column" }));
+    await waitFor(() => expect(pinned()).toBeNull());
+  });
+
+  it("measures how far in each pinned column sticks", async () => {
+    await open();
+    act(() => {
+      editor!.view.dispatch(
+        editor!.state.tr.setNodeMarkup(0, undefined, {
+          ...editor!.state.doc.child(0).attrs,
+          pinned: "2",
+        }),
+      );
+    });
+    const table = document.querySelector("table");
+    expect(table?.style.getPropertyValue("--pin-1")).toBe("0px");
+    expect(table?.style.getPropertyValue("--pin-2")).toMatch(/px$/);
   });
 });

@@ -218,7 +218,7 @@ export function blockToNode(block: Block): JSONNode {
       const rows = block.content.length > 0 ? block.content.split("\n") : [""];
       return {
         type: "table",
-        attrs: { blockId },
+        attrs: { blockId, pinned: block.attrs.pinned || null },
         content: rows.map((row, rowIndex) => ({
           type: "tableRow",
           content: row.split("\t").map((cell) => ({
@@ -385,7 +385,13 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       const rows = (node.content ?? []).map((row) =>
         (row.content ?? []).map((cell) => encodeInline(cell.content?.[0]?.content)).join("\t"),
       );
-      return { blockId, blockType: "table", content: rows.join("\n") };
+      return {
+        blockId,
+        blockType: "table",
+        content: rows.join("\n"),
+        // How many leftmost columns stay in place; `""` for none.
+        attrs: { pinned: asString(node.attrs?.pinned) ?? "" },
+      };
     }
     default:
       if (!isAtomBlockType(node.type)) return null;
