@@ -24,13 +24,19 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Copy ID in the right click menu.** Every item can copy its ID, right below Copy Link.
+- **Copy ID in the right click menu.** Every item can copy its ID (like TSK-12), right below Copy Link.
 
 ## 0.35.3 (2026-10-13)
 
 ### Fixed
 
 - **PDFs keep their zoom when you switch tabs.** A zoomed PDF comes back at the same zoom and position, and spreadsheets come back on the same sheet.
+
+## 0.35.4 (2026-10-13)
+
+### Fixed
+
+- **Copy ID copies the readable ID.** It gives you the ID you see on the item, like TSK-12.
 
 ## 0.33.2 (2026-10-13)
 
