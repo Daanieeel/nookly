@@ -8,8 +8,8 @@ import { qk } from "#/lib/query-keys.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { useNavStore } from "#/lib/store/nav.ts";
 
-/// Hours of lead shown above the current time when the panel opens.
-const LEAD_MINUTES = 60;
+/// Minutes of lead shown above the current time when the panel opens.
+const LEAD_MINUTES = 120;
 const NO_HIGHLIGHT = new Set<string>();
 
 /// Today's day view of the cross Space calendar: Sessions, Calendar entries and the
@@ -25,7 +25,7 @@ export function CalendarPanel({ now, className }: { now: Date; className?: strin
   return (
     <section aria-label="Calendar" className={cn("flex min-w-0 flex-col", className)}>
       {/* The grid fills the box without adding to the row's height, which the left column sets. */}
-      <div className="relative min-h-96 flex-1">
+      <div className="relative min-h-[825px] flex-1">
         <div className="absolute inset-0 flex flex-col overflow-hidden rounded-lg border">
           <TimeGrid
             key={today}

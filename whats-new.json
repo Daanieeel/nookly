@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.33.1",
+      "date": "2026-10-13",
+      "title": "A roomier Dashboard calendar",
+      "summary": "The calendar shows more of your day.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The Dashboard calendar opens two hours before now and keeps a comfortable height even when you have no Jots."
+        ]
+      }
+    },
+    {
       "version": "0.33.0",
       "date": "2026-10-13",
       "title": "A Dashboard for your day",

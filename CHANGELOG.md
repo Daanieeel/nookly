@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.1 (2026-10-13)
+
+### Changed
+
+- **The Dashboard calendar opens earlier and stays tall.** It scrolls to two hours before now, and keeps a comfortable height even when you have no Jots.
+
 ## 0.33.0 (2026-10-13)
 
 ### Changed
