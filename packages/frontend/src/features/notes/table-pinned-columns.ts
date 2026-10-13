@@ -71,13 +71,18 @@ function cellDepth($pos: ResolvedPos): number {
 /// because a column can be as wide as the user dragged it. Set on the `<table>` itself, whose
 /// attribute changes the editor leaves alone.
 function measurePins(dom: HTMLElement) {
-  for (const wrapper of dom.querySelectorAll<HTMLElement>(".tableWrapper[data-pinned]")) {
+  for (const wrapper of dom.querySelectorAll<HTMLElement>(".tableWrapper")) {
     const table = wrapper.querySelector("table");
     const cells = table?.rows[0]?.cells;
     if (!table || !cells) continue;
-    const count = Number(wrapper.dataset.pinned);
+    const count = Number(wrapper.dataset.pinned ?? 0);
     let left = 0;
-    for (let index = 1; index <= count; index++) {
+    for (let index = 1; index <= MAX_PINNED_COLUMNS; index++) {
+      // An offset of a column that is no longer pinned must not stay: it would still move it.
+      if (index > count) {
+        table.style.removeProperty(`--pin-${index}`);
+        continue;
+      }
       table.style.setProperty(`--pin-${index}`, `${left}px`);
       left += cells[index - 1]?.getBoundingClientRect().width ?? 0;
     }

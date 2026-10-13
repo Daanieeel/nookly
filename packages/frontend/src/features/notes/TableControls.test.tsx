@@ -95,4 +95,27 @@ describe("the pin button of the table controls", () => {
     expect(table?.style.getPropertyValue("--pin-1")).toBe("0px");
     expect(table?.style.getPropertyValue("--pin-2")).toMatch(/px$/);
   });
+
+  // Reported: unpinning the right one of two pinned columns shifted the next column away,
+  // because its old offset was still on the table.
+  it("takes the offset of a column away when it is unpinned", async () => {
+    await open();
+    const pin = (pinned: string | null) =>
+      act(() => {
+        editor!.view.dispatch(
+          editor!.state.tr.setNodeMarkup(0, undefined, {
+            ...editor!.state.doc.child(0).attrs,
+            pinned,
+          }),
+        );
+      });
+    pin("2");
+    const table = document.querySelector("table");
+    expect(table?.style.getPropertyValue("--pin-2")).not.toBe("");
+    pin("1");
+    expect(table?.style.getPropertyValue("--pin-1")).toBe("0px");
+    expect(table?.style.getPropertyValue("--pin-2")).toBe("");
+    pin(null);
+    expect(table?.style.getPropertyValue("--pin-1")).toBe("");
+  });
 });
