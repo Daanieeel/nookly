@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.17 (2026-10-13)
+
+### Added
+
+- **Open a file on a page.** A file in a note can open on a page you choose, so notes that link the same PDF can each start where they need to.
+
 ## 0.33.16 (2026-10-13)
 
 ### Changed

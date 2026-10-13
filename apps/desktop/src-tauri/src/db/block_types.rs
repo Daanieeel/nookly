@@ -977,8 +977,20 @@ fn media_link(block: &Block) -> Option<(String, String)> {
         .get("caption")
         .map(|c| c.trim())
         .filter(|c| !c.is_empty());
+    // Only a file opens on a page, and only an imported one (a mention) has pages.
+    let page = (block.block_type == "file")
+        .then(|| block.attrs.get("page"))
+        .flatten()
+        .and_then(|p| p.trim().parse::<u32>().ok())
+        .filter(|p| *p >= 1);
     Some(match re.captures(content) {
-        Some(caps) => (caption.unwrap_or(&caps[1]).to_string(), caps[2].to_string()),
+        Some(caps) => (
+            caption.unwrap_or(&caps[1]).to_string(),
+            match page {
+                Some(page) => format!("{}#p{page}", &caps[2]),
+                None => caps[2].to_string(),
+            },
+        ),
         None => {
             let name = content
                 .rsplit('/')
@@ -993,6 +1005,12 @@ const CAPTION_ATTR: BlockAttrDef = BlockAttrDef {
     name: "caption",
     kind: AttrKind::Text,
     description: "Optional caption shown under the media, and its text in markdown.",
+};
+
+const PAGE_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "page",
+    kind: AttrKind::Integer { min: 1 },
+    description: "Page of the file to open it on, for a PDF or other file shown page by page.",
 };
 
 const MEDIA_FORMAT: &str = "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into \
@@ -1033,7 +1051,7 @@ inventory::submit! {
     BlockTypeDef {
         block_type: "file",
         content_format: MEDIA_FORMAT,
-        attrs: &[CAPTION_ATTR],
+        attrs: &[CAPTION_ATTR, PAGE_ATTR],
         validate: validate_media,
         to_markdown: |block| media_link(block).map_or(String::new(), |(label, target)| format!("[{label}]({target})")),
     }
@@ -1284,6 +1302,24 @@ mod tests {
         assert!(validate_content("audio", "[a.mp3](mention:f-2)").is_ok());
         assert!(validate_content("image", "photo.png").is_err());
         assert!(validate_content("image", "https://x.dev/a.png").is_ok());
+    }
+
+    #[test]
+    fn a_file_block_can_open_on_a_page() {
+        let on_page = block("file", "[a.pdf](mention:f-1)", &[("page", "12")]);
+        let to_markdown = lookup("file").unwrap().to_markdown;
+        assert_eq!(to_markdown(&on_page), "[a.pdf](mention:f-1#p12)");
+        let plain = block("file", "[a.pdf](mention:f-1)", &[]);
+        assert_eq!(to_markdown(&plain), "[a.pdf](mention:f-1)");
+        // A page that is not a number is ignored, and a URL has none.
+        let odd = block("file", "[a.pdf](mention:f-1)", &[("page", "x")]);
+        assert_eq!(to_markdown(&odd), "[a.pdf](mention:f-1)");
+        let url = block("file", "https://x.dev/a.pdf", &[("page", "3")]);
+        assert_eq!(to_markdown(&url), "[a.pdf](https://x.dev/a.pdf)");
+        let page = |n: &str| BlockAttrs::from([("page".to_string(), n.to_string())]);
+        assert!(validate_attrs("file", &page("12")).is_ok());
+        assert!(validate_attrs("file", &page("0")).is_err());
+        assert!(validate_attrs("image", &page("2")).is_err());
     }
 
     #[test]

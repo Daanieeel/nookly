@@ -24,6 +24,7 @@ import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
 import { getEntity } from "#/lib/api/entities.ts";
+import { hasPages } from "#/features/files/file-kind.ts";
 import { getFile, importFile } from "#/lib/api/files.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -82,6 +83,8 @@ interface Source {
   url: string | null;
   /// The File entity behind the block, which Open in Nookly goes to; null for a plain URL.
   entity: Entity | null;
+  /// The file is shown page by page, so the block can open it on one.
+  paged: boolean;
 }
 
 interface SourceState {
@@ -116,6 +119,7 @@ function useSource(content: string): SourceState {
         localPath: null,
         url,
         entity: null,
+        paged: false,
       },
       missing: false,
     };
@@ -131,6 +135,7 @@ function useSource(content: string): SourceState {
       localPath: file.localPath ?? file.sourcePath,
       url: file.url,
       entity: entity ?? file.entity,
+      paged: hasPages(file),
     },
     missing: false,
   };
@@ -145,6 +150,9 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   const content = asString(node.attrs.rows as JSONAttrValue | undefined) ?? "";
   // SAFETY: media nodes only ever write `caption` as a string or null.
   const caption = asString(node.attrs.caption as JSONAttrValue | undefined) ?? "";
+  // SAFETY: a file node only ever writes `page` as a string or null.
+  const pageAttr = asString(node.attrs.page as JSONAttrValue | undefined) ?? "";
+  const page = Number(pageAttr) >= 1 ? Math.floor(Number(pageAttr)) : null;
   const { source, missing } = useSource(content);
   const editable = editor.isEditable;
 
@@ -178,7 +186,12 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   /// Cmd or Ctrl and a click on the media itself opens it; a plain click is left alone
   /// (it selects the block, and a video or audio player has its own controls).
   const openInNookly = () => {
-    if (source?.entity) useNavStore.getState().openEntity(source.entity.id, source.entity.spaceId);
+    const target = source?.entity;
+    if (!target) return;
+    // A page only means something for a file that is shown page by page.
+    const focus =
+      kind === "file" && source.paged && page ? { entityId: target.id, page } : undefined;
+    useNavStore.getState().openEntity(target.id, target.spaceId, focus);
   };
   const openOnModifierClick = (event: MouseEvent<HTMLElement>) => {
     if (event.metaKey || event.ctrlKey) openSource();
@@ -235,6 +248,13 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
                   {source.localPath ? "Stored in Nookly" : (source.url ?? "")}
                 </span>
               </span>
+              {kind === "file" && source.paged && (editable || page) && (
+                <PageField
+                  page={page}
+                  editable={editable}
+                  onChange={(next) => updateAttributes({ page: next ? String(next) : null })}
+                />
+              )}
             </div>
             {kind === "audio" &&
               source.src && (
@@ -286,6 +306,38 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
         />
       )}
     </NodeViewWrapper>
+  );
+}
+
+/// The page of a file the block opens on: a number field while editing, plain text
+/// otherwise. Clicking it must not open the file.
+function PageField({
+  page,
+  editable,
+  onChange,
+}: {
+  page: number | null;
+  editable: boolean;
+  onChange: (page: number | null) => void;
+}) {
+  if (!editable) {
+    return <span className="ml-auto shrink-0 text-xs text-muted-foreground">Page {page}</span>;
+  }
+  return (
+    <Input
+      type="number"
+      min={1}
+      step={1}
+      value={page ?? ""}
+      placeholder="Page"
+      aria-label="Open on page"
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => {
+        const next = Math.floor(Number(event.target.value));
+        onChange(event.target.value !== "" && next >= 1 ? next : null);
+      }}
+      className="ml-auto h-7 w-20 shrink-0 text-xs"
+    />
   );
 }
 
