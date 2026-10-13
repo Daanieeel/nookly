@@ -679,8 +679,9 @@
   :is(.dark) .tiptap-content mark[data-color="purple"] {
     --mark-bg: color-mix(in oklab, #a78bfa 40%, transparent);
   }
-  /* Where the caret is after stepping out of a highlight (`highlight-extension.ts`). */
-  .tiptap-content .highlight-exit {
+  /* Where the caret is after stepping out of a highlight or inline code
+     (`inline-mark-cleanup.ts`). */
+  .tiptap-content .mark-exit {
     display: inline-block;
     width: 0.3em;
   }

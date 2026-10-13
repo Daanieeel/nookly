@@ -13,7 +13,11 @@
           "tag": "New"
         }
       ],
-      "more": {}
+      "more": {
+        "Fixed": [
+          "Deleting everything inside inline code, or a highlight, removes it, so the line is plain again. The right arrow steps out of it at its end, and the left arrow at the start of a line, with a small gap showing where the caret is."
+        ]
+      }
     },
     {
       "version": "0.33.29",
