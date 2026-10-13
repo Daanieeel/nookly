@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.35.6 (2026-10-13)
+
+### Fixed
+
+- **The Dashboard calendar no longer overlaps the corner.** Its date header, current time line and scrollbar stay behind the mascot cutout when scrolled.
+
 ## 0.35.5 (2026-10-13)
 
 ### Fixed
@@ -43,12 +49,6 @@ All notable changes to Nookly are listed here.
 ### Added
 
 - **Copy ID in the right click menu.** Every item can copy its ID (like TSK-12), right below Copy Link.
-
-## 0.35.6 (2026-10-13)
-
-### Fixed
-
-- **The Dashboard calendar no longer overlaps the corner.** Its date header, current time line and scrollbar stay behind the mascot cutout when scrolled.
 
 ## 0.33.2 (2026-10-13)
 
