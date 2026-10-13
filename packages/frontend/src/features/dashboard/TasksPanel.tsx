@@ -17,7 +17,7 @@ import { SpaceChip } from "#/components/space-chip.tsx";
 import {
   EmptyRow,
   useSpaceById,
-  useListLimit,
+  LIST_LIMIT,
   Row,
   RowList,
   ShowMore,
@@ -82,7 +82,6 @@ export function TasksPanel({ today }: { today: string }) {
   const statuses = sortStatuses(rawStatuses);
   const tabs = TABS.map((t) => ({ ...t, count: tasksFor(t.id, all, statuses, today).length }));
   const items = tasksFor(tab, all, statuses, today);
-  const limit = useListLimit();
 
   return (
     <TabbedPanel icon={IconTargetArrow} title="Tasks" tabs={tabs} tab={tab} onTabChange={setTab}>
@@ -90,7 +89,7 @@ export function TasksPanel({ today }: { today: string }) {
         {items.length === 0 && (
           <EmptyRow icon={IconMoodSmile}>Nothing here. Enjoy the calm.</EmptyRow>
         )}
-        {items.slice(0, limit).map((t) => (
+        {items.slice(0, LIST_LIMIT).map((t) => (
           <TaskRow
             key={t.entity.id}
             task={t}
@@ -99,7 +98,7 @@ export function TasksPanel({ today }: { today: string }) {
           />
         ))}
         <ShowMore
-          count={items.length - limit}
+          count={items.length - LIST_LIMIT}
           onClick={() => {
             requestFilters(STORAGE_KEYS.tasksOverviewFilters, taskFilters(tab, statuses));
             setView({ kind: "tasks" });

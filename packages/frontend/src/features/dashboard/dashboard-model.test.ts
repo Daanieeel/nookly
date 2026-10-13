@@ -3,7 +3,6 @@ import type { Assignment, Task, TaskStatus } from "#/lib/api/types.ts";
 import {
   assignmentFilters,
   assignmentsFor,
-  nextRowLimit,
   overviewFilters,
   taskFilters,
   tasksFor,
@@ -229,42 +228,5 @@ describe("overviewFilters", () => {
     expect(overviewFilters({ view: "tasks", due: [] }, statuses)).toEqual([
       { fieldId: "status", operator: "is", values: ["todo"] },
     ]);
-  });
-});
-
-// Reported (#127): a long briefing pushed the Jots list out of a full screen window. The
-// lists now give up rows until the column fits.
-describe("nextRowLimit", () => {
-  it("gives up a row while the column is too tall", () => {
-    expect(nextRowLimit(4, 700, 600)).toBe(3);
-    expect(nextRowLimit(2, 700, 600)).toBe(1);
-  });
-
-  it("keeps at least one row, leaving the page to scroll", () => {
-    expect(nextRowLimit(1, 700, 600)).toBe(1);
-  });
-
-  it("takes a row back only when the whole column still fits with it", () => {
-    // Four lists each gain a row: 4 * 28 = 112 pixels.
-    expect(nextRowLimit(2, 400, 512)).toBe(3);
-    expect(nextRowLimit(2, 400, 511)).toBe(2);
-  });
-
-  it("never shows more than four rows", () => {
-    expect(nextRowLimit(4, 100, 900)).toBe(4);
-  });
-
-  it("settles instead of bouncing, for a column that grows 112 pixels a row", () => {
-    const heightAt = (limit: number) => 100 + limit * 112;
-    for (const available of [300, 450, 560, 700, 900, 1200]) {
-      let limit = 4;
-      const seen: number[] = [];
-      for (let step = 0; step < 10; step++) {
-        limit = nextRowLimit(limit, heightAt(limit), available);
-        seen.push(limit);
-      }
-      expect(new Set(seen.slice(-4)).size).toBe(1);
-      expect(heightAt(limit) <= available || limit === 1).toBe(true);
-    }
   });
 });

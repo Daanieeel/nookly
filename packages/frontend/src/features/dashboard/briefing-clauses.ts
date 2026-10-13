@@ -139,10 +139,6 @@ function minutesOf(time: string): number {
 // Sessions
 
 function sessionsPart(upcoming: BriefingSession[], finished: number, seed: number): Part {
-  const list = listLink(
-    "sessions",
-    upcoming.map((s) => s.spaceId),
-  );
   if (upcoming.length === 0 && finished === 0) {
     return { quiet: { key: "sessions", run: token("sessions", listLink("sessions")) } };
   }
@@ -164,8 +160,8 @@ function sessionsPart(upcoming: BriefingSession[], finished: number, seed: numbe
       },
     };
   }
+  // Only the next one: how many others follow later in the day is not part of the sentence.
   const next = upcoming[0];
-  const count = token(plural(upcoming.length, "session"), list);
   const course = name(
     next.courseTitle || next.title || "Untitled Session",
     next.courseId
@@ -173,20 +169,10 @@ function sessionsPart(upcoming: BriefingSession[], finished: number, seed: numbe
       : entityLink(next.entityId, next.spaceId),
   );
   const time = token(formatClock(next.startTime), entityLink(next.entityId, next.spaceId));
-  const more = finished > 0 ? " still ahead" : " today";
   const templates: readonly Run[][] = [
-    [count, text(`${more}, starting with `), course, text(" at "), time],
-    [text("you've got "), count, text(`${more}, first up `), course, text(" at "), time],
-    [
-      count,
-      text(
-        ` lined up${more === " today" ? " today" : " for the rest of the day"}, kicking off with `,
-      ),
-      course,
-      text(" at "),
-      time,
-    ],
-    [text("next up: "), course, text(" at "), time, text(", one of "), count, text(more)],
+    [text("next up: "), course, text(" at "), time],
+    [course, text(" is up next at "), time],
+    [text("your next session is "), course, text(" at "), time],
   ];
   return { clause: { key: "sessions", icon: "📅", runs: pick(seed, SALT.sessions, templates) } };
 }

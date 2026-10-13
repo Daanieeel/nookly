@@ -1,5 +1,5 @@
 import type { Icon as TablerIcon } from "@tabler/icons-react";
-import { createContext, type CSSProperties, type ReactNode, useContext } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
   PageTabs,
@@ -11,7 +11,6 @@ import { useQuery } from "@tanstack/react-query";
 import { EntityKeyCopyInline } from "#/components/entity-key.tsx";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { qk } from "#/lib/query-keys.ts";
-import { LIST_LIMIT, ROW_HEIGHT } from "./dashboard-model";
 import { type ContextTargetProps } from "#/components/context-menu/registry.ts";
 
 /// Every Space by id, to tag each resource with the one it lives in.
@@ -20,13 +19,8 @@ export function useSpaceById() {
   return new Map(spaces.map((space) => [space.id, space]));
 }
 
-/// How many rows the list panels show right now: `LIST_LIMIT`, fewer while the window is too
-/// short for the page to fit (see `DashboardWidgets`).
-const ListLimitContext = createContext(LIST_LIMIT);
-export const ListLimitProvider = ListLimitContext.Provider;
-export function useListLimit(): number {
-  return useContext(ListLimitContext);
-}
+/// Rows a list panel shows before "Show more".
+export const LIST_LIMIT = 4;
 
 /// A whole clickable row with its copyable ID, a primary label and trailing meta.
 export function Row({
@@ -84,19 +78,10 @@ export function ShowMore({ count, onClick }: { count: number; onClick: () => voi
   );
 }
 
-/// The rows of a list and its "Show more", kept one row taller than the rows shown so
+/// The rows of a list and its "Show more", kept `LIST_LIMIT` + 1 rows tall (h-7 each, 5 rows) so
 /// switching tabs never moves what is below.
 export function RowList({ children }: { children: ReactNode }) {
-  const limit = useListLimit();
-  return (
-    <div
-      className="flex min-h-(--list-height) flex-col"
-      // SAFETY: a pixel length worked out from the row count, which `CSSProperties` can't name.
-      style={{ "--list-height": `${(limit + 1) * ROW_HEIGHT}px` } as CSSProperties}
-    >
-      {children}
-    </div>
-  );
+  return <div className="flex min-h-35 flex-col">{children}</div>;
 }
 
 export interface TabDef<Id extends string> {

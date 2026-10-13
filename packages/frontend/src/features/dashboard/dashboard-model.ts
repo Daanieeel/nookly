@@ -122,21 +122,3 @@ export function assignmentFilters(tab: AssignmentTab): ActiveFilter[] {
     week: due("week", "next"),
   }[tab];
 }
-
-/// Rows a list panel shows before "Show more", when the window has room for all of them.
-export const LIST_LIMIT = 4;
-/// Fewest rows a list shrinks to. Below that the page scrolls instead.
-const MIN_LIST_LIMIT = 1;
-/// Height of one list row (`h-7`), in pixels.
-export const ROW_HEIGHT = 28;
-/// Lists in the left column; each moves the column's height by a row when the limit moves by one.
-const LISTS = 4;
-
-/// The row limit one step closer to fitting the left column in `available` pixels, given its
-/// current `height` at `limit` rows: one fewer while it is too tall, one more only when the whole
-/// column would still fit with it, so the limit never bounces between two values.
-export function nextRowLimit(limit: number, height: number, available: number): number {
-  if (height > available) return Math.max(MIN_LIST_LIMIT, limit - 1);
-  if (height + LISTS * ROW_HEIGHT <= available) return Math.min(LIST_LIMIT, limit + 1);
-  return limit;
-}
