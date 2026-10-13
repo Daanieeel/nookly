@@ -154,6 +154,7 @@ export const BASELINE_IDS = [
   "relate",
   "move",
   "copy-link",
+  "copy-id",
   "restore",
   "delete",
 ] as const;

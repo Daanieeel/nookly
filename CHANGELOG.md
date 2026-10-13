@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.0 (2026-10-13)
+
+### Added
+
+- **Copy ID in the right click menu.** Every item can copy its ID, right below Copy Link.
+
 ## 0.33.2 (2026-10-13)
 
 ### Changed

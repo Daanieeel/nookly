@@ -66,7 +66,7 @@ interface Overlay {
 const MENU_CONTENT_SELECTOR = "[data-context-menu-content]";
 
 /// Only trashed entities' own recovery and navigation make sense in a menu.
-const TRASHED_ENTITY_ACTIONS = new Set(["open", "restore", "copy-link"]);
+const TRASHED_ENTITY_ACTIONS = new Set(["open", "restore", "copy-link", "copy-id"]);
 
 function isLabelFn<T>(label: string | ((target: T) => string)): label is (target: T) => string {
   return typeof label === "function";
