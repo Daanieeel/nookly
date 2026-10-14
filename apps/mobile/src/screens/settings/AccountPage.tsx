@@ -109,10 +109,7 @@ function Account() {
     queryKey: keys.sync.sharesWithMe,
     queryFn: async () => (await sync.account()?.sharesWithMe()) ?? [],
   });
-  const { data: conflicts = [] } = useQuery({
-    queryKey: keys.sync.conflicts,
-    queryFn: () => sync.engine.conflicts(),
-  });
+  const conflicts = useSyncState((s) => s.status.conflicts);
   const [password, setPassword] = useState("");
   const remove = useMutation({
     mutationFn: async () => {
@@ -193,13 +190,13 @@ function Account() {
           ))
         )}
       </Section>
-      <Section title="Conflicts">
+      <Section title="Changes to review">
         <Row
-          title="Conflicts"
+          title="Review Changes"
           subtitle={
-            conflicts.length === 0
-              ? "None"
-              : `${conflicts.length} ${conflicts.length === 1 ? "change" : "changes"} lost to newer ones, kept to bring back`
+            conflicts === 0
+              ? "Nothing needs a look"
+              : `${conflicts} ${conflicts === 1 ? "change needs" : "changes need"} a look`
           }
           onPress={() => router.push("/conflicts")}
         />

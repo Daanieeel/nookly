@@ -31,6 +31,10 @@ function when(at: Date | null): string {
 const show = (value: ConflictView["current"]) =>
   value === null || value === "" ? "Empty" : String(value);
 
+/// A color as a light wash behind text, when it is a hex color the phone can add
+/// transparency to.
+const wash = (color: string) => (/^#[0-9a-f]{6}$/i.test(color) ? `${color}40` : color);
+
 /// One version: who made it, when, and the text with the words that differ marked.
 function Version({
   view,
@@ -41,6 +45,7 @@ function Version({
   which: "current" | "other";
   segments: { text: string; changed: boolean }[] | null;
 }) {
+  const theme = useTheme();
   const side = which === "current" ? view.currentSide : view.otherSide;
   const value = which === "current" ? view.current : view.other;
   return (
@@ -65,7 +70,10 @@ function Version({
               <Text
                 // The text is the same on every render, so its place is its identity.
                 key={`${index}-${segment.text}`}
-                className={cn(segment.changed && "bg-caution/20")}
+                className="rounded-sm"
+                style={
+                  segment.changed ? { backgroundColor: wash(theme.colors.caution) } : undefined
+                }
               >
                 {segment.text}
               </Text>

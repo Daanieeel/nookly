@@ -17,5 +17,9 @@ export function statusText(status: SyncStatus): string {
 
 /// The sidebar's line under Settings.
 export function syncLine(signedIn: boolean, status: SyncStatus): string {
-  return signedIn ? statusText(status) : "Sync is off";
+  if (!signedIn) return "Sync is off";
+  if (status.conflicts > 0) {
+    return `${status.conflicts} ${status.conflicts === 1 ? "change needs" : "changes need"} a look`;
+  }
+  return statusText(status);
 }

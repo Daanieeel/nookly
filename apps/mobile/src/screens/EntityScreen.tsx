@@ -26,6 +26,7 @@ import { DateField } from "../ui/DateField.tsx";
 import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
+import { ConflictBadge } from "./ConflictBadge.tsx";
 import { LabelsSection, RelatedSection } from "./RelatedSection.tsx";
 import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
@@ -218,6 +219,7 @@ export function EntityScreen({ id }: { id: string }) {
             </Text>
             {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
             {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
+            <ConflictBadge entityId={entity.id} />
           </View>
         </View>
         {entity.type === "task" || entity.type === "sub_task" ? (

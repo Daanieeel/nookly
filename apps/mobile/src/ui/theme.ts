@@ -27,6 +27,7 @@ export interface Theme {
     mutedForeground: string;
     destructive: string;
     positive: string;
+    caution: string;
   };
 }
 
@@ -44,6 +45,7 @@ export function useTheme(): Theme {
       mutedForeground: useToken("muted-foreground"),
       destructive: useToken("destructive"),
       positive: useToken("accent-green"),
+      caution: useToken("accent-yellow"),
     },
   };
 }

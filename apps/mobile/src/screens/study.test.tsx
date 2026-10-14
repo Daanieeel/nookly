@@ -17,6 +17,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
+import { ConflictBadge } from "./ConflictBadge.tsx";
 import { MergeEditor } from "./MergeEditor.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewExamScreen } from "./NewScreens.tsx";
@@ -159,6 +160,17 @@ describe("the merge editor", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Keep the Other" }));
     await waitFor(async () => expect((await getEntity(data.db, task))?.title).toBe("Old title"));
     expect(await screen.findByText("Nothing needs a look.")).toBeTruthy();
+  });
+
+  it("invites a look from the page the change belongs to, and nowhere else", async () => {
+    const { data, task } = await disagreement();
+    data.sync.store.setState((state) => ({ status: { ...state.status, conflicts: 1 } }));
+    const screen = await renderScreens({ index: () => <ConflictBadge entityId={task} /> }, data);
+    expect(
+      await screen.findByRole("button", { name: "1 change needs a look. Review" }),
+    ).toBeTruthy();
+    const other = await renderScreens({ index: () => <ConflictBadge entityId="other" /> }, data);
+    await waitFor(() => expect(other.queryByRole("button", { name: /needs a look/ })).toBeNull());
   });
 
   it("keeps both: combines them to edit, and saves what is written", async () => {

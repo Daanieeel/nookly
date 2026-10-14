@@ -130,7 +130,14 @@ export default function RootLayout() {
           <ThemeProvider value={navigation}>
             <StatusBar style="auto" />
             <FirstRun />
-            <Stack screenOptions={{ headerLargeTitle: false, headerShadowVisible: false }}>
+            <Stack
+              screenOptions={{
+                headerLargeTitle: false,
+                headerShadowVisible: false,
+                // The arrow alone: the screen behind has no title worth naming.
+                headerBackButtonDisplayMode: "minimal",
+              }}
+            >
               <Stack.Screen
                 name="(drawer)"
                 options={{
@@ -232,7 +239,7 @@ export default function RootLayout() {
                   sheetAllowedDetents: [0.75, 1],
                 }}
               />
-              <Stack.Screen name="conflicts" options={{ title: "Conflicts" }} />
+              <Stack.Screen name="conflicts" options={{ title: "Review Changes" }} />
               <Stack.Screen
                 name="study/[deckId]"
                 options={{ title: "Study", presentation: "fullScreenModal" }}
