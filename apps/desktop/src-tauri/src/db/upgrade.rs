@@ -60,6 +60,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (42, &[]),
     // New columns and tables for files and settings in the account.
     (43, &[]),
+    // A new table for page documents; nothing existing changes.
+    (44, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

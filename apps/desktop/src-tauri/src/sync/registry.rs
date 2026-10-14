@@ -184,6 +184,8 @@ pub const EXCLUDED_TABLES: &[&str] = &[
     "sync_conflicts",
     // Which local file holds which contents, per device (migration 43).
     "blob_files",
+    // This device's copy of page documents (migration 44).
+    "page_docs",
 ];
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

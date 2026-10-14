@@ -8,3 +8,4 @@ export * from "./sql.ts";
 export * from "./runtime.ts";
 export * from "./blobs.ts";
 export * from "./settings.ts";
+export * from "./docs.ts";

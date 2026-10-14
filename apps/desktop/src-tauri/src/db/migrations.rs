@@ -1384,6 +1384,19 @@ fn all() -> Vec<M<'static>> {
         END;
 
         ",
+    ), M::up(
+        "
+        -- This device's copy of the page documents it edited while signed in (Yjs
+        -- state as base64), so a page opens and edits offline. `pending` is set while
+        -- it holds edits the server hasn't confirmed. Never synced as rows; the
+        -- block rows stay the stored form of every page.
+        CREATE TABLE page_docs (
+            entity_id TEXT PRIMARY KEY,
+            state TEXT NOT NULL,
+            pending INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        );
+        ",
     )]
 }
 
@@ -1913,6 +1926,7 @@ mod history {
         0xe33f069e6b32963,
         0x92c627e085fd4363,
         0x6d37e02c5b790126,
+        0x8189d2314a7c57cc,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

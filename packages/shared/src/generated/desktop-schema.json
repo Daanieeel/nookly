@@ -1104,7 +1104,7 @@
       "toType": null
     }
   ],
-  "schemaVersion": 43,
+  "schemaVersion": 44,
   "seeds": [
     {
       "rows": [
@@ -1255,6 +1255,7 @@
   ],
   "syncTables": [
     "CREATE TABLE blob_files (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            path TEXT NOT NULL,\n            sha256 TEXT NOT NULL,\n            PRIMARY KEY (tbl, pk)\n        )",
+    "CREATE TABLE page_docs (\n            entity_id TEXT PRIMARY KEY,\n            state TEXT NOT NULL,\n            pending INTEGER NOT NULL DEFAULT 0,\n            updated_at TEXT NOT NULL\n        )",
     "CREATE TABLE sync_conflicts (\n            id TEXT PRIMARY KEY,\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            field TEXT,\n            losing_value TEXT,\n            losing_clock TEXT,\n            winning_clock TEXT,\n            created_at TEXT NOT NULL,\n            resolved_at TEXT\n        )",
     "CREATE TABLE sync_dirty (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            version INTEGER NOT NULL DEFAULT 1,\n            changed_at INTEGER NOT NULL,\n            PRIMARY KEY (tbl, pk)\n        )",
     "CREATE TABLE sync_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",

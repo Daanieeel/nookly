@@ -72,6 +72,8 @@ export async function startServer(
       return new ApiClient({ baseUrl, tokens, onSignedOut });
     },
     async stop() {
+      await built.collab.flush();
+      built.collab.hocuspocus.closeConnections();
       await built.app.stop(true);
       await sql.end({ timeout: 1 });
     },

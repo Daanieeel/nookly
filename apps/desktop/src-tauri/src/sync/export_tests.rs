@@ -49,7 +49,7 @@ fn export(conn: &Connection) -> Value {
         .collect();
     // Sync's own tables, and the device's bookkeeping of which file holds what.
     let sync_tables =
-        "name IN ('sync_meta', 'sync_dirty', 'sync_rows', 'sync_conflicts', 'blob_files')";
+        "name IN ('sync_meta', 'sync_dirty', 'sync_rows', 'sync_conflicts', 'blob_files', 'page_docs')";
     let entity_types: Vec<Value> = crate::db::schema::all()
         .iter()
         .map(|def| {
