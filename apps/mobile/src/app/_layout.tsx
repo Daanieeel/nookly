@@ -85,20 +85,28 @@ export default function RootLayout() {
     colors: {
       ...base.colors,
       primary: theme.colors.primary,
-      background: theme.colors.page,
+      // Behind every page: the sidebar's background, so the page's rounded corners only
+      // ever show the sidebar's color around them. The pages paint their own (`Screen`).
+      background: theme.colors.background,
       card: theme.colors.page,
       text: theme.colors.foreground,
       border: theme.colors.border,
     },
   };
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView className="flex-1 bg-background">
       <QueryClientProvider client={queryClient}>
         <AppDataProvider value={data}>
           <ThemeProvider value={navigation}>
             <StatusBar style="auto" />
             <Stack screenOptions={{ headerLargeTitle: false, headerShadowVisible: false }}>
-              <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="(drawer)"
+                options={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: theme.colors.background },
+                }}
+              />
               <Stack.Screen name="entity/[id]" options={{ title: "" }} />
               <Stack.Screen name="settings" options={{ title: "Settings" }} />
               <Stack.Screen
