@@ -53,10 +53,10 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | exams, study_blocks                                            | ✅                  | ✅               | ✅                  | ⚠️ no study blocks                  | ⏳                                                                |
 | assignments (incl. due session offset)                         | ✅                  | ✅               | ✅                  | ⚠️ no due session                   | ⏳                                                                |
 | index_card_decks, index_cards, index_card_reviews              | ✅                  | ✅               | ✅                  | ✅ (no undo review)                 | ✅                                                                |
-| files (metadata)                                               | ✅                  | ✅               | ⚠️                  | ❌                                  | ⏳                                                                |
-| files (contents)                                               | local only          | ❌               | ❌                  | ❌                                  | ⏳                                                                |
-| bookmarks (+ screenshot file)                                  | ✅                  | ⚠️ no screenshot | ✅                  | ✅ create                           | ⏳                                                                |
-| recipes, ingredients, steps, recipe_tags, tag links (+ banner) | ✅                  | ⚠️ no banner     | ⚠️                  | ❌                                  | ⏳                                                                |
+| files (metadata)                                               | ✅                  | ✅               | ⚠️                  | ❌                                  | ✅                                                                |
+| files (contents)                                               | local only          | ❌               | ❌                  | ❌                                  | ✅                                                                |
+| bookmarks (+ screenshot file)                                  | ✅                  | ⚠️ no screenshot | ✅                  | ✅ create                           | ✅                                                                |
+| recipes, ingredients, steps, recipe_tags, tag links (+ banner) | ✅                  | ⚠️ no banner     | ⚠️                  | ❌                                  | ✅                                                                |
 | views (saved views)                                            | ✅                  | ✅               | ❌                  | ❌                                  | ⏳                                                                |
 | settings (`settings.json`)                                     | local only          | ❌               | ❌                  | ❌                                  | ⏳                                                                |
 | conflicts                                                      | ✅ list, bring back | ✅               | ✅ list, bring back |                                     | ✅ merge editor                                                   |
@@ -91,58 +91,58 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 
 ### Modules
 
-| Module                                                                       | Desktop                     | Mobile before       | Done                              |
-| ---------------------------------------------------------------------------- | --------------------------- | ------------------- | --------------------------------- |
-| Dashboard: briefing, Assignments, Tasks, Decks, Jots, today's Calendar       | ✅                          | ⚠️ simplified       | ⏳                                |
-| Calendar (unified): day, week, month; sessions, entries, exams, study blocks | ✅                          | ⚠️ agenda list only | ⏳                                |
-| External calendar overlay (Google, iCloud)                                   | ✅ (device local, keychain) | ❌                  | — desktop only, see DECISIONS D14 |
-| Tasks: board, list, group, filter, display options, overview                 | ✅                          | ⚠️ list             | ⏳                                |
-| Tasks: quick create with status, label, date, link                           | ✅                          | ⚠️                  | ⏳                                |
-| Tasks: effort, repeat, sub-tasks, start date                                 | ✅                          | ❌                  | ✅                                |
-| Task statuses: rename, recolor, doneness, add, delete                        | ✅                          | ❌                  | — the desktop has fixed statuses  |
-| Notes: block editor with every block type                                    | ✅                          | ⚠️ text boxes       | ✅ shared editor                  |
-| Notes: live collaboration, carets, presence                                  | ❌                          | ❌                  | ✅                                |
-| Notes: mentions, slash menu, inline math, highlight                          | ✅                          | ❌                  | ⏳                                |
-| Jots: instant capture, refine into note                                      | ✅                          | ⚠️ no refine        | ⏳                                |
-| Courses: grid, detail, professor, room, semester, sequels                    | ✅                          | ⚠️                  | ⏳                                |
-| Semesters: list, detail, setup wizard, current                               | ✅                          | ⚠️ list             | ⏳                                |
-| Sessions: series, overrides, edit scope, cancel, jot and note                | ✅                          | ⚠️ list             | ⏳                                |
-| Calendar entries: series, all day, multi day                                 | ✅                          | ⚠️ single           | ⏳                                |
-| Exams: list, detail, date, time, room, weight, grade, status                 | ✅                          | ✅                  | ✅                                |
-| Study blocks                                                                 | ✅                          | ❌                  | ⏳                                |
-| Assignments: list, overview, due session                                     | ✅                          | ⚠️                  | ⏳                                |
-| Decks: piles, writing desk, study, undo review                               | ✅                          | ⚠️ no undo          | ⏳                                |
-| Grades report                                                                | ✅                          | ❌                  | ⏳                                |
-| Files: grid, viewer (images, PDF, text, code, markdown)                      | ✅                          | ❌                  | ⏳                                |
-| Files: Office conversion, OCR, open in                                       | ✅ (LibreOffice, Vision)    | ❌                  | ⏳                                |
-| Files: add from picker, camera, share                                        | ✅ (drop, picker)           | ❌                  | ⏳                                |
-| Bookmarks: grid, preview, metadata refresh, snapshot                         | ✅                          | ⚠️                  | ⏳                                |
-| Recipes: list, detail, ingredients, steps, tags, banner                      | ✅                          | ⚠️ list             | ⏳                                |
-| Views (saved views)                                                          | ✅                          | ❌                  | ⏳                                |
-| Trash                                                                        | ✅                          | ⚠️                  | ⏳                                |
+| Module                                                                       | Desktop                     | Mobile before       | Done                                                                        |
+| ---------------------------------------------------------------------------- | --------------------------- | ------------------- | --------------------------------------------------------------------------- |
+| Dashboard: briefing, Assignments, Tasks, Decks, Jots, today's Calendar       | ✅                          | ⚠️ simplified       | ⏳                                                                          |
+| Calendar (unified): day, week, month; sessions, entries, exams, study blocks | ✅                          | ⚠️ agenda list only | ⏳                                                                          |
+| External calendar overlay (Google, iCloud)                                   | ✅ (device local, keychain) | ❌                  | — desktop only, see DECISIONS D14                                           |
+| Tasks: board, list, group, filter, display options, overview                 | ✅                          | ⚠️ list             | ⏳                                                                          |
+| Tasks: quick create with status, label, date, link                           | ✅                          | ⚠️                  | ⏳                                                                          |
+| Tasks: effort, repeat, sub-tasks, start date                                 | ✅                          | ❌                  | ✅                                                                          |
+| Task statuses: rename, recolor, doneness, add, delete                        | ✅                          | ❌                  | — the desktop has fixed statuses                                            |
+| Notes: block editor with every block type                                    | ✅                          | ⚠️ text boxes       | ✅ shared editor                                                            |
+| Notes: live collaboration, carets, presence                                  | ❌                          | ❌                  | ✅                                                                          |
+| Notes: mentions, slash menu, inline math, highlight                          | ✅                          | ❌                  | ⏳                                                                          |
+| Jots: instant capture, refine into note                                      | ✅                          | ⚠️ no refine        | ⏳                                                                          |
+| Courses: grid, detail, professor, room, semester, sequels                    | ✅                          | ⚠️                  | ⏳                                                                          |
+| Semesters: list, detail, setup wizard, current                               | ✅                          | ⚠️ list             | ⏳                                                                          |
+| Sessions: series, overrides, edit scope, cancel, jot and note                | ✅                          | ⚠️ list             | ⏳                                                                          |
+| Calendar entries: series, all day, multi day                                 | ✅                          | ⚠️ single           | ⏳                                                                          |
+| Exams: list, detail, date, time, room, weight, grade, status                 | ✅                          | ✅                  | ✅                                                                          |
+| Study blocks                                                                 | ✅                          | ❌                  | ⏳                                                                          |
+| Assignments: list, overview, due session                                     | ✅                          | ⚠️                  | ⏳                                                                          |
+| Decks: piles, writing desk, study, undo review                               | ✅                          | ⚠️ no undo          | ⏳                                                                          |
+| Grades report                                                                | ✅                          | ❌                  | ⏳                                                                          |
+| Files: grid, viewer (images, PDF, text, code, markdown)                      | ✅                          | ❌                  | ✅                                                                          |
+| Files: Office conversion, OCR, open in                                       | ✅ (LibreOffice, Vision)    | ❌                  | ⚠️ Office files open in the system's viewers through Open In, not converted |
+| Files: add from picker, camera, share                                        | ✅ (drop, picker)           | ❌                  | ✅                                                                          |
+| Bookmarks: grid, preview, metadata refresh, snapshot                         | ✅                          | ⚠️                  | ⏳                                                                          |
+| Recipes: list, detail, ingredients, steps, tags, banner                      | ✅                          | ⚠️ list             | ✅                                                                          |
+| Views (saved views)                                                          | ✅                          | ❌                  | ⏳                                                                          |
+| Trash                                                                        | ✅                          | ⚠️                  | ⏳                                                                          |
 
 ### Settings screens
 
-| Setting (`settings.json` id)                                                                      | Desktop | Mobile before | Syncs (Done) | Mobile (Done)                               |
-| ------------------------------------------------------------------------------------------------- | ------- | ------------- | ------------ | ------------------------------------------- |
-| General: display name (`general.displayName`)                                                     | ✅      | ❌            | ✅           | ✅                                          |
-| General: time zone                                                                                | ✅      | ❌            | ✅           | ✅                                          |
-| General: date format, time format                                                                 | ✅      | ❌            | ✅           | ✅                                          |
-| General: effort scale                                                                             | ✅      | ❌            | ✅           | ✅                                          |
-| Appearance: theme                                                                                 | ✅      | ✅            | per device   | ✅                                          |
-| Appearance: file viewer theme                                                                     | ✅      | ❌            | per device   | ✅                                          |
-| Calendar: session length, entry length, week start, day start, today color, today intensity, snap | ✅      | ❌            | ✅           | ✅                                          |
-| Editor: default code language, format on paste, arrow ligatures, LaTeX macros                     | ✅      | ❌            | ✅           | ✅                                          |
-| Editor: Vim keys                                                                                  | ✅      | ❌            | per device   | — needs a hardware keyboard; iPad only      |
-| Backup: folder, daily, back up now, restore                                                       | ✅      | ❌            | per device   | — the server is the phone's backup; see D15 |
-| Agent files                                                                                       | ✅      | ❌            | per device   | — they feed a desktop coding agent          |
-| Shortcuts                                                                                         | ✅      | ❌            | per device   | — hardware keyboard only                    |
-| Account: sign in, sign up, sign out, username, email, password                                    | ⚠️      | ⚠️            | ✅           | ✅                                          |
-| Account: devices, sign out a device                                                               | ✅      | ✅            | ✅           | ✅                                          |
-| Account: delete account                                                                           | ✅      | ✅            | ✅           | ✅                                          |
-| Sync: status, sync now, conflicts                                                                 | ✅      | ✅            | ✅           | ✅                                          |
-| Shared with me                                                                                    | ✅      | ✅            | ✅           | ✅                                          |
-| Task statuses, labels, recipe tags (managed in place on desktop)                                  | ✅      | ❌            | ✅           | ⏳ labels done; recipe tags with Recipes    |
+| Setting (`settings.json` id)                                                                      | Desktop | Mobile before | Syncs (Done) | Mobile (Done)                                                                               |
+| ------------------------------------------------------------------------------------------------- | ------- | ------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| General: display name (`general.displayName`)                                                     | ✅      | ❌            | ✅           | ✅                                                                                          |
+| General: time zone                                                                                | ✅      | ❌            | ✅           | ✅                                                                                          |
+| General: date format, time format                                                                 | ✅      | ❌            | ✅           | ✅                                                                                          |
+| General: effort scale                                                                             | ✅      | ❌            | ✅           | ✅                                                                                          |
+| Appearance: theme                                                                                 | ✅      | ✅            | per device   | ✅                                                                                          |
+| Appearance: file viewer theme                                                                     | ✅      | ❌            | per device   | ✅                                                                                          |
+| Calendar: session length, entry length, week start, day start, today color, today intensity, snap | ✅      | ❌            | ✅           | ✅                                                                                          |
+| Editor: default code language, format on paste, arrow ligatures, LaTeX macros                     | ✅      | ❌            | ✅           | ✅                                                                                          |
+| Editor: Vim keys                                                                                  | ✅      | ❌            | per device   | — needs a hardware keyboard; iPad only                                                      |
+| Backup: folder, daily, back up now, restore                                                       | ✅      | ❌            | per device   | — the server is the phone's backup; see D15                                                 |
+| Agent files                                                                                       | ✅      | ❌            | per device   | — they feed a desktop coding agent                                                          |
+| Shortcuts                                                                                         | ✅      | ❌            | per device   | — hardware keyboard only                                                                    |
+| Account: sign in, sign up, sign out, username, email, password                                    | ⚠️      | ⚠️            | ✅           | ✅                                                                                          |
+| Account: devices, sign out a device                                                               | ✅      | ✅            | ✅           | ✅                                                                                          |
+| Account: delete account                                                                           | ✅      | ✅            | ✅           | ✅                                                                                          |
+| Sync: status, sync now, conflicts                                                                 | ✅      | ✅            | ✅           | ✅                                                                                          |
+| Shared with me                                                                                    | ✅      | ✅            | ✅           | ✅                                                                                          |
+| Task statuses, labels, recipe tags (managed in place on desktop)                                  | ✅      | ❌            | ✅           | ✅ labels in Space settings; statuses and recipe tags are fixed catalogs on the desktop too |
 
 ### Desktop only by nature
 

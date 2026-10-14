@@ -60,6 +60,7 @@
         "expo-linking": "~57.0.12",
         "expo-router": "~57.0.26",
         "expo-secure-store": "~57.0.4",
+        "expo-sharing": "~57.0.23",
         "expo-sqlite": "~57.0.4",
         "expo-status-bar": "~57.0.1",
         "expo-system-ui": "~57.0.4",
@@ -2265,6 +2266,8 @@
     "expo-secure-store": ["expo-secure-store@57.0.4", "", { "peerDependencies": { "expo": "*" } }, "sha512-7zBA1RThURTXdP4w65kBzZNbcSsfArqVd+p+ETAnPRWXO8J296Qd0YaCVyRpJ0HSwlCnGdvOnqO+NgSreHsOhA=="],
 
     "expo-server": ["expo-server@57.0.3", "", {}, "sha512-aK+LdKzauHSGmsOStZtyxdzv0zWssCkxTw3m4QuOhfDSJsZaMRTd9O41d8ixU/QfELTbaJ0oRNcF7JFV/7O9YQ=="],
+
+    "expo-sharing": ["expo-sharing@57.0.23", "", { "dependencies": { "@expo/config-plugins": "^57.0.10", "@expo/config-types": "^57.0.2", "@expo/plist": "^0.8.1" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-fN+jrqoWwOpIo+X4utiu/ayCWym23DMgvrTJUHoopkBeO6rEa79ZY4f6ApOlRxvEx2NgQgJEQX+cbPJrjOSRog=="],
 
     "expo-sqlite": ["expo-sqlite@57.0.4", "", { "dependencies": { "await-lock": "^2.2.2" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-3N/bnDx4+kWEC9GABxKPLe/6RHTZJR/7DNT5tz/cYi8f7emign3ooavXnJn0+JPBA0JhHmsdDPrmC+CtT86Jzg=="],
 

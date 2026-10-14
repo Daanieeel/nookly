@@ -13,10 +13,17 @@ import {
   listLabels,
   relatedItems,
   getEntity,
+  getFile,
+  getRecipe,
   getTask,
   listBlocks,
   listBookmarks,
   listEntities,
+  listFiles,
+  listIngredients,
+  listRecipeTags,
+  listRecipes,
+  listSteps,
   listSpaces,
   listStatuses,
   listSubtasks,
@@ -201,5 +208,51 @@ export const useSubtaskProgress = (parentId: string) => {
   return useQuery({
     queryKey: keys.progress(parentId),
     queryFn: () => subtaskProgress(db, parentId),
+  });
+};
+
+export const useFiles = (spaceId: string | null) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.files(spaceId),
+    queryFn: () => listFiles(db, spaceId ?? undefined),
+  });
+};
+
+export const useFile = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.file(id), queryFn: () => getFile(db, id) });
+};
+
+export const useRecipes = (spaceId: string | null) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.recipes(spaceId),
+    queryFn: () => listRecipes(db, spaceId ?? undefined),
+  });
+};
+
+export const useRecipe = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.recipe(id), queryFn: () => getRecipe(db, id) });
+};
+
+export const useRecipeParts = (id: string) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.recipeParts(id),
+    queryFn: async () => ({
+      ingredients: await listIngredients(db, id),
+      steps: await listSteps(db, id),
+    }),
+  });
+};
+
+export const useRecipeTags = () => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.recipeTags,
+    queryFn: () => listRecipeTags(db),
+    staleTime: Infinity,
   });
 };

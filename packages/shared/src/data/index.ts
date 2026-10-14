@@ -8,3 +8,5 @@ export * from "./notes.ts";
 export * from "./study.ts";
 export * from "./tasks.ts";
 export * from "./manage.ts";
+export * from "./files.ts";
+export * from "./recipes.ts";

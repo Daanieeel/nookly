@@ -77,3 +77,15 @@ export function phoneBlobs(serverUrl: string, api: ApiClient, driver: SqlDriver)
     },
   };
 }
+
+/// Copies a file the person picked into this phone's own folder, named by its contents,
+/// and says where it is. Picking the same file twice reuses the copy.
+export async function storePicked(picked: File): Promise<{ name: string; uri: string }> {
+  const name = safeName(picked.name);
+  const folder = new Directory(Paths.document, FILES_FOLDER);
+  folder.create({ intermediates: true, idempotent: true });
+  const sha = await sha256Of(picked);
+  const stored = new File(folder, `${sha.slice(0, 12)}-${name}`);
+  if (!stored.exists) picked.copy(stored);
+  return { name, uri: stored.uri };
+}

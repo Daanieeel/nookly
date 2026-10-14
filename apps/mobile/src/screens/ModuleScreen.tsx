@@ -15,6 +15,8 @@ import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { FileRows, useAddFiles } from "./FileScreens.tsx";
+import { RecipeRows } from "./RecipeScreens.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
 
@@ -28,6 +30,7 @@ const CREATE = new Map<ModuleKey, (spaceId: string) => string>([
   ["exams", (spaceId) => `/new/exam?spaceId=${spaceId}`],
   ["assignments", (spaceId) => `/new/assignment?spaceId=${spaceId}`],
   ["decks", (spaceId) => `/new/deck?spaceId=${spaceId}`],
+  ["recipes", (spaceId) => `/new/recipe?spaceId=${spaceId}`],
 ]);
 
 /// Modules whose items the phone lists with their own fields.
@@ -111,26 +114,40 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
       </>
     );
   }
+  const addFiles = useAddFiles(spaceId);
   const create = CREATE.get(module);
   return (
     <>
       <Stack.Screen
         options={{
           title: MODULE_LABELS[module],
-          headerRight: create
-            ? () => (
-                <IconButton
-                  label={`New in ${MODULE_LABELS[module]}`}
-                  icon={<IconPlus size={22} color={theme.colors.foreground} />}
-                  onPress={() => router.push(create(spaceId))}
-                />
-              )
-            : undefined,
+          headerRight:
+            module === "files"
+              ? () => (
+                  <IconButton
+                    label="Add Files"
+                    icon={<IconPlus size={22} color={theme.colors.foreground} />}
+                    onPress={() => addFiles.mutate(undefined)}
+                  />
+                )
+              : create
+                ? () => (
+                    <IconButton
+                      label={`New in ${MODULE_LABELS[module]}`}
+                      icon={<IconPlus size={22} color={theme.colors.foreground} />}
+                      onPress={() => router.push(create(spaceId))}
+                    />
+                  )
+                : undefined,
         }}
       />
       <Screen>
         {module === "bookmarks" ? (
           <BookmarkList spaceId={spaceId} />
+        ) : module === "files" ? (
+          <FileRows spaceId={spaceId} />
+        ) : module === "recipes" ? (
+          <RecipeRows spaceId={spaceId} />
         ) : STUDY.includes(module) ? (
           <StudyList spaceId={spaceId} module={module} />
         ) : (

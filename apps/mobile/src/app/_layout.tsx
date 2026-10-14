@@ -177,6 +177,14 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="new/recipe"
+                options={{
+                  title: "New Recipe",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.5],
+                }}
+              />
+              <Stack.Screen
                 name="new/task"
                 options={{
                   title: "New Task",

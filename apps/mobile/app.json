@@ -19,7 +19,8 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": false

@@ -46,7 +46,9 @@ import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyD
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
 import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
 import { addDays, localDay } from "./dates.ts";
+import { FileDetail } from "./FileScreens.tsx";
 import { PageEditor } from "./PageEditor.tsx";
+import { RecipeDetail } from "./RecipeScreens.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 
 /// A page someone shared to view only can't be changed here either.
@@ -357,6 +359,8 @@ export function EntityScreen({ id }: { id: string }) {
         {entity.type === "note" || entity.type === "jot" ? (
           <PageEditor entityId={id} readOnly={readOnly} />
         ) : null}
+        {entity.type === "file" ? <FileDetail id={id} /> : null}
+        {entity.type === "recipe" ? <RecipeDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "bookmark" ? <BookmarkDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "calendar_entry" ? (
           <CalendarEntryDetail id={id} readOnly={readOnly} />
