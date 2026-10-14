@@ -50,3 +50,8 @@ export const SEGMENTED_CLASSES =
 export const SEGMENT_CLASSES = "h-full rounded-sm px-2 text-xs transition-colors";
 export const SEGMENT_SELECTED_CLASSES = "bg-background text-foreground shadow-xs";
 export const SEGMENT_IDLE_CLASSES = "text-muted-foreground hover:text-foreground";
+
+/// The page beside the sidebar: a card on the window's background, the sidebar inset on
+/// that background (`SplitView`'s groups). The phone's pages take their background from it.
+export const PAGE_PANE_CLASSES =
+  "relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border bg-card shadow-md transition-colors data-focused-group:border-primary/35 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none";

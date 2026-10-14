@@ -1,9 +1,16 @@
 import { useDrawerProgress } from "expo-router/drawer";
 import { Platform, View, useWindowDimensions } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { PAGE_PANE_CLASSES } from "@nookly/frontend/classes";
+import { cn } from "./classes.ts";
 
 /// The page's corners, like the screen's own, so they only show once it slides aside.
 const PAGE_RADIUS = Platform.select({ ios: 38, default: 24 });
+
+/// The page's outline, the desktop page pane's (`PAGE_PANE_CLASSES`).
+export const PAGE_OUTLINE = PAGE_PANE_CLASSES.split(" ")
+  .filter((name) => name === "border" || /^border-[a-z-]+$/.test(name))
+  .join(" ");
 
 /// How far the outline reaches past the page's edge.
 const OUTLINE = 1;
@@ -44,7 +51,7 @@ export function PageEdge({ drawerWidth, dark }: { drawerWidth: number; dark: boo
       ]}
     >
       <View
-        className="flex-1 border border-border"
+        className={cn("flex-1", PAGE_OUTLINE)}
         style={{ borderRadius: PAGE_RADIUS + OUTLINE, borderCurve: "continuous" }}
       />
     </Animated.View>

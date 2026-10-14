@@ -1,5 +1,6 @@
 import { useUnstableNativeVariable } from "nativewind";
 import { useColorScheme } from "react-native";
+import { PAGE_BACKGROUND } from "./classes.ts";
 
 /// A token's color as the stylesheet resolves it now (`@nookly/ui/theme.css`, dark by the
 /// system setting), for what can't take a class: icons, spinners, the system pickers
@@ -17,8 +18,9 @@ export interface Theme {
   dark: boolean;
   colors: {
     background: string;
+    /// A page's background, `PAGE_BACKGROUND`'s color.
+    page: string;
     foreground: string;
-    card: string;
     border: string;
     primary: string;
     primaryForeground: string;
@@ -34,8 +36,8 @@ export function useTheme(): Theme {
     dark,
     colors: {
       background: useToken("background"),
+      page: useToken(PAGE_BACKGROUND.replace(/^bg-/, "")),
       foreground: useToken("foreground"),
-      card: useToken("card"),
       border: useToken("border"),
       primary: useToken("primary"),
       primaryForeground: useToken("primary-foreground"),

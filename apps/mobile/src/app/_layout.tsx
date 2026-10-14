@@ -57,7 +57,7 @@ export default function RootLayout() {
           alignItems: "center",
           justifyContent: "center",
           padding: 24,
-          backgroundColor: theme.colors.background,
+          backgroundColor: theme.colors.page,
         }}
       >
         <Text>Nookly couldn't open its data: {failure}</Text>
@@ -71,7 +71,7 @@ export default function RootLayout() {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: theme.colors.background,
+          backgroundColor: theme.colors.page,
         }}
       >
         <ActivityIndicator color={theme.colors.mutedForeground} />
@@ -85,8 +85,8 @@ export default function RootLayout() {
     colors: {
       ...base.colors,
       primary: theme.colors.primary,
-      background: theme.colors.background,
-      card: theme.colors.card,
+      background: theme.colors.page,
+      card: theme.colors.page,
       text: theme.colors.foreground,
       border: theme.colors.border,
     },

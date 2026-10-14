@@ -6,7 +6,7 @@ import { useLocalWrite } from "../data/context.tsx";
 import { useCards, useDeck } from "../data/queries.ts";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { Button } from "../ui/Button.tsx";
-import { cn } from "../ui/classes.ts";
+import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { Separator } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 
@@ -46,7 +46,10 @@ export function StudyScreen({ deckId }: { deckId: string }) {
   return (
     <>
       <Stack.Screen options={{ title: deck?.entity.title || "Study" }} />
-      <ScrollView className="flex-1 bg-background" contentContainerClassName="grow gap-4 p-4">
+      <ScrollView
+        className={cn("flex-1", PAGE_BACKGROUND)}
+        contentContainerClassName="grow gap-4 p-4"
+      >
         {!card ? (
           <View className="flex-1 justify-center gap-3">
             <Text variant="title" accessibilityRole="header">

@@ -32,12 +32,12 @@ export default function DrawerLayout() {
         drawerType: "back",
         swipeEdgeWidth: width,
         overlayColor: "transparent",
-        sceneStyle: insetPageStyle(theme.colors.background),
+        sceneStyle: insetPageStyle(theme.colors.page),
         drawerStyle: {
           width: drawerWidth,
           backgroundColor: theme.colors.background,
         },
-        headerStyle: { backgroundColor: theme.colors.background },
+        headerStyle: { backgroundColor: theme.colors.page },
         headerShadowVisible: false,
         headerTintColor: theme.colors.foreground,
         headerLeft: () => (

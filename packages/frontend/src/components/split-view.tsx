@@ -27,6 +27,7 @@ import {
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { PAGE_PANE_CLASSES } from "#/classes.ts";
 
 /// The narrowest a group gets. Below twice this, the split collapses to the focused
 /// group instead of cramming both in.
@@ -225,10 +226,7 @@ function PaneBody({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* `isolate` keeps the page's own z-indexes (a calendar's sticky header and now line) below the corner slot. */}
-      <div
-        data-focused-group={highlighted || undefined}
-        className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border bg-card shadow-md transition-colors data-focused-group:border-primary/35 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none"
-      >
+      <div data-focused-group={highlighted || undefined} className={PAGE_PANE_CLASSES}>
         <div
           ref={pageRef}
           className={cn(

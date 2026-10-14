@@ -186,7 +186,7 @@ export function Sidebar({ close }: { close: () => void }) {
   const { box: searchBox, text: searchText } = splitText(row(INPUT_CLASSES));
   return (
     // Inset like the desktop's (`SIDEBAR_PANEL_CLASSES`): the page's background shows
-    // through. To bring the panel back: bg-sidebar here, theme.colors.card in the drawer.
+    // through. To bring the panel back: bg-sidebar here, the sidebar color in the drawer.
     <View
       className={SIDEBAR_PANEL_CLASSES}
       style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}

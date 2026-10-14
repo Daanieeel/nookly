@@ -1,3 +1,4 @@
+import { PAGE_PANE_CLASSES } from "@nookly/frontend/classes";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// Helpers that let the phone use the desktop's classes as they are
@@ -42,3 +43,8 @@ export function withState(className: string, state: Record<string, string | bool
 /// `flex` lays out in a row in a browser and in a column in React Native. A class
 /// list written for the desktop that means a row gets `flex-row` here.
 export const row = (className: string) => cn(className, "flex-row");
+
+/// A page's background: the desktop's page pane's (`PAGE_PANE_CLASSES`), a card on the
+/// window's background. Only the inset sidebar sits on the window's background itself.
+export const PAGE_BACKGROUND =
+  PAGE_PANE_CLASSES.split(" ").find((name) => name.startsWith("bg-")) ?? "bg-card";

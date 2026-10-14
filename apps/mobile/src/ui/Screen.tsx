@@ -1,3 +1,4 @@
+import { PAGE_BACKGROUND, cn } from "./classes.ts";
 import { RefreshControl, ScrollView } from "react-native";
 
 /// A screen's scrolling page on the app's background, with pull to sync.
@@ -12,7 +13,7 @@ export function Screen({
 }) {
   return (
     <ScrollView
-      className="flex-1 bg-background"
+      className={cn("flex-1", PAGE_BACKGROUND)}
       contentContainerClassName="gap-5 p-4 pb-12"
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
