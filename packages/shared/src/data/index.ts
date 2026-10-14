@@ -2,5 +2,8 @@ export * from "./bookmarks.ts";
 export * from "./calendar.ts";
 export * from "./db.ts";
 export * from "./entities.ts";
+export { type CardState, type NextDue, RATINGS, type Rating, type Schedule } from "./fsrs.ts";
+export * from "./links.ts";
 export * from "./notes.ts";
+export * from "./study.ts";
 export * from "./tasks.ts";

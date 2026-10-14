@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.36.1 (2026-10-14)
+
+### Changed
+
+- **Shared items stand out.** The Space holding what others share with you shows a people icon in the sidebar.
+
+### Fixed
+
+- **View only means view only.** A task or page shared with you to view can no longer be renamed or changed, so nothing you type is undone on the next sync.
+
 ## 0.36.0 (2026-10-14)
 
 ### Added

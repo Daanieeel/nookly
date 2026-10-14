@@ -37,6 +37,7 @@ import {
 import type { Entity, RepeatRule, Task } from "#/lib/api/types.ts";
 import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
@@ -94,6 +95,8 @@ function TaskPage({ entity }: { entity: Entity }) {
   });
   const parent = useTaskParent(entity);
   const neighbours = useTaskNeighbours(entity, parent);
+  // Shared to view only: every control shows its value but can't change it.
+  const viewOnly = useViewOnly(entity.id, entity.spaceId);
 
   return (
     <EntityDetailLayout
@@ -109,26 +112,33 @@ function TaskPage({ entity }: { entity: Entity }) {
           />
         )
       }
-      sidebar={task && <PropertiesPanel task={task} progress={progress ?? null} />}
+      sidebar={
+        task && (
+          <fieldset disabled={viewOnly} className="contents">
+            <PropertiesPanel task={task} progress={progress ?? null} />
+          </fieldset>
+        )
+      }
     >
       <div className="flex w-full flex-col pb-24">
         {/* Properties live in the sidebar; without it they sit above the description.
             Indented by the editor's handle gutter (`.tiptap-content`) to line up with
             its text. */}
         {task && (
-          <div
+          <fieldset
+            disabled={viewOnly}
             className={cn(
-              "mb-2 flex flex-wrap items-center gap-1.5 pl-13",
+              "mb-2 flex min-w-0 flex-wrap items-center gap-1.5 pl-13",
               !sidebarCollapsed && "@3xl:hidden",
             )}
           >
             <TaskStatusControl task={task} />
             <TaskLabelsControl task={task} />
             <TaskDueControl task={task} />
-          </div>
+          </fieldset>
         )}
         <BlockEditor entityId={entity.id} spaceId={entity.spaceId} />
-        {!isSubtask && <SubtaskSection parent={entity} progress={progress ?? null} />}
+        {!isSubtask && !viewOnly && <SubtaskSection parent={entity} progress={progress ?? null} />}
       </div>
     </EntityDetailLayout>
   );

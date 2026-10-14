@@ -71,6 +71,11 @@ export const sessionsResponseSchema = z.object({ sessions: z.array(sessionSchema
 /// entity, see `TableScope`).
 export const SHAREABLE_TYPES = ["note", "task"] as const;
 
+/// Items others share with this account live in a Space of the sharer's own, named
+/// `shared-<owner id>`, which only that person can share on.
+export const sharedSpaceId = (ownerId: string) => `shared-${ownerId}`;
+export const isSharedSpace = (spaceId: string) => spaceId.startsWith("shared-");
+
 export const shareStatusSchema = z.enum(["pending", "accepted", "declined", "revoked"]);
 export const shareRoleSchema = roleSchema.exclude(["owner"]);
 export type ShareRole = z.infer<typeof shareRoleSchema>;

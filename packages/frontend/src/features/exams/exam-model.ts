@@ -1,13 +1,10 @@
+import { EXAM_STATUSES as SHARED_EXAM_STATUSES } from "@nookly/shared/colors";
 import type { TaskStatus } from "#/lib/api/types.ts";
 import type { StatusKind } from "#/features/tasks/task-model.ts";
 
 /// The fixed Exam statuses, shaped like Task statuses so they draw with the same
-/// Linear style glyphs and picker.
-export const EXAM_STATUSES: TaskStatus[] = [
-  { id: "upcoming", name: "Upcoming", color: "#64748b", doneness: 0, position: 0 },
-  { id: "studying", name: "Studying", color: "#3b82f6", doneness: 50, position: 1 },
-  { id: "done", name: "Done", color: "#22c55e", doneness: 100, position: 2 },
-];
+/// Linear style glyphs and picker. The phone uses the same list.
+export const EXAM_STATUSES: TaskStatus[] = SHARED_EXAM_STATUSES;
 
 export function examStatus(id: string): TaskStatus {
   return EXAM_STATUSES.find((s) => s.id === id) ?? EXAM_STATUSES[0];

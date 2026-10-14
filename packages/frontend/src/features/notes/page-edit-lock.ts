@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useTabGroupScope } from "#/components/tab-group-scope.ts";
-import { syncRuntime } from "#/features/sync/sync-instance.ts";
-import { qk } from "#/lib/query-keys.ts";
+import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 
 /// How many editors of each page are open, per tab group.
@@ -30,12 +28,7 @@ function change(entityId: string, groupId: string, delta: 1 | -1) {
 /// A page someone shared with this account to view only stays read only too.
 export function usePageEditLock(entityId: string, spaceId?: string): boolean {
   const { groupId } = useTabGroupScope();
-  const shared = spaceId?.startsWith("shared-") ?? false;
-  const { data: role } = useQuery({
-    queryKey: qk.sync.role(entityId),
-    queryFn: () => syncRuntime.engine.roleOf(entityId),
-    enabled: shared,
-  });
+  const viewOnly = useViewOnly(entityId, spaceId);
   useEffect(() => {
     change(entityId, groupId, 1);
     return () => change(entityId, groupId, -1);
@@ -44,5 +37,5 @@ export function usePageEditLock(entityId: string, spaceId?: string): boolean {
   const openElsewhere = useOpenEditors((s) =>
     Object.keys(s.open[entityId] ?? {}).some((id) => id !== groupId),
   );
-  return role === "viewer" || (openElsewhere && focusedGroupId !== groupId);
+  return viewOnly || (openElsewhere && focusedGroupId !== groupId);
 }

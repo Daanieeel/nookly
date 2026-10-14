@@ -485,6 +485,16 @@ fn write_schedule(conn: &Connection, card_id: &str, s: &Schedule) -> AppResult<(
 
 /// Schedules the card with FSRS for `rating` and logs the review.
 pub fn review_card(conn: &Connection, card_id: &str, rating: Rating) -> AppResult<IndexCard> {
+    review_card_at(conn, card_id, rating, Utc::now())
+}
+
+/// `review_card` at a given time, so a test can replay reviews days apart.
+pub(crate) fn review_card_at(
+    conn: &Connection,
+    card_id: &str,
+    rating: Rating,
+    now: DateTime<Utc>,
+) -> AppResult<IndexCard> {
     let previous = conn
         .query_row(
             "SELECT * FROM index_cards WHERE id = ?1",
@@ -493,7 +503,6 @@ pub fn review_card(conn: &Connection, card_id: &str, rating: Rating) -> AppResul
         )
         .optional()?
         .ok_or_else(|| AppError::NotFound(format!("index card {card_id}")))?;
-    let now = Utc::now();
     let info = FSRS::default().next(previous.to_fsrs(), now, rating);
     let next = Schedule::from_fsrs(&info.card);
     write_schedule(conn, card_id, &next)?;

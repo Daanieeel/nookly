@@ -28,6 +28,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { createLabel, deleteLabel, listLabels, updateLabel } from "#/lib/api/labels.ts";
 import type { Label } from "#/lib/api/types.ts";
 import { ACCENT_COLORS } from "#/lib/colors.ts";
+import { labelColorFor } from "@nookly/shared/colors";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -35,12 +36,7 @@ import { qk } from "#/lib/query-keys.ts";
 /// from its neighbours just as well as a new Space does.
 export const LABEL_COLORS = ACCENT_COLORS;
 
-/// A stable color per name, so the same word always gets the same hue.
-export function labelColorFor(name: string): string {
-  let hash = 0;
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return LABEL_COLORS[hash % LABEL_COLORS.length];
-}
+export { labelColorFor };
 
 /// Every view that shows labels or their usage refreshes after a change.
 function useRefreshLabels(spaceId: string) {

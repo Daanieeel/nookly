@@ -655,3 +655,104 @@ fn cli_card_review_requires_a_valid_rating() {
     let value = (review.run)(&conn, &c.id, &fields).unwrap();
     assert_eq!(value["reps"], 1);
 }
+
+/// Reviews scheduled here, replayed by the mobile app's FSRS (`packages/shared`
+/// `data/fsrs.test.ts`) so a card studied on the phone comes back when it would on
+/// the desktop. After an intended change, rewrite the file and read the diff:
+///
+///     NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib db::decks_tests
+#[test]
+fn fsrs_reviews_match_the_shared_fixtures() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let d = deck(&conn, &space.id, "D");
+    // Each run: ratings with the hours since the previous review (or since 09:00).
+    let runs: &[&[(&str, i64)]] = &[
+        &[
+            ("good", 0),
+            ("good", 1),
+            ("good", 72),
+            ("good", 240),
+            ("hard", 600),
+        ],
+        &[
+            ("again", 0),
+            ("again", 1),
+            ("good", 1),
+            ("easy", 30),
+            ("again", 300),
+            ("good", 1),
+        ],
+        &[("easy", 0), ("good", 96), ("easy", 500), ("hard", 2000)],
+        &[
+            ("hard", 0),
+            ("easy", 2),
+            ("good", 20),
+            ("again", 4),
+            ("hard", 1),
+            ("easy", 48),
+        ],
+        &[
+            ("good", 0),
+            ("good", 0),
+            ("again", 900),
+            ("again", 0),
+            ("good", 24),
+            ("good", 8000),
+        ],
+    ];
+    let mut out = Vec::new();
+    for ratings in runs {
+        let c = card(&conn, &d.id, "Q");
+        conn.execute(
+            "UPDATE index_cards SET due_at = '2026-10-14T09:00:00+00:00' WHERE id = ?1",
+            params![c.id],
+        )
+        .unwrap();
+        let mut now = time("2026-10-14T09:00:00Z");
+        let mut steps = Vec::new();
+        for (rating, hours) in *ratings {
+            now += chrono::Duration::hours(*hours);
+            let before = get_card(&conn, &c.id).unwrap();
+            let after = review_card_at(&conn, &c.id, parse_rating(rating).unwrap(), now).unwrap();
+            let log: (String, i64, i64) = conn
+                .query_row(
+                    "SELECT state, elapsed_days, scheduled_days FROM index_card_reviews
+                     WHERE card_id = ?1 ORDER BY reviewed_at DESC LIMIT 1",
+                    params![c.id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .unwrap();
+            let schedule = |card: &IndexCard| {
+                serde_json::json!({
+                    "state": card.state, "dueAt": card.due_at, "stability": card.stability,
+                    "difficulty": card.difficulty, "elapsedDays": card.elapsed_days,
+                    "scheduledDays": card.scheduled_days, "reps": card.reps,
+                    "lapses": card.lapses, "lastReviewAt": card.last_review_at,
+                })
+            };
+            steps.push(serde_json::json!({
+                "now": now.to_rfc3339(),
+                "rating": rating,
+                "before": schedule(&before),
+                "after": schedule(&after),
+                "log": { "state": log.0, "elapsedDays": log.1, "scheduledDays": log.2 },
+            }));
+        }
+        out.push(steps);
+    }
+    let actual = format!("{}\n", serde_json::to_string_pretty(&out).unwrap());
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../packages/shared/src/generated/fsrs-fixtures.json");
+    if std::env::var_os("NOOKLY_UPDATE_SNAPSHOTS").is_some() {
+        std::fs::write(&path, &actual).unwrap();
+        return;
+    }
+    let expected = std::fs::read_to_string(&path)
+        .unwrap_or_default()
+        .replace("\r\n", "\n");
+    assert!(
+        expected == actual,
+        "FSRS scheduling changed. If that is intended, run\n  NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib db::decks_tests\nand check packages/shared/src/data/fsrs.test.ts still passes."
+    );
+}

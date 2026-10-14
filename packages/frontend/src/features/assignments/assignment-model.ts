@@ -1,3 +1,4 @@
+import { ASSIGNMENT_STATUSES as SHARED_ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import {
   IconBan,
   IconCalendarEvent,
@@ -40,12 +41,7 @@ import { type DisplaySummary, type ViewPreset, is } from "#/features/views/view-
 
 /// The fixed Assignment statuses, shaped like Task statuses so they draw with the
 /// same Linear style glyphs and picker.
-export const ASSIGNMENT_STATUSES: TaskStatus[] = [
-  { id: "not_started", name: "Not started", color: "#64748b", doneness: 0, position: 0 },
-  { id: "in_progress", name: "In progress", color: "#3b82f6", doneness: 50, position: 1 },
-  { id: "submitted", name: "Submitted", color: "#a855f7", doneness: 75, position: 2 },
-  { id: "graded", name: "Graded", color: "#22c55e", doneness: 100, position: 3 },
-];
+export const ASSIGNMENT_STATUSES: TaskStatus[] = SHARED_ASSIGNMENT_STATUSES;
 
 export function assignmentStatus(id: string): TaskStatus {
   return ASSIGNMENT_STATUSES.find((s) => s.id === id) ?? ASSIGNMENT_STATUSES[0];

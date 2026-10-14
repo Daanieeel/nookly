@@ -1,3 +1,5 @@
+import { isSharedSpace } from "@nookly/shared/api";
+import { SpaceName } from "#/components/sidebar/space-name.tsx";
 import {
   DndContext,
   type DragEndEvent,
@@ -399,7 +401,10 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
         })}
       >
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={space.name} className="pr-16">
+          <SidebarMenuButton
+            tooltip={isSharedSpace(space.id) ? `${space.name}, shared with you` : space.name}
+            className="pr-16"
+          >
             <span className="relative flex size-4 shrink-0 items-center justify-center">
               <span
                 className="flex items-center justify-center text-(--space-color) transition-opacity group-hover/menu-item:opacity-0"
@@ -411,7 +416,7 @@ function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean })
               </span>
               <IconChevronRight className="absolute inset-0 size-4 opacity-0 transition group-hover/menu-item:opacity-100 group-data-[state=open]/space:rotate-90" />
             </span>
-            <span className="truncate">{space.name}</span>
+            <SpaceName space={space} />
           </SidebarMenuButton>
         </CollapsibleTrigger>
 

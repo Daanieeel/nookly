@@ -34,7 +34,8 @@ export interface EntityRecord {
   lastOpenedAt: string | null;
 }
 
-const ENTITY_COLUMNS =
+/// Every column an `EntityRecord` reads, for `SELECT ${ENTITY_COLUMNS} FROM entities e`.
+export const ENTITY_COLUMNS =
   "e.id, e.space_id, e.type, e.title, e.icon, e.pinned, e.created_at, e.updated_at, e.deleted_at, e.key_prefix, e.key_number, e.last_opened_at";
 
 export function toEntity(row: Record<string, string | number | null>): EntityRecord {

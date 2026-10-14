@@ -11,7 +11,8 @@
     "./tokens": "./src/tokens.ts",
     "./testing": "./src/sync/testing/index.ts",
     "./data": "./src/data/index.ts",
-    "./modules": "./src/modules.ts"
+    "./modules": "./src/modules.ts",
+    "./colors": "./src/colors.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

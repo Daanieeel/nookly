@@ -1,3 +1,4 @@
+import { sharedSpaceId } from "@nookly/shared/api";
 import { moduleForEntityType } from "@nookly/shared/modules";
 import { syncedTable } from "@nookly/shared/schema";
 import {
@@ -47,7 +48,6 @@ interface Access {
 }
 
 /// The Space a recipient sees an owner's shared pages in. It exists only for them.
-const sharedSpaceId = (ownerId: string) => `shared-${ownerId}`;
 
 const key = (table: string, pk: string) => `${table}\u0000${pk}`;
 

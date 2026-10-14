@@ -1,15 +1,8 @@
-import { SHAREABLE_TYPES } from "@nookly/shared/api";
+import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import { IconUsers } from "@tabler/icons-react";
 import { registerActions } from "#/components/context-menu/registry.ts";
-import type { Entity } from "#/lib/api/types.ts";
 import { ShareDialog } from "./ShareDialog.tsx";
 import { syncRuntime } from "./sync-instance.ts";
-
-/// A page someone shared with this account lives in a Space of their own, named
-/// `shared-<owner>`; only its owner can share it on.
-function isSharedWithMe(entity: Entity): boolean {
-  return entity.spaceId.startsWith("shared-");
-}
 
 registerActions("entity", [
   {
@@ -20,7 +13,7 @@ registerActions("entity", [
     when: ({ entity }) =>
       syncRuntime.store.getState().user !== null &&
       SHAREABLE_TYPES.some((type) => type === entity.type) &&
-      !isSharedWithMe(entity) &&
+      !isSharedSpace(entity.spaceId) &&
       !entity.deletedAt,
     run: ({ entity }, helpers) =>
       helpers.openDialog((close) => (

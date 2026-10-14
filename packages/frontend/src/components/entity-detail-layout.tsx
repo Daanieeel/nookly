@@ -1,5 +1,5 @@
 import { useTabGroupScope } from "#/components/tab-group-scope.ts";
-import { IconRestore, IconTrashFilled } from "@tabler/icons-react";
+import { IconEye, IconRestore, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useRememberedScroll } from "#/hooks/use-remembered-scroll.ts";
@@ -22,6 +22,7 @@ import { restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
+import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
 
@@ -59,6 +60,7 @@ export function EntityDetailLayout({
   const bodyRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
+  const viewOnly = useViewOnly(entity.id, entity.spaceId);
   // A tab keeps where each of its pages was scrolled, unless the page keys it itself.
   const { tabId } = useTabGroupScope();
   useRememberedScroll(bodyRef, scrollKey ?? `tab:${tabId}:${entity.id}`, scrollReady);
@@ -107,6 +109,12 @@ export function EntityDetailLayout({
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
       {isDeleted && <TrashedBanner entity={entity} />}
+      {viewOnly && !isDeleted && (
+        <div className="flex shrink-0 items-center gap-1.5 border-b border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          <IconEye size={14} />
+          Shared with you to view. Only its owner can change it.
+        </div>
+      )}
       <div
         className={`flex min-h-0 min-w-0 flex-1 ${isDeleted ? "opacity-50" : ""}`}
         inert={isDeleted || undefined}
@@ -123,6 +131,7 @@ export function EntityDetailLayout({
               trigger={
                 <button
                   type="button"
+                  disabled={viewOnly}
                   title={iconFailed ? "Couldn't change icon, try again" : "Change icon"}
                   className="flex size-6 shrink-0 items-center justify-center rounded-sm hover:bg-accent"
                 >
@@ -157,7 +166,7 @@ export function EntityDetailLayout({
                 body.focus();
               }}
               placeholder={`Untitled ${labelForType(entity.type)}`}
-              disabled={isDeleted}
+              disabled={isDeleted || viewOnly}
               aria-invalid={renameFailed || undefined}
               className="min-w-0 flex-1 truncate bg-transparent font-heading text-base font-medium outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
             />
