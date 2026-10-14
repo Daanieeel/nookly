@@ -165,6 +165,8 @@ pub const SYNCED_TABLES: &[SyncedTable] = &[
         },
     ),
     table("views", ENTITY_PK, ENTITY_ID),
+    // Settings that follow the person, by setting id (migration 43).
+    table("account_settings", &["key"], Scope::None),
 ];
 
 /// Tables that never sync, and why. A name also covers the tables SQLite makes for
@@ -180,6 +182,8 @@ pub const EXCLUDED_TABLES: &[&str] = &[
     "sync_dirty",
     "sync_rows",
     "sync_conflicts",
+    // Which local file holds which contents, per device (migration 43).
+    "blob_files",
 ];
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

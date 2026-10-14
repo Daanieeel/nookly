@@ -447,6 +447,17 @@ export class SyncService {
   }
 
   /// The title and type of an owner's entity, if it exists and isn't deleted for good.
+  /// The keys of `pks` the account's own data has no record of, alive or deleted.
+  async missing(ownerId: string, table: string, pks: string[]): Promise<string[]> {
+    if (pks.length === 0) return [];
+    const found = await this.db
+      .select({ pk: records.pk })
+      .from(records)
+      .where(and(eq(records.ownerId, ownerId), eq(records.tbl, table), inArray(records.pk, pks)));
+    const have = new Set(found.map((r) => r.pk));
+    return pks.filter((pk) => !have.has(pk));
+  }
+
   async entity(ownerId: string, entityId: string): Promise<{ title: string; type: string } | null> {
     const [row] = await this.db
       .select({ fields: records.fields })

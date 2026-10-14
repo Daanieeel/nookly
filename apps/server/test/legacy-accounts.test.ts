@@ -7,7 +7,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { connect, migrateDatabase } from "../src/db/client.ts";
-import { PASSWORD, PHONE, startServer } from "./helpers.ts";
+import { PASSWORD, PHONE, startServer, HOOK_TIMEOUT } from "./helpers.ts";
 
 // Accounts made before better-auth keep their id, data and password: a database at
 // the first migration, with an account and a synced row, is migrated to now.
@@ -18,11 +18,11 @@ const url = base.replace(/\/[^/]+$/, `/${name}`);
 
 beforeAll(async () => {
   await admin.unsafe(`CREATE DATABASE ${name}`);
-});
+}, HOOK_TIMEOUT);
 afterAll(async () => {
   await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
   await admin.end();
-});
+}, HOOK_TIMEOUT);
 
 /// The migrations folder as it was with only its first migration.
 function firstMigrationOnly(): string {

@@ -13,15 +13,16 @@ import {
   titleOf,
   until,
   verifiedAccount,
+  HOOK_TIMEOUT,
 } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
   server = await startServer();
-});
+}, HOOK_TIMEOUT);
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 async function syncOnce(d: Device) {
   const transport = d.api.syncTransport();

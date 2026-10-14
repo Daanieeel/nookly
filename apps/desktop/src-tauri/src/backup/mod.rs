@@ -32,6 +32,9 @@ const PENDING_DIR: &str = "pending-restore";
 const SAFETY_DIR: &str = "restore-safety";
 const READY_MARKER: &str = "READY";
 const RESTORE_ERROR_LOG: &str = "restore-error.log";
+/// The backups made before a first sign in (`commands::backup::create_pre_sync_backup`),
+/// inside the app data folder. Left out of every other backup.
+pub const PRE_SYNC_DIR: &str = "pre-sync-backups";
 
 /// What a backup contains, stored as `manifest.json` inside it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,7 +80,12 @@ fn io_err(e: impl std::fmt::Display) -> AppError {
 fn is_excluded(name: &str) -> bool {
     matches!(
         name,
-        "office-previews" | "crash.log" | RESTORE_ERROR_LOG | PENDING_DIR | SAFETY_DIR
+        "office-previews"
+            | "crash.log"
+            | RESTORE_ERROR_LOG
+            | PENDING_DIR
+            | SAFETY_DIR
+            | PRE_SYNC_DIR
     ) || name.ends_with(".tmp")
         || name.ends_with(".partial")
 }

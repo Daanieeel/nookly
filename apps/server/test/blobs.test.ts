@@ -1,14 +1,14 @@
 import { HeadObjectCommand, ListObjectVersionsCommand } from "@aws-sdk/client-s3";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { PHONE, type TestServer, account, startServer } from "./helpers.ts";
+import { PHONE, type TestServer, account, startServer, HOOK_TIMEOUT } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
   server = await startServer();
-});
+}, HOOK_TIMEOUT);
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 const sha256 = (bytes: Uint8Array) => new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
 const bytesOf = (text: string) => new TextEncoder().encode(text);

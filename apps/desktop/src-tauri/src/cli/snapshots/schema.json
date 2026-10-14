@@ -1634,6 +1634,11 @@
       "childCollections": [],
       "computedFields": [
         {
+          "description": "Read only. The SHA-256 of the File's contents in the signed in account's storage, set once they are uploaded; null until then and when sync is off. Another device downloads the contents by it.",
+          "kind": "text",
+          "name": "blob"
+        },
+        {
           "description": "Read only. The full text last extracted/OCR'd for this File — the exact content `search` matches against. Only populated by `get` (a single File by id); `list` always returns `null` here to keep listing many Files cheap regardless of their extracted text size.",
           "kind": "long_text",
           "name": "indexedContent"

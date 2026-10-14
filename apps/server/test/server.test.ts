@@ -1,15 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { redact } from "../src/log.ts";
 import { RateLimiter } from "../src/security/rate-limit.ts";
-import { DESKTOP, MemoryTokens, PASSWORD, type TestServer, startServer, until } from "./helpers.ts";
+import {
+  DESKTOP,
+  MemoryTokens,
+  PASSWORD,
+  type TestServer,
+  startServer,
+  until,
+  HOOK_TIMEOUT,
+} from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
   server = await startServer();
-});
+}, HOOK_TIMEOUT);
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 describe("the server", () => {
   it("reports its health", async () => {

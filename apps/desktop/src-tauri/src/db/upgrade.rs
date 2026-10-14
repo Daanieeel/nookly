@@ -58,6 +58,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (41, &[]),
     // Sync tables and triggers; nothing existing changes.
     (42, &[]),
+    // New columns and tables for files and settings in the account.
+    (43, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

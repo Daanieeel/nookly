@@ -11,7 +11,13 @@
     },
     "test": {
       "outputs": [],
-      "passThroughEnv": ["TEST_DATABASE_URL", "DOCKER_HOST", "TESTCONTAINERS_*"]
+      "passThroughEnv": [
+        "TEST_DATABASE_URL",
+        "TEST_S3_*",
+        "TEST_LOG_LEVEL",
+        "DOCKER_HOST",
+        "TESTCONTAINERS_*"
+      ]
     },
     "dev": {
       "cache": false,

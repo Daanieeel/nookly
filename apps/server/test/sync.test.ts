@@ -9,15 +9,16 @@ import {
   titleOf,
   until,
   verifiedAccount,
+  HOOK_TIMEOUT,
 } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
   server = await startServer();
-});
+}, HOOK_TIMEOUT);
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 async function twoDevices() {
   const { api } = await verifiedAccount(server, "ada@example.com");
@@ -190,5 +191,23 @@ describe("live updates", () => {
     await until(() => titleOf(b, "t1") === "Live", "the task to arrive live");
     a.client.stop();
     b.client.stop();
+  });
+});
+
+describe("checking a first sync", () => {
+  it("names the rows the server doesn't have", async () => {
+    const { a } = await twoDevices();
+    addTask(a, "t1", "Buy milk");
+    await syncOnce(a);
+    expect(await a.api.missing("entities", ["t1", "t2"])).toEqual(["t2"]);
+    expect(await a.api.missing("tasks", ["t1"])).toEqual([]);
+  });
+
+  it("never looks into another account", async () => {
+    const { a } = await twoDevices();
+    addTask(a, "t1", "Buy milk");
+    await syncOnce(a);
+    const { api: ben } = await verifiedAccount(server, "ben@example.com", PHONE);
+    expect(await ben.missing("entities", ["t1"])).toEqual(["t1"]);
   });
 });

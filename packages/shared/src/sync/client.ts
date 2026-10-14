@@ -45,6 +45,9 @@ export interface SyncClientOptions {
   onStatus?: (status: SyncStatus) => void;
   /// Remote changes landed in the database; views should refresh.
   onApplied?: () => void;
+  /// Runs after every sync that reached the server, with whether remote changes
+  /// landed: files, settings and the first sync's progress follow along here.
+  afterCycle?: (applied: boolean) => Promise<void>;
   /// How long after a local change the push goes out, so a burst of typing is one push.
   debounceMs?: number;
   /// A full sync every so often, in case a live notice was missed.
@@ -63,6 +66,7 @@ export class SyncClient {
   private readonly transport: SyncTransport;
   private readonly onStatus?: (status: SyncStatus) => void;
   private readonly onApplied?: () => void;
+  private readonly afterCycle?: (applied: boolean) => Promise<void>;
   private readonly debounceMs: number;
   private readonly periodMs: number;
   private running: Promise<void> | null = null;
@@ -89,6 +93,7 @@ export class SyncClient {
     this.transport = options.transport;
     this.onStatus = options.onStatus;
     this.onApplied = options.onApplied;
+    this.afterCycle = options.afterCycle;
     this.debounceMs = options.debounceMs ?? 1_500;
     this.periodMs = options.periodMs ?? 60_000;
   }
@@ -167,6 +172,7 @@ export class SyncClient {
         lastSyncedAt: Date.now(),
       });
       if (applied) this.onApplied?.();
+      await this.afterCycle?.(applied);
     } catch (cause) {
       const error = cause instanceof Error ? cause : new Error(String(cause));
       this.report({

@@ -10,12 +10,13 @@ import {
   device,
   startServer,
   verifiedAccount,
+  HOOK_TIMEOUT,
 } from "./helpers.ts";
 
 let server: TestServer;
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 async function code(promise: Promise<unknown>): Promise<number | null> {
   try {

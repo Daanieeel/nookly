@@ -10,15 +10,16 @@ import {
   type TestServer,
   startServer,
   until,
+  HOOK_TIMEOUT,
 } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
   server = await startServer();
-});
+}, HOOK_TIMEOUT);
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 /// A device's network connection, which the test can unplug: requests fail like an
 /// offline fetch, and open sockets drop.

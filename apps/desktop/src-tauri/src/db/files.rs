@@ -24,6 +24,9 @@ pub struct FileEntity {
     /// `reindex` bulk action/CLI verb, both a backfill for the gap rather than
     /// something that fires on every write.
     pub needs_reindex: bool,
+    /// Read only. The SHA-256 of the file's contents once they are in the account's
+    /// storage (sync); `None` until uploaded, and on a device that never signed in.
+    pub blob: Option<String>,
     /// Attached Label ids, ordered by label name.
     pub label_ids: Vec<String>,
     /// The full extracted/OCR'd text last indexed for this File (the exact
@@ -52,6 +55,7 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         original_filename: row.get("original_filename")?,
         source_path,
         needs_reindex,
+        blob: row.get("blob")?,
         label_ids: Vec::new(),
         indexed_content: None,
     })
@@ -289,6 +293,17 @@ pub fn attach_download(
 ) -> AppResult<FileEntity> {
     let local_path = write_stored(files_dir, filename, bytes)?;
     attach_stored(conn, entity_id, filename, &local_path)
+}
+
+/// Points a File at contents another device synced (`commands::blobs`), already
+/// checked against their hash and stored at `local_path`, and indexes them.
+pub fn attach_synced(conn: &Connection, entity_id: &str, local_path: &str) -> AppResult<()> {
+    conn.execute(
+        "UPDATE files SET local_path = ?1 WHERE entity_id = ?2",
+        params![local_path, entity_id],
+    )?;
+    index_file_content(conn, entity_id, local_path);
+    Ok(())
 }
 
 fn attach_stored(
@@ -607,7 +622,7 @@ pub fn detect_provider(url: &str) -> Option<&'static str> {
 /// guarantee of a matching row's content being set — `search_index` itself is
 /// always populated at creation via `index_entity_title`, just with `content = ''`).
 const FILE_SELECT: &str =
-    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, \
+    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.blob, \
      COALESCE(si.content, '') != '' AS has_indexed_content \
      FROM entities e \
      JOIN files f ON f.entity_id = e.id \
@@ -918,6 +933,17 @@ inventory::submit! {
         description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain \
                       text files) with no search content yet — never indexed, or the last attempt found \
                       nothing. See the `reindex` bulk action.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "blob",
+        kind: FieldKind::Text,
+        description: "Read only. The SHA-256 of the File's contents in the signed in account's \
+                      storage, set once they are uploaded; null until then and when sync is off. \
+                      Another device downloads the contents by it.",
     }
 }
 

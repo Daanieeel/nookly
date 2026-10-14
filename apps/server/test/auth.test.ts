@@ -8,15 +8,16 @@ import {
   type TestServer,
   startServer,
   verifiedAccount,
+  HOOK_TIMEOUT,
 } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
   server = await startServer();
-});
+}, HOOK_TIMEOUT);
 afterEach(async () => {
   await server.stop();
-});
+}, HOOK_TIMEOUT);
 
 async function failure(promise: Promise<unknown>): Promise<{ status: number; code: string }> {
   try {

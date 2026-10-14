@@ -174,3 +174,6 @@ export function addPage(d: Device, id: string, title: string, blocks: string[]) 
 
 export const titleOf = (d: Device, id: string) =>
   d.driver.rows("SELECT title FROM entities WHERE id = ?", id)[0]?.title ?? null;
+
+/// Hooks start and stop a server and its database, slow while other suites run.
+export const HOOK_TIMEOUT = 30_000;

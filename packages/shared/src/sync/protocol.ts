@@ -92,6 +92,16 @@ export const pullResponseSchema = z.object({
 });
 export type PullResponse = z.infer<typeof pullResponseSchema>;
 
+/// Which of a device's rows the server doesn't hold, for checking a first sync
+/// before it is called done.
+export const MAX_MISSING_KEYS = 1000;
+export const missingRequestSchema = z.object({
+  table: name,
+  pks: z.array(z.string().min(1).max(512)).max(MAX_MISSING_KEYS),
+});
+export type MissingRequest = z.infer<typeof missingRequestSchema>;
+export const missingResponseSchema = z.object({ missing: z.array(z.string()) });
+
 /// Live updates over a WebSocket. The client signs in with its first message, the
 /// server tells it when a dataset has changes, and the client pulls them over HTTP
 /// and acknowledges the cursor it reached.

@@ -1104,7 +1104,7 @@
       "toType": null
     }
   ],
-  "schemaVersion": 42,
+  "schemaVersion": 43,
   "seeds": [
     {
       "rows": [
@@ -1254,12 +1254,16 @@
     "CREATE INDEX idx_sync_conflicts_open ON sync_conflicts(resolved_at, created_at)"
   ],
   "syncTables": [
+    "CREATE TABLE blob_files (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            path TEXT NOT NULL,\n            sha256 TEXT NOT NULL,\n            PRIMARY KEY (tbl, pk)\n        )",
     "CREATE TABLE sync_conflicts (\n            id TEXT PRIMARY KEY,\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            field TEXT,\n            losing_value TEXT,\n            losing_clock TEXT,\n            winning_clock TEXT,\n            created_at TEXT NOT NULL,\n            resolved_at TEXT\n        )",
     "CREATE TABLE sync_dirty (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            version INTEGER NOT NULL DEFAULT 1,\n            changed_at INTEGER NOT NULL,\n            PRIMARY KEY (tbl, pk)\n        )",
     "CREATE TABLE sync_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
     "CREATE TABLE sync_rows (\n            tbl TEXT NOT NULL,\n            pk TEXT NOT NULL,\n            dataset TEXT NOT NULL,\n            scope TEXT,\n            fields TEXT NOT NULL,\n            clocks TEXT NOT NULL,\n            deleted_clock TEXT,\n            PRIMARY KEY (tbl, pk)\n        )"
   ],
   "syncTriggers": [
+    "CREATE TRIGGER sync_account_settings_delete AFTER DELETE ON account_settings\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', OLD.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_account_settings_insert AFTER INSERT ON account_settings\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', NEW.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_account_settings_update AFTER UPDATE ON account_settings\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', NEW.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'account_settings', OLD.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.key IS NOT NEW.key\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_assignments_delete AFTER DELETE ON assignments\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_assignments_insert AFTER INSERT ON assignments\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_assignments_update AFTER UPDATE ON assignments\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'assignments', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
@@ -2755,6 +2759,12 @@
           "name": "source_path",
           "notNull": false,
           "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "blob",
+          "notNull": false,
+          "type": "TEXT"
         }
       ],
       "indexes": [],
@@ -2771,7 +2781,7 @@
         "column": "entity_id",
         "kind": "column"
       },
-      "sql": "CREATE TABLE files (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            local_path TEXT,\n            provider TEXT,\n            url TEXT,\n            original_filename TEXT\n        , source_path TEXT)"
+      "sql": "CREATE TABLE files (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            local_path TEXT,\n            provider TEXT,\n            url TEXT,\n            original_filename TEXT\n        , source_path TEXT, blob TEXT)"
     },
     {
       "columns": [
@@ -2828,6 +2838,12 @@
           "name": "preferred_image",
           "notNull": false,
           "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "screenshot_blob",
+          "notNull": false,
+          "type": "TEXT"
         }
       ],
       "indexes": [],
@@ -2843,7 +2859,7 @@
         "column": "entity_id",
         "kind": "column"
       },
-      "sql": "CREATE TABLE bookmarks (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            url TEXT NOT NULL,\n            fetched_title TEXT,\n            favicon_url TEXT,\n            preview_image_url TEXT,\n            description TEXT,\n            metadata_fetched_at TEXT\n        , screenshot_path TEXT, preferred_image TEXT)"
+      "sql": "CREATE TABLE bookmarks (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            url TEXT NOT NULL,\n            fetched_title TEXT,\n            favicon_url TEXT,\n            preview_image_url TEXT,\n            description TEXT,\n            metadata_fetched_at TEXT\n        , screenshot_path TEXT, preferred_image TEXT, screenshot_blob TEXT)"
     },
     {
       "columns": [
@@ -2870,6 +2886,12 @@
           "name": "banner_path",
           "notNull": false,
           "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "banner_blob",
+          "notNull": false,
+          "type": "TEXT"
         }
       ],
       "indexes": [],
@@ -2885,7 +2907,7 @@
         "column": "entity_id",
         "kind": "column"
       },
-      "sql": "CREATE TABLE recipes (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            kind TEXT NOT NULL DEFAULT 'other',\n            duration_minutes INTEGER,\n            banner_path TEXT\n        )"
+      "sql": "CREATE TABLE recipes (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            kind TEXT NOT NULL DEFAULT 'other',\n            duration_minutes INTEGER,\n            banner_path TEXT\n        , banner_blob TEXT)"
     },
     {
       "columns": [
@@ -3083,6 +3105,39 @@
         "kind": "column"
       },
       "sql": "CREATE TABLE views (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            module TEXT NOT NULL,\n            config TEXT NOT NULL DEFAULT '{}'\n        , position INTEGER NOT NULL DEFAULT 0)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "key",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "value",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "updated_at",
+          "notNull": true,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [],
+      "merge": "field",
+      "name": "account_settings",
+      "pk": [
+        "key"
+      ],
+      "scope": {
+        "kind": "none"
+      },
+      "sql": "CREATE TABLE account_settings (\n            key TEXT PRIMARY KEY,\n            value TEXT NOT NULL,\n            updated_at TEXT NOT NULL\n        )"
     }
   ]
 }

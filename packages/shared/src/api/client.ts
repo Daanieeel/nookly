@@ -5,6 +5,7 @@ import {
   type PushRequest,
   type PushResponse,
   type ServerMessage,
+  missingResponseSchema,
   pullResponseSchema,
   pushResponseSchema,
   serverMessageSchema,
@@ -407,6 +408,12 @@ export class ApiClient {
 
   push(request: PushRequest): Promise<PushResponse> {
     return this.call("POST", "/v1/sync/push", pushResponseSchema, request);
+  }
+
+  /// The keys of `pks` in `table` the server has no record of.
+  async missing(table: string, pks: string[]): Promise<string[]> {
+    return (await this.call("POST", "/v1/sync/missing", missingResponseSchema, { table, pks }))
+      .missing;
   }
 
   pull(request: PullRequest): Promise<PullResponse> {

@@ -7,7 +7,12 @@ import {
   tokenRequestSchema,
   updateShareRequestSchema,
 } from "@nookly/shared/api";
-import { clientMessageSchema, pullRequestSchema, pushRequestSchema } from "@nookly/shared/sync";
+import {
+  clientMessageSchema,
+  missingRequestSchema,
+  pullRequestSchema,
+  pushRequestSchema,
+} from "@nookly/shared/sync";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { AccountService } from "./auth/accounts.ts";
@@ -405,6 +410,22 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             body: pullRequestSchema,
             detail: {
               summary: "Fetch changes since a cursor",
+              tags: ["Sync"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/sync/missing",
+          async ({ headers, body }) => {
+            const claims = await claimsOf(headers);
+            limit(limits.sync, `sync:${claims.userId}`);
+            return { missing: await sync.missing(claims.userId, body.table, body.pks) };
+          },
+          {
+            body: missingRequestSchema,
+            detail: {
+              summary: "Which of these rows the server doesn't have",
               tags: ["Sync"],
               security: [{ bearer: [] }],
             },

@@ -1,6 +1,7 @@
 pub mod agent_files;
 pub mod assignments;
 pub mod backup;
+pub mod blobs;
 pub mod bookmark_screenshot;
 pub mod bookmarks;
 pub mod calendar;

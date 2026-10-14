@@ -1337,6 +1337,53 @@ fn all() -> Vec<M<'static>> {
         END;
 
         ",
+    ), M::up(
+        "
+        -- Files in the account (connected platform). Nothing existing changes.
+        --
+        -- A stored file's contents in the account's storage, by SHA-256: set once
+        -- they are uploaded, and back to NULL when this device replaces the file, so
+        -- the new contents go up. The local paths stay each device's own.
+        ALTER TABLE files ADD COLUMN blob TEXT;
+        ALTER TABLE recipes ADD COLUMN banner_blob TEXT;
+        ALTER TABLE bookmarks ADD COLUMN screenshot_blob TEXT;
+        -- Which local file this device holds for a row, and its hash. Only a file
+        -- this device changed is ever uploaded over the account's copy.
+        CREATE TABLE blob_files (
+            tbl TEXT NOT NULL,
+            pk TEXT NOT NULL,
+            path TEXT NOT NULL,
+            sha256 TEXT NOT NULL,
+            PRIMARY KEY (tbl, pk)
+        );
+        -- Settings that follow the person to every device (display name, formats,
+        -- calendar and editor settings), as JSON. Only ones changed from their
+        -- default are here; the rest stay per device in settings.json.
+        CREATE TABLE account_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TRIGGER sync_account_settings_insert AFTER INSERT ON account_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', NEW.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER sync_account_settings_update AFTER UPDATE ON account_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', NEW.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'account_settings', OLD.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.key IS NOT NEW.key
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER sync_account_settings_delete AFTER DELETE ON account_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', OLD.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+
+        ",
     )]
 }
 
@@ -1865,6 +1912,7 @@ mod history {
         0xfc01de1290319823,
         0xe33f069e6b32963,
         0x92c627e085fd4363,
+        0x6d37e02c5b790126,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {
