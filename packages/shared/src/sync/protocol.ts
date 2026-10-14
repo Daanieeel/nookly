@@ -146,3 +146,28 @@ export function changeProblem(change: Change): string | null {
   }
   return null;
 }
+
+/// A conflict the server recorded: the same field changed on two devices without
+/// either seeing the other. The newer value is in the record; this keeps the other.
+export const serverConflictSchema = z.object({
+  id: z.uuid(),
+  table: z.string(),
+  pk: z.string(),
+  field: z.string().nullable(),
+  losingValue: sqlValueSchema,
+  losingClock: z.string().nullable(),
+  winningClock: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type ServerConflict = z.infer<typeof serverConflictSchema>;
+export const serverConflictsSchema = z.object({ conflicts: z.array(serverConflictSchema) });
+
+/// A device that synced for the account, by the id that ends each of its clocks.
+export const deviceNameSchema = z.object({
+  deviceId: z.string(),
+  name: z.string(),
+  platform: z.string(),
+  lastSeenAt: z.string(),
+});
+export type DeviceName = z.infer<typeof deviceNameSchema>;
+export const devicesSchema = z.object({ devices: z.array(deviceNameSchema) });

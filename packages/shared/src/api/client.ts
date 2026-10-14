@@ -4,8 +4,12 @@ import {
   type PullResponse,
   type PushRequest,
   type PushResponse,
+  type DeviceName,
+  type ServerConflict,
   type ServerMessage,
+  devicesSchema,
   missingResponseSchema,
+  serverConflictsSchema,
   pullResponseSchema,
   pushResponseSchema,
   serverMessageSchema,
@@ -408,6 +412,20 @@ export class ApiClient {
 
   push(request: PushRequest): Promise<PushResponse> {
     return this.call("POST", "/v1/sync/push", pushResponseSchema, request);
+  }
+
+  /// Conflicts nobody decided on yet, the account's whole history of them.
+  async conflicts(): Promise<ServerConflict[]> {
+    return (await this.call("GET", "/v1/conflicts", serverConflictsSchema)).conflicts;
+  }
+
+  resolveConflict(id: string): Promise<void> {
+    return this.callVoid("POST", `/v1/conflicts/${encodeURIComponent(id)}/resolve`);
+  }
+
+  /// The account's devices, to name the device behind a clock.
+  async devices(): Promise<DeviceName[]> {
+    return (await this.call("GET", "/v1/devices", devicesSchema)).devices;
   }
 
   /// The keys of `pks` in `table` the server has no record of.

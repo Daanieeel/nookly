@@ -446,6 +446,50 @@ describe("bringing a lost edit back", () => {
     expect((await b.engine.conflicts()).some((c) => c.id === block.id)).toBe(true);
   });
 
+  it("settles on a value the person chose, combined from both, and it syncs", async () => {
+    const server = new MemoryServer();
+    const a = device("a");
+    const b = device("b");
+    await a.engine.enable();
+    await b.engine.enable();
+    addSpace(a);
+    addTask(a, "t1", "Buy milk");
+    await sync(a, server);
+    await sync(b, server);
+    a.driver.exec("UPDATE entities SET title = 'Buy oat milk' WHERE id = 't1'");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    b.driver.exec("UPDATE entities SET title = 'Buy milk and eggs' WHERE id = 't1'");
+    await sync(b, server);
+    await sync(a, server);
+    const [lost] = await a.engine.conflicts();
+    await a.engine.resolveConflict(lost.id, "Buy oat milk and eggs");
+    expect(a.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy oat milk and eggs" },
+    ]);
+    expect(await a.engine.conflicts()).toEqual([]);
+    await sync(a, server);
+    await sync(b, server);
+    expect(b.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy oat milk and eggs" },
+    ]);
+    // Both versions stay in the log, resolved: nothing is deleted.
+    expect(
+      a.driver.rows("SELECT losing_value, resolved_at IS NOT NULL AS done FROM sync_conflicts"),
+    ).toEqual([{ losing_value: '"Buy oat milk"', done: 1 }]);
+  });
+
+  it("keeps the current value as the choice, leaving the other in the log", async () => {
+    const d = device("a");
+    await d.engine.enable();
+    d.driver.exec(
+      "INSERT INTO sync_conflicts (id, tbl, pk, field, losing_value, created_at) VALUES ('c1', 'tasks', 't1', 'effort', '3', 'now')",
+    );
+    await d.engine.dismissConflict("c1");
+    expect(d.driver.rows("SELECT losing_value FROM sync_conflicts")).toEqual([
+      { losing_value: "3" },
+    ]);
+  });
+
   it("can be dismissed instead", async () => {
     const d = device("a");
     await d.engine.enable();

@@ -256,6 +256,9 @@ export const conflicts = pgTable(
     losingClock: text("losing_clock"),
     winningClock: text("winning_clock"),
     createdAt: created(),
+    /// When someone decided on it (keeping one, the other, both or a mix). The
+    /// row stays, so both versions are never lost.
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   },
   (t) => [index("conflicts_owner").on(t.ownerId, t.createdAt)],
 );

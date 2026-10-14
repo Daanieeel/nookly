@@ -1,0 +1,1 @@
+ALTER TABLE "conflicts" ADD COLUMN "resolved_at" timestamp with time zone;

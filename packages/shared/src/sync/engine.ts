@@ -435,6 +435,45 @@ export class SyncEngine {
     await this.batch([upsertRow(table, key, kept), resolve]);
   }
 
+  /// Settles a conflict on a value the person chose, which may be either side or a
+  /// mix of both: it becomes a new local edit that syncs like any other. Both
+  /// versions stay in the log, marked decided. Fails, keeping the conflict, when the
+  /// row it belongs to is gone.
+  async resolveConflict(id: string, value: SqlValue): Promise<void> {
+    const [row] = await this.driver.query(
+      "SELECT tbl, pk, field FROM sync_conflicts WHERE id = ? AND resolved_at IS NULL",
+      [id],
+    );
+    if (!row) return;
+    if (row.field === null) throw new Error("This conflict has no single value to set.");
+    const table = requireTable(String(row.tbl));
+    const field = String(row.field);
+    if (!syncedColumns(table).includes(field)) throw new Error(`Unknown field ${field}`);
+    const { where, params } = wherePk(table, decodePk(table, String(row.pk)));
+    const result = await this.batch([
+      guard(1, `SELECT COUNT(*) FROM ${ident(table.name)} WHERE ${where}`, ...params),
+      run(`UPDATE ${ident(table.name)} SET ${ident(field)} = ? WHERE ${where}`, value, ...params),
+      run(
+        "UPDATE sync_conflicts SET resolved_at = ? WHERE id = ?",
+        new Date(this.now()).toISOString(),
+        id,
+      ),
+    ]);
+    if (result.outcome !== "done") throw new Error("The item this change belongs to is gone.");
+  }
+
+  /// Sets one field of a row as a new local edit, for a conflict the server holds.
+  async setField(table: string, pk: string, field: string, value: SqlValue): Promise<void> {
+    const def = requireTable(table);
+    if (!syncedColumns(def).includes(field)) throw new Error(`Unknown field ${field}`);
+    const { where, params } = wherePk(def, decodePk(def, pk));
+    const result = await this.batch([
+      guard(1, `SELECT COUNT(*) FROM ${ident(def.name)} WHERE ${where}`, ...params),
+      run(`UPDATE ${ident(def.name)} SET ${ident(field)} = ? WHERE ${where}`, value, ...params),
+    ]);
+    if (result.outcome !== "done") throw new Error("The item this change belongs to is gone.");
+  }
+
   /// Marks a conflict as seen, keeping the newer value.
   async dismissConflict(id: string): Promise<void> {
     await this.batch([

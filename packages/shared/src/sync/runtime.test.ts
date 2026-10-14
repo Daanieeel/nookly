@@ -44,6 +44,13 @@ class FakeAccount implements AccountApi {
   async isSignedIn() {
     return this.signedIn;
   }
+  async conflicts() {
+    return [];
+  }
+  async resolveConflict() {}
+  async devices() {
+    return [];
+  }
   async sessionToken() {
     return this.signedIn ? "token" : null;
   }
@@ -311,5 +318,90 @@ describe("a first sync of a device with data", () => {
     expect(serverCount(server, "spaces")).toBe(2);
     expect(serverCount(server, "entities")).toBe(4);
     desktop.sync.stop();
+  });
+});
+
+describe("conflicts the person decides on", () => {
+  async function disagree() {
+    const server = new MemoryServer();
+    const mac = runtime(server);
+    const phone = runtime(server);
+    mac.driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'P', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    mac.driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES ('t1', 's1', 'task', 'Buy milk', ?, ?, 'TSK', 1)",
+      now(),
+      now(),
+    );
+    mac.driver.exec("INSERT INTO tasks (entity_id, status_id) VALUES ('t1', 'todo')");
+    for (const side of [mac, phone]) {
+      await side.sync.signIn("https://sync.example.com", "ada", "a long password");
+      await side.sync.settled();
+    }
+    mac.driver.exec("UPDATE entities SET title = 'Buy oat milk' WHERE id = 't1'");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    phone.driver.exec("UPDATE entities SET title = 'Buy milk and eggs' WHERE id = 't1'");
+    await mac.sync.syncNow();
+    await phone.sync.syncNow();
+    return { mac, phone };
+  }
+
+  it("lists a conflict with both versions and which one shows now", async () => {
+    const { phone, mac } = await disagree();
+    const [view, ...rest] = await phone.sync.conflictViews();
+    expect(rest).toEqual([]);
+    expect(view).toMatchObject({
+      kind: "field",
+      itemTitle: "Buy milk and eggs",
+      fieldLabel: "Title",
+      current: "Buy milk and eggs",
+      other: "Buy oat milk",
+    });
+    expect(view.currentSide.isThisDevice).toBe(true);
+    expect(await mac.sync.conflictViews()).toEqual([]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("keeps the other version when asked, and every device follows", async () => {
+    const { phone, mac } = await disagree();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, "other");
+    await phone.sync.syncNow();
+    await mac.sync.syncNow();
+    expect(mac.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy oat milk" },
+    ]);
+    expect(await phone.sync.conflictViews()).toEqual([]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("settles on a combined text the person wrote", async () => {
+    const { phone, mac } = await disagree();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, { value: "Buy oat milk and eggs" });
+    await phone.sync.syncNow();
+    await mac.sync.syncNow();
+    expect(mac.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy oat milk and eggs" },
+    ]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("keeps what shows now, and the other version stays in the log", async () => {
+    const { phone, mac } = await disagree();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, "current");
+    expect(await phone.sync.conflictViews()).toEqual([]);
+    expect(
+      phone.driver.rows("SELECT losing_value FROM sync_conflicts WHERE resolved_at IS NOT NULL"),
+    ).toEqual([{ losing_value: '"Buy oat milk"' }]);
+    mac.sync.stop();
+    phone.sync.stop();
   });
 });

@@ -3,6 +3,8 @@ import { moduleForEntityType } from "@nookly/shared/modules";
 import { syncedTable } from "@nookly/shared/schema";
 import {
   type Change,
+  type DeviceName,
+  type ServerConflict,
   EMPTY_RECORD,
   MAX_PULL_RECORDS,
   OWN_DATASET,
@@ -18,9 +20,10 @@ import {
   mergeRecords,
   shareDataset,
 } from "@nookly/shared/sync";
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
-import { authUser, conflicts, records, shares, users } from "../db/schema.ts";
+import { authUser, conflicts, devices, records, shares, users } from "../db/schema.ts";
+import { notFound } from "../errors.ts";
 import type { Logger } from "../log.ts";
 import type { Hub } from "./hub.ts";
 
@@ -468,16 +471,67 @@ export class SyncService {
     ];
   }
 
-  async conflicts(userId: string) {
-    return this.db
+  /// The account's conflicts nobody has decided on yet, newest first.
+  async conflicts(userId: string): Promise<ServerConflict[]> {
+    const rows = await this.db
       .select()
       .from(conflicts)
-      .where(eq(conflicts.ownerId, userId))
-      .orderBy(conflicts.createdAt)
+      .where(and(eq(conflicts.ownerId, userId), isNull(conflicts.resolvedAt)))
+      .orderBy(desc(conflicts.createdAt))
       .limit(500);
+    return rows.map((r) => ({
+      id: r.id,
+      table: r.tbl,
+      pk: r.pk,
+      field: r.field,
+      losingValue: r.losingValue ?? null,
+      losingClock: r.losingClock,
+      winningClock: r.winningClock,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
-  /// The title and type of an owner's entity, if it exists and isn't deleted for good.
+  /// Marks a conflict decided, for every device. Both versions stay in the log.
+  async resolveConflict(userId: string, id: string) {
+    const [row] = await this.db
+      .update(conflicts)
+      .set({ resolvedAt: new Date() })
+      .where(and(eq(conflicts.id, id), eq(conflicts.ownerId, userId)))
+      .returning({ id: conflicts.id });
+    if (!row) throw notFound("No such conflict.");
+    this.hub.notify(userId, { type: "changes", dataset: OWN_DATASET });
+  }
+
+  /// Remembers which device ids (the end of each clock) a session's device uses.
+  async registerDevice(userId: string, changes: Change[], name: string, platform: string) {
+    const ids = new Set<string>();
+    for (const change of changes) {
+      for (const clock of Object.values(change.clocks)) ids.add(clock.split("-")[2] ?? "");
+      if (change.deletedClock) ids.add(change.deletedClock.split("-")[2] ?? "");
+    }
+    ids.delete("");
+    ids.delete("server");
+    for (const deviceId of ids) {
+      await this.db
+        .insert(devices)
+        .values({ ownerId: userId, deviceId, name, platform })
+        .onConflictDoUpdate({
+          target: [devices.ownerId, devices.deviceId],
+          set: { name, platform, lastSeenAt: new Date() },
+        });
+    }
+  }
+
+  async devices(userId: string): Promise<DeviceName[]> {
+    const rows = await this.db.select().from(devices).where(eq(devices.ownerId, userId));
+    return rows.map((d) => ({
+      deviceId: d.deviceId,
+      name: d.name,
+      platform: d.platform,
+      lastSeenAt: d.lastSeenAt.toISOString(),
+    }));
+  }
+
   /// The keys of `pks` the account's own data has no record of, alive or deleted.
   async missing(ownerId: string, table: string, pks: string[]): Promise<string[]> {
     if (pks.length === 0) return [];
@@ -489,6 +543,7 @@ export class SyncService {
     return pks.filter((pk) => !have.has(pk));
   }
 
+  /// The title and type of an owner's entity, if it exists and isn't deleted for good.
   async entity(ownerId: string, entityId: string): Promise<{ title: string; type: string } | null> {
     const [row] = await this.db
       .select({ fields: records.fields })

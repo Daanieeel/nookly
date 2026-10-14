@@ -53,6 +53,15 @@ export class AccountService {
     return this.authenticate(header.startsWith("Bearer ") ? header.slice(7) : "");
   }
 
+  /// What a session's device calls itself.
+  async deviceOf(sessionId: string): Promise<{ name: string; platform: string }> {
+    const [row] = await this.db
+      .select({ name: authSession.deviceName, platform: authSession.platform })
+      .from(authSession)
+      .where(eq(authSession.id, sessionId));
+    return { name: row?.name ?? "Unnamed device", platform: row?.platform ?? "other" };
+  }
+
   async me(userId: string): Promise<User> {
     const [row] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
     if (!row) throw unauthorized();

@@ -1,7 +1,14 @@
 import type { ApiClient, DeviceInfo, SignUp, User } from "../api/index.ts";
 import { SYNCED_TABLES } from "../schema.ts";
 import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
+import {
+  type AnyConflict,
+  type ConflictView,
+  describeConflict,
+  mergeConflictLists,
+} from "./conflict-view.ts";
 import { PageDocs } from "./docs.ts";
+import type { SqlValue } from "../schema.ts";
 import { SyncClient, type SyncStatus } from "./client.ts";
 import { SyncEngine } from "./engine.ts";
 import { MAX_MISSING_KEYS } from "./protocol.ts";
@@ -26,6 +33,9 @@ export type AccountApi = Pick<
   | "syncTransport"
   | "missing"
   | "sessionToken"
+  | "conflicts"
+  | "resolveConflict"
+  | "devices"
 >;
 
 export interface SyncRuntimeDeps<A extends AccountApi> {
@@ -280,6 +290,58 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       afterCycle: (applied) => this.afterCycle(applied),
     });
     await this.client.start();
+  }
+
+  /// Every conflict nobody decided on yet, from this device's log and the server's,
+  /// described for the merge editor.
+  async conflictViews(): Promise<ConflictView[]> {
+    const device = await this.engine.conflicts();
+    let server: AnyConflict[] = [];
+    let names = new Map<string, string>();
+    if (this.api) {
+      try {
+        server = (await this.api.conflicts()).map((c) => ({ ...c, source: "server" as const }));
+        names = new Map((await this.api.devices()).map((d) => [d.deviceId, d.name]));
+      } catch {
+        // Offline: this device's own conflicts still show.
+      }
+    }
+    const thisDeviceId = await this.engine.deviceId();
+    const all = mergeConflictLists(device, server);
+    return Promise.all(
+      all.map((c) =>
+        describeConflict(this.deps.driver, c, {
+          thisDeviceId,
+          thisDeviceName: this.deps.device.name.replace(/^Nookly on /, ""),
+          names,
+        }),
+      ),
+    );
+  }
+
+  /// Settles a conflict. Nothing is deleted: the other version stays in the log.
+  /// - `current`: keep what shows now.
+  /// - `other`: put the other version back.
+  /// - `{ value }`: a version the person wrote, from either or both.
+  async resolveConflict(view: ConflictView, choice: "current" | "other" | { value: SqlValue }) {
+    if (view.kind === "removed") {
+      if (choice === "other") await this.engine.restoreConflict(view.id);
+      else await this.engine.dismissConflict(view.id);
+      this.client?.notifyLocalChange();
+      return;
+    }
+    const field = view.field;
+    const value =
+      choice === "current" ? view.current : choice === "other" ? view.other : choice.value;
+    if (view.source === "device") {
+      if (choice === "current") await this.engine.dismissConflict(view.id);
+      else await this.engine.resolveConflict(view.id, value);
+    } else {
+      if (field && choice !== "current")
+        await this.engine.setField(view.table, view.pk, field, value);
+      await this.api?.resolveConflict(view.id);
+    }
+    this.client?.notifyLocalChange();
   }
 
   /// Live page documents (DECISIONS.md D6), made on first use while signed in.

@@ -395,7 +395,10 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           async ({ headers, body }) => {
             const claims = await claimsOf(headers);
             limit(limits.sync, `sync:${claims.userId}`);
-            return { results: await sync.push(claims.userId, body.changes) };
+            const results = await sync.push(claims.userId, body.changes);
+            const device = await accounts.deviceOf(claims.sessionId);
+            await sync.registerDevice(claims.userId, body.changes, device.name, device.platform);
+            return { results };
           },
           {
             body: pushRequestSchema,
@@ -413,6 +416,45 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             body: pullRequestSchema,
             detail: {
               summary: "Fetch changes since a cursor",
+              tags: ["Sync"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .get(
+          "/conflicts",
+          async ({ headers }) => ({
+            conflicts: await sync.conflicts((await claimsOf(headers)).userId),
+          }),
+          {
+            detail: {
+              summary: "Changes made on two devices that nobody decided on yet",
+              tags: ["Sync"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/conflicts/:id/resolve",
+          async ({ headers, params, set }) => {
+            await sync.resolveConflict((await claimsOf(headers)).userId, params.id);
+            set.status = 204;
+          },
+          {
+            params: idParams,
+            detail: {
+              summary: "Mark a conflict decided on every device",
+              tags: ["Sync"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .get(
+          "/devices",
+          async ({ headers }) => ({ devices: await sync.devices((await claimsOf(headers)).userId) }),
+          {
+            detail: {
+              summary: "The account's devices by the id in their clocks",
               tags: ["Sync"],
               security: [{ bearer: [] }],
             },
