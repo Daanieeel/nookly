@@ -5,8 +5,8 @@ import { useColorScheme } from "react-native";
 /// system setting), for what can't take a class: icons, spinners, the system pickers
 /// and the navigation bars.
 function useToken(name: string): string {
-  // Missing (as in tests, which run without the stylesheet), it reads as no color.
-  return readVariable(name) ?? "";
+  // Missing (as in tests, which run without the stylesheet), it reads as the text color.
+  return readVariable(name) ?? "currentColor";
 }
 
 /// TypeScript reads the web build's types, where this hook takes nothing; the native
