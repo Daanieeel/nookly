@@ -104,6 +104,30 @@ describe("describing a conflict", () => {
     expect(view.currentSide.at?.getTime()).toBe(1791999005000);
   });
 
+  it("tells two devices with the same name apart", async () => {
+    const d = new NodeSqliteDriver();
+    const view = await describeConflict(
+      d,
+      {
+        id: "c9",
+        table: "entities",
+        pk: "gone",
+        field: "title",
+        losingValue: "A",
+        losingClock: "1791999000000-000001-aaa",
+        winningClock: "1791999005000-000001-bbb",
+        createdAt: now(),
+      },
+      {
+        thisDeviceId: "bbb",
+        thisDeviceName: "Nookly on Mac",
+        names: new Map([["aaa", "Nookly on Mac"]]),
+      },
+    );
+    expect(view.currentSide.device).toBe("Mac");
+    expect(view.otherSide.device).toBe("Another Mac");
+  });
+
   it("finds the page behind a block and the task behind its dates", async () => {
     const d = new NodeSqliteDriver();
     d.exec(

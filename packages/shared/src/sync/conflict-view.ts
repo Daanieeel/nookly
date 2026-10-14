@@ -191,11 +191,21 @@ function labelOf(table: string, field: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/// A device's name as people read it: "Mac", not "Nookly on Mac".
+const plainName = (name: string) => name.replace(/^Nookly on /, "");
+
 function sideOf(clock: string | null, names: DeviceNames): Side {
   const id = clock?.split("-")[2] ?? "";
   const isThisDevice = id !== "" && id === names.thisDeviceId;
+  const known = names.names.get(id);
+  // Two devices with the same name (two Macs) are told apart by "Another".
+  const other = known
+    ? plainName(known) === plainName(names.thisDeviceName)
+      ? `Another ${plainName(known)}`
+      : plainName(known)
+    : "Another device";
   return {
-    device: isThisDevice ? names.thisDeviceName : (names.names.get(id) ?? "Another device"),
+    device: isThisDevice ? plainName(names.thisDeviceName) : other,
     isThisDevice,
     at: clock ? new Date(clockWall(clock)) : null,
   };

@@ -69,6 +69,10 @@ function deletedSince(base: RecordState, side: RecordState): boolean {
   return side.deletedClock !== null && side.deletedClock !== base.deletedClock;
 }
 
+/// Fields the app keeps by itself, which two devices always both touch when they edit
+/// the same row: the newer value simply wins, and there is nothing to decide.
+const AUTOMATIC_FIELDS = new Set(["updated_at"]);
+
 /// The edits that lose when `local` and `remote`, both grown from `base`, merge:
 /// a field both changed to different values loses on the side with the older clock,
 /// and edits are lost to a delete that wins over them without having seen them.
@@ -79,7 +83,7 @@ export function findLosses(base: RecordState, local: RecordState, remote: Record
   const losses: Loss[] = [];
   for (const [name, localClock] of edits.local) {
     const remoteClock = edits.remote.get(name);
-    if (remoteClock === undefined) continue;
+    if (remoteClock === undefined || AUTOMATIC_FIELDS.has(name)) continue;
     const loser = merged.clocks[name] === localClock ? "remote" : "local";
     const value = sides[loser].fields[name] ?? null;
     if (value === merged.fields[name]) continue;
