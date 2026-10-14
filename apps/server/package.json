@@ -15,12 +15,14 @@
     "@aws-sdk/client-s3": "3.1151.0",
     "@elysiajs/cors": "1.4.2",
     "@elysiajs/openapi": "1.4.16",
+    "@hocuspocus/server": "4.7.1",
     "@nookly/shared": "workspace:*",
     "better-auth": "1.7.7",
     "drizzle-orm": "0.45.4",
     "elysia": "1.4.30",
     "nodemailer": "^10.1.0",
     "postgres": "3.4.9",
+    "yjs": "13.6.33",
     "zod": "^4"
   },
   "devDependencies": {

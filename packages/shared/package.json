@@ -11,13 +11,17 @@
     "./testing": "./src/sync/testing/index.ts",
     "./data": "./src/data/index.ts",
     "./modules": "./src/modules.ts",
-    "./colors": "./src/colors.ts"
+    "./colors": "./src/colors.ts",
+    "./blocks": "./src/blocks/index.ts",
+    "./blocks/*": "./src/blocks/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@hocuspocus/provider": "4.7.1",
+    "yjs": "13.6.33",
     "zod": "^4",
     "zustand": "^5"
   },

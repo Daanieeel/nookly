@@ -1,3 +1,6 @@
+import type { Block, BlockAttrs, BlockType } from "@nookly/shared/blocks";
+
+export type { Block, BlockAttrs, BlockType };
 export interface Space {
   id: string;
   name: string;
@@ -191,23 +194,6 @@ export interface TaskDueTodaySummary {
   total: number;
 }
 
-export interface Block {
-  id: string;
-  entityId: string;
-  position: number;
-  blockType: BlockType;
-  content: string;
-  /// Code block header row (filename + language) — always
-  /// `null` for every other block type.
-  language: string | null;
-  filename: string | null;
-  /// Settings of a custom block (callout `variant`, timeline `title`, ...), a toggle
-  /// heading's `toggle` or a lettered list's `marker`. Empty on every other block.
-  attrs: BlockAttrs;
-  createdAt: string;
-  updatedAt: string;
-}
-
 /// One Notes list row, loaded for the whole Space in one call.
 export interface PageSummary {
   entity: Entity;
@@ -240,43 +226,6 @@ export interface BlockPatch {
   /// Merged into the block's attrs; `""` clears one.
   attrs?: BlockAttrs;
 }
-
-export type BlockAttrs = Record<string, string>;
-
-export type BlockType =
-  | "paragraph"
-  | "heading1"
-  | "heading2"
-  | "heading3"
-  | "heading4"
-  | "heading5"
-  | "heading6"
-  | "quote"
-  | "code"
-  | "bulleted_list"
-  | "numbered_list"
-  | "table"
-  | "image"
-  | "embed"
-  | "callout"
-  | "timeline"
-  | "progress"
-  | "tree"
-  | "steps"
-  | "stats"
-  | "details"
-  | "divider"
-  | "checklist"
-  | "toggle"
-  | "equation"
-  | "math"
-  | "diagram"
-  | "circuit"
-  | "entity_card"
-  | "video"
-  | "audio"
-  | "file"
-  | "bookmark";
 
 export interface SessionOccurrence {
   entity: Entity;
