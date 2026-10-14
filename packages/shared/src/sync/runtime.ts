@@ -1,6 +1,7 @@
 import type { ApiClient, DeviceInfo, SignUp, User } from "../api/index.ts";
 import { SYNCED_TABLES } from "../schema.ts";
 import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
+import { PageDocs } from "./docs.ts";
 import { SyncClient, type SyncStatus } from "./client.ts";
 import { SyncEngine } from "./engine.ts";
 import { MAX_MISSING_KEYS } from "./protocol.ts";
@@ -17,7 +18,14 @@ import { createStore } from "zustand/vanilla";
 /// The account calls sync needs; the shared `ApiClient` is one.
 export type AccountApi = Pick<
   ApiClient,
-  "signUp" | "signIn" | "signOut" | "me" | "isSignedIn" | "syncTransport" | "missing"
+  | "signUp"
+  | "signIn"
+  | "signOut"
+  | "me"
+  | "isSignedIn"
+  | "syncTransport"
+  | "missing"
+  | "sessionToken"
 >;
 
 export interface SyncRuntimeDeps<A extends AccountApi> {
@@ -102,6 +110,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private readonly settings: AccountSettingsSync | null;
   private stopSettings: (() => void) | null = null;
   private filesRunning: Promise<void> | null = null;
+  private docs: PageDocs | null = null;
+  private flushing = false;
   private filesTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(deps: SyncRuntimeDeps<A>) {
@@ -267,12 +277,61 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     await this.client.start();
   }
 
+  /// Live page documents (DECISIONS.md D6), made on first use while signed in.
+  pages(): PageDocs | null {
+    const serverUrl = this.store.getState().serverUrl;
+    const api = this.api;
+    if (!api || !serverUrl || !this.client) return null;
+    this.docs ??= new PageDocs({
+      driver: this.deps.driver,
+      serverUrl,
+      token: () => api.sessionToken(),
+      ownerOf: (entityId) => this.ownerOf(entityId),
+      onRows: (entityId) => {
+        void this.deps.reindex?.([entityId]);
+        this.deps.onApplied();
+      },
+    });
+    return this.docs;
+  }
+
+  /// Whose page this is: the signed in account's, or whoever shared it (a shared
+  /// item sits in the Space `shared-<owner id>`).
+  private async ownerOf(entityId: string): Promise<string | null> {
+    const [row] = await this.deps.driver.query("SELECT space_id FROM entities WHERE id = ?", [
+      entityId,
+    ]);
+    const space = row ? String(row.space_id) : null;
+    if (space?.startsWith("shared-")) return space.slice("shared-".length);
+    return this.store.getState().user?.id ?? null;
+  }
+
+  /// Sends pages edited offline in the background, once per sync at most.
+  private flushPages() {
+    if (this.flushing) return;
+    this.flushing = true;
+    void (async () => {
+      try {
+        const pending = await this.deps.driver.query(
+          "SELECT 1 AS x FROM page_docs WHERE pending = 1 LIMIT 1",
+          [],
+        );
+        if (pending.length > 0) await this.pages()?.flushPending();
+      } catch {
+        // Tried again after the next sync.
+      } finally {
+        this.flushing = false;
+      }
+    })();
+  }
+
   private async afterCycle(applied: boolean) {
     if (applied && this.settings) {
       const changed = await this.settings.apply().catch(() => []);
       if (changed.length > 0) this.deps.onApplied();
     }
     this.runFiles();
+    this.flushPages();
     await this.updateMigration().catch(() => {});
   }
 
@@ -394,6 +453,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     if (this.filesTimer) clearTimeout(this.filesTimer);
     this.filesTimer = null;
     this.blobs = null;
+    void this.docs?.close(false);
+    this.docs = null;
   }
 
   syncNow(): Promise<void> {
@@ -414,12 +475,15 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       // Offline: the server ends the session when it expires.
     }
     await this.engine.disable();
+    // The device's copies of page documents belong to the account; the rows stay.
+    await this.deps.driver.batch([run("DELETE FROM page_docs")]);
     this.store.setState({ user: null, status: OFF, migration: null, files: null });
   }
 
   private async signedOutByServer() {
     this.stop();
     await this.engine.disable();
+    await this.deps.driver.batch([run("DELETE FROM page_docs")]);
     this.store.setState({
       user: null,
       status: OFF,

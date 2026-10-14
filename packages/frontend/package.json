@@ -91,6 +91,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@hocuspocus/provider": "4.7.1",
     "@nookly/config": "workspace:*",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

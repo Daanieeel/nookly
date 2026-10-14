@@ -1,24 +1,11 @@
 import { qk } from "#/lib/query-keys.ts";
-import { Selection, TextSelection } from "@tiptap/pm/state";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { TextSelection } from "@tiptap/pm/state";
+import { useEditor } from "@tiptap/react";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { notify } from "#/components/notify.tsx";
-import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
-import { listEntities } from "#/lib/api/entities.ts";
-import { listFiles } from "#/lib/api/files.ts";
-import { listSessions } from "#/lib/api/sessions.ts";
-import { hasPages } from "#/features/files/file-kind.ts";
-import {
-  createBlock,
-  deleteBlock,
-  getNoteCodeLanguage,
-  reorderBlocks,
-  updateBlock,
-} from "#/lib/api/notes.ts";
-import type { Block, SessionOccurrence } from "#/lib/api/types.ts";
-import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
-import { useTabGroupScope } from "#/components/tab-group-scope.ts";
+import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "#/lib/api/notes.ts";
+import type { Block } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   asString,
@@ -28,20 +15,21 @@ import {
   type JSONNode,
   nodeToBlockInput,
 } from "./block-markdown";
-import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
-import { newCodeBlockLanguage } from "./default-code-language";
 import { usePasteFiles } from "./paste-files";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
-import { openLink } from "./open-link";
-import { HighlightColorBar } from "./HighlightColorBar";
-import { TableControls } from "./TableControls";
-import { VimIndicator } from "./VimIndicator";
-import { TableColumnHandles } from "./TableColumnHandles";
-import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { usePageEditLock } from "./page-edit-lock.ts";
-import { type PageSection, pageSections } from "./heading-anchors";
+import type { PageSection } from "./heading-anchors";
+import { CollaborativeEditor } from "./CollaborativeEditor.tsx";
+import { usePageSession } from "./use-page-session.ts";
+import {
+  EditorFrame,
+  pageEditorProps,
+  useEditorLookups,
+  useFocusBlockRequest,
+  useSectionsReport,
+} from "./editor-hooks.tsx";
 
 const DEBOUNCE_MS = 600;
 
@@ -69,7 +57,37 @@ function persistedOf(block: Block): PersistedBlock {
 /// Tiptap/ProseMirror editor owns the whole page, exactly like Notion. Each
 /// top-level node still round-trips to one row in the existing per-block backend
 /// (`block-markdown.ts`); this component's only extra job is reconciling the two.
-export function BlockEditor({
+type BlockEditorProps = {
+  entityId: string;
+  spaceId: string;
+  /// The page's headings, whenever they change, for a section navigator.
+  onSectionsChange?: (sections: PageSection[]) => void;
+  compact?: boolean;
+  scrollPastEnd?: boolean;
+};
+
+/// A page's editor: on its live document while signed in (`CollaborativeEditor`),
+/// else on its rows, saved block by block.
+export function BlockEditor(props: BlockEditorProps) {
+  const page = usePageSession(props.entityId);
+  if (page.state === "waiting") return <div className={cn(!props.compact && "min-h-40")} />;
+  if (page.state === "live") {
+    return (
+      <CollaborativeEditor
+        key={props.entityId}
+        session={page.session}
+        entityId={props.entityId}
+        spaceId={props.spaceId}
+        compact={props.compact ?? false}
+        scrollPastEnd={props.scrollPastEnd ?? false}
+        onSectionsChange={props.onSectionsChange}
+      />
+    );
+  }
+  return <RowsBlockEditor {...props} />;
+}
+
+function RowsBlockEditor({
   entityId,
   spaceId,
   compact = false,
@@ -135,34 +153,7 @@ function HydratedBlockEditor({
 }) {
   const queryClient = useQueryClient();
   const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
-  const { data: entities = [] } = useQuery({
-    queryKey: qk.entities.bySpace(spaceId),
-    queryFn: () => listEntities(spaceId, false),
-  });
-
-  const entitiesRef = useRef(entities);
-  entitiesRef.current = entities;
-  // Which files are shown page by page, so a mention of one can name a page.
-  const { data: files = [] } = useQuery({
-    queryKey: qk.files.bySpace(spaceId),
-    queryFn: () => listFiles(spaceId),
-  });
-  // A session is found by its day and time as well as its course, which is its title.
-  const { data: sessions = [] } = useQuery({
-    queryKey: qk.sessions.bySpace(spaceId),
-    queryFn: () => listSessions(spaceId),
-  });
-  const sessionsById = useRef(new Map<string, SessionOccurrence>());
-  sessionsById.current = new Map(sessions.map((s) => [s.entity.id, s]));
-  const pagedFileIds = useRef(new Set<string>());
-  pagedFileIds.current = new Set(files.filter(hasPages).map((f) => f.entity.id));
-  // The note's own code language, read live when a code block is made. A Jot has none.
-  const { data: noteCodeLanguage = null } = useQuery({
-    queryKey: qk.noteCodeLanguage(entityId),
-    queryFn: () => getNoteCodeLanguage(entityId),
-  });
-  const noteCodeLanguageRef = useRef(noteCodeLanguage);
-  noteCodeLanguageRef.current = noteCodeLanguage;
+  const lookups = useEditorLookups(spaceId, entityId);
 
   /// Client-generated `blockId` (assigned by `UniqueBlockId`) -> server block id.
   /// Pre-existing blocks bootstrap this as an identity mapping (§ notes rewrite).
@@ -294,22 +285,8 @@ function HydratedBlockEditor({
       type: "doc",
       content: initialBlocks.length > 0 ? initialBlocks.map(blockToNode) : [{ type: "paragraph" }],
     },
-    extensions: editorExtensions({
-      spaceId,
-      pageId: entityId,
-      getEntities: () => entitiesRef.current,
-      hasPages: (entity) => pagedFileIds.current.has(entity.id),
-      sessionOf: (entity) => sessionsById.current.get(entity.id),
-      getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
-    }),
-    editorProps: {
-      attributes: {
-        class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
-        ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
-      },
-      handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
-      handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
-    },
+    extensions: editorExtensions({ spaceId, pageId: entityId, ...lookups }),
+    editorProps: pageEditorProps({ compact, scrollPastEnd, spaceId, pasteFiles }),
     onUpdate: () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
@@ -319,95 +296,14 @@ function HydratedBlockEditor({
   // The palette's text commands act on the page last typed in.
   useEffect(() => (editor ? trackActiveEditor(editor) : undefined), [editor]);
 
-  // Reports the headings after every change to the document, including edits
-  // pulled in from outside, but only when the outline itself changed.
-  const onSectionsChangeRef = useRef(onSectionsChange);
-  onSectionsChangeRef.current = onSectionsChange;
-  useEffect(() => {
-    if (!editor) return;
-    let last = "";
-    const report = () => {
-      const sections = pageSections(editor.state.doc);
-      const key = JSON.stringify(sections);
-      if (key === last) return;
-      last = key;
-      onSectionsChangeRef.current?.(sections);
-    };
-    report();
-    editor.on("transaction", report);
-    return () => {
-      editor.off("transaction", report);
-    };
-  }, [editor]);
+  useSectionsReport(editor, onSectionsChange);
 
-  // Scrolls to a block requested from outside (a block level search result)
-  // once the page has hydrated, then hands the request back.
-  const { groupId } = useTabGroupScope();
-  const focusBlock = useNavStore((s) => focusBlockIn(s, groupId));
-  const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
-  useEffect(() => {
-    // A page of a file is for the file viewer, not for a page's editor.
-    if (!editor || focusBlock?.entityId !== entityId || !focusBlock.blockId) return;
-    const { blockId } = focusBlock;
-    // Blocks created earlier in this editor session still carry their client
-    // id, so map the server id back first.
-    const clientId = [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId;
-    let frame = 0;
-    let settle: ReturnType<typeof setTimeout> | undefined;
-    let tries = 0;
-
-    /// Found through the document rather than a `[data-block-id]` query: node
-    /// view blocks (code blocks, tables) don't carry node attrs onto their DOM.
-    function locate(): { element: HTMLElement; pos: number } | null {
-      if (!editor) return null;
-      let found: { element: HTMLElement; pos: number } | null = null;
-      editor.state.doc.forEach((node, pos) => {
-        if (found || node.attrs.blockId !== clientId) return;
-        const dom = editor.view.nodeDOM(pos);
-        if (dom instanceof HTMLElement && dom.isConnected) found = { element: dom, pos };
-      });
-      return found;
-    }
-
-    function attempt() {
-      if (!editor) return;
-      const target = locate();
-      if (!target) {
-        // The node may not be rendered yet; give up after about half a second.
-        if (tries++ < 30) frame = requestAnimationFrame(attempt);
-        else clearFocusBlock();
-        return;
-      }
-      const { element, pos } = target;
-      element.scrollIntoView({ block: "center" });
-      element.animate(
-        [
-          { backgroundColor: "color-mix(in oklab, var(--primary) 16%, transparent)" },
-          { backgroundColor: "transparent" },
-        ],
-        { duration: 1800, easing: "ease-out" },
-      );
-      // Re-center once late layout (syntax highlighting, images) has settled,
-      // and only place the cursor after the closing overlay released focus.
-      settle = setTimeout(() => {
-        clearFocusBlock();
-        if (!element.isConnected) return;
-        element.scrollIntoView({ block: "center" });
-        // `Selection.near` finds the first text position inside the block, which
-        // for a table is its first cell rather than the table node itself.
-        const { state } = editor.view;
-        const start = Math.min(pos + 1, state.doc.content.size);
-        editor.view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(start))));
-        editor.commands.focus(null, { scrollIntoView: false });
-      }, 300);
-    }
-
-    frame = requestAnimationFrame(attempt);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(settle);
-    };
-  }, [editor, focusBlock, entityId, clearFocusBlock]);
+  // Blocks created earlier in this editor session still carry their client id.
+  useFocusBlockRequest(
+    editor,
+    entityId,
+    (blockId) => [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId,
+  );
 
   /// Saves the current document now, cancelling any pending debounce. Kept in a
   /// ref so the unmount cleanup below calls this render's version, not the first.
@@ -536,39 +432,12 @@ function HydratedBlockEditor({
     return idMap.get(blockId) ?? null;
   };
 
-  /// Right-clicking a block, or the gutter beside it, targets that block; the
-  /// rest of the canvas targets the page as a whole.
-  const blockContextTarget = contextTargetAt((event) => {
-    if (!editor) return undefined;
-    const dom = editor.view.dom;
-    const box = dom.getBoundingClientRect();
-    const inGutter = event.clientX >= box.left && event.clientX < box.left + GUTTER_WIDTH;
-    const probed = inGutter
-      ? document.elementFromPoint(box.left + GUTTER_WIDTH + 1, event.clientY)
-      : event.target instanceof Element
-        ? event.target
-        : null;
-    const element = topLevelElement(dom, probed);
-    const block = element && findTopLevelBlock(editor.view, element);
-    const blockId = block ? asString(block.node.attrs.blockId) : undefined;
-    return blockId
-      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId })
-      : makeTarget("note.canvas", {
-          editor,
-          overText: event.target instanceof Node && dom.contains(event.target),
-        });
-  });
-
   return (
-    <div className="relative" {...blockContextTarget}>
-      <TableControls editor={editor} />
-      <TableRowHandles editor={editor} />
-      <TableColumnHandles editor={editor} />
-      <BlockHandles editor={editor} />
-      <HighlightColorBar editor={editor} />
-      <EditorContent editor={editor} />
-      <VimIndicator editor={editor} />
-      {pasteFiles.popover}
-    </div>
+    <EditorFrame
+      editor={editor}
+      entityId={entityId}
+      resolveStoredId={resolveStoredId}
+      extra={pasteFiles.popover}
+    />
   );
 }

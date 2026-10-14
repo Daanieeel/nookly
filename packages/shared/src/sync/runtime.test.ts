@@ -44,6 +44,9 @@ class FakeAccount implements AccountApi {
   async isSignedIn() {
     return this.signedIn;
   }
+  async sessionToken() {
+    return this.signedIn ? "token" : null;
+  }
   /// Pushes fail from this many on, like a connection that drops mid sync.
   failPushesAfter = Number.POSITIVE_INFINITY;
   pushes = 0;

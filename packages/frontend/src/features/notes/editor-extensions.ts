@@ -53,6 +53,8 @@ export interface EditorExtensionOptions {
   hasPages?: (entity: Entity) => boolean;
   /// Read live: the occurrence behind a session, so the "@" menu finds it by its day and time.
   sessionOf?: (entity: Entity) => SessionOccurrence | undefined;
+  /// Bound to a live document (`CollaborativeEditor`), whose own history undoes.
+  collaborative?: boolean;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -63,9 +65,11 @@ export function editorExtensions({
   getNewCodeLanguage = () => null,
   hasPages = () => false,
   sessionOf = () => undefined,
+  collaborative = false,
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
+      ...(collaborative && { undoRedo: false }),
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       link: {
         openOnClick: false,

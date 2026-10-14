@@ -18,6 +18,28 @@
    place those get real rules. `code:not(pre code)` in the @nookly/ui base layer covers inline
    code; `pre`/`pre code` here only reset the block form. */
 @layer components {
+  /* Other people's carets and names in a live page (`CollaborativeEditor.tsx`). The
+     extension sets each person's color on the element itself. */
+  .tiptap-content .collaboration-carets__caret {
+    position: relative;
+    margin-inline: -1px;
+    border-inline: 1px solid;
+    pointer-events: none;
+    word-break: normal;
+  }
+  .tiptap-content .collaboration-carets__label {
+    position: absolute;
+    top: -1.4em;
+    left: -1px;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.25rem 0.25rem 0.25rem 0;
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: normal;
+    white-space: nowrap;
+    user-select: none;
+  }
   .tiptap-content {
     outline: none;
     /* Reserved for the per-block add/drag handles in `BlockHandles.tsx` — its
