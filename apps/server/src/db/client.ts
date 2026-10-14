@@ -10,7 +10,6 @@ export function connect(url: string) {
 }
 
 export type Database = ReturnType<typeof connect>["db"];
-export type Connection = ReturnType<typeof connect>;
 
 /// Runs every migration in `drizzle/` that hasn't run yet, in one transaction each.
 export async function migrateDatabase(db: Database) {

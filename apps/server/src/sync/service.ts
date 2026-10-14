@@ -27,7 +27,7 @@ import type { Hub } from "./hub.ts";
 /// it and nothing else (a page's blocks, a task's dates and status). Relationships,
 /// labels, Sub-tasks and its Space stay with the owner; a recipient never gets
 /// anything that wasn't shared explicitly.
-export const SHARE_TABLES = ["entities", "blocks", "note_settings", "tasks"];
+const SHARE_TABLES = ["entities", "blocks", "note_settings", "tasks"];
 /// The fields of a shared entity's own row an editor may change.
 const EDITOR_ENTITY_FIELDS = new Set(["title", "icon", "updated_at"]);
 /// Fields of a shared entity that are the recipient's own: accepted from them but
@@ -47,7 +47,7 @@ interface Access {
 }
 
 /// The Space a recipient sees an owner's shared pages in. It exists only for them.
-export const sharedSpaceId = (ownerId: string) => `shared-${ownerId}`;
+const sharedSpaceId = (ownerId: string) => `shared-${ownerId}`;
 
 const key = (table: string, pk: string) => `${table}\u0000${pk}`;
 

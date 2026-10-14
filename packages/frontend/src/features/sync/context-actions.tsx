@@ -7,7 +7,7 @@ import { syncRuntime } from "./sync-instance.ts";
 
 /// A page someone shared with this account lives in a Space of their own, named
 /// `shared-<owner>`; only its owner can share it on.
-export function isSharedWithMe(entity: Entity): boolean {
+function isSharedWithMe(entity: Entity): boolean {
   return entity.spaceId.startsWith("shared-");
 }
 

@@ -10,7 +10,7 @@ const REFRESH_TOKEN = "nookly.sync.refreshToken";
 const SERVER_URL = "nookly.sync.serverUrl";
 
 /// The sync account's refresh token, in the Keychain or Keystore; never in the database.
-export const secureTokens: TokenStore = {
+const secureTokens: TokenStore = {
   load: () => SecureStore.getItemAsync(REFRESH_TOKEN),
   save: async (token) => {
     if (token) await SecureStore.setItemAsync(REFRESH_TOKEN, token);

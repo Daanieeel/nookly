@@ -533,5 +533,3 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
 
   return { app, hub, auth, sync, sharing };
 }
-
-export type App = ReturnType<typeof buildApp>["app"];

@@ -32,7 +32,7 @@ import { PageEditor } from "./PageEditor.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
 
 /// A page someone shared to view only can't be changed here either.
-export function useReadOnly(entity: EntityRecord | null | undefined): boolean {
+function useReadOnly(entity: EntityRecord | null | undefined): boolean {
   const { sync } = useAppData();
   const shared = entity?.spaceId.startsWith("shared-") ?? false;
   const { data: role } = useQuery({

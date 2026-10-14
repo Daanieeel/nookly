@@ -18,7 +18,7 @@ export const FONT = {
   heading: "InterTight_600SemiBold",
 } as const;
 
-export function themeFor(dark: boolean): Theme {
+function themeFor(dark: boolean): Theme {
   return {
     dark,
     colors: dark ? DARK : LIGHT,

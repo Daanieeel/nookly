@@ -12,15 +12,15 @@
     "packages/ui": {},
     "packages/config": {},
     "packages/shared": {
-      "entry": ["src/**/*.test.ts", "src/*/index.ts", "src/schema.ts"],
+      "entry": ["src/**/*.test.ts", "src/*/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "apps/server": {
-      "entry": ["src/index.ts", "test/**/*.ts", "drizzle.config.ts"],
+      "entry": ["test/**/*.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"]
     },
     "apps/mobile": {
-      "entry": ["src/app/**/*.tsx", "src/**/*.test.{ts,tsx}", "jest.setup.ts"],
+      "entry": ["src/app/**/*.tsx", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}"]
     }
   }
