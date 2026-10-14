@@ -7,3 +7,4 @@ export * from "./links.ts";
 export * from "./notes.ts";
 export * from "./study.ts";
 export * from "./tasks.ts";
+export * from "./manage.ts";

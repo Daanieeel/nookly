@@ -1,6 +1,8 @@
 import { MODULE_LABELS, type ModuleKey, isModuleKey } from "@nookly/shared/modules";
 import { Stack, useRouter } from "expo-router";
+import { IconSettings } from "@tabler/icons-react-native";
 import { View } from "react-native";
+import { IconButton } from "../ui/Button.tsx";
 import { useSpaceModules, useSpaces } from "../data/queries.ts";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
@@ -44,7 +46,18 @@ export function SpaceScreen({ spaceId }: { spaceId: string }) {
     });
   return (
     <>
-      <Stack.Screen options={{ title: space?.name ?? "Space" }} />
+      <Stack.Screen
+        options={{
+          title: space?.name ?? "Space",
+          headerRight: () => (
+            <IconButton
+              label="Space Settings"
+              icon={<IconSettings size={20} color={theme.colors.foreground} />}
+              onPress={() => router.push(`/space-settings/${spaceId}`)}
+            />
+          ),
+        }}
+      />
       <Screen>
         <Section>
           {shown.length === 0 ? <Empty text="Nothing in this Space yet." /> : null}

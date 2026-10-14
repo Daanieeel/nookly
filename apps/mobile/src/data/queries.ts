@@ -19,11 +19,13 @@ import {
   listEntities,
   listSpaces,
   listStatuses,
+  listSubtasks,
   listTasks,
   pinned,
   recents,
   search,
   spaceModules,
+  subtaskProgress,
 } from "@nookly/shared/data";
 import { useQuery } from "@tanstack/react-query";
 import { useDb } from "./context.tsx";
@@ -186,5 +188,18 @@ export const useEntityLabels = (entityId: string) => {
   return useQuery({
     queryKey: keys.entityLabels(entityId),
     queryFn: () => entityLabels(db, entityId),
+  });
+};
+
+export const useSubtasks = (parentId: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.subtasks(parentId), queryFn: () => listSubtasks(db, parentId) });
+};
+
+export const useSubtaskProgress = (parentId: string) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.progress(parentId),
+    queryFn: () => subtaskProgress(db, parentId),
   });
 };

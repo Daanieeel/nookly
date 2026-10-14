@@ -14,6 +14,8 @@
     "./colors": "./src/colors.ts",
     "./settings": "./src/settings.ts",
     "./latex": "./src/latex.ts",
+    "./effort": "./src/effort.ts",
+    "./icons": "./src/icons.ts",
     "./editor-schema": "./src/editor-schema.ts",
     "./blocks": "./src/blocks/index.ts",
     "./blocks/*": "./src/blocks/*.ts"

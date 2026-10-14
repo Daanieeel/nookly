@@ -1,15 +1,20 @@
 import {
+  DUPLICATE_TYPES,
   type EntityRecord,
   type RepeatRule,
+  createSubtask,
+  duplicateEntity,
   markOpened,
   renameEntity,
   restoreEntity,
   setPinned,
   setTaskDates,
+  setTaskEffort,
   setTaskRepeat,
   setTaskStatus,
   trashEntity,
 } from "@nookly/shared/data";
+import { EFFORT_STEPS, effortLabel } from "@nookly/shared/effort";
 import { useQuery } from "@tanstack/react-query";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import { Stack, useRouter } from "expo-router";
@@ -18,12 +23,21 @@ import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
-import { useEntity, useSpaces, useStatuses, useTask } from "../data/queries.ts";
+import { useSetting } from "../data/settings.ts";
+import {
+  useEntity,
+  useSpaces,
+  useStatuses,
+  useSubtaskProgress,
+  useSubtasks,
+  useTask,
+} from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
-import { Section } from "../ui/Row.tsx";
+import { Field } from "../ui/Field.tsx";
+import { Empty, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
@@ -33,7 +47,7 @@ import { BookmarkDetail } from "./BookmarkDetail.tsx";
 import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { PageEditor } from "./PageEditor.tsx";
-import { StatusIcon } from "./TaskRow.tsx";
+import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 
 /// A page someone shared to view only can't be changed here either.
 function useReadOnly(entity: EntityRecord | null | undefined): boolean {
@@ -73,6 +87,7 @@ function Actions({ entity }: { entity: EntityRecord }) {
   const pin = useLocalWrite((db, next: boolean) => setPinned(db, entity.id, next));
   const trash = useLocalWrite((db) => trashEntity(db, entity.id));
   const restore = useLocalWrite((db) => restoreEntity(db, entity.id));
+  const copy = useLocalWrite((db) => duplicateEntity(db, entity.id));
   return (
     <View className="flex-row flex-wrap gap-2">
       {entity.deletedAt ? (
@@ -90,6 +105,31 @@ function Actions({ entity }: { entity: EntityRecord }) {
               label="Share"
               variant="ghost"
               onPress={() => router.push(`/new/share?entityId=${entity.id}`)}
+            />
+          ) : null}
+          <Button
+            label="Icon"
+            variant="ghost"
+            onPress={() =>
+              router.push({ pathname: "/pick/icon", params: { kind: "entity", id: entity.id } })
+            }
+          />
+          {entity.type !== "sub_task" && !isSharedSpace(entity.spaceId) ? (
+            <Button
+              label="Move to Space"
+              variant="ghost"
+              onPress={() => router.push(`/new/move?entityId=${entity.id}`)}
+            />
+          ) : null}
+          {DUPLICATE_TYPES.includes(entity.type) && !isSharedSpace(entity.spaceId) ? (
+            <Button
+              label="Duplicate"
+              variant="ghost"
+              status={statusOf(copy)}
+              errorLabel="Couldn't copy"
+              onPress={() =>
+                copy.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) })
+              }
             />
           ) : null}
           <Button
@@ -118,6 +158,56 @@ const REPEATS: { label: string; rule: RepeatRule | null }[] = [
   { label: "Monthly", rule: { every: 1, unit: "month" } },
 ];
 
+/// A task's sub-tasks, one level deep, with how far along they are.
+function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const { data: subtasks = [] } = useSubtasks(id);
+  const { data: statuses = [] } = useStatuses();
+  const { data: progress } = useSubtaskProgress(id);
+  const [title, setTitle] = useState("");
+  const add = useLocalWrite((db, text: string) => createSubtask(db, id, text));
+  const submit = () => {
+    const text = title.trim();
+    if (text) add.mutate(text, { onSuccess: () => setTitle("") });
+  };
+  return (
+    <Section
+      title={
+        progress === null || progress === undefined
+          ? "Sub-tasks"
+          : `Sub-tasks, ${Math.round(progress)}% done`
+      }
+    >
+      {subtasks.length === 0 ? <Empty text="No sub-tasks." /> : null}
+      {subtasks.map((task) => (
+        <View key={task.entity.id}>
+          <TaskRow task={task} statuses={statuses} />
+        </View>
+      ))}
+      {!readOnly ? (
+        <View className="flex-row items-end gap-2 p-3">
+          <View className="flex-1">
+            <Field
+              label="New sub-task"
+              value={title}
+              onChangeText={setTitle}
+              onSubmitEditing={submit}
+              returnKeyType="done"
+              placeholder="Add a sub-task"
+            />
+          </View>
+          <Button
+            label="Add Sub-task"
+            variant="secondary"
+            status={statusOf(add)}
+            errorLabel="Couldn't add"
+            onPress={submit}
+          />
+        </View>
+      ) : null}
+    </Section>
+  );
+}
+
 function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   const { data: task } = useTask(id);
   const { data: statuses = [] } = useStatuses();
@@ -125,6 +215,11 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   const dates = useLocalWrite((db, due: string | null) =>
     setTaskDates(db, id, task?.startDate ?? null, due),
   );
+  const start = useLocalWrite((db, day: string | null) =>
+    setTaskDates(db, id, day, task?.dueDate ?? null),
+  );
+  const effort = useLocalWrite((db, value: number | null) => setTaskEffort(db, id, value));
+  const [scale] = useSetting("general.effortScale");
   const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
   if (!task) return null;
   return (
@@ -143,6 +238,37 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
               />
             ))}
           </ChipGroup>
+        </View>
+      </Section>
+      <Section title="Effort">
+        <View className="p-3">
+          <ChipGroup label="Effort">
+            <Chip
+              label="None"
+              selected={task.effort === null}
+              disabled={readOnly}
+              onPress={() => effort.mutate(null)}
+            />
+            {EFFORT_STEPS.map((step) => (
+              <Chip
+                key={step.value}
+                label={effortLabel(step.value, scale)}
+                selected={task.effort === step.value}
+                disabled={readOnly}
+                onPress={() => effort.mutate(step.value)}
+              />
+            ))}
+          </ChipGroup>
+        </View>
+      </Section>
+      <Section title="Start">
+        <View className="p-3">
+          <DateField
+            label="Start date"
+            value={task.startDate}
+            readOnly={readOnly}
+            onChange={(day) => start.mutate(day)}
+          />
         </View>
       </Section>
       <Section title="Due">
@@ -223,7 +349,10 @@ export function EntityScreen({ id }: { id: string }) {
           </View>
         </View>
         {entity.type === "task" || entity.type === "sub_task" ? (
-          <TaskDetail id={id} readOnly={readOnly} />
+          <>
+            <TaskDetail id={id} readOnly={readOnly} />
+            {entity.type === "task" ? <Subtasks id={id} readOnly={readOnly} /> : null}
+          </>
         ) : null}
         {entity.type === "note" || entity.type === "jot" ? (
           <PageEditor entityId={id} readOnly={readOnly} />

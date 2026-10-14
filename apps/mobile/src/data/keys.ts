@@ -10,6 +10,8 @@ export const keys = {
   tasks: (spaceId: string | null) => ["local", "tasks", spaceId] as const,
   task: (id: string) => ["local", "task", id] as const,
   statuses: ["local", "statuses"] as const,
+  subtasks: (id: string) => ["local", "subtasks", id] as const,
+  progress: (id: string) => ["local", "subtask-progress", id] as const,
   blocks: (entityId: string) => ["local", "blocks", entityId] as const,
   agenda: (from: string, to: string) => ["local", "agenda", from, to] as const,
   bookmarks: (spaceId: string | null) => ["local", "bookmarks", spaceId] as const,

@@ -157,8 +157,25 @@ export default function RootLayout() {
               <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
               <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
               <Stack.Screen name="entity/[id]" options={{ title: "" }} />
+              <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
               <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
               <Stack.Screen name="settings/[page]" options={{ title: "Settings" }} />
+              <Stack.Screen
+                name="pick/icon"
+                options={{
+                  title: "Choose an Icon",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.75, 1],
+                }}
+              />
+              <Stack.Screen
+                name="new/move"
+                options={{
+                  title: "Move to Space",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.5, 1],
+                }}
+              />
               <Stack.Screen
                 name="new/task"
                 options={{

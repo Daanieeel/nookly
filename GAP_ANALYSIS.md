@@ -34,92 +34,92 @@ Legend: ✅ works, ⚠️ partial, ❌ missing, — not applicable (reason given
 
 Every table below syncs per field today (`sync/registry.rs`). The gaps are the device local columns that point at files.
 
-| Table / entity                                                 | Desktop             | Server           | Mobile reads        | Mobile writes (before)              | Done            |
-| -------------------------------------------------------------- | ------------------- | ---------------- | ------------------- | ----------------------------------- | --------------- |
-| spaces (name, icon, color, position)                           | ✅                  | ✅               | ✅                  | ✅ create; ❌ edit, reorder, delete | ✅              |
-| space_modules (add, hide, order)                               | ✅                  | ✅               | ✅                  | ❌                                  | ✅              |
-| entities (title, icon, pinned, space, key, trash)              | ✅                  | ✅               | ✅                  | ⚠️ no icon, no move to Space        | ✅              |
-| labels, entity_labels                                          | ✅                  | ✅               | ✅                  | ⚠️ attach only, no manage           | ✅              |
-| task_statuses (name, color, doneness, order)                   | ✅                  | ✅               | ✅                  | ❌                                  | ✅              |
-| tasks (status, start, due, completed, effort, repeat)          | ✅                  | ✅               | ✅                  | ⚠️ no effort, no repeat             | ✅              |
-| sub-tasks (`sub-task-of`)                                      | ✅                  | ✅               | ⚠️                  | ❌                                  | ✅              |
-| relationships (all types, block targets)                       | ✅                  | ✅               | ✅                  | ⚠️ `relates-to` only                | ✅              |
-| blocks (page body, every block type)                           | ✅                  | ✅               | ⚠️ text types only  | ⚠️ text types only                  | ✅              |
-| note_settings (code language)                                  | ✅                  | ✅               | ❌                  | ❌                                  | ✅              |
-| courses (professor, room)                                      | ✅                  | ✅               | ✅                  | ✅                                  | ✅              |
-| semesters (dates, term, year, current, order)                  | ✅                  | ✅               | ⚠️                  | ❌                                  | ✅              |
-| session_templates, sessions, series_slots                      | ✅                  | ✅               | ⚠️                  | ❌                                  | ✅              |
-| calendar_entry_templates, calendar_entries                     | ✅                  | ✅               | ✅                  | ⚠️ single entries only              | ✅              |
-| exams, study_blocks                                            | ✅                  | ✅               | ✅                  | ⚠️ no study blocks                  | ✅              |
-| assignments (incl. due session offset)                         | ✅                  | ✅               | ✅                  | ⚠️ no due session                   | ✅              |
-| index_card_decks, index_cards, index_card_reviews              | ✅                  | ✅               | ✅                  | ✅ (no undo review)                 | ✅              |
-| files (metadata)                                               | ✅                  | ✅               | ⚠️                  | ❌                                  | ✅              |
-| files (contents)                                               | local only          | ❌               | ❌                  | ❌                                  | ✅              |
-| bookmarks (+ screenshot file)                                  | ✅                  | ⚠️ no screenshot | ✅                  | ✅ create                           | ✅              |
-| recipes, ingredients, steps, recipe_tags, tag links (+ banner) | ✅                  | ⚠️ no banner     | ⚠️                  | ❌                                  | ✅              |
-| views (saved views)                                            | ✅                  | ✅               | ❌                  | ❌                                  | ✅              |
-| settings (`settings.json`)                                     | local only          | ❌               | ❌                  | ❌                                  | ✅              |
-| conflicts                                                      | ✅ list, bring back | ✅               | ✅ list, bring back |                                     | ✅ merge editor |
+| Table / entity                                                 | Desktop             | Server           | Mobile reads        | Mobile writes (before)              | Done                                                              |
+| -------------------------------------------------------------- | ------------------- | ---------------- | ------------------- | ----------------------------------- | ----------------------------------------------------------------- |
+| spaces (name, icon, color, position)                           | ✅                  | ✅               | ✅                  | ✅ create; ❌ edit, reorder, delete | ✅                                                                |
+| space_modules (add, hide, order)                               | ✅                  | ✅               | ✅                  | ❌                                  | ✅                                                                |
+| entities (title, icon, pinned, space, key, trash)              | ✅                  | ✅               | ✅                  | ⚠️ no icon, no move to Space        | ✅                                                                |
+| labels, entity_labels                                          | ✅                  | ✅               | ✅                  | ⚠️ attach only, no manage           | ✅                                                                |
+| task_statuses (name, color, doneness, order)                   | ✅                  | ✅               | ✅                  | ❌                                  | — the desktop's statuses are fixed, so there is nothing to manage |
+| tasks (status, start, due, completed, effort, repeat)          | ✅                  | ✅               | ✅                  | ⚠️ no effort, no repeat             | ✅                                                                |
+| sub-tasks (`sub-task-of`)                                      | ✅                  | ✅               | ⚠️                  | ❌                                  | ✅                                                                |
+| relationships (all types, block targets)                       | ✅                  | ✅               | ✅                  | ⚠️ `relates-to` only                | ⏳                                                                |
+| blocks (page body, every block type)                           | ✅                  | ✅               | ⚠️ text types only  | ⚠️ text types only                  | ✅                                                                |
+| note_settings (code language)                                  | ✅                  | ✅               | ❌                  | ❌                                  | ✅                                                                |
+| courses (professor, room)                                      | ✅                  | ✅               | ✅                  | ✅                                  | ✅                                                                |
+| semesters (dates, term, year, current, order)                  | ✅                  | ✅               | ⚠️                  | ❌                                  | ⏳                                                                |
+| session_templates, sessions, series_slots                      | ✅                  | ✅               | ⚠️                  | ❌                                  | ⏳                                                                |
+| calendar_entry_templates, calendar_entries                     | ✅                  | ✅               | ✅                  | ⚠️ single entries only              | ⏳                                                                |
+| exams, study_blocks                                            | ✅                  | ✅               | ✅                  | ⚠️ no study blocks                  | ⏳                                                                |
+| assignments (incl. due session offset)                         | ✅                  | ✅               | ✅                  | ⚠️ no due session                   | ⏳                                                                |
+| index_card_decks, index_cards, index_card_reviews              | ✅                  | ✅               | ✅                  | ✅ (no undo review)                 | ✅                                                                |
+| files (metadata)                                               | ✅                  | ✅               | ⚠️                  | ❌                                  | ⏳                                                                |
+| files (contents)                                               | local only          | ❌               | ❌                  | ❌                                  | ⏳                                                                |
+| bookmarks (+ screenshot file)                                  | ✅                  | ⚠️ no screenshot | ✅                  | ✅ create                           | ⏳                                                                |
+| recipes, ingredients, steps, recipe_tags, tag links (+ banner) | ✅                  | ⚠️ no banner     | ⚠️                  | ❌                                  | ⏳                                                                |
+| views (saved views)                                            | ✅                  | ✅               | ❌                  | ❌                                  | ⏳                                                                |
+| settings (`settings.json`)                                     | local only          | ❌               | ❌                  | ❌                                  | ⏳                                                                |
+| conflicts                                                      | ✅ list, bring back | ✅               | ✅ list, bring back |                                     | ✅ merge editor                                                   |
 
 ## Desktop features and where they stand on mobile
 
 ### Shell and navigation
 
-| Feature                                                                                 | Desktop      | Mobile before                                                         | Done                                        |
-| --------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------- | ------------------------------------------- |
-| Sidebar: Dashboard, Calendar, Tasks, Assignments, Pinned, Quick Jot block               | ✅           | ⚠️ no Assignments overview, no Quick Jot                              | ✅                                          |
-| Sidebar: hide and reorder the top block                                                 | ✅           | ❌                                                                    | ✅                                          |
-| Spaces list with icon and accent color                                                  | ✅           | ✅                                                                    | ✅                                          |
-| Space create (icon, color, template)                                                    | ✅           | ⚠️ no template                                                        | ✅                                          |
-| Space settings: rename, icon, color, reorder, delete                                    | ✅           | ❌                                                                    | ✅                                          |
-| Module rows per Space; Add Module; Remove Module (hide or trash)                        | ✅           | ⚠️ list only                                                          | ✅                                          |
-| Saved views under modules                                                               | ✅           | ❌                                                                    | ✅                                          |
-| Pinned                                                                                  | ✅           | ✅                                                                    | ✅                                          |
-| Search (full text, keys)                                                                | ✅           | ⚠️ titles only                                                        | ✅                                          |
-| Recents                                                                                 | ✅ (palette) | ✅                                                                    | ✅                                          |
-| Trash: list, restore, empty                                                             | ✅           | ⚠️ no empty                                                           | ✅                                          |
-| Command palette, quick open                                                             | ✅           | — keyboard only; search covers it on phone, hardware keyboard on iPad | ✅ (search)                                 |
-| Tabs and split view                                                                     | ✅           | — a phone shows one page; iPad gets sidebar + page instead            | —                                           |
-| What's new dialog                                                                       | ✅           | ❌                                                                    | ✅                                          |
-| Entity keys (`TSK-14`) in headers and lists                                             | ✅           | ⚠️                                                                    | ✅                                          |
-| Icon picker (emoji and icons)                                                           | ✅           | ❌                                                                    | ✅                                          |
-| Context actions: rename, icon, pin, move to Space, duplicate, copy link, trash, restore | ✅           | ⚠️ pin, trash                                                         | ✅                                          |
-| Right sidebar: Attachments, Mentioned, Mentioned in, Relationships                      | ✅           | ⚠️ Related only                                                       | ✅                                          |
-| Labels: attach, create, rename, recolor, delete                                         | ✅           | ⚠️ attach and create                                                  | ✅                                          |
-| Import and export pages, tasks, decks, assignments                                      | ✅           | ❌                                                                    | ✅ export via share sheet, import via files |
-| Share with people (pages, tasks)                                                        | ✅           | ✅                                                                    | ✅                                          |
+| Feature                                                                                 | Desktop      | Mobile before                                                         | Done                                                                                                 |
+| --------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Sidebar: Dashboard, Calendar, Tasks, Assignments, Pinned, Quick Jot block               | ✅           | ⚠️ no Assignments overview, no Quick Jot                              | ⏳                                                                                                   |
+| Sidebar: hide and reorder the top block                                                 | ✅           | ❌                                                                    | ⏳                                                                                                   |
+| Spaces list with icon and accent color                                                  | ✅           | ✅                                                                    | ✅                                                                                                   |
+| Space create (icon, color, template)                                                    | ✅           | ⚠️ no template                                                        | ✅                                                                                                   |
+| Space settings: rename, icon, color, reorder, delete                                    | ✅           | ❌                                                                    | ✅                                                                                                   |
+| Module rows per Space; Add Module; Remove Module (hide or trash)                        | ✅           | ⚠️ list only                                                          | ✅                                                                                                   |
+| Saved views under modules                                                               | ✅           | ❌                                                                    | ⏳                                                                                                   |
+| Pinned                                                                                  | ✅           | ✅                                                                    | ✅                                                                                                   |
+| Search (full text, keys)                                                                | ✅           | ⚠️ titles only                                                        | ✅                                                                                                   |
+| Recents                                                                                 | ✅ (palette) | ✅                                                                    | ✅                                                                                                   |
+| Trash: list, restore, empty                                                             | ✅           | ⚠️ no empty                                                           | ✅                                                                                                   |
+| Command palette, quick open                                                             | ✅           | — keyboard only; search covers it on phone, hardware keyboard on iPad | ✅ (search)                                                                                          |
+| Tabs and split view                                                                     | ✅           | — a phone shows one page; iPad gets sidebar + page instead            | —                                                                                                    |
+| What's new dialog                                                                       | ✅           | ❌                                                                    | ⏳                                                                                                   |
+| Entity keys (`TSK-14`) in headers and lists                                             | ✅           | ⚠️                                                                    | ⏳                                                                                                   |
+| Icon picker (emoji and icons)                                                           | ✅           | ❌                                                                    | ✅                                                                                                   |
+| Context actions: rename, icon, pin, move to Space, duplicate, copy link, trash, restore | ✅           | ⚠️ pin, trash                                                         | ⚠️ rename, icon, pin, move, trash, restore, duplicate (tasks, pages, bookmarks); copy link not built |
+| Right sidebar: Attachments, Mentioned, Mentioned in, Relationships                      | ✅           | ⚠️ Related only                                                       | ⏳                                                                                                   |
+| Labels: attach, create, rename, recolor, delete                                         | ✅           | ⚠️ attach and create                                                  | ✅                                                                                                   |
+| Import and export pages, tasks, decks, assignments                                      | ✅           | ❌                                                                    | ⏳                                                                                                   |
+| Share with people (pages, tasks)                                                        | ✅           | ✅                                                                    | ✅                                                                                                   |
 
 ### Modules
 
-| Module                                                                       | Desktop                     | Mobile before       | Done                                                             |
-| ---------------------------------------------------------------------------- | --------------------------- | ------------------- | ---------------------------------------------------------------- |
-| Dashboard: briefing, Assignments, Tasks, Decks, Jots, today's Calendar       | ✅                          | ⚠️ simplified       | ✅                                                               |
-| Calendar (unified): day, week, month; sessions, entries, exams, study blocks | ✅                          | ⚠️ agenda list only | ✅                                                               |
-| External calendar overlay (Google, iCloud)                                   | ✅ (device local, keychain) | ❌                  | — desktop only, see DECISIONS D14                                |
-| Tasks: board, list, group, filter, display options, overview                 | ✅                          | ⚠️ list             | ✅                                                               |
-| Tasks: quick create with status, label, date, link                           | ✅                          | ⚠️                  | ✅                                                               |
-| Tasks: effort, repeat, sub-tasks, start date                                 | ✅                          | ❌                  | ✅                                                               |
-| Task statuses: rename, recolor, doneness, add, delete                        | ✅                          | ❌                  | ✅                                                               |
-| Notes: block editor with every block type                                    | ✅                          | ⚠️ text boxes       | ✅ shared editor                                                 |
-| Notes: live collaboration, carets, presence                                  | ❌                          | ❌                  | ✅                                                               |
-| Notes: mentions, slash menu, inline math, highlight                          | ✅                          | ❌                  | ✅                                                               |
-| Jots: instant capture, refine into note                                      | ✅                          | ⚠️ no refine        | ✅                                                               |
-| Courses: grid, detail, professor, room, semester, sequels                    | ✅                          | ⚠️                  | ✅                                                               |
-| Semesters: list, detail, setup wizard, current                               | ✅                          | ⚠️ list             | ✅                                                               |
-| Sessions: series, overrides, edit scope, cancel, jot and note                | ✅                          | ⚠️ list             | ✅                                                               |
-| Calendar entries: series, all day, multi day                                 | ✅                          | ⚠️ single           | ✅                                                               |
-| Exams: list, detail, date, time, room, weight, grade, status                 | ✅                          | ✅                  | ✅                                                               |
-| Study blocks                                                                 | ✅                          | ❌                  | ✅                                                               |
-| Assignments: list, overview, due session                                     | ✅                          | ⚠️                  | ✅                                                               |
-| Decks: piles, writing desk, study, undo review                               | ✅                          | ⚠️ no undo          | ✅                                                               |
-| Grades report                                                                | ✅                          | ❌                  | ✅                                                               |
-| Files: grid, viewer (images, PDF, text, code, markdown)                      | ✅                          | ❌                  | ✅                                                               |
-| Files: Office conversion, OCR, open in                                       | ✅ (LibreOffice, Vision)    | ❌                  | ⚠️ Office files open in the system viewer (Quick Look) on mobile |
-| Files: add from picker, camera, share                                        | ✅ (drop, picker)           | ❌                  | ✅                                                               |
-| Bookmarks: grid, preview, metadata refresh, snapshot                         | ✅                          | ⚠️                  | ✅ (snapshot is made on macOS, shown everywhere)                 |
-| Recipes: list, detail, ingredients, steps, tags, banner                      | ✅                          | ⚠️ list             | ✅                                                               |
-| Views (saved views)                                                          | ✅                          | ❌                  | ✅                                                               |
-| Trash                                                                        | ✅                          | ⚠️                  | ✅                                                               |
+| Module                                                                       | Desktop                     | Mobile before       | Done                              |
+| ---------------------------------------------------------------------------- | --------------------------- | ------------------- | --------------------------------- |
+| Dashboard: briefing, Assignments, Tasks, Decks, Jots, today's Calendar       | ✅                          | ⚠️ simplified       | ⏳                                |
+| Calendar (unified): day, week, month; sessions, entries, exams, study blocks | ✅                          | ⚠️ agenda list only | ⏳                                |
+| External calendar overlay (Google, iCloud)                                   | ✅ (device local, keychain) | ❌                  | — desktop only, see DECISIONS D14 |
+| Tasks: board, list, group, filter, display options, overview                 | ✅                          | ⚠️ list             | ⏳                                |
+| Tasks: quick create with status, label, date, link                           | ✅                          | ⚠️                  | ⏳                                |
+| Tasks: effort, repeat, sub-tasks, start date                                 | ✅                          | ❌                  | ✅                                |
+| Task statuses: rename, recolor, doneness, add, delete                        | ✅                          | ❌                  | — the desktop has fixed statuses  |
+| Notes: block editor with every block type                                    | ✅                          | ⚠️ text boxes       | ✅ shared editor                  |
+| Notes: live collaboration, carets, presence                                  | ❌                          | ❌                  | ✅                                |
+| Notes: mentions, slash menu, inline math, highlight                          | ✅                          | ❌                  | ⏳                                |
+| Jots: instant capture, refine into note                                      | ✅                          | ⚠️ no refine        | ⏳                                |
+| Courses: grid, detail, professor, room, semester, sequels                    | ✅                          | ⚠️                  | ⏳                                |
+| Semesters: list, detail, setup wizard, current                               | ✅                          | ⚠️ list             | ⏳                                |
+| Sessions: series, overrides, edit scope, cancel, jot and note                | ✅                          | ⚠️ list             | ⏳                                |
+| Calendar entries: series, all day, multi day                                 | ✅                          | ⚠️ single           | ⏳                                |
+| Exams: list, detail, date, time, room, weight, grade, status                 | ✅                          | ✅                  | ✅                                |
+| Study blocks                                                                 | ✅                          | ❌                  | ⏳                                |
+| Assignments: list, overview, due session                                     | ✅                          | ⚠️                  | ⏳                                |
+| Decks: piles, writing desk, study, undo review                               | ✅                          | ⚠️ no undo          | ⏳                                |
+| Grades report                                                                | ✅                          | ❌                  | ⏳                                |
+| Files: grid, viewer (images, PDF, text, code, markdown)                      | ✅                          | ❌                  | ⏳                                |
+| Files: Office conversion, OCR, open in                                       | ✅ (LibreOffice, Vision)    | ❌                  | ⏳                                |
+| Files: add from picker, camera, share                                        | ✅ (drop, picker)           | ❌                  | ⏳                                |
+| Bookmarks: grid, preview, metadata refresh, snapshot                         | ✅                          | ⚠️                  | ⏳                                |
+| Recipes: list, detail, ingredients, steps, tags, banner                      | ✅                          | ⚠️ list             | ⏳                                |
+| Views (saved views)                                                          | ✅                          | ❌                  | ⏳                                |
+| Trash                                                                        | ✅                          | ⚠️                  | ⏳                                |
 
 ### Settings screens
 
@@ -142,7 +142,7 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | Account: delete account                                                                           | ✅      | ✅            | ✅           | ✅                                          |
 | Sync: status, sync now, conflicts                                                                 | ✅      | ✅            | ✅           | ✅                                          |
 | Shared with me                                                                                    | ✅      | ✅            | ✅           | ✅                                          |
-| Task statuses, labels, recipe tags (managed in place on desktop)                                  | ✅      | ❌            | ✅           | ✅                                          |
+| Task statuses, labels, recipe tags (managed in place on desktop)                                  | ✅      | ❌            | ✅           | ⏳ labels done; recipe tags with Recipes    |
 
 ### Desktop only by nature
 

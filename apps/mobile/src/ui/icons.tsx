@@ -1,7 +1,36 @@
 import type { ModuleKey } from "@nookly/shared/modules";
 import { moduleForEntityType } from "@nookly/shared/modules";
 import {
+  ICON_LIBRARY_NAMES,
+  type IconLibraryName,
+  isIconLibraryValue,
+  parseIconLibraryValue,
+} from "@nookly/shared/icons";
+import {
+  IconApple,
+  IconBike,
   IconBook2,
+  IconBriefcase,
+  IconBulb,
+  IconCode,
+  IconCoffee,
+  IconFlag,
+  IconFolder,
+  IconHeart,
+  IconHome,
+  IconMusic,
+  IconPalette,
+  IconPlane,
+  IconPlant,
+  IconRocket,
+  IconSchool,
+  IconSparkles,
+  IconStar,
+  IconSun,
+  IconTarget,
+  IconTrophy,
+  IconClock,
+  IconWriting,
   IconBookmark,
   IconCalendarEvent,
   IconCalendarStats,
@@ -12,6 +41,7 @@ import {
   IconClipboardList,
   IconFeather,
   IconFile,
+  IconFileText,
   IconNotes,
   IconReportAnalytics,
   IconToolsKitchen2,
@@ -38,7 +68,67 @@ export const MODULE_ICONS = {
   grades: IconReportAnalytics,
 } satisfies Record<ModuleKey, Icon>;
 
-/// An entity's own icon (an emoji) or its type's, in the neutral muted color.
+/// The icon library's names, drawn with the same Tabler icons as on the desktop.
+export const ICON_LIBRARY = {
+  Folder: IconFolder,
+  Book: IconBook2,
+  School: IconSchool,
+  Checklist: IconChecklist,
+  Notes: IconNotes,
+  Feather: IconFeather,
+  FileText: IconFileText,
+  Sparkles: IconSparkles,
+  Chalkboard: IconChalkboard,
+  Writing: IconWriting,
+  Cards: IconCards,
+  Clock: IconClock,
+  ClipboardList: IconClipboardList,
+  File: IconFile,
+  Bookmark: IconBookmark,
+  Kitchen: IconToolsKitchen2,
+  CalendarStats: IconCalendarStats,
+  Star: IconStar,
+  Heart: IconHeart,
+  Flag: IconFlag,
+  Target: IconTarget,
+  Rocket: IconRocket,
+  Bulb: IconBulb,
+  Trophy: IconTrophy,
+  Home: IconHome,
+  Briefcase: IconBriefcase,
+  Code: IconCode,
+  Palette: IconPalette,
+  Music: IconMusic,
+  Coffee: IconCoffee,
+  Apple: IconApple,
+  Plant: IconPlant,
+  Sun: IconSun,
+  Plane: IconPlane,
+  Bike: IconBike,
+} satisfies Record<IconLibraryName, Icon>;
+
+/// A stored `icon` value drawn: a library pick (tinted if it says so) or an emoji.
+/// `fallback` is the color of an untinted library icon.
+export function IconValue({
+  value,
+  size = 18,
+  fallback,
+}: {
+  value: string;
+  size?: number;
+  fallback: string;
+}) {
+  if (isIconLibraryValue(value)) {
+    const { name, color } = parseIconLibraryValue(value);
+    const known = ICON_LIBRARY_NAMES.find((n) => n === name);
+    const Glyph = known ? ICON_LIBRARY[known] : null;
+    if (Glyph) return <Glyph size={size} color={color ?? fallback} accessibilityElementsHidden />;
+  }
+  return <Text style={{ fontSize: size - 2 }}>{value}</Text>;
+}
+
+/// An entity's own icon (an emoji or a library pick) or its type's, in the neutral
+/// muted color.
 export function EntityIcon({
   type,
   icon,
@@ -49,7 +139,7 @@ export function EntityIcon({
   size?: number;
 }) {
   const theme = useTheme();
-  if (icon && !icon.includes(":")) return <Text style={{ fontSize: size - 2 }}>{icon}</Text>;
+  if (icon) return <IconValue value={icon} size={size} fallback={theme.colors.mutedForeground} />;
   const module = moduleForEntityType(type);
   const Glyph = module ? MODULE_ICONS[module] : IconFile;
   return <Glyph size={size} color={theme.colors.mutedForeground} accessibilityElementsHidden />;

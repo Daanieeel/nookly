@@ -1,8 +1,11 @@
 import { z } from "zod";
 import type { SqlStatement } from "../sync/sql.ts";
 import { type LocalDb, first, iso, num, optStr, rows, str, write } from "./db.ts";
+import { EFFORT_STEPS } from "../effort.ts";
+import { moveEntity } from "./manage.ts";
 import {
   type EntityRecord,
+  getEntity,
   type PlannedCreate,
   createEntityStatements,
   toEntity,
@@ -264,4 +267,86 @@ async function nextOccurrence(
     });
   }
   return statements;
+}
+
+/// `update_task_effort`: one of the steps, or none.
+export async function setTaskEffort(db: LocalDb, id: string, effort: number | null): Promise<void> {
+  if (effort !== null && !EFFORT_STEPS.some((step) => step.value === effort)) {
+    throw new Error("Effort is one of 1, 2, 3, 5, 8 or 13.");
+  }
+  await write(db, [
+    { sql: "UPDATE tasks SET effort = ? WHERE entity_id = ?", params: [effort, id] },
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
+}
+
+/// `create_subtask`: one level only, in the parent's Space, starting in the Backlog.
+export async function createSubtask(db: LocalDb, parentId: string, title: string): Promise<string> {
+  const parent = await first(db, "SELECT space_id, type FROM entities WHERE id = ?", parentId);
+  if (!parent) throw new Error("This task isn't here anymore.");
+  if (str(parent.type) !== "task") throw new Error("Sub-tasks can't have sub-tasks of their own.");
+  const created = createEntityStatements(db, str(parent.space_id), "sub_task", title);
+  await write(db, [
+    ...created.statements,
+    {
+      sql: "INSERT INTO tasks (entity_id, status_id, start_date, due_date) VALUES (?, 'backlog', NULL, NULL)",
+      params: [created.id],
+    },
+    {
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'sub-task-of', ?)",
+      params: [db.newId(), created.id, parentId, iso(db)],
+    },
+  ]);
+  return created.id;
+}
+
+/// `list_subtasks`: oldest first, those in Trash last.
+export async function listSubtasks(db: LocalDb, parentId: string): Promise<TaskRecord[]> {
+  return (
+    await rows(
+      db,
+      `${TASK_SELECT} JOIN relationships r ON r.from_entity_id = e.id
+       WHERE r.to_entity_id = ? AND r.relationship_type = 'sub-task-of'
+       ORDER BY e.deleted_at IS NOT NULL, e.created_at ASC`,
+      parentId,
+    )
+  ).map(toTask);
+}
+
+/// `subtask_progress`: the average doneness of the sub-tasks not in Trash, or null.
+export async function subtaskProgress(db: LocalDb, parentId: string): Promise<number | null> {
+  const subtasks = (await listSubtasks(db, parentId)).filter((t) => !t.entity.deletedAt);
+  if (subtasks.length === 0) return null;
+  const statuses = await listStatuses(db);
+  const total = subtasks.reduce(
+    (sum, t) => sum + (statuses.find((s) => s.id === t.statusId)?.doneness ?? 0),
+    0,
+  );
+  return total / subtasks.length;
+}
+
+/// `convert_to_subtask`: a top level task with no sub-tasks of its own becomes one of
+/// `parentId`, moving to its Space first.
+export async function convertToSubtask(db: LocalDb, id: string, parentId: string): Promise<void> {
+  const entity = await getEntity(db, id);
+  const parent = await getEntity(db, parentId);
+  if (!entity || !parent) throw new Error("This task isn't here anymore.");
+  if (entity.type !== "task") throw new Error("This is already a sub-task.");
+  if (parent.type !== "task" || parent.id === entity.id) {
+    throw new Error("A sub-task's parent must be another top level task.");
+  }
+  if ((await listSubtasks(db, id)).length > 0) {
+    throw new Error("This task has sub-tasks of its own, and sub-tasks can't have sub-tasks.");
+  }
+  if (parent.spaceId !== entity.spaceId) await moveEntity(db, id, parent.spaceId);
+  await write(db, [
+    {
+      sql: "UPDATE entities SET type = 'sub_task', updated_at = ? WHERE id = ?",
+      params: [iso(db), id],
+    },
+    {
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'sub-task-of', ?)",
+      params: [db.newId(), id, parentId, iso(db)],
+    },
+  ]);
 }

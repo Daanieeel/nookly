@@ -65,3 +65,16 @@ export function isModuleKey(key: string): key is ModuleKey {
 export function moduleForEntityType(type: string): ModuleKey | undefined {
   return MODULE_KEYS.find((key) => MODULE_ENTITY_TYPES[key].some((t: string) => t === type));
 }
+
+/// What removing a module takes with it (`removal_group` on the desktop): a module and
+/// its passengers. Empty for a key that can't be removed on its own.
+export function removalGroup(key: string): ModuleKey[] {
+  if (key === "courses") return ["courses", "semesters"];
+  if (key === "semesters") return [];
+  return isModuleKey(key) ? [key] : [];
+}
+
+/// Modules that come along when `key` is added and stay when it is removed.
+export function moduleCompanions(key: string): ModuleKey[] {
+  return key === "exams" || key === "assignments" ? ["grades"] : [];
+}

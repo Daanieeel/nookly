@@ -27,9 +27,9 @@ To do, in this order:
 
 1. Look at the account screens, settings and the merge editor in the simulator (the welcome and sign in screens were seen in dark mode).
 2. Sync status indicator in the sidebar and page headers, conflict badge on pages, first sync progress, back button label ("(drawer)"), carets and presence bar on the phone, tapping task items in the editor, scrolling to the cursor on a real keyboard (written, not seen).
-4. Missing modules and edits per `GAP_ANALYSIS.md`: Semesters, Sessions, Recipes, Files (viewer and add), Grades, Views, task effort, repeat and sub-tasks, Space settings, module add and remove, labels, statuses, icon picker, import and export.
-5. Tablet layout (persistent sidebar), design pass (Claude app style, sheets).
-6. Screenshots: phone, tablet, merge editor.
+3. Missing modules and edits per `GAP_ANALYSIS.md`: Semesters, Sessions, Recipes, Files (viewer and add), Grades, Views, task effort, repeat and sub-tasks, Space settings, module add and remove, labels, statuses, icon picker, import and export.
+4. Tablet layout (persistent sidebar), design pass (Claude app style, sheets).
+5. Screenshots: phone, tablet, merge editor.
 
 ## Running things
 
