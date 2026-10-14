@@ -12,6 +12,7 @@
     "dev:desktop": "bun tools/dev.ts desktop",
     "dev:mobile": "bun tools/dev.ts mobile",
     "dev:server": "bun tools/dev.ts server",
+    "stack": "bun tools/dev.ts server",
     "dev:expo": "bun run --cwd apps/mobile dev",
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",

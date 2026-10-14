@@ -12,6 +12,7 @@ const shareAction = () => {
 
 const ADA = {
   id: "00000000-0000-4000-8000-000000000001",
+  username: "ada",
   email: "a@b.co",
   emailVerified: true,
   createdAt: "",

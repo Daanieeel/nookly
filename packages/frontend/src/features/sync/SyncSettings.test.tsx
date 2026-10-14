@@ -11,6 +11,7 @@ import { syncRuntime } from "./sync-instance.ts";
 
 const ADA = {
   id: "00000000-0000-4000-8000-000000000001",
+  username: "ada",
   email: "ada@example.com",
   emailVerified: false,
   createdAt: "",
@@ -80,7 +81,7 @@ describe("the Sync settings", () => {
   it("needs a server before signing in", async () => {
     mockCommand("sync_query", []);
     const { user } = await openSync();
-    await user.type(screen.getByLabelText(/Email/), "ada@example.com");
+    await user.type(screen.getByLabelText(/Username or email/), "ada@example.com");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
     expect(await screen.findByText("Enter the server address above first.")).toBeInTheDocument();

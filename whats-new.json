@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.37.0",
+      "date": "2026-10-14",
+      "title": "Accounts with a username",
+      "summary": "Sign in to sync with a username, no email needed.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Create a sync account with a username and a password, and sign in with your username or your email.",
+          "Share a page or a task by typing someone's username."
+        ]
+      }
+    },
+    {
       "version": "0.36.2",
       "date": "2026-10-14",
       "title": "A calmer sidebar",

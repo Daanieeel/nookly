@@ -115,7 +115,7 @@ describe("one account never reaches another's data", () => {
                 cursors: {},
                 password: "x",
                 entityId: "e",
-                email: "a@b.co",
+                recipient: "a@b.co",
                 role: "viewer",
               }),
       });
@@ -127,12 +127,10 @@ describe("one account never reaches another's data", () => {
 describe("abuse", () => {
   it("rate limits sign in attempts", async () => {
     server = await startServer({ RATE_LIMIT_SCALE: "1" });
-    await server.client().register("ada@example.com", PASSWORD, DESKTOP);
+    await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
     const statuses: number[] = [];
     for (let i = 0; i < 12; i++) {
-      statuses.push(
-        (await code(server.client().signIn("ada@example.com", "wrong password!", PHONE))) ?? 200,
-      );
+      statuses.push((await code(server.client().signIn("ada", "wrong password!", PHONE))) ?? 200);
     }
     expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
@@ -140,10 +138,10 @@ describe("abuse", () => {
 
   it("refuses a body over the size limit", async () => {
     server = await startServer({ MAX_BODY_BYTES: "4096" });
-    const response = await fetch(`${server.baseUrl}/v1/auth/login`, {
+    const response = await fetch(`${server.baseUrl}/v1/auth/sign-in/username`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "a@b.co", password: "x".repeat(10_000), device: DESKTOP }),
+      body: JSON.stringify({ username: "ada", password: "x".repeat(10_000) }),
     });
     expect(response.status).toBe(413);
   });
@@ -236,13 +234,13 @@ describe("logs", () => {
     server = await startServer({ LOG_LEVEL: "debug" });
     const tokens = new MemoryTokens();
     const api = server.client(tokens);
-    await api.register("ada@example.com", PASSWORD, DESKTOP);
-    const verify = server.mailer.link("ada@example.com", "/verify-email") ?? "";
+    await api.signUp({ username: "ada", email: "ada@example.com", password: PASSWORD }, DESKTOP);
+    const verify = server.mailer.link("ada@example.com", "/v1/auth/verify-email") ?? "";
     await fetch(verify.replace("http://nookly.test", server.baseUrl));
     await api.sessions();
     await server
       .client()
-      .signIn("ada@example.com", "wrong password!", PHONE)
+      .signIn("ada", "wrong password!", PHONE)
       .catch(() => {});
     const secrets = [
       PASSWORD,
@@ -251,7 +249,7 @@ describe("logs", () => {
       new URL(verify).searchParams.get("token") ?? "",
     ];
     const logs = server.logs.join("\n");
-    expect(logs).toContain('"path":"/verify-email"');
+    expect(logs).toContain('"path":"/v1/auth/verify-email"');
     for (const secret of secrets) expect(logs).not.toContain(secret);
   });
 });

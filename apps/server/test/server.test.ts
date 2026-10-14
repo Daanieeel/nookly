@@ -20,7 +20,7 @@ describe("the server", () => {
   it("describes its API from the routes", async () => {
     const spec = await (await fetch(`${server.baseUrl}/docs/json`)).json();
     for (const path of [
-      "/v1/auth/register",
+      "/v1/auth/providers",
       "/v1/sync/push",
       "/v1/sync/pull",
       "/v1/shares",
@@ -64,16 +64,9 @@ describe("the live socket", () => {
   it("signs in with the first message and answers pings", async () => {
     const tokens = new MemoryTokens();
     const api = server.client(tokens);
-    await api.register("ada@example.com", PASSWORD, DESKTOP);
-    const refreshed = await (
-      await fetch(`${server.baseUrl}/v1/auth/refresh`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ refreshToken: tokens.token }),
-      })
-    ).json();
+    await api.signUp({ username: "ada", password: PASSWORD }, DESKTOP);
     const live = await open();
-    live.socket.send(JSON.stringify({ type: "hello", token: refreshed.accessToken }));
+    live.socket.send(JSON.stringify({ type: "hello", token: tokens.token }));
     await until(() => live.messages.includes(JSON.stringify({ type: "ready" })), "ready");
     live.socket.send(JSON.stringify({ type: "ping" }));
     await until(() => live.messages.includes(JSON.stringify({ type: "pong" })), "pong");

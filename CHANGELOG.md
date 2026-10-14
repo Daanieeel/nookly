@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.0 (2026-10-14)
+
+### Changed
+
+- **Accounts with a username.** Create a sync account with just a username and a password, and sign in with your username or your email. An email is only needed to reset a forgotten password or to invite people by email.
+- **Share by username.** Type someone's username to share a page or a task with them.
+
 ## 0.36.2 (2026-10-14)
 
 ### Changed

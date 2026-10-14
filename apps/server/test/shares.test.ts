@@ -5,6 +5,7 @@ import {
   PASSWORD,
   PHONE,
   type TestServer,
+  account,
   addPage,
   addTask,
   device,
@@ -79,7 +80,7 @@ describe("sharing a page", () => {
     expect(inviteUrl).toStartWith("http://nookly.test/invite?token=");
     expect(server.mailer.link("ben@example.com", "/invite")).toBe(inviteUrl);
     const [incoming] = await ben.api.sharesWithMe();
-    expect([incoming.status, incoming.ownerEmail]).toEqual(["pending", "ada@example.com"]);
+    expect([incoming.status, incoming.owner]).toEqual(["pending", "ada"]);
 
     await syncOnce(benDevice);
     expect(titleOf(benDevice, "p1")).toBeNull();
@@ -94,7 +95,7 @@ describe("sharing a page", () => {
     // In a Space of its own, with its Notes module.
     const [entity] = benDevice.driver.rows("SELECT space_id FROM entities WHERE id = 'p1'");
     const [space] = benDevice.driver.rows("SELECT name FROM spaces WHERE id = ?", entity.space_id);
-    expect(space.name).toBe("Shared by ada@example.com");
+    expect(space.name).toBe("Shared by ada");
     expect(
       benDevice.driver.rows(
         "SELECT module_key FROM space_modules WHERE space_id = ?",
@@ -110,9 +111,7 @@ describe("sharing a page", () => {
     await syncOnce(benDevice);
     expect(titleOf(benDevice, "t1")).toBeNull();
     expect(benDevice.driver.rows("SELECT * FROM relationships")).toEqual([]);
-    expect(benDevice.driver.rows("SELECT name FROM spaces")).toEqual([
-      { name: "Shared by ada@example.com" },
-    ]);
+    expect(benDevice.driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Shared by ada" }]);
   });
 
   it("lets a viewer read only: an edit is undone and kept as a conflict", async () => {
@@ -262,8 +261,8 @@ describe("sharing a page", () => {
   it("invites someone without an account, who accepts with the link after signing up", async () => {
     const { ada } = await setup();
     const { inviteUrl } = await ada.api.share("p1", "cleo@example.com", "viewer");
-    const cleo = server.client();
-    await cleo.register("cleo@example.com", PASSWORD, PHONE);
+    // Cleo's invite reaches her once her account confirms that address.
+    const { api: cleo } = await verifiedAccount(server, "cleo@example.com", PHONE);
     const [pending] = await cleo.sharesWithMe();
     expect(pending.status).toBe("pending");
     await cleo.acceptInvite(new URL(inviteUrl).searchParams.get("token") ?? "");
@@ -313,15 +312,38 @@ describe("sharing a page", () => {
     expect(titleOf(benDevice, "p1")).toBeNull();
   });
 
-  it("needs a confirmed email and a shareable, synced item", async () => {
+  it("shares by username, no email needed on either side", async () => {
+    const { ada, adaDevice } = await setup();
+    const { api: dan } = await account(server, "dan", PHONE);
+    const { share } = await ada.api.share("p1", "Dan", "viewer");
+    expect(share.recipient).toBe("dan");
+    const [pending] = await dan.sharesWithMe();
+    expect([pending.status, pending.owner]).toEqual(["pending", "ada"]);
+    expect(await code(ada.api.share("p1", "nobody_here", "viewer"))).toBe("not_found");
+    void adaDevice;
+  });
+
+  it("an unconfirmed address never sees invites sent to it", async () => {
+    const { ada } = await setup();
+    await ada.api.share("p1", "eve@example.com", "viewer");
+    const eve = server.client();
+    await eve.signUp({ username: "eve", email: "eve@example.com", password: PASSWORD }, PHONE);
+    expect(await eve.sharesWithMe()).toEqual([]);
+  });
+
+  it("needs a confirmed email to invite by email, and a shareable, synced item", async () => {
     const { ada } = await setup();
     expect(await code(ada.api.share("space-1", "ben@example.com", "viewer"))).toBe("not_found");
     expect(await code(ada.api.share("missing", "ben@example.com", "viewer"))).toBe("not_found");
     expect(await code(ada.api.share("p1", "ada@example.com", "viewer"))).toBe("share_with_self");
+    expect(await code(ada.api.share("p1", "ada", "viewer"))).toBe("share_with_self");
     await ada.api.share("p1", "ben@example.com", "viewer");
     expect(await code(ada.api.share("p1", "ben@example.com", "editor"))).toBe("already_shared");
     const unverified = server.client();
-    await unverified.register("dan@example.com", PASSWORD, PHONE);
+    await unverified.signUp(
+      { username: "dan", email: "dan@example.com", password: PASSWORD },
+      PHONE,
+    );
     expect(await code(unverified.share("p1", "ben@example.com", "viewer"))).toBe(
       "email_unverified",
     );

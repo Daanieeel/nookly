@@ -3,22 +3,18 @@ import { openapi } from "@elysiajs/openapi";
 import {
   createShareRequestSchema,
   deleteAccountRequestSchema,
-  forgotPasswordRequestSchema,
-  refreshRequestSchema,
-  registerRequestSchema,
   resetPasswordRequestSchema,
-  signInRequestSchema,
   tokenRequestSchema,
   updateShareRequestSchema,
 } from "@nookly/shared/api";
 import { clientMessageSchema, pullRequestSchema, pushRequestSchema } from "@nookly/shared/sync";
 import { Elysia } from "elysia";
 import { z } from "zod";
-import { AuthService } from "./auth/service.ts";
-import type { AccessClaims } from "./auth/tokens.ts";
+import { AccountService } from "./auth/accounts.ts";
+import { createAuth, socialProviders } from "./auth/auth.ts";
 import type { Config } from "./config.ts";
 import type { Database } from "./db/client.ts";
-import { HttpError, unauthorized } from "./errors.ts";
+import { HttpError } from "./errors.ts";
 import type { Logger } from "./log.ts";
 import type { Mailer } from "./mail/mailer.ts";
 import { invitePage, resetPasswordPage, resultPage } from "./pages.ts";
@@ -40,12 +36,21 @@ const HOUR = 60 * MINUTE;
 const HELLO_TIMEOUT_MS = 10_000;
 
 const idParams = z.object({ id: z.uuid() });
-const tokenQuery = z.object({ token: z.string().min(20).max(512) });
-const resetForm = z.object({ token: z.string().min(20).max(512), password: z.string().max(512) });
+const tokenQuery = z.object({ token: z.string().min(10).max(512) });
+const resetForm = z.object({ token: z.string().min(10).max(512), password: z.string().max(512) });
+/// better-auth's routes that check a password or send mail, limited per address.
+const SIGN_IN_PATHS = new Set(["/v1/auth/sign-in/email", "/v1/auth/sign-in/username"]);
+const MAIL_PATHS = new Set([
+  "/v1/auth/request-password-reset",
+  "/v1/auth/send-verification-email",
+  "/v1/auth/reset-password",
+]);
 
 export function buildApp({ config, db, mailer, log }: AppDeps) {
   const hub = new Hub();
-  const auth = new AuthService(db, config, mailer, log);
+  const auth = createAuth(db, config, mailer, log);
+  const accounts = new AccountService(db, auth);
+  const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
   const sharing = new ShareService(db, sync, hub, mailer, config, log);
 
@@ -67,12 +72,7 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
     }
   }
 
-  async function claimsOf(headers: Record<string, string | undefined>): Promise<AccessClaims> {
-    const header = headers.authorization ?? "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-    if (!token) throw unauthorized();
-    return auth.authenticate(token);
-  }
+  const claimsOf = (headers: Record<string, string | undefined>) => accounts.fromHeaders(headers);
 
   const sockets = new Map<
     string,
@@ -88,7 +88,13 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
           return origin === null || config.corsOrigins.includes(origin);
         },
         methods: ["GET", "POST", "PATCH", "DELETE"],
-        allowedHeaders: ["content-type", "authorization"],
+        allowedHeaders: [
+          "content-type",
+          "authorization",
+          "x-nookly-device-name",
+          "x-nookly-platform",
+        ],
+        exposeHeaders: ["set-auth-token"],
         credentials: false,
         maxAge: 600,
       }),
@@ -160,21 +166,19 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
     )
     // Pages the links in emails open.
     .get(
-      "/verify-email",
-      async ({ query, set }) => {
+      "/verified",
+      ({ query, set }) => {
         set.headers["content-type"] = "text/html; charset=utf-8";
-        try {
-          await auth.verifyEmail(query.token);
-          return resultPage("Email confirmed", "You can go back to Nookly.");
-        } catch {
+        if (query.error) {
           set.status = 400;
           return resultPage(
             "This link doesn't work",
             "It has expired or was already used. Ask Nookly for a new one in Settings.",
           );
         }
+        return resultPage("Email confirmed", "You can go back to Nookly.");
       },
-      { query: tokenQuery, detail: { hide: true } },
+      { query: z.object({ error: z.string().max(100).optional() }), detail: { hide: true } },
     )
     .get(
       "/reset-password",
@@ -195,7 +199,9 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
           return resetPasswordPage(body.token, "Use at least 10 characters.");
         }
         try {
-          await auth.resetPassword(parsed.data.token, parsed.data.password);
+          await auth.api.resetPassword({
+            body: { token: parsed.data.token, newPassword: parsed.data.password },
+          });
           return resultPage(
             "Password changed",
             "Sign in to Nookly with your new password. Every device was signed out.",
@@ -220,97 +226,27 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
     )
     .group("/v1", (v1) =>
       v1
-        .post(
-          "/auth/register",
-          async ({ body, ip, set }) => {
-            limit(limits.register, `register:${ip}`);
-            set.status = 201;
-            return auth.register(body.email, body.password, body.device);
+        .get("/auth/providers", () => ({ providers }), {
+          detail: { summary: "Sign in providers besides username and password", tags: ["Auth"] },
+        })
+        // Everything else under /v1/auth is better-auth: sign up and in (username or
+        // email), sign out, sessions, password reset, email verification, OAuth.
+        .all(
+          "/auth/*",
+          ({ request, ip }) => {
+            const path = new URL(request.url).pathname;
+            if (request.method === "POST" && SIGN_IN_PATHS.has(path))
+              limit(limits.signIn, `login:${ip}`);
+            if (request.method === "POST" && path === "/v1/auth/sign-up/email") {
+              limit(limits.register, `register:${ip}`);
+            }
+            if (request.method === "POST" && MAIL_PATHS.has(path))
+              limit(limits.email, `mail:${ip}`);
+            return auth.handler(request);
           },
-          { body: registerRequestSchema, detail: { summary: "Create an account", tags: ["Auth"] } },
+          { parse: "none", detail: { hide: true } },
         )
-        .post(
-          "/auth/login",
-          async ({ body, ip }) => {
-            limit(limits.signIn, `login:${ip}`);
-            limit(limits.signIn, `login:${body.email}`);
-            return auth.signIn(body.email, body.password, body.device);
-          },
-          { body: signInRequestSchema, detail: { summary: "Sign in on a device", tags: ["Auth"] } },
-        )
-        .post(
-          "/auth/refresh",
-          async ({ body, ip }) => {
-            limit(limits.refresh, `refresh:${ip}`);
-            return auth.refresh(body.refreshToken);
-          },
-          {
-            body: refreshRequestSchema,
-            detail: { summary: "Trade a refresh token for new tokens", tags: ["Auth"] },
-          },
-        )
-        .post(
-          "/auth/logout",
-          async ({ headers, set }) => {
-            await auth.signOut(await claimsOf(headers));
-            set.status = 204;
-          },
-          {
-            detail: { summary: "Sign this device out", tags: ["Auth"], security: [{ bearer: [] }] },
-          },
-        )
-        .post(
-          "/auth/verify-email",
-          async ({ body, set }) => {
-            await auth.verifyEmail(body.token);
-            set.status = 204;
-          },
-          {
-            body: tokenRequestSchema,
-            detail: { summary: "Confirm an email address", tags: ["Auth"] },
-          },
-        )
-        .post(
-          "/auth/resend-verification",
-          async ({ headers, set }) => {
-            const claims = await claimsOf(headers);
-            limit(limits.email, `verify:${claims.userId}`);
-            await auth.resendVerification(claims.userId);
-            set.status = 204;
-          },
-          {
-            detail: {
-              summary: "Send the confirmation email again",
-              tags: ["Auth"],
-              security: [{ bearer: [] }],
-            },
-          },
-        )
-        .post(
-          "/auth/forgot-password",
-          async ({ body, ip, set }) => {
-            limit(limits.email, `forgot:${ip}`);
-            await auth.forgotPassword(body.email);
-            set.status = 202;
-          },
-          {
-            body: forgotPasswordRequestSchema,
-            detail: { summary: "Email a password reset link", tags: ["Auth"] },
-          },
-        )
-        .post(
-          "/auth/reset-password",
-          async ({ body, ip, set }) => {
-            limit(limits.email, `reset:${ip}`);
-            await auth.resetPassword(body.token, body.password);
-            set.status = 204;
-          },
-          {
-            body: resetPasswordRequestSchema,
-            detail: { summary: "Set a new password", tags: ["Auth"] },
-          },
-        )
-        .get("/account", async ({ headers }) => auth.me((await claimsOf(headers)).userId), {
+        .get("/account", async ({ headers }) => accounts.me((await claimsOf(headers)).userId), {
           detail: {
             summary: "The signed in account",
             tags: ["Account"],
@@ -320,7 +256,7 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
         .delete(
           "/account",
           async ({ headers, body, set }) => {
-            await auth.deleteAccount(await claimsOf(headers), body.password);
+            await accounts.deleteAccount(await claimsOf(headers), body.password);
             set.status = 204;
           },
           {
@@ -334,7 +270,7 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
         )
         .get(
           "/sessions",
-          async ({ headers }) => ({ sessions: await auth.sessions(await claimsOf(headers)) }),
+          async ({ headers }) => ({ sessions: await accounts.sessions(await claimsOf(headers)) }),
           {
             detail: { summary: "Devices signed in", tags: ["Account"], security: [{ bearer: [] }] },
           },
@@ -342,7 +278,7 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
         .delete(
           "/sessions/:id",
           async ({ headers, params, set }) => {
-            await auth.revokeSession(await claimsOf(headers), params.id);
+            await accounts.revokeSession(await claimsOf(headers), params.id);
             set.status = 204;
           },
           {
@@ -384,12 +320,12 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
             const claims = await claimsOf(headers);
             limit(limits.share, `share:${claims.userId}`);
             set.status = 201;
-            return sharing.create(claims.userId, body.entityId, body.email, body.role);
+            return sharing.create(claims.userId, body.entityId, body.recipient, body.role);
           },
           {
             body: createShareRequestSchema,
             detail: {
-              summary: "Share an item by email",
+              summary: "Share an item by username or email",
               tags: ["Sharing"],
               security: [{ bearer: [] }],
             },
@@ -506,7 +442,7 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
             }
             if (message.type === "hello") {
               try {
-                const claims = await auth.authenticate(message.token);
+                const claims = await accounts.authenticate(message.token);
                 clearTimeout(state.timer);
                 if (state.userId) hub.remove(state.userId, state.socket);
                 state.userId = claims.userId;
@@ -531,5 +467,5 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
         }),
     );
 
-  return { app, hub, auth, sync, sharing };
+  return { app, hub, auth, accounts, sync, sharing };
 }

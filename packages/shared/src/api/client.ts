@@ -11,28 +11,57 @@ import {
 } from "../sync/protocol.ts";
 import { type LiveHandlers, NetworkError, type SyncTransport } from "../sync/client.ts";
 import {
-  type AuthResponse,
   type DeviceInfo,
   type Session,
   type Share,
   type ShareRole,
-  type Tokens,
+  type SignUp,
   type User,
-  apiErrorSchema,
   authResponseSchema,
   createShareResponseSchema,
   healthSchema,
+  providersResponseSchema,
   sessionsResponseSchema,
   sharesResponseSchema,
-  tokensSchema,
   userSchema,
 } from "./schemas.ts";
+import { z as zod } from "zod";
 
-/// Where a client keeps its refresh token: the desktop's keychain, the phone's
-/// secure store. The access token only ever lives in memory.
+/// Where a client keeps its session token: the desktop's keychain, the phone's
+/// secure store. It is what keeps a device signed in across restarts.
 export interface TokenStore {
   load(): Promise<string | null>;
-  save(refreshToken: string | null): Promise<void>;
+  save(token: string | null): Promise<void>;
+}
+
+/// Errors from our routes (`{ error, message }`) and from better-auth's (`{ code,
+/// message }`) read the same.
+const errorBodySchema = zod.object({
+  error: zod.string().optional(),
+  code: zod.string().optional(),
+  message: zod.string().optional(),
+});
+
+/// What people read for better-auth's error codes: short, and saying what to do.
+const FRIENDLY = new Map([
+  ["username_is_already_taken", "That username is taken. Try another one."],
+  ["user_already_exists", "An account with this email exists. Sign in instead."],
+  ["user_already_exists_use_another_email", "An account with this email exists. Sign in instead."],
+  ["invalid_username_or_password", "The username or the password is wrong."],
+  ["invalid_email_or_password", "The email or the password is wrong."],
+  ["password_too_short", "Use at least 10 characters for the password."],
+  ["password_too_long", "That password is too long."],
+  ["invalid_password", "The current password is wrong."],
+  ["invalid_token", "This link has expired or was already used."],
+  ["username_too_short", "Use at least 3 characters for the username."],
+  ["username_too_long", "Use at most 30 characters for the username."],
+  ["invalid_username", "Use only letters, digits, dots and underscores in the username."],
+  ["invalid_email", "That email address doesn't look right."],
+]);
+
+/// Headers a device names itself with, for its session (the devices list).
+export function deviceHeaders(device: DeviceInfo) {
+  return { "x-nookly-device-name": device.name, "x-nookly-platform": device.platform };
 }
 
 export class ApiRequestError extends Error {
@@ -72,16 +101,15 @@ export type JsonValue =
 type Body = { [key: string]: JsonValue };
 
 /// One client for the whole API, shared by the desktop and the mobile app. It signs
-/// requests with the access token and renews it with the refresh token when it runs
-/// out, once per request.
+/// requests with the session token. A token the server no longer accepts (signed out
+/// elsewhere, expired) is forgotten, and `onSignedOut` is told.
 export class ApiClient {
   readonly baseUrl: string;
   private readonly store: TokenStore;
   private readonly fetchImpl: FetchLike;
   private readonly webSocket: (url: string) => WebSocket;
   private readonly onSignedOut?: () => void;
-  private accessToken: string | null = null;
-  private refreshing: Promise<boolean> | null = null;
+  private token: string | null | undefined = undefined;
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
@@ -91,35 +119,47 @@ export class ApiClient {
     this.onSignedOut = options.onSignedOut;
   }
 
+  /// The session token, read from the store once.
+  async sessionToken(): Promise<string | null> {
+    if (this.token === undefined) this.token = await this.store.load();
+    return this.token;
+  }
+
   private async send<T>(
     method: string,
     path: string,
     schema: z.ZodType<T> | null,
     body?: Body,
-    authed = true,
+    options: { authed?: boolean; headers?: Record<string, string> } = {},
   ): Promise<T | null> {
-    const attempt = async () => {
-      const headers: Record<string, string> = body ? { ...JSON_HEADERS } : {};
-      if (authed && this.accessToken) headers.authorization = `Bearer ${this.accessToken}`;
-      try {
-        return await this.fetchImpl(`${this.baseUrl}${path}`, {
-          method,
-          headers,
-          body: body ? JSON.stringify(body) : undefined,
-        });
-      } catch (error) {
-        throw new NetworkError(error instanceof Error ? error.message : "Network error");
-      }
-    };
-    if (authed && !this.accessToken) await this.refresh();
-    let response = await attempt();
-    if (authed && response.status === 401 && (await this.refresh())) response = await attempt();
+    const authed = options.authed ?? true;
+    const headers = new Headers(options.headers);
+    if (body) headers.set("content-type", JSON_HEADERS["content-type"]);
+    const token = authed ? await this.sessionToken() : null;
+    if (authed && !token) throw new ApiRequestError(401, "unauthorized", "Sign in first.");
+    if (token) headers.set("authorization", `Bearer ${token}`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (error) {
+      throw new NetworkError(error instanceof Error ? error.message : "Network error");
+    }
+    if (authed && response.status === 401) {
+      await this.forget();
+      this.onSignedOut?.();
+    }
     if (!response.ok) {
-      const parsed = apiErrorSchema.safeParse(await response.json().catch(() => null));
+      const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
+      const data = parsed.success ? parsed.data : {};
+      const code = (data.error ?? data.code ?? "http_error").toLowerCase();
       throw new ApiRequestError(
         response.status,
-        parsed.success ? parsed.data.error : "http_error",
-        parsed.success ? parsed.data.message : `Request failed (${response.status})`,
+        code,
+        FRIENDLY.get(code) ?? data.message ?? `Request failed (${response.status})`,
       );
     }
     if (!schema) return null;
@@ -131,90 +171,87 @@ export class ApiClient {
     path: string,
     schema: z.ZodType<T>,
     body?: Body,
-    authed = true,
+    options?: { authed?: boolean; headers?: Record<string, string> },
   ): Promise<T> {
-    const result = await this.send(method, path, schema, body, authed);
+    const result = await this.send(method, path, schema, body, options);
     if (result === null) throw new Error("Empty response");
     return result;
   }
 
-  private async callVoid(method: string, path: string, body?: Body, authed = true): Promise<void> {
-    await this.send(method, path, null, body, authed);
+  private async callVoid(
+    method: string,
+    path: string,
+    body?: Body,
+    options?: { authed?: boolean },
+  ): Promise<void> {
+    await this.send(method, path, null, body, options);
   }
 
-  /// Renews the access token. Signs out when the refresh token is no good anymore.
-  private refresh(): Promise<boolean> {
-    this.refreshing ??= (async () => {
-      try {
-        const refreshToken = await this.store.load();
-        if (!refreshToken) return false;
-        const response = await this.fetchImpl(`${this.baseUrl}/v1/auth/refresh`, {
-          method: "POST",
-          headers: JSON_HEADERS,
-          body: JSON.stringify({ refreshToken }),
-        }).catch((error: Error) => {
-          throw new NetworkError(error.message);
-        });
-        if (response.status === 401) {
-          await this.forget();
-          this.onSignedOut?.();
-          return false;
-        }
-        if (!response.ok) return false;
-        await this.adopt(tokensSchema.parse(await response.json()));
-        return true;
-      } finally {
-        this.refreshing = null;
-      }
-    })();
-    return this.refreshing;
-  }
-
-  private async adopt(tokens: Tokens) {
-    this.accessToken = tokens.accessToken;
-    await this.store.save(tokens.refreshToken);
+  private async adopt(token: string | null) {
+    if (!token) throw new ApiRequestError(500, "no_session", "The server didn't start a session.");
+    this.token = token;
+    await this.store.save(token);
   }
 
   private async forget() {
-    this.accessToken = null;
+    this.token = null;
     await this.store.save(null);
   }
 
   async isSignedIn(): Promise<boolean> {
-    return this.accessToken !== null || (await this.store.load()) !== null;
+    return (await this.sessionToken()) !== null;
   }
 
   async health(): Promise<{ status: "ok"; version: string }> {
-    return this.call("GET", "/health", healthSchema, undefined, false);
+    return this.call("GET", "/health", healthSchema, undefined, { authed: false });
   }
 
-  async register(email: string, password: string, device: DeviceInfo): Promise<User> {
+  /// The OAuth providers this server offers, besides username and password.
+  async providers(): Promise<string[]> {
+    const result = await this.call(
+      "GET",
+      "/v1/auth/providers",
+      providersResponseSchema,
+      undefined,
+      {
+        authed: false,
+      },
+    );
+    return result.providers;
+  }
+
+  /// Creates an account and signs this device in.
+  async signUp(input: SignUp, device: DeviceInfo): Promise<User> {
+    const username = input.username.trim();
+    const email = input.email?.trim();
+    const fields = { username, name: username, password: input.password, callbackURL: "/verified" };
+    const body = email ? { ...fields, email } : fields;
+    const result = await this.call("POST", "/v1/auth/sign-up/email", authResponseSchema, body, {
+      authed: false,
+      headers: deviceHeaders(device),
+    });
+    await this.adopt(result.token);
+    return this.me();
+  }
+
+  /// Signs this device in with a username or an email address.
+  async signIn(identifier: string, password: string, device: DeviceInfo): Promise<User> {
+    const id = identifier.trim();
+    const byEmail = id.includes("@");
     const result = await this.call(
       "POST",
-      "/v1/auth/register",
+      byEmail ? "/v1/auth/sign-in/email" : "/v1/auth/sign-in/username",
       authResponseSchema,
-      { email, password, device },
-      false,
+      byEmail ? { email: id.toLowerCase(), password } : { username: id, password },
+      { authed: false, headers: deviceHeaders(device) },
     );
-    await this.adopt(result.tokens);
-    return result.user;
-  }
-
-  async signIn(email: string, password: string, device: DeviceInfo): Promise<User> {
-    const result: AuthResponse = await this.call(
-      "POST",
-      "/v1/auth/login",
-      authResponseSchema,
-      { email, password, device },
-      false,
-    );
-    await this.adopt(result.tokens);
-    return result.user;
+    await this.adopt(result.token);
+    return this.me();
   }
 
   async signOut(): Promise<void> {
     try {
-      await this.callVoid("POST", "/v1/auth/logout");
+      if (await this.sessionToken()) await this.callVoid("POST", "/v1/auth/sign-out", {});
     } finally {
       await this.forget();
     }
@@ -229,20 +266,40 @@ export class ApiClient {
     await this.forget();
   }
 
-  verifyEmail(token: string): Promise<void> {
-    return this.callVoid("POST", "/v1/auth/verify-email", { token }, false);
-  }
-
-  resendVerification(): Promise<void> {
-    return this.callVoid("POST", "/v1/auth/resend-verification");
-  }
-
+  /// Emails a reset link when the address belongs to an account. Looks the same
+  /// either way, so it can't tell which addresses have accounts.
   forgotPassword(email: string): Promise<void> {
-    return this.callVoid("POST", "/v1/auth/forgot-password", { email }, false);
+    return this.callVoid(
+      "POST",
+      "/v1/auth/request-password-reset",
+      { email: email.trim().toLowerCase(), redirectTo: "/reset-password" },
+      { authed: false },
+    );
   }
 
   resetPassword(token: string, password: string): Promise<void> {
-    return this.callVoid("POST", "/v1/auth/reset-password", { token, password }, false);
+    return this.callVoid(
+      "POST",
+      "/v1/auth/reset-password",
+      { token, newPassword: password },
+      { authed: false },
+    );
+  }
+
+  changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    return this.callVoid("POST", "/v1/auth/change-password", {
+      currentPassword,
+      newPassword,
+      revokeOtherSessions: false,
+    });
+  }
+
+  /// Sends the confirmation email again.
+  resendVerification(email: string): Promise<void> {
+    return this.callVoid("POST", "/v1/auth/send-verification-email", {
+      email,
+      callbackURL: "/verified",
+    });
   }
 
   async sessions(): Promise<Session[]> {
@@ -253,8 +310,13 @@ export class ApiClient {
     return this.callVoid("DELETE", `/v1/sessions/${encodeURIComponent(id)}`);
   }
 
-  share(entityId: string, email: string, role: ShareRole) {
-    return this.call("POST", "/v1/shares", createShareResponseSchema, { entityId, email, role });
+  /// Shares an item with someone by username, or by email address.
+  share(entityId: string, recipient: string, role: ShareRole) {
+    return this.call("POST", "/v1/shares", createShareResponseSchema, {
+      entityId,
+      recipient,
+      role,
+    });
   }
 
   async sharesByMe(): Promise<Share[]> {
@@ -310,11 +372,11 @@ export class ApiClient {
     let closed = false;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
     void (async () => {
-      if (!this.accessToken) await this.refresh().catch(() => false);
-      if (closed) return;
+      const token = await this.sessionToken();
+      if (closed || !token) return;
       socket = this.webSocket(url);
       socket.addEventListener("open", () => {
-        socket?.send(JSON.stringify({ type: "hello", token: this.accessToken ?? "" }));
+        socket?.send(JSON.stringify({ type: "hello", token }));
         // Keeps proxies from closing a quiet connection.
         heartbeat = setInterval(() => socket?.send(JSON.stringify({ type: "ping" })), 25_000);
       });
@@ -328,7 +390,8 @@ export class ApiClient {
         if (message.type === "ready") handlers.onOpen();
         else if (message.type === "changes" || message.type === "datasets") handlers.onChanges();
         else if (message.type === "error" && message.code === "unauthorized") {
-          void this.refresh();
+          // The session ended on the server: this device is signed out.
+          void this.forget().then(() => this.onSignedOut?.());
         }
       });
       socket.addEventListener("close", () => {

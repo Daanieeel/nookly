@@ -81,8 +81,8 @@ describe("the vertical slice", () => {
     const phone = makeDevice(server.baseUrl);
 
     // Sign up on the desktop, sign in on the phone.
-    await desktop.api.register("ada@example.com", PASSWORD, DESKTOP);
-    await phone.api.signIn("ada@example.com", PASSWORD, PHONE);
+    await desktop.api.signUp({ username: "ada", password: PASSWORD }, DESKTOP);
+    await phone.api.signIn("ada", PASSWORD, PHONE);
     await desktop.client.start();
     await phone.client.start();
 

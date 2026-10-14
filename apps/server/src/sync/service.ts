@@ -20,7 +20,7 @@ import {
 } from "@nookly/shared/sync";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
-import { conflicts, records, shares, users } from "../db/schema.ts";
+import { authUser, conflicts, records, shares, users } from "../db/schema.ts";
 import type { Logger } from "../log.ts";
 import type { Hub } from "./hub.ts";
 
@@ -391,16 +391,16 @@ export class SyncService {
   /// The Space a recipient's copy of a shared item lives in, with that item's module.
   private async sharedSpace(share: ShareRow): Promise<SyncRecord[]> {
     const [owner] = await this.db
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, share.ownerId));
+      .select({ username: authUser.username, name: authUser.name })
+      .from(authUser)
+      .where(eq(authUser.id, share.ownerId));
     const id = sharedSpaceId(share.ownerId);
     const at = share.createdAt.toISOString();
     const stamp = (fields: Record<string, string | number | null>) =>
       Object.fromEntries(Object.keys(fields).map((f) => [f, SERVER_CLOCK]));
     const space = {
       id,
-      name: `Shared by ${owner?.email ?? "someone"}`,
+      name: `Shared by ${owner?.username ?? owner?.name ?? "someone"}`,
       icon: null,
       color: "#94a3b8",
       created_at: at,

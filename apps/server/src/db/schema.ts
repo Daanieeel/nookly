@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   index,
   jsonb,
   pgTable,
@@ -16,11 +17,92 @@ import {
 /// migration here.
 
 const created = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
+const updated = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
+/// better-auth's tables (`src/auth/auth.ts`): accounts, their sign in methods (a
+/// password, later OAuth providers), sessions and one time tokens. Ids are UUIDs so
+/// they match the `users` rows sync keeps per account.
+export const authUser = pgTable("auth_user", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  /// A placeholder (`@users.nookly.invalid`) for an account made without an email;
+  /// it is never shown or mailed.
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  image: text("image"),
+  username: text("username").unique(),
+  displayUsername: text("display_username"),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+
+export const authSession = pgTable(
+  "auth_session",
+  {
+    id: uuid("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    /// What the device calls itself ("MacBook", "iPhone"), for the devices list and
+    /// the merge editor.
+    deviceName: text("device_name"),
+    platform: text("platform"),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index("auth_session_user").on(t.userId)],
+);
+
+export const authAccount = pgTable(
+  "auth_account",
+  {
+    id: uuid("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    /// `credential` for a password; a provider's name (`google`, `apple`, `github`)
+    /// for each OAuth login added later.
+    providerId: text("provider_id").notNull(),
+    accountId: text("account_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index("auth_account_user").on(t.userId)],
+);
+
+export const authVerification = pgTable(
+  "auth_verification",
+  {
+    id: uuid("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index("auth_verification_identifier").on(t.identifier)],
+);
+
+/// What sync keeps per account. Created with the account (`auth_user`) and removed
+/// with it. Its email and password columns are from before better-auth and no longer
+/// used (`docs/development/server.md`).
+export const users = pgTable("users", {
+  id: uuid("id")
+    .primaryKey()
+    .references(() => authUser.id, { onDelete: "cascade" }),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   /// The last sequence number given to one of this account's records. Bumped
   /// under a row lock, so sequence numbers follow commit order per account.
@@ -28,6 +110,24 @@ export const users = pgTable("users", {
   createdAt: created(),
 });
 
+/// Every device that synced for an account, by the id that ends each of its clocks,
+/// so a conflict can say which device made each side ("iPhone, 14:02").
+export const devices = pgTable(
+  "devices",
+  {
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    deviceId: text("device_id").notNull(),
+    name: text("name").notNull(),
+    platform: text("platform").notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.deviceId] })],
+);
+
+/// Before better-auth (migration 0001): sessions, refresh and email tokens of the
+/// server's own sign in. Kept, unused, so nothing is dropped.
 export const sessions = pgTable(
   "sessions",
   {

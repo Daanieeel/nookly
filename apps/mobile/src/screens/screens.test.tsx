@@ -116,7 +116,7 @@ describe("Settings", () => {
     await fireEvent.changeText(screen.getByLabelText("Server"), "not a server");
     await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
     expect(await screen.findByText("Enter an address like https://sync.example.com")).toBeTruthy();
-    expect(screen.getByText("Enter your email address")).toBeTruthy();
+    expect(screen.getByText("Enter your username or email")).toBeTruthy();
   });
 });
 
@@ -137,8 +137,8 @@ describe("sharing from the phone", () => {
         title: "Trip",
         role: "editor",
         status: "pending",
-        ownerEmail: "a@b.co",
-        recipientEmail: "ben@example.com",
+        owner: "ada",
+        recipient: "ben@example.com",
         createdAt: "",
       },
       inviteUrl: "https://sync.example.com/invite?token=x",
@@ -148,6 +148,7 @@ describe("sharing from the phone", () => {
     data.sync.store.setState({
       user: {
         id: "00000000-0000-4000-8000-0000000000bb",
+        username: "ada",
         email: "a@b.co",
         emailVerified: true,
         createdAt: "",

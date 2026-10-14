@@ -1,4 +1,4 @@
-import type { DeviceInfo, User } from "../api/index.ts";
+import type { DeviceInfo, SignUp, User } from "../api/index.ts";
 import type { SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
@@ -7,6 +7,7 @@ import { type AccountApi, SyncRuntime } from "./runtime.ts";
 
 const ADA: User = {
   id: "00000000-0000-4000-8000-000000000001",
+  username: "ada",
   email: "ada@example.com",
   emailVerified: true,
   createdAt: "2026-10-14T00:00:00Z",
@@ -22,14 +23,14 @@ class FakeAccount implements AccountApi {
     this.server = server;
   }
 
-  async register(email: string, _password: string, device: DeviceInfo) {
-    this.calls.push(`register ${email} ${device.platform}`);
+  async signUp(input: SignUp, device: DeviceInfo) {
+    this.calls.push(`signUp ${input.username} ${device.platform}`);
     this.signedIn = true;
     return ADA;
   }
-  async signIn(email: string) {
-    this.calls.push(`signIn ${email}`);
-    if (email !== ADA.email) throw new Error("The email or the password is wrong.");
+  async signIn(identifier: string) {
+    this.calls.push(`signIn ${identifier}`);
+    if (identifier !== ADA.username) throw new Error("The username or the password is wrong.");
     this.signedIn = true;
     return ADA;
   }
@@ -79,8 +80,11 @@ describe("the desktop's sync", () => {
       now(),
       now(),
     );
-    await sync.signUp("https://sync.example.com/", "ada@example.com", "a long password");
-    expect(account.calls).toEqual(["register ada@example.com macos"]);
+    await sync.signUp("https://sync.example.com/", {
+      username: "ada",
+      password: "a long password",
+    });
+    expect(account.calls).toEqual(["signUp ada macos"]);
     expect(sync.store.getState()).toMatchObject({
       user: ADA,
       serverUrl: "https://sync.example.com",
@@ -104,12 +108,12 @@ describe("the desktop's sync", () => {
       now(),
       now(),
     );
-    await other.sync.signIn("https://sync.example.com", "ada@example.com", "a long password");
+    await other.sync.signIn("https://sync.example.com", "ada", "a long password");
     await other.sync.syncNow();
     other.sync.stop();
 
     const here = runtime(server);
-    await here.sync.signIn("https://sync.example.com", "ada@example.com", "a long password");
+    await here.sync.signIn("https://sync.example.com", "ada", "a long password");
     await here.sync.syncNow();
     expect(here.driver.rows("SELECT title FROM entities")).toEqual([{ title: "From the phone" }]);
     expect(here.reindex).toHaveBeenCalledWith(expect.arrayContaining(["n1"]));
@@ -119,9 +123,7 @@ describe("the desktop's sync", () => {
 
   it("keeps a failed sign in visible and sync off", async () => {
     const { sync } = runtime();
-    await expect(
-      sync.signIn("https://sync.example.com", "nobody@example.com", "x"),
-    ).rejects.toThrow("wrong");
+    await expect(sync.signIn("https://sync.example.com", "nobody", "x")).rejects.toThrow("wrong");
     expect(sync.store.getState().user).toBeNull();
   });
 
@@ -132,7 +134,7 @@ describe("the desktop's sync", () => {
       now(),
       now(),
     );
-    await sync.signIn("https://sync.example.com", "ada@example.com", "a long password");
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
     await sync.syncNow();
     await sync.signOut();
     expect(account.calls.at(-1)).toBe("signOut");
@@ -145,7 +147,7 @@ describe("the desktop's sync", () => {
     const server = new MemoryServer();
     const driver = new NodeSqliteDriver();
     const first = runtime(server, driver);
-    await first.sync.signIn("https://sync.example.com", "ada@example.com", "a long password");
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
     first.sync.stop();
     const second = runtime(server, driver);
     second.account.signedIn = true;

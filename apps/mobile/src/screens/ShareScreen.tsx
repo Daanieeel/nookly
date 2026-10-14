@@ -145,13 +145,13 @@ export function ShareScreen({ entityId }: { entityId: string }) {
             <View className={cn("gap-2 p-4", ROW_DIVIDER)}>
               <View className="flex-row items-center gap-2">
                 <Text className="flex-1" numberOfLines={1}>
-                  {s.recipientEmail}
+                  {s.recipient}
                 </Text>
                 {s.status === "pending" ? <Badge label="Invited" /> : null}
               </View>
               <View className="flex-row items-center gap-2">
                 <RolePicker
-                  label={`Access for ${s.recipientEmail}`}
+                  label={`Access for ${s.recipient}`}
                   value={s.role}
                   onChange={(next) => change.mutate({ id: s.id, role: next })}
                 />

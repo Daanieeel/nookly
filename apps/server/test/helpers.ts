@@ -22,13 +22,16 @@ export const PHONE: DeviceInfo = { name: "iPhone", platform: "ios" };
 export const PASSWORD = "correct horse battery";
 
 /// A running server on a random port, on the test database, with every table emptied.
-export async function startServer(env: Record<string, string> = {}) {
-  const url = process.env.TEST_DATABASE_URL;
+export async function startServer(
+  env: Record<string, string> = {},
+  options: { databaseUrl?: string; reset?: boolean } = {},
+) {
+  const url = options.databaseUrl ?? process.env.TEST_DATABASE_URL;
   if (!url) throw new Error("TEST_DATABASE_URL is not set; the preload starts Postgres");
   const config = loadConfig({
     NODE_ENV: "test",
     DATABASE_URL: url,
-    JWT_SECRET: "test-secret-that-is-long-enough-for-hs256-signing",
+    AUTH_SECRET: "test-secret-that-is-long-enough-for-signing-sessions",
     PUBLIC_URL: "http://nookly.test",
     RATE_LIMIT_SCALE: "1000",
     LOG_LEVEL: "error",
@@ -38,7 +41,8 @@ export async function startServer(env: Record<string, string> = {}) {
   const log = createLogger(config.LOG_LEVEL, (line) => lines.push(line));
   const { sql, db } = connect(url);
   await migrateDatabase(db);
-  await sql`TRUNCATE users, sessions, refresh_tokens, email_tokens, records, conflicts, shares CASCADE`;
+  if (options.reset !== false)
+    await sql`TRUNCATE auth_user, auth_verification, users, sessions, refresh_tokens, email_tokens, records, conflicts, shares, devices CASCADE`;
   const mailer = new MemoryMailer();
   const built = buildApp({ config, db, mailer, log });
   built.app.listen({ port: 0, hostname: "127.0.0.1" });
@@ -51,8 +55,8 @@ export async function startServer(env: Record<string, string> = {}) {
     sql,
     db,
     logs: lines,
-    client(tokens = new MemoryTokens()) {
-      return new ApiClient({ baseUrl, tokens });
+    client(tokens = new MemoryTokens(), onSignedOut?: () => void) {
+      return new ApiClient({ baseUrl, tokens, onSignedOut });
     },
     async stop() {
       await built.app.stop(true);
@@ -62,13 +66,26 @@ export async function startServer(env: Record<string, string> = {}) {
 }
 export type TestServer = Awaited<ReturnType<typeof startServer>>;
 
-/// Signs up and confirms the email, like a person clicking the link.
+/// The username a test account gets for an email: its local part.
+export const usernameOf = (email: string) => email.split("@")[0];
+
+/// Signs up with a username and an email, and confirms the email like a person
+/// clicking the link.
 export async function verifiedAccount(server: TestServer, email: string, device = DESKTOP) {
   const api = server.client();
-  const user = await api.register(email, PASSWORD, device);
-  const link = server.mailer.link(email, "/verify-email");
+  await api.signUp({ username: usernameOf(email), email, password: PASSWORD }, device);
+  const link = server.mailer.link(email, "/v1/auth/verify-email");
   if (!link) throw new Error("no verification email");
-  await api.verifyEmail(new URL(link).searchParams.get("token") ?? "");
+  await fetch(link.replace("http://nookly.test", server.baseUrl));
+  const user = await api.me();
+  if (!user.emailVerified) throw new Error("the email wasn't confirmed");
+  return { api, user };
+}
+
+/// An account with a username only.
+export async function account(server: TestServer, username: string, device = DESKTOP) {
+  const api = server.client();
+  const user = await api.signUp({ username, password: PASSWORD }, device);
   return { api, user };
 }
 

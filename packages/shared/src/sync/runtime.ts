@@ -1,4 +1,4 @@
-import type { ApiClient, DeviceInfo, User } from "../api/index.ts";
+import type { ApiClient, DeviceInfo, SignUp, User } from "../api/index.ts";
 import type { SqlDriver } from "./sql.ts";
 import { SyncClient, type SyncStatus } from "./client.ts";
 import { SyncEngine } from "./engine.ts";
@@ -11,7 +11,7 @@ import { createStore } from "zustand/vanilla";
 /// The account calls sync needs; the shared `ApiClient` is one.
 export type AccountApi = Pick<
   ApiClient,
-  "register" | "signIn" | "signOut" | "me" | "isSignedIn" | "syncTransport"
+  "signUp" | "signIn" | "signOut" | "me" | "isSignedIn" | "syncTransport"
 >;
 
 export interface SyncRuntimeDeps<A extends AccountApi> {
@@ -94,15 +94,16 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     await this.start();
   }
 
-  async signUp(serverUrl: string, email: string, password: string): Promise<User> {
-    const user = await this.connect(serverUrl).register(email, password, this.deps.device);
+  async signUp(serverUrl: string, input: SignUp): Promise<User> {
+    const user = await this.connect(serverUrl).signUp(input, this.deps.device);
     this.store.setState({ user, signedOutReason: null });
     await this.start();
     return user;
   }
 
-  async signIn(serverUrl: string, email: string, password: string): Promise<User> {
-    const user = await this.connect(serverUrl).signIn(email, password, this.deps.device);
+  /// `identifier` is a username or an email address.
+  async signIn(serverUrl: string, identifier: string, password: string): Promise<User> {
+    const user = await this.connect(serverUrl).signIn(identifier, password, this.deps.device);
     this.store.setState({ user, signedOutReason: null });
     await this.start();
     return user;

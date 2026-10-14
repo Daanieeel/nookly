@@ -16,44 +16,55 @@ export const deviceSchema = z.object({
 });
 export type DeviceInfo = z.infer<typeof deviceSchema>;
 
-export const registerRequestSchema = z.object({
-  email: emailSchema,
+/// A username: letters, digits, dots and underscores, as better-auth's username
+/// plugin allows. Sign in takes it in any case.
+export const usernameSchema = z
+  .string()
+  .trim()
+  .min(3, "Use at least 3 characters")
+  .max(30, "Use at most 30 characters")
+  .regex(/^[a-zA-Z0-9_.]+$/, "Use only letters, digits, dots and underscores");
+export const MIN_PASSWORD_LENGTH = 10;
+
+export const signUpSchema = z.object({
+  username: usernameSchema,
+  /// Optional: for resetting a forgotten password and for invites by email.
+  email: z
+    .union([emailSchema, z.literal("")])
+    .optional()
+    .transform((e) => (e ? e : undefined)),
   password: passwordSchema,
-  device: deviceSchema,
 });
-export const signInRequestSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1).max(256),
-  device: deviceSchema,
+export type SignUp = z.input<typeof signUpSchema>;
+
+export const signInSchema = z.object({
+  /// A username or an email address.
+  identifier: z.string().trim().min(1, "Enter your username or email").max(254),
+  password: z.string().min(1, "Enter your password").max(256),
 });
-export const refreshRequestSchema = z.object({ refreshToken: z.string().min(20).max(512) });
+
 export const tokenRequestSchema = z.object({ token: z.string().min(20).max(512) });
-export const forgotPasswordRequestSchema = z.object({ email: emailSchema });
 export const resetPasswordRequestSchema = z.object({
-  token: z.string().min(20).max(512),
+  token: z.string().min(10).max(512),
   password: passwordSchema,
 });
 export const deleteAccountRequestSchema = z.object({ password: z.string().min(1).max(256) });
 
 export const userSchema = z.object({
   id: z.uuid(),
-  email: z.string(),
+  username: z.string(),
+  /// Null for an account made without an email.
+  email: z.string().nullable(),
   emailVerified: z.boolean(),
   createdAt: z.string(),
 });
 export type User = z.infer<typeof userSchema>;
 
-export const tokensSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  /// Seconds until the access token expires.
-  expiresIn: z.number().int(),
-  sessionId: z.uuid(),
-});
-export type Tokens = z.infer<typeof tokensSchema>;
+/// better-auth's answer to a sign up or sign in: the session token to send as the
+/// bearer token from now on.
+export const authResponseSchema = z.object({ token: z.string().nullable() });
 
-export const authResponseSchema = z.object({ user: userSchema, tokens: tokensSchema });
-export type AuthResponse = z.infer<typeof authResponseSchema>;
+export const providersResponseSchema = z.object({ providers: z.array(z.string()) });
 
 export const sessionSchema = z.object({
   id: z.uuid(),
@@ -80,9 +91,17 @@ export const shareStatusSchema = z.enum(["pending", "accepted", "declined", "rev
 export const shareRoleSchema = roleSchema.exclude(["owner"]);
 export type ShareRole = z.infer<typeof shareRoleSchema>;
 
+/// A username, or an email address for someone who may not have an account yet.
+export const recipientSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a username or an email address")
+  .max(254)
+  .transform((r) => r.toLowerCase());
+
 export const createShareRequestSchema = z.object({
   entityId: z.string().min(1).max(128),
-  email: emailSchema,
+  recipient: recipientSchema,
   role: shareRoleSchema,
 });
 export const updateShareRequestSchema = z.object({ role: shareRoleSchema });
@@ -94,8 +113,10 @@ export const shareSchema = z.object({
   title: z.string(),
   role: shareRoleSchema,
   status: shareStatusSchema,
-  ownerEmail: z.string(),
-  recipientEmail: z.string(),
+  /// The owner's username.
+  owner: z.string(),
+  /// The username or email address the share went to.
+  recipient: z.string(),
   createdAt: z.string(),
 });
 export type Share = z.infer<typeof shareSchema>;

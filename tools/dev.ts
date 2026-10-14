@@ -7,10 +7,12 @@
 ///   bun run dev:server    server alone
 ///   bun run dev:expo      the mobile app alone (not through this script)
 ///
-/// Postgres: `DATABASE_URL` when set, else a local cluster in `.dev/postgres` when the
-/// Postgres binaries are installed (`brew install postgresql`), else the one from
-/// `apps/server/docker-compose.yml` when Docker runs. Without any, the server is
-/// skipped and the apps run on their own (sync is optional).
+/// The backend: `docker compose up` (Postgres and MinIO from the root
+/// `docker-compose.yml`) when Docker runs, the server on the host with watch mode.
+/// Without Docker: `DATABASE_URL` when set, else a local Postgres cluster in
+/// `.dev/postgres` (`brew install postgresql`); files then don't sync, as there is
+/// no S3. Without any, the server is skipped and the apps run on their own.
+/// Settings come from `.env` (see `.env.example`), which Bun loads.
 ///
 /// The mobile app keeps the terminal's keyboard, so Expo's keys (i for the iOS
 /// simulator, a for Android, r to reload) work; the others' output is prefixed.
@@ -73,9 +75,38 @@ async function run(cmd: string[]): Promise<{ ok: boolean; out: string }> {
 
 const has = (bin: string) => Bun.which(bin) !== null;
 
-/// A Postgres for the server, and its address.
-async function postgres(): Promise<string | null> {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+interface Backend {
+  databaseUrl: string;
+  /// S3 settings for the server, when MinIO runs.
+  s3: Record<string, string>;
+}
+
+const env = (name: string, fallback: string) => process.env[name] ?? fallback;
+
+/// Postgres and MinIO for the server.
+async function backend(): Promise<Backend | null> {
+  if (has("docker") && (await run(["docker", "info"])).ok) {
+    const up = await run(["docker", "compose", "up", "-d", "--wait", "postgres", "minio"]);
+    if (!up.ok) throw new Error(`docker compose failed:\n${up.out}`);
+    const user = env("POSTGRES_USER", "nookly");
+    const port = env("POSTGRES_PORT", "5433");
+    console.log(
+      `\x1b[${COLORS.postgres}m[postgres]\x1b[0m Postgres on ${port}, MinIO on ${env("MINIO_PORT", "9000")} (console ${env("MINIO_CONSOLE_PORT", "9001")})`,
+    );
+    return {
+      databaseUrl:
+        process.env.DATABASE_URL ??
+        `postgres://${user}:${env("POSTGRES_PASSWORD", "nookly")}@127.0.0.1:${port}/${env("POSTGRES_DB", "nookly")}`,
+      s3: {
+        S3_ENDPOINT: env("S3_ENDPOINT", `http://127.0.0.1:${env("MINIO_PORT", "9000")}`),
+        S3_ACCESS_KEY_ID: env("S3_ACCESS_KEY_ID", "nookly"),
+        S3_SECRET_ACCESS_KEY: env("S3_SECRET_ACCESS_KEY", "nookly-dev-secret"),
+        S3_BUCKET: env("S3_BUCKET", "nookly"),
+        S3_CREATE_BUCKET: "true",
+      },
+    };
+  }
+  if (process.env.DATABASE_URL) return { databaseUrl: process.env.DATABASE_URL, s3: {} };
   if (has("pg_ctl") && has("initdb")) {
     const dir = join(root, ".dev", "postgres");
     const port = "54329";
@@ -104,16 +135,9 @@ async function postgres(): Promise<string | null> {
     // Ignores "already exists".
     await run(["createdb", "-h", "127.0.0.1", "-p", port, "-U", "nookly", "nookly"]);
     console.log(
-      `\x1b[${COLORS.postgres}m[postgres]\x1b[0m local cluster in .dev/postgres on ${port}`,
+      `\x1b[${COLORS.postgres}m[postgres]\x1b[0m local cluster in .dev/postgres on ${port}; no Docker, so no MinIO: files won't sync`,
     );
-    return `postgres://nookly@127.0.0.1:${port}/nookly`;
-  }
-  if (has("docker") && (await run(["docker", "info"])).ok) {
-    const compose = join(root, "apps/server/docker-compose.yml");
-    const up = await run(["docker", "compose", "-f", compose, "up", "-d", "--wait", "postgres"]);
-    if (!up.ok) throw new Error(`docker compose failed:\n${up.out}`);
-    console.log(`\x1b[${COLORS.postgres}m[postgres]\x1b[0m in Docker on 5432`);
-    return "postgres://nookly:nookly@127.0.0.1:5432/nookly";
+    return { databaseUrl: `postgres://nookly@127.0.0.1:${port}/nookly`, s3: {} };
   }
   return null;
 }
@@ -127,22 +151,25 @@ async function stopAll(code = 0) {
 process.on("SIGINT", () => void stopAll());
 process.on("SIGTERM", () => void stopAll());
 
-let databaseUrl: string | null = null;
+let found: Backend | null = null;
 let failure: string | null = null;
 try {
-  databaseUrl = await postgres();
+  found = await backend();
 } catch (error) {
   failure = String(error);
 }
-if (databaseUrl) {
+if (found) {
+  const port = env("PORT", "3000");
   start("server", ["bun", "--watch", "src/index.ts"], join(root, "apps/server"), {
-    DATABASE_URL: databaseUrl,
-    JWT_SECRET: process.env.JWT_SECRET ?? "development-only-secret-change-me-in-production-please",
-    PUBLIC_URL: process.env.PUBLIC_URL ?? "http://localhost:3000",
-    MAILER: "console",
+    ...found.s3,
+    DATABASE_URL: found.databaseUrl,
+    AUTH_SECRET: env("AUTH_SECRET", "development-only-secret-change-me-in-production-please"),
+    PUBLIC_URL: env("PUBLIC_URL", `http://localhost:${port}`),
+    PORT: port,
+    MAILER: env("MAILER", "console"),
   });
   console.log(
-    "Sync server on http://localhost:3000 (API docs at /docs). Sign in from the apps with that address; on the Android emulator use http://10.0.2.2:3000.",
+    `Server on http://localhost:${port} (API docs at /docs). Sign in from the apps with that address; on the Android emulator use http://10.0.2.2:${port}.`,
   );
 } else {
   console.log(

@@ -17,8 +17,8 @@ function share(overrides: Partial<Share> = {}): Share {
     title: "Trip plan",
     role: "viewer",
     status: "accepted",
-    ownerEmail: "ada@example.com",
-    recipientEmail: "ben@example.com",
+    owner: "ada",
+    recipient: "ben@example.com",
     createdAt: "2026-10-14T00:00:00Z",
     ...overrides,
   };
@@ -33,7 +33,7 @@ function fakeAccount(shares: Share[]) {
   vi.spyOn(api, "share").mockImplementation(async (_entityId, email, role) => {
     const created = share({
       id: "00000000-0000-4000-8000-000000000002",
-      recipientEmail: email,
+      recipient: email,
       role,
       status: "pending",
     });
@@ -94,7 +94,7 @@ describe("sharing a page with people", () => {
       share(),
       share({
         id: "00000000-0000-4000-8000-000000000003",
-        recipientEmail: "dan@example.com",
+        recipient: "dan@example.com",
         status: "pending",
       }),
     ]);

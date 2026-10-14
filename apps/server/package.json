@@ -1,6 +1,6 @@
 {
   "name": "@nookly/server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -12,12 +12,13 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1151.0",
     "@elysiajs/cors": "1.4.2",
     "@elysiajs/openapi": "1.4.16",
     "@nookly/shared": "workspace:*",
+    "better-auth": "1.7.7",
     "drizzle-orm": "0.45.4",
     "elysia": "1.4.30",
-    "jose": "^6.2.12",
     "nodemailer": "^10.1.0",
     "postgres": "3.4.9",
     "zod": "^4"

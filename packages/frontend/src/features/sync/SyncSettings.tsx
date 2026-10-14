@@ -1,4 +1,10 @@
-import { ApiClient, type Session, type Share, passwordSchema } from "@nookly/shared/api";
+import {
+  ApiClient,
+  type Session,
+  type Share,
+  passwordSchema,
+  usernameSchema,
+} from "@nookly/shared/api";
 import type { Conflict, SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
@@ -61,7 +67,7 @@ export function SyncServerControl() {
 }
 
 const signInSchema = z.object({
-  email: z.email("Enter your email address"),
+  email: z.string().trim().min(1, "Enter your username or email"),
   password: z.string().min(1, "Enter your password"),
 });
 
@@ -85,7 +91,10 @@ function SignInForm() {
       if (create) {
         const strong = passwordSchema.safeParse(password);
         if (!strong.success) throw new Error("Use a password of at least 10 characters.");
-        return syncRuntime.signUp(serverUrl, email, password);
+        const name = usernameSchema.safeParse(email);
+        if (!name.success)
+          throw new Error("Pick a username of letters, digits, dots or underscores.");
+        return syncRuntime.signUp(serverUrl, { username: name.data, password });
       }
       return syncRuntime.signIn(serverUrl, email, password);
     },
@@ -94,6 +103,7 @@ function SignInForm() {
   const forgot = useMutation({
     mutationFn: async (email: string) => {
       if (!serverUrl) throw new Error("Enter the server address above first.");
+      if (!email.includes("@")) throw new Error("Enter your email address to reset the password.");
       const api = new ApiClient({
         baseUrl: serverUrl,
         tokens: { load: async () => null, save: async () => {} },
@@ -122,12 +132,16 @@ function SignInForm() {
       <div className="grid grid-cols-2 gap-3">
         <form.Field name="email">
           {(field) => (
-            <FormField label="Email" htmlFor={emailId} required error={fieldMessage(field)}>
+            <FormField
+              label="Username or email"
+              htmlFor={emailId}
+              required
+              error={fieldMessage(field)}
+            >
               <Input
                 id={emailId}
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
+                autoComplete="username"
+                placeholder="ada"
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
@@ -246,16 +260,17 @@ function AccountSummary() {
     onSuccess: () => queryClient.removeQueries({ queryKey: qk.sync.root }),
   });
   const resend = useMutation({
-    mutationFn: async () => syncRuntime.account()?.resendVerification(),
+    mutationFn: async () =>
+      user?.email ? syncRuntime.account()?.resendVerification(user.email) : undefined,
   });
   if (!user) return null;
   const line = statusLine(status);
   return (
     <div className="flex w-full flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">{user.email}</span>
+        <span className="font-medium">{user.email ?? user.username}</span>
         <span className="text-xs text-muted-foreground">on {serverUrl}</span>
-        {!user.emailVerified && (
+        {user.email !== null && !user.emailVerified && (
           <>
             <Badge variant="warning">Email not confirmed</Badge>
             <Button size="sm" variant="ghost" onClick={() => resend.mutate()}>
@@ -443,7 +458,7 @@ function SharedRow({ share }: { share: Share }) {
   return (
     <li className="flex items-center gap-2 py-1.5 text-sm">
       <span className="truncate font-medium">{share.title || "Untitled"}</span>
-      <span className="truncate text-xs text-muted-foreground">from {share.ownerEmail}</span>
+      <span className="truncate text-xs text-muted-foreground">from {share.owner}</span>
       <Badge>{share.role === "editor" ? "Can edit" : "Can view"}</Badge>
       <div className="ml-auto flex items-center gap-1">
         {share.status === "pending" ? (

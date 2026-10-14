@@ -80,11 +80,11 @@ function PersonRow({ share }: { share: Share }) {
   });
   return (
     <li className="flex items-center gap-2 py-1.5 text-sm">
-      <span className="truncate">{share.recipientEmail}</span>
+      <span className="truncate">{share.recipient}</span>
       {share.status === "pending" && <Badge>Invited</Badge>}
       <div className="ml-auto flex items-center gap-1">
         <RoleToggle
-          label={`Access for ${share.recipientEmail}`}
+          label={`Access for ${share.recipient}`}
           value={changeRole.variables ?? share.role}
           onChange={(role) => changeRole.mutate(role)}
         />

@@ -1,4 +1,4 @@
-import { type Share, passwordSchema } from "@nookly/shared/api";
+import { type Share, passwordSchema, usernameSchema } from "@nookly/shared/api";
 import { normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import { statusText } from "./sync-status.ts";
 
 const signInSchema = z.object({
   server: z.url("Enter an address like https://sync.example.com"),
-  email: z.email("Enter your email address"),
+  email: z.string().trim().min(1, "Enter your username or email"),
   password: z.string().min(1, "Enter your password"),
 });
 
@@ -37,7 +37,10 @@ function SignIn() {
       if (mode === "up") {
         if (!passwordSchema.safeParse(value.password).success)
           throw new Error("Use a password of at least 10 characters.");
-        await sync.signUp(server, value.email, value.password);
+        const name = usernameSchema.safeParse(value.email);
+        if (!name.success)
+          throw new Error("Pick a username of letters, digits, dots or underscores.");
+        await sync.signUp(server, { username: name.data, password: value.password });
       } else {
         await sync.signIn(server, value.email, value.password);
       }
@@ -74,7 +77,7 @@ function SignIn() {
         <form.Field name="email">
           {(field) => (
             <Field
-              label="Email"
+              label="Username or email"
               required
               autoCapitalize="none"
               keyboardType="email-address"
@@ -150,7 +153,7 @@ function SharedRow({ share }: { share: Share }) {
         <Badge label={share.role === "editor" ? "Can edit" : "Can view"} />
       </View>
       <Text variant="small" tone="muted">
-        from {share.ownerEmail}
+        from {share.owner}
       </Text>
       <View className="flex-row gap-2">
         {share.status === "pending" ? (
@@ -229,11 +232,13 @@ function Account() {
     <>
       <Section title="Sync">
         <View className="gap-2 p-4">
-          <Text>{user.email}</Text>
+          <Text>{user.email ?? user.username}</Text>
           <Text variant="small" tone="muted">
             on {serverUrl}
           </Text>
-          {!user.emailVerified ? <Badge label="Email not confirmed" variant="warning" /> : null}
+          {user.email !== null && !user.emailVerified ? (
+            <Badge label="Email not confirmed" variant="warning" />
+          ) : null}
           <Text variant="small" tone={tone} accessibilityLiveRegion="polite">
             {statusText(status)}
           </Text>
