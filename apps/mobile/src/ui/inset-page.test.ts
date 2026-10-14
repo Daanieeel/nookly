@@ -8,8 +8,8 @@ describe("the page over the sidebar", () => {
   });
 
   it("casts its shadow to the left, onto the sidebar, deeper in the dark theme", () => {
-    expect(pageShadow(false)).toBe("-12px 0 32px -4px rgba(0, 0, 0, 0.18)");
-    expect(pageShadow(true)).toContain("0.7");
+    expect(pageShadow(false)).toBe("-8px 0 24px -4px rgba(0, 0, 0, 0.1)");
+    expect(pageShadow(true)).toContain("0.45");
   });
 
   it("is outlined only while aside, so no line runs around the screen", () => {

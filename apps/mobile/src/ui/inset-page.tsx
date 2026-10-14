@@ -27,7 +27,7 @@ const PAGE_RADIUS = Platform.select({ ios: 38, default: 24 });
 /// The shadow the page casts to its left, onto the sidebar, deeper in the dark theme
 /// where a light one wouldn't show.
 export function pageShadow(dark: boolean): string {
-  return `-12px 0 32px -4px rgba(0, 0, 0, ${dark ? 0.7 : 0.18})`;
+  return `-8px 0 24px -4px rgba(0, 0, 0, ${dark ? 0.45 : 0.1})`;
 }
 
 /// The page's shadow, drawn from the sidebar's side. The page can't cast it itself: the
