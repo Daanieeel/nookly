@@ -7,7 +7,8 @@ import * as Y from "yjs";
 import { mockCommand } from "#/test/tauri.ts";
 import { makeBlock } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { CollaborativeEditor, caretColor } from "./CollaborativeEditor.tsx";
+import { caretColor } from "@nookly/shared/sync";
+import { CollaborativeEditor } from "./CollaborativeEditor.tsx";
 
 const sockets: HocuspocusProviderWebsocket[] = [];
 afterEach(() => {

@@ -21,11 +21,12 @@ Done and committed: webcrypto shim for Yjs, dev automation bridge and simulator 
 
 Committed (tests pass, 35): the merge editor (`screens/MergeEditor.tsx`, stacked on a phone, side by side from 700 points) replacing the old conflict list and the duplicate `describeConflicts` helper; verified in the simulator: the phone signed in as `ada` on the :3100 server and the desktop fixture's tasks arrived, in system dark mode. Earlier commit: settings on the shared definitions (`data/settings.ts`, `screens/settings/*`, every shared setting has a control, exhaustive by type), account screens (welcome, sign in, create account, forgot password), file sync (`data/files.ts`), pre sync backup (`data/backup.ts`), onboarding gate in the root layout, Settings index and category screens.
 
+Also committed: the live page editor (`src/editor/*`, D17). Verified in the simulator: typing in the web view reached the phone's rows and the server; an edit from `tools/e2e/page-client.ts` (another device) showed in the editor. `phone-editor` is a second automation device that runs scripts inside the editor's web view.
+
 To do, in this order:
 
 1. Look at the account screens, settings and the merge editor in the simulator (the welcome and sign in screens were seen in dark mode).
-2. Sync status indicator in the sidebar and page headers, conflict badge on pages, first sync progress, back button label ("(drawer)").
-3. Live page editor: TipTap and Yjs in an Expo DOM component, schema identical to the desktop's.
+2. Sync status indicator in the sidebar and page headers, conflict badge on pages, first sync progress, back button label ("(drawer)"), carets and presence bar on the phone, tapping task items in the editor, scrolling to the cursor on a real keyboard (written, not seen).
 4. Missing modules and edits per `GAP_ANALYSIS.md`: Semesters, Sessions, Recipes, Files (viewer and add), Grades, Views, task effort, repeat and sub-tasks, Space settings, module add and remove, labels, statuses, icon picker, import and export.
 5. Tablet layout (persistent sidebar), design pass (Claude app style, sheets).
 6. Screenshots: phone, tablet, merge editor.

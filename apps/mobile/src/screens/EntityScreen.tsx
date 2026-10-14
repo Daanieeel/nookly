@@ -14,7 +14,8 @@ import { useQuery } from "@tanstack/react-query";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
+import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { useEntity, useSpaces, useStatuses, useTask } from "../data/queries.ts";
@@ -202,7 +203,10 @@ export function EntityScreen({ id }: { id: string }) {
   }
   const space = spaces.find((s) => s.id === entity.spaceId);
   return (
-    <>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      className="flex-1"
+    >
       <Stack.Screen options={{ title: entity.key }} />
       <Screen>
         <View className="gap-2">
@@ -239,6 +243,7 @@ export function EntityScreen({ id }: { id: string }) {
         )}
         {!readOnly || entity.deletedAt ? <Actions entity={entity} /> : null}
       </Screen>
-    </>
+      <EditorToolbar />
+    </KeyboardAvoidingView>
   );
 }

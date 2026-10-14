@@ -1,4 +1,4 @@
-import type { PageSession } from "@nookly/shared/sync";
+import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { useEditor } from "@tiptap/react";
@@ -21,15 +21,6 @@ import {
 } from "./editor-hooks.tsx";
 import type { PageSection } from "./heading-anchors";
 import { usePasteFiles } from "./paste-files";
-
-/// Colors for other people's carets, picked by their id so each keeps one.
-const CARET_COLORS = ["#2563eb", "#db2777", "#16a34a", "#ea580c", "#7c3aed", "#0891b2", "#ca8a04"];
-
-export function caretColor(id: string): string {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return CARET_COLORS[Math.abs(hash) % CARET_COLORS.length];
-}
 
 /// What another device says about its person in the document's awareness.
 const presentUser = z.object({
@@ -119,7 +110,7 @@ export function CollaborativeEditor({
   const [displayName] = useSetting("general.displayName");
   // The device too, so two devices of one person tell apart: "Ada on Mac".
   const person = displayName.trim() || user?.username || "Someone";
-  const name = `${person} on ${syncRuntime.device.name.replace(/^Nookly on /, "")}`;
+  const name = presenceName(person, syncRuntime.device.name);
   const color = caretColor(user?.id ?? name);
   const viewOnly = useViewOnly(entityId, spaceId);
   const editable = !viewOnly && !session.readOnly;

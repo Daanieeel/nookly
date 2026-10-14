@@ -6,7 +6,9 @@ import {
   updateBlock,
 } from "@nookly/shared/data";
 import { useEffect, useState } from "react";
-import { ActionSheetIOS, Alert, Platform, TextInput, View } from "react-native";
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, TextInput, View } from "react-native";
+import { LivePage } from "../editor/LivePage.tsx";
+import { usePageSession } from "../editor/use-page-session.ts";
 import { useLocalWrite } from "../data/context.tsx";
 import { useBlocks } from "../data/queries.ts";
 import { IconDots } from "@tabler/icons-react-native";
@@ -122,9 +124,10 @@ function isStyledBlock(type: string): type is keyof typeof EDITOR_BLOCK_CLASSES 
   return Object.keys(EDITOR_BLOCK_CLASSES).includes(type);
 }
 
-/// A page's blocks, one text field each, in order. Text blocks edit as markdown like
-/// on the desktop; tables, math and custom blocks show as they are and stay untouched.
-export function PageEditor({ entityId, readOnly }: { entityId: string; readOnly: boolean }) {
+/// A page's blocks, one text field each, in order: how a page edits while it has no
+/// live document (signed out, or offline and never opened). Text blocks edit as
+/// markdown; tables, math and custom blocks show as they are and stay untouched.
+function RowsEditor({ entityId, readOnly }: { entityId: string; readOnly: boolean }) {
   const { data: blocks = [] } = useBlocks(entityId);
   const add = useLocalWrite((db) => addBlock(db, entityId, "paragraph", ""));
   return (
@@ -137,4 +140,21 @@ export function PageEditor({ entityId, readOnly }: { entityId: string; readOnly:
       ) : null}
     </View>
   );
+}
+
+/// A page's body: the live editor when this phone has the page's document, else its
+/// blocks as text fields (DECISIONS.md D6).
+export function PageEditor({ entityId, readOnly }: { entityId: string; readOnly: boolean }) {
+  const page = usePageSession(entityId);
+  if (page.state === "live") {
+    return <LivePage session={page.session} editable={!readOnly && !page.session.readOnly} />;
+  }
+  if (page.state === "waiting") {
+    return (
+      <View className="min-h-40 items-center justify-center">
+        <ActivityIndicator />
+      </View>
+    );
+  }
+  return <RowsEditor entityId={entityId} readOnly={readOnly} />;
 }

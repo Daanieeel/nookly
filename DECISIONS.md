@@ -96,3 +96,10 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 ## D16. One dev stack command
 
 - **Decision:** `docker-compose.yml` at the root runs Postgres, MinIO (with its bucket made by a one shot `mc` container) and, under the `server` profile, the server. `bun run stack` starts the containers, applies migrations and runs the server on the host with watch mode; `bun run dev` keeps starting everything (server, desktop, mobile).
+
+## D17. The phone's editor is ProseMirror on the desktop's exported schema (refines D12) ⚑
+
+- **Decision:** the DOM component runs ProseMirror and y-tiptap directly, on a schema built from `packages/shared/src/generated/editor-schema.json`. A desktop test writes that file from the real TipTap extensions and fails when it drifts, so the two cannot disagree silently. The phone's own Yjs document (offline copy, socket, `PageDocs`) stays in React Native; the web view has a second document and the two swap updates as base64 over the bridge (Yjs makes repeats and order harmless). Awareness (carets and names) crosses the same way. The toolbar is native, above the keyboard. Blocks the phone has no editor for (timelines, images, files, embeds, linked items) show as labelled cards and keep their attributes untouched.
+- **Alternatives:** bundle the desktop's TipTap extensions (they import the desktop's `#/` modules, React node views and settings, which the DOM bundle cannot resolve); a native editor with no schema guarantee.
+- **Why:** the schema is what matters for y-prosemirror (D6), and a generated file with a drift test gives that without dragging the desktop's UI code into a web view. Check: edits made in the web view reach the phone's rows and the server, and an edit from another client shows in the phone's editor within a second (verified in the simulator).
+- **To double check:** the phone cannot edit table cells' column widths, inline math, or the atom blocks' rows; they round trip but are not editable there.

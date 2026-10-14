@@ -1,0 +1,1035 @@
+{
+  "topNode": "doc",
+  "nodes": [
+    {
+      "name": "paragraph",
+      "content": "inline*",
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "blockquote",
+      "content": "block+",
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "bulletList",
+      "content": "listItem+",
+      "group": "block list",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "doc",
+      "content": "block+",
+      "group": null,
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": []
+    },
+    {
+      "name": "hardBreak",
+      "content": null,
+      "group": "inline",
+      "marks": null,
+      "inline": true,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": false,
+      "draggable": false,
+      "attrs": []
+    },
+    {
+      "name": "heading",
+      "content": "inline*",
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "toggle",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "level",
+          "default": 1,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "text",
+      "content": null,
+      "group": "inline",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": []
+    },
+    {
+      "name": "orderedList",
+      "content": "listItem+",
+      "group": "block list",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "start",
+          "default": 1,
+          "required": false
+        },
+        {
+          "name": "type",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "marker",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "listItem",
+      "content": "paragraph block*",
+      "group": null,
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": []
+    },
+    {
+      "name": "codeBlock",
+      "content": "text*",
+      "group": "block",
+      "marks": "",
+      "inline": false,
+      "atom": false,
+      "code": true,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "language",
+          "default": "plaintext",
+          "required": false
+        },
+        {
+          "name": "filename",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "table",
+      "content": "tableRow+",
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": true,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "pinned",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "tableCell",
+      "content": "block+",
+      "group": null,
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": true,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "colspan",
+          "default": 1,
+          "required": false
+        },
+        {
+          "name": "rowspan",
+          "default": 1,
+          "required": false
+        },
+        {
+          "name": "colwidth",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "align",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "tableHeader",
+      "content": "block+",
+      "group": null,
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": true,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "colspan",
+          "default": 1,
+          "required": false
+        },
+        {
+          "name": "rowspan",
+          "default": 1,
+          "required": false
+        },
+        {
+          "name": "colwidth",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "align",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "tableRow",
+      "content": "(tableCell | tableHeader)*",
+      "group": null,
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": []
+    },
+    {
+      "name": "callout",
+      "content": "inline*",
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "variant",
+          "default": "note",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "timeline",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "progress",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "tree",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "steps",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "current",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "stats",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "details",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "divider",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "taskList",
+      "content": "taskItem+",
+      "group": "block list",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "taskItem",
+      "content": "paragraph+",
+      "group": null,
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "checked",
+          "default": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "toggle",
+      "content": "paragraph+",
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": false,
+      "code": false,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "toggle",
+          "default": "closed",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "inlineMath",
+      "content": null,
+      "group": "inline",
+      "marks": null,
+      "inline": true,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "latex",
+          "default": "",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "equation",
+      "content": "text*",
+      "group": "block",
+      "marks": "",
+      "inline": false,
+      "atom": false,
+      "code": true,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "view",
+          "default": "source",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "math",
+      "content": "text*",
+      "group": "block",
+      "marks": "",
+      "inline": false,
+      "atom": false,
+      "code": true,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "view",
+          "default": "source",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "diagram",
+      "content": "text*",
+      "group": "block",
+      "marks": "",
+      "inline": false,
+      "atom": false,
+      "code": true,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "view",
+          "default": "source",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "circuit",
+      "content": "text*",
+      "group": "block",
+      "marks": "",
+      "inline": false,
+      "atom": false,
+      "code": true,
+      "defining": true,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "drawing",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "view",
+          "default": "source",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "entity_card",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "image",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "caption",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "video",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "caption",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "audio",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "caption",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "file",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        },
+        {
+          "name": "caption",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "page",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "embed",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "bookmark",
+      "content": null,
+      "group": "block",
+      "marks": null,
+      "inline": false,
+      "atom": true,
+      "code": false,
+      "defining": false,
+      "isolating": false,
+      "selectable": true,
+      "draggable": false,
+      "attrs": [
+        {
+          "name": "blockId",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "default": "",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "marks": [
+    {
+      "name": "link",
+      "inclusive": false,
+      "excludes": null,
+      "spanning": true,
+      "group": null,
+      "attrs": [
+        {
+          "name": "href",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "target",
+          "default": "_blank",
+          "required": false
+        },
+        {
+          "name": "rel",
+          "default": "noopener noreferrer nofollow",
+          "required": false
+        },
+        {
+          "name": "class",
+          "default": null,
+          "required": false
+        },
+        {
+          "name": "title",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "bold",
+      "inclusive": true,
+      "excludes": null,
+      "spanning": true,
+      "group": null,
+      "attrs": []
+    },
+    {
+      "name": "italic",
+      "inclusive": true,
+      "excludes": null,
+      "spanning": true,
+      "group": null,
+      "attrs": []
+    },
+    {
+      "name": "strike",
+      "inclusive": true,
+      "excludes": null,
+      "spanning": true,
+      "group": null,
+      "attrs": []
+    },
+    {
+      "name": "underline",
+      "inclusive": true,
+      "excludes": null,
+      "spanning": true,
+      "group": null,
+      "attrs": []
+    },
+    {
+      "name": "highlight",
+      "inclusive": true,
+      "excludes": null,
+      "spanning": true,
+      "group": null,
+      "attrs": [
+        {
+          "name": "color",
+          "default": null,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "code",
+      "inclusive": true,
+      "excludes": "_",
+      "spanning": true,
+      "group": null,
+      "attrs": []
+    }
+  ]
+}

@@ -28,6 +28,14 @@ async function hub(port: number) {
     port,
     idleTimeout: 120,
     async fetch(request) {
+      const response = await handle(request);
+      // The editor's web view asks from another origin.
+      response.headers.set("access-control-allow-origin", "*");
+      return response;
+    },
+  });
+  async function handle(request: Request): Promise<Response> {
+    {
       const url = new URL(request.url);
       const device = url.searchParams.get("d") ?? "phone";
       if (url.pathname === "/poll") {
@@ -72,8 +80,8 @@ async function hub(port: number) {
         return new Response(body, { headers: { "content-type": "application/json" } });
       }
       return new Response("not found", { status: 404 });
-    },
-  });
+    }
+  }
   console.log(`hub on ${port}`);
 }
 
