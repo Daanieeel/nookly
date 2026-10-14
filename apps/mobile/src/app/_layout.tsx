@@ -7,16 +7,24 @@ import {
 } from "@expo-google-fonts/inter";
 import { InterTight_600SemiBold } from "@expo-google-fonts/inter-tight";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router } from "expo-router";
+import {
+  DarkTheme,
+  DefaultTheme,
+  Stack,
+  ThemeProvider,
+  router,
+  useRootNavigationState,
+  useRouter,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { type AppData, AppDataProvider } from "../data/context.tsx";
+import { type AppData, AppDataProvider, useAppData } from "../data/context.tsx";
 import { openLocalDb } from "../data/database.ts";
 import { keys } from "../data/keys.ts";
 import { restoreTheme } from "../data/appearance.ts";
-import { createSync, serverUrlStore, themeStore } from "../data/sync.ts";
+import { createSync, onboardedStore, serverUrlStore, themeStore } from "../data/sync.ts";
 
 // Before the first frame, so a picked theme never flashes the system's.
 restoreTheme(themeStore);
@@ -43,7 +51,18 @@ async function start(): Promise<AppData> {
       router,
     });
   }
-  return { db, sync, serverUrl: serverUrlStore, theme: themeStore };
+  return { db, sync, serverUrl: serverUrlStore, theme: themeStore, onboarded: onboardedStore };
+}
+
+/// A phone that never answered the welcome screen opens on it, once.
+function FirstRun() {
+  const { onboarded } = useAppData();
+  const router = useRouter();
+  const ready = useRootNavigationState()?.key;
+  useEffect(() => {
+    if (ready && !onboarded.get()) router.push("/welcome");
+  }, [ready, onboarded, router]);
+  return null;
 }
 
 export default function RootLayout() {
@@ -110,6 +129,7 @@ export default function RootLayout() {
         <AppDataProvider value={data}>
           <ThemeProvider value={navigation}>
             <StatusBar style="auto" />
+            <FirstRun />
             <Stack screenOptions={{ headerLargeTitle: false, headerShadowVisible: false }}>
               <Stack.Screen
                 name="(drawer)"
@@ -118,8 +138,20 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: theme.colors.background },
                 }}
               />
+              <Stack.Screen
+                name="welcome"
+                options={{
+                  headerShown: false,
+                  presentation: "fullScreenModal",
+                  gestureEnabled: false,
+                }}
+              />
+              <Stack.Screen name="account/sign-in" options={{ title: "Sign In" }} />
+              <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
+              <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
               <Stack.Screen name="entity/[id]" options={{ title: "" }} />
-              <Stack.Screen name="settings" options={{ title: "Settings" }} />
+              <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+              <Stack.Screen name="settings/[page]" options={{ title: "Settings" }} />
               <Stack.Screen
                 name="new/task"
                 options={{

@@ -16,7 +16,10 @@ import { DashboardScreen } from "./DashboardScreen.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewTaskScreen } from "./NewScreens.tsx";
 import { SearchScreen } from "./SearchScreen.tsx";
-import { SettingsScreen } from "./SettingsScreen.tsx";
+import { SHARED_SETTINGS } from "@nookly/shared/settings";
+import { phoneSettings } from "../data/settings.ts";
+import { SettingsCategoryScreen, SettingsScreen } from "./SettingsScreen.tsx";
+import { SETTING_IDS } from "./settings/spec.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { localDay } from "./dates.ts";
 
@@ -109,14 +112,37 @@ describe("the Dashboard", () => {
 });
 
 describe("Settings", () => {
-  it("says sync is optional and checks the sign in form", async () => {
+  it("opens with the account on top, then every category", async () => {
     const { data } = await seeded();
     const screen = await renderScreens({ index: () => <SettingsScreen /> }, data);
-    expect(await screen.findByText(/It is optional/)).toBeTruthy();
-    await fireEvent.changeText(screen.getByLabelText("Server"), "not a server");
-    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
-    expect(await screen.findByText("Enter an address like https://sync.example.com")).toBeTruthy();
-    expect(screen.getByText("Enter your username or email")).toBeTruthy();
+    expect(await screen.findByText("Sign in to sync")).toBeTruthy();
+    for (const title of ["General", "Appearance", "Calendar", "Editor"]) {
+      expect(screen.getByText(title)).toBeTruthy();
+    }
+  });
+
+  it("changes a setting, offers its default back, and takes it", async () => {
+    const { data } = await seeded();
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="calendar" /> },
+      data,
+    );
+    expect(await screen.findByText("Session length")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reset to Default" })).toBeNull();
+    await fireEvent.press(screen.getAllByRole("button", { name: "More" })[0]);
+    expect(await screen.findByText("95 min")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Reset to Default" }));
+    expect(await screen.findByText("90 min")).toBeTruthy();
+    expect(phoneSettings.isDefault("calendar.sessionLengthMinutes")).toBe(true);
+  });
+
+  it("gives every shared setting exactly one control on exactly one page", () => {
+    expect(SETTING_IDS.sort()).toEqual(Object.keys(SHARED_SETTINGS).sort());
+  });
+
+  it("keeps a value the setting refuses out", () => {
+    expect(phoneSettings.setJson("calendar.dayStartHour", 99)).toBe(false);
+    expect(phoneSettings.get("calendar.dayStartHour")).toBe(7);
   });
 });
 

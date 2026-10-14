@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderRouter } from "expo-router/testing-library";
 import type { ComponentType, ReactNode } from "react";
 import { AppDataProvider, type Preference } from "../data/context.tsx";
+import { phoneSettings } from "../data/settings.ts";
 import type { MobileSync } from "../data/sync.ts";
 
 let ids = 0;
@@ -18,6 +19,7 @@ export interface TestData {
   sync: MobileSync;
   serverUrl: Preference;
   theme: Preference;
+  onboarded: Preference;
 }
 
 export function testData(): TestData {
@@ -36,9 +38,17 @@ export function testData(): TestData {
   });
   let saved: string | null = null;
   const serverUrl: Preference = { get: () => saved, set: (value) => void (saved = value) };
-  let theme: string | null = null;
-  const themePreference: Preference = { get: () => theme, set: (value) => void (theme = value) };
-  return { db, driver, sync, serverUrl, theme: themePreference };
+  // The theme is a setting here, as on the phone.
+  const themePreference: Preference = {
+    get: () => phoneSettings.get("appearance.theme"),
+    set: (value) => void phoneSettings.setJson("appearance.theme", value),
+  };
+  let onboarded: string | null = "1";
+  const onboardedPreference: Preference = {
+    get: () => onboarded,
+    set: (value) => void (onboarded = value),
+  };
+  return { db, driver, sync, serverUrl, theme: themePreference, onboarded: onboardedPreference };
 }
 
 /// Renders screens as routes of the app, inside its providers.
@@ -53,7 +63,13 @@ export async function renderScreens(
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <AppDataProvider
-        value={{ db: data.db, sync: data.sync, serverUrl: data.serverUrl, theme: data.theme }}
+        value={{
+          db: data.db,
+          sync: data.sync,
+          serverUrl: data.serverUrl,
+          theme: data.theme,
+          onboarded: data.onboarded,
+        }}
       >
         {children}
       </AppDataProvider>

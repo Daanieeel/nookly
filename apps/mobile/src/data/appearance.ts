@@ -2,6 +2,7 @@ import { Appearance } from "react-native";
 import { z } from "zod";
 import { create } from "zustand";
 import type { Preference } from "./context.tsx";
+import { phoneSettings } from "./settings.ts";
 
 /// The theme, as on the desktop (`appearance.theme`): light, dark, or the system's.
 const themeSchema = z.enum(["system", "light", "dark"]);
@@ -26,6 +27,10 @@ function apply(choice: ThemeChoice) {
 /// At start: the theme picked before, or the system's.
 export function restoreTheme(saved: Preference) {
   apply(themeSchema.catch("system").parse(saved.get()));
+  // The setting changing anywhere (Settings, another device through sync) applies it.
+  phoneSettings.subscribe((id) => {
+    if (id === "appearance.theme") apply(themeSchema.catch("system").parse(saved.get()));
+  });
 }
 
 export function setTheme(saved: Preference, choice: ThemeChoice) {

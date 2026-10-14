@@ -19,6 +19,8 @@ export interface AppData {
   serverUrl: Preference;
   /// The theme picked in Settings.
   theme: Preference;
+  /// Set once the welcome screen was answered (an account, or none), so it shows once.
+  onboarded: Preference;
 }
 
 const AppDataContext = createContext<AppData | null>(null);

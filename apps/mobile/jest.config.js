@@ -3,8 +3,10 @@ const path = require("node:path");
 module.exports = {
   preset: "jest-expo",
   setupFiles: ["./jest.setup.ts"],
+  setupFilesAfterEnv: ["./jest.after.ts"],
   // Worklets' own stand in, so Reanimated (the sidebar's drawer) runs without native code.
   moduleNameMapper: {
+    "^expo-sqlite/kv-store$": path.join(__dirname, "src/test/kv-store.ts"),
     "^isomorphic-webcrypto/src/react-native$": path.join(__dirname, "src/shims/webcrypto.js"),
     "^react-native-worklets$": path.join(
       path.dirname(require.resolve("react-native-worklets/package.json")),
