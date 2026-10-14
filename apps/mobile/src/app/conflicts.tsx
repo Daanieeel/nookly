@@ -1,3 +1,3 @@
-import { ConflictsScreen } from "../screens/ConflictsScreen.tsx";
+import { MergeEditor } from "../screens/MergeEditor.tsx";
 
-export default ConflictsScreen;
+export default MergeEditor;

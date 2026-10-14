@@ -17,7 +17,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
-import { ConflictsScreen } from "./ConflictsScreen.tsx";
+import { MergeEditor } from "./MergeEditor.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewExamScreen } from "./NewScreens.tsx";
 import { LinkPickerScreen } from "./RelatedSection.tsx";
@@ -138,8 +138,8 @@ describe("a task's due date, labels and links", () => {
   });
 });
 
-describe("conflicts", () => {
-  it("brings back a change that lost", async () => {
+describe("the merge editor", () => {
+  async function disagreement() {
     const { data, space } = await seeded();
     const task = await createTask(data.db, space, "New title");
     data.driver.rows(
@@ -147,10 +147,31 @@ describe("conflicts", () => {
       task,
       JSON.stringify("Old title"),
     );
-    const screen = await renderScreens({ index: () => <ConflictsScreen /> }, data);
-    expect(await screen.findByText("Title: Old title · ", { exact: false })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Bring Back" }));
+    return { data, task };
+  }
+
+  it("lists the change, shows both versions, and keeps the other one", async () => {
+    const { data, task } = await disagreement();
+    const screen = await renderScreens({ index: () => <MergeEditor /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "New title, Title" }));
+    expect(await screen.findByLabelText("Another device's version: Old title")).toBeTruthy();
+    expect(screen.getByText("Showing now")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Keep the Other" }));
     await waitFor(async () => expect((await getEntity(data.db, task))?.title).toBe("Old title"));
-    expect(await screen.findByText("No conflicts.")).toBeTruthy();
+    expect(await screen.findByText("Nothing needs a look.")).toBeTruthy();
+  });
+
+  it("keeps both: combines them to edit, and saves what is written", async () => {
+    const { data, task } = await disagreement();
+    const screen = await renderScreens({ index: () => <MergeEditor /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "New title, Title" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Keep Both" }));
+    const box = screen.getByLabelText("Combined version");
+    expect(box.props.value).toBe("New title / Old title");
+    await fireEvent.changeText(box, "Old and new title");
+    await fireEvent.press(screen.getByRole("button", { name: "Save Combined" }));
+    await waitFor(async () =>
+      expect((await getEntity(data.db, task))?.title).toBe("Old and new title"),
+    );
   });
 });

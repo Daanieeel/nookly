@@ -32,15 +32,24 @@ async function hub(port: number) {
       const device = url.searchParams.get("d") ?? "phone";
       if (url.pathname === "/poll") {
         const queued = queues.get(device)?.shift();
+        let waiter: ((job: Job) => void) | null = null;
         const job =
           queued ??
           (await Promise.race([
-            new Promise<Job>((resolve) =>
-              pollers.set(device, [...(pollers.get(device) ?? []), resolve]),
-            ),
+            new Promise<Job>((resolve) => {
+              waiter = resolve;
+              pollers.set(device, [...(pollers.get(device) ?? []), resolve]);
+            }),
             Bun.sleep(25_000).then(() => null),
           ]));
-        if (!job) return new Response(null, { status: 204 });
+        if (!job) {
+          // This poll timed out: its waiter must not take the next job.
+          pollers.set(
+            device,
+            (pollers.get(device) ?? []).filter((w) => w !== waiter),
+          );
+          return new Response(null, { status: 204 });
+        }
         waiting.set(job.id, job);
         return Response.json({ id: job.id, script: job.script });
       }

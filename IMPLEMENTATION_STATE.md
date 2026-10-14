@@ -19,12 +19,12 @@ Branch `feat/connected-platform` (worktree `../nookly-connected`, from `mobile-a
 
 Done and committed: webcrypto shim for Yjs, dev automation bridge and simulator tooling (`tools/e2e/mobile.ts`).
 
-Written, in the working tree, tests pass (33), to commit next: settings on the shared definitions (`data/settings.ts`, `screens/settings/*`, every shared setting has a control, exhaustive by type), account screens (welcome, sign in, create account, forgot password), file sync (`data/files.ts`), pre sync backup (`data/backup.ts`), onboarding gate in the root layout, Settings index and category screens.
+Committed (tests pass, 35): the merge editor (`screens/MergeEditor.tsx`, stacked on a phone, side by side from 700 points) replacing the old conflict list and the duplicate `describeConflicts` helper; verified in the simulator: the phone signed in as `ada` on the :3100 server and the desktop fixture's tasks arrived, in system dark mode. Earlier commit: settings on the shared definitions (`data/settings.ts`, `screens/settings/*`, every shared setting has a control, exhaustive by type), account screens (welcome, sign in, create account, forgot password), file sync (`data/files.ts`), pre sync backup (`data/backup.ts`), onboarding gate in the root layout, Settings index and category screens.
 
 To do, in this order:
 
-1. Run all of the above in the simulator and look at it.
-2. Sync status in the sidebar, conflict badge and the merge editor (stacked layout), first sync progress.
+1. Look at the account screens, settings and the merge editor in the simulator (the welcome and sign in screens were seen in dark mode).
+2. Sync status indicator in the sidebar and page headers, conflict badge on pages, first sync progress, back button label ("(drawer)").
 3. Live page editor: TipTap and Yjs in an Expo DOM component, schema identical to the desktop's.
 4. Missing modules and edits per `GAP_ANALYSIS.md`: Semesters, Sessions, Recipes, Files (viewer and add), Grades, Views, task effort, repeat and sub-tasks, Space settings, module add and remove, labels, statuses, icon picker, import and export.
 5. Tablet layout (persistent sidebar), design pass (Claude app style, sheets).
@@ -41,7 +41,7 @@ bun run test                         # needs TEST_DATABASE_URL=postgres://nookly
 
 Desktop end to end: build with `bun run tauri build --debug --no-bundle` (from `apps/desktop`; the dev server's port 1420 is the user's), start the binary with `NOOKLY_DATA_DIR=<copy of a fixture> NOOKLY_AUTOMATION_PORT=4567`, drive it with `bun tools/e2e/desktop.ts 4567 "<script>"` and `--shot out.png`. Fixtures: `bun tools/fixtures/desktop.ts <empty folder>`.
 
-Mobile end to end: Metro on 8091 (`EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 EXPO_PUBLIC_AUTOMATION_DEVICE=phone bunx expo start --port 8091 --lan`), `bun tools/e2e/mobile.ts hub 4600` left running, my own simulators (iPhone 17 Pro `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B`, iPad Pro 13-inch M5 `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D`) with Expo Go installed, open `exp://127.0.0.1:8091`. The user's own iPhone 17 simulator and Expo on 8081 are theirs.
+Mobile end to end: Metro on 8091 (`EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 EXPO_PUBLIC_AUTOMATION_DEVICE=phone bunx expo start --port 8091 --lan`), `bun tools/e2e/mobile.ts hub 4600` left running, my own simulators (iPhone 17 Pro `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B`, iPad Pro 13-inch M5 `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D`), always in system dark mode (`xcrun simctl ui <id> appearance dark`, the user asked for it). Nothing can tap a system dialog, so Expo Go's "Open in Expo Go?" prompt is avoided with a real native app: `/Users/daniel/nk-build` is a detached worktree on a path without spaces (the native build scripts break on "Open Source"), built once with `bunx expo run:ios -d <id> --port 8092`; afterwards run Metro from this worktree (`bunx expo start --port 8092 --lan --dev-client --clear` with the automation variables) and `xcrun simctl launch <id> app.nookly.mobile`. Rebuild there only when native modules change. The user's own iPhone 17 simulator and Expo on 8081 are theirs.
 
 ## Things to know
 
