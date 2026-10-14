@@ -238,10 +238,13 @@ function Sidebar({
         )}
         {...props}
       >
+        {/* An inset sidebar: no background or border of its own, so it sits on the page.
+            To bring the panel back, add these classes again:
+            bg-sidebar group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm */}
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
+          className="flex size-full flex-col group-data-[variant=floating]:rounded-lg"
         >
           {children}
         </div>

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.36.2 (2026-10-14)
+
+### Changed
+
+- **A calmer sidebar.** The sidebar sits right on the page, without a panel, border or shadow around it.
+
 ## 0.36.1 (2026-10-14)
 
 ### Changed
