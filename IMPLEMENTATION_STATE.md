@@ -28,8 +28,9 @@ Read this first when continuing. Keep it current with every commit.
 | Rust schema export, sync migration | Done: migration 42, registry, export, `sync_query`/`sync_batch`/`sync_reindex`, keychain                                                                                                                                           |
 | Server                             | Done: auth, sessions, push/pull/ws, sharing, OpenAPI at /docs, Docker + Caddy, 47 tests on real Postgres incl. the vertical slice                                                                                                  |
 | Desktop sync client and settings   | Done (0.35.0): Tauri driver, keychain tokens, `features/sync` runtime, Settings, Sync (server, sign in/up, status, sync now, devices, shared with me, conflicts, delete account), Share with People dialog, viewer pages read only |
-| Sharing                            | Server done (pages: viewer/editor, invites, revoke). Desktop and mobile UI not started                                                                                                                                             |
-| Mobile                             | First version: shell, Tasks, Notes/Jots, Calendar entries, Bookmarks full; other modules list and open; sync account and shared with me in Settings. 6 screen tests, iOS bundle builds                                             |
+| Sharing                            | Pages and tasks; server, desktop and mobile (invite, change role, remove, accept, decline, leave, view only pages read only)                                                                                                       |
+| Conflicts                          | Kept on device and server; the desktop brings one back or dismisses it (0.36.0)                                                                                                                                                    |
+| Mobile                             | First version: shell, Tasks, Notes/Jots, Calendar entries, Bookmarks full; other modules list and open; sync account and shared with me in Settings. 7 screen tests, sharing from the phone, iOS bundle builds                     |
 
 ## Next steps
 
