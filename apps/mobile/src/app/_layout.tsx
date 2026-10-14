@@ -7,7 +7,7 @@ import {
 } from "@expo-google-fonts/inter";
 import { InterTight_600SemiBold } from "@expo-google-fonts/inter-tight";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -32,6 +32,17 @@ async function start(): Promise<AppData> {
   const db = await openLocalDb();
   const sync = createSync(db, () => void queryClient.invalidateQueries({ queryKey: keys.local }));
   void sync.restore(serverUrlStore.get());
+  const automation = process.env.EXPO_PUBLIC_AUTOMATION_URL;
+  if (automation) {
+    // End to end checks only (`tools/e2e/mobile.ts`); no such address in a normal build.
+    const { startAutomation } = await import("../dev/automation.ts");
+    startAutomation(automation, process.env.EXPO_PUBLIC_AUTOMATION_DEVICE ?? "phone", {
+      db,
+      sync,
+      queryClient,
+      router,
+    });
+  }
   return { db, sync, serverUrl: serverUrlStore, theme: themeStore };
 }
 

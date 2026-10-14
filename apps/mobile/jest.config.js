@@ -5,6 +5,7 @@ module.exports = {
   setupFiles: ["./jest.setup.ts"],
   // Worklets' own stand in, so Reanimated (the sidebar's drawer) runs without native code.
   moduleNameMapper: {
+    "^isomorphic-webcrypto/src/react-native$": path.join(__dirname, "src/shims/webcrypto.js"),
     "^react-native-worklets$": path.join(
       path.dirname(require.resolve("react-native-worklets/package.json")),
       "src/mock.ts",

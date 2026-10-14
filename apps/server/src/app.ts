@@ -451,7 +451,9 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/devices",
-          async ({ headers }) => ({ devices: await sync.devices((await claimsOf(headers)).userId) }),
+          async ({ headers }) => ({
+            devices: await sync.devices((await claimsOf(headers)).userId),
+          }),
           {
             detail: {
               summary: "The account's devices by the id in their clocks",
