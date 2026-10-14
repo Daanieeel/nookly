@@ -22,6 +22,12 @@ import {
 import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import {
+  SEGMENTED_CLASSES,
+  SEGMENT_CLASSES,
+  SEGMENT_IDLE_CLASSES,
+  SEGMENT_SELECTED_CLASSES,
+} from "#/classes.ts";
 import { syncRuntime } from "./sync-instance.ts";
 
 const ROLES: { role: ShareRole; label: string }[] = [
@@ -40,11 +46,7 @@ function RoleToggle({
   label: string;
 }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="flex h-8 shrink-0 items-center rounded-md border border-input bg-secondary p-0.5"
-    >
+    <div role="radiogroup" aria-label={label} className={SEGMENTED_CLASSES}>
       {ROLES.map((option) => (
         <button
           key={option.role}
@@ -53,10 +55,8 @@ function RoleToggle({
           aria-checked={value === option.role}
           onClick={() => onChange(option.role)}
           className={cn(
-            "h-full rounded-sm px-2 text-xs transition-colors",
-            value === option.role
-              ? "bg-background text-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground",
+            SEGMENT_CLASSES,
+            value === option.role ? SEGMENT_SELECTED_CLASSES : SEGMENT_IDLE_CLASSES,
           )}
         >
           {option.label}

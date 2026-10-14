@@ -4,16 +4,15 @@ import { View } from "react-native";
 import { useRecents, useSearch } from "../data/queries.ts";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import type { EntityRecord } from "@nookly/shared/data";
 
 function Results({ entities, empty }: { entities: EntityRecord[]; empty: string }) {
   const router = useRouter();
   if (entities.length === 0) return <Empty text={empty} />;
-  return entities.map((entity, i) => (
+  return entities.map((entity) => (
     <View key={entity.id}>
-      {i > 0 ? <Separator /> : null}
       <Row
         title={entity.title || "Untitled"}
         subtitle={entity.key}

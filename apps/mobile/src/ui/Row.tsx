@@ -1,9 +1,11 @@
+import { LIST_ROW_CLASSES, SECTION_HEADING_CLASSES } from "@nookly/frontend/classes";
+import { CARD_CLASSES, SEPARATOR_CLASSES } from "@nookly/ui/classes";
 import { Pressable, View } from "react-native";
+import { cn, row, withState } from "./classes.ts";
 import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
 
-/// A list row: an icon, a title with an optional line below, and something trailing.
-/// At least 44 points tall, so it is easy to hit.
+/// A list row, the desktop's (`LIST_ROW_CLASSES`): an icon, a title with an optional
+/// line below, and something trailing. Taller with a second line, so it stays easy to hit.
 export function Row({
   title,
   subtitle,
@@ -22,26 +24,21 @@ export function Row({
   muted?: boolean;
   accessibilityHint?: string;
 }) {
-  const theme = useTheme();
   return (
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 48,
-        paddingHorizontal: theme.space(4),
-        paddingVertical: theme.space(2),
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space(3),
-        backgroundColor: pressed ? theme.colors.accent : theme.colors.card,
-        opacity: muted ? 0.5 : 1,
-      })}
+      className={cn(
+        row(LIST_ROW_CLASSES),
+        "gap-3 px-4 active:bg-accent/40",
+        subtitle && "h-auto min-h-12 py-2",
+        muted && "opacity-50",
+      )}
     >
       {icon}
-      <View style={{ flex: 1, gap: 2 }}>
+      <View className="flex-1 gap-0.5">
         <Text numberOfLines={1}>{title}</Text>
         {subtitle ? (
           <Text variant="small" tone="muted" numberOfLines={1}>
@@ -54,7 +51,14 @@ export function Row({
   );
 }
 
-/// Rows grouped on a card under a small heading.
+/// The line under a list row, the desktop's (`LIST_ROW_CLASSES`), for rows of other
+/// content in a `Section`.
+export const ROW_DIVIDER = LIST_ROW_CLASSES.split(" ")
+  .filter((name) => name.startsWith("border-"))
+  .join(" ");
+
+/// Rows on the desktop's `Card` under a small heading (`SECTION_HEADING_CLASSES`). The
+/// last row's bottom line tucks under the card's edge.
 export function Section({
   title,
   children,
@@ -64,52 +68,33 @@ export function Section({
   children: React.ReactNode;
   action?: React.ReactNode;
 }) {
-  const theme = useTheme();
   return (
-    <View style={{ gap: theme.space(2) }}>
+    <View className="gap-1">
       {title || action ? (
-        <View
-          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: theme.space(1) }}
-        >
+        <View className="min-h-8 flex-row items-center px-1">
           {title ? (
-            <Text
-              variant="label"
-              tone="muted"
-              accessibilityRole="header"
-              style={{ flex: 1, textTransform: "uppercase", letterSpacing: 0.5 }}
-            >
+            <Text accessibilityRole="header" className={cn(SECTION_HEADING_CLASSES, "flex-1 pb-0")}>
               {title}
             </Text>
           ) : null}
           {action}
         </View>
       ) : null}
-      <View
-        style={{
-          borderRadius: theme.radius.lg,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.card,
-          overflow: "hidden",
-        }}
-      >
-        {children}
+      <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
+        <View className="-mb-px">{children}</View>
       </View>
     </View>
   );
 }
 
+/// The desktop's horizontal `Separator`, for content that isn't rows.
 export function Separator() {
-  const theme = useTheme();
-  return (
-    <View style={{ height: 1, backgroundColor: theme.colors.border, marginLeft: theme.space(4) }} />
-  );
+  return <View className={withState(SEPARATOR_CLASSES, { orientation: "horizontal" })} />;
 }
 
 export function Empty({ text }: { text: string }) {
-  const theme = useTheme();
   return (
-    <View style={{ padding: theme.space(4) }}>
+    <View className="p-4">
       <Text tone="muted">{text}</Text>
     </View>
   );

@@ -25,7 +25,6 @@ import { DateField } from "../ui/DateField.tsx";
 import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
-import { FONT, useTheme } from "../ui/theme.ts";
 import { LabelsSection, RelatedSection } from "./RelatedSection.tsx";
 import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
@@ -47,7 +46,6 @@ function useReadOnly(entity: EntityRecord | null | undefined): boolean {
 }
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
-  const theme = useTheme();
   const [title, setTitle] = useState(entity.title);
   useEffect(() => setTitle(entity.title), [entity.title]);
   const rename = useLocalWrite((db, next: string) => renameEntity(db, entity.id, next));
@@ -57,22 +55,15 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
       value={title}
       editable={!readOnly}
       placeholder="Untitled"
-      placeholderTextColor={theme.colors.mutedForeground}
       onChangeText={setTitle}
       onEndEditing={() => title !== entity.title && rename.mutate(title.trim())}
       multiline
-      style={{
-        fontFamily: FONT.heading,
-        fontSize: theme.text.xl,
-        color: theme.colors.foreground,
-        padding: 0,
-      }}
+      className="p-0 font-heading text-xl text-foreground placeholder:text-muted-foreground"
     />
   );
 }
 
 function Actions({ entity }: { entity: EntityRecord }) {
-  const theme = useTheme();
   const router = useRouter();
   const signedIn = useSyncState((s) => s.user !== null);
   const shareable =
@@ -81,9 +72,10 @@ function Actions({ entity }: { entity: EntityRecord }) {
   const trash = useLocalWrite((db) => trashEntity(db, entity.id));
   const restore = useLocalWrite((db) => restoreEntity(db, entity.id));
   return (
-    <View style={{ flexDirection: "row", gap: theme.space(2), flexWrap: "wrap" }}>
+    <View className="flex-row flex-wrap gap-2">
       {entity.deletedAt ? (
         <Button
+          variant="secondary"
           label="Restore"
           status={statusOf(restore)}
           errorLabel="Couldn't restore"
@@ -125,7 +117,6 @@ const REPEATS: { label: string; rule: RepeatRule | null }[] = [
 ];
 
 function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const theme = useTheme();
   const { data: task } = useTask(id);
   const { data: statuses = [] } = useStatuses();
   const status = useLocalWrite((db, statusId: string) => setTaskStatus(db, id, statusId));
@@ -137,7 +128,7 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   return (
     <>
       <Section title="Status">
-        <View style={{ padding: theme.space(3) }}>
+        <View className="p-3">
           <ChipGroup label="Status">
             {statuses.map((s) => (
               <Chip
@@ -153,7 +144,7 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
         </View>
       </Section>
       <Section title="Due">
-        <View style={{ padding: theme.space(3), gap: theme.space(2) }}>
+        <View className="gap-2 p-3">
           <DateField
             label="Due date"
             value={task.dueDate}
@@ -161,15 +152,19 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
             onChange={(day) => dates.mutate(day)}
           />
           {!readOnly ? (
-            <View style={{ flexDirection: "row", gap: theme.space(2) }}>
-              <Button label="Today" onPress={() => dates.mutate(localDay())} />
-              <Button label="Tomorrow" onPress={() => dates.mutate(addDays(localDay(), 1))} />
+            <View className="flex-row gap-2">
+              <Button variant="secondary" label="Today" onPress={() => dates.mutate(localDay())} />
+              <Button
+                variant="secondary"
+                label="Tomorrow"
+                onPress={() => dates.mutate(addDays(localDay(), 1))}
+              />
             </View>
           ) : null}
         </View>
       </Section>
       <Section title="Repeat">
-        <View style={{ padding: theme.space(3) }}>
+        <View className="p-3">
           <ChipGroup label="Repeat">
             {REPEATS.map((r) => (
               <Chip
@@ -190,7 +185,6 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
 /// One entity, as its own type shows it. Every type gets its title, Space, key, Pin
 /// and Trash; Tasks, pages, bookmarks and calendar entries also their own fields.
 export function EntityScreen({ id }: { id: string }) {
-  const theme = useTheme();
   const { db } = useAppData();
   const { data: entity, isLoading } = useEntity(id);
   const { data: spaces = [] } = useSpaces();
@@ -211,14 +205,14 @@ export function EntityScreen({ id }: { id: string }) {
     <>
       <Stack.Screen options={{ title: entity.key }} />
       <Screen>
-        <View style={{ gap: theme.space(2) }}>
+        <View className="gap-2">
           <TitleField entity={entity} readOnly={readOnly} />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: theme.space(2) }}>
+          <View className="flex-row items-center gap-2">
             {space ? <SpaceDot color={space.color} /> : null}
             <Text variant="small" tone="muted">
               {space?.name ?? ""}
             </Text>
-            {entity.deletedAt ? <Badge label="In Trash" color={theme.colors.destructive} /> : null}
+            {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
             {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
           </View>
         </View>

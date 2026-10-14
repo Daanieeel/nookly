@@ -6,7 +6,6 @@ import { Button, statusOf } from "../ui/Button.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 
 const time = z.union([
@@ -44,7 +43,6 @@ export function CalendarEntryForm({
   status: { isPending: boolean; isSuccess: boolean; isError: boolean };
   onSubmit: (input: CalendarEntryInput) => void;
 }) {
-  const theme = useTheme();
   const form = useForm({
     defaultValues: {
       title: initial.title,
@@ -74,7 +72,7 @@ export function CalendarEntryForm({
       }),
   });
   return (
-    <View style={{ gap: theme.space(3) }}>
+    <View className="gap-3">
       {showTitle ? (
         <form.Field name="title">
           {(field) => (
@@ -104,9 +102,7 @@ export function CalendarEntryForm({
       </form.Field>
       <form.Field name="allDay">
         {(field) => (
-          <View
-            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-          >
+          <View className="flex-row items-center justify-between">
             <Text>All day</Text>
             <Switch
               accessibilityLabel="All day"
@@ -120,8 +116,8 @@ export function CalendarEntryForm({
       <form.Subscribe selector={(s) => s.values.allDay}>
         {(allDay) =>
           allDay ? null : (
-            <View style={{ flexDirection: "row", gap: theme.space(3) }}>
-              <View style={{ flex: 1 }}>
+            <View className="flex-row gap-3">
+              <View className="flex-1">
                 <form.Field name="startTime">
                   {(field) => (
                     <>
@@ -141,7 +137,7 @@ export function CalendarEntryForm({
                   )}
                 </form.Field>
               </View>
-              <View style={{ flex: 1 }}>
+              <View className="flex-1">
                 <form.Field name="endTime">
                   {(field) => (
                     <>
@@ -180,7 +176,6 @@ export function CalendarEntryForm({
       {!readOnly ? (
         <Button
           label={submitLabel}
-          variant="primary"
           status={statusOf(status)}
           errorLabel="Couldn't save"
           onPress={() => void form.handleSubmit()}

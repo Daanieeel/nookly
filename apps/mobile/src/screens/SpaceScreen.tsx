@@ -3,7 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useSpaceModules, useSpaces } from "../data/queries.ts";
 import { MODULE_ICONS } from "../ui/icons.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
 
@@ -30,11 +30,10 @@ export function SpaceScreen({ spaceId }: { spaceId: string }) {
   const shown = modules.filter(isModuleKey);
   const more = PHONE_MODULES.filter((m) => !shown.includes(m));
   const rows = (keys: ModuleKey[]) =>
-    keys.map((module, i) => {
+    keys.map((module) => {
       const Icon = MODULE_ICONS[module];
       return (
         <View key={module}>
-          {i > 0 ? <Separator /> : null}
           <Row
             title={MODULE_LABELS[module]}
             icon={<Icon size={18} color={theme.colors.mutedForeground} />}

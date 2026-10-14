@@ -1,4 +1,9 @@
 import { isSharedSpace } from "@nookly/shared/api";
+import {
+  INPUT_CLASSES,
+  SIDEBAR_GROUP_LABEL_CLASSES,
+  sidebarMenuButtonVariants,
+} from "@nookly/ui/classes";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
 import {
   IconCalendarEvent,
@@ -23,7 +28,8 @@ import { SpaceDot } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
 import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
 import { Text } from "../ui/Text.tsx";
-import { FONT, useTheme } from "../ui/theme.ts";
+import { cn, row, splitText, withState } from "../ui/classes.ts";
+import { useTheme } from "../ui/theme.ts";
 import { syncLine } from "./sync-status.ts";
 
 /// One line of the sidebar: an icon, a name, and the current page lit up.
@@ -47,27 +53,20 @@ function NavRow({
   indent?: number;
   subtitle?: string;
 }) {
-  const theme = useTheme();
+  const { box, text } = splitText(
+    row(withState(sidebarMenuButtonVariants({ size: "lg" }), { active, state: "closed" })),
+  );
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${label}, ${subtitle}` : label)}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 40,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space(3),
-        paddingLeft: theme.space(3 + indent * 6),
-        paddingRight: theme.space(2),
-        borderRadius: theme.radius.md,
-        backgroundColor: active || pressed ? theme.colors.accent : "transparent",
-      })}
+      className={cn(box, "h-auto min-h-10 gap-3 py-2", indent > 0 && "pl-8")}
     >
       {icon}
-      <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={active ? { fontFamily: FONT.medium } : undefined}>
+      <View className="flex-1">
+        <Text numberOfLines={1} className={text}>
           {label}
         </Text>
         {subtitle ? (
@@ -82,23 +81,10 @@ function NavRow({
 }
 
 function Heading({ title, action }: { title: string; action?: React.ReactNode }) {
-  const theme = useTheme();
+  const { box, text } = splitText(row(cn(SIDEBAR_GROUP_LABEL_CLASSES)));
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        minHeight: 32,
-        paddingLeft: theme.space(3),
-        marginTop: theme.space(4),
-      }}
-    >
-      <Text
-        variant="label"
-        tone="muted"
-        accessibilityRole="header"
-        style={{ flex: 1, textTransform: "uppercase", letterSpacing: 0.5 }}
-      >
+    <View className={cn(box, "mt-4")}>
+      <Text accessibilityRole="header" className={cn(text, "flex-1")}>
         {title}
       </Text>
       {action}
@@ -128,7 +114,7 @@ function SpaceRows({
         label={space.name}
         subtitle={shared ? "Shared with you" : undefined}
         icon={
-          <View style={{ width: 20, alignItems: "center" }}>
+          <View className="w-5 items-center">
             {shared ? (
               <IconUsers size={18} color={space.color} />
             ) : (
@@ -196,41 +182,29 @@ export function Sidebar({ close }: { close: () => void }) {
     { label: "Calendar", href: "/calendar", Icon: IconCalendarEvent },
     { label: "Tasks", href: "/tasks", Icon: IconChecklist },
   ];
+  const { box: searchBox, text: searchText } = splitText(row(INPUT_CLASSES));
   return (
     <View
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.background,
-        paddingTop: insets.top + theme.space(2),
-        paddingBottom: insets.bottom + theme.space(2),
-      }}
+      className="flex-1 bg-sidebar"
+      style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}
     >
-      <View style={{ paddingHorizontal: theme.space(3) }}>
+      <View className="px-3">
         <Pressable
           accessibilityRole="search"
           accessibilityLabel="Search"
           accessibilityHint="Titles, keys and page text across every Space"
           onPress={() => go("/search")}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: theme.space(2),
-            minHeight: 40,
-            paddingHorizontal: theme.space(3),
-            borderRadius: theme.radius.md,
-            backgroundColor: pathname === "/search" ? theme.colors.accent : theme.colors.secondary,
-            borderWidth: 1,
-            borderColor: theme.colors.input,
-          }}
+          className={cn(
+            searchBox,
+            "h-10 items-center gap-2",
+            pathname === "/search" && "border-ring",
+          )}
         >
           <IconSearch size={18} color={muted} />
-          <Text tone="muted">Search</Text>
+          <Text className={cn(searchText, "text-muted-foreground")}>Search</Text>
         </Pressable>
       </View>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: theme.space(2), paddingTop: theme.space(3) }}
-      >
+      <ScrollView className="flex-1" contentContainerClassName="p-2 pt-3">
         {top.map(({ label, href, Icon }) => (
           <NavRow
             key={href}
@@ -264,7 +238,7 @@ export function Sidebar({ close }: { close: () => void }) {
           }
         />
         {spaces.length === 0 ? (
-          <Text tone="muted" style={{ paddingHorizontal: theme.space(3) }}>
+          <Text tone="muted" className="px-2">
             No Spaces yet. Make one, or sign in to sync yours.
           </Text>
         ) : null}
@@ -285,14 +259,7 @@ export function Sidebar({ close }: { close: () => void }) {
           </>
         ) : null}
       </ScrollView>
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderTopColor: theme.colors.border,
-          paddingHorizontal: theme.space(2),
-          paddingTop: theme.space(2),
-        }}
-      >
+      <View className="border-t border-sidebar-border px-2 pt-2">
         <NavRow
           label="Trash"
           active={pathname === "/trash"}

@@ -1,5 +1,6 @@
-/// The design tokens of `packages/ui/src/styles.css`, for clients that can't read CSS
-/// (the mobile app). A test checks every value against the stylesheet, so the two can
+/// The colors of `packages/ui/src/styles.css`, for what can't take a class: icons and
+/// the navigation bars on the phone, which styles everything else with the desktop's
+/// classes through NativeWind. A test checks every value against the stylesheet, so the two can
 /// never drift: change a color there, and this file has to follow.
 
 export interface Palette {
@@ -99,15 +100,3 @@ export const DARK: Palette = palette({
   accentPurple: "#c473fc",
   accentYellow: "#ffcc47",
 });
-
-/// `--radius` and the steps Tailwind derives from it, in pixels (1rem = 16px).
-export const RADIUS = { sm: 6, md: 8, lg: 10, xl: 14 } as const;
-
-/// Tailwind's spacing step: `p-3` is 3 of these.
-export const SPACING = 4;
-
-/// Inter for text, Inter Tight for headlines, as on the desktop.
-export const FONTS = { sans: "Inter", heading: "Inter Tight", mono: "Menlo" } as const;
-
-/// Text sizes in pixels, Tailwind's `text-xs` to `text-xl`.
-export const TEXT = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20 } as const;

@@ -5,7 +5,7 @@ import { useSyncState } from "../data/context.tsx";
 import { useAgenda, usePinned, useSpaces, useStatuses, useTasks } from "../data/queries.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -56,7 +56,7 @@ export function DashboardScreen() {
         }}
       />
       <Screen onRefresh={onRefresh} refreshing={refreshing}>
-        <View style={{ gap: theme.space(1) }}>
+        <View className="gap-1">
           <Text variant="title" accessibilityRole="header">
             {greeting()}
           </Text>
@@ -69,9 +69,8 @@ export function DashboardScreen() {
           {items.length === 0 ? (
             <Empty text="Nothing on the calendar today." />
           ) : (
-            items.map((item, i) => (
+            items.map((item) => (
               <View key={item.id}>
-                {i > 0 ? <Separator /> : null}
                 <AgendaRow item={item} color={colorOf(item.spaceId)} />
               </View>
             ))
@@ -81,9 +80,8 @@ export function DashboardScreen() {
           {due.length === 0 ? (
             <Empty text="No tasks due." />
           ) : (
-            due.map((task, i) => (
+            due.map((task) => (
               <View key={task.entity.id}>
-                {i > 0 ? <Separator /> : null}
                 <TaskRow
                   task={task}
                   statuses={statuses}
@@ -95,9 +93,8 @@ export function DashboardScreen() {
         </Section>
         {pinnedItems.length > 0 ? (
           <Section title="Pinned">
-            {pinnedItems.map((entity, i) => (
+            {pinnedItems.map((entity) => (
               <View key={entity.id}>
-                {i > 0 ? <Separator /> : null}
                 <Row
                   title={entity.title || "Untitled"}
                   subtitle={entity.key}

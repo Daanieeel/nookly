@@ -1,6 +1,7 @@
 import { IconAlertTriangle, IconCheck, IconLoader2 } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import { cn } from "@nookly/ui/lib/utils";
+import { FIELD_ERROR_CLASSES } from "#/classes.ts";
 
 /// In-place action feedback (docs/05-ui-ux-direction.md, "Success and Error Feedback"):
 /// the control that was used shows pending, success and error itself; no toasts.
@@ -134,7 +135,7 @@ export function StatusButtonContent({
 export function FieldError({ message }: { message: string | null | false | undefined }) {
   if (!message) return null;
   return (
-    <p role="alert" className="flex items-center gap-1 text-xs text-destructive">
+    <p role="alert" className={FIELD_ERROR_CLASSES}>
       <IconAlertTriangle size={12} className="shrink-0" />
       {message}
     </p>

@@ -12,7 +12,6 @@ import { useLocalWrite } from "../data/context.tsx";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
 import { Row } from "../ui/Row.tsx";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { dayLabel, localDay } from "./dates.ts";
 
 /// A task's status as its circle, the way the desktop draws it.
@@ -46,7 +45,6 @@ export function TaskRow({
   statuses: TaskStatus[];
   spaceColor?: string;
 }) {
-  const theme = useTheme();
   const router = useRouter();
   const status = statuses.find((s) => s.id === task.statusId);
   const finished = (status?.doneness ?? 0) >= 100;
@@ -59,12 +57,12 @@ export function TaskRow({
     <SwipeRow
       left={{
         label: finished ? "Reopen" : "Done",
-        color: theme.colors.positive,
+        tone: "positive",
         onPress: () => setStatus.mutate(finished ? "todo" : "done"),
       }}
       right={{
         label: "Trash",
-        color: theme.colors.destructive,
+        tone: "destructive",
         onPress: () => trash.mutate(task.entity.id),
       }}
     >
@@ -80,7 +78,7 @@ export function TaskRow({
             {task.dueDate ? (
               <Badge
                 label={dayLabel(task.dueDate)}
-                color={overdue ? theme.colors.destructive : undefined}
+                variant={overdue ? "destructive" : "secondary"}
               />
             ) : null}
           </>

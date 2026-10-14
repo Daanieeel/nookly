@@ -9,7 +9,9 @@
     "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",
     "./fonts": "./src/fonts.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./native-theme.css": "./src/native-theme.css",
+    "./classes": "./src/classes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -16,7 +16,7 @@ import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
 
@@ -40,9 +40,8 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
       }
     >
       {related.length === 0 ? <Empty text="Nothing linked yet." /> : null}
-      {related.map((item, i) => (
+      {related.map((item) => (
         <View key={item.relationshipId}>
-          {i > 0 ? <Separator /> : null}
           <Row
             title={item.entity.title || "Untitled"}
             subtitle={item.entity.key}
@@ -66,7 +65,6 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
 
 /// The Space's labels as chips: tap to put one on or take it off, or name a new one.
 export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
-  const theme = useTheme();
   const { data: labels = [] } = useLabels(entity.spaceId);
   const { data: attached = [] } = useEntityLabels(entity.id);
   const [name, setName] = useState("");
@@ -83,7 +81,7 @@ export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; read
   if (readOnly && attached.length === 0) return null;
   return (
     <Section title="Labels">
-      <View style={{ padding: theme.space(3), gap: theme.space(3) }}>
+      <View className="gap-3 p-3">
         {labels.length > 0 ? (
           <ChipGroup label="Labels" multiple>
             {(readOnly ? attached : labels).map((label) => (
@@ -91,13 +89,10 @@ export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; read
                 key={label.id}
                 multiple
                 label={label.name}
-                color={label.color}
                 selected={on.has(label.id)}
                 disabled={readOnly}
                 icon={
-                  <View
-                    style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: label.color }}
-                  />
+                  <View className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
                 }
                 onPress={() => toggle.mutate({ labelId: label.id, on: !on.has(label.id) })}
               />
@@ -105,8 +100,8 @@ export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; read
           </ChipGroup>
         ) : null}
         {!readOnly ? (
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: theme.space(2) }}>
-            <View style={{ flex: 1 }}>
+          <View className="flex-row items-end gap-2">
+            <View className="flex-1">
               <Field
                 label="New label"
                 placeholder="Urgent"
@@ -119,6 +114,7 @@ export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; read
               />
             </View>
             <Button
+              variant="secondary"
               label="Add"
               status={statusOf(add)}
               disabled={!name.trim()}
@@ -158,9 +154,8 @@ export function LinkPickerScreen({ entityId }: { entityId: string }) {
         {shown.length === 0 ? (
           <Empty text={searching ? "Nothing matches." : "Search for an item to link."} />
         ) : null}
-        {shown.map((entity, i) => (
+        {shown.map((entity) => (
           <View key={entity.id}>
-            {i > 0 ? <Separator /> : null}
             <Row
               title={entity.title || "Untitled"}
               subtitle={entity.key}

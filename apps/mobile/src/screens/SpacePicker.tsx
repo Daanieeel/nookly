@@ -20,7 +20,6 @@ export function SpacePicker({
         <Chip
           key={space.id}
           label={space.name}
-          color={space.color}
           selected={space.id === value}
           icon={<SpaceDot color={space.color} />}
           onPress={() => onChange(space.id)}

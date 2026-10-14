@@ -1,52 +1,70 @@
+import {
+  FIELD_ERROR_CLASSES,
+  FORM_FIELD_CLASSES,
+  REQUIRED_MARK_CLASSES,
+} from "@nookly/frontend/classes";
+import { FIELD_LABEL_CLASSES, INPUT_CLASSES, TEXTAREA_CLASSES } from "@nookly/ui/classes";
+import { IconAlertTriangle } from "@tabler/icons-react-native";
 import { TextInput, type TextInputProps, View } from "react-native";
+import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
-import { FONT, useTheme } from "./theme.ts";
+import { useTheme } from "./theme.ts";
 
-/// A labelled input like the desktop's `FormField`: a small label above, a red star
-/// when required, the error right below. Styled like a secondary button, so it recedes.
+/// The desktop's `FieldError`: a warning icon and what is wrong.
+function FieldError({ message }: { message: string | null | undefined }) {
+  const theme = useTheme();
+  if (!message) return null;
+  const { box, text } = splitText(row(FIELD_ERROR_CLASSES));
+  return (
+    <View className={box} accessibilityLiveRegion="polite">
+      <IconAlertTriangle size={12} color={theme.colors.destructive} />
+      <Text className={text}>{message}</Text>
+    </View>
+  );
+}
+
+/// The desktop's `FieldLabel`, with the red star of a required field.
+export function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+  const { box, text } = splitText(row(FIELD_LABEL_CLASSES));
+  return (
+    <View className={box}>
+      <Text className={text}>{label}</Text>
+      {required ? (
+        <Text className={cn(text, REQUIRED_MARK_CLASSES)} accessibilityLabel="required">
+          *
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/// The desktop's `FormField` around its `Input` (or `Textarea` when multiline): the
+/// label above, the error below, the control outlined in red while there is one.
 export function Field({
   label,
   required,
   error,
   multiline,
+  className,
   ...props
-}: TextInputProps & { label: string; required?: boolean; error?: string }) {
-  const theme = useTheme();
+}: TextInputProps & { label: string; required?: boolean; error?: string; className?: string }) {
   return (
-    <View style={{ gap: theme.space(1) }}>
-      <Text variant="label" tone="muted">
-        {label}
-        {required ? (
-          <Text variant="label" tone="destructive">
-            {" "}
-            *
-          </Text>
-        ) : null}
-      </Text>
+    <View className={FORM_FIELD_CLASSES}>
+      <FieldLabel label={label} required={required} />
       <TextInput
         accessibilityLabel={label}
-        placeholderTextColor={theme.colors.mutedForeground}
         multiline={multiline}
         {...props}
-        style={{
-          minHeight: multiline ? 96 : 40,
-          paddingHorizontal: theme.space(3),
-          paddingVertical: multiline ? theme.space(2) : 0,
-          borderRadius: theme.radius.md,
-          borderWidth: 1,
-          borderColor: error ? theme.colors.destructive : theme.colors.input,
-          backgroundColor: theme.colors.secondary,
-          color: theme.colors.foreground,
-          fontFamily: FONT.regular,
-          fontSize: theme.text.sm,
-          textAlignVertical: multiline ? "top" : "center",
-        }}
+        className={cn(
+          multiline ? TEXTAREA_CLASSES : INPUT_CLASSES,
+          "font-sans text-foreground",
+          multiline ? "min-h-24" : "h-10",
+          error && "border-destructive",
+          className,
+        )}
+        textAlignVertical={multiline ? "top" : "center"}
       />
-      {error ? (
-        <Text variant="small" tone="destructive" accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      ) : null}
+      <FieldError message={error} />
     </View>
   );
 }

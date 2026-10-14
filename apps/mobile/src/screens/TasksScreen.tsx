@@ -3,7 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useSpaces, useStatuses, useTasks } from "../data/queries.ts";
 import { IconButton } from "../ui/Button.tsx";
-import { Section, Separator } from "../ui/Row.tsx";
+import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -47,9 +47,8 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           const shown = status.doneness >= 100 ? inStatus.slice(0, FINISHED_SHOWN) : inStatus;
           return (
             <Section key={status.id} title={`${status.name} · ${inStatus.length}`}>
-              {shown.map((task, i) => (
+              {shown.map((task) => (
                 <View key={task.entity.id}>
-                  {i > 0 ? <Separator /> : null}
                   <TaskRow
                     task={task}
                     statuses={statuses}

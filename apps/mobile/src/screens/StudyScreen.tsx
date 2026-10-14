@@ -4,9 +4,11 @@ import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useCards, useDeck } from "../data/queries.ts";
+import { CARD_CLASSES } from "@nookly/ui/classes";
 import { Button } from "../ui/Button.tsx";
+import { cn } from "../ui/classes.ts";
+import { Separator } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 
 const RATING_LABELS = {
   again: "Again",
@@ -30,7 +32,6 @@ function comesBack(dueAt: string, now = Date.now()): string {
 /// Studying a deck, as on the desktop: the front, then the back, then how well it was
 /// known, which FSRS turns into when it comes back.
 export function StudyScreen({ deckId }: { deckId: string }) {
-  const theme = useTheme();
   const router = useRouter();
   const { data: deck } = useDeck(deckId);
   const { data: cards } = useCards(deckId);
@@ -45,12 +46,9 @@ export function StudyScreen({ deckId }: { deckId: string }) {
   return (
     <>
       <Stack.Screen options={{ title: deck?.entity.title || "Study" }} />
-      <ScrollView
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
-        contentContainerStyle={{ padding: theme.space(4), gap: theme.space(4), flexGrow: 1 }}
-      >
+      <ScrollView className="flex-1 bg-background" contentContainerClassName="grow gap-4 p-4">
         {!card ? (
-          <View style={{ flex: 1, justifyContent: "center", gap: theme.space(3) }}>
+          <View className="flex-1 justify-center gap-3">
             <Text variant="title" accessibilityRole="header">
               All done for now
             </Text>
@@ -59,27 +57,17 @@ export function StudyScreen({ deckId }: { deckId: string }) {
                 ? `You studied ${studied} ${studied === 1 ? "card" : "cards"}. The rest come back when they are due.`
                 : "Nothing is due in this deck."}
             </Text>
-            <Button label="Close" variant="primary" onPress={() => router.back()} />
+            <Button label="Close" onPress={() => router.back()} />
           </View>
         ) : (
           <>
-            <View
-              style={{
-                padding: theme.space(5),
-                gap: theme.space(4),
-                borderRadius: theme.radius.lg,
-                borderWidth: 1,
-                borderColor: theme.colors.border,
-                backgroundColor: theme.colors.card,
-                minHeight: 220,
-              }}
-            >
+            <View className={cn(CARD_CLASSES, "min-h-56 gap-4 p-5")}>
               <Text variant="heading" accessibilityLabel={`Front: ${card.front}`}>
                 {card.front}
               </Text>
               {revealed ? (
                 <>
-                  <View style={{ height: 1, backgroundColor: theme.colors.border }} />
+                  <Separator />
                   <Text accessibilityLabel={`Back: ${card.back}`} accessibilityLiveRegion="polite">
                     {card.back}
                   </Text>
@@ -87,14 +75,14 @@ export function StudyScreen({ deckId }: { deckId: string }) {
               ) : null}
             </View>
             {revealed && next ? (
-              <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+              <View className="flex-row gap-2">
                 {RATINGS.map((rating) => (
-                  <View key={rating} style={{ flex: 1, gap: theme.space(1), alignItems: "center" }}>
+                  <View key={rating} className="flex-1 items-center gap-1">
                     <Button
                       label={RATING_LABELS[rating]}
-                      variant={rating === "good" ? "primary" : "secondary"}
+                      variant={rating === "good" ? "default" : "secondary"}
                       accessibilityHint={`Comes back in ${comesBack(next[rating])}`}
-                      style={{ alignSelf: "stretch", paddingHorizontal: theme.space(1) }}
+                      className="self-stretch px-1"
                       disabled={rate.isPending}
                       onPress={() =>
                         rate.mutate(
@@ -115,7 +103,7 @@ export function StudyScreen({ deckId }: { deckId: string }) {
                 ))}
               </View>
             ) : (
-              <Button label="Show Answer" variant="primary" onPress={() => setRevealed(true)} />
+              <Button label="Show Answer" onPress={() => setRevealed(true)} />
             )}
             {rate.isError ? (
               <Text tone="destructive">Couldn't save that answer, try again.</Text>

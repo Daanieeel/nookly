@@ -8,5 +8,6 @@
     "noEmit": true,
     "types": ["jest"]
   },
-  "include": ["src", "*.ts"]
+  "include": ["src", "*.ts", "nativewind-env.d.ts"],
+  "exclude": ["styles.test.ts"]
 }

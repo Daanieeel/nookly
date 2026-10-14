@@ -1,5 +1,4 @@
-import { RefreshControl, ScrollView, View } from "react-native";
-import { useTheme } from "./theme.ts";
+import { RefreshControl, ScrollView } from "react-native";
 
 /// A screen's scrolling page on the app's background, with pull to sync.
 export function Screen({
@@ -11,22 +10,17 @@ export function Screen({
   onRefresh?: () => void;
   refreshing?: boolean;
 }) {
-  const theme = useTheme();
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{
-        padding: theme.space(4),
-        gap: theme.space(5),
-        paddingBottom: theme.space(12),
-      }}
+      className="flex-1 bg-background"
+      contentContainerClassName="gap-5 p-4 pb-12"
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
       refreshControl={
         onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
       }
     >
-      <View style={{ gap: theme.space(5) }}>{children}</View>
+      {children}
     </ScrollView>
   );
 }

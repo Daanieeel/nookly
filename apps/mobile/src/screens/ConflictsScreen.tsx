@@ -5,10 +5,10 @@ import { View } from "react-native";
 import { useAppData } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { Empty, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Section, ROW_DIVIDER } from "../ui/Row.tsx";
+import { cn } from "../ui/classes.ts";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 
 /// The lost changes, as the conflicts count and the list read them.
 function useConflictItems() {
@@ -20,7 +20,6 @@ function useConflictItems() {
 }
 
 function ConflictRow({ item }: { item: ConflictItem }) {
-  const theme = useTheme();
   const router = useRouter();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
@@ -46,14 +45,15 @@ function ConflictRow({ item }: { item: ConflictItem }) {
     minute: "2-digit",
   });
   return (
-    <View style={{ padding: theme.space(4), gap: theme.space(2) }}>
+    <View className={cn("gap-2 p-4", ROW_DIVIDER)}>
       <Text numberOfLines={1}>{item.title}</Text>
       <Text variant="small" tone="muted">
         {item.field}
         {item.value !== null ? `: ${item.value}` : ""} · {when}
       </Text>
-      <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+      <View className="flex-row gap-2">
         <Button
+          variant="secondary"
           label="Bring Back"
           status={statusOf(restore)}
           successLabel="Back"
@@ -84,9 +84,8 @@ export function ConflictsScreen() {
       </Text>
       <Section>
         {items.length === 0 ? <Empty text="No conflicts." /> : null}
-        {items.slice(0, 100).map((item, i) => (
+        {items.slice(0, 100).map((item) => (
           <View key={item.conflict.id}>
-            {i > 0 ? <Separator /> : null}
             <ConflictRow item={item} />
           </View>
         ))}

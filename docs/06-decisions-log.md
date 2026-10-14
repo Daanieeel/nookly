@@ -469,3 +469,16 @@ The tab bar gives way to a sidebar like the desktop's and Claude's app: Search, 
 Courses, Exams, Assignments and Decks are edited on the phone with their own fields, and decks are studied there. FSRS is ported to TypeScript (`packages/shared/src/data/fsrs.ts`) from `rs-fsrs` 1.2.1 at the desktop's defaults, and a Rust test writes reviews the desktop scheduled to `generated/fsrs-fixtures.json`, which the TypeScript replays, so a card comes back on the same day whichever device studied it. Days and times are picked with the system's picker (`@react-native-community/datetimepicker`). Accent colors and the exam and assignment statuses live in `@nookly/shared/colors` for both apps.
 
 **Why:** one navigation model across desktop and phone, and a review on the phone must schedule exactly like one on the desktop.
+
+---
+
+### The phone styles with the desktop's classes (NativeWind)
+
+Supersedes the earlier rejection of NativeWind. NativeWind 5 runs on Tailwind 4, like the desktop, so the phone now styles with the desktop's classes instead of its own style objects. It is a release candidate (`nativewind@5.0.0-rc.0`, `react-native-css@3.1.0-rc.0`, pinned exactly), and `lightningcss` is pinned to 1.30.1, the version its compiler reads.
+
+- **Theme:** `packages/ui/src/native-theme.css`, generated from `styles.css` by `bun run theme:native` (a test fails while it is behind). The dark theme follows the system setting, and radii become plain lengths, because the native style engine can't do `calc()` with a variable.
+- **Primitives:** `@nookly/ui/classes` holds the classes of every primitive the phone draws: `buttonVariants` and `badgeVariants` straight from their components, and the others as constants. The primitives stay untouched (AGENTS.md); `packages/frontend/src/test/ui-classes.test.tsx` renders each one and fails when it drifts from its constant.
+- **Components:** `@nookly/frontend/classes` holds the classes of the desktop's own components (`FormField`, `FieldError`, settings headings, list rows, the color swatch, the segmented role toggle), and those components use the constants themselves.
+- **On the phone:** `apps/mobile/src/ui` rebuilds the primitives with those classes. Text classes move onto the `Text` inside a box (React Native doesn't inherit them), `data-[state]:` classes resolve from the component's own state, and `flex` gets `flex-row` where the desktop means a row. Inter loads per weight, so `font-medium` and the like pick the face. Inputs are `h-10` for touch. Icons, the system pickers and the navigation bars take colors from `@nookly/shared/tokens`, which a test checks against the same stylesheet.
+
+**Why:** one set of classes for both apps, so the phone looks like the desktop and keeps doing so.

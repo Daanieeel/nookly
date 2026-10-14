@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DARK, LIGHT, type Palette, RADIUS } from "./tokens.ts";
+import { DARK, LIGHT, type Palette } from "./tokens.ts";
 
 const css = readFileSync(new URL("../../ui/src/styles.css", import.meta.url), "utf8");
 
@@ -25,11 +25,6 @@ function expectMatches(palette: Palette, selector: string) {
 describe("the shared design tokens", () => {
   it("match the desktop's light theme", () => expectMatches(LIGHT, ":root"));
   it("match the desktop's dark theme", () => expectMatches(DARK, ".dark"));
-
-  it("match the desktop's radius", () => {
-    expect(variables(":root").get("radius")).toBe("0.625rem");
-    expect(RADIUS.lg).toBe(10);
-  });
 
   it("use the same success and caution colors", () => {
     expect(LIGHT.positive).toBe(LIGHT.accentGreen);

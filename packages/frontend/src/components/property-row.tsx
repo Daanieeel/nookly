@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
+import { PROPERTY_VALUE } from "#/classes.ts";
 
 /// A property's value in a detail sidebar: a full width, quiet button that opens
 /// its picker.
-export const PROPERTY_VALUE =
-  "flex h-7 min-w-0 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm transition-colors hover:bg-accent data-[state=open]:bg-accent";
+export { PROPERTY_VALUE };
 
 /// One labelled row of Linear's properties panel.
 export function PropertyRow({ label, children }: { label: string; children: ReactNode }) {

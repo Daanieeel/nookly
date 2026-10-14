@@ -12,7 +12,9 @@ import { useBlocks } from "../data/queries.ts";
 import { IconDots } from "@tabler/icons-react-native";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Text } from "../ui/Text.tsx";
-import { FONT, useTheme } from "../ui/theme.ts";
+import { EDITOR_BLOCK_CLASSES } from "@nookly/frontend/classes";
+import { cn, splitText } from "../ui/classes.ts";
+import { useTheme } from "../ui/theme.ts";
 
 const KINDS: { type: string; label: string }[] = [
   { type: "paragraph", label: "Text" },
@@ -62,39 +64,22 @@ function BlockField({ block, readOnly }: { block: BlockRecord; readOnly: boolean
   const remove = useLocalWrite((db) => deleteBlock(db, block.id));
   const editable = !readOnly && TEXT_BLOCK_TYPES.includes(block.blockType);
   const heading = block.blockType.startsWith("heading");
-  const style = {
-    fontFamily: heading ? FONT.heading : block.blockType === "code" ? "Menlo" : FONT.regular,
-    fontSize:
-      block.blockType === "heading1" ? theme.text.xl : heading ? theme.text.lg : theme.text.sm,
-    color: block.blockType === "quote" ? theme.colors.mutedForeground : theme.colors.foreground,
-    padding: 0,
-    flex: 1,
-  };
+  const blockClasses = isStyledBlock(block.blockType)
+    ? EDITOR_BLOCK_CLASSES[block.blockType]
+    : EDITOR_BLOCK_CLASSES.paragraph;
+  const quote = block.blockType === "quote";
+  const { box, text: textClasses } = splitText(blockClasses);
   if (!editable && !TEXT_BLOCK_TYPES.includes(block.blockType)) {
     return (
-      <View
-        style={{
-          padding: theme.space(2),
-          borderRadius: theme.radius.md,
-          backgroundColor: theme.colors.muted,
-        }}
-      >
-        <Text variant="small" tone="muted" style={{ fontFamily: "Menlo" }}>
+      <View className={splitText(EDITOR_BLOCK_CLASSES.code).box}>
+        <Text variant="small" tone="muted" className="font-mono">
           {block.content || block.blockType}
         </Text>
       </View>
     );
   }
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        gap: theme.space(2),
-        borderLeftWidth: block.blockType === "quote" ? 2 : 0,
-        borderLeftColor: theme.colors.border,
-        paddingLeft: block.blockType === "quote" ? theme.space(3) : 0,
-      }}
-    >
+    <View className={cn("flex-row gap-2", quote && box)}>
       {LIST_MARK.has(block.blockType) ? (
         <Text tone="muted">{LIST_MARK.get(block.blockType)}</Text>
       ) : null}
@@ -104,14 +89,18 @@ function BlockField({ block, readOnly }: { block: BlockRecord; readOnly: boolean
         editable={editable}
         multiline
         placeholder={editable ? "Write something" : undefined}
-        placeholderTextColor={theme.colors.mutedForeground}
         onFocus={() => setFocused(true)}
         onChangeText={setText}
         onEndEditing={() => {
           setFocused(false);
           if (text !== block.content) save.mutate({ content: text });
         }}
-        style={style}
+        className={cn(
+          "flex-1 p-0 font-sans text-foreground placeholder:text-muted-foreground",
+          heading && "font-heading",
+          !quote && box,
+          textClasses,
+        )}
       />
       {editable ? (
         <IconButton
@@ -129,14 +118,17 @@ function BlockField({ block, readOnly }: { block: BlockRecord; readOnly: boolean
   );
 }
 
+function isStyledBlock(type: string): type is keyof typeof EDITOR_BLOCK_CLASSES {
+  return Object.keys(EDITOR_BLOCK_CLASSES).includes(type);
+}
+
 /// A page's blocks, one text field each, in order. Text blocks edit as markdown like
 /// on the desktop; tables, math and custom blocks show as they are and stay untouched.
 export function PageEditor({ entityId, readOnly }: { entityId: string; readOnly: boolean }) {
-  const theme = useTheme();
   const { data: blocks = [] } = useBlocks(entityId);
   const add = useLocalWrite((db) => addBlock(db, entityId, "paragraph", ""));
   return (
-    <View style={{ gap: theme.space(3) }}>
+    <View className="gap-3">
       {blocks.map((block) => (
         <BlockField key={block.id} block={block} readOnly={readOnly} />
       ))}

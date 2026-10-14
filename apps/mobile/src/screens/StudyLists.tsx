@@ -3,7 +3,7 @@ import type { AssignmentRecord, CourseRecord, DeckRecord, ExamRecord } from "@no
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Empty, Row, Separator } from "../ui/Row.tsx";
+import { Empty, Row } from "../ui/Row.tsx";
 import { dayLabel } from "./dates.ts";
 import { StatusIcon } from "./TaskRow.tsx";
 
@@ -19,12 +19,7 @@ function Rows<T extends { entity: { id: string } }>({
   render: (item: T) => React.ReactNode;
 }) {
   if (items.length === 0) return <Empty text={empty} />;
-  return items.map((item, i) => (
-    <View key={item.entity.id}>
-      {i > 0 ? <Separator /> : null}
-      {render(item)}
-    </View>
-  ));
+  return items.map((item) => <View key={item.entity.id}>{render(item)}</View>);
 }
 
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");

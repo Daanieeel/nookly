@@ -1,15 +1,15 @@
+import { buttonVariants } from "@nookly/ui/classes";
 import { Pressable, ScrollView, View } from "react-native";
+import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
 
-/// One choice of a few, as a pill: a status, a Space, a label. `color` tints it when
-/// selected (a Space's or a label's own color), else the primary color does.
+/// One choice of a few: a status, a Space, a label. A small desktop `Button`, `default`
+/// when chosen and `secondary` when not.
 export function Chip({
   label,
   selected,
   onPress,
   icon,
-  color,
   multiple = false,
   disabled = false,
 }: {
@@ -17,13 +17,13 @@ export function Chip({
   selected: boolean;
   onPress: () => void;
   icon?: React.ReactNode;
-  color?: string;
   /// One of several that can be on at once (labels), rather than one of a set.
   multiple?: boolean;
   disabled?: boolean;
 }) {
-  const theme = useTheme();
-  const tint = color ?? theme.colors.primary;
+  const { box, text } = splitText(
+    row(buttonVariants({ variant: selected ? "default" : "secondary", size: "sm" })),
+  );
   return (
     <Pressable
       accessibilityRole={multiple ? "checkbox" : "radio"}
@@ -31,21 +31,10 @@ export function Chip({
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space(1.5),
-        minHeight: 36,
-        paddingHorizontal: theme.space(3),
-        borderRadius: theme.radius.md,
-        borderWidth: 1,
-        borderColor: selected ? tint : theme.colors.input,
-        backgroundColor: selected ? `${tint}1a` : theme.colors.secondary,
-        opacity: pressed ? 0.8 : 1,
-      })}
+      className={cn(box, "active:opacity-80")}
     >
       {icon}
-      <Text variant="label">{label}</Text>
+      <Text className={text}>{label}</Text>
     </Pressable>
   );
 }
@@ -63,7 +52,6 @@ export function ChipGroup({
   scroll?: boolean;
   multiple?: boolean;
 }) {
-  const theme = useTheme();
   const role = multiple ? undefined : "radiogroup";
   if (scroll) {
     return (
@@ -72,18 +60,14 @@ export function ChipGroup({
         showsHorizontalScrollIndicator={false}
         accessibilityRole={role}
         accessibilityLabel={label}
-        contentContainerStyle={{ gap: theme.space(2) }}
+        contentContainerClassName="gap-2"
       >
         {children}
       </ScrollView>
     );
   }
   return (
-    <View
-      accessibilityRole={role}
-      accessibilityLabel={label}
-      style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.space(2) }}
-    >
+    <View accessibilityRole={role} accessibilityLabel={label} className="flex-row flex-wrap gap-2">
       {children}
     </View>
   );

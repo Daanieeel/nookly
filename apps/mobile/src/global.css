@@ -1,0 +1,29 @@
+/* The phone's styles are the desktop's: Tailwind 4, the desktop's theme
+   (`@nookly/ui/native-theme.css`, generated from its styles.css), and the classes of
+   its primitives and components (`@nookly/ui/classes`, `@nookly/frontend/classes`). */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "nativewind/theme";
+@import "@nookly/ui/native-theme.css";
+
+@source "./";
+@source "../../../packages/ui/src/classes.ts";
+@source "../../../packages/ui/src/components/button.tsx";
+@source "../../../packages/ui/src/components/badge.tsx";
+@source "../../../packages/frontend/src/classes.ts";
+
+/* Inter as the phone loads it: one family per weight, so a weight class picks its face. */
+.font-sans {
+  font-family: Inter_400Regular;
+}
+.font-medium {
+  font-family: Inter_500Medium;
+}
+.font-semibold,
+.font-bold {
+  font-family: Inter_600SemiBold;
+}
+.font-heading {
+  font-family: InterTight_600SemiBold;
+}

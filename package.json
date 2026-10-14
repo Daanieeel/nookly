@@ -13,6 +13,7 @@
     "dev:mobile": "bun tools/dev.ts mobile",
     "dev:server": "bun tools/dev.ts server",
     "dev:expo": "bun run --cwd apps/mobile dev",
+    "theme:native": "bun tools/native-theme.ts",
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",
     "typecheck": "turbo run typecheck",

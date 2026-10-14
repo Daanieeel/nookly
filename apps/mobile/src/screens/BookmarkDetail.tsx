@@ -7,13 +7,11 @@ import { useDb, useLocalWrite } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 
 const schema = z.object({ url: z.url("Enter a web address"), description: z.string().max(2000) });
 
 export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const theme = useTheme();
   const db = useDb();
   const { data: bookmark } = useQuery({
     queryKey: keys.bookmarks(null),
@@ -30,7 +28,7 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
   });
   if (!bookmark) return null;
   return (
-    <View style={{ gap: theme.space(3) }}>
+    <View className="gap-3">
       <form.Field name="url">
         {(field) => (
           <Field
@@ -58,12 +56,15 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
           />
         )}
       </form.Field>
-      <View style={{ flexDirection: "row", gap: theme.space(2) }}>
-        <Button label="Open" onPress={() => void Linking.openURL(bookmark.url)} />
+      <View className="flex-row gap-2">
+        <Button
+          variant="secondary"
+          label="Open"
+          onPress={() => void Linking.openURL(bookmark.url)}
+        />
         {!readOnly ? (
           <Button
             label="Save"
-            variant="primary"
             status={statusOf(save)}
             successLabel="Saved"
             errorLabel="Couldn't save"

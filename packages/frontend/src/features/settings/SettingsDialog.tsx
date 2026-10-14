@@ -37,6 +37,7 @@ import { ShortcutConflictDialog } from "./ShortcutConflictDialog.tsx";
 import { FixedShortcuts, ShortcutsToolbar } from "./ShortcutsTab.tsx";
 import { SettingRow } from "./SettingRow.tsx";
 import { ROWS, type RowSpec, sectionsOf } from "./setting-rows.tsx";
+import { PAGE_TITLE_CLASSES, SECTION_HEADING_CLASSES } from "#/classes.ts";
 
 const CATEGORY_META = {
   general: { label: "General", icon: IconSettings },
@@ -169,9 +170,7 @@ function SearchResults({
     if (rows.length === 0) return null;
     return (
       <section key={category} id={`settings-results-${category}`} className="pb-4">
-        <h3 className="pb-1 text-xs font-medium text-muted-foreground">
-          {CATEGORY_META[category].label}
-        </h3>
+        <h3 className={SECTION_HEADING_CLASSES}>{CATEGORY_META[category].label}</h3>
         {rows.map((row) => (
           <Row key={row.id} row={row} />
         ))}
@@ -311,9 +310,7 @@ export function SettingsDialog() {
             </div>
           </div>
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
-            <h2 className="pb-3 text-lg font-semibold">
-              {searching ? "Search results" : page.label}
-            </h2>
+            <h2 className={PAGE_TITLE_CLASSES}>{searching ? "Search results" : page.label}</h2>
             {searching ? (
               <SearchResults results={results} query={query} onClear={() => setQuery("")} />
             ) : (

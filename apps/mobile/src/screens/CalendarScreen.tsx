@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { useAgenda, useSpaces } from "../data/queries.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -15,7 +15,6 @@ import { useSyncRefresh } from "./useSyncRefresh.ts";
 const DAYS = 14;
 
 export function AgendaRow({ item, color }: { item: AgendaItem; color?: string }) {
-  const theme = useTheme();
   const router = useRouter();
   const time = item.allDay
     ? "All day"
@@ -26,12 +25,8 @@ export function AgendaRow({ item, color }: { item: AgendaItem; color?: string })
       subtitle={[time, item.location].filter(Boolean).join(", ")}
       icon={
         <View
-          style={{
-            width: 4,
-            alignSelf: "stretch",
-            borderRadius: 2,
-            backgroundColor: color ?? theme.colors.border,
-          }}
+          className="w-1 self-stretch rounded-full bg-border"
+          style={color ? { backgroundColor: color } : undefined}
         />
       }
       trailing={color ? <SpaceDot color={color} /> : null}
@@ -74,9 +69,8 @@ export function CalendarScreen() {
               {onDay(day).length === 0 ? (
                 <Empty text="Nothing planned." />
               ) : (
-                onDay(day).map((item, i) => (
+                onDay(day).map((item) => (
                   <View key={`${item.id}-${day}`}>
-                    {i > 0 ? <Separator /> : null}
                     <AgendaRow
                       item={item}
                       color={spaces.find((s) => s.id === item.spaceId)?.color}

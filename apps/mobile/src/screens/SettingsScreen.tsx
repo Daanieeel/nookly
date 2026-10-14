@@ -11,10 +11,10 @@ import { keys } from "../data/keys.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section, ROW_DIVIDER } from "../ui/Row.tsx";
+import { cn } from "../ui/classes.ts";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 import { statusText } from "./sync-status.ts";
 
@@ -25,7 +25,6 @@ const signInSchema = z.object({
 });
 
 function SignIn() {
-  const theme = useTheme();
   const { sync, serverUrl } = useAppData();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -50,7 +49,7 @@ function SignIn() {
   });
   return (
     <Section title="Sync">
-      <View style={{ padding: theme.space(4), gap: theme.space(3) }}>
+      <View className="gap-3 p-4">
         <Text tone="muted">
           Sync keeps your devices in step and lets you see pages shared with you. It is optional:
           without it, everything stays on this phone. Signing in never removes anything here.
@@ -100,10 +99,9 @@ function SignIn() {
           )}
         </form.Field>
         {account.error ? <Text tone="destructive">{account.error.message}</Text> : null}
-        <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+        <View className="flex-row gap-2">
           <Button
             label="Sign In"
-            variant="primary"
             status={mode === "in" ? statusOf(account) : "idle"}
             errorLabel="Couldn't sign in"
             onPress={() => {
@@ -112,6 +110,7 @@ function SignIn() {
             }}
           />
           <Button
+            variant="secondary"
             label="Create Account"
             status={mode === "up" ? statusOf(account) : "idle"}
             errorLabel="Couldn't create it"
@@ -127,7 +126,6 @@ function SignIn() {
 }
 
 function SharedRow({ share }: { share: Share }) {
-  const theme = useTheme();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
   const respond = useMutation({
@@ -142,9 +140,9 @@ function SharedRow({ share }: { share: Share }) {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.sync.sharesWithMe }),
   });
   return (
-    <View style={{ padding: theme.space(4), gap: theme.space(2) }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.space(2) }}>
-        <Text style={{ flex: 1 }} numberOfLines={1}>
+    <View className={cn("gap-2 p-4", ROW_DIVIDER)}>
+      <View className="flex-row items-center gap-2">
+        <Text className="flex-1" numberOfLines={1}>
           {share.title || "Untitled"}
         </Text>
         <Badge label={share.role === "editor" ? "Can edit" : "Can view"} />
@@ -152,10 +150,11 @@ function SharedRow({ share }: { share: Share }) {
       <Text variant="small" tone="muted">
         from {share.ownerEmail}
       </Text>
-      <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+      <View className="flex-row gap-2">
         {share.status === "pending" ? (
           <>
             <Button
+              variant="secondary"
               label="Accept"
               status={respond.variables === "accept" ? statusOf(respond) : "idle"}
               onPress={() => respond.mutate("accept")}
@@ -176,7 +175,6 @@ function SharedRow({ share }: { share: Share }) {
 }
 
 function Account() {
-  const theme = useTheme();
   const router = useRouter();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
@@ -228,19 +226,18 @@ function Account() {
   return (
     <>
       <Section title="Sync">
-        <View style={{ padding: theme.space(4), gap: theme.space(2) }}>
+        <View className="gap-2 p-4">
           <Text>{user.email}</Text>
           <Text variant="small" tone="muted">
             on {serverUrl}
           </Text>
-          {!user.emailVerified ? (
-            <Badge label="Email not confirmed" color={theme.colors.caution} />
-          ) : null}
+          {!user.emailVerified ? <Badge label="Email not confirmed" variant="warning" /> : null}
           <Text variant="small" tone={tone} accessibilityLiveRegion="polite">
             {statusText(status)}
           </Text>
-          <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+          <View className="flex-row gap-2">
             <Button
+              variant="secondary"
               label="Sync Now"
               status={statusOf(syncNow)}
               successLabel="Synced"
@@ -257,9 +254,8 @@ function Account() {
         </View>
       </Section>
       <Section title="Devices">
-        {sessions.map((s, i) => (
+        {sessions.map((s) => (
           <View key={s.id}>
-            {i > 0 ? <Separator /> : null}
             <Row
               title={s.deviceName}
               subtitle={
@@ -273,9 +269,8 @@ function Account() {
         {shares.length === 0 ? (
           <Empty text="Nothing is shared with you yet." />
         ) : (
-          shares.map((share, i) => (
+          shares.map((share) => (
             <View key={share.id}>
-              {i > 0 ? <Separator /> : null}
               <SharedRow share={share} />
             </View>
           ))
@@ -293,7 +288,7 @@ function Account() {
         />
       </Section>
       <Section title="Delete account">
-        <View style={{ padding: theme.space(4), gap: theme.space(3) }}>
+        <View className="gap-3 p-4">
           <Field label="Password" secureTextEntry value={password} onChangeText={setPassword} />
           {remove.error ? <Text tone="destructive">{remove.error.message}</Text> : null}
           <Button

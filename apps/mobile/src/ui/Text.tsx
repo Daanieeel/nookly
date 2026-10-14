@@ -1,39 +1,40 @@
 import { Text as NativeText, type TextProps } from "react-native";
-import { FONT, useTheme } from "./theme.ts";
+import { cn } from "./classes.ts";
 
 type Variant = "body" | "small" | "label" | "heading" | "title";
 type Tone = "default" | "muted" | "primary" | "destructive" | "positive" | "caution";
 
-const SIZES = {
-  body: { size: "sm", font: FONT.regular },
-  small: { size: "xs", font: FONT.regular },
-  label: { size: "xs", font: FONT.medium },
-  heading: { size: "base", font: FONT.semibold },
-  title: { size: "xl", font: FONT.heading },
-} satisfies Record<Variant, { size: keyof ReturnType<typeof useTheme>["text"]; font: string }>;
+/// The desktop's type scale: body text `text-sm`, small `text-xs`, labels medium,
+/// headings in Inter Tight.
+const VARIANTS = {
+  body: "text-sm",
+  small: "text-xs",
+  label: "text-xs font-medium",
+  heading: "text-base font-semibold",
+  title: "font-heading text-xl",
+} satisfies Record<Variant, string>;
+
+const TONES = {
+  default: "text-foreground",
+  muted: "text-muted-foreground",
+  primary: "text-primary",
+  destructive: "text-destructive",
+  positive: "text-positive",
+  caution: "text-caution",
+} satisfies Record<Tone, string>;
 
 /// Text in the app's type scale. It follows the system's text size (Dynamic Type).
 export function Text({
   variant = "body",
   tone = "default",
-  style,
+  className,
   ...props
-}: TextProps & { variant?: Variant; tone?: Tone }) {
-  const theme = useTheme();
-  const color = {
-    default: theme.colors.foreground,
-    muted: theme.colors.mutedForeground,
-    primary: theme.colors.primary,
-    destructive: theme.colors.destructive,
-    positive: theme.colors.positive,
-    caution: theme.colors.caution,
-  }[tone];
-  const { size, font } = SIZES[variant];
+}: TextProps & { variant?: Variant; tone?: Tone; className?: string }) {
   return (
     <NativeText
       {...props}
       maxFontSizeMultiplier={2}
-      style={[{ color, fontFamily: font, fontSize: theme.text[size] }, style]}
+      className={cn("font-sans", VARIANTS[variant], TONES[tone], className)}
     />
   );
 }

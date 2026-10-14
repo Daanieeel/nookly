@@ -3,7 +3,11 @@ import { IconX } from "@tabler/icons-react-native";
 import { useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { dayLabel, localDay } from "../screens/dates.ts";
+import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
+import { INPUT_CLASSES } from "@nookly/ui/classes";
 import { IconButton } from "./Button.tsx";
+import { cn, row, splitText } from "./classes.ts";
+import { FieldLabel } from "./Field.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
@@ -67,15 +71,14 @@ export function DateField({
       setOpen((o) => !o);
     }
   };
+  const input = splitText(row(INPUT_CLASSES));
   const text = value
     ? shown(mode, value)
     : (placeholder ?? (mode === "date" ? "No day" : "No time"));
   return (
-    <View style={{ gap: theme.space(1) }}>
-      <Text variant="label" tone="muted">
-        {label}
-      </Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.space(1) }}>
+    <View className={FORM_FIELD_CLASSES}>
+      <FieldLabel label={label} />
+      <View className="flex-row items-center gap-1">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${label}, ${text}`}
@@ -85,19 +88,9 @@ export function DateField({
           accessibilityState={{ disabled: readOnly, expanded: open }}
           disabled={readOnly}
           onPress={press}
-          style={({ pressed }) => ({
-            flex: 1,
-            minHeight: 40,
-            justifyContent: "center",
-            paddingHorizontal: theme.space(3),
-            borderRadius: theme.radius.md,
-            borderWidth: 1,
-            borderColor: open ? theme.colors.ring : theme.colors.input,
-            backgroundColor: theme.colors.secondary,
-            opacity: pressed ? 0.8 : 1,
-          })}
+          className={cn(input.box, "h-10 flex-1 items-center", open && "border-ring")}
         >
-          <Text tone={value ? "default" : "muted"}>{text}</Text>
+          <Text className={cn(input.text, !value && "text-muted-foreground")}>{text}</Text>
         </Pressable>
         {clearable && value && !readOnly ? (
           <IconButton

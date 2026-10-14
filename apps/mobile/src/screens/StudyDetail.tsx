@@ -36,7 +36,7 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { NumberProperty, TextProperty } from "../ui/PropertyFields.tsx";
-import { Empty, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
@@ -47,8 +47,7 @@ import { StatusIcon } from "./TaskRow.tsx";
 /// them on the desktop.
 
 function Padded({ children }: { children: React.ReactNode }) {
-  const theme = useTheme();
-  return <View style={{ padding: theme.space(3), gap: theme.space(3) }}>{children}</View>;
+  return <View className="gap-3 p-3">{children}</View>;
 }
 
 function StatusChips({
@@ -187,7 +186,6 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
 }
 
 export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const theme = useTheme();
   const { data: exam } = useExam(id);
   const update = useLocalWrite((db, patch: Parameters<typeof updateExam>[2]) =>
     updateExam(db, id, patch),
@@ -214,8 +212,8 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
       </Section>
       <Section title="When and where">
         <Padded>
-          <View style={{ flexDirection: "row", gap: theme.space(3) }}>
-            <View style={{ flex: 3 }}>
+          <View className="flex-row gap-3">
+            <View className="flex-3">
               <DateField
                 label="Day"
                 value={exam.examDate}
@@ -223,7 +221,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                 onChange={(examDate) => update.mutate({ examDate })}
               />
             </View>
-            <View style={{ flex: 2 }}>
+            <View className="flex-2">
               <DateField
                 label="Time"
                 mode="time"
@@ -245,8 +243,8 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
       </Section>
       <Section title="Grade">
         <Padded>
-          <View style={{ flexDirection: "row", gap: theme.space(3) }}>
-            <View style={{ flex: 1 }}>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
               <NumberProperty
                 label="Weight (%)"
                 value={weightPercent(exam.weight)}
@@ -255,7 +253,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                 onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
               />
             </View>
-            <View style={{ flex: 1 }}>
+            <View className="flex-1">
               <NumberProperty
                 label="Grade"
                 value={exam.grade}
@@ -272,7 +270,6 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
 }
 
 export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const theme = useTheme();
   const { data: assignment } = useAssignment(id);
   const update = useLocalWrite((db, patch: Parameters<typeof updateAssignment>[2]) =>
     updateAssignment(db, id, patch),
@@ -319,8 +316,8 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
       </Section>
       <Section title="Grade">
         <Padded>
-          <View style={{ flexDirection: "row", gap: theme.space(3) }}>
-            <View style={{ flex: 1 }}>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
               <NumberProperty
                 label="Weight (%)"
                 value={weightPercent(assignment.weight)}
@@ -329,7 +326,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
                 onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
               />
             </View>
-            <View style={{ flex: 1 }}>
+            <View className="flex-1">
               <NumberProperty
                 label="Grade"
                 value={assignment.grade}
@@ -363,7 +360,6 @@ function CardForm({
   status: { isPending: boolean; isSuccess: boolean; isError: boolean };
   onDelete?: () => void;
 }) {
-  const theme = useTheme();
   const form = useForm({
     defaultValues: initial,
     validators: { onSubmit: cardSchema },
@@ -400,10 +396,9 @@ function CardForm({
           />
         )}
       </form.Field>
-      <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+      <View className="flex-row gap-2">
         <Button
           label={submitLabel}
-          variant="primary"
           status={statusOf(status)}
           errorLabel="Couldn't save"
           onPress={() => void form.handleSubmit()}
@@ -415,7 +410,6 @@ function CardForm({
 }
 
 function CardRow({ card, readOnly }: { card: IndexCard; readOnly: boolean }) {
-  const theme = useTheme();
   const [editing, setEditing] = useState(false);
   const save = useLocalWrite((db, next: { front: string; back: string }) =>
     updateCard(db, card.id, next.front, next.back),
@@ -442,11 +436,7 @@ function CardRow({ card, readOnly }: { card: IndexCard; readOnly: boolean }) {
       accessibilityHint={readOnly ? undefined : "Edit the card"}
       disabled={readOnly}
       onPress={() => setEditing(true)}
-      style={({ pressed }) => ({
-        padding: theme.space(3),
-        gap: theme.space(1),
-        backgroundColor: pressed ? theme.colors.accent : theme.colors.card,
-      })}
+      className="gap-1 border-b border-border/60 p-3 active:bg-accent/40"
     >
       <Text numberOfLines={2}>{card.front}</Text>
       <Text variant="small" tone="muted" numberOfLines={2}>
@@ -473,7 +463,6 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
           <Text tone="muted">{deckSummary(deck.stats)}</Text>
           <Button
             label={queue.length > 0 ? `Study ${queue.length}` : "Nothing due now"}
-            variant="primary"
             disabled={queue.length === 0}
             onPress={() => router.push(`/study/${id}`)}
           />
@@ -503,9 +492,8 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
       ) : null}
       <Section title={`Cards · ${cards.length}`}>
         {cards.length === 0 ? <Empty text="No cards yet." /> : null}
-        {cards.map((card, i) => (
+        {cards.map((card) => (
           <View key={card.id}>
-            {i > 0 ? <Separator /> : null}
             <CardRow card={card} readOnly={readOnly} />
           </View>
         ))}

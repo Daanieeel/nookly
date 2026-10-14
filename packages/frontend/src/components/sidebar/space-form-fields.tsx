@@ -1,3 +1,5 @@
+import { COLOR_SWATCH_CLASSES, COLOR_SWATCH_SELECTED_CLASSES } from "#/classes.ts";
+import { cn } from "@nookly/ui/lib/utils";
 import { IconFolder } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import type { CSSProperties, RefObject } from "react";
@@ -163,7 +165,11 @@ export function SpaceColorField({
             type="button"
             aria-label={`Space color ${c}`}
             onClick={() => onChange(c)}
-            className={`size-6 rounded-full bg-(--swatch-color) ${value === c ? "ring-2 ring-ring ring-offset-2 ring-offset-card" : ""}`}
+            className={cn(
+              COLOR_SWATCH_CLASSES,
+              "bg-(--swatch-color)",
+              value === c && COLOR_SWATCH_SELECTED_CLASSES,
+            )}
             // SAFETY: `--swatch-color` only ever receives `c`, a plain hex string from
             // `SPACE_COLORS` — `CSSProperties` just doesn't model custom properties.
             style={{ "--swatch-color": c } as CSSProperties}

@@ -1,3 +1,4 @@
+import { COLOR_SWATCH_CLASSES, COLOR_SWATCH_SELECTED_CLASSES } from "@nookly/frontend/classes";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   createAssignment,
@@ -19,10 +20,10 @@ import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import { useSpaces } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
+import { cn } from "../ui/classes.ts";
 import { Field } from "../ui/Field.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
 import { CoursePicker, ExamPicker } from "./StudyDetail.tsx";
@@ -41,7 +42,6 @@ const titled = z.object({ title: z.string().trim().min(1, "Give it a title") });
 
 /// New Task: a title first, like the desktop's quick create. More lands in its detail.
 export function NewTaskScreen({ spaceId }: { spaceId?: string }) {
-  const theme = useTheme();
   const router = useRouter();
   const [space, setSpace] = useTargetSpace(spaceId);
   const create = useLocalWrite((db, title: string) => {
@@ -75,10 +75,9 @@ export function NewTaskScreen({ spaceId }: { spaceId?: string }) {
           />
         )}
       </form.Field>
-      <View style={{ flexDirection: "row", gap: theme.space(2) }}>
+      <View className="flex-row gap-2">
         <Button
           label="Create"
-          variant="primary"
           status={statusOf(create)}
           successLabel="Created"
           errorLabel="Couldn't create"
@@ -125,7 +124,6 @@ export function NewPageScreen({ spaceId, type }: { spaceId?: string; type: "note
       </form.Field>
       <Button
         label={type === "jot" ? "New Jot" : "New Page"}
-        variant="primary"
         status={statusOf(create)}
         errorLabel="Couldn't create"
         onPress={() => void form.handleSubmit()}
@@ -183,7 +181,6 @@ export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
       </form.Field>
       <Button
         label="Add Bookmark"
-        variant="primary"
         status={statusOf(create)}
         errorLabel="Couldn't add it"
         onPress={() => void form.handleSubmit()}
@@ -225,7 +222,6 @@ const spaceSchema = z.object({ name: z.string().trim().min(1, "Name it").max(60)
 
 /// New Space: a name and its color.
 export function NewSpaceScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const [color, setColor] = useState(ACCENT_COLORS[9]);
   const create = useLocalWrite((db, name: string) => createSpace(db, name, color));
@@ -256,7 +252,7 @@ export function NewSpaceScreen() {
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel="Color"
-        style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.space(3) }}
+        className="flex-row flex-wrap gap-3"
       >
         {ACCENT_COLORS.map((c) => (
           <Pressable
@@ -265,20 +261,14 @@ export function NewSpaceScreen() {
             accessibilityLabel={`Color ${c}`}
             accessibilityState={{ checked: c === color }}
             onPress={() => setColor(c)}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: c,
-              borderWidth: 3,
-              borderColor: c === color ? theme.colors.foreground : "transparent",
-            }}
+            hitSlop={8}
+            className={cn(COLOR_SWATCH_CLASSES, c === color && COLOR_SWATCH_SELECTED_CLASSES)}
+            style={{ backgroundColor: c }}
           />
         ))}
       </View>
       <Button
         label="Create Space"
-        variant="primary"
         status={statusOf(create)}
         errorLabel="Couldn't create"
         onPress={() => void form.handleSubmit()}
@@ -334,7 +324,6 @@ function NewStudyItem({
       {write.error ? <Text tone="destructive">{write.error.message}</Text> : null}
       <Button
         label={submitLabel}
-        variant="primary"
         status={statusOf(write)}
         errorLabel="Couldn't create"
         onPress={() => void form.handleSubmit()}
@@ -370,9 +359,8 @@ function CourseAndDay({
   setDay: (day: string | null) => void;
   dayLabel: string;
 }) {
-  const theme = useTheme();
   return (
-    <View style={{ gap: theme.space(3) }}>
+    <View className="gap-3">
       <Text variant="label" tone="muted">
         Course
       </Text>
@@ -442,7 +430,6 @@ export function NewAssignmentScreen({
 }
 
 export function NewDeckScreen({ spaceId }: { spaceId?: string }) {
-  const theme = useTheme();
   const [exam, setExam] = useState<string | null>(null);
   return (
     <NewStudyItem
@@ -452,7 +439,7 @@ export function NewDeckScreen({ spaceId }: { spaceId?: string }) {
       create={(db, space, title) => createDeck(db, space, title, exam)}
     >
       {(space) => (
-        <View style={{ gap: theme.space(2) }}>
+        <View className="gap-2">
           <Text variant="label" tone="muted">
             Prepares for
           </Text>

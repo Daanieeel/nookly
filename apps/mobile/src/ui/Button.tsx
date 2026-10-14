@@ -1,10 +1,15 @@
+import { buttonVariants } from "@nookly/ui/classes";
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
+import type { VariantProps } from "class-variance-authority";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, type PressableProps, View } from "react-native";
+import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
+type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
+type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>;
 
 /// A mutation's state as a button shows it, like the desktop's `statusOf`.
 export function statusOf(mutation: {
@@ -17,29 +22,45 @@ export function statusOf(mutation: {
   return mutation.isSuccess ? "success" : "idle";
 }
 
+/// The color of a variant's text, for the spinner and icons beside it.
+function useForeground(variant: ButtonVariant): string {
+  const { colors } = useTheme();
+  if (variant === "default") return colors.primaryForeground;
+  if (variant === "destructive") return colors.destructive;
+  if (variant === "positive") return colors.positive;
+  if (variant === "link") return colors.primary;
+  if (variant === "muted" || variant === "linkMuted") return colors.mutedForeground;
+  return colors.foreground;
+}
+
 interface ButtonProps extends Omit<PressableProps, "children"> {
   label: string;
-  variant?: "primary" | "secondary" | "ghost" | "destructive";
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   status?: ButtonStatus;
   successLabel?: string;
   errorLabel?: string;
   icon?: React.ReactNode;
+  className?: string;
 }
 
-/// Shows the result on itself, as on the desktop: a spinner while pending, a check
-/// for two seconds on success, a warning that stays on error.
+/// The desktop's `Button`, with its variants and sizes (`buttonVariants`). It shows the
+/// result on itself, as on the desktop: a spinner while pending, a check for two
+/// seconds on success, a warning that stays on error.
 export function Button({
   label,
-  variant = "secondary",
+  variant = "default",
+  size = "default",
   status = "idle",
   successLabel,
   errorLabel,
   icon,
   disabled,
-  style,
+  className,
   ...props
 }: ButtonProps) {
   const theme = useTheme();
+  const foreground = useForeground(variant);
   const [showSuccess, setShowSuccess] = useState(false);
   useEffect(() => {
     if (status !== "success") return;
@@ -47,104 +68,57 @@ export function Button({
     const timer = setTimeout(() => setShowSuccess(false), 2000);
     return () => clearTimeout(timer);
   }, [status]);
-  const colors = {
-    primary: {
-      bg: theme.colors.primary,
-      fg: theme.colors.primaryForeground,
-      border: theme.colors.primary,
-    },
-    secondary: {
-      bg: theme.colors.secondary,
-      fg: theme.colors.secondaryForeground,
-      border: theme.colors.input,
-    },
-    ghost: { bg: "transparent", fg: theme.colors.foreground, border: "transparent" },
-    destructive: {
-      bg: theme.colors.destructive,
-      fg: theme.colors.destructiveForeground,
-      border: theme.colors.destructive,
-    },
-  }[variant];
-  const text =
+  const { box, text } = splitText(row(buttonVariants({ variant, size, className })));
+  const shown =
     status === "error" ? (errorLabel ?? label) : showSuccess ? (successLabel ?? label) : label;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={text}
+      accessibilityLabel={shown}
       accessibilityState={{ disabled: !!disabled, busy: status === "pending" }}
       disabled={disabled || status === "pending"}
+      hitSlop={4}
       {...props}
-      style={(state) => [
-        {
-          minHeight: 40,
-          paddingHorizontal: theme.space(4),
-          borderRadius: theme.radius.md,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.bg,
-          opacity: disabled ? 0.5 : state.pressed ? 0.8 : 1,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        style instanceof Function ? style(state) : style,
-      ]}
+      className={cn(box, "active:opacity-80")}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.space(2) }}>
-        {status === "pending" ? (
-          <ActivityIndicator size="small" color={colors.fg} />
-        ) : status === "error" ? (
-          <IconAlertTriangle
-            size={16}
-            color={variant === "ghost" ? theme.colors.destructive : colors.fg}
-          />
-        ) : showSuccess ? (
-          <IconCheck
-            size={16}
-            color={
-              variant === "ghost" || variant === "secondary" ? theme.colors.positive : colors.fg
-            }
-          />
-        ) : (
-          icon
-        )}
-        <Text
-          variant="label"
-          style={{
-            color: status === "error" && variant === "ghost" ? theme.colors.destructive : colors.fg,
-            fontSize: theme.text.sm,
-          }}
-        >
-          {text}
-        </Text>
-      </View>
+      {status === "pending" ? (
+        <ActivityIndicator size="small" color={foreground} />
+      ) : status === "error" ? (
+        <IconAlertTriangle size={16} color={theme.colors.destructive} />
+      ) : showSuccess ? (
+        <IconCheck size={16} color={variant === "default" ? foreground : theme.colors.positive} />
+      ) : (
+        icon
+      )}
+      <Text className={cn(text, status === "error" && variant !== "default" && "text-destructive")}>
+        {shown}
+      </Text>
     </Pressable>
   );
 }
 
-/// A square button with only an icon, named for screen readers.
+/// The desktop's icon button: `ghost`, `icon` sized, named for screen readers (the
+/// phone's stand in for a tooltip).
 export function IconButton({
   label,
   icon,
   onPress,
+  size = "icon",
 }: {
   label: string;
   icon: React.ReactNode;
   onPress: () => void;
+  size?: "icon" | "iconSm";
 }) {
-  const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
       onPress={onPress}
-      style={({ pressed }) => ({
-        padding: theme.space(2),
-        borderRadius: theme.radius.md,
-        opacity: pressed ? 0.6 : 1,
-      })}
+      className={cn(row(buttonVariants({ variant: "ghost", size })), "active:bg-accent")}
     >
-      {icon}
+      <View pointerEvents="none">{icon}</View>
     </Pressable>
   );
 }

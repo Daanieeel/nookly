@@ -12,7 +12,7 @@ import {
 } from "../data/queries.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Empty, Row, Section, Separator } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
@@ -65,9 +65,8 @@ function EntityList({ spaceId, module }: { spaceId: string; module: ModuleKey })
       {shown.length === 0 ? (
         <Empty text={`No ${MODULE_LABELS[module].toLowerCase()} yet.`} />
       ) : null}
-      {shown.map((entity, i) => (
+      {shown.map((entity) => (
         <View key={entity.id}>
-          {i > 0 ? <Separator /> : null}
           <Row
             title={entity.title || "Untitled"}
             subtitle={entity.key}
@@ -86,9 +85,8 @@ function BookmarkList({ spaceId }: { spaceId: string }) {
   return (
     <Section>
       {bookmarks.length === 0 ? <Empty text="No bookmarks yet." /> : null}
-      {bookmarks.map((b, i) => (
+      {bookmarks.map((b) => (
         <View key={b.entity.id}>
-          {i > 0 ? <Separator /> : null}
           <Row
             title={b.entity.title}
             subtitle={b.url}

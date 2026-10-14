@@ -66,6 +66,7 @@ import { qk } from "#/lib/query-keys.ts";
 import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
 import { useShortcutMap } from "#/hooks/use-shortcut.ts";
 import { displayText } from "#/lib/shortcuts.ts";
+import { LIST_ROW_CLASSES } from "#/classes.ts";
 
 /// A Task's page: the same header and description editor as a Note, plus a
 /// previous and next stepper, the sub-tasks, and a properties panel at the top of
@@ -356,7 +357,7 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
             return (
               <div
                 key={subtask.entity.id}
-                className="relative flex h-10 items-center gap-2 border-b border-border/60 px-1 hover:bg-accent/40"
+                className={LIST_ROW_CLASSES}
                 {...entityTarget(subtask.entity)}
               >
                 <button
