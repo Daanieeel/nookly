@@ -12,6 +12,8 @@
     "./data": "./src/data/index.ts",
     "./modules": "./src/modules.ts",
     "./colors": "./src/colors.ts",
+    "./settings": "./src/settings.ts",
+    "./latex": "./src/latex.ts",
     "./blocks": "./src/blocks/index.ts",
     "./blocks/*": "./src/blocks/*.ts"
   },
