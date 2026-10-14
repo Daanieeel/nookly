@@ -3,7 +3,11 @@ import { Slot } from "@radix-ui/react-slot";
 import type { VariantProps } from "class-variance-authority";
 import { PanelLeftIcon } from "lucide-react";
 
-import { SIDEBAR_GROUP_LABEL_CLASSES, sidebarMenuButtonVariants } from "@nookly/ui/classes";
+import {
+  SIDEBAR_GROUP_LABEL_CLASSES,
+  SIDEBAR_PANEL_CLASSES,
+  sidebarMenuButtonVariants,
+} from "@nookly/ui/classes";
 import { cn } from "@nookly/ui/lib/utils";
 import { useIsMobile } from "@nookly/ui/hooks/use-mobile";
 import { Button } from "@nookly/ui/components/button";
@@ -238,14 +242,8 @@ function Sidebar({
         )}
         {...props}
       >
-        {/* An inset sidebar: no background or border of its own, so it sits on the page.
-            To bring the panel back, add these classes again:
-            bg-sidebar group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm */}
-        <div
-          data-sidebar="sidebar"
-          data-slot="sidebar-inner"
-          className="flex size-full flex-col group-data-[variant=floating]:rounded-lg"
-        >
+        {/* Inset: `SIDEBAR_PANEL_CLASSES` keeps the classes that bring the panel back. */}
+        <div data-sidebar="sidebar" data-slot="sidebar-inner" className={SIDEBAR_PANEL_CLASSES}>
           {children}
         </div>
       </div>

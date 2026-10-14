@@ -2,6 +2,7 @@ import { isSharedSpace } from "@nookly/shared/api";
 import {
   INPUT_CLASSES,
   SIDEBAR_GROUP_LABEL_CLASSES,
+  SIDEBAR_PANEL_CLASSES,
   sidebarMenuButtonVariants,
 } from "@nookly/ui/classes";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
@@ -184,8 +185,10 @@ export function Sidebar({ close }: { close: () => void }) {
   ];
   const { box: searchBox, text: searchText } = splitText(row(INPUT_CLASSES));
   return (
+    // Inset like the desktop's (`SIDEBAR_PANEL_CLASSES`): the page's background shows
+    // through. To bring the panel back: bg-sidebar here, theme.colors.card in the drawer.
     <View
-      className="flex-1 bg-sidebar"
+      className={SIDEBAR_PANEL_CLASSES}
       style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}
     >
       <View className="px-3">

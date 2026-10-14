@@ -28,6 +28,13 @@ export const CARD_TITLE_CLASSES = "text-lg leading-none font-semibold";
 
 export const CARD_DESCRIPTION_CLASSES = "text-sm text-muted-foreground";
 
+/// The sidebar's panel, inset: no background or border of its own, so it sits on the
+/// page. To bring the panel back, add these again: bg-sidebar
+/// group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border
+/// group-data-[variant=floating]:shadow-sm
+export const SIDEBAR_PANEL_CLASSES =
+  "flex size-full flex-col group-data-[variant=floating]:rounded-lg";
+
 export const SIDEBAR_GROUP_LABEL_CLASSES = [
   "flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
   "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
