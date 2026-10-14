@@ -127,6 +127,11 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       : null;
   }
 
+  /// This device, as it names itself to the server and to other people's editors.
+  get device(): DeviceInfo {
+    return this.deps.device;
+  }
+
   /// The account API while signed in, for sessions, sharing and the account itself.
   account(): A | null {
     return this.api;

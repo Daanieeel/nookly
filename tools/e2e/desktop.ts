@@ -32,6 +32,18 @@ const type = async (label, value) => {
   return true;
 };
 const text = () => document.body.innerText;
+/// Clicks the visible label \`label\` (a sidebar row, a list row), through whatever
+/// clickable element holds it.
+const clickText = async (label, nth = 0) => {
+  const el = await waitFor(() =>
+    [...document.querySelectorAll("body *")].filter(
+      (e) => visible(e) && e.children.length === 0 && e.textContent.trim() === label,
+    )[nth],
+  );
+  (el.closest("button, a, [role=button], [role=link], [role=row], [role=option], [role=menuitem], [role=gridcell], li, [tabindex]") || el).click();
+  await sleep(250);
+  return true;
+};
 `;
 
 export async function run<T = unknown>(port: number, script: string): Promise<T> {

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { PAGE_FRAGMENT } from "@nookly/shared/blocks";
 import { useViewOnly } from "#/features/sync/view-only.ts";
-import { useSyncState } from "#/features/sync/sync-instance.ts";
+import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -74,7 +74,7 @@ function PresenceBar({ present }: { present: Present[] }) {
     <div
       role="group"
       aria-label="Also on this page"
-      className="pointer-events-auto absolute -top-9 right-0 z-10 flex items-center -space-x-1.5"
+      className="pointer-events-auto sticky top-0 z-10 float-right flex items-center -space-x-1.5"
     >
       {present.slice(0, 5).map((person) => (
         <Tooltip key={person.clientId}>
@@ -117,7 +117,9 @@ export function CollaborativeEditor({
   const pasteFiles = usePasteFiles(spaceId, entityId);
   const user = useSyncState((s) => s.user);
   const [displayName] = useSetting("general.displayName");
-  const name = displayName.trim() || user?.username || "Someone";
+  // The device too, so two devices of one person tell apart: "Ada on Mac".
+  const person = displayName.trim() || user?.username || "Someone";
+  const name = `${person} on ${syncRuntime.device.name.replace(/^Nookly on /, "")}`;
   const color = caretColor(user?.id ?? name);
   const viewOnly = useViewOnly(entityId, spaceId);
   const editable = !viewOnly && !session.readOnly;
