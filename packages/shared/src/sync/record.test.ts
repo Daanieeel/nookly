@@ -159,12 +159,26 @@ describe("finding what a push loses", () => {
 
 describe("fields nobody decides on", () => {
   it("never count as a conflict: a timestamp both sides touched is not a disagreement", () => {
-    const base: RecordState = { fields: { title: "a", updated_at: "t0" }, clocks: { title: "1-1-a", updated_at: "1-1-a" }, deletedClock: null };
-    const local: RecordState = { fields: { title: "b", updated_at: "t1" }, clocks: { title: "5-1-a", updated_at: "5-1-a" }, deletedClock: null };
-    const remote: RecordState = { fields: { title: "c", updated_at: "t2" }, clocks: { title: "6-1-b", updated_at: "6-1-b" }, deletedClock: null };
+    const base: RecordState = {
+      fields: { title: "a", updated_at: "t0" },
+      clocks: { title: "1-1-a", updated_at: "1-1-a" },
+      deletedClock: null,
+    };
+    const local: RecordState = {
+      fields: { title: "b", updated_at: "t1" },
+      clocks: { title: "5-1-a", updated_at: "5-1-a" },
+      deletedClock: null,
+    };
+    const remote: RecordState = {
+      fields: { title: "c", updated_at: "t2" },
+      clocks: { title: "6-1-b", updated_at: "6-1-b" },
+      deletedClock: null,
+    };
     expect(findLosses(base, local, remote).map((l) => l.field)).toEqual(["title"]);
     expect(
-      findPushLosses(remote, { ...local, baseClocks: { title: "1-1-a", updated_at: "1-1-a" } }).map((l) => l.field),
+      findPushLosses(remote, { ...local, baseClocks: { title: "1-1-a", updated_at: "1-1-a" } }).map(
+        (l) => l.field,
+      ),
     ).toEqual(["title"]);
   });
 });
