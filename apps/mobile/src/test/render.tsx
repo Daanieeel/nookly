@@ -17,6 +17,7 @@ export interface TestData {
   driver: NodeSqliteDriver;
   sync: MobileSync;
   serverUrl: Preference;
+  theme: Preference;
 }
 
 export function testData(): TestData {
@@ -35,7 +36,9 @@ export function testData(): TestData {
   });
   let saved: string | null = null;
   const serverUrl: Preference = { get: () => saved, set: (value) => void (saved = value) };
-  return { db, driver, sync, serverUrl };
+  let theme: string | null = null;
+  const themePreference: Preference = { get: () => theme, set: (value) => void (theme = value) };
+  return { db, driver, sync, serverUrl, theme: themePreference };
 }
 
 /// Renders screens as routes of the app, inside its providers.
@@ -49,7 +52,9 @@ export async function renderScreens(
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <AppDataProvider value={{ db: data.db, sync: data.sync, serverUrl: data.serverUrl }}>
+      <AppDataProvider
+        value={{ db: data.db, sync: data.sync, serverUrl: data.serverUrl, theme: data.theme }}
+      >
         {children}
       </AppDataProvider>
     </QueryClientProvider>

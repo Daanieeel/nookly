@@ -19,6 +19,14 @@ const secureTokens: TokenStore = {
 };
 
 /// The sync server's address, a device preference.
+const THEME = "nookly.theme";
+
+/// The theme picked in Settings, on this phone.
+export const themeStore = {
+  get: (): string | null => Storage.getItemSync(THEME),
+  set: (theme: string) => Storage.setItemSync(THEME, theme),
+};
+
 export const serverUrlStore = {
   get: (): string | null => Storage.getItemSync(SERVER_URL),
   set: (url: string) => Storage.setItemSync(SERVER_URL, url),

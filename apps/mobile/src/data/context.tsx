@@ -17,6 +17,8 @@ export interface AppData {
   sync: MobileSync;
   /// The sync server's address.
   serverUrl: Preference;
+  /// The theme picked in Settings.
+  theme: Preference;
 }
 
 const AppDataContext = createContext<AppData | null>(null);

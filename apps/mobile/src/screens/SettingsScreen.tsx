@@ -8,7 +8,9 @@ import { Alert, View } from "react-native";
 import { z } from "zod";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
+import { THEME_CHOICES, setTheme, useThemeChoice } from "../data/appearance.ts";
 import { Badge } from "../ui/Badge.tsx";
+import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Empty, Row, Section, ROW_DIVIDER } from "../ui/Row.tsx";
@@ -305,12 +307,38 @@ function Account() {
   );
 }
 
-/// The phone's sync account. Everything else is set on the desktop.
+/// Light, dark, or the system's, as the desktop's Theme setting.
+function ThemeSection() {
+  const { theme } = useAppData();
+  const choice = useThemeChoice((s) => s.choice);
+  return (
+    <Section title="Appearance">
+      <View className="gap-2 p-4">
+        <ChipGroup label="Theme">
+          {THEME_CHOICES.map((option) => (
+            <Chip
+              key={option.choice}
+              label={option.label}
+              selected={option.choice === choice}
+              onPress={() => setTheme(theme, option.choice)}
+            />
+          ))}
+        </ChipGroup>
+        <Text variant="small" tone="muted">
+          Light, dark, or follow the system.
+        </Text>
+      </View>
+    </Section>
+  );
+}
+
+/// The phone's theme and sync account. Everything else is set on the desktop.
 export function SettingsScreen() {
   const signedIn = useSyncState((s) => s.user !== null);
   const reason = useSyncState((s) => s.signedOutReason);
   return (
     <Screen>
+      <ThemeSection />
       {reason && !signedIn ? <Text tone="caution">{reason}</Text> : null}
       {signedIn ? <Account /> : <SignIn />}
     </Screen>

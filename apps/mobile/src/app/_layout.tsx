@@ -15,7 +15,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { type AppData, AppDataProvider } from "../data/context.tsx";
 import { openLocalDb } from "../data/database.ts";
 import { keys } from "../data/keys.ts";
-import { createSync, serverUrlStore } from "../data/sync.ts";
+import { restoreTheme } from "../data/appearance.ts";
+import { createSync, serverUrlStore, themeStore } from "../data/sync.ts";
+
+// Before the first frame, so a picked theme never flashes the system's.
+restoreTheme(themeStore);
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 
@@ -28,7 +32,7 @@ async function start(): Promise<AppData> {
   const db = await openLocalDb();
   const sync = createSync(db, () => void queryClient.invalidateQueries({ queryKey: keys.local }));
   void sync.restore(serverUrlStore.get());
-  return { db, sync, serverUrl: serverUrlStore };
+  return { db, sync, serverUrl: serverUrlStore, theme: themeStore };
 }
 
 export default function RootLayout() {
