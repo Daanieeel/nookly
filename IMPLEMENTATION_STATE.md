@@ -29,11 +29,12 @@ Read this first when continuing. Keep it current with every commit.
 | Server                             | Done: auth, sessions, push/pull/ws, sharing, OpenAPI at /docs, Docker + Caddy, 47 tests on real Postgres incl. the vertical slice                                                                                                  |
 | Desktop sync client and settings   | Done (0.35.0): Tauri driver, keychain tokens, `features/sync` runtime, Settings, Sync (server, sign in/up, status, sync now, devices, shared with me, conflicts, delete account), Share with People dialog, viewer pages read only |
 | Sharing                            | Server done (pages: viewer/editor, invites, revoke). Desktop and mobile UI not started                                                                                                                                             |
-| Mobile                             | Not started                                                                                                                                                                                                                        |
+| Mobile                             | First version: shell, Tasks, Notes/Jots, Calendar entries, Bookmarks full; other modules list and open; sync account and shared with me in Settings. 6 screen tests, iOS bundle builds                                             |
 
 ## Next steps
 
-- Mobile (`apps/mobile`): Expo + Expo Router + expo-sqlite, same schema (`localSchemaStatements`) and engine, TanStack Query and Form, shared tokens. Shell first (Spaces, Dashboard, Search, Recents), then Tasks, Notes, Calendar/Sessions, Bookmarks.
+- Mobile breadth: Courses, Exams, Assignments, Decks (study) with their own fields; relationships and labels on the detail screen; sharing a page from the phone; a date picker instead of typed dates.
+- Run the app in a simulator once by hand (not done: the user asked not to check the running app).
 
 ## Running the server tests locally
 

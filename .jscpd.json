@@ -4,7 +4,8 @@
     "packages/ui/src",
     "packages/shared/src",
     "apps/desktop/src-tauri/src",
-    "apps/server/src"
+    "apps/server/src",
+    "apps/mobile/src"
   ],
   "format": ["typescript", "tsx", "rust"],
   "ignore": [

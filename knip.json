@@ -18,6 +18,10 @@
     "apps/server": {
       "entry": ["src/index.ts", "test/**/*.ts", "drizzle.config.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"]
+    },
+    "apps/mobile": {
+      "entry": ["src/app/**/*.tsx", "src/**/*.test.{ts,tsx}", "jest.setup.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
     }
   }
 }

@@ -439,3 +439,23 @@ A recipient gets the shared page, its blocks and its settings only, inside a Spa
 Soft delete is the rule for entities on devices. Account deletion is different: it removes every server row of the account (sessions, records, conflicts, shares both ways). The devices keep their own data.
 
 **Why:** people expect "delete my account" to delete it, and a server should not keep data its owner asked it to drop.
+
+---
+
+### The mobile app shares logic, data and tokens with the desktop, not components
+
+`apps/mobile` is Expo with Expo Router, on `expo-sqlite` with the desktop's exported schema (`ensureSchema` creates it and adds what a newer desktop schema has, never removing a row). Its reads and writes come from `packages/shared/src/data`, which does what the desktop's Rust functions do (key numbers, Space modules, Trash with Sub-tasks, task completion and repeats), and sync is the same `SyncRuntime` and engine the desktop runs. Colors, radius and type sizes come from `packages/shared/src/tokens.ts`, checked against `packages/ui`'s stylesheet by a test. Same libraries as the desktop: TanStack Query, TanStack Form with Zod, Zustand, Tabler icons.
+
+**Why:** a phone can't run the Rust core or the web components, but everything that decides what a row looks like, how it syncs and how it looks on screen can be one implementation.
+
+**Rejected:** NativeWind (it needs Tailwind 3 while the desktop uses Tailwind 4, and two Tailwinds in one workspace collide), React Native Reanimated (only the swipe rows animated; Gesture Handler's Animated version does it without another native module), a web view of the desktop UI (not a native app), and a second sync implementation for mobile.
+
+**Also:** React is pinned to 19.2.3 for the whole workspace (root `overrides`), because React Native requires the exact React its renderer was built with and the workspace hoists one copy.
+
+---
+
+### What the phone does in the first version
+
+Shell: Dashboard (today, due, pinned), Calendar (two weeks, every Space), Tasks (every Space, by status), Spaces with their modules, Search with Recents, Trash, Settings for sync. Full list, detail, create, edit, Trash and restore for Tasks, Notes and Jots (text blocks), Calendar entries and Bookmarks. Every other module lists its entities and opens them with title, Pin and Trash. Sessions show on the Calendar and are changed on the desktop, since a series and its overrides need the desktop's rules.
+
+**Why:** the modules people reach for on a phone first, done properly, before breadth.

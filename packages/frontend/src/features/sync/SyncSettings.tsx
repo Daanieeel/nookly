@@ -25,7 +25,7 @@ import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
-import { normalizeServerUrl } from "./sync-runtime.ts";
+import { normalizeServerUrl } from "@nookly/shared/sync";
 
 const errorText = (error: Error | null) => (error ? error.message : null);
 

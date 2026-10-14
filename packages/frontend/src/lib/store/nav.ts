@@ -21,24 +21,8 @@ import {
   makeGroup,
 } from "./tab-groups.ts";
 
-export const MODULE_KEYS = [
-  "tasks",
-  "notes",
-  "jots",
-  "courses",
-  "semesters",
-  "sessions",
-  "calendar",
-  "exams",
-  "decks",
-  "assignments",
-  "files",
-  "bookmarks",
-  "recipes",
-  "grades",
-] as const;
-
-export type ModuleKey = (typeof MODULE_KEYS)[number];
+export { MODULE_KEYS, type ModuleKey } from "@nookly/shared/modules";
+import { MODULE_KEYS, type ModuleKey } from "@nookly/shared/modules";
 
 export type View =
   | { kind: "dashboard" }

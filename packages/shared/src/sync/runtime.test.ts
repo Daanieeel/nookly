@@ -1,9 +1,9 @@
-// @vitest-environment node
-import type { DeviceInfo, User } from "@nookly/shared/api";
-import type { SyncTransport } from "@nookly/shared/sync";
-import { MemoryServer, NodeSqliteDriver } from "@nookly/shared/testing";
+import type { DeviceInfo, User } from "../api/index.ts";
+import type { SyncTransport } from "./client.ts";
+import { MemoryServer } from "./testing/memory-server.ts";
+import { NodeSqliteDriver } from "./testing/node-driver.ts";
 import { describe, expect, it, vi } from "vitest";
-import { type AccountApi, SyncRuntime } from "./sync-runtime.ts";
+import { type AccountApi, SyncRuntime } from "./runtime.ts";
 
 const ADA: User = {
   id: "00000000-0000-4000-8000-000000000001",

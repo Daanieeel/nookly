@@ -6,7 +6,7 @@ import { useStore } from "zustand";
 import { keychainTokens, reindexEntities, tauriSqlDriver } from "#/lib/api/sync.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { settings } from "#/lib/settings/settings.ts";
-import { SyncRuntime, type SyncState } from "./sync-runtime.ts";
+import { SyncRuntime, type SyncAccountState } from "@nookly/shared/sync";
 
 function thisDevice(): DeviceInfo {
   const agent = globalThis.navigator?.userAgent ?? "";
@@ -38,7 +38,7 @@ export const syncRuntime = new SyncRuntime<ApiClient>({
   onApplied: () => refreshViews(),
 });
 
-export function useSyncState<T>(selector: (state: SyncState) => T): T {
+export function useSyncState<T>(selector: (state: SyncAccountState) => T): T {
   return useStore(syncRuntime.store, selector);
 }
 

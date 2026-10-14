@@ -10,14 +10,16 @@
     "./api": "./src/api/index.ts",
     "./tokens": "./src/tokens.ts",
     "./testing": "./src/sync/testing/index.ts",
-    "./data": "./src/data/index.ts"
+    "./data": "./src/data/index.ts",
+    "./modules": "./src/modules.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "^4"
+    "zod": "^4",
+    "zustand": "^5"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",

@@ -5,3 +5,4 @@ export * from "./local-schema.ts";
 export * from "./protocol.ts";
 export * from "./record.ts";
 export * from "./sql.ts";
+export * from "./runtime.ts";

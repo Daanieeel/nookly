@@ -1,10 +1,12 @@
-import type { ApiClient, DeviceInfo, User } from "@nookly/shared/api";
-import { type SqlDriver, SyncClient, SyncEngine, type SyncStatus } from "@nookly/shared/sync";
+import type { ApiClient, DeviceInfo, User } from "../api/index.ts";
+import type { SqlDriver } from "./sql.ts";
+import { SyncClient, type SyncStatus } from "./client.ts";
+import { SyncEngine } from "./engine.ts";
 import { createStore } from "zustand/vanilla";
 
-/// Sync on this device: which server and account, the engine on this device's
-/// database and the client that keeps it in step. Sync is optional; nothing here
-/// runs until someone signs in.
+/// Sync on one device: which server and account, the engine on the device's
+/// database and the client that keeps it in step. The desktop and the mobile app
+/// both run this. Sync is optional; nothing here runs until someone signs in.
 
 /// The account calls sync needs; the shared `ApiClient` is one.
 export type AccountApi = Pick<
@@ -17,13 +19,14 @@ export interface SyncRuntimeDeps<A extends AccountApi> {
   /// An API client for a server, told when the server signs this device out.
   connect: (serverUrl: string, onSignedOut: () => void) => A;
   device: DeviceInfo;
-  /// Rebuilds search and mentions for entities that changed elsewhere.
-  reindex: (entityIds: string[]) => Promise<void>;
+  /// Rebuilds what the device derives from synced rows (the desktop's search index).
+  reindex?: (entityIds: string[]) => Promise<void>;
+  newId?: () => string;
   /// Remote changes landed; views refresh.
   onApplied: () => void;
 }
 
-export interface SyncState {
+export interface SyncAccountState {
   serverUrl: string | null;
   user: User | null;
   status: SyncStatus;
@@ -46,7 +49,7 @@ export function normalizeServerUrl(url: string): string {
 }
 
 export class SyncRuntime<A extends AccountApi = AccountApi> {
-  readonly store = createStore<SyncState>(() => ({
+  readonly store = createStore<SyncAccountState>(() => ({
     serverUrl: null,
     user: null,
     status: OFF,
@@ -59,7 +62,11 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
 
   constructor(deps: SyncRuntimeDeps<A>) {
     this.deps = deps;
-    this.engine = new SyncEngine({ driver: deps.driver, afterApply: deps.reindex });
+    this.engine = new SyncEngine({
+      driver: deps.driver,
+      afterApply: deps.reindex,
+      newId: deps.newId,
+    });
   }
 
   /// The account API while signed in, for sessions, sharing and the account itself.
