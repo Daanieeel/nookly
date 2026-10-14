@@ -28,7 +28,7 @@ Quick map:
 - Tempted to add a feature (notifications, git, cloud sync, plugin loading)? Check `07-deferred-scope.md` first. Probably deferred on purpose.
 - Ambiguous UX/product judgment call? Read `08-vision-and-motivation.md`.
 
-Never modify existing primitive components or design tokens (`packages/ui`). Add new ones only.
+Never modify existing primitive components or design tokens (`packages/ui`). Add new ones only. The primitives' classes live in `packages/ui/src/classes.ts`, shared with the phone, and count as part of the primitives.
 
 Button or Badge `variant="outline"` is for rare, special-case emphasis only. Default to `secondary` or `ghost`.
 Icon buttons containing no label always need a short tooltip explaining the action (e.g. "Open Page", "Delete Note" etc.).

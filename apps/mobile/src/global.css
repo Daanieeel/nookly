@@ -1,11 +1,14 @@
-/* The phone's styles are the desktop's: Tailwind 4, the desktop's theme
-   (`@nookly/ui/native-theme.css`, generated from its styles.css), and the classes of
-   its primitives and components (`@nookly/ui/classes`, `@nookly/frontend/classes`). */
+/* The phone's styles are the desktop's: Tailwind 4, the desktop's tokens
+   (`@nookly/ui/theme.css`), and the classes of its primitives and components
+   (`@nookly/ui/classes`, `@nookly/frontend/classes`). */
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "nativewind/theme";
-@import "@nookly/ui/native-theme.css";
+@import "@nookly/ui/theme.css";
+
+/* The tokens' dark values follow the system setting here (the desktop uses a class). */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 @source "./";
 @source "../../../packages/ui/src/classes.ts";

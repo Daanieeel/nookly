@@ -10,8 +10,8 @@
     "./lib/*": "./src/lib/*.ts",
     "./fonts": "./src/fonts.ts",
     "./styles.css": "./src/styles.css",
-    "./native-theme.css": "./src/native-theme.css",
-    "./classes": "./src/classes.ts"
+    "./classes": "./src/classes.ts",
+    "./theme.css": "./src/theme.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

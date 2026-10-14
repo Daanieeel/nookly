@@ -27,8 +27,8 @@ import { Skeleton } from "@nookly/ui/components/skeleton";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { cn } from "@nookly/ui/lib/utils";
 
-/// `@nookly/ui/classes` hands the primitives' classes to the phone (NativeWind). Every
-/// primitive must still render exactly those classes, so the phone looks like the desktop.
+/// `@nookly/ui/classes` is where the primitives' classes are written, for the desktop's
+/// primitives and the phone's (NativeWind). Every primitive renders exactly those.
 const cases: [string, React.ReactElement, string][] = [
   ["Input", <Input />, INPUT_CLASSES],
   ["Textarea", <Textarea />, TEXTAREA_CLASSES],

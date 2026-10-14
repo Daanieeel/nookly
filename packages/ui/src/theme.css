@@ -1,10 +1,19 @@
-/* Generated from styles.css by `bun run theme:native`. Do not edit. */
+/* Nookly's design tokens, the one place they are written: the desktop
+   (`styles.css`) and the phone (`apps/mobile/src/global.css`) both import this file.
+   Dark values sit under `@variant dark`, which each app defines: the desktop by the
+   `.dark` class its theme setting puts on the page, the phone by the system setting.
+   Plain values only (no `calc()`), so the phone's style engine reads them as they are. */
 
 :root {
+  /* Page bg is a soft neutral (same tone as --muted) so raised --card surfaces (dialogs,
+     popovers, panels) actually read as elevated instead of blending in. */
   --background: #f2f2f2;
   --foreground: #0a0a0a;
   --card: #ffffff;
   --card-foreground: #0a0a0a;
+  /* Popovers/dropdowns/menus get the page's muted tone rather than the card's white, so they
+     read as a distinct floating layer instead of just "another white rectangle" on top of
+     the panes they open from. */
   --popover: #f2f2f2;
   --popover-foreground: #0a0a0a;
   --primary: #0070f3;
@@ -22,9 +31,14 @@
   --border: #e2e2e2;
   --input: #d4d4d4;
   --ring: #0070f3;
-  --radius: 0.625rem;
+  /* A raised-surface tone guaranteed to read against --muted in both themes —
+     --card/--popover/--muted collapse to the same value in dark mode, so
+     neither works for e.g. Tabs' active-segment fill inside a muted track. */
   --raised: #ffffff;
+  /* Saturday and Sunday on the Sessions calendar: a step off --card, readable in
+     both themes (--muted equals --card in dark mode). */
   --weekend: #f5f5f6;
+
   --accent-blue: #0070f3;
   --accent-green: #00873d;
   --accent-pink: #d6336c;
@@ -40,8 +54,10 @@
   --sidebar-ring: var(--ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root {
+  @variant dark {
+    /* Card surfaces are a lighter charcoal than the page bg (same tone as --muted) so they
+       read as raised toward the light, mirroring the light theme's white-card-on-gray-page. */
     --background: #000000;
     --foreground: #eeeeee;
     --card: #1a1a1a;
@@ -65,6 +81,7 @@
     --ring: #0070f3;
     --raised: #333333;
     --weekend: #121212;
+
     --accent-blue: #47a8ff;
     --accent-green: #00cb50;
     --accent-pink: #ff4d8d;

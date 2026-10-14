@@ -8,7 +8,6 @@
     "./schema": "./src/schema.ts",
     "./sync": "./src/sync/index.ts",
     "./api": "./src/api/index.ts",
-    "./tokens": "./src/tokens.ts",
     "./testing": "./src/sync/testing/index.ts",
     "./data": "./src/data/index.ts",
     "./modules": "./src/modules.ts",

@@ -243,7 +243,7 @@ const ScrollProgress = ({
                         type="button"
                         onClick={() => selectSection(s.id)}
                         className={cn(
-                          "relative flex w-full items-center gap-3 rounded-[14px] py-2 pr-3 text-left text-sm font-medium leading-none transition-colors",
+                          "relative flex w-full items-center gap-3 rounded-xl py-2 pr-3 text-left text-sm font-medium leading-none transition-colors",
                           squircle,
                           isActive
                             ? "text-accent-foreground"
@@ -254,7 +254,7 @@ const ScrollProgress = ({
                         {isActive && (
                           <motion.span
                             layoutId={`${layoutId}-active`}
-                            className={cn("absolute inset-0 rounded-[14px] bg-accent/70", squircle)}
+                            className={cn("absolute inset-0 rounded-xl bg-accent/70", squircle)}
                             transition={reduceMotion ? { duration: 0 } : SIZE_SPRING}
                           />
                         )}

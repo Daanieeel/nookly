@@ -21,17 +21,17 @@ cd apps/mobile && bun run test
 
 ## What it shares with the desktop
 
-| From `packages/shared`                                           |                                                                           |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `schema`, `sync` (`ensureSchema`, engine, client, `SyncRuntime`) | the same database and the same sync                                       |
-| `data`                                                           | reads and writes that do what the desktop's Rust functions do             |
-| `tokens`, `colors`                                               | the desktop's colors for icons and bars, accent colors and study statuses |
-| `modules`                                                        | module names and entity types                                             |
-| `api`                                                            | the server client                                                         |
+| From `packages/shared`                                           |                                                               |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| `schema`, `sync` (`ensureSchema`, engine, client, `SyncRuntime`) | the same database and the same sync                           |
+| `data`                                                           | reads and writes that do what the desktop's Rust functions do |
+| `colors`                                                         | accent colors and study statuses                              |
+| `modules`                                                        | module names and entity types                                 |
+| `api`                                                            | the server client                                             |
 
 ## Styles
 
-NativeWind 5 with Tailwind 4, on the desktop's classes: the theme is `@nookly/ui/native-theme.css` (generated from the desktop's `styles.css`, `bun run theme:native`), the primitives' classes come from `@nookly/ui/classes` and the desktop components' from `@nookly/frontend/classes`. `src/ui` rebuilds those components for React Native. `bun test ./styles.test.ts` compiles the stylesheet as the app does and checks the values.
+NativeWind 5 with Tailwind 4, on the desktop's classes: the tokens are `@nookly/ui/theme.css`, the same file the desktop imports (dark by the system setting here), the primitives' classes come from `@nookly/ui/classes` and the desktop components' from `@nookly/frontend/classes`. `src/ui` rebuilds those components for React Native. `bun test ./styles.test.ts` compiles the stylesheet as the app does and checks the values.
 
 Inter comes from `@expo-google-fonts`, one family per weight, so `font-medium` and the like pick the right face.
 

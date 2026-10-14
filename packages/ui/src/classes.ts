@@ -1,13 +1,8 @@
 import { cva } from "class-variance-authority";
 
-/// The classes of the primitives, for clients that can't render them but style with
-/// the same Tailwind classes: the phone, through NativeWind. Each is exactly what the
-/// primitive of the same name renders; `packages/frontend/src/test/ui-classes.test.tsx`
-/// renders every primitive and fails when one drifts from its classes here. Variants a
-/// primitive exports (`buttonVariants`, `badgeVariants`) come from it directly.
-
-export { buttonVariants } from "./components/button.tsx";
-export { badgeVariants } from "./components/badge.tsx";
+/// The classes of the primitives, the one place they are written: the components here
+/// render them on the desktop, and the phone draws its own components with them
+/// through NativeWind. Changing one changes both, and counts as changing the primitive.
 
 export const INPUT_CLASSES =
   "flex h-8 w-full min-w-0 rounded-md border border-input bg-accent px-3 py-1 text-sm shadow-xs transition-colors outline-none placeholder:text-muted-foreground hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
@@ -56,6 +51,68 @@ export const sidebarMenuButtonVariants = cva(
     defaultVariants: {
       variant: "default",
       size: "default",
+    },
+  },
+);
+
+export const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive/10 text-destructive border border-destructive/50 hover:bg-destructive/30",
+        warning: "bg-warning/10 text-warning border border-warning/50 hover:bg-warning/30",
+        caution: "bg-caution/10 text-caution border border-caution/50 hover:bg-caution/30",
+        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
+        positive: "bg-positive/10 border border-positive text-positive hover:bg-positive/30",
+        neutral:
+          "bg-muted-foreground/20 border border-muted-foreground text-white hover:bg-muted-foreground/40",
+        secondary: "border border-input bg-accent hover:bg-accent/80 hover:text-accent-foreground",
+        ghost: "hover:bg-black/5 hover:text-accent-foreground",
+        muted: "text-muted-foreground/60 hover:bg-black/5 hover:text-muted-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+        linkMuted: "text-muted-foreground underline-offset-4 hover:text-foreground hover:underline",
+      },
+      size: {
+        default: "h-9 px-4 py-2",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-10 px-8",
+        icon: "size-9",
+        iconSm: "size-7",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  },
+);
+
+export const badgeVariants = cva(
+  "inline-flex items-center rounded-sm border font-medium leading-none whitespace-nowrap",
+  {
+    variants: {
+      variant: {
+        default: "border-transparent bg-primary text-primary-foreground",
+        primary: "bg-primary/10 border border-primary/50 text-primary",
+        secondary: "border-transparent bg-accent text-accent-foreground",
+        outline: "border-foreground/50 text-foreground",
+        ghost: "border-transparent bg-transparent text-foreground",
+        positive: "bg-positive/10 border border-positive/50 text-positive",
+        warning: "bg-warning/10 border border-warning/50 text-warning",
+        destructive: "bg-destructive/10 border border-destructive/50 text-destructive",
+      },
+      size: {
+        sm: "px-1 py-0.5 text-[11px]",
+        md: "px-1.5 py-0.5 text-xs",
+        lg: "px-2.5 py-1 text-sm",
+      },
+    },
+    defaultVariants: {
+      variant: "secondary",
+      size: "sm",
     },
   },
 );
