@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { type Store, load } from "@tauri-apps/plugin-store";
 import { create } from "zustand";
 import { preferences } from "#/lib/preferences.ts";
+import { storePath } from "#/lib/store-path.ts";
 import {
   SETTING_IDS,
   type SettingId,
@@ -132,7 +133,7 @@ export async function initSettings(): Promise<void> {
   let loaded: Store;
   let entries: [string, SettingJson][];
   try {
-    loaded = await load(FILE, { defaults: {}, autoSave: 100 });
+    loaded = await load(await storePath(FILE), { defaults: {}, autoSave: 100 });
     entries = await loaded.entries<SettingJson>();
   } catch (error) {
     console.error("Couldn't load settings", error);

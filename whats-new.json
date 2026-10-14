@@ -1,6 +1,35 @@
 {
   "versions": [
     {
+      "version": "0.38.0",
+      "date": "2026-10-14",
+      "title": "One account for every device",
+      "summary": "Sign in once, and your Spaces, files and settings follow you.",
+      "highlights": [
+        {
+          "title": "Sign in from the titlebar",
+          "description": "The cloud button in the titlebar signs you in, and then says whether everything is synced.",
+          "icon": "user-circle",
+          "tag": "New"
+        },
+        {
+          "title": "Bring everything along",
+          "description": "Your first sign in backs up this device, then moves everything into your account and checks it with the server. Nothing here is removed.",
+          "icon": "cloud-up",
+          "tag": "New"
+        },
+        {
+          "title": "Files and settings sync",
+          "description": "Files reach your other devices, checked on the way, and your formats, calendar and editor settings follow you.",
+          "icon": "cloud",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": ["Change your password under Settings, Account."]
+      }
+    },
+    {
       "version": "0.37.0",
       "date": "2026-10-14",
       "title": "Accounts with a username",

@@ -3,7 +3,14 @@ import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 import { useStore } from "zustand";
-import { keychainTokens, reindexEntities, tauriSqlDriver } from "#/lib/api/sync.ts";
+import {
+  keychainTokens,
+  preSyncBackup,
+  reindexEntities,
+  tauriBlobs,
+  tauriSqlDriver,
+} from "#/lib/api/sync.ts";
+import { settingsBridge } from "./settings-bridge.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { settings } from "#/lib/settings/settings.ts";
 import { SyncRuntime, type SyncAccountState } from "@nookly/shared/sync";
@@ -36,6 +43,9 @@ export const syncRuntime = new SyncRuntime<ApiClient>({
   device: thisDevice(),
   reindex: reindexEntities,
   onApplied: () => refreshViews(),
+  backup: preSyncBackup,
+  blobs: (serverUrl) => tauriBlobs(serverUrl),
+  settings: settingsBridge,
 });
 
 export function useSyncState<T>(selector: (state: SyncAccountState) => T): T {

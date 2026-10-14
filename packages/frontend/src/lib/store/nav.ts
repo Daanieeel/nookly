@@ -150,6 +150,8 @@ interface NavState {
   switcherOpen: boolean;
   commandsOpen: boolean;
   settingsOpen: boolean;
+  /// The Settings page to show when Settings opens next (a category id), once.
+  settingsPage: string | null;
   importOpen: boolean;
   whatsNewOpen: boolean;
   /// The open What's new dialog lists every version, not just what changed since the last one seen.
@@ -190,6 +192,9 @@ interface NavState {
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  /// Opens Settings on one page, like Account from the sync status.
+  openSettingsAt: (page: string) => void;
+  clearSettingsPage: () => void;
   setImportOpen: (open: boolean) => void;
   setWhatsNewOpen: (open: boolean, history?: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
@@ -504,6 +509,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   switcherOpen: false,
   commandsOpen: false,
   settingsOpen: false,
+  settingsPage: null,
   importOpen: false,
   whatsNewOpen: false,
   whatsNewHistory: false,
@@ -693,6 +699,8 @@ export const useNavStore = create<NavState>((set, get) => ({
     set(commandsOpen ? { ...NO_OVERLAY, commandsOpen } : { commandsOpen }),
   setSettingsOpen: (settingsOpen) =>
     set(settingsOpen ? { ...NO_OVERLAY, settingsOpen } : { settingsOpen }),
+  openSettingsAt: (settingsPage) => set({ ...NO_OVERLAY, settingsOpen: true, settingsPage }),
+  clearSettingsPage: () => set({ settingsPage: null }),
   setImportOpen: (importOpen) => set(importOpen ? { ...NO_OVERLAY, importOpen } : { importOpen }),
   setWhatsNewOpen: (whatsNewOpen, whatsNewHistory = false) =>
     set(

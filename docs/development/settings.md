@@ -6,7 +6,7 @@ Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `ge
 
 ## Settings file
 
-"Open Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in every build (the store plugin ignores `.dev-data`), so a debug build edits the installed app's settings. Edit with the app closed: it saves its own copy over the file.
+"Open Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in a release build; a debug build keeps its own `settings.json` and `preferences.json` in its data folder (`.dev-data`, `commands::settings_file::store_dir`), so development never touches the installed app's settings. Edit with the app closed: it saves its own copy over the file.
 
 ## Add a setting
 
@@ -24,7 +24,9 @@ The Backup tab holds everything about backups inline: the folder, the daily swit
 
 ## Sync
 
-`sync.serverUrl` is the sync server this device signs in to; empty means sync is off. The Sync tab signs in or up, shows the status, the devices and what is shared with you (`features/sync`). The refresh token lives in the OS keychain, never in a file. Signing out keeps every row and forgets only what the device knew of the server. See [the sync protocol](sync-protocol.md).
+`sync.serverUrl` is the server this device signs in to; empty means sync is off. The Account tab (category id `sync`) opens the sign in dialog, shows the status, the first sync, files, the devices and what is shared with you (`features/sync`). The session token lives in the OS keychain (a separate entry for debug builds), never in a file. Signing out keeps every row and forgets only what the device knew of the server. See [the sync protocol](sync-protocol.md).
+
+Settings that describe the person follow the account (`SYNCED_SETTINGS` in `packages/shared/src/sync/settings.ts`): they are mirrored into the synced `account_settings` table. Theme, backups, the server, Vim keys and shortcuts stay per device.
 
 ## Agent files
 

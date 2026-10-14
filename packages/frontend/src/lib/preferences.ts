@@ -1,5 +1,6 @@
 import { type Store, load } from "@tauri-apps/plugin-store";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { storePath } from "#/lib/store-path.ts";
 
 /// Device preferences (theme, sidebar state, sort orders...), persisted with the
 /// Tauri store plugin in `preferences.json` in the app data folder. Loaded once
@@ -15,7 +16,7 @@ const cache = new Map<string, string>();
 /// the store can't load, every read falls back to its default.
 export async function initPreferences(): Promise<void> {
   try {
-    store = await load(FILE, { defaults: {}, autoSave: 100 });
+    store = await load(await storePath(FILE), { defaults: {}, autoSave: 100 });
     for (const [key, value] of await store.entries<string>()) cache.set(key, value);
   } catch (error) {
     console.error("Couldn't load preferences", error);

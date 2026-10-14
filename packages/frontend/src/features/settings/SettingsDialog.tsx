@@ -7,7 +7,7 @@ import {
   IconNotes,
   IconPalette,
   IconRobot,
-  IconCloud,
+  IconUserCircle,
   IconSearch,
   IconSettings,
   type Icon as TablerIcon,
@@ -46,7 +46,7 @@ const CATEGORY_META = {
   notes: { label: "Editor", icon: IconNotes },
   backup: { label: "Backup", icon: IconArchive },
   agent: { label: "Agent", icon: IconRobot },
-  sync: { label: "Sync", icon: IconCloud },
+  sync: { label: "Account", icon: IconUserCircle },
   shortcuts: { label: "Shortcuts", icon: IconKeyboard },
 } satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
 
@@ -219,6 +219,15 @@ export function SettingsDialog() {
   const searchRef = useRef<HTMLInputElement>(null);
   const searching = query.trim() !== "";
   const results = searchSettings(query, useSearchableRows());
+
+  // Opened on a page (Account, from the sync status): that page, once.
+  const requestedPage = useNavStore((s) => s.settingsPage);
+  useEffect(() => {
+    if (!open || !requestedPage) return;
+    const target = NAV.find((item) => item.id === requestedPage);
+    if (target) setPageId(target.id);
+    useNavStore.getState().clearSettingsPage();
+  }, [open, requestedPage]);
 
   // Closed from anywhere (another overlay opening, Cmd+,), it reopens with a clean search.
   useEffect(() => {

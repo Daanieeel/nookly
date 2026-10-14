@@ -8,6 +8,7 @@ import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
 import { syncRuntime } from "./sync-instance.ts";
+import { useAccountDialog } from "./account-dialog-store.ts";
 
 const ADA = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -20,7 +21,7 @@ const ADA = {
 async function openSync() {
   const rendered = renderWithProviders(<SettingsDialog />);
   act(() => useNavStore.getState().setSettingsOpen(true));
-  await rendered.user.click(await screen.findByRole("button", { name: "Sync" }));
+  await rendered.user.click(await screen.findByRole("button", { name: "Account" }));
   return rendered;
 }
 
@@ -78,13 +79,12 @@ describe("the Sync settings", () => {
     await expectNoA11yViolations();
   });
 
-  it("needs a server before signing in", async () => {
+  it("opens the sign in dialog, or the one to create an account", async () => {
     mockCommand("sync_query", []);
     const { user } = await openSync();
-    await user.type(screen.getByLabelText(/Username or email/), "ada@example.com");
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
-    await user.click(screen.getByRole("button", { name: "Sign In" }));
-    expect(await screen.findByText("Enter the server address above first.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(useAccountDialog.getState()).toMatchObject({ open: true, mode: "signUp" });
+    act(() => useAccountDialog.getState().close());
   });
 
   it("refuses a server address that isn't one", async () => {

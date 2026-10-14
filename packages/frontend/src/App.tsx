@@ -25,6 +25,8 @@ import { ImportDialog } from "#/features/notes/ImportDialog.tsx";
 import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useSyncBootstrap } from "#/features/sync/sync-instance.ts";
+import { AccountDialog } from "#/features/sync/AccountDialog.tsx";
+import { FirstSyncDialog } from "#/features/sync/FirstSyncDialog.tsx";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
@@ -120,6 +122,8 @@ function Shell() {
       <CommandsPalette />
       <QuickJotDialog />
       <SettingsDialog />
+      <AccountDialog />
+      <FirstSyncDialog />
       <ImportDialog />
       <WhatsNewDialog />
       <BookmarkSheet />

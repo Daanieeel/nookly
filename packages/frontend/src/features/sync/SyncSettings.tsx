@@ -1,10 +1,4 @@
-import {
-  ApiClient,
-  type Session,
-  type Share,
-  passwordSchema,
-  usernameSchema,
-} from "@nookly/shared/api";
+import { type Session, type Share, passwordSchema } from "@nookly/shared/api";
 import type { Conflict, SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
@@ -21,7 +15,7 @@ import { useEffect, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
+import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import type { RowSpec } from "#/features/settings/setting-rows.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { formatEditedAt } from "#/lib/relative-time.ts";
@@ -32,6 +26,8 @@ import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
+import { useAccountDialog } from "./account-dialog-store.ts";
+import { migrationSummary } from "./FirstSyncDialog.tsx";
 import { normalizeServerUrl } from "@nookly/shared/sync";
 
 const errorText = (error: Error | null) => (error ? error.message : null);
@@ -66,147 +62,148 @@ export function SyncServerControl() {
   );
 }
 
-const signInSchema = z.object({
-  email: z.string().trim().min(1, "Enter your username or email"),
-  password: z.string().min(1, "Enter your password"),
+/// Signed out: what sync is, and the way in.
+function SignedOutPanel() {
+  const show = useAccountDialog((state) => state.show);
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <p className="text-xs text-muted-foreground">
+        One account keeps your Spaces, pages, tasks, files and settings the same on every device,
+        including your phone, live. It is optional: without it, everything stays on this device.
+        Signing in never removes anything here, and a backup is made before anything is sent.
+      </p>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={() => show("signIn")}>
+          Sign In
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => show("signUp")}>
+          Create Account
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/// How the first sync of this device went, or how far it is.
+function FirstSyncLine() {
+  const migration = useSyncState((state) => state.migration);
+  const setFirstSyncOpen = useAccountDialog((state) => state.setFirstSyncOpen);
+  if (!migration) return null;
+  const text =
+    migration.phase === "done"
+      ? migrationSummary(migration)
+      : migration.phase === "failed"
+        ? (migration.error ?? "The first sync stopped.")
+        : `Bringing this device into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span
+        className={cn(
+          "min-w-0 flex-1",
+          migration.phase === "failed" ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {text}
+      </span>
+      <Button size="sm" variant="ghost" onClick={() => setFirstSyncOpen(true)}>
+        Details
+      </Button>
+    </div>
+  );
+}
+
+/// Files on their way up or down, and the last failure while some wait.
+function FilesLine() {
+  const files = useSyncState((state) => state.files);
+  if (!files || (files.toUpload === 0 && files.toDownload === 0 && !files.lastError)) return null;
+  const parts = [
+    files.toUpload > 0 && `${files.toUpload} to send`,
+    files.toDownload > 0 && `${files.toDownload} to download`,
+  ].filter(Boolean);
+  return (
+    <p className="text-xs text-muted-foreground">
+      Files: {parts.join(", ") || "waiting"}.
+      {files.lastError && <span className="text-caution"> Trying again: {files.lastError}</span>}
+    </p>
+  );
+}
+
+const changePasswordSchema = z.object({
+  current: z.string().min(1, "Enter your current password"),
+  next: passwordSchema,
 });
 
-function SignInForm() {
-  const [serverUrl] = useSetting("sync.serverUrl");
-  const queryClient = useQueryClient();
-  const emailId = useId();
-  const passwordId = useId();
-  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
-  const account = useMutation({
-    mutationFn: async ({
-      email,
-      password,
-      create,
-    }: {
-      email: string;
-      password: string;
-      create: boolean;
-    }) => {
-      if (!serverUrl) throw new Error("Enter the server address above first.");
-      if (create) {
-        const strong = passwordSchema.safeParse(password);
-        if (!strong.success) throw new Error("Use a password of at least 10 characters.");
-        const name = usernameSchema.safeParse(email);
-        if (!name.success)
-          throw new Error("Pick a username of letters, digits, dots or underscores.");
-        return syncRuntime.signUp(serverUrl, { username: name.data, password });
-      }
-      return syncRuntime.signIn(serverUrl, email, password);
+function ChangePassword() {
+  const ids = { current: useId(), next: useId() };
+  const change = useMutation({
+    mutationFn: async (value: z.infer<typeof changePasswordSchema>) => {
+      const api = syncRuntime.account();
+      if (!api) throw new Error("Sign in first.");
+      await api.changePassword(value.current, value.next);
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.sync.root }),
-  });
-  const forgot = useMutation({
-    mutationFn: async (email: string) => {
-      if (!serverUrl) throw new Error("Enter the server address above first.");
-      if (!email.includes("@")) throw new Error("Enter your email address to reset the password.");
-      const api = new ApiClient({
-        baseUrl: serverUrl,
-        tokens: { load: async () => null, save: async () => {} },
-      });
-      await api.forgotPassword(email);
-    },
+    onSuccess: () => form.reset(),
   });
   const form = useForm({
-    defaultValues: { email: "", password: "" },
-    validators: { onChange: signInSchema },
-    onSubmit: ({ value }) => account.mutate({ ...value, create: mode === "signUp" }),
+    defaultValues: { current: "", next: "" },
+    validators: { onSubmit: changePasswordSchema },
+    onSubmit: ({ value }) => change.mutate(value),
   });
-
   return (
     <form
-      className="flex w-full flex-col gap-3"
+      noValidate
+      className="flex items-end gap-2 border-t border-border pt-3"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
       }}
     >
-      <p className="text-xs text-muted-foreground">
-        Sync keeps your devices in step and lets you share pages. It is optional: without it,
-        everything stays on this device. Signing in never removes anything here.
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <form.Field name="email">
-          {(field) => (
-            <FormField
-              label="Username or email"
-              htmlFor={emailId}
-              required
-              error={fieldMessage(field)}
-            >
-              <Input
-                id={emailId}
-                autoComplete="username"
-                placeholder="ada"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="password">
-          {(field) => (
-            <FormField label="Password" htmlFor={passwordId} required error={fieldMessage(field)}>
-              <Input
-                id={passwordId}
-                type="password"
-                autoComplete={mode === "signUp" ? "new-password" : "current-password"}
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-            </FormField>
-          )}
-        </form.Field>
-      </div>
-      <FieldError message={errorText(account.error) ?? errorText(forgot.error)} />
-      <form.Subscribe selector={hasVisibleErrors}>
-        {(blocked) => (
-          <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" disabled={blocked} onClick={() => setMode("signIn")}>
-              <StatusButtonContent
-                status={mode === "signIn" ? statusOf(account) : "idle"}
-                label="Sign In"
-                successLabel="Signed in"
-                errorLabel="Couldn't sign in"
-              />
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              variant="secondary"
-              disabled={blocked}
-              onClick={() => setMode("signUp")}
-            >
-              <StatusButtonContent
-                status={mode === "signUp" ? statusOf(account) : "idle"}
-                label="Create Account"
-                successLabel="Account created"
-                errorLabel="Couldn't create it"
-              />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="ml-auto"
-              onClick={() => forgot.mutate(form.getFieldValue("email"))}
-            >
-              <StatusButtonContent
-                status={statusOf(forgot)}
-                label="Forgot Password"
-                successLabel="Check your email"
-                errorLabel="Couldn't send it"
-              />
-            </Button>
-          </div>
+      <form.Field name="current">
+        {(field) => (
+          <FormField
+            label="Current password"
+            htmlFor={ids.current}
+            className="flex-1"
+            error={fieldMessage(field)}
+          >
+            <Input
+              id={ids.current}
+              type="password"
+              autoComplete="current-password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+            />
+          </FormField>
         )}
-      </form.Subscribe>
+      </form.Field>
+      <form.Field name="next">
+        {(field) => (
+          <FormField
+            label="New password"
+            htmlFor={ids.next}
+            className="flex-1"
+            error={fieldMessage(field)}
+          >
+            <Input
+              id={ids.next}
+              type="password"
+              autoComplete="new-password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+            />
+          </FormField>
+        )}
+      </form.Field>
+      <Button type="submit" size="sm" variant="secondary">
+        <StatusButtonContent
+          status={statusOf(change)}
+          label="Change Password"
+          successLabel="Changed"
+          errorLabel="Couldn't change it"
+        />
+      </Button>
+      <FieldError message={errorText(change.error)} />
     </form>
   );
 }
@@ -268,7 +265,8 @@ function AccountSummary() {
   return (
     <div className="flex w-full flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">{user.email ?? user.username}</span>
+        <span className="font-medium">{user.username}</span>
+        {user.email && <span className="text-xs text-muted-foreground">{user.email}</span>}
         <span className="text-xs text-muted-foreground">on {serverUrl}</span>
         {user.email !== null && !user.emailVerified && (
           <>
@@ -312,6 +310,9 @@ function AccountSummary() {
           </Button>
         </div>
       </div>
+      <FirstSyncLine />
+      <FilesLine />
+      <ChangePassword />
       <DeleteAccount />
     </div>
   );
@@ -382,7 +383,7 @@ function AccountPanel() {
   return (
     <div className="flex w-full flex-col gap-2">
       {reason && !signedIn && <p className="text-xs text-caution">{reason}</p>}
-      {signedIn ? <AccountSummary /> : <SignInForm />}
+      {signedIn ? <AccountSummary /> : <SignedOutPanel />}
     </div>
   );
 }

@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.0 (2026-10-14)
+
+### Added
+
+- **Your account, in one place.** Sign in or create an account from the cloud button in the titlebar or Settings, Account. Change your password there too.
+- **Bring everything along.** The first time you sign in, Nookly backs up this device, then moves your Spaces, pages, tasks and files into your account, shows how far it got and checks the result with the server. Nothing on this device is removed.
+- **Files sync too.** Files, recipe banners and bookmark snapshots reach your other devices, checked on the way so a damaged copy is never used.
+- **Settings follow you.** Your name, date and time formats, calendar and editor settings are the same on every device. Theme, backups and shortcuts stay per device.
+- **Sync at a glance.** A quiet icon in the titlebar says whether everything is synced, syncing, offline, or needs a look.
+
 ## 0.37.0 (2026-10-14)
 
 ### Changed

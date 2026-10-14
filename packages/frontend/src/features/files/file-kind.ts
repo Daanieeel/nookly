@@ -95,7 +95,12 @@ export const FILE_KINDS: FileKind[] = Object.entries(KINDS).map(([id, kind]) => 
 
 /// Only a link, no stored copy: Files from before links were downloaded.
 export function isLinkOnly(file: FileEntity): boolean {
-  return !file.localPath && !file.sourcePath && Boolean(file.url);
+  return !file.localPath && !file.sourcePath && !file.blob && Boolean(file.url);
+}
+
+/// In the account, not on this device yet: its contents are downloading.
+export function isDownloading(file: FileEntity): boolean {
+  return !file.localPath && !file.sourcePath && Boolean(file.blob);
 }
 
 /// Added by path and left where it is on disk, not copied into storage.

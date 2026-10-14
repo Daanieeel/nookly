@@ -55,7 +55,7 @@ describe("the settings dialog", () => {
       "LaTeX",
       "Backup",
       "Agent",
-      "Sync",
+      "Account",
       "Shortcuts",
     ]);
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
@@ -87,7 +87,7 @@ describe("the settings dialog", () => {
       "LaTeX",
       "Backup",
       "Agent",
-      "Sync",
+      "Account",
     ];
     for (const label of [...pages, "Shortcuts"]) {
       await user.click(screen.getByRole("button", { name: label }));

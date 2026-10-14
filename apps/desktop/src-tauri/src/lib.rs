@@ -355,6 +355,7 @@ pub fn run() {
             commands::agent_files::delete_agent_file,
             commands::agent_files::reveal_agent_dir,
             commands::settings_file::open_settings_file,
+            commands::settings_file::store_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -146,6 +146,7 @@ export function makeFile(
     originalFilename: null,
     sourcePath: null,
     needsReindex: false,
+    blob: null,
     labelIds: [],
     indexedContent: null,
     ...patch,

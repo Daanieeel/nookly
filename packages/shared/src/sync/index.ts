@@ -6,3 +6,5 @@ export * from "./protocol.ts";
 export * from "./record.ts";
 export * from "./sql.ts";
 export * from "./runtime.ts";
+export * from "./blobs.ts";
+export * from "./settings.ts";

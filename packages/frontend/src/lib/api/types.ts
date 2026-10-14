@@ -483,6 +483,9 @@ export interface FileEntity {
   /// code/plain text files) with no search content yet — never indexed, or
   /// the last attempt found nothing.
   needsReindex: boolean;
+  /// Read only. The SHA-256 of the contents in the account's storage once uploaded;
+  /// a device without a copy yet downloads them by it.
+  blob: string | null;
   /// Attached Label ids, ordered by label name.
   labelIds: string[];
   /// Read only. The full extracted/OCR'd text last indexed for this File.
