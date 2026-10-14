@@ -13,12 +13,12 @@ describe("diffWords", () => {
     const { left, right } = diffWords("Buy oat milk", "Buy milk and eggs");
     expect(left.map((s) => [s.text, s.changed])).toEqual([
       ["Buy ", false],
-      ["oat ", true],
-      ["milk", false],
+      ["oat", true],
+      [" milk", false],
     ]);
     expect(right.map((s) => [s.text, s.changed])).toEqual([
-      ["Buy milk", false],
-      [" and eggs", true],
+      ["Buy milk ", false],
+      ["and eggs", true],
     ]);
   });
 

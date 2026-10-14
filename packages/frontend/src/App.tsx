@@ -26,6 +26,7 @@ import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useSyncBootstrap } from "#/features/sync/sync-instance.ts";
 import { AccountDialog } from "#/features/sync/AccountDialog.tsx";
+import { MergeEditor } from "#/features/sync/MergeEditor.tsx";
 import { FirstSyncDialog } from "#/features/sync/FirstSyncDialog.tsx";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { TrashView } from "#/features/trash/TrashView.tsx";
@@ -124,6 +125,7 @@ function Shell() {
       <SettingsDialog />
       <AccountDialog />
       <FirstSyncDialog />
+      <MergeEditor />
       <ImportDialog />
       <WhatsNewDialog />
       <BookmarkSheet />

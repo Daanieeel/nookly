@@ -22,7 +22,7 @@ type Summary = {
   tone: string;
   spin?: boolean;
   /// What a click opens.
-  opens: "account" | "settings" | "firstSync";
+  opens: "account" | "settings" | "firstSync" | "conflicts";
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -65,7 +65,7 @@ export function syncSummary(
       label: `${plural(status.conflicts, "change needs", "changes need")} a look`,
       icon: IconAlertTriangle,
       tone: "text-caution",
-      opens: "settings",
+      opens: "conflicts",
     };
   }
   switch (status.state) {
@@ -125,6 +125,7 @@ export function SyncStatusButton() {
   const open = () => {
     if (summary.opens === "account") useAccountDialog.getState().show("signIn");
     else if (summary.opens === "firstSync") useAccountDialog.getState().setFirstSyncOpen(true);
+    else if (summary.opens === "conflicts") useAccountDialog.getState().setMergeOpen(true);
     else useNavStore.getState().openSettingsAt("sync");
   };
   const when =

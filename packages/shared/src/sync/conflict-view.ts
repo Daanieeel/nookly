@@ -68,22 +68,37 @@ export interface WordDiff {
   right: Segment[];
 }
 
+const isSpace = (token: string) => /^\s/.test(token);
+
+/// Which tokens changed, comparing words only: a space counts as changed when the
+/// words around it did, so "milk and" reads as one changed stretch.
+function marksFor(list: string[], common: Set<number> | null): boolean[] {
+  const words = list.map((token, index) => (isSpace(token) ? -1 : index)).filter((i) => i >= 0);
+  const wordChanged = new Map(words.map((index, nth) => [index, common ? !common.has(nth) : true]));
+  return list.map((token, index) => {
+    if (!isSpace(token)) return wordChanged.get(index) ?? true;
+    const before = words.filter((i) => i < index).at(-1);
+    const after = words.find((i) => i > index);
+    const prev = before === undefined ? undefined : wordChanged.get(before);
+    const next = after === undefined ? undefined : wordChanged.get(after);
+    return (prev ?? next ?? true) && (next ?? prev ?? true);
+  });
+}
+
 /// The words each side added or changed relative to the other. Each side's
 /// segments join back into exactly its own text.
 export function diffWords(left: string, right: string): WordDiff {
   const a = tokens(left);
   const b = tokens(right);
-  const common = commonTokens(a, b);
-  const leftMarks = a.map(() => true);
-  const rightMarks = b.map(() => true);
-  if (common) {
-    for (const pair of common) {
-      const [i, j] = pair.split(":").map(Number);
-      leftMarks[i] = false;
-      rightMarks[j] = false;
-    }
-  }
-  return { left: segments(a, leftMarks), right: segments(b, rightMarks) };
+  const wordsA = a.filter((t) => !isSpace(t));
+  const wordsB = b.filter((t) => !isSpace(t));
+  const pairs = commonTokens(wordsA, wordsB);
+  const commonA = pairs ? new Set([...pairs].map((p) => Number(p.split(":")[0]))) : null;
+  const commonB = pairs ? new Set([...pairs].map((p) => Number(p.split(":")[1]))) : null;
+  return {
+    left: segments(a, marksFor(a, commonA)),
+    right: segments(b, marksFor(b, commonB)),
+  };
 }
 
 export function isTextValue(value: SqlValue): value is string {

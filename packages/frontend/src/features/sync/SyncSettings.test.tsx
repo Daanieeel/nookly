@@ -138,8 +138,8 @@ describe("the Sync settings", () => {
   });
 });
 
-describe("the conflicts list", () => {
-  it("brings a lost change back or dismisses it", async () => {
+describe("the conflicts summary", () => {
+  it("counts the changes that need a look and opens the merge editor", async () => {
     const conflict = {
       id: "c1",
       table: "tasks",
@@ -154,14 +154,17 @@ describe("the conflicts list", () => {
       conflict,
       { ...conflict, id: "c2", field: "due_date", losingValue: "2026-10-20" },
     ]);
-    const restore = vi.spyOn(syncRuntime.engine, "restoreConflict").mockResolvedValue();
-    const dismiss = vi.spyOn(syncRuntime.engine, "dismissConflict").mockResolvedValue();
     const { user } = await openSync();
-    const [bringBack] = await screen.findAllByRole("button", { name: "Bring Back" });
-    await user.click(bringBack);
-    await waitFor(() => expect(restore).toHaveBeenCalledWith("c1"));
-    await user.click(screen.getAllByRole("button", { name: "Dismiss Conflict" })[1]);
-    await waitFor(() => expect(dismiss).toHaveBeenCalledWith("c2"));
+    expect(await screen.findByText("2 changes need a look.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Review Changes" }));
+    expect(useAccountDialog.getState().mergeOpen).toBe(true);
+    act(() => useAccountDialog.getState().setMergeOpen(false));
     await expectNoA11yViolations();
+  });
+
+  it("says when there are none", async () => {
+    vi.spyOn(syncRuntime.engine, "conflicts").mockResolvedValue([]);
+    await openSync();
+    expect(await screen.findByText("No conflicts.")).toBeInTheDocument();
   });
 });

@@ -22,6 +22,7 @@ import { restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
+import { ConflictBadge } from "#/features/sync/ConflictBadge.tsx";
 import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
@@ -189,6 +190,7 @@ export function EntityDetailLayout({
               }
             />
             {headerExtra}
+            <ConflictBadge entityId={entity.id} />
             {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
             {actions("@3xl:hidden")}
           </div>

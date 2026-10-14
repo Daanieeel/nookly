@@ -1,5 +1,5 @@
 import { type Session, type Share, passwordSchema } from "@nookly/shared/api";
-import type { Conflict, SyncStatus } from "@nookly/shared/sync";
+import type { SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -7,7 +7,6 @@ import {
   IconLoader2,
   IconLogout,
   IconRefresh,
-  IconX,
 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -511,70 +510,25 @@ function SharedWithMePanel() {
   );
 }
 
-function ConflictRow({ conflict }: { conflict: Conflict }) {
-  const queryClient = useQueryClient();
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: qk.sync.conflicts });
-    // A change brought back shows in its views right away.
-    void queryClient.invalidateQueries();
-  };
-  const restore = useMutation({
-    mutationFn: () => syncRuntime.engine.restoreConflict(conflict.id),
-    onSuccess: () => {
-      refresh();
-      syncRuntime.notifyLocalChange();
-    },
-  });
-  const dismiss = useMutation({
-    mutationFn: () => syncRuntime.engine.dismissConflict(conflict.id),
-    onSuccess: refresh,
-  });
-  return (
-    <li className="flex items-center gap-2 py-1.5 text-xs">
-      <span className="shrink-0 text-muted-foreground">{formatEditedAt(conflict.createdAt)}</span>
-      <span className="shrink-0">
-        {conflict.field ? `${conflict.table}.${conflict.field}` : conflict.table}
-      </span>
-      <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">
-        {String(conflict.losingValue ?? "")}
-      </span>
-      <Button size="sm" variant="secondary" onClick={() => restore.mutate()}>
-        <StatusButtonContent
-          status={statusOf(restore)}
-          label="Bring Back"
-          successLabel="Back"
-          errorLabel="Its item is gone"
-        />
-      </Button>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="iconSm"
-            variant="ghost"
-            aria-label="Dismiss Conflict"
-            onClick={() => dismiss.mutate()}
-          >
-            <IconX />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Dismiss Conflict</TooltipContent>
-      </Tooltip>
-    </li>
-  );
-}
-
+/// How many changes wait for a decision, and the way into the merge editor.
 function ConflictsPanel() {
+  const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
   const { data: conflicts = [] } = useQuery({
     queryKey: qk.sync.conflicts,
     queryFn: () => syncRuntime.engine.conflicts(),
   });
   if (conflicts.length === 0) return <p className="text-xs text-muted-foreground">No conflicts.</p>;
   return (
-    <ul className="w-full divide-y divide-border">
-      {conflicts.slice(0, 50).map((c) => (
-        <ConflictRow key={c.id} conflict={c} />
-      ))}
-    </ul>
+    <div className="flex w-full items-center gap-2">
+      <p className="text-xs">
+        {conflicts.length === 1
+          ? "1 change needs a look."
+          : `${conflicts.length} changes need a look.`}
+      </p>
+      <Button size="sm" className="ml-auto" onClick={() => setMergeOpen(true)}>
+        Review Changes
+      </Button>
+    </div>
   );
 }
 
@@ -639,7 +593,7 @@ export const SYNC_ROWS: RowSpec[] = [
     title: "Conflicts",
     hideTitle: true,
     description:
-      "When two devices change the same thing before syncing, the newer change wins. The other one is kept here, so nothing is lost.",
+      "When two devices change the same thing before syncing, the newer change shows and the other is kept. Review them to keep either, both, or a mix.",
     synonyms: ["conflicts", "lost changes", "overwritten", "merge"],
     control: null,
     footer: <ConflictsPanel />,

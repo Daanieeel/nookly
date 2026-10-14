@@ -156,6 +156,7 @@ export const qk = {
     sharesWithMe: ["sync", "shares", "incoming"] as const,
     sharesByMe: ["sync", "shares", "outgoing"] as const,
     conflicts: ["sync", "conflicts"] as const,
+    conflictViews: ["sync", "conflict-views"] as const,
     role: (entityId: string) => ["sync", "role", entityId] as const,
   },
   backups: {

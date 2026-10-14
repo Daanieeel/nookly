@@ -7,10 +7,13 @@ interface AccountDialogState {
   mode: AccountMode;
   /// The first sync's progress dialog, shown after signing in on a device with data.
   firstSyncOpen: boolean;
+  /// The merge editor, for changes made on two devices that need a decision.
+  mergeOpen: boolean;
   show: (mode?: AccountMode) => void;
   setMode: (mode: AccountMode) => void;
   close: () => void;
   setFirstSyncOpen: (open: boolean) => void;
+  setMergeOpen: (open: boolean) => void;
 }
 
 /// Where the account dialog and the first sync's dialog are opened from: Settings,
@@ -19,8 +22,10 @@ export const useAccountDialog = create<AccountDialogState>((set) => ({
   open: false,
   mode: "signIn",
   firstSyncOpen: false,
+  mergeOpen: false,
   show: (mode = "signIn") => set({ open: true, mode }),
   setMode: (mode) => set({ mode }),
   close: () => set({ open: false }),
   setFirstSyncOpen: (firstSyncOpen) => set({ firstSyncOpen }),
+  setMergeOpen: (mergeOpen) => set({ mergeOpen }),
 }));
