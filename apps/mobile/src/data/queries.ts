@@ -1,5 +1,17 @@
 import {
   agenda,
+  entityLabels,
+  getAssignment,
+  getCourse,
+  getDeck,
+  getExam,
+  listAssignments,
+  listCards,
+  listCourses,
+  listDecks,
+  listExams,
+  listLabels,
+  relatedItems,
   getEntity,
   getTask,
   listBlocks,
@@ -100,4 +112,79 @@ export const useRecents = () => {
 export const usePinned = () => {
   const db = useDb();
   return useQuery({ queryKey: keys.pinned, queryFn: () => pinned(db) });
+};
+
+export const useCourses = (spaceId: string | null) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.courses(spaceId),
+    queryFn: () => listCourses(db, spaceId ?? undefined),
+  });
+};
+
+export const useCourse = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.course(id), queryFn: () => getCourse(db, id) });
+};
+
+export const useExams = (query: { spaceId?: string; courseId?: string }) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.exams(query.spaceId ?? null, query.courseId ?? null),
+    queryFn: () => listExams(db, query),
+  });
+};
+
+export const useExam = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.exam(id), queryFn: () => getExam(db, id) });
+};
+
+export const useAssignments = (query: { spaceId?: string; courseId?: string }) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.assignments(query.spaceId ?? null, query.courseId ?? null),
+    queryFn: () => listAssignments(db, query),
+  });
+};
+
+export const useAssignment = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.assignment(id), queryFn: () => getAssignment(db, id) });
+};
+
+export const useDecks = (spaceId: string | null) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.decks(spaceId),
+    queryFn: () => listDecks(db, spaceId ?? undefined),
+  });
+};
+
+export const useDeck = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.deck(id), queryFn: () => getDeck(db, id) });
+};
+
+export const useCards = (deckId: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.cards(deckId), queryFn: () => listCards(db, deckId) });
+};
+
+export const useRelated = (entityId: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.related(entityId), queryFn: () => relatedItems(db, entityId) });
+};
+
+export const useLabels = (spaceId: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.labels(spaceId), queryFn: () => listLabels(db, spaceId) });
+};
+
+export const useEntityLabels = (entityId: string) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.entityLabels(entityId),
+    queryFn: () => entityLabels(db, entityId),
+  });
 };

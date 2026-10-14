@@ -11,21 +11,23 @@ import {
   trashEntity,
 } from "@nookly/shared/data";
 import { useQuery } from "@tanstack/react-query";
-import { SHAREABLE_TYPES } from "@nookly/shared/api";
+import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
-import { z } from "zod";
+import { TextInput, View } from "react-native";
 import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { useEntity, useSpaces, useStatuses, useTask } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { Field } from "../ui/Field.tsx";
+import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { DateField } from "../ui/DateField.tsx";
 import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { FONT, useTheme } from "../ui/theme.ts";
+import { LabelsSection, RelatedSection } from "./RelatedSection.tsx";
+import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
 import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
 import { addDays, localDay } from "./dates.ts";
@@ -35,7 +37,7 @@ import { StatusIcon } from "./TaskRow.tsx";
 /// A page someone shared to view only can't be changed here either.
 function useReadOnly(entity: EntityRecord | null | undefined): boolean {
   const { sync } = useAppData();
-  const shared = entity?.spaceId.startsWith("shared-") ?? false;
+  const shared = entity ? isSharedSpace(entity.spaceId) : false;
   const { data: role } = useQuery({
     queryKey: keys.role(entity?.id ?? ""),
     queryFn: () => sync.engine.roleOf(entity?.id ?? ""),
@@ -74,7 +76,7 @@ function Actions({ entity }: { entity: EntityRecord }) {
   const router = useRouter();
   const signedIn = useSyncState((s) => s.user !== null);
   const shareable =
-    SHAREABLE_TYPES.some((t) => t === entity.type) && !entity.spaceId.startsWith("shared-");
+    SHAREABLE_TYPES.some((t) => t === entity.type) && !isSharedSpace(entity.spaceId);
   const pin = useLocalWrite((db, next: boolean) => setPinned(db, entity.id, next));
   const trash = useLocalWrite((db) => trashEntity(db, entity.id));
   const restore = useLocalWrite((db) => restoreEntity(db, entity.id));
@@ -115,53 +117,12 @@ function Actions({ entity }: { entity: EntityRecord }) {
   );
 }
 
-const dayField = z.union([
-  z.literal(""),
-  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use the form 2026-10-31"),
-]);
-
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
   { label: "Never", rule: null },
   { label: "Daily", rule: { every: 1, unit: "day" } },
   { label: "Weekly", rule: { every: 1, unit: "week" } },
   { label: "Monthly", rule: { every: 1, unit: "month" } },
 ];
-
-function Choice({
-  label,
-  selected,
-  onPress,
-  icon,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  icon?: React.ReactNode;
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space(1.5),
-        minHeight: 36,
-        paddingHorizontal: theme.space(3),
-        borderRadius: theme.radius.md,
-        borderWidth: 1,
-        borderColor: selected ? theme.colors.primary : theme.colors.input,
-        backgroundColor: selected ? `${theme.colors.primary}1a` : theme.colors.secondary,
-      }}
-    >
-      {icon}
-      <Text variant="label">{label}</Text>
-    </Pressable>
-  );
-}
 
 function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
@@ -172,77 +133,54 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
     setTaskDates(db, id, task?.startDate ?? null, due),
   );
   const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
-  const [due, setDue] = useState(task?.dueDate ?? "");
-  useEffect(() => setDue(task?.dueDate ?? ""), [task?.dueDate]);
   if (!task) return null;
-  const dueError = dayField.safeParse(due).success ? undefined : "Use the form 2026-10-31";
-  const saveDue = (value: string) => {
-    setDue(value);
-    if (dayField.safeParse(value).success && value !== (task.dueDate ?? ""))
-      dates.mutate(value || null);
-  };
   return (
     <>
       <Section title="Status">
-        <View
-          accessibilityRole="radiogroup"
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: theme.space(2),
-            padding: theme.space(3),
-          }}
-        >
-          {statuses.map((s) => (
-            <Choice
-              key={s.id}
-              label={s.name}
-              selected={s.id === task.statusId}
-              icon={<StatusIcon status={s} size={16} />}
-              onPress={() => !readOnly && status.mutate(s.id)}
-            />
-          ))}
+        <View style={{ padding: theme.space(3) }}>
+          <ChipGroup label="Status">
+            {statuses.map((s) => (
+              <Chip
+                key={s.id}
+                label={s.name}
+                selected={s.id === task.statusId}
+                disabled={readOnly}
+                icon={<StatusIcon status={s} size={16} />}
+                onPress={() => s.id !== task.statusId && status.mutate(s.id)}
+              />
+            ))}
+          </ChipGroup>
         </View>
       </Section>
       <Section title="Due">
         <View style={{ padding: theme.space(3), gap: theme.space(2) }}>
-          <Field
+          <DateField
             label="Due date"
-            placeholder="2026-10-31"
-            value={due}
-            editable={!readOnly}
-            onChangeText={setDue}
-            onEndEditing={() => saveDue(due)}
-            error={dueError}
-            keyboardType="numbers-and-punctuation"
+            value={task.dueDate}
+            readOnly={readOnly}
+            onChange={(day) => dates.mutate(day)}
           />
           {!readOnly ? (
             <View style={{ flexDirection: "row", gap: theme.space(2) }}>
-              <Button label="Today" onPress={() => saveDue(localDay())} />
-              <Button label="Tomorrow" onPress={() => saveDue(addDays(localDay(), 1))} />
-              <Button label="Clear" variant="ghost" onPress={() => saveDue("")} />
+              <Button label="Today" onPress={() => dates.mutate(localDay())} />
+              <Button label="Tomorrow" onPress={() => dates.mutate(addDays(localDay(), 1))} />
             </View>
           ) : null}
         </View>
       </Section>
       <Section title="Repeat">
-        <View
-          accessibilityRole="radiogroup"
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: theme.space(2),
-            padding: theme.space(3),
-          }}
-        >
-          {REPEATS.map((r) => (
-            <Choice
-              key={r.label}
-              label={r.label}
-              selected={JSON.stringify(r.rule) === JSON.stringify(task.repeat)}
-              onPress={() => !readOnly && repeat.mutate(r.rule)}
-            />
-          ))}
+        <View style={{ padding: theme.space(3) }}>
+          <ChipGroup label="Repeat">
+            {REPEATS.map((r) => (
+              <Chip
+                key={r.label}
+                label={r.label}
+                disabled={readOnly}
+                selected={JSON.stringify(r.rule) === JSON.stringify(task.repeat)}
+                onPress={() => repeat.mutate(r.rule)}
+              />
+            ))}
+          </ChipGroup>
         </View>
       </Section>
     </>
@@ -294,6 +232,17 @@ export function EntityScreen({ id }: { id: string }) {
         {entity.type === "calendar_entry" ? (
           <CalendarEntryDetail id={id} readOnly={readOnly} />
         ) : null}
+        {entity.type === "course" ? <CourseDetail id={id} readOnly={readOnly} /> : null}
+        {entity.type === "exam" ? <ExamDetail id={id} readOnly={readOnly} /> : null}
+        {entity.type === "assignment" ? <AssignmentDetail id={id} readOnly={readOnly} /> : null}
+        {entity.type === "index_card_deck" ? <DeckDetail id={id} readOnly={readOnly} /> : null}
+        {/* Labels and links belong to a Space of your own, not to one shared with you. */}
+        {entity.deletedAt || isSharedSpace(entity.spaceId) ? null : (
+          <>
+            <LabelsSection entity={entity} readOnly={readOnly} />
+            <RelatedSection entity={entity} readOnly={readOnly} />
+          </>
+        )}
         {!readOnly || entity.deletedAt ? <Actions entity={entity} /> : null}
       </Screen>
     </>

@@ -1,4 +1,4 @@
-import { IconSettings } from "@tabler/icons-react-native";
+import { IconPlus } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useSyncState } from "../data/context.tsx";
@@ -48,9 +48,9 @@ export function DashboardScreen() {
         options={{
           headerRight: () => (
             <IconButton
-              label="Settings"
-              icon={<IconSettings size={22} color={theme.colors.foreground} />}
-              onPress={() => router.push("/settings")}
+              label="New Task"
+              icon={<IconPlus size={22} color={theme.colors.foreground} />}
+              onPress={() => router.push("/new/task")}
             />
           ),
         }}

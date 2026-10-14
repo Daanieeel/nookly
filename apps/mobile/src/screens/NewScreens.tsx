@@ -1,10 +1,16 @@
+import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
+  createAssignment,
   createBookmark,
   createCalendarEntry,
+  createCourse,
+  createDeck,
+  createExam,
   createPage,
   createSpace,
   createTask,
 } from "@nookly/shared/data";
+import type { LocalDb } from "@nookly/shared/data";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -17,7 +23,9 @@ import { Field } from "../ui/Field.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
+import { CoursePicker, ExamPicker } from "./StudyDetail.tsx";
 import { localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
@@ -213,14 +221,13 @@ export function NewEntryScreen({ spaceId }: { spaceId?: string }) {
   );
 }
 
-const SPACE_COLORS = ["#0070f3", "#00873d", "#d6336c", "#9147d6", "#ab7a00", "#64748b"];
 const spaceSchema = z.object({ name: z.string().trim().min(1, "Name it").max(60) });
 
 /// New Space: a name and its color.
 export function NewSpaceScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const [color, setColor] = useState(SPACE_COLORS[0]);
+  const [color, setColor] = useState(ACCENT_COLORS[9]);
   const create = useLocalWrite((db, name: string) => createSpace(db, name, color));
   const form = useForm({
     defaultValues: { name: "" },
@@ -249,9 +256,9 @@ export function NewSpaceScreen() {
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel="Color"
-        style={{ flexDirection: "row", gap: theme.space(3) }}
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.space(3) }}
       >
-        {SPACE_COLORS.map((c) => (
+        {ACCENT_COLORS.map((c) => (
           <Pressable
             key={c}
             accessibilityRole="radio"
@@ -277,5 +284,181 @@ export function NewSpaceScreen() {
         onPress={() => void form.handleSubmit()}
       />
     </Screen>
+  );
+}
+
+/// A new study item: a title, what it belongs to, then straight into its page.
+function NewStudyItem({
+  spaceId,
+  placeholder,
+  submitLabel,
+  create,
+  children,
+}: {
+  spaceId?: string;
+  placeholder: string;
+  submitLabel: string;
+  create: (db: LocalDb, space: string, title: string) => Promise<string>;
+  children?: (space: string) => React.ReactNode;
+}) {
+  const router = useRouter();
+  const [space, setSpace] = useTargetSpace(spaceId);
+  const write = useLocalWrite((db, title: string) => {
+    if (!space) throw new Error("Pick a Space");
+    return create(db, space, title);
+  });
+  const form = useForm({
+    defaultValues: { title: "" },
+    validators: { onChange: titled, onSubmit: titled },
+    onSubmit: ({ value }) =>
+      write.mutate(value.title.trim(), { onSuccess: (id) => router.replace(`/entity/${id}`) }),
+  });
+  return (
+    <Screen>
+      {spaceId ? null : <SpacePicker value={space} onChange={setSpace} />}
+      <form.Field name="title">
+        {(field) => (
+          <Field
+            label="Title"
+            required
+            autoFocus
+            placeholder={placeholder}
+            value={field.state.value}
+            onChangeText={field.handleChange}
+            onBlur={field.handleBlur}
+            error={fieldError(field)}
+          />
+        )}
+      </form.Field>
+      {space && children ? children(space) : null}
+      {write.error ? <Text tone="destructive">{write.error.message}</Text> : null}
+      <Button
+        label={submitLabel}
+        variant="primary"
+        status={statusOf(write)}
+        errorLabel="Couldn't create"
+        onPress={() => void form.handleSubmit()}
+      />
+    </Screen>
+  );
+}
+
+export function NewCourseScreen({ spaceId }: { spaceId?: string }) {
+  return (
+    <NewStudyItem
+      spaceId={spaceId}
+      placeholder="Algorithms"
+      submitLabel="Create Course"
+      create={createCourse}
+    />
+  );
+}
+
+/// An exam or assignment belongs to exactly one Course, picked here.
+function CourseAndDay({
+  space,
+  course,
+  setCourse,
+  day,
+  setDay,
+  dayLabel,
+}: {
+  space: string;
+  course: string | null;
+  setCourse: (id: string) => void;
+  day: string | null;
+  setDay: (day: string | null) => void;
+  dayLabel: string;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={{ gap: theme.space(3) }}>
+      <Text variant="label" tone="muted">
+        Course
+      </Text>
+      <CoursePicker spaceId={space} value={course} onChange={setCourse} />
+      <DateField label={dayLabel} value={day} onChange={setDay} />
+    </View>
+  );
+}
+
+const needsCourse = (course: string | null) => {
+  if (!course) throw new Error("Pick its Course.");
+  return course;
+};
+
+export function NewExamScreen({ spaceId, courseId }: { spaceId?: string; courseId?: string }) {
+  const [course, setCourse] = useState<string | null>(courseId ?? null);
+  const [day, setDay] = useState<string | null>(null);
+  return (
+    <NewStudyItem
+      spaceId={spaceId}
+      placeholder="Final exam"
+      submitLabel="Create Exam"
+      create={(db, space, title) => createExam(db, space, title, needsCourse(course), day)}
+    >
+      {(space) => (
+        <CourseAndDay
+          space={space}
+          course={course}
+          setCourse={setCourse}
+          day={day}
+          setDay={setDay}
+          dayLabel="Day"
+        />
+      )}
+    </NewStudyItem>
+  );
+}
+
+export function NewAssignmentScreen({
+  spaceId,
+  courseId,
+}: {
+  spaceId?: string;
+  courseId?: string;
+}) {
+  const [course, setCourse] = useState<string | null>(courseId ?? null);
+  const [day, setDay] = useState<string | null>(null);
+  return (
+    <NewStudyItem
+      spaceId={spaceId}
+      placeholder="Problem sheet 3"
+      submitLabel="Create Assignment"
+      create={(db, space, title) => createAssignment(db, space, title, needsCourse(course), day)}
+    >
+      {(space) => (
+        <CourseAndDay
+          space={space}
+          course={course}
+          setCourse={setCourse}
+          day={day}
+          setDay={setDay}
+          dayLabel="Due date"
+        />
+      )}
+    </NewStudyItem>
+  );
+}
+
+export function NewDeckScreen({ spaceId }: { spaceId?: string }) {
+  const theme = useTheme();
+  const [exam, setExam] = useState<string | null>(null);
+  return (
+    <NewStudyItem
+      spaceId={spaceId}
+      placeholder="Sorting algorithms"
+      submitLabel="Create Deck"
+      create={(db, space, title) => createDeck(db, space, title, exam)}
+    >
+      {(space) => (
+        <View style={{ gap: theme.space(2) }}>
+          <Text variant="label" tone="muted">
+            Prepares for
+          </Text>
+          <ExamPicker spaceId={space} value={exam} onChange={setExam} />
+        </View>
+      )}
+    </NewStudyItem>
   );
 }

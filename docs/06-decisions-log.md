@@ -459,3 +459,13 @@ Soft delete is the rule for entities on devices. Account deletion is different: 
 Shell: Dashboard (today, due, pinned), Calendar (two weeks, every Space), Tasks (every Space, by status), Spaces with their modules, Search with Recents, Trash, Settings for sync. Full list, detail, create, edit, Trash and restore for Tasks, Notes and Jots (text blocks), Calendar entries and Bookmarks. Every other module lists its entities and opens them with title, Pin and Trash. Sessions show on the Calendar and are changed on the desktop, since a series and its overrides need the desktop's rules.
 
 **Why:** the modules people reach for on a phone first, done properly, before breadth.
+
+---
+
+### The phone's sidebar, and study on the phone
+
+The tab bar gives way to a sidebar like the desktop's and Claude's app: Search, Dashboard, Calendar, Tasks, Pinned, each Space with its modules, Recents, Trash and Settings. It slides the page aside (`drawerType: "slide"`) and opens with the menu button or a swipe to the right anywhere; a row with its own swipe actions keeps its swipe. It runs on `expo-router/drawer`, which needs Reanimated, so Reanimated comes back for it.
+
+Courses, Exams, Assignments and Decks are edited on the phone with their own fields, and decks are studied there. FSRS is ported to TypeScript (`packages/shared/src/data/fsrs.ts`) from `rs-fsrs` 1.2.1 at the desktop's defaults, and a Rust test writes reviews the desktop scheduled to `generated/fsrs-fixtures.json`, which the TypeScript replays, so a card comes back on the same day whichever device studied it. Days and times are picked with the system's picker (`@react-native-community/datetimepicker`). Accent colors and the exam and assignment statuses live in `@nookly/shared/colors` for both apps.
+
+**Why:** one navigation model across desktop and phone, and a review on the phone must schedule exactly like one on the desktop.

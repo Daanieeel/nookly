@@ -1,0 +1,311 @@
+import { isSharedSpace } from "@nookly/shared/api";
+import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
+import {
+  IconCalendarEvent,
+  IconChecklist,
+  IconChevronDown,
+  IconChevronRight,
+  IconLayoutDashboard,
+  IconPlus,
+  IconSearch,
+  IconSettings,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react-native";
+import { type Href, usePathname, useRouter } from "expo-router";
+import { useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { Space } from "@nookly/shared/data";
+import { useSyncState } from "../data/context.tsx";
+import { usePinned, useRecents, useSpaceModules, useSpaces } from "../data/queries.ts";
+import { SpaceDot } from "../ui/Badge.tsx";
+import { IconButton } from "../ui/Button.tsx";
+import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
+import { Text } from "../ui/Text.tsx";
+import { FONT, useTheme } from "../ui/theme.ts";
+import { syncLine } from "./sync-status.ts";
+
+/// One line of the sidebar: an icon, a name, and the current page lit up.
+function NavRow({
+  label,
+  icon,
+  active = false,
+  onPress,
+  trailing,
+  indent = 0,
+  subtitle,
+  accessibilityLabel,
+}: {
+  label: string;
+  /// When the visible name alone is ambiguous, like a module's in a Space.
+  accessibilityLabel?: string;
+  icon: React.ReactNode;
+  active?: boolean;
+  onPress: () => void;
+  trailing?: React.ReactNode;
+  indent?: number;
+  subtitle?: string;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? (subtitle ? `${label}, ${subtitle}` : label)}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 40,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: theme.space(3),
+        paddingLeft: theme.space(3 + indent * 6),
+        paddingRight: theme.space(2),
+        borderRadius: theme.radius.md,
+        backgroundColor: active || pressed ? theme.colors.accent : "transparent",
+      })}
+    >
+      {icon}
+      <View style={{ flex: 1 }}>
+        <Text numberOfLines={1} style={active ? { fontFamily: FONT.medium } : undefined}>
+          {label}
+        </Text>
+        {subtitle ? (
+          <Text variant="small" tone="muted" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {trailing}
+    </Pressable>
+  );
+}
+
+function Heading({ title, action }: { title: string; action?: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        minHeight: 32,
+        paddingLeft: theme.space(3),
+        marginTop: theme.space(4),
+      }}
+    >
+      <Text
+        variant="label"
+        tone="muted"
+        accessibilityRole="header"
+        style={{ flex: 1, textTransform: "uppercase", letterSpacing: 0.5 }}
+      >
+        {title}
+      </Text>
+      {action}
+    </View>
+  );
+}
+
+/// A Space and, once opened, its modules, as in the desktop's sidebar.
+function SpaceRows({
+  space,
+  pathname,
+  go,
+}: {
+  space: Space;
+  pathname: string;
+  go: (href: Href) => void;
+}) {
+  const theme = useTheme();
+  const inside = pathname.startsWith(`/module/${space.id}/`);
+  const [open, setOpen] = useState(inside);
+  const { data: modules = [] } = useSpaceModules(space.id);
+  const shared = isSharedSpace(space.id);
+  const Chevron = open ? IconChevronDown : IconChevronRight;
+  return (
+    <View>
+      <NavRow
+        label={space.name}
+        subtitle={shared ? "Shared with you" : undefined}
+        icon={
+          <View style={{ width: 20, alignItems: "center" }}>
+            {shared ? (
+              <IconUsers size={18} color={space.color} />
+            ) : (
+              <SpaceDot color={space.color} />
+            )}
+          </View>
+        }
+        trailing={<Chevron size={16} color={theme.colors.mutedForeground} />}
+        onPress={() => setOpen((o) => !o)}
+      />
+      {open && modules.length === 0 ? (
+        <NavRow
+          indent={1}
+          label="Start something"
+          accessibilityLabel={`Start something in ${space.name}`}
+          icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
+          onPress={() => go(`/space/${space.id}`)}
+        />
+      ) : null}
+      {open
+        ? modules.filter(isModuleKey).map((module) => {
+            const Icon = MODULE_ICONS[module];
+            const href = `/module/${space.id}/${module}`;
+            return (
+              <NavRow
+                key={module}
+                indent={1}
+                label={MODULE_LABELS[module]}
+                accessibilityLabel={`${MODULE_LABELS[module]} in ${space.name}`}
+                active={pathname === href}
+                icon={<Icon size={18} color={theme.colors.mutedForeground} />}
+                onPress={() => go(href)}
+              />
+            );
+          })
+        : null}
+    </View>
+  );
+}
+
+/// The app's navigation, as a sidebar that slides the page aside: Search, the
+/// overviews across every Space, Pinned, each Space with its modules, Recents, and
+/// Trash and Settings at the bottom. Mirrors the desktop's sidebar.
+export function Sidebar({ close }: { close: () => void }) {
+  const theme = useTheme();
+  const router = useRouter();
+  const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+  const { data: spaces = [] } = useSpaces();
+  const { data: pinnedItems = [] } = usePinned();
+  const { data: recentItems = [] } = useRecents();
+  const syncState = useSyncState((s) => s.status);
+  const signedIn = useSyncState((s) => s.user !== null);
+  const go = (href: Href) => {
+    router.navigate(href);
+    close();
+  };
+  const push = (href: Href) => {
+    close();
+    router.push(href);
+  };
+  const muted = theme.colors.mutedForeground;
+  const top: { label: string; href: string; Icon: typeof IconSearch }[] = [
+    { label: "Dashboard", href: "/", Icon: IconLayoutDashboard },
+    { label: "Calendar", href: "/calendar", Icon: IconCalendarEvent },
+    { label: "Tasks", href: "/tasks", Icon: IconChecklist },
+  ];
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: theme.colors.background,
+        paddingTop: insets.top + theme.space(2),
+        paddingBottom: insets.bottom + theme.space(2),
+      }}
+    >
+      <View style={{ paddingHorizontal: theme.space(3) }}>
+        <Pressable
+          accessibilityRole="search"
+          accessibilityLabel="Search"
+          accessibilityHint="Titles, keys and page text across every Space"
+          onPress={() => go("/search")}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space(2),
+            minHeight: 40,
+            paddingHorizontal: theme.space(3),
+            borderRadius: theme.radius.md,
+            backgroundColor: pathname === "/search" ? theme.colors.accent : theme.colors.secondary,
+            borderWidth: 1,
+            borderColor: theme.colors.input,
+          }}
+        >
+          <IconSearch size={18} color={muted} />
+          <Text tone="muted">Search</Text>
+        </Pressable>
+      </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: theme.space(2), paddingTop: theme.space(3) }}
+      >
+        {top.map(({ label, href, Icon }) => (
+          <NavRow
+            key={href}
+            label={label}
+            active={pathname === href}
+            icon={<Icon size={20} color={muted} />}
+            onPress={() => go(href)}
+          />
+        ))}
+        {pinnedItems.length > 0 ? (
+          <>
+            <Heading title="Pinned" />
+            {pinnedItems.map((entity) => (
+              <NavRow
+                key={entity.id}
+                label={entity.title || "Untitled"}
+                icon={<EntityIcon type={entity.type} icon={entity.icon} />}
+                onPress={() => push(`/entity/${entity.id}`)}
+              />
+            ))}
+          </>
+        ) : null}
+        <Heading
+          title="Spaces"
+          action={
+            <IconButton
+              label="New Space"
+              icon={<IconPlus size={18} color={muted} />}
+              onPress={() => push("/new/space")}
+            />
+          }
+        />
+        {spaces.length === 0 ? (
+          <Text tone="muted" style={{ paddingHorizontal: theme.space(3) }}>
+            No Spaces yet. Make one, or sign in to sync yours.
+          </Text>
+        ) : null}
+        {spaces.map((space) => (
+          <SpaceRows key={space.id} space={space} pathname={pathname} go={go} />
+        ))}
+        {recentItems.length > 0 ? (
+          <>
+            <Heading title="Recents" />
+            {recentItems.slice(0, 5).map((entity) => (
+              <NavRow
+                key={entity.id}
+                label={entity.title || "Untitled"}
+                icon={<EntityIcon type={entity.type} icon={entity.icon} />}
+                onPress={() => push(`/entity/${entity.id}`)}
+              />
+            ))}
+          </>
+        ) : null}
+      </ScrollView>
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.border,
+          paddingHorizontal: theme.space(2),
+          paddingTop: theme.space(2),
+        }}
+      >
+        <NavRow
+          label="Trash"
+          active={pathname === "/trash"}
+          icon={<IconTrash size={20} color={muted} />}
+          onPress={() => go("/trash")}
+        />
+        <NavRow
+          label="Settings"
+          subtitle={syncLine(signedIn, syncState)}
+          icon={<IconSettings size={20} color={muted} />}
+          onPress={() => push("/settings")}
+        />
+      </View>
+    </View>
+  );
+}

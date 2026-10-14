@@ -17,10 +17,25 @@ export const keys = {
   recents: ["local", "recents"] as const,
   pinned: ["local", "pinned"] as const,
   role: (id: string) => ["local", "role", id] as const,
+  courses: (spaceId: string | null) => ["local", "courses", spaceId] as const,
+  course: (id: string) => ["local", "course", id] as const,
+  exams: (spaceId: string | null, courseId: string | null) =>
+    ["local", "exams", spaceId, courseId] as const,
+  exam: (id: string) => ["local", "exam", id] as const,
+  assignments: (spaceId: string | null, courseId: string | null) =>
+    ["local", "assignments", spaceId, courseId] as const,
+  assignment: (id: string) => ["local", "assignment", id] as const,
+  decks: (spaceId: string | null) => ["local", "decks", spaceId] as const,
+  deck: (id: string) => ["local", "deck", id] as const,
+  cards: (deckId: string) => ["local", "cards", deckId] as const,
+  related: (id: string) => ["local", "related", id] as const,
+  labels: (spaceId: string) => ["local", "labels", spaceId] as const,
+  entityLabels: (id: string) => ["local", "entity-labels", id] as const,
   sync: {
     root: ["sync"] as const,
     sessions: ["sync", "sessions"] as const,
     sharesWithMe: ["sync", "shares", "incoming"] as const,
     conflicts: ["sync", "conflicts"] as const,
+    conflictItems: ["sync", "conflicts", "items"] as const,
   },
 };

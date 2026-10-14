@@ -3,6 +3,7 @@ import { normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import { Alert, View } from "react-native";
 import { z } from "zod";
 import { useAppData, useSyncState } from "../data/context.tsx";
@@ -15,6 +16,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
+import { statusText } from "./sync-status.ts";
 
 const signInSchema = z.object({
   server: z.url("Enter an address like https://sync.example.com"),
@@ -124,24 +126,6 @@ function SignIn() {
   );
 }
 
-function statusText(
-  state: string,
-  pending: number,
-  error: string | null,
-  lastSyncedAt: number | null,
-): string {
-  if (state === "syncing") return "Syncing";
-  if (state === "offline")
-    return pending > 0
-      ? `Offline. ${pending} ${pending === 1 ? "change waits" : "changes wait"} to sync.`
-      : "Offline.";
-  if (state === "error") return error ?? "Sync failed.";
-  if (state === "off") return "Sync is off.";
-  return lastSyncedAt
-    ? `Synced at ${new Date(lastSyncedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
-    : "Synced";
-}
-
 function SharedRow({ share }: { share: Share }) {
   const theme = useTheme();
   const { sync } = useAppData();
@@ -193,6 +177,7 @@ function SharedRow({ share }: { share: Share }) {
 
 function Account() {
   const theme = useTheme();
+  const router = useRouter();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
   const user = useSyncState((s) => s.user);
@@ -252,7 +237,7 @@ function Account() {
             <Badge label="Email not confirmed" color={theme.colors.caution} />
           ) : null}
           <Text variant="small" tone={tone} accessibilityLiveRegion="polite">
-            {statusText(status.state, status.pending, status.error, status.lastSyncedAt)}
+            {statusText(status)}
           </Text>
           <View style={{ flexDirection: "row", gap: theme.space(2) }}>
             <Button
@@ -297,12 +282,14 @@ function Account() {
         )}
       </Section>
       <Section title="Conflicts">
-        <Empty
-          text={
+        <Row
+          title="Conflicts"
+          subtitle={
             conflicts.length === 0
-              ? "No conflicts."
-              : `${conflicts.length} changes lost to newer ones and are kept. See them on the desktop under Settings, Sync.`
+              ? "None"
+              : `${conflicts.length} ${conflicts.length === 1 ? "change" : "changes"} lost to newer ones, kept to bring back`
           }
+          onPress={() => router.push("/conflicts")}
         />
       </Section>
       <Section title="Delete account">

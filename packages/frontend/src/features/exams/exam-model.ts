@@ -16,8 +16,4 @@ export function examStatusKind(id: string): StatusKind {
   return "unstarted";
 }
 
-/// Weight is stored as a fraction (`0.2`); older whole numbers are percentages.
-export function weightPercent(weight: number | null): number | null {
-  if (weight === null) return null;
-  return Math.round(weight <= 1 ? weight * 100 : weight);
-}
+export { weightPercent } from "@nookly/shared/data";

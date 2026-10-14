@@ -64,6 +64,13 @@ async function update(
   ]);
 }
 
+/// A weight as a whole percentage. Weight is stored as a fraction (`0.2`); older whole
+/// numbers are percentages.
+export function weightPercent(weight: number | null): number | null {
+  if (weight === null) return null;
+  return Math.round(weight <= 1 ? weight * 100 : weight);
+}
+
 // --- Courses ---------------------------------------------------------------
 
 export interface CourseRecord {

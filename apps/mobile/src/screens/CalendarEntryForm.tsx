@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { Switch, View } from "react-native";
 import { z } from "zod";
 import { Button, statusOf } from "../ui/Button.tsx";
+import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -92,16 +93,12 @@ export function CalendarEntryForm({
       ) : null}
       <form.Field name="date">
         {(field) => (
-          <Field
+          <DateField
             label="Day"
-            required
-            editable={!readOnly}
-            placeholder="2026-10-31"
+            clearable={false}
+            readOnly={readOnly}
             value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-            keyboardType="numbers-and-punctuation"
+            onChange={(day) => day && field.handleChange(day)}
           />
         )}
       </form.Field>
@@ -127,32 +124,40 @@ export function CalendarEntryForm({
               <View style={{ flex: 1 }}>
                 <form.Field name="startTime">
                   {(field) => (
-                    <Field
-                      label="Starts"
-                      editable={!readOnly}
-                      placeholder="09:00"
-                      value={field.state.value}
-                      onChangeText={field.handleChange}
-                      onBlur={field.handleBlur}
-                      error={fieldError(field)}
-                      keyboardType="numbers-and-punctuation"
-                    />
+                    <>
+                      <DateField
+                        label="Starts"
+                        mode="time"
+                        readOnly={readOnly}
+                        value={field.state.value || null}
+                        onChange={(time) => field.handleChange(time ?? "")}
+                      />
+                      {fieldError(field) ? (
+                        <Text variant="small" tone="destructive">
+                          {fieldError(field)}
+                        </Text>
+                      ) : null}
+                    </>
                   )}
                 </form.Field>
               </View>
               <View style={{ flex: 1 }}>
                 <form.Field name="endTime">
                   {(field) => (
-                    <Field
-                      label="Ends"
-                      editable={!readOnly}
-                      placeholder="10:00"
-                      value={field.state.value}
-                      onChangeText={field.handleChange}
-                      onBlur={field.handleBlur}
-                      error={fieldError(field)}
-                      keyboardType="numbers-and-punctuation"
-                    />
+                    <>
+                      <DateField
+                        label="Ends"
+                        mode="time"
+                        readOnly={readOnly}
+                        value={field.state.value || null}
+                        onChange={(time) => field.handleChange(time ?? "")}
+                      />
+                      {fieldError(field) ? (
+                        <Text variant="small" tone="destructive">
+                          {fieldError(field)}
+                        </Text>
+                      ) : null}
+                    </>
                   )}
                 </form.Field>
               </View>

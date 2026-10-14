@@ -93,12 +93,9 @@ export default function RootLayout() {
           <ThemeProvider value={navigation}>
             <StatusBar style="auto" />
             <Stack screenOptions={{ headerLargeTitle: false, headerShadowVisible: false }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
               <Stack.Screen name="entity/[id]" options={{ title: "" }} />
-              <Stack.Screen name="space/[id]" options={{ title: "Space" }} />
-              <Stack.Screen name="module/[spaceId]/[module]" options={{ title: "" }} />
               <Stack.Screen name="settings" options={{ title: "Settings" }} />
-              <Stack.Screen name="trash" options={{ title: "Trash" }} />
               <Stack.Screen
                 name="new/task"
                 options={{
@@ -138,6 +135,51 @@ export default function RootLayout() {
                   presentation: "formSheet",
                   sheetAllowedDetents: [0.6],
                 }}
+              />
+              <Stack.Screen
+                name="new/course"
+                options={{
+                  title: "New Course",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.5],
+                }}
+              />
+              <Stack.Screen
+                name="new/exam"
+                options={{
+                  title: "New Exam",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.75, 1],
+                }}
+              />
+              <Stack.Screen
+                name="new/assignment"
+                options={{
+                  title: "New Assignment",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.75, 1],
+                }}
+              />
+              <Stack.Screen
+                name="new/deck"
+                options={{
+                  title: "New Deck",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.6, 1],
+                }}
+              />
+              <Stack.Screen
+                name="new/link"
+                options={{
+                  title: "Link an Item",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.75, 1],
+                }}
+              />
+              <Stack.Screen name="conflicts" options={{ title: "Conflicts" }} />
+              <Stack.Screen
+                name="study/[deckId]"
+                options={{ title: "Study", presentation: "fullScreenModal" }}
               />
             </Stack>
           </ThemeProvider>
