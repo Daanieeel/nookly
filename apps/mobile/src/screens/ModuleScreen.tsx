@@ -16,6 +16,7 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
+import { GradesScreen, SemesterRows, SessionRows } from "./PlannerScreens.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
@@ -31,6 +32,8 @@ const CREATE = new Map<ModuleKey, (spaceId: string) => string>([
   ["assignments", (spaceId) => `/new/assignment?spaceId=${spaceId}`],
   ["decks", (spaceId) => `/new/deck?spaceId=${spaceId}`],
   ["recipes", (spaceId) => `/new/recipe?spaceId=${spaceId}`],
+  ["sessions", (spaceId) => `/new/session?spaceId=${spaceId}`],
+  ["semesters", (spaceId) => `/new/semester?spaceId=${spaceId}`],
 ]);
 
 /// Modules whose items the phone lists with their own fields.
@@ -115,6 +118,14 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
     );
   }
   const addFiles = useAddFiles(spaceId);
+  if (module === "grades") {
+    return (
+      <>
+        <Stack.Screen options={{ title: MODULE_LABELS.grades }} />
+        <GradesScreen spaceId={spaceId} />
+      </>
+    );
+  }
   const create = CREATE.get(module);
   return (
     <>
@@ -148,6 +159,10 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
           <FileRows spaceId={spaceId} />
         ) : module === "recipes" ? (
           <RecipeRows spaceId={spaceId} />
+        ) : module === "sessions" ? (
+          <SessionRows spaceId={spaceId} />
+        ) : module === "semesters" ? (
+          <SemesterRows spaceId={spaceId} />
         ) : STUDY.includes(module) ? (
           <StudyList spaceId={spaceId} module={module} />
         ) : (

@@ -22,6 +22,9 @@ const PHONE_MODULES: ModuleKey[] = [
   "decks",
   "files",
   "recipes",
+  "sessions",
+  "semesters",
+  "grades",
 ];
 
 /// One Space: the modules it uses, in its order, and the ones it could start.

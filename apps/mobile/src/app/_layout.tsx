@@ -185,6 +185,30 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="new/session"
+                options={{
+                  title: "New Session",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.85, 1],
+                }}
+              />
+              <Stack.Screen
+                name="new/study-block"
+                options={{
+                  title: "New Study Block",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.7, 1],
+                }}
+              />
+              <Stack.Screen
+                name="new/semester"
+                options={{
+                  title: "New Semester",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.85, 1],
+                }}
+              />
+              <Stack.Screen
                 name="new/task"
                 options={{
                   title: "New Task",

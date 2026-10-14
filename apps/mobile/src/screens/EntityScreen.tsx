@@ -48,6 +48,7 @@ import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { FileDetail } from "./FileScreens.tsx";
 import { PageEditor } from "./PageEditor.tsx";
+import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
 import { RecipeDetail } from "./RecipeScreens.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 
@@ -360,6 +361,9 @@ export function EntityScreen({ id }: { id: string }) {
           <PageEditor entityId={id} readOnly={readOnly} />
         ) : null}
         {entity.type === "file" ? <FileDetail id={id} /> : null}
+        {entity.type === "session" ? <SessionDetail id={id} readOnly={readOnly} /> : null}
+        {entity.type === "study_block" ? <StudyBlockDetail id={id} readOnly={readOnly} /> : null}
+        {entity.type === "semester" ? <SemesterDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "recipe" ? <RecipeDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "bookmark" ? <BookmarkDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "calendar_entry" ? (

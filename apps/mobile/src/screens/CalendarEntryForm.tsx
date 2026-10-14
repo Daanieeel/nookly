@@ -16,10 +16,15 @@ const schema = z
   .object({
     title: z.string(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use the form 2026-10-31"),
+    endDate: z.string(),
     startTime: time,
     endTime: time,
     allDay: z.boolean(),
     location: z.string().max(200),
+  })
+  .refine((v) => v.endDate === "" || v.endDate >= v.date, {
+    message: "Ends on or after the first day",
+    path: ["endDate"],
   })
   .refine((v) => v.allDay || v.endTime === "" || v.startTime === "" || v.endTime > v.startTime, {
     message: "Ends after it starts",
@@ -47,6 +52,7 @@ export function CalendarEntryForm({
     defaultValues: {
       title: initial.title,
       date: initial.date,
+      endDate: initial.endDate ?? "",
       startTime: initial.startTime ?? "",
       endTime: initial.endTime ?? "",
       allDay: initial.allDay,
@@ -65,6 +71,7 @@ export function CalendarEntryForm({
       onSubmit({
         title: value.title.trim(),
         date: value.date,
+        endDate: value.endDate || null,
         startTime: value.startTime || null,
         endTime: value.endTime || null,
         allDay: value.allDay,
@@ -98,6 +105,24 @@ export function CalendarEntryForm({
             value={field.state.value}
             onChange={(day) => day && field.handleChange(day)}
           />
+        )}
+      </form.Field>
+      <form.Field name="endDate">
+        {(field) => (
+          <>
+            <DateField
+              label="Last day"
+              placeholder="Only this day"
+              readOnly={readOnly}
+              value={field.state.value || null}
+              onChange={(day) => field.handleChange(day ?? "")}
+            />
+            {fieldError(field) ? (
+              <Text variant="small" tone="destructive">
+                {fieldError(field)}
+              </Text>
+            ) : null}
+          </>
         )}
       </form.Field>
       <form.Field name="allDay">

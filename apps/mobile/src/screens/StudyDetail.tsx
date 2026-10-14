@@ -41,6 +41,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 import { AssignmentRows, ExamRows, deckSummary } from "./StudyLists.tsx";
+import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
@@ -175,6 +176,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
         placeholder="Who teaches it"
         onSave={(value) => professor.mutate(value)}
       />
+      <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
       <Section title="Exams" action={add("exam", "New Exam")}>
         <ExamRows exams={exams} />
       </Section>
@@ -241,6 +243,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
           />
         </Padded>
       </Section>
+      <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
       <Section title="Grade">
         <Padded>
           <View className="flex-row gap-3">

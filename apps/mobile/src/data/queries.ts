@@ -13,7 +13,12 @@ import {
   listLabels,
   relatedItems,
   getEntity,
+  courseSemester,
   getFile,
+  getSemester,
+  getSession,
+  getStudyBlock,
+  gradeReport,
   getRecipe,
   getTask,
   listBlocks,
@@ -23,7 +28,10 @@ import {
   listIngredients,
   listRecipeTags,
   listRecipes,
+  listSemesters,
+  listSessions,
   listSteps,
+  listStudyBlocks,
   listSpaces,
   listStatuses,
   listSubtasks,
@@ -255,4 +263,56 @@ export const useRecipeTags = () => {
     queryFn: () => listRecipeTags(db),
     staleTime: Infinity,
   });
+};
+
+export const useSemesters = (spaceId: string | null) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.semesters(spaceId),
+    queryFn: () => listSemesters(db, spaceId ?? undefined),
+  });
+};
+
+export const useSemester = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.semester(id), queryFn: () => getSemester(db, id) });
+};
+
+export const useCourseSemester = (courseId: string) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.courseSemester(courseId),
+    queryFn: () => courseSemester(db, courseId),
+  });
+};
+
+export const useSessions = (query: { spaceId?: string; courseId?: string } = {}) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.sessions(query.spaceId ?? null, query.courseId ?? null),
+    queryFn: () => listSessions(db, query),
+  });
+};
+
+export const useSession = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.session(id), queryFn: () => getSession(db, id) });
+};
+
+export const useStudyBlocks = (query: { spaceId?: string; examId?: string } = {}) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.studyBlocks(query.spaceId ?? null, query.examId ?? null),
+    queryFn: () => listStudyBlocks(db, query),
+  });
+};
+
+export const useStudyBlock = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.studyBlock(id), queryFn: () => getStudyBlock(db, id) });
+};
+
+export const useGradeReport = (spaceId: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.grades(spaceId), queryFn: () => gradeReport(db, spaceId) });
 };

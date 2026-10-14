@@ -45,7 +45,7 @@ export async function listBlocks(db: LocalDb, entityId: string): Promise<BlockRe
 export async function createPage(
   db: LocalDb,
   spaceId: string,
-  type: "note" | "jot",
+  type: "note" | "jot" | "course_notes",
   title: string,
 ): Promise<string> {
   const { id, statements } = createEntityStatements(db, spaceId, type, title);

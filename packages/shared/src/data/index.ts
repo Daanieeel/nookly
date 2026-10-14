@@ -10,3 +10,6 @@ export * from "./tasks.ts";
 export * from "./manage.ts";
 export * from "./files.ts";
 export * from "./recipes.ts";
+export * from "./sessions.ts";
+export * from "./series.ts";
+export * from "./semesters.ts";

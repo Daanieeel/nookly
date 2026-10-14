@@ -84,10 +84,8 @@ export function NewRecipeScreen({ spaceId }: { spaceId?: string }) {
     if (!space) throw new Error("Pick a Space");
     return createRecipe(db, space, name);
   });
-  const submit = async () => {
-    const id = await create.mutateAsync(title.trim());
-    router.replace(`/entity/${id}`);
-  };
+  const submit = () =>
+    create.mutate(title.trim(), { onSuccess: (id) => router.replace(`/entity/${id}`) });
   return (
     <Screen>
       <SpacePicker value={space} onChange={setChosen} />
@@ -97,13 +95,13 @@ export function NewRecipeScreen({ spaceId }: { spaceId?: string }) {
         placeholder="Pancakes"
         value={title}
         onChangeText={setTitle}
-        onSubmitEditing={() => void submit()}
+        onSubmitEditing={submit}
       />
       <Button
         label="New Recipe"
         status={statusOf(create)}
         errorLabel="Couldn't create"
-        onPress={() => void submit()}
+        onPress={submit}
       />
     </Screen>
   );
