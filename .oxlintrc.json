@@ -17,6 +17,6 @@
     ".roo/**",
     ".windsurf/**",
     "**/anti-slop/**",
-    "apps/mobile/src/dev/**"
+    "**/mobile/src/dev/**"
   ]
 }
