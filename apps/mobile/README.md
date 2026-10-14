@@ -7,6 +7,7 @@ Expo (React Native) with Expo Router. Works fully offline on its own SQLite data
 ```sh
 bun install                    # from the repository root
 bun run dev:mobile             # from the root: the sync server and Expo; press i for the iOS simulator
+bun run dev:expo               # from the root: Expo alone, without the server
 cd apps/mobile && bun run ios  # or build and run the native app (Xcode needed)
 ```
 

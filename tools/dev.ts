@@ -5,6 +5,7 @@
 ///   bun run dev:desktop   server and desktop
 ///   bun run dev:mobile    server and mobile
 ///   bun run dev:server    server alone
+///   bun run dev:expo      the mobile app alone (not through this script)
 ///
 /// Postgres: `DATABASE_URL` when set, else a local cluster in `.dev/postgres` when the
 /// Postgres binaries are installed (`brew install postgresql`), else the one from
@@ -157,7 +158,7 @@ if (mode === "all" || mode === "desktop") {
 }
 
 if (mode === "all" || mode === "mobile") {
-  const mobile = Bun.spawn(["bun", "run", "start"], {
+  const mobile = Bun.spawn(["bun", "run", "dev"], {
     cwd: join(root, "apps/mobile"),
     stdio: ["inherit", "inherit", "inherit"],
   });
