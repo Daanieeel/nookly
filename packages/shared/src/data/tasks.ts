@@ -119,15 +119,42 @@ function createTaskStatements(
   };
 }
 
-/// `create_task`: a new task starts in the Backlog.
+/// `create_task`: a new task starts in the Backlog, unless it is made with a status,
+/// a start date or labels (those of its own Space).
 export async function createTask(
   db: LocalDb,
   spaceId: string,
   title: string,
   dueDate: string | null = null,
+  options: { statusId?: string; startDate?: string | null; labelIds?: string[] } = {},
 ): Promise<string> {
-  const { id, statements } = createTaskStatements(db, spaceId, title, null, dueDate);
-  await write(db, statements);
+  const { id, statements } = createTaskStatements(
+    db,
+    spaceId,
+    title,
+    options.startDate ?? null,
+    dueDate,
+  );
+  const extra: SqlStatement[] = [];
+  if (options.statusId && options.statusId !== "backlog") {
+    const status = await first(
+      db,
+      "SELECT doneness FROM task_statuses WHERE id = ?",
+      options.statusId,
+    );
+    if (!status) throw new Error("That status isn't in the list.");
+    extra.push({
+      sql: "UPDATE tasks SET status_id = ?, completed_at = ? WHERE entity_id = ?",
+      params: [options.statusId, num(status.doneness) >= 100 ? iso(db) : null, id],
+    });
+  }
+  for (const labelId of options.labelIds ?? []) {
+    extra.push({
+      sql: "INSERT OR IGNORE INTO entity_labels (entity_id, label_id) SELECT ?, id FROM labels WHERE id = ? AND space_id = ?",
+      params: [id, labelId, spaceId],
+    });
+  }
+  await write(db, [...statements, ...extra]);
   return id;
 }
 

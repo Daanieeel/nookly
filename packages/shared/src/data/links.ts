@@ -129,3 +129,24 @@ export async function detachLabel(db: LocalDb, entityId: string, labelId: string
     },
   ]);
 }
+
+/// Every label of every Space, by name, for filters across Spaces.
+export async function listAllLabels(db: LocalDb): Promise<LabelRecord[]> {
+  return (
+    await rows(db, "SELECT id, space_id, name, color FROM labels ORDER BY name COLLATE NOCASE")
+  ).map(toLabel);
+}
+
+/// The ids of the labels each item has, for grouping and filtering a list.
+export async function labelIdsByEntity(
+  db: LocalDb,
+  entityIds: string[],
+): Promise<Map<string, string[]>> {
+  const wanted = new Set(entityIds);
+  const found = new Map<string, string[]>();
+  for (const r of await rows(db, "SELECT entity_id, label_id FROM entity_labels")) {
+    const entity = str(r.entity_id);
+    if (wanted.has(entity)) found.set(entity, [...(found.get(entity) ?? []), str(r.label_id)]);
+  }
+  return found;
+}

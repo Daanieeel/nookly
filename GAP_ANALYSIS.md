@@ -58,7 +58,7 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | bookmarks (+ screenshot file)                                  | ✅                  | ⚠️ no screenshot | ✅                  | ✅ create                           | ✅                                                                                        |
 | recipes, ingredients, steps, recipe_tags, tag links (+ banner) | ✅                  | ⚠️ no banner     | ⚠️                  | ❌                                  | ✅                                                                                        |
 | views (saved views)                                            | ✅                  | ✅               | ❌                  | ❌                                  | ⏳                                                                                        |
-| settings (`settings.json`)                                     | local only          | ❌               | ❌                  | ❌                                  | ⏳                                                                                        |
+| settings (`settings.json`)                                     | local only          | ❌               | ❌                  | ❌                                  | ✅ |
 | conflicts                                                      | ✅ list, bring back | ✅               | ✅ list, bring back |                                     | ✅ merge editor                                                                           |
 
 ## Desktop features and where they stand on mobile
@@ -77,7 +77,7 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | Pinned                                                                                  | ✅           | ✅                                                                    | ✅                                                                                                   |
 | Search (full text, keys)                                                                | ✅           | ⚠️ titles only                                                        | ✅                                                                                                   |
 | Recents                                                                                 | ✅ (palette) | ✅                                                                    | ✅                                                                                                   |
-| Trash: list, restore, empty                                                             | ✅           | ⚠️ no empty                                                           | ✅                                                                                                   |
+| Trash: list, restore, empty                                                             | ✅           | ⚠️ no empty                                                           | ✅ |
 | Command palette, quick open                                                             | ✅           | — keyboard only; search covers it on phone, hardware keyboard on iPad | ✅ (search)                                                                                          |
 | Tabs and split view                                                                     | ✅           | — a phone shows one page; iPad gets sidebar + page instead            | —                                                                                                    |
 | What's new dialog                                                                       | ✅           | ❌                                                                    | ⏳                                                                                                   |
@@ -96,8 +96,8 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | Dashboard: briefing, Assignments, Tasks, Decks, Jots, today's Calendar       | ✅                          | ⚠️ simplified       | ⏳                                                                                         |
 | Calendar (unified): day, week, month; sessions, entries, exams, study blocks | ✅                          | ⚠️ agenda list only | ✅ agenda, day, week, month                                                                |
 | External calendar overlay (Google, iCloud)                                   | ✅ (device local, keychain) | ❌                  | — desktop only, see DECISIONS D14                                                          |
-| Tasks: board, list, group, filter, display options, overview                 | ✅                          | ⚠️ list             | ⏳                                                                                         |
-| Tasks: quick create with status, label, date, link                           | ✅                          | ⚠️                  | ⏳                                                                                         |
+| Tasks: board, list, group, filter, display options, overview                 | ✅                          | ⚠️ list             | ✅ |
+| Tasks: quick create with status, label, date, link                           | ✅                          | ⚠️                  | ✅ |
 | Tasks: effort, repeat, sub-tasks, start date                                 | ✅                          | ❌                  | ✅                                                                                         |
 | Task statuses: rename, recolor, doneness, add, delete                        | ✅                          | ❌                  | — the desktop has fixed statuses                                                           |
 | Notes: block editor with every block type                                    | ✅                          | ⚠️ text boxes       | ✅ shared editor                                                                           |
@@ -119,7 +119,7 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | Bookmarks: grid, preview, metadata refresh, snapshot                         | ✅                          | ⚠️                  | ⏳                                                                                         |
 | Recipes: list, detail, ingredients, steps, tags, banner                      | ✅                          | ⚠️ list             | ✅                                                                                         |
 | Views (saved views)                                                          | ✅                          | ❌                  | ⏳                                                                                         |
-| Trash                                                                        | ✅                          | ⚠️                  | ⏳                                                                                         |
+| Trash                                                                        | ✅                          | ⚠️                  | ✅ |
 
 ### Settings screens
 

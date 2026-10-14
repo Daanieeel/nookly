@@ -10,6 +10,8 @@ export const keys = {
   tasks: (spaceId: string | null) => ["local", "tasks", spaceId] as const,
   task: (id: string) => ["local", "task", id] as const,
   statuses: ["local", "statuses"] as const,
+  allLabels: ["local", "all-labels"] as const,
+  taskLabels: (spaceId: string | null) => ["local", "task-labels", spaceId] as const,
   semesters: (spaceId: string | null) => ["local", "semesters", spaceId] as const,
   semester: (id: string) => ["local", "semester", id] as const,
   courseSemester: (courseId: string) => ["local", "course-semester", courseId] as const,

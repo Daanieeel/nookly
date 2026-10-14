@@ -15,6 +15,8 @@ import {
   getEntity,
   courseSemester,
   getFile,
+  labelIdsByEntity,
+  listAllLabels,
   getSemester,
   getSession,
   getStudyBlock,
@@ -315,4 +317,18 @@ export const useStudyBlock = (id: string) => {
 export const useGradeReport = (spaceId: string) => {
   const db = useDb();
   return useQuery({ queryKey: keys.grades(spaceId), queryFn: () => gradeReport(db, spaceId) });
+};
+
+export const useAllLabels = () => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.allLabels, queryFn: () => listAllLabels(db) });
+};
+
+/// The labels of the given tasks, by task id.
+export const useTaskLabelIds = (spaceId: string | null, taskIds: string[]) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: [...keys.taskLabels(spaceId), taskIds.length],
+    queryFn: () => labelIdsByEntity(db, taskIds),
+  });
 };

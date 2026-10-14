@@ -299,3 +299,29 @@ describe("duplicating", () => {
     await expect(duplicateEntity(db, mark)).rejects.toThrow("isn't here");
   });
 });
+
+describe("making a task with details", () => {
+  it("starts it in a status with a start date and the labels of its Space only", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    const other = await createSpace(db, "Other", "#000000");
+    const mine = await createLabel(db, space, "Urgent");
+    const foreign = await createLabel(db, other, "Elsewhere");
+    const id = await createTask(db, space, "Write", "2026-10-30", {
+      statusId: "in_progress",
+      startDate: "2026-10-20",
+      labelIds: [mine, foreign],
+    });
+    expect(await getTask(db, id)).toMatchObject({
+      statusId: "in_progress",
+      startDate: "2026-10-20",
+      dueDate: "2026-10-30",
+      completedAt: null,
+    });
+    expect((await entityLabels(db, id)).map((l) => l.name)).toEqual(["Urgent"]);
+    const finished = await createTask(db, space, "Done already", null, { statusId: "done" });
+    expect((await getTask(db, finished))?.completedAt).not.toBeNull();
+    await expect(createTask(db, space, "x", null, { statusId: "nope" })).rejects.toThrow(
+      "isn't in the list",
+    );
+  });
+});

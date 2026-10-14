@@ -10,6 +10,8 @@ import {
   createPage,
   createSpace,
   createTask,
+  relate,
+  type EntityRecord,
 } from "@nookly/shared/data";
 import type { LocalDb } from "@nookly/shared/data";
 import { useForm } from "@tanstack/react-form";
@@ -18,10 +20,11 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
-import { useSpaces } from "../data/queries.ts";
+import { useLabels, useSearch, useSpaces, useStatuses } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
+import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { cn } from "../ui/classes.ts";
-import { Field } from "../ui/Field.tsx";
+import { Field, FieldLabel } from "../ui/Field.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { DateField } from "../ui/DateField.tsx";
@@ -40,13 +43,74 @@ function useTargetSpace(asked?: string) {
 
 const titled = z.object({ title: z.string().trim().min(1, "Give it a title") });
 
-/// New Task: a title first, like the desktop's quick create. More lands in its detail.
+/// The item a new task links to: found by searching, one at most.
+function LinkTarget({
+  value,
+  onChange,
+}: {
+  value: EntityRecord | null;
+  onChange: (e: EntityRecord | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const { data: results = [] } = useSearch(query);
+  if (value) {
+    return (
+      <View className="gap-2">
+        <FieldLabel label="Link to" />
+        <ChipGroup label="Linked item">
+          <Chip label={value.title || "Untitled"} selected onPress={() => onChange(null)} />
+        </ChipGroup>
+        <Text variant="small" tone="muted">
+          Tap to remove the link.
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View className="gap-2">
+      <Field
+        label="Link to"
+        placeholder="Search for an item"
+        value={query}
+        onChangeText={setQuery}
+        autoCapitalize="none"
+      />
+      {query.trim() ? (
+        <ChipGroup label="Matches" scroll>
+          {results.slice(0, 8).map((e) => (
+            <Chip
+              key={e.id}
+              label={e.title || "Untitled"}
+              selected={false}
+              onPress={() => {
+                onChange(e);
+                setQuery("");
+              }}
+            />
+          ))}
+        </ChipGroup>
+      ) : null}
+    </View>
+  );
+}
+
+/// New Task: a title first, like the desktop's quick create, with the status, a day,
+/// labels of its Space and an item to link it to when they are wanted. More lands in
+/// its detail.
 export function NewTaskScreen({ spaceId }: { spaceId?: string }) {
   const router = useRouter();
   const [space, setSpace] = useTargetSpace(spaceId);
-  const create = useLocalWrite((db, title: string) => {
+  const { data: statuses = [] } = useStatuses();
+  const { data: labels = [] } = useLabels(space ?? "");
+  const [statusId, setStatusId] = useState("backlog");
+  const [due, setDue] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [link, setLink] = useState<EntityRecord | null>(null);
+  const create = useLocalWrite(async (db, title: string) => {
     if (!space) throw new Error("Pick a Space");
-    return createTask(db, space, title);
+    const id = await createTask(db, space, title, due, { statusId, labelIds: chosen });
+    if (link) await relate(db, id, link.id);
+    return id;
   });
   const form = useForm({
     defaultValues: { title: "" },
@@ -54,11 +118,19 @@ export function NewTaskScreen({ spaceId }: { spaceId?: string }) {
     onSubmit: async ({ value }) => {
       await create.mutateAsync(value.title.trim());
       form.reset();
+      setLink(null);
+      setChosen([]);
     },
   });
   return (
     <Screen>
-      <SpacePicker value={space} onChange={setSpace} />
+      <SpacePicker
+        value={space}
+        onChange={(id) => {
+          setSpace(id);
+          setChosen([]);
+        }}
+      />
       <form.Field name="title">
         {(field) => (
           <Field
@@ -75,6 +147,33 @@ export function NewTaskScreen({ spaceId }: { spaceId?: string }) {
           />
         )}
       </form.Field>
+      <ChipGroup label="Status" scroll>
+        {statuses.map((s) => (
+          <Chip
+            key={s.id}
+            label={s.name}
+            selected={s.id === statusId}
+            onPress={() => setStatusId(s.id)}
+          />
+        ))}
+      </ChipGroup>
+      <DateField label="Due date" value={due} onChange={setDue} />
+      {labels.length > 0 ? (
+        <ChipGroup label="Labels" multiple scroll>
+          {labels.map((l) => (
+            <Chip
+              key={l.id}
+              label={l.name}
+              multiple
+              selected={chosen.includes(l.id)}
+              onPress={() =>
+                setChosen((c) => (c.includes(l.id) ? c.filter((x) => x !== l.id) : [...c, l.id]))
+              }
+            />
+          ))}
+        </ChipGroup>
+      ) : null}
+      <LinkTarget value={link} onChange={setLink} />
       <View className="flex-row gap-2">
         <Button
           label="Create"
