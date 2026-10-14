@@ -19,7 +19,7 @@ const mailer =
 const storage = storageConfigured(config) ? new BlobStore(db, config, log) : null;
 if (!storage) log.warn("no S3 configured: files stay on each device and don't sync");
 if (storage && config.S3_CREATE_BUCKET) await storage.ensureBucket();
-const { app } = buildApp({ config, db, mailer, log, storage });
+const { app, collab } = buildApp({ config, db, mailer, log, storage });
 app.listen({ port: config.PORT, hostname: "0.0.0.0" });
 log.info("listening", { port: config.PORT, version: config.version });
 
@@ -28,6 +28,8 @@ async function shutdown(signal: string) {
   if (stopping) return;
   stopping = true;
   log.info("shutting down", { signal });
+  // Page edits still waiting for their save are saved first.
+  await collab.flush();
   // Stops taking new requests and lets the ones in flight finish.
   await app.stop();
   await sql.end({ timeout: 5 });

@@ -11,6 +11,7 @@ import {
   verifiedAccount,
   HOOK_TIMEOUT,
 } from "./helpers.ts";
+import { syncOnce } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
@@ -29,28 +30,6 @@ async function twoDevices() {
   await a.engine.enable();
   await b.engine.enable();
   return { a, b };
-}
-
-/// One full round on a device, as the client runs it, without the live socket.
-async function syncOnce(d: ReturnType<typeof device>) {
-  const transport = d.api.syncTransport();
-  const pull = async () => {
-    for (;;) {
-      const response = await transport.pull({ cursors: await d.engine.cursors() });
-      await d.engine.apply(response.datasets);
-      if (!response.datasets.some((x) => x.hasMore)) return;
-    }
-  };
-  await pull();
-  for (;;) {
-    const planned = await d.engine.collect();
-    if (planned.length === 0) break;
-    await d.engine.acknowledge(
-      planned,
-      (await transport.push({ changes: planned.map((p) => p.change) })).results,
-    );
-  }
-  await pull();
 }
 
 describe("sync between two devices", () => {

@@ -50,6 +50,10 @@ const envSchema = z.object({
     .int()
     .min(1024)
     .default(512 * 1024 * 1024),
+  /// How long after the last edit a page document is saved and its rows written,
+  /// and the longest it waits while edits keep coming.
+  COLLAB_DEBOUNCE_MS: z.coerce.number().int().min(0).default(1500),
+  COLLAB_MAX_DEBOUNCE_MS: z.coerce.number().int().min(0).default(10000),
   /// Multiplies every rate limit; tests raise it.
   RATE_LIMIT_SCALE: z.coerce.number().positive().default(1),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),

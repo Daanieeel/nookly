@@ -160,6 +160,15 @@ export function applyBlock(doc: Y.Doc, blockId: string, block: Block | null) {
     const index = items.findIndex(
       (item) => item instanceof Y.XmlElement && item.getAttribute("blockId") === blockId,
     );
+    if (index >= 0 && block) {
+      // Already the same: replacing it would only cut into someone's typing.
+      const current = items[index];
+      const same =
+        current instanceof Y.XmlElement &&
+        JSON.stringify(nodeToBlockInput(readElement(current))) ===
+          JSON.stringify(nodeToBlockInput(blockToNode(block)));
+      if (same) return;
+    }
     if (index >= 0) fragment.delete(index, 1);
     if (!block) return;
     const at = index >= 0 ? index : Math.min(Math.max(0, block.position), fragment.length);

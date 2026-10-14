@@ -177,3 +177,26 @@ export const titleOf = (d: Device, id: string) =>
 
 /// Hooks start and stop a server and its database, slow while other suites run.
 export const HOOK_TIMEOUT = 30_000;
+
+/// One full round on a device, as the client runs it, without the live socket.
+export async function syncOnce(d: Device) {
+  const transport = d.api.syncTransport();
+  const pull = async () => {
+    for (;;) {
+      const response = await transport.pull({ cursors: await d.engine.cursors() });
+      for (const gone of response.removed) await d.engine.forget(gone);
+      await d.engine.apply(response.datasets);
+      if (!response.datasets.some((x) => x.hasMore)) return;
+    }
+  };
+  await pull();
+  for (;;) {
+    const planned = await d.engine.collect();
+    if (planned.length === 0) break;
+    await d.engine.acknowledge(
+      planned,
+      (await transport.push({ changes: planned.map((p) => p.change) })).results,
+    );
+  }
+  await pull();
+}

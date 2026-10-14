@@ -27,6 +27,7 @@ import { RateLimiter } from "./security/rate-limit.ts";
 import { ShareService } from "./shares/service.ts";
 import { Hub, type LiveSocket } from "./sync/hub.ts";
 import { SyncService } from "./sync/service.ts";
+import { CollabService } from "./collab/service.ts";
 import { type BlobStore, SHA256_PATTERN } from "./storage/blobs.ts";
 
 export interface AppDeps {
@@ -67,6 +68,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
   const sharing = new ShareService(db, sync, hub, mailer, config, log);
+  const collab = new CollabService(db, sync, accounts, config, log);
+  const collabSockets = new Map<string, ReturnType<typeof collab.hocuspocus.handleConnection>>();
 
   const scale = config.RATE_LIMIT_SCALE;
   const limits = {
@@ -534,6 +537,31 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             },
           },
         )
+        // Page documents (Yjs), through Hocuspocus. It signs in with the session token
+        // in its own first message, like the sync socket.
+        .ws("/collab", {
+          open(ws) {
+            if (limits.socket.take(`ws:${ws.remoteAddress}`) !== null) {
+              ws.close(1008, "rate limited");
+              return;
+            }
+            const request = new Request(`${config.PUBLIC_URL.replace(/\/$/, "")}/v1/collab`);
+            collabSockets.set(ws.id, collab.hocuspocus.handleConnection(ws.raw, request));
+          },
+          message(ws, message) {
+            const data =
+              message instanceof Uint8Array
+                ? message
+                : message instanceof ArrayBuffer
+                  ? new Uint8Array(message)
+                  : null;
+            if (data) collabSockets.get(ws.id)?.handleMessage(data);
+          },
+          close(ws) {
+            collabSockets.get(ws.id)?.handleClose();
+            collabSockets.delete(ws.id);
+          },
+        })
         .ws("/sync/ws", {
           // Signs in with its first message instead of the URL, which would land in logs.
           open(ws) {
@@ -584,5 +612,5 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         }),
     );
 
-  return { app, hub, auth, accounts, sync, sharing };
+  return { app, hub, auth, accounts, sync, sharing, collab };
 }

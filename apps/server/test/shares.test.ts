@@ -1,7 +1,6 @@
 import { ApiRequestError } from "@nookly/shared/api";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
-  type Device,
   PASSWORD,
   PHONE,
   type TestServer,
@@ -15,6 +14,7 @@ import {
   verifiedAccount,
   HOOK_TIMEOUT,
 } from "./helpers.ts";
+import { syncOnce } from "./helpers.ts";
 
 let server: TestServer;
 beforeEach(async () => {
@@ -23,28 +23,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await server.stop();
 }, HOOK_TIMEOUT);
-
-async function syncOnce(d: Device) {
-  const transport = d.api.syncTransport();
-  const pull = async () => {
-    for (;;) {
-      const response = await transport.pull({ cursors: await d.engine.cursors() });
-      for (const gone of response.removed) await d.engine.forget(gone);
-      await d.engine.apply(response.datasets);
-      if (!response.datasets.some((x) => x.hasMore)) return;
-    }
-  };
-  await pull();
-  for (;;) {
-    const planned = await d.engine.collect();
-    if (planned.length === 0) break;
-    await d.engine.acknowledge(
-      planned,
-      (await transport.push({ changes: planned.map((p) => p.change) })).results,
-    );
-  }
-  await pull();
-}
 
 /// Ada owns a page with two blocks, related to a task she doesn't share. Ben has an account.
 async function setup() {

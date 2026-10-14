@@ -40,6 +40,13 @@ const SERVER_CLOCK = "0000000000000-000000-server";
 type ShareRow = typeof shares.$inferSelect;
 type StoredRow = typeof records.$inferSelect;
 
+/// A page block whose stored state a commit changed.
+export interface ChangedBlock {
+  pk: string;
+  state: RecordState;
+  scope: string | null;
+}
+
 interface Access {
   dataset: string;
   ownerId: string;
@@ -81,6 +88,8 @@ export class SyncService {
   private readonly db: Database;
   private readonly hub: Hub;
   private readonly log: Logger;
+  /// Told after a device's push changed page blocks (page documents follow).
+  onBlocks?: (ownerId: string, blocks: ChangedBlock[]) => Promise<void>;
 
   constructor(db: Database, hub: Hub, log: Logger) {
     this.db = db;
@@ -142,102 +151,19 @@ export class SyncService {
     });
 
     for (const ownerId of [...byOwner.keys()].sort()) {
-      const items = byOwner.get(ownerId) ?? [];
-      const touched = new Set<string>();
-      await this.db.transaction(async (tx) => {
-        // One push per account at a time, so sequence numbers follow commit order.
-        const [owner] = await tx
-          .select({ seq: users.syncSeq })
-          .from(users)
-          .where(eq(users.id, ownerId))
-          .for("update");
-        let seq = owner?.seq ?? 0;
-        const keys = items.map(({ change }) => sql`(${change.table}, ${change.pk})`);
-        const existing = await tx
-          .select()
-          .from(records)
-          .where(
-            and(
-              eq(records.ownerId, ownerId),
-              sql`(${records.tbl}, ${records.pk}) IN (${sql.join(keys, sql`, `)})`,
-            ),
-          );
-        const stored = new Map(existing.map((r) => [key(r.tbl, r.pk), r]));
-        for (const { index, change, access: target } of items) {
-          const current = stored.get(key(change.table, change.pk));
-          let incoming = change;
-          if (target.share) {
-            if (!this.editorMay(change, target.share, current)) {
-              reject(index, change, "forbidden");
-              continue;
-            }
-            if (change.table === "entities") {
-              const fields = Object.fromEntries(
-                Object.entries(change.fields).filter(([f]) => !RECIPIENT_OWN_FIELDS.has(f)),
-              );
-              const clocks = Object.fromEntries(
-                Object.entries(change.clocks).filter(([f]) => !RECIPIENT_OWN_FIELDS.has(f)),
-              );
-              incoming = { ...change, fields, clocks };
-            }
-          }
+      const outcome = await this.commit(ownerId, byOwner.get(ownerId) ?? [], userId);
+      for (const { index, change } of byOwner.get(ownerId) ?? []) {
+        const reason = outcome.rejected.get(index);
+        if (reason) reject(index, change, reason);
+        else
           results.set(index, {
             dataset: change.dataset,
             table: change.table,
             pk: change.pk,
             status: "applied",
           });
-          const before = current ? stateOf(current) : EMPTY_RECORD;
-          const merged = mergeRecords(before, incoming);
-          if (current && sameState(before, merged)) continue;
-          const losses = findPushLosses(current ? before : null, incoming);
-          if (losses.length > 0) {
-            await tx.insert(conflicts).values(
-              losses.map((loss) => ({
-                ownerId,
-                authorId: loss.side === "local" ? userId : null,
-                tbl: change.table,
-                pk: change.pk,
-                field: loss.field,
-                losingValue: loss.value,
-                losingClock: loss.clock,
-                winningClock: loss.winningClock,
-              })),
-            );
-          }
-          const scope = scopeOf(change, current);
-          seq += 1;
-          const row = {
-            ownerId,
-            tbl: change.table,
-            pk: change.pk,
-            scope,
-            fields: merged.fields,
-            clocks: merged.clocks,
-            deletedClock: merged.deletedClock,
-            seq,
-            updatedAt: new Date(),
-          };
-          await tx
-            .insert(records)
-            .values(row)
-            .onConflictDoUpdate({
-              target: [records.ownerId, records.tbl, records.pk],
-              set: {
-                scope,
-                fields: row.fields,
-                clocks: row.clocks,
-                deletedClock: row.deletedClock,
-                seq,
-                updatedAt: row.updatedAt,
-              },
-            });
-          if (scope) touched.add(scope);
-          stored.set(key(change.table, change.pk), { ...row });
-        }
-        await tx.update(users).set({ syncSeq: seq }).where(eq(users.id, ownerId));
-      });
-      await this.announce(ownerId, touched);
+      }
+      if (outcome.blocks.length > 0) await this.onBlocks?.(ownerId, outcome.blocks);
     }
     const rejected = [...results.values()].filter((r) => r.status === "rejected").length;
     if (rejected > 0) this.log.debug("push rejected changes", { rejected, total: changes.length });
@@ -251,6 +177,111 @@ export class SyncService {
           reason: "invalid",
         },
     );
+  }
+
+  /// Writes changes into an owner's data in one transaction, merged into what is
+  /// stored, with the next sequence numbers, then tells their devices. Returns the
+  /// rejected changes, and the page blocks whose stored state changed (for page
+  /// documents, `collab/service.ts`).
+  async commit(
+    ownerId: string,
+    items: { index: number; change: Change; access: Access | null }[],
+    authorId: string | null,
+  ): Promise<{ rejected: Map<number, NonNullable<PushResult["reason"]>>; blocks: ChangedBlock[] }> {
+    const rejected = new Map<number, NonNullable<PushResult["reason"]>>();
+    const blocks: ChangedBlock[] = [];
+    const touched = new Set<string>();
+    const userId = authorId;
+    await this.db.transaction(async (tx) => {
+      // One push per account at a time, so sequence numbers follow commit order.
+      const [owner] = await tx
+        .select({ seq: users.syncSeq })
+        .from(users)
+        .where(eq(users.id, ownerId))
+        .for("update");
+      let seq = owner?.seq ?? 0;
+      const keys = items.map(({ change }) => sql`(${change.table}, ${change.pk})`);
+      const existing = await tx
+        .select()
+        .from(records)
+        .where(
+          and(
+            eq(records.ownerId, ownerId),
+            sql`(${records.tbl}, ${records.pk}) IN (${sql.join(keys, sql`, `)})`,
+          ),
+        );
+      const stored = new Map(existing.map((r) => [key(r.tbl, r.pk), r]));
+      for (const { index, change, access: target } of items) {
+        const current = stored.get(key(change.table, change.pk));
+        let incoming = change;
+        if (target?.share) {
+          if (!this.editorMay(change, target.share, current)) {
+            rejected.set(index, "forbidden");
+            continue;
+          }
+          if (change.table === "entities") {
+            const fields = Object.fromEntries(
+              Object.entries(change.fields).filter(([f]) => !RECIPIENT_OWN_FIELDS.has(f)),
+            );
+            const clocks = Object.fromEntries(
+              Object.entries(change.clocks).filter(([f]) => !RECIPIENT_OWN_FIELDS.has(f)),
+            );
+            incoming = { ...change, fields, clocks };
+          }
+        }
+        const before = current ? stateOf(current) : EMPTY_RECORD;
+        const merged = mergeRecords(before, incoming);
+        if (current && sameState(before, merged)) continue;
+        const losses = findPushLosses(current ? before : null, incoming);
+        if (losses.length > 0) {
+          await tx.insert(conflicts).values(
+            losses.map((loss) => ({
+              ownerId,
+              authorId: loss.side === "local" ? userId : null,
+              tbl: change.table,
+              pk: change.pk,
+              field: loss.field,
+              losingValue: loss.value,
+              losingClock: loss.clock,
+              winningClock: loss.winningClock,
+            })),
+          );
+        }
+        const scope = scopeOf(change, current);
+        seq += 1;
+        const row = {
+          ownerId,
+          tbl: change.table,
+          pk: change.pk,
+          scope,
+          fields: merged.fields,
+          clocks: merged.clocks,
+          deletedClock: merged.deletedClock,
+          seq,
+          updatedAt: new Date(),
+        };
+        await tx
+          .insert(records)
+          .values(row)
+          .onConflictDoUpdate({
+            target: [records.ownerId, records.tbl, records.pk],
+            set: {
+              scope,
+              fields: row.fields,
+              clocks: row.clocks,
+              deletedClock: row.deletedClock,
+              seq,
+              updatedAt: row.updatedAt,
+            },
+          });
+        if (scope) touched.add(scope);
+        if (change.table === "blocks") blocks.push({ pk: change.pk, state: merged, scope });
+        stored.set(key(change.table, change.pk), { ...row });
+      }
+      await tx.update(users).set({ syncSeq: seq }).where(eq(users.id, ownerId));
+    });
+    await this.announce(ownerId, touched);
+    return { rejected, blocks };
   }
 
   /// Tells every device of the owner, and of everyone the touched entities are

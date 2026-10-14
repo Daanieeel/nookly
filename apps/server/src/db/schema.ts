@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  customType,
   index,
   jsonb,
   pgTable,
@@ -141,6 +142,27 @@ export const blobs = pgTable(
     createdAt: created(),
   },
   (t) => [primaryKey({ columns: [t.ownerId, t.sha256] })],
+);
+
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => new Uint8Array(value),
+});
+
+/// Page bodies as Yjs documents (`src/collab`), the state as one update. The block
+/// rows in `records` are written from these; see DECISIONS.md D6.
+export const documents = pgTable(
+  "documents",
+  {
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    state: bytea("state").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.entityId] })],
 );
 
 /// Before better-auth (migration 0001): sessions, refresh and email tokens of the
