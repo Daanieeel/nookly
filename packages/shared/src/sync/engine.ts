@@ -131,7 +131,18 @@ const baseRowSchema = z.object({
   clocks: z.string(),
   deleted_clock: z.string().nullable(),
 });
-const fieldsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.null()]));
+const sqlValue = z.union([z.string(), z.number(), z.null()]);
+const fieldsSchema = z.record(z.string(), sqlValue);
+
+/// A field's losing value is JSON; a whole row's stays its JSON text, for showing.
+function readLosingValue(field: SqlValue, stored: SqlValue): SqlValue {
+  if (field === null || stored === null) return stored;
+  try {
+    return sqlValue.parse(JSON.parse(String(stored)));
+  } catch {
+    return stored;
+  }
+}
 const clocksSchema = z.record(z.string(), z.string());
 const dirtyRowSchema = z.object({
   tbl: z.string(),
@@ -362,26 +373,77 @@ export class SyncEngine {
       table: String(r.tbl),
       pk: String(r.pk),
       field: r.field === null ? null : String(r.field),
-      losingValue: r.losing_value ?? null,
+      losingValue: readLosingValue(r.field ?? null, r.losing_value ?? null),
       losingClock: r.losing_clock === null ? null : String(r.losing_clock),
       winningClock: r.winning_clock === null ? null : String(r.winning_clock),
       createdAt: String(r.created_at),
     }));
   }
 
+  /// A conflict entry. The losing value is stored as JSON, so a number comes back a number.
   private conflict(table: string, pk: string, loss: LostEdit): SqlStatement {
-    const value = loss.value === null ? null : String(loss.value);
     return run(
       "INSERT INTO sync_conflicts (id, tbl, pk, field, losing_value, losing_clock, winning_clock, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       this.newId(),
       table,
       pk,
       loss.field,
-      value,
+      loss.field === null
+        ? loss.value === null
+          ? null
+          : String(loss.value)
+        : JSON.stringify(loss.value),
       loss.clock,
       loss.winningClock,
       new Date(this.now()).toISOString(),
     );
+  }
+
+  /// Puts an edit that lost back: a field gets its value again, a removed or undone
+  /// row comes back whole. It is a new local edit, so it syncs like any other. Fails,
+  /// keeping the conflict, when the row it belongs to is gone.
+  async restoreConflict(id: string): Promise<void> {
+    const [row] = await this.driver.query(
+      "SELECT tbl, pk, field, losing_value FROM sync_conflicts WHERE id = ? AND resolved_at IS NULL",
+      [id],
+    );
+    if (!row) return;
+    const table = requireTable(String(row.tbl));
+    const key = decodePk(table, String(row.pk));
+    const stored = row.losing_value === null ? null : String(row.losing_value);
+    const resolve = run(
+      "UPDATE sync_conflicts SET resolved_at = ? WHERE id = ?",
+      new Date(this.now()).toISOString(),
+      id,
+    );
+    if (row.field !== null) {
+      const field = String(row.field);
+      if (!syncedColumns(table).includes(field)) throw new Error(`Unknown field ${field}`);
+      const { where, params } = wherePk(table, key);
+      const value = sqlValue.parse(stored === null ? null : JSON.parse(stored));
+      const result = await this.batch([
+        guard(1, `SELECT COUNT(*) FROM ${ident(table.name)} WHERE ${where}`, ...params),
+        run(`UPDATE ${ident(table.name)} SET ${ident(field)} = ? WHERE ${where}`, value, ...params),
+        resolve,
+      ]);
+      if (result.outcome !== "done") throw new Error("The item this change belongs to is gone.");
+      return;
+    }
+    const fields = fieldsSchema.parse(JSON.parse(stored ?? "{}"));
+    const synced = new Set(syncedColumns(table));
+    const kept = Object.fromEntries(Object.entries(fields).filter(([name]) => synced.has(name)));
+    await this.batch([upsertRow(table, key, kept), resolve]);
+  }
+
+  /// Marks a conflict as seen, keeping the newer value.
+  async dismissConflict(id: string): Promise<void> {
+    await this.batch([
+      run(
+        "UPDATE sync_conflicts SET resolved_at = ? WHERE id = ?",
+        new Date(this.now()).toISOString(),
+        id,
+      ),
+    ]);
   }
 
   /// The rows, bases and dirty marks of `pks` in `table`.

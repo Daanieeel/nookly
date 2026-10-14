@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.36.0",
+      "date": "2026-10-14",
+      "title": "Share tasks, keep every change",
+      "summary": "Tasks can be shared like pages, and a change that lost to a newer one can come back.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Tasks can be shared with people, to view or to edit.",
+          "Settings, Sync, Conflicts can bring back a change that a newer one replaced, or dismiss it."
+        ]
+      }
+    },
+    {
       "version": "0.35.0",
       "date": "2026-10-14",
       "title": "Sync and sharing",

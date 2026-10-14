@@ -10,9 +10,9 @@
 | Mail     | `src/mail`   | `console` (development), `smtp` (production)                                                                                                                                                                                               |
 | Limits   | `src/app.ts` | rate limits per IP and account, 8 MB bodies, CORS limited to the desktop app's origins, logs without bodies, headers or query strings                                                                                                      |
 
-## What a shared page brings
+## What a share brings
 
-A recipient gets the page's own row, its blocks and its settings, nothing else: no relationships, labels, other entities, or the owner's Space. The page sits in a Space only the recipient has, "Shared by <email>", with its Notes module. An editor may change the title, the icon and the blocks; moving, trashing or retyping the page stays with the owner. Pinning a shared page stays on the recipient's side.
+Pages and tasks can be shared (`SHAREABLE_TYPES`). A recipient gets the item's own row and the rows that belong to it (a page's blocks and settings, a task's dates and status, with the status itself), nothing else: no relationships, labels, Sub-tasks, other entities, or the owner's Space. The item sits in a Space only the recipient has, "Shared by <email>", with its module. An editor may change the title, the icon, the blocks and a task's fields; moving, trashing or retyping it stays with the owner. Pinning a shared item stays on the recipient's side.
 
 ## Designed, not built: sharing a whole Space
 

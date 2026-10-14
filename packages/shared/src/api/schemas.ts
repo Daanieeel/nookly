@@ -66,9 +66,10 @@ export const sessionSchema = z.object({
 export type Session = z.infer<typeof sessionSchema>;
 export const sessionsResponseSchema = z.object({ sessions: z.array(sessionSchema) });
 
-/// Entity types a user can share. Pages first; more types join by being listed here
-/// (and their rows scoped to the entity, see `TableScope`).
-export const SHAREABLE_TYPES = ["note"] as const;
+/// Entity types a user can share: pages and tasks. More types join by being listed
+/// here, with their own table in the server's `SHARE_TABLES` (rows scoped to the
+/// entity, see `TableScope`).
+export const SHAREABLE_TYPES = ["note", "task"] as const;
 
 export const shareStatusSchema = z.enum(["pending", "accepted", "declined", "revoked"]);
 export const shareRoleSchema = roleSchema.exclude(["owner"]);

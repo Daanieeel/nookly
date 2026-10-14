@@ -18,13 +18,14 @@ const ADA = {
 };
 
 describe("Share with People", () => {
-  it("shows on a page only while signed in to sync", () => {
+  it("shows on pages and tasks only while signed in to sync", () => {
     const when = shareAction();
     const page = makeEntity({ type: "note", spaceId: "s1" });
     expect(when({ entity: page })).toBe(false);
     syncRuntime.store.setState({ user: ADA });
     expect(when({ entity: page })).toBe(true);
-    expect(when({ entity: makeEntity({ type: "task", spaceId: "s1" }) })).toBe(false);
+    expect(when({ entity: makeEntity({ type: "task", spaceId: "s1" }) })).toBe(true);
+    expect(when({ entity: makeEntity({ type: "bookmark", spaceId: "s1" }) })).toBe(false);
     syncRuntime.store.setState({ user: null });
   });
 

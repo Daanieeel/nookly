@@ -136,3 +136,31 @@ describe("the Sync settings", () => {
     await expectNoA11yViolations();
   });
 });
+
+describe("the conflicts list", () => {
+  it("brings a lost change back or dismisses it", async () => {
+    const conflict = {
+      id: "c1",
+      table: "tasks",
+      pk: "t1",
+      field: "effort",
+      losingValue: 3,
+      losingClock: null,
+      winningClock: null,
+      createdAt: new Date().toISOString(),
+    };
+    vi.spyOn(syncRuntime.engine, "conflicts").mockResolvedValue([
+      conflict,
+      { ...conflict, id: "c2", field: "due_date", losingValue: "2026-10-20" },
+    ]);
+    const restore = vi.spyOn(syncRuntime.engine, "restoreConflict").mockResolvedValue();
+    const dismiss = vi.spyOn(syncRuntime.engine, "dismissConflict").mockResolvedValue();
+    const { user } = await openSync();
+    const [bringBack] = await screen.findAllByRole("button", { name: "Bring Back" });
+    await user.click(bringBack);
+    await waitFor(() => expect(restore).toHaveBeenCalledWith("c1"));
+    await user.click(screen.getAllByRole("button", { name: "Dismiss Conflict" })[1]);
+    await waitFor(() => expect(dismiss).toHaveBeenCalledWith("c2"));
+    await expectNoA11yViolations();
+  });
+});

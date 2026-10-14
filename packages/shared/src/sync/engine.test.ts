@@ -392,3 +392,67 @@ describe("roles", () => {
     expect(await d.engine.roleOf("p1")).toBe("viewer");
   });
 });
+
+describe("bringing a lost edit back", () => {
+  it("puts a losing field value back, and it syncs as a new edit", async () => {
+    const server = new MemoryServer();
+    const a = device("a");
+    const b = device("b");
+    await a.engine.enable();
+    await b.engine.enable();
+    addSpace(a);
+    addTask(a, "t1", "Original");
+    await sync(a, server);
+    await sync(b, server);
+    a.driver.exec("UPDATE tasks SET effort = 3 WHERE entity_id = 't1'");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    b.driver.exec("UPDATE tasks SET effort = 5 WHERE entity_id = 't1'");
+    await sync(b, server);
+    await sync(a, server);
+    const [lost] = await a.engine.conflicts();
+    expect([lost.field, lost.losingValue]).toEqual(["effort", 3]);
+    await a.engine.restoreConflict(lost.id);
+    expect(a.driver.rows("SELECT effort FROM tasks")).toEqual([{ effort: 3 }]);
+    expect(await a.engine.conflicts()).toEqual([]);
+    await sync(a, server);
+    await sync(b, server);
+    expect(b.driver.rows("SELECT effort FROM tasks")).toEqual([{ effort: 3 }]);
+  });
+
+  it("keeps a removed row until the row it belongs to is back", async () => {
+    const server = new MemoryServer();
+    const a = device("a");
+    const b = device("b");
+    await a.engine.enable();
+    await b.engine.enable();
+    addSpace(a);
+    addTask(a, "t1", "Page");
+    await sync(a, server);
+    await sync(b, server);
+    const now = new Date().toISOString();
+    b.driver.exec(
+      "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at) VALUES ('b1', 't1', 0, 'paragraph', 'Keep me', ?, ?)",
+      now,
+      now,
+    );
+    a.driver.exec("DELETE FROM tasks WHERE entity_id = 't1'");
+    a.driver.exec("DELETE FROM entities WHERE id = 't1'");
+    await sync(a, server);
+    await sync(b, server);
+    const block = (await b.engine.conflicts()).find((c) => c.table === "blocks");
+    if (!block) throw new Error("no conflict kept");
+    // Its page is gone too; the block can come back once the page does.
+    await expect(b.engine.restoreConflict(block.id)).rejects.toThrow();
+    expect((await b.engine.conflicts()).some((c) => c.id === block.id)).toBe(true);
+  });
+
+  it("can be dismissed instead", async () => {
+    const d = device("a");
+    await d.engine.enable();
+    d.driver.exec(
+      "INSERT INTO sync_conflicts (id, tbl, pk, field, losing_value, created_at) VALUES ('c1', 'tasks', 't1', 'effort', '3', 'now')",
+    );
+    await d.engine.dismissConflict("c1");
+    expect(await d.engine.conflicts()).toEqual([]);
+  });
+});

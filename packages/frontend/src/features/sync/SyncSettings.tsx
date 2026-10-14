@@ -1,5 +1,5 @@
 import { ApiClient, type Session, type Share, passwordSchema } from "@nookly/shared/api";
-import type { SyncStatus } from "@nookly/shared/sync";
+import type { Conflict, SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -7,6 +7,7 @@ import {
   IconLoader2,
   IconLogout,
   IconRefresh,
+  IconX,
 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -494,6 +495,58 @@ function SharedWithMePanel() {
   );
 }
 
+function ConflictRow({ conflict }: { conflict: Conflict }) {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: qk.sync.conflicts });
+    // A change brought back shows in its views right away.
+    void queryClient.invalidateQueries();
+  };
+  const restore = useMutation({
+    mutationFn: () => syncRuntime.engine.restoreConflict(conflict.id),
+    onSuccess: () => {
+      refresh();
+      syncRuntime.notifyLocalChange();
+    },
+  });
+  const dismiss = useMutation({
+    mutationFn: () => syncRuntime.engine.dismissConflict(conflict.id),
+    onSuccess: refresh,
+  });
+  return (
+    <li className="flex items-center gap-2 py-1.5 text-xs">
+      <span className="shrink-0 text-muted-foreground">{formatEditedAt(conflict.createdAt)}</span>
+      <span className="shrink-0">
+        {conflict.field ? `${conflict.table}.${conflict.field}` : conflict.table}
+      </span>
+      <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">
+        {String(conflict.losingValue ?? "")}
+      </span>
+      <Button size="sm" variant="secondary" onClick={() => restore.mutate()}>
+        <StatusButtonContent
+          status={statusOf(restore)}
+          label="Bring Back"
+          successLabel="Back"
+          errorLabel="Its item is gone"
+        />
+      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="iconSm"
+            variant="ghost"
+            aria-label="Dismiss Conflict"
+            onClick={() => dismiss.mutate()}
+          >
+            <IconX />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Dismiss Conflict</TooltipContent>
+      </Tooltip>
+    </li>
+  );
+}
+
 function ConflictsPanel() {
   const { data: conflicts = [] } = useQuery({
     queryKey: qk.sync.conflicts,
@@ -502,14 +555,8 @@ function ConflictsPanel() {
   if (conflicts.length === 0) return <p className="text-xs text-muted-foreground">No conflicts.</p>;
   return (
     <ul className="w-full divide-y divide-border">
-      {conflicts.slice(0, 20).map((c) => (
-        <li key={c.id} className="flex items-center gap-2 py-1.5 text-xs">
-          <span className="shrink-0 text-muted-foreground">{formatEditedAt(c.createdAt)}</span>
-          <span className="shrink-0">{c.field ? `${c.table}.${c.field}` : c.table}</span>
-          <span className="truncate font-mono text-muted-foreground">
-            {String(c.losingValue ?? "")}
-          </span>
-        </li>
+      {conflicts.slice(0, 50).map((c) => (
+        <ConflictRow key={c.id} conflict={c} />
       ))}
     </ul>
   );

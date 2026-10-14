@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.36.0 (2026-10-14)
+
+### Added
+
+- **Share tasks too.** Tasks can now be shared with people like pages, to view or to edit, with their status and dates.
+- **Bring back a change that lost.** Under Settings, Sync, Conflicts, put a change back that a newer one replaced, or dismiss it.
+
 ## 0.35.0 (2026-10-14)
 
 ### Added

@@ -278,9 +278,44 @@ describe("sharing a page", () => {
     ).toBe("not_found");
   });
 
+  it("shares a task with its status, and an editor can move it along", async () => {
+    const { ada, ben, adaDevice, benDevice } = await setup();
+    adaDevice.driver.exec(
+      "INSERT INTO task_statuses (id, name, color, doneness, position) VALUES ('review', 'In Review', '#f59e0b', 50, 9)",
+    );
+    adaDevice.driver.exec("UPDATE tasks SET status_id = 'review' WHERE entity_id = 't1'");
+    await syncOnce(adaDevice);
+    const { share } = await ada.api.share("t1", "ben@example.com", "editor");
+    await ben.api.acceptShare(share.id);
+    await syncOnce(benDevice);
+    expect(benDevice.driver.rows("SELECT status_id FROM tasks WHERE entity_id = 't1'")).toEqual([
+      { status_id: "review" },
+    ]);
+    expect(benDevice.driver.rows("SELECT name FROM task_statuses WHERE id = 'review'")).toEqual([
+      { name: "In Review" },
+    ]);
+    const [entity] = benDevice.driver.rows("SELECT space_id FROM entities WHERE id = 't1'");
+    expect(
+      benDevice.driver.rows(
+        "SELECT module_key FROM space_modules WHERE space_id = ? ORDER BY module_key",
+        entity.space_id,
+      ),
+    ).toEqual([{ module_key: "tasks" }]);
+    benDevice.driver.exec(
+      "UPDATE tasks SET status_id = 'done', due_date = '2026-11-02' WHERE entity_id = 't1'",
+    );
+    await syncOnce(benDevice);
+    await syncOnce(adaDevice);
+    expect(
+      adaDevice.driver.rows("SELECT status_id, due_date FROM tasks WHERE entity_id = 't1'"),
+    ).toEqual([{ status_id: "done", due_date: "2026-11-02" }]);
+    // The page Ada didn't share stays hers alone.
+    expect(titleOf(benDevice, "p1")).toBeNull();
+  });
+
   it("needs a confirmed email and a shareable, synced item", async () => {
     const { ada } = await setup();
-    expect(await code(ada.api.share("t1", "ben@example.com", "viewer"))).toBe("not_shareable");
+    expect(await code(ada.api.share("space-1", "ben@example.com", "viewer"))).toBe("not_found");
     expect(await code(ada.api.share("missing", "ben@example.com", "viewer"))).toBe("not_found");
     expect(await code(ada.api.share("p1", "ada@example.com", "viewer"))).toBe("share_with_self");
     await ada.api.share("p1", "ben@example.com", "viewer");

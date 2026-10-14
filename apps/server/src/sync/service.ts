@@ -1,3 +1,4 @@
+import { moduleForEntityType } from "@nookly/shared/modules";
 import { syncedTable } from "@nookly/shared/schema";
 import {
   type Change,
@@ -23,9 +24,10 @@ import type { Logger } from "../log.ts";
 import type { Hub } from "./hub.ts";
 
 /// The tables a shared entity brings along: its own row, and the rows that belong to
-/// it and nothing else. Relationships, labels and its Space stay with the owner; a
-/// recipient never gets anything that wasn't shared explicitly.
-export const SHARE_TABLES = ["entities", "blocks", "note_settings"];
+/// it and nothing else (a page's blocks, a task's dates and status). Relationships,
+/// labels, Sub-tasks and its Space stay with the owner; a recipient never gets
+/// anything that wasn't shared explicitly.
+export const SHARE_TABLES = ["entities", "blocks", "note_settings", "tasks"];
 /// The fields of a shared entity's own row an editor may change.
 const EDITOR_ENTITY_FIELDS = new Set(["title", "icon", "updated_at"]);
 /// Fields of a shared entity that are the recipient's own: accepted from them but
@@ -325,6 +327,7 @@ export class SyncService {
         : record,
     );
     if (cursor === 0) page.records.unshift(...(await this.sharedSpace(share)));
+    page.records.unshift(...(await this.statusesOf(share.ownerId, page.records)));
     return page;
   }
 
@@ -355,7 +358,37 @@ export class SyncService {
     };
   }
 
-  /// The Space a recipient's copy of a shared page lives in, with its Notes module.
+  /// The statuses the tasks of a page of records are in, so a status the owner made
+  /// arrives with the task. Only the statuses, nothing else of the owner's.
+  private async statusesOf(ownerId: string, pulled: SyncRecord[]): Promise<SyncRecord[]> {
+    const ids = [
+      ...new Set(
+        pulled.filter((r) => r.table === "tasks").map((r) => String(r.fields.status_id ?? "")),
+      ),
+    ].filter(Boolean);
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(records)
+      .where(
+        and(
+          eq(records.ownerId, ownerId),
+          eq(records.tbl, "task_statuses"),
+          inArray(records.pk, ids),
+        ),
+      );
+    return rows.map((r) => ({
+      table: r.tbl,
+      pk: r.pk,
+      scope: null,
+      fields: r.fields,
+      clocks: r.clocks,
+      deletedClock: r.deletedClock,
+      seq: 0,
+    }));
+  }
+
+  /// The Space a recipient's copy of a shared item lives in, with that item's module.
   private async sharedSpace(share: ShareRow): Promise<SyncRecord[]> {
     const [owner] = await this.db
       .select({ email: users.email })
@@ -374,9 +407,10 @@ export class SyncService {
       updated_at: at,
       position: 1000,
     };
+    const moduleKey = moduleForEntityType(share.entityType) ?? "notes";
     const module = {
       space_id: id,
-      module_key: "notes",
+      module_key: moduleKey,
       added_at: at,
       position: 0,
       hidden_at: null,
@@ -393,7 +427,7 @@ export class SyncService {
       },
       {
         table: "space_modules",
-        pk: JSON.stringify([id, "notes"]),
+        pk: JSON.stringify([id, moduleKey]),
         scope: null,
         fields: module,
         clocks: stamp(module),
