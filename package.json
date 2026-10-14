@@ -8,7 +8,10 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd apps/desktop tauri dev",
+    "dev": "bun tools/dev.ts all",
+    "dev:desktop": "bun tools/dev.ts desktop",
+    "dev:mobile": "bun tools/dev.ts mobile",
+    "dev:server": "bun tools/dev.ts server",
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",
     "typecheck": "turbo run typecheck",

@@ -35,13 +35,18 @@ Nookly is a [Turborepo](https://turborepo.com) workspace managed with Bun.
 
 Run from the repo root.
 
-| Command                          | Does                                                     |
-| -------------------------------- | -------------------------------------------------------- |
-| `bun run dev`                    | Starts the desktop app (`tauri dev`).                    |
-| `bun run tauri build`            | Builds the installers.                                   |
-| `bun run build`                  | Typechecks and builds the frontend bundle via Turborepo. |
-| `bun run check`                  | TypeScript and `cargo check`.                            |
-| `bun run lint`, `bun run format` | oxlint, oxfmt, clippy and rustfmt.                       |
+| Command                          | Does                                                               |
+| -------------------------------- | ------------------------------------------------------------------ |
+| `bun run dev`                    | Starts the sync server, the desktop app and the mobile app (Expo). |
+| `bun run dev:desktop`            | Starts the sync server and the desktop app.                        |
+| `bun run dev:mobile`             | Starts the sync server and the mobile app.                         |
+| `bun run dev:server`             | Starts the sync server alone.                                      |
+| `bun run tauri build`            | Builds the installers.                                             |
+| `bun run build`                  | Typechecks and builds the frontend bundle via Turborepo.           |
+| `bun run check`                  | TypeScript and `cargo check`.                                      |
+| `bun run lint`, `bun run format` | oxlint, oxfmt, clippy and rustfmt.                                 |
+
+The sync server needs Postgres: `DATABASE_URL` when set, else a local cluster in `.dev/postgres` (gitignored) when Postgres is installed, else the one in `apps/server/docker-compose.yml` when Docker runs. Without any, the server is skipped. The server listens on `http://localhost:3000` (`http://10.0.2.2:3000` from the Android emulator) and prints emails to its log. The mobile app keeps the keyboard, so Expo's keys work (`i` opens the iOS simulator).
 
 `bun run dev` and any debug build (`cargo run`, `cargo test`) never touch the real app's data: they read and write `apps/desktop/src-tauri/.dev-data/` instead, a gitignored folder created on first run. Set `NOOKLY_DATA_DIR` to point either one at a specific folder instead (CI, scripted testing, a scratch profile). Only a release build (`bun run tauri build`, or the installed app) uses the real one. See `db::resolve_app_data_dir`.
 
