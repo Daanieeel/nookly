@@ -1,13 +1,24 @@
 import { Drawer, DrawerToggleButton } from "expo-router/drawer";
 import { useWindowDimensions } from "react-native";
 import { Sidebar } from "../../screens/Sidebar.tsx";
-import { insetPageStyle, usePageAside, useWatchPageAside } from "../../ui/inset-page.ts";
+import {
+  PageShadow,
+  insetPageStyle,
+  usePageAside,
+  useWatchPageAside,
+} from "../../ui/inset-page.tsx";
 import { useTheme } from "../../ui/theme.ts";
 
 /// The sidebar content, which also tells the page when it starts sliding aside.
-function SidebarContent({ close }: { close: () => void }) {
+function SidebarContent({ close, width }: { close: () => void; width: number }) {
+  const theme = useTheme();
   useWatchPageAside();
-  return <Sidebar close={close} />;
+  return (
+    <>
+      <Sidebar close={close} />
+      <PageShadow drawerWidth={width} dark={theme.dark} />
+    </>
+  );
 }
 
 /// Like Claude's: the sidebar waits behind the page, and the page slides aside to show
@@ -18,16 +29,19 @@ export default function DrawerLayout() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const aside = usePageAside((s) => s.aside);
+  const drawerWidth = Math.min(width * 0.82, 340);
   return (
     <Drawer
-      drawerContent={({ navigation }) => <SidebarContent close={() => navigation.closeDrawer()} />}
+      drawerContent={({ navigation }) => (
+        <SidebarContent close={() => navigation.closeDrawer()} width={drawerWidth} />
+      )}
       screenOptions={{
         drawerType: "back",
         swipeEdgeWidth: width,
         overlayColor: "transparent",
-        sceneStyle: insetPageStyle(aside, theme.colors, theme.dark),
+        sceneStyle: insetPageStyle(aside, theme.colors),
         drawerStyle: {
-          width: Math.min(width * 0.82, 340),
+          width: drawerWidth,
           backgroundColor: theme.colors.background,
         },
         headerStyle: { backgroundColor: theme.colors.background },

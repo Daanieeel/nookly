@@ -37,6 +37,6 @@ Inter comes from `@expo-google-fonts`, one family per weight, so `font-medium` a
 
 ## Navigation
 
-A sidebar like the desktop's (and Claude's app): Search, Dashboard, Calendar and Tasks, Pinned, each Space with its modules, Recents, then Trash and Settings. The sidebar waits behind the page, which slides aside with rounded corners and an outline (`drawerType: "back"`, `ui/inset-page.ts`); open it with the menu button or a swipe to the right anywhere (a row with swipe actions keeps its swipe). Details open on top with a back button. `expo-router/drawer` (Reanimated) runs it.
+A sidebar like the desktop's (and Claude's app): Search, Dashboard, Calendar and Tasks, Pinned, each Space with its modules, Recents, then Trash and Settings. The sidebar waits behind the page, which slides aside with rounded corners and an outline (`drawerType: "back"`, `ui/inset-page.tsx`); open it with the menu button or a swipe to the right anywhere (a row with swipe actions keeps its swipe). Details open on top with a back button. `expo-router/drawer` (Reanimated) runs it.
 
 Libraries match the desktop's: TanStack Query for data, TanStack Form with Zod for forms, Zustand for state, Tabler icons.

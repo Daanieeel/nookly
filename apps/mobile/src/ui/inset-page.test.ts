@@ -1,4 +1,4 @@
-import { insetPageStyle } from "./inset-page.ts";
+import { insetPageStyle, pageShadow } from "./inset-page.tsx";
 
 describe("the page over the sidebar", () => {
   const colors = { background: "#000", border: "#2a2a2a" };
@@ -7,10 +7,9 @@ describe("the page over the sidebar", () => {
     expect(insetPageStyle(false, colors)).toMatchObject({ borderRadius: 38, overflow: "hidden" });
   });
 
-  it("casts a shadow onto the sidebar while aside, deeper in the dark theme", () => {
-    expect(insetPageStyle(false, colors).boxShadow).toBe("none");
-    expect(insetPageStyle(true, colors).boxShadow).toBe("-12px 0 32px -4px rgba(0, 0, 0, 0.18)");
-    expect(insetPageStyle(true, colors, true).boxShadow).toContain("0.7");
+  it("casts its shadow to the left, onto the sidebar, deeper in the dark theme", () => {
+    expect(pageShadow(false)).toBe("-12px 0 32px -4px rgba(0, 0, 0, 0.18)");
+    expect(pageShadow(true)).toContain("0.7");
   });
 
   it("is outlined only while aside, so no line runs around the screen", () => {

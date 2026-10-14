@@ -3,7 +3,7 @@
     "name": "Nookly",
     "slug": "nookly",
     "scheme": "nookly",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
