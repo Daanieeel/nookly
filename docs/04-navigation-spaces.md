@@ -53,6 +53,10 @@ Split view puts two groups of tabs side by side, like editor groups in VS Code. 
 
 Closing the last tab leaves a fresh Dashboard tab.
 
+## Shared Pages
+
+A page someone shared with you lives in a Space of its own, "Shared by <their email>", which only exists on your devices. It shows nothing else of theirs. A page shared to view is read only.
+
 ## Cross-Space Exceptions
 
 There are exactly seven. Adding another requires a deliberate decision.

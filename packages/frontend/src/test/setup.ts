@@ -14,27 +14,34 @@ class NoopResizeObserver {
   unobserve() {}
   disconnect() {}
 }
-globalThis.ResizeObserver ??= NoopResizeObserver;
-Element.prototype.scrollIntoView ??= () => {};
-// ProseMirror measures ranges when it scrolls the caret into view; there is no layout to measure.
-function emptyRects(): DOMRectList {
-  // SAFETY: an empty list is all any caller reads, and jsdom has no `DOMRectList` to construct.
-  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- jsdom lacks DOMRectList, so the empty list is cast through unknown
-  return Object.assign([], { item: () => null }) as unknown as DOMRectList;
+// A test may run without a DOM (`@vitest-environment node`), which needs none of this.
+if ("Element" in globalThis) {
+  globalThis.ResizeObserver ??= NoopResizeObserver;
+  Element.prototype.scrollIntoView ??= () => {};
+  // ProseMirror measures ranges when it scrolls the caret into view; there is no layout to measure.
+  function emptyRects(): DOMRectList {
+    // SAFETY: an empty list is all any caller reads, and jsdom has no `DOMRectList` to construct.
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- jsdom lacks DOMRectList, so the empty list is cast through unknown
+    return Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  }
+  Range.prototype.getClientRects ??= emptyRects;
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+  Element.prototype.hasPointerCapture ??= () => false;
+  Element.prototype.setPointerCapture ??= () => {};
+  Element.prototype.releasePointerCapture ??= () => {};
 }
-Range.prototype.getClientRects ??= emptyRects;
-Range.prototype.getBoundingClientRect ??= () => new DOMRect();
-Element.prototype.hasPointerCapture ??= () => false;
-Element.prototype.setPointerCapture ??= () => {};
-Element.prototype.releasePointerCapture ??= () => {};
+
+const hasDom = "window" in globalThis;
 
 beforeEach(() => {
-  installTauriMock();
+  if (hasDom) installTauriMock();
 });
 
 afterEach(() => {
-  cleanup();
-  uninstallTauriMock();
+  if (hasDom) {
+    cleanup();
+    uninstallTauriMock();
+  }
   vi.useRealTimers();
   // Preferences live in memory until `initPreferences` loads a store, which tests
   // never do, so clearing every key gives the next test a fresh device.

@@ -327,3 +327,68 @@ describe("never overwriting a change made while applying", () => {
     ]);
   });
 });
+
+describe("roles", () => {
+  it("tells the role an entity came with", async () => {
+    const d = device("a");
+    await d.engine.enable();
+    expect(await d.engine.roleOf("p1")).toBeNull();
+    await d.engine.apply([
+      {
+        dataset: "share:00000000-0000-4000-8000-000000000009",
+        role: "viewer",
+        cursor: 1,
+        hasMore: false,
+        records: [
+          {
+            table: "spaces",
+            pk: "shared-x",
+            scope: null,
+            fields: {
+              id: "shared-x",
+              name: "Shared",
+              color: "gray",
+              created_at: TIME,
+              updated_at: TIME,
+              position: 0,
+            },
+            clocks: {
+              id: "0000000000000-000000-server",
+              name: "0000000000000-000000-server",
+              color: "0000000000000-000000-server",
+              created_at: "0000000000000-000000-server",
+              updated_at: "0000000000000-000000-server",
+              position: "0000000000000-000000-server",
+            },
+            deletedClock: null,
+            seq: 0,
+          },
+          {
+            table: "entities",
+            pk: "p1",
+            scope: "p1",
+            fields: {
+              id: "p1",
+              space_id: "shared-x",
+              type: "note",
+              title: "Shared page",
+              created_at: TIME,
+              updated_at: TIME,
+            },
+            clocks: {
+              id: "1791934383689-000001-own",
+              space_id: "1791934383689-000001-own",
+              type: "1791934383689-000001-own",
+              title: "1791934383689-000001-own",
+              created_at: "1791934383689-000001-own",
+              updated_at: "1791934383689-000001-own",
+            },
+            deletedClock: null,
+            seq: 1,
+          },
+        ],
+      },
+    ]);
+    expect(await d.engine.roleOf("p1")).toBe("viewer");
+  });
+});

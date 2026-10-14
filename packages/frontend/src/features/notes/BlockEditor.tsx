@@ -503,7 +503,7 @@ function HydratedBlockEditor({
   // Split view: the same page open in the other, focused group writes; this copy stays
   // read only and follows along. It also waits for a save the other copy still has in
   // flight, so it never starts typing over an older document.
-  const locked = usePageEditLock(entityId);
+  const locked = usePageEditLock(entityId, spaceId);
   const savesInFlight = useIsMutating({ mutationKey: saveBlocksKey(entityId) });
   const othersSaving = savesInFlight > (reconcile.isPending ? 1 : 0);
   const readOnly = locked || othersSaving;

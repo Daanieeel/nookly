@@ -7,6 +7,7 @@ import {
   IconNotes,
   IconPalette,
   IconRobot,
+  IconCloud,
   IconSearch,
   IconSettings,
   type Icon as TablerIcon,
@@ -44,6 +45,7 @@ const CATEGORY_META = {
   notes: { label: "Editor", icon: IconNotes },
   backup: { label: "Backup", icon: IconArchive },
   agent: { label: "Agent", icon: IconRobot },
+  sync: { label: "Sync", icon: IconCloud },
   shortcuts: { label: "Shortcuts", icon: IconKeyboard },
 } satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
 

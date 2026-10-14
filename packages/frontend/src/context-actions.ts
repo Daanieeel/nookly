@@ -15,3 +15,4 @@ import "#/features/assignments/context-actions.tsx";
 import "#/features/views/context-actions.tsx";
 import "#/components/sidebar/context-actions.tsx";
 import "#/components/tab-actions.tsx";
+import "#/features/sync/context-actions.tsx";

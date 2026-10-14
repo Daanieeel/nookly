@@ -24,6 +24,7 @@ import { WhatsNewDialog } from "#/features/whats-new/WhatsNewDialog.tsx";
 import { ImportDialog } from "#/features/notes/ImportDialog.tsx";
 import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
+import { useSyncBootstrap } from "#/features/sync/sync-instance.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
@@ -79,6 +80,7 @@ function Shell() {
   useExternalDbChanges();
   useExternalCalendarSync();
   useAutoBackup();
+  useSyncBootstrap();
   useScopedSelectAll();
   usePastePlainText();
   // Formatters read the date settings directly; re-rendering from the root applies

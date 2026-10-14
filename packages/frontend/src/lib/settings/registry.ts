@@ -21,6 +21,7 @@ export type SettingCategory =
   | "notes"
   | "backup"
   | "agent"
+  | "sync"
   | "shortcuts";
 
 export const SETTING_CATEGORIES: SettingCategory[] = [
@@ -30,6 +31,7 @@ export const SETTING_CATEGORIES: SettingCategory[] = [
   "notes",
   "backup",
   "agent",
+  "sync",
   "shortcuts",
 ];
 
@@ -170,6 +172,16 @@ export const SETTINGS = {
     synonyms: ["name", "nickname", "greeting", "profile", "username", "call me", "first name"],
     default: "",
     schema: z.string().max(40),
+  }),
+  "sync.serverUrl": define({
+    id: "sync.serverUrl",
+    category: "sync",
+    title: "Server",
+    description:
+      "The sync server this device signs in to, like https://sync.example.com. Sync is optional; without it everything stays on this device.",
+    synonyms: ["sync", "server", "url", "address", "cloud", "backend", "self hosted"],
+    default: "",
+    schema: z.union([z.literal(""), z.url().max(300)]),
   }),
   "general.timezone": define({
     id: "general.timezone",

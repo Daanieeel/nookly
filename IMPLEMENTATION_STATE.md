@@ -21,20 +21,19 @@ Read this first when continuing. Keep it current with every commit.
 
 ## Status
 
-| Area                               | State                                                                                                                             |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Split view (Part 1)                | Done, 0.34.0                                                                                                                      |
-| `packages/shared` sync core        | Done: HLC, merge, protocol, engine, client, API client, tests                                                                     |
-| Rust schema export, sync migration | Done: migration 42, registry, export, `sync_query`/`sync_batch`/`sync_reindex`, keychain                                          |
-| Server                             | Done: auth, sessions, push/pull/ws, sharing, OpenAPI at /docs, Docker + Caddy, 47 tests on real Postgres incl. the vertical slice |
-| Desktop sync client and settings   | Not started                                                                                                                       |
-| Sharing                            | Server done (pages: viewer/editor, invites, revoke). Desktop and mobile UI not started                                            |
-| Mobile                             | Not started                                                                                                                       |
+| Area                               | State                                                                                                                                                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Split view (Part 1)                | Done, 0.34.0                                                                                                                                                                                                                       |
+| `packages/shared` sync core        | Done: HLC, merge, protocol, engine, client, API client, tests                                                                                                                                                                      |
+| Rust schema export, sync migration | Done: migration 42, registry, export, `sync_query`/`sync_batch`/`sync_reindex`, keychain                                                                                                                                           |
+| Server                             | Done: auth, sessions, push/pull/ws, sharing, OpenAPI at /docs, Docker + Caddy, 47 tests on real Postgres incl. the vertical slice                                                                                                  |
+| Desktop sync client and settings   | Done (0.35.0): Tauri driver, keychain tokens, `features/sync` runtime, Settings, Sync (server, sign in/up, status, sync now, devices, shared with me, conflicts, delete account), Share with People dialog, viewer pages read only |
+| Sharing                            | Server done (pages: viewer/editor, invites, revoke). Desktop and mobile UI not started                                                                                                                                             |
+| Mobile                             | Not started                                                                                                                                                                                                                        |
 
 ## Next steps
 
-- Desktop: Tauri `SqlDriver`, a sync store in the frontend running `SyncClient`, Settings section (server URL, sign up / in / out, status, sync now, sessions, conflicts), Share dialog on pages, Shared with me list. Version bump + changelog.
-- Then mobile.
+- Mobile (`apps/mobile`): Expo + Expo Router + expo-sqlite, same schema (`localSchemaStatements`) and engine, TanStack Query and Form, shared tokens. Shell first (Spaces, Dashboard, Search, Recents), then Tasks, Notes, Calendar/Sessions, Bookmarks.
 
 ## Running the server tests locally
 

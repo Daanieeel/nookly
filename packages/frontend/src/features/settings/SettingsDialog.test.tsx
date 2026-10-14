@@ -55,6 +55,7 @@ describe("the settings dialog", () => {
       "LaTeX",
       "Backup",
       "Agent",
+      "Sync",
       "Shortcuts",
     ]);
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
@@ -78,7 +79,16 @@ describe("the settings dialog", () => {
     await screen.findByRole("dialog");
     const found = new Set<string>();
     // Every page of the navigation: the categories, and LaTeX under Editor.
-    const pages = ["General", "Appearance", "Calendar", "Editor", "LaTeX", "Backup", "Agent"];
+    const pages = [
+      "General",
+      "Appearance",
+      "Calendar",
+      "Editor",
+      "LaTeX",
+      "Backup",
+      "Agent",
+      "Sync",
+    ];
     for (const label of [...pages, "Shortcuts"]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
@@ -99,7 +109,7 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7);
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(8);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {

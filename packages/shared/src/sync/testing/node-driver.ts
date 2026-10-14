@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { DatabaseSync, type SQLInputValue, type SQLOutputValue } from "node:sqlite";
 import type { Row, SqlValue } from "../../schema.ts";
 import { localSchemaStatements, seedStatements } from "../local-schema.ts";

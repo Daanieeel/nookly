@@ -1,6 +1,7 @@
 import {
   IconBell,
   IconCards,
+  IconCloud,
   IconFileExport,
   IconFileImport,
   IconFileText,
@@ -23,6 +24,7 @@ import {
 const ICONS = new Map<string, TablerIcon>([
   ["bell", IconBell],
   ["cards", IconCards],
+  ["cloud", IconCloud],
   ["file-export", IconFileExport],
   ["file-import", IconFileImport],
   ["file-text", IconFileText],

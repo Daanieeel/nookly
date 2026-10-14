@@ -893,6 +893,17 @@ export class SyncEngine {
     await this.batch(statements);
   }
 
+  /// The role this account has for an entity that came from someone else's share,
+  /// null for its own.
+  async roleOf(entityId: string): Promise<Role | null> {
+    const rows = await this.driver.query(
+      "SELECT m.value AS role FROM sync_rows r JOIN sync_meta m ON m.key = 'role:' || r.dataset WHERE r.tbl = 'entities' AND r.pk = ? AND r.dataset <> ?",
+      [entityId, OWN_DATASET],
+    );
+    const role = z.enum(["owner", "editor", "viewer"]).safeParse(rows[0]?.role);
+    return role.success ? role.data : null;
+  }
+
   /// The role this account has in each dataset it pulled.
   async roles(): Promise<Record<string, Role>> {
     const rows = await this.driver.query(

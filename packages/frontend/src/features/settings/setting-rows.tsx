@@ -1,3 +1,4 @@
+import { SYNC_ROWS, SyncServerControl } from "#/features/sync/SyncSettings.tsx";
 import { LatexMacrosPanel } from "./LatexMacrosPanel";
 import { IconCalendarUser, IconRefresh, IconSparkles } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -77,6 +78,7 @@ const SECTIONS = {
   notes: ["Code", "Editing", "LaTeX"],
   backup: ["Backup", "Restore"],
   agent: ["Files"],
+  sync: ["Server", "Account", "Devices", "Shared with me", "Conflicts"],
   shortcuts: [...SHORTCUT_SECTIONS],
 } satisfies Record<SettingCategory, string[]>;
 
@@ -99,6 +101,7 @@ const SETTING_UI = {
   "appearance.fileViewerTheme": { section: "Theme", control: <FileViewerThemeToggle /> },
   "general.displayName": { section: "Profile", control: <DisplayNameControl /> },
   "general.timezone": { section: "Date and time", control: <TimezoneSetting /> },
+  "sync.serverUrl": { section: "Server", control: <SyncServerControl /> },
   "general.dateFormat": { section: "Date and time", control: <DateFormatSetting /> },
   "general.timeFormat": { section: "Date and time", control: <TimeFormatSetting /> },
   "general.effortScale": { section: "Tasks", control: <EffortSettings /> },
@@ -167,6 +170,7 @@ const SETTING_UI = {
 
 /// Rows that open something or run something instead of storing a value.
 const ACTION_ROWS: RowSpec[] = [
+  ...SYNC_ROWS,
   {
     id: "agent.files",
     category: "agent",

@@ -2,6 +2,14 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.35.0 (2026-10-14)
+
+### Added
+
+- **Sync between your devices (optional).** Sign in to a Nookly sync server under Settings, Sync, and your Spaces, pages, tasks and everything else stay the same on every device. Nookly still works fully offline and without an account; changes made offline sync once you are back. When two devices change the same thing, the newer change wins and the other one is kept under Conflicts.
+- **Share a page with people.** Right click a page and pick Share with People to invite someone by email, to view or to edit. Pages shared with you appear in a Space of their own after you accept them under Settings, Sync.
+- **See and sign out your devices.** Settings, Sync lists every device signed in to your account.
+
 ## 0.34.0 (2026-10-14)
 
 ### Added

@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useTabGroupScope } from "#/components/tab-group-scope.ts";
+import { syncRuntime } from "#/features/sync/sync-instance.ts";
+import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 
 /// How many editors of each page are open, per tab group.
@@ -23,8 +26,16 @@ function change(entityId: string, groupId: string, delta: 1 | -1) {
 /// the document and saves it block by block, so two of them typing at once would
 /// overwrite each other. Only the focused group's copy writes; the other follows
 /// along from what it saves, and takes over when its group is focused.
-export function usePageEditLock(entityId: string): boolean {
+///
+/// A page someone shared with this account to view only stays read only too.
+export function usePageEditLock(entityId: string, spaceId?: string): boolean {
   const { groupId } = useTabGroupScope();
+  const shared = spaceId?.startsWith("shared-") ?? false;
+  const { data: role } = useQuery({
+    queryKey: qk.sync.role(entityId),
+    queryFn: () => syncRuntime.engine.roleOf(entityId),
+    enabled: shared,
+  });
   useEffect(() => {
     change(entityId, groupId, 1);
     return () => change(entityId, groupId, -1);
@@ -33,5 +44,5 @@ export function usePageEditLock(entityId: string): boolean {
   const openElsewhere = useOpenEditors((s) =>
     Object.keys(s.open[entityId] ?? {}).some((id) => id !== groupId),
   );
-  return openElsewhere && focusedGroupId !== groupId;
+  return role === "viewer" || (openElsewhere && focusedGroupId !== groupId);
 }

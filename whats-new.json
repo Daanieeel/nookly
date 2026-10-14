@@ -1,6 +1,31 @@
 {
   "versions": [
     {
+      "version": "0.35.0",
+      "date": "2026-10-14",
+      "title": "Sync and sharing",
+      "summary": "Keep your devices in step, and share pages with people. Both are optional.",
+      "highlights": [
+        {
+          "title": "Sync your devices",
+          "description": "Sign in under **Settings, Sync** and every device stays the same, offline changes included. Nookly still works without an account.",
+          "icon": "cloud",
+          "tag": "New"
+        },
+        {
+          "title": "Share a page",
+          "description": "Right click a page and pick **Share with People** to let someone view or edit it.",
+          "icon": "share",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Settings, Sync lists your signed in devices, and conflicts keep the change that lost."
+        ]
+      }
+    },
+    {
       "version": "0.34.0",
       "date": "2026-10-14",
       "title": "Split view",

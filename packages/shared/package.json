@@ -8,7 +8,8 @@
     "./schema": "./src/schema.ts",
     "./sync": "./src/sync/index.ts",
     "./api": "./src/api/index.ts",
-    "./tokens": "./src/tokens.ts"
+    "./tokens": "./src/tokens.ts",
+    "./testing": "./src/sync/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

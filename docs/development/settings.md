@@ -2,7 +2,7 @@
 
 Hard settings live in `settings.json` in the app data folder, a flat JSON object keyed by setting id. Code reads and writes them through [`packages/frontend/src/lib/settings/settings.ts`](../../packages/frontend/src/lib/settings/settings.ts); the list is [`registry.ts`](../../packages/frontend/src/lib/settings/registry.ts). View state (sorts, tabs, filters, display options, dismissed cards) stays in `preferences.json`, see [`preference-keys.md`](preference-keys.md).
 
-Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `agent`, `shortcuts`. An id is never renamed once released.
+Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `agent`, `sync`, `shortcuts`. An id is never renamed once released.
 
 ## Settings file
 
@@ -21,6 +21,10 @@ A setting read where it is used (a calendar length, the snap, the notes editor's
 A row with no stored value (a button that opens a dialog or runs something, like Back up now) goes in `ACTION_ROWS` instead.
 
 The Backup tab holds everything about backups inline: the folder, the daily switch, Back up now and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
+
+## Sync
+
+`sync.serverUrl` is the sync server this device signs in to; empty means sync is off. The Sync tab signs in or up, shows the status, the devices and what is shared with you (`features/sync`). The refresh token lives in the OS keychain, never in a file. Signing out keeps every row and forgets only what the device knew of the server. See [the sync protocol](sync-protocol.md).
 
 ## Agent files
 
