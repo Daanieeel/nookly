@@ -348,6 +348,63 @@ export class ApiClient {
     return this.callVoid("DELETE", `/v1/shares/${encodeURIComponent(id)}`);
   }
 
+  /// A raw request with the session token, for file contents.
+  private async raw(method: string, path: string, init: RequestInit = {}): Promise<Response> {
+    const token = await this.sessionToken();
+    if (!token) throw new ApiRequestError(401, "unauthorized", "Sign in first.");
+    const headers = new Headers(init.headers);
+    headers.set("authorization", `Bearer ${token}`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}${path}`, { ...init, method, headers });
+    } catch (error) {
+      throw new NetworkError(error instanceof Error ? error.message : "Network error");
+    }
+    if (response.status === 401) {
+      await this.forget();
+      this.onSignedOut?.();
+    }
+    return response;
+  }
+
+  private async failed(response: Response): Promise<never> {
+    const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
+    const data = parsed.success ? parsed.data : {};
+    const code = (data.error ?? data.code ?? "http_error").toLowerCase();
+    throw new ApiRequestError(
+      response.status,
+      code,
+      data.message ?? `Request failed (${response.status})`,
+    );
+  }
+
+  /// Whether the server already holds this file's contents.
+  async hasBlob(sha256: string): Promise<boolean> {
+    const response = await this.raw("HEAD", `/v1/blobs/${sha256}`);
+    if (response.status === 404) return false;
+    if (!response.ok) return this.failed(response);
+    return true;
+  }
+
+  /// Sends a file's contents. The server checks them against `sha256` and keeps
+  /// nothing that doesn't match, so sending again is always safe.
+  async uploadBlob(sha256: string, body: BodyInit, contentType: string): Promise<void> {
+    const response = await this.raw("PUT", `/v1/blobs/${sha256}`, {
+      body,
+      headers: { "content-type": contentType },
+    });
+    if (!response.ok) await this.failed(response);
+  }
+
+  async downloadBlob(sha256: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+    const response = await this.raw("GET", `/v1/blobs/${sha256}`);
+    if (!response.ok) return this.failed(response);
+    return {
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      contentType: response.headers.get("content-type") ?? "application/octet-stream",
+    };
+  }
+
   push(request: PushRequest): Promise<PushResponse> {
     return this.call("POST", "/v1/sync/push", pushResponseSchema, request);
   }

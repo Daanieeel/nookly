@@ -5,6 +5,7 @@ import { loadConfig } from "../src/config.ts";
 import { connect, migrateDatabase } from "../src/db/client.ts";
 import { createLogger } from "../src/log.ts";
 import { MemoryMailer } from "../src/mail/mailer.ts";
+import { BlobStore } from "../src/storage/blobs.ts";
 import { BunSqliteDriver } from "./bun-driver.ts";
 
 export class MemoryTokens implements TokenStore {
@@ -34,23 +35,35 @@ export async function startServer(
     AUTH_SECRET: "test-secret-that-is-long-enough-for-signing-sessions",
     PUBLIC_URL: "http://nookly.test",
     RATE_LIMIT_SCALE: "1000",
-    LOG_LEVEL: "error",
+    LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? "error",
+    // The MinIO from docker-compose.yml, in a bucket of its own.
+    S3_ENDPOINT: process.env.TEST_S3_ENDPOINT ?? "http://127.0.0.1:9000",
+    S3_ACCESS_KEY_ID: process.env.TEST_S3_ACCESS_KEY_ID ?? "nookly",
+    S3_SECRET_ACCESS_KEY: process.env.TEST_S3_SECRET_ACCESS_KEY ?? "nookly-dev-secret",
+    S3_BUCKET: "nookly-test",
     ...env,
   });
   const lines: string[] = [];
-  const log = createLogger(config.LOG_LEVEL, (line) => lines.push(line));
+  const log = createLogger(config.LOG_LEVEL, (line) => {
+    lines.push(line);
+    if (process.env.TEST_LOG_LEVEL) console.log(line);
+  });
   const { sql, db } = connect(url);
   await migrateDatabase(db);
   if (options.reset !== false)
-    await sql`TRUNCATE auth_user, auth_verification, users, sessions, refresh_tokens, email_tokens, records, conflicts, shares, devices CASCADE`;
+    await sql`TRUNCATE auth_user, auth_verification, users, sessions, refresh_tokens, email_tokens, records, conflicts, shares, devices, blobs CASCADE`;
   const mailer = new MemoryMailer();
-  const built = buildApp({ config, db, mailer, log });
+  const storage = new BlobStore(db, config, log);
+  await storage.ensureBucket(3);
+  const built = buildApp({ config, db, mailer, log, storage });
   built.app.listen({ port: 0, hostname: "127.0.0.1" });
   const port = built.app.server?.port;
   const baseUrl = `http://127.0.0.1:${port}`;
   return {
     ...built,
     baseUrl,
+    config,
+    storage,
     mailer,
     sql,
     db,

@@ -3,6 +3,7 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { authAccount, authSession, authUser, shares } from "../db/schema.ts";
 import { HttpError, notFound, unauthorized } from "../errors.ts";
+import type { BlobStore } from "../storage/blobs.ts";
 import { type Auth, isPlaceholderEmail } from "./auth.ts";
 
 /// Who a request is: the account and the session (one per signed in device).
@@ -29,10 +30,12 @@ export function toUser(row: UserRow): User {
 export class AccountService {
   private readonly db: Database;
   private readonly auth: Auth;
+  private readonly storage: BlobStore | null;
 
-  constructor(db: Database, auth: Auth) {
+  constructor(db: Database, auth: Auth, storage: BlobStore | null) {
     this.db = db;
     this.auth = auth;
+    this.storage = storage;
   }
 
   /// The account behind a bearer token, while its session is open.
@@ -97,6 +100,8 @@ export class AccountService {
     // Not 401: that would read as "signed out" to the client.
     if (!ok) throw new HttpError(403, "wrong_password", "The password is wrong.");
     const [user] = await this.db.select().from(authUser).where(eq(authUser.id, claims.userId));
+    // Files first: if storage fails the account stays, and deleting can be tried again.
+    await this.storage?.deleteOwner(claims.userId);
     await this.db.transaction(async (tx) => {
       if (user && !isPlaceholderEmail(user.email)) {
         await tx.delete(shares).where(eq(shares.recipientEmail, user.email));

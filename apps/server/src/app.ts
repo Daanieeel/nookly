@@ -22,12 +22,15 @@ import { RateLimiter } from "./security/rate-limit.ts";
 import { ShareService } from "./shares/service.ts";
 import { Hub, type LiveSocket } from "./sync/hub.ts";
 import { SyncService } from "./sync/service.ts";
+import { type BlobStore, SHA256_PATTERN } from "./storage/blobs.ts";
 
 export interface AppDeps {
   config: Config;
   db: Database;
   mailer: Mailer;
   log: Logger;
+  /// File storage; null when no S3 is configured (files then stay on each device).
+  storage?: BlobStore | null;
 }
 
 const MINUTE = 60_000;
@@ -36,6 +39,12 @@ const HOUR = 60 * MINUTE;
 const HELLO_TIMEOUT_MS = 10_000;
 
 const idParams = z.object({ id: z.uuid() });
+const blobParams = z.object({ sha256: z.string().regex(SHA256_PATTERN) });
+/// What a stored file may say it is; anything else is stored as plain bytes.
+const contentTypeOf = (header: string | null) =>
+  header && /^[\w.+-]+\/[\w.+-]+$/.test(header.split(";")[0].trim())
+    ? header.split(";")[0].trim()
+    : "application/octet-stream";
 const tokenQuery = z.object({ token: z.string().min(10).max(512) });
 const resetForm = z.object({ token: z.string().min(10).max(512), password: z.string().max(512) });
 /// better-auth's routes that check a password or send mail, limited per address.
@@ -46,10 +55,10 @@ const MAIL_PATHS = new Set([
   "/v1/auth/reset-password",
 ]);
 
-export function buildApp({ config, db, mailer, log }: AppDeps) {
+export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   const hub = new Hub();
   const auth = createAuth(db, config, mailer, log);
-  const accounts = new AccountService(db, auth);
+  const accounts = new AccountService(db, auth, storage);
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
   const sharing = new ShareService(db, sync, hub, mailer, config, log);
@@ -79,7 +88,30 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
     { userId: string | null; socket: LiveSocket; timer: ReturnType<typeof setTimeout> }
   >();
 
-  const app = new Elysia({ serve: { maxRequestBodySize: config.MAX_BODY_BYTES } })
+  function files(): BlobStore {
+    if (!storage) {
+      throw new HttpError(
+        503,
+        "no_storage",
+        "This server doesn't store files. Files stay on each device.",
+      );
+    }
+    return storage;
+  }
+
+  const app = new Elysia({
+    // File uploads stream up to MAX_BLOB_BYTES; everything else is held to
+    // MAX_BODY_BYTES by `onRequest` below.
+    serve: { maxRequestBodySize: Math.max(config.MAX_BODY_BYTES, config.MAX_BLOB_BYTES) + 1024 },
+  })
+    .onRequest(({ request, set }) => {
+      if (new URL(request.url).pathname.startsWith("/v1/blobs/")) return;
+      const length = Number(request.headers.get("content-length") ?? 0);
+      if (length > config.MAX_BODY_BYTES) {
+        set.status = 413;
+        return { error: "too_large", message: "The request is too large." };
+      }
+    })
     .use(
       cors({
         // Browsers only: the apps' own requests carry no origin. Anything else is refused.
@@ -87,13 +119,13 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
           const origin = request.headers.get("origin");
           return origin === null || config.corsOrigins.includes(origin);
         },
-        methods: ["GET", "POST", "PATCH", "DELETE"],
         allowedHeaders: [
           "content-type",
           "authorization",
           "x-nookly-device-name",
           "x-nookly-platform",
         ],
+        methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
         exposeHeaders: ["set-auth-token"],
         credentials: false,
         maxAge: 600,
@@ -284,6 +316,70 @@ export function buildApp({ config, db, mailer, log }: AppDeps) {
           {
             params: idParams,
             detail: { summary: "Sign a device out", tags: ["Account"], security: [{ bearer: [] }] },
+          },
+        )
+        .put(
+          "/blobs/:sha256",
+          async ({ headers, params, request, set }) => {
+            const claims = await claimsOf(headers);
+            limit(limits.sync, `sync:${claims.userId}`);
+            const store = files();
+            const length = Number(request.headers.get("content-length") ?? 0);
+            if (length > config.MAX_BLOB_BYTES) {
+              throw new HttpError(413, "too_large", "This file is larger than the server allows.");
+            }
+            if (!request.body) throw new HttpError(400, "invalid_body", "The file is empty.");
+            const outcome = await store.put(
+              claims.userId,
+              params.sha256,
+              request.body,
+              contentTypeOf(request.headers.get("content-type")),
+            );
+            set.status = outcome === "created" ? 201 : 200;
+            return { sha256: params.sha256, stored: true };
+          },
+          {
+            parse: "none",
+            params: blobParams,
+            detail: {
+              summary: "Store a file's contents under its SHA-256",
+              tags: ["Files"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .head(
+          "/blobs/:sha256",
+          async ({ headers, params, set }) => {
+            const claims = await claimsOf(headers);
+            set.status = (await files().exists(claims.userId, params.sha256)) ? 200 : 404;
+            return "";
+          },
+          { params: blobParams, detail: { hide: true } },
+        )
+        .get(
+          "/blobs/:sha256",
+          async ({ headers, params }) => {
+            const claims = await claimsOf(headers);
+            limit(limits.sync, `sync:${claims.userId}`);
+            const blob = await files().get(claims.userId, params.sha256);
+            if (!blob) throw new HttpError(404, "not_found", "This file isn't on the server.");
+            return new Response(blob.body, {
+              headers: {
+                "content-type": blob.contentType,
+                "content-length": String(blob.size),
+                etag: `"${params.sha256}"`,
+                "cache-control": "private, max-age=31536000, immutable",
+              },
+            });
+          },
+          {
+            params: blobParams,
+            detail: {
+              summary: "Read a file's contents",
+              tags: ["Files"],
+              security: [{ bearer: [] }],
+            },
           },
         )
         .post(

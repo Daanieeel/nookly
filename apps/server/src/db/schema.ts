@@ -126,6 +126,23 @@ export const devices = pgTable(
   (t) => [primaryKey({ columns: [t.ownerId, t.deviceId] })],
 );
 
+/// File contents an account stored (`src/storage/blobs.ts`), by SHA-256. A row is
+/// written only once the object is in S3 with a checksum that matched, so a row
+/// always means the bytes are safe.
+export const blobs = pgTable(
+  "blobs",
+  {
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sha256: text("sha256").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    contentType: text("content_type").notNull(),
+    createdAt: created(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.sha256] })],
+);
+
 /// Before better-auth (migration 0001): sessions, refresh and email tokens of the
 /// server's own sign in. Kept, unused, so nothing is dropped.
 export const sessions = pgTable(

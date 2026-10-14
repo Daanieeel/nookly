@@ -3,6 +3,7 @@ import { loadConfig } from "./config.ts";
 import { connect, migrateDatabase } from "./db/client.ts";
 import { createLogger } from "./log.ts";
 import { ConsoleMailer, SmtpMailer } from "./mail/mailer.ts";
+import { BlobStore, storageConfigured } from "./storage/blobs.ts";
 
 const config = loadConfig();
 const log = createLogger(config.LOG_LEVEL);
@@ -15,7 +16,10 @@ const mailer =
   config.MAILER === "smtp" && config.SMTP_URL
     ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM)
     : new ConsoleMailer(log);
-const { app } = buildApp({ config, db, mailer, log });
+const storage = storageConfigured(config) ? new BlobStore(db, config, log) : null;
+if (!storage) log.warn("no S3 configured: files stay on each device and don't sync");
+if (storage && config.S3_CREATE_BUCKET) await storage.ensureBucket();
+const { app } = buildApp({ config, db, mailer, log, storage });
 app.listen({ port: config.PORT, hostname: "0.0.0.0" });
 log.info("listening", { port: config.PORT, version: config.version });
 
