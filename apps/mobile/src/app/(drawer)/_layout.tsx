@@ -1,22 +1,16 @@
 import { Drawer, DrawerToggleButton } from "expo-router/drawer";
 import { useWindowDimensions } from "react-native";
 import { Sidebar } from "../../screens/Sidebar.tsx";
-import {
-  PageShadow,
-  insetPageStyle,
-  usePageAside,
-  useWatchPageAside,
-} from "../../ui/inset-page.tsx";
+import { PageEdge, insetPageStyle } from "../../ui/inset-page.tsx";
 import { useTheme } from "../../ui/theme.ts";
 
-/// The sidebar content, which also tells the page when it starts sliding aside.
+/// The sidebar, with the page's edge drawn over it.
 function SidebarContent({ close, width }: { close: () => void; width: number }) {
   const theme = useTheme();
-  useWatchPageAside();
   return (
     <>
       <Sidebar close={close} />
-      <PageShadow drawerWidth={width} dark={theme.dark} />
+      <PageEdge drawerWidth={width} dark={theme.dark} />
     </>
   );
 }
@@ -28,7 +22,6 @@ function SidebarContent({ close, width }: { close: () => void; width: number }) 
 export default function DrawerLayout() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const aside = usePageAside((s) => s.aside);
   const drawerWidth = Math.min(width * 0.82, 340);
   return (
     <Drawer
@@ -39,7 +32,7 @@ export default function DrawerLayout() {
         drawerType: "back",
         swipeEdgeWidth: width,
         overlayColor: "transparent",
-        sceneStyle: insetPageStyle(aside, theme.colors),
+        sceneStyle: insetPageStyle(theme.colors.background),
         drawerStyle: {
           width: drawerWidth,
           backgroundColor: theme.colors.background,
