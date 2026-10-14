@@ -41,3 +41,5 @@ coverage
 
 PLAN.md
 PROMPT.md
+# Local settings for docker compose and the server (see .env.example). Never commit.
+.env

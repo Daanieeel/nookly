@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { cn } from "@nookly/ui/lib/utils";
+import { MiddleEllipsis } from "#/components/middle-ellipsis.tsx";
 import { useAccountDialog } from "./account-dialog-store.ts";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
 
@@ -67,7 +68,7 @@ function Step({
   children?: ReactNode;
 }) {
   return (
-    <li className="flex gap-3">
+    <li className="flex min-w-0 gap-3">
       <span className="mt-0.5 shrink-0">
         <StepIcon state={state} />
       </span>
@@ -117,7 +118,7 @@ export function FirstSyncDialog() {
   const failed = migration.phase === "failed";
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md grid-cols-1">
         <DialogHeader>
           <DialogTitle>Bringing this device into your account</DialogTitle>
           <DialogDescription>
@@ -125,15 +126,16 @@ export function FirstSyncDialog() {
             it runs.
           </DialogDescription>
         </DialogHeader>
-        <ol className="flex flex-col gap-4 py-2">
+        <ol className="flex min-w-0 flex-col gap-4 py-2">
           <Step
             state={state.backup}
             title={state.backup === "done" ? "Backed up this device" : "Backing up this device"}
           >
             {migration.backupPath && (
-              <span className="truncate text-xs text-muted-foreground" title={migration.backupPath}>
-                {migration.backupPath}
-              </span>
+              <MiddleEllipsis
+                text={migration.backupPath}
+                className="text-xs text-muted-foreground"
+              />
             )}
           </Step>
           <Step

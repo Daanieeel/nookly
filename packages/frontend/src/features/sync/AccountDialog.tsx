@@ -423,7 +423,7 @@ export function AccountDialog() {
   const { title, description } = TITLES[mode];
   return (
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md grid-cols-1">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

@@ -1,5 +1,6 @@
 use tauri::Manager;
 
+mod automation;
 mod backup;
 mod cli;
 mod commands;
@@ -122,6 +123,7 @@ pub fn run() {
             ));
             #[cfg(target_os = "macos")]
             disable_trackpad_magnification(app);
+            automation::start(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -356,6 +358,7 @@ pub fn run() {
             commands::agent_files::reveal_agent_dir,
             commands::settings_file::open_settings_file,
             commands::settings_file::store_dir,
+            automation::automation_result,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
