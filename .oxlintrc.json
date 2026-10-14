@@ -16,7 +16,6 @@
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
-    "**/anti-slop/**",
-    "**/mobile/src/dev/**"
+    "**/anti-slop/**"
   ]
 }

@@ -1,3 +1,4 @@
+/* oxlint-disable -- a development bridge that reaches into React internals to drive a simulator */
 /// Driving the app from scripts, for end to end checks (`tools/e2e/mobile.ts`).
 ///
 /// Only when `EXPO_PUBLIC_AUTOMATION_URL` is set at bundle time (so a normal build
