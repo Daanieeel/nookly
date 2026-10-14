@@ -9,7 +9,8 @@
     "./sync": "./src/sync/index.ts",
     "./api": "./src/api/index.ts",
     "./tokens": "./src/tokens.ts",
-    "./testing": "./src/sync/testing/index.ts"
+    "./testing": "./src/sync/testing/index.ts",
+    "./data": "./src/data/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
