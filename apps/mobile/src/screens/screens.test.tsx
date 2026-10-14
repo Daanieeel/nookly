@@ -9,7 +9,9 @@ import {
   setTaskStatus,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import { ApiClient } from "@nookly/shared/api";
 import { renderScreens, testData } from "../test/render.tsx";
+import { ShareScreen } from "./ShareScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewTaskScreen } from "./NewScreens.tsx";
@@ -115,5 +117,46 @@ describe("Settings", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
     expect(await screen.findByText("Enter an address like https://sync.example.com")).toBeTruthy();
     expect(screen.getByText("Enter your email address")).toBeTruthy();
+  });
+});
+
+describe("sharing from the phone", () => {
+  it("invites someone to a page", async () => {
+    const { data, space } = await seeded();
+    const page = await createPage(data.db, space, "note", "Trip");
+    const api = new ApiClient({
+      baseUrl: "https://sync.example.com",
+      tokens: { load: async () => null, save: async () => {} },
+    });
+    jest.spyOn(api, "sharesByMe").mockResolvedValue([]);
+    const share = jest.spyOn(api, "share").mockResolvedValue({
+      share: {
+        id: "00000000-0000-4000-8000-0000000000aa",
+        entityId: page,
+        entityType: "note",
+        title: "Trip",
+        role: "editor",
+        status: "pending",
+        ownerEmail: "a@b.co",
+        recipientEmail: "ben@example.com",
+        createdAt: "",
+      },
+      inviteUrl: "https://sync.example.com/invite?token=x",
+    });
+    jest.spyOn(data.sync, "account").mockReturnValue(api);
+    jest.spyOn(data.sync, "syncNow").mockResolvedValue();
+    data.sync.store.setState({
+      user: {
+        id: "00000000-0000-4000-8000-0000000000bb",
+        email: "a@b.co",
+        emailVerified: true,
+        createdAt: "",
+      },
+    });
+    const screen = await renderScreens({ index: () => <ShareScreen entityId={page} /> }, data);
+    await fireEvent.changeText(screen.getByLabelText("Email"), "Ben@Example.com");
+    await fireEvent.press(screen.getByRole("radio", { name: "Can edit" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Invite" }));
+    await waitFor(() => expect(share).toHaveBeenCalledWith(page, "ben@example.com", "editor"));
   });
 });

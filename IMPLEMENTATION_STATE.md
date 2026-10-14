@@ -33,7 +33,9 @@ Read this first when continuing. Keep it current with every commit.
 
 ## Next steps
 
-- Mobile breadth: Courses, Exams, Assignments, Decks (study) with their own fields; relationships and labels on the detail screen; sharing a page from the phone; a date picker instead of typed dates.
+- Mobile breadth: Courses, Exams, Assignments, Decks (study) with their own fields; relationships and labels on the detail screen; a date picker instead of typed dates; conflicts list with Bring Back.
+- Desktop: show a shared Space as shared in the sidebar; make a task shared to view only read only in its detail (edits are undone and kept as conflicts today).
+- Build the Docker image once and run the prod compose on a VPS.
 - Run the app in a simulator once by hand (not done: the user asked not to check the running app).
 
 ## Running the server tests locally

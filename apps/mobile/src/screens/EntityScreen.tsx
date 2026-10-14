@@ -11,11 +11,12 @@ import {
   trashEntity,
 } from "@nookly/shared/data";
 import { useQuery } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { SHAREABLE_TYPES } from "@nookly/shared/api";
+import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { z } from "zod";
-import { useAppData, useLocalWrite } from "../data/context.tsx";
+import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { useEntity, useSpaces, useStatuses, useTask } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
@@ -70,6 +71,10 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
 
 function Actions({ entity }: { entity: EntityRecord }) {
   const theme = useTheme();
+  const router = useRouter();
+  const signedIn = useSyncState((s) => s.user !== null);
+  const shareable =
+    SHAREABLE_TYPES.some((t) => t === entity.type) && !entity.spaceId.startsWith("shared-");
   const pin = useLocalWrite((db, next: boolean) => setPinned(db, entity.id, next));
   const trash = useLocalWrite((db) => trashEntity(db, entity.id));
   const restore = useLocalWrite((db) => restoreEntity(db, entity.id));
@@ -84,6 +89,13 @@ function Actions({ entity }: { entity: EntityRecord }) {
         />
       ) : (
         <>
+          {signedIn && shareable ? (
+            <Button
+              label="Share"
+              variant="ghost"
+              onPress={() => router.push(`/new/share?entityId=${entity.id}`)}
+            />
+          ) : null}
           <Button
             label={entity.pinned ? "Unpin" : "Pin"}
             variant="ghost"

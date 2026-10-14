@@ -5,6 +5,8 @@ Nookly is a [Turborepo](https://turborepo.com) workspace managed with Bun.
 | Path                | Package            | Contents                                                                                                                                |
 | ------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/desktop`      | `@nookly/desktop`  | The Tauri app: `src-tauri/` (Rust), `index.html`, `vite.config.ts` and the `src/main.tsx` bootstrap.                                    |
+| `apps/server`       | `@nookly/server`   | The optional sync server: Bun, Elysia, Postgres. See [server](server.md).                                                               |
+| `apps/mobile`       | `@nookly/mobile`   | The phone app: Expo, Expo Router, `expo-sqlite`. See its README.                                                                        |
 | `packages/ui`       | `@nookly/ui`       | The design system: primitives in `src/components/`, tokens and theme in `src/styles.css`, fonts, `cn`.                                  |
 | `packages/frontend` | `@nookly/frontend` | Every other component, feature, hook, store and API client. Shared by the desktop app and any future app.                               |
 | `packages/shared`   | `@nookly/shared`   | What every client and the server agree on: the exported desktop schema, the sync engine and protocol, the API client. No React, no DOM. |
