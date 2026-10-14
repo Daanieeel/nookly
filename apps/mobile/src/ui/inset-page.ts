@@ -21,10 +21,21 @@ export function useWatchPageAside() {
   );
 }
 
+/// The shadow the page casts to its left, onto the sidebar, deeper in the dark theme
+/// where a light one wouldn't show. It is drawn outside the page even though the page
+/// clips its content (React Native moves the clipping to an inner view then).
+function shadow(dark: boolean): string {
+  return `-12px 0 32px -4px rgba(0, 0, 0, ${dark ? 0.7 : 0.18})`;
+}
+
 /// The page over the sidebar, like Claude's: rounded like the screen's own corners, so
-/// the rounding only shows once it slides aside, and outlined then, so it reads as
-/// lying on top of the sidebar.
-export function insetPageStyle(aside: boolean, colors: { background: string; border: string }) {
+/// the rounding only shows once it slides aside, then outlined and casting a shadow, so
+/// it reads as lying on top of the sidebar.
+export function insetPageStyle(
+  aside: boolean,
+  colors: { background: string; border: string },
+  dark = false,
+) {
   return {
     backgroundColor: colors.background,
     borderRadius: Platform.select({ ios: 38, default: 24 }),
@@ -32,5 +43,6 @@ export function insetPageStyle(aside: boolean, colors: { background: string; bor
     overflow: "hidden" as const,
     borderWidth: aside ? StyleSheet.hairlineWidth * 2 : 0,
     borderColor: colors.border,
+    boxShadow: aside ? shadow(dark) : "none",
   };
 }

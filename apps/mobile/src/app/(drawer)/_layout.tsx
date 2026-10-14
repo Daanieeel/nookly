@@ -25,7 +25,7 @@ export default function DrawerLayout() {
         drawerType: "back",
         swipeEdgeWidth: width,
         overlayColor: "transparent",
-        sceneStyle: insetPageStyle(aside, theme.colors),
+        sceneStyle: insetPageStyle(aside, theme.colors, theme.dark),
         drawerStyle: {
           width: Math.min(width * 0.82, 340),
           backgroundColor: theme.colors.background,
