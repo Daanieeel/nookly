@@ -50,11 +50,11 @@
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",
-    "jscpd": "^5.4.0",
-    "knip": "^6.39.0",
-    "oxfmt": "0.65.0",
-    "oxlint": "1.83.0",
-    "turbo": "^2.11.4",
+    "jscpd": "^5.4.1",
+    "knip": "^6.41.0",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "turbo": "^2.11.7",
     "typescript": "^7.0.2"
   },
   "packageManager": "bun@1.4.0"
