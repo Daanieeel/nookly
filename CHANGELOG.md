@@ -6,6 +6,7 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
+- **Long pages render in full again.** Parts of a page scrolled out of view are no longer skipped, which brings back the page's normal scrolling and find behaviour.
 - **Split view shortcuts no longer clash with text selection.** Split Right and Split Left are now `Mod+Alt+Shift+Right` and `Mod+Alt+Shift+Left` (Cmd+Option+Shift on Mac, Ctrl+Alt+Shift on Windows and Linux).
 
 ## 0.34.0 (2026-10-15)

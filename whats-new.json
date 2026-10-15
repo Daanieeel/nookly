@@ -6,6 +6,7 @@
       "highlights": [],
       "more": {
         "Improved": [
+          "Long pages render in full again: parts scrolled out of view are no longer skipped.",
           "Split Right and Split Left use `Mod+Alt+Shift+Right` and `Mod+Alt+Shift+Left`, so they no longer clash with selecting text."
         ]
       }
