@@ -1,6 +1,20 @@
 {
   "versions": [
     {
+      "version": "0.38.1",
+      "date": "2026-10-15",
+      "title": "Sync, quicker and steadier",
+      "summary": "Changes reach your other devices in about a second.",
+      "highlights": [],
+      "more": {
+        "Improved": ["An edit shows on your other devices in about a second."],
+        "Fixed": [
+          "A quiet connection is noticed and opened again, so changes keep arriving.",
+          "Signing in to another account on the same device brings in everything that account holds."
+        ]
+      }
+    },
+    {
       "version": "0.38.0",
       "date": "2026-10-14",
       "title": "One account for every device",

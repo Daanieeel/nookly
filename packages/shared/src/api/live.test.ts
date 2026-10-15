@@ -6,13 +6,13 @@ class FakeSocket {
   static all: FakeSocket[] = [];
   readonly sent: string[] = [];
   closed = false;
-  private readonly listeners = new Map<string, Array<(event: { data?: string }) => void>>();
+  private readonly listeners = new Map<string, Array<(event: { data: unknown }) => void>>();
 
   constructor() {
     FakeSocket.all.push(this);
   }
 
-  addEventListener(type: string, listener: (event: { data?: string }) => void) {
+  addEventListener(type: string, listener: (event: { data: unknown }) => void) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
 
@@ -41,8 +41,7 @@ function liveClient() {
   const api = new ApiClient({
     baseUrl: "http://nookly.test",
     tokens: { load: async () => "token", save: async () => {} },
-    // SAFETY: the fake has the parts of a WebSocket the client uses.
-    webSocket: () => new FakeSocket() as unknown as WebSocket,
+    webSocket: () => new FakeSocket(),
   });
   const handlers = { onOpen: vi.fn(), onChanges: vi.fn(), onClose: vi.fn() };
   const stop = api.syncTransport().live?.(handlers);

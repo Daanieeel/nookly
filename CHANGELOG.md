@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.1 (2026-10-15)
+
+### Changed
+
+- **Changes arrive faster.** An edit now shows on your other devices in about a second.
+
+### Fixed
+
+- **Sync reconnects on its own.** A connection that goes quiet is noticed and opened again, so changes keep arriving without waiting.
+- **Switching accounts.** Signing out and into another account on the same device now brings in everything that account holds.
+
 ## 0.38.0 (2026-10-14)
 
 ### Added

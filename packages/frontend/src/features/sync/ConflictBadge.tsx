@@ -11,7 +11,7 @@ export function useEntityConflicts(entityId: string): number {
   const signedIn = useSyncState((s) => s.user !== null);
   const total = useSyncState((s) => s.status.conflicts);
   const { data = 0 } = useQuery({
-    queryKey: [...qk.sync.conflictViews, entityId, total],
+    queryKey: qk.sync.entityConflicts(entityId, total),
     queryFn: async () =>
       (await syncRuntime.conflictViews()).filter((view) => view.itemId === entityId).length,
     enabled: signedIn && total > 0,

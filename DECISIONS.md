@@ -103,3 +103,49 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Alternatives:** bundle the desktop's TipTap extensions (they import the desktop's `#/` modules, React node views and settings, which the DOM bundle cannot resolve); a native editor with no schema guarantee.
 - **Why:** the schema is what matters for y-prosemirror (D6), and a generated file with a drift test gives that without dragging the desktop's UI code into a web view. Check: edits made in the web view reach the phone's rows and the server, and an edit from another client shows in the phone's editor within a second (verified in the simulator).
 - **To double check:** the phone cannot edit table cells' column widths, inline math, or the atom blocks' rows; they round trip but are not editable there.
+
+## D18. Permanent deletes on the phone confirm with an alert, and Space deletion lists what goes ⚑
+
+- **Decision:** emptying Trash, deleting one item forever and deleting a Space ask first with the system alert (the phone's counterpart to `ConfirmPermanentDialog`); a Space's alert says how many items go with it. Everything else (trash, move, hide a module) is undoable and does not ask.
+- **Alternatives:** a custom sheet like the desktop's dialog; no confirmation.
+- **Why:** a system alert is what a phone person expects for a destructive choice, and the rule that a permanent action always asks holds. A custom sheet would add code for the same result.
+
+## D19. Series, assignment due sessions and a few overview screens stay on the desktop ⚑
+
+- **Decision:** the phone shows and moves single sessions, calendar entries and study blocks, and edits one occurrence of a series (an override), but a series itself is created and changed on the computer. The Dashboard briefing and semester setup are simpler than the desktop's. GAP_ANALYSIS.md marks each as partial with the reason.
+- **Alternatives:** port the series editor and the briefing text in full.
+- **Why:** both are dense forms that would need a design of their own on a phone; what the phone cannot edit it still shows correctly and never overwrites.
+
+## D20. The phone shares the desktop's data rules by running the same code ⚑
+
+- **Decision:** the rules that used to live only in the desktop's Rust (update, reorder, delete, modules, duplicate, labels, tasks, files, recipes, sessions, calendar overrides, semesters and grades, views, relationships, jots, review undo, bookmark metadata, portable files) are ported to TypeScript in `packages/shared/src/data`, with tests against the real schema. Where an output is a file other devices read (Nookly page, task, deck, assignment files), samples written by the TypeScript are imported by a Rust test (`db/portable_phone_tests.rs`) so the two cannot drift.
+- **Alternatives:** call the desktop's Rust through a server; write different rules for the phone.
+- **Why:** the phone works offline on its own database, so the rules have to run there. Two copies of a rule is the risk, and the cross check is the guard.
+- **To double check:** anything that changes in `db/*.rs` needs the same change in `packages/shared/src/data`.
+
+## D21. A bookmark's note is never overwritten by a fetch
+
+- **Decision:** fetching a bookmark's page details fills title, description and icon only where they are empty; what the person wrote stays.
+- **Why:** data a person typed outranks data a website claims.
+
+## D22. A tablet shows the sidebar beside the page from 768 points
+
+- **Decision:** the root layout puts the sidebar next to the screen stack on a wide window (the drawer is switched off then); pages keep a reading width and the week calendar and merge editor use the pane's own width. The test device name for scripts is `tablet` (`EXPO_PUBLIC_AUTOMATION_DEVICE`).
+- **Alternatives:** a different navigator for tablets.
+- **Why:** one set of screens, with only the shell changing, keeps the two from drifting.
+
+## D23. The sidebar's colours are set from the theme where a class is not enough
+
+- **Decision:** the sidebar's headings and the lit row take their colour from the theme object on the phone, because the shared class list resolved to near black on black in dark mode there. `packages/ui` is untouched.
+- **Why:** the primitives are off limits; a colour from the theme is the smallest local fix.
+
+## D24. Auth requests carry no cookie, a silent socket is dropped, and a stopped sync writes nothing ⚑
+
+- **Decision:** a phone's networking layer attaches the cookie of an earlier sign in and sends no Origin, which better-auth refuses ("Missing or null Origin"); the client sends `credentials: "omit"` and the server removes cookies from auth requests except for provider sign in. A live socket pings every 15 s and is reopened after 40 s of silence, and reconnects wait at most 10 s. A sync that is stopped (sign out) drops what it received instead of writing it; sign out waits for the one in flight; turning sync on starts from the beginning of the new server (never from a cursor the last account left).
+- **Why:** each was a real failure found by running two accounts on an iPad and a desktop: sign up refused, a second account never seeing its own data, and changes arriving a minute late.
+- **To double check:** the cookie removal list in `apps/server/src/auth/cookies.ts` once OAuth providers are enabled.
+
+## D25. Local changes go out after 400 ms
+
+- **Decision:** the debounce before a local change is sent is 400 ms (it was 1.5 s), so an edit shows on another device in about a second.
+- **Why:** the brief asks for about a second; a batch every 400 ms during continuous edits is cheap.

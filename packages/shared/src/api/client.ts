@@ -88,12 +88,20 @@ export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 const LIVE_PING_MS = 15_000;
 const LIVE_SILENCE_MS = 40_000;
 
+/// The parts of a `WebSocket` the live channel uses.
+export interface LiveSocket {
+  addEventListener(type: "open" | "close", listener: () => void): void;
+  addEventListener(type: "message", listener: (event: { data: unknown }) => void): void;
+  send(message: string): void;
+  close(): void;
+}
+
 export interface ApiClientOptions {
   baseUrl: string;
   tokens: TokenStore;
   fetch?: FetchLike;
   /// Builds the live sync socket; defaults to the global `WebSocket`.
-  webSocket?: (url: string) => WebSocket;
+  webSocket?: (url: string) => LiveSocket;
   /// Told when the account signs out on its own, like a revoked session.
   onSignedOut?: () => void;
 }
@@ -117,7 +125,7 @@ export class ApiClient {
   readonly baseUrl: string;
   private readonly store: TokenStore;
   private readonly fetchImpl: FetchLike;
-  private readonly webSocket: (url: string) => WebSocket;
+  private readonly webSocket: (url: string) => LiveSocket;
   private readonly onSignedOut?: () => void;
   private token: string | null | undefined = undefined;
 
@@ -462,7 +470,7 @@ export class ApiClient {
 
   private live(handlers: LiveHandlers): () => void {
     const url = `${this.baseUrl.replace(/^http/, "ws")}/v1/sync/ws`;
-    let socket: WebSocket | null = null;
+    let socket: LiveSocket | null = null;
     let closed = false;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
     // Told once whichever way the connection ends, by the server or by us.

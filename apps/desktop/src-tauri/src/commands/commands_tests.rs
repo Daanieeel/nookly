@@ -234,6 +234,15 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "sync_set_refresh_token",
         "sync_refresh_token_has_its_own_keychain_entry",
     ),
+    // Network, or an `AppHandle` for the data folder: the part each one delegates to.
+    ("blob_hash", "blob_commands_underlying_calls"),
+    ("blob_upload", "blob_commands_underlying_calls"),
+    ("blob_download", "blob_commands_underlying_calls"),
+    ("create_pre_sync_backup", "pre_sync_backup_underlying_calls"),
+    (
+        "store_dir",
+        "store_dir_keeps_debug_builds_in_their_own_folder",
+    ),
     // `AppHandle` (Wry) parameter: the database part each one delegates to.
     ("import_file", "files_import_underlying_db_call"),
     (
@@ -3950,6 +3959,57 @@ fn backup_create_and_restore_underlying_calls() {
     let staged =
         crate::backup::stage_restore(&restore_into, std::path::Path::new(&info.path)).unwrap();
     assert_eq!(to_json(staged), manifest);
+}
+
+#[test]
+fn blob_commands_underlying_calls() {
+    // The blob commands hash a file and move it to and from the server; the server
+    // part needs a network, so this covers hashing and the refusal of anything that
+    // isn't a hash before a request is made.
+    use crate::commands::blobs;
+    let h = Harness::new();
+    let path = h.dir.path().join("lecture.txt");
+    std::fs::write(&path, b"lecture one").unwrap();
+    let hash = blobs::hash_file(&path).unwrap().unwrap();
+    assert_eq!(hash.size, 11);
+    assert_eq!(hash.sha256.len(), 64);
+    assert!(blobs::hash_file(&h.dir.path().join("missing"))
+        .unwrap()
+        .is_none());
+    assert!(blobs::upload_file("http://127.0.0.1:1", "not-a-hash", &path, "text/plain").is_err());
+    let into = h.dir.path().join("downloads");
+    assert!(blobs::download_to("http://127.0.0.1:1", "not-a-hash", &into, "a.txt").is_err());
+    assert!(std::fs::read_dir(&into).map_or(true, |mut d| d.next().is_none()));
+}
+
+#[test]
+fn pre_sync_backup_underlying_calls() {
+    // `create_pre_sync_backup` takes an `AppHandle` for the data folder; this is the
+    // call it makes: a checked backup in `pre-sync-backups`, never in the way of the
+    // data itself.
+    let h = Harness::new();
+    let space = h.space("Before the first sync");
+    h.note(&space, "keep me");
+    let data_dir = h.dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).unwrap();
+    let dest = data_dir.join(crate::backup::PRE_SYNC_DIR);
+    let snapshot = h.db(|c| crate::backup::snapshot(c).unwrap());
+    let info = crate::backup::create_backup(snapshot, &data_dir, &dest, 3).unwrap();
+    assert!(std::path::Path::new(&info.path).starts_with(&dest));
+    assert_eq!(crate::backup::list_backups(&dest).unwrap().len(), 1);
+}
+
+#[test]
+fn store_dir_keeps_debug_builds_in_their_own_folder() {
+    // `store_dir` takes an `AppHandle`; it resolves the folder like this. A debug build
+    // never uses the installed app's folder.
+    let platform = std::path::PathBuf::from("/platform/app-data");
+    let resolved = db::resolve_app_data_dir(platform.clone());
+    if cfg!(debug_assertions) {
+        assert_ne!(resolved, platform);
+    } else {
+        assert_eq!(resolved, platform);
+    }
 }
 
 #[test]
