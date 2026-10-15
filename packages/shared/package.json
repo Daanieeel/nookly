@@ -14,6 +14,7 @@
     "./colors": "./src/colors.ts",
     "./settings": "./src/settings.ts",
     "./latex": "./src/latex.ts",
+    "./whats-new": "./src/whats-new.ts",
     "./calendar-grid": "./src/calendar-grid.ts",
     "./academic": "./src/academic.ts",
     "./effort": "./src/effort.ts",

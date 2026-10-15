@@ -1,4 +1,11 @@
-import { RATINGS, type Rating, nextDue, reviewCard, studyQueue } from "@nookly/shared/data";
+import {
+  RATINGS,
+  type Rating,
+  nextDue,
+  reviewCard,
+  studyQueue,
+  undoReview,
+} from "@nookly/shared/data";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -37,6 +44,9 @@ export function StudyScreen({ deckId }: { deckId: string }) {
   const { data: cards } = useCards(deckId);
   const [revealed, setRevealed] = useState(false);
   const [studied, setStudied] = useState(0);
+  /// The cards answered here, latest last, so each answer can be taken back in turn.
+  const [answered, setAnswered] = useState<string[]>([]);
+  const undo = useLocalWrite((db, cardId: string) => undoReview(db, cardId));
   const rate = useLocalWrite((db, input: { cardId: string; rating: Rating }) =>
     reviewCard(db, input.cardId, input.rating),
   );
@@ -60,6 +70,20 @@ export function StudyScreen({ deckId }: { deckId: string }) {
                 ? `You studied ${studied} ${studied === 1 ? "card" : "cards"}. The rest come back when they are due.`
                 : "Nothing is due in this deck."}
             </Text>
+            {answered.length > 0 ? (
+              <Button
+                label="Undo Last Answer"
+                variant="secondary"
+                onPress={() =>
+                  undo.mutate(answered[answered.length - 1], {
+                    onSuccess: () => {
+                      setAnswered((list) => list.slice(0, -1));
+                      setStudied((n) => Math.max(0, n - 1));
+                    },
+                  })
+                }
+              />
+            ) : null}
             <Button label="Close" onPress={() => router.back()} />
           </View>
         ) : (
@@ -94,6 +118,7 @@ export function StudyScreen({ deckId }: { deckId: string }) {
                             onSuccess: () => {
                               setRevealed(false);
                               setStudied((n) => n + 1);
+                              setAnswered((list) => [...list, card.id]);
                             },
                           },
                         )
@@ -108,6 +133,21 @@ export function StudyScreen({ deckId }: { deckId: string }) {
             ) : (
               <Button label="Show Answer" onPress={() => setRevealed(true)} />
             )}
+            {answered.length > 0 ? (
+              <Button
+                label="Undo Last Answer"
+                variant="ghost"
+                onPress={() =>
+                  undo.mutate(answered[answered.length - 1], {
+                    onSuccess: () => {
+                      setAnswered((list) => list.slice(0, -1));
+                      setStudied((n) => Math.max(0, n - 1));
+                      setRevealed(false);
+                    },
+                  })
+                }
+              />
+            ) : null}
             {rate.isError ? (
               <Text tone="destructive">Couldn't save that answer, try again.</Text>
             ) : null}

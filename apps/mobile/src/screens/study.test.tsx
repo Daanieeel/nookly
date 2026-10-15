@@ -101,6 +101,23 @@ describe("studying a deck", () => {
   });
 });
 
+describe("undoing an answer while studying", () => {
+  it("brings the card back as it was, with the answer to give again", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(data.db, deck, "Quicksort average?", "n log n");
+    const screen = await renderScreens({ index: () => <StudyScreen deckId={deck} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Show Answer" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Easy" }));
+    expect(await screen.findByText("All done for now")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Undo Last Answer" }));
+    expect(await screen.findByText("Quicksort average?")).toBeTruthy();
+    const [card] = await listCards(data.db, deck);
+    expect([card.state, card.reps]).toEqual(["new", 0]);
+    expect(screen.queryByRole("button", { name: "Undo Last Answer" })).toBeNull();
+  });
+});
+
 describe("a task's due date, labels and links", () => {
   it("picks the day from the calendar and adds a label", async () => {
     const { data, space } = await seeded();

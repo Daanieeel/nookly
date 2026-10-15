@@ -27,6 +27,7 @@ import {
   listCards,
   listExams,
   reviewCard,
+  undoReview,
   setAssignmentCourse,
   setAssignmentDueDate,
   setCourseProfessor,
@@ -139,6 +140,29 @@ describe("decks", () => {
 
     await setDeckExam(db, deck, null);
     expect((await getDeck(db, deck))?.examId).toBeNull();
+  });
+});
+
+describe("undoing a review", () => {
+  it("puts the card back the way it was and drops that review, one at a time", async () => {
+    const space = await createSpace(db, "Uni", "#3b82f6");
+    const deck = await createDeck(db, space, "Sorting");
+    const card = await createCard(db, deck, "Quicksort average?", "n log n");
+    await reviewCard(db, card, "good");
+    const afterFirst = (await listCards(db, deck))[0];
+    clock += 60_000;
+    await reviewCard(db, card, "again");
+    await undoReview(db, card);
+    expect((await listCards(db, deck))[0]).toMatchObject({
+      state: afterFirst.state,
+      reps: afterFirst.reps,
+      stability: afterFirst.stability,
+      dueAt: afterFirst.dueAt,
+    });
+    expect(driver.rows("SELECT id FROM index_card_reviews")).toHaveLength(1);
+    await undoReview(db, card);
+    expect((await listCards(db, deck))[0]).toMatchObject({ state: "new", reps: 0 });
+    await expect(undoReview(db, card)).rejects.toThrow("no review to undo");
   });
 });
 

@@ -4,6 +4,7 @@ import {
   IconChevronRight,
   IconInfoCircle,
   IconLayoutSidebar,
+  IconSparkles,
   IconNotes,
   IconPalette,
   IconSettings,
@@ -88,6 +89,13 @@ export function SettingsScreen() {
           icon={<IconLayoutSidebar size={20} color={theme.colors.mutedForeground} />}
           trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
           onPress={() => router.push("/settings/sidebar")}
+        />
+        <Row
+          title="What's New"
+          subtitle="What changed in Nookly"
+          icon={<IconSparkles size={20} color={theme.colors.mutedForeground} />}
+          trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
+          onPress={() => router.push("/settings/whats-new")}
         />
         <Row
           title="About"

@@ -218,6 +218,7 @@ export default function RootLayout() {
               />
               <Stack.Screen name="assignments" options={{ title: "Assignments" }} />
               <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
+              <Stack.Screen name="settings/whats-new" options={{ title: "What's New" }} />
               <Stack.Screen
                 name="new/task"
                 options={{

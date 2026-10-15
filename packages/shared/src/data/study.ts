@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { SqlValue } from "../schema.ts";
 import type { SqlStatement } from "../sync/sql.ts";
 import { type LocalDb, first, iso, num, optStr, rows, str, write } from "./db.ts";
@@ -549,6 +550,55 @@ export async function reviewCard(db: LocalDb, id: string, rating: Rating): Promi
         now.toISOString(),
       ],
     },
+  ]);
+}
+
+const snapshotSchema = z.object({
+  state: z.string(),
+  due_at: z.string(),
+  stability: z.number(),
+  difficulty: z.number(),
+  elapsed_days: z.number(),
+  scheduled_days: z.number(),
+  reps: z.number(),
+  lapses: z.number(),
+  last_review_at: z.string().nullable(),
+});
+
+/// `undo_review`: the card back the way it was before its latest review, and that review
+/// dropped from the log.
+export async function undoReview(db: LocalDb, id: string): Promise<void> {
+  const latest = await first(
+    db,
+    "SELECT id, previous FROM index_card_reviews WHERE card_id = ? ORDER BY reviewed_at DESC LIMIT 1",
+    id,
+  );
+  if (!latest) throw new Error("This card has no review to undo.");
+  let previous: z.infer<typeof snapshotSchema>;
+  try {
+    previous = snapshotSchema.parse(JSON.parse(str(latest.previous)));
+  } catch {
+    throw new Error("This review can't be undone: its saved state is unreadable.");
+  }
+  await write(db, [
+    {
+      sql: `UPDATE index_cards SET state = ?, due_at = ?, stability = ?, difficulty = ?, elapsed_days = ?,
+            scheduled_days = ?, reps = ?, lapses = ?, last_review_at = ?, updated_at = ? WHERE id = ?`,
+      params: [
+        previous.state,
+        previous.due_at,
+        previous.stability,
+        previous.difficulty,
+        previous.elapsed_days,
+        previous.scheduled_days,
+        previous.reps,
+        previous.lapses,
+        previous.last_review_at,
+        iso(db),
+        id,
+      ],
+    },
+    { sql: "DELETE FROM index_card_reviews WHERE id = ?", params: [str(latest.id)] },
   ]);
 }
 
