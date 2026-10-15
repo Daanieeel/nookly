@@ -12,8 +12,15 @@ import { type Command, EditorState, TextSelection } from "prosemirror-state";
 import * as Y from "yjs";
 import { fromBase64, toBase64 } from "./bridge.ts";
 import {
+  SLASH_ITEMS,
   active,
+  applyMention,
+  applySlash,
   blockIds,
+  slashMatches,
+  toggleHighlight,
+  toggleTaskAt,
+  triggerAt,
   toggleBold,
   toggleBullets,
   toggleHeading,
@@ -187,5 +194,127 @@ describe("the editor's commands", () => {
     const selected = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 1, 5)));
     const bold = run(selected, toggleBold).state;
     expect(bold.doc.rangeHasMark(1, 5, pageSchema.marks.bold)).toBe(true);
+  });
+});
+
+/// A state with the text typed and the cursor at its end.
+function typed(text: string) {
+  const state = EditorState.create({
+    schema: pageSchema,
+    plugins: [blockIds],
+    doc: pageSchema.node("doc", null, [
+      pageSchema.node("paragraph", { blockId: "a" }, [pageSchema.text(text)]),
+    ]),
+  });
+  return state.apply(state.tr.setSelection(TextSelection.atEnd(state.doc)));
+}
+
+describe("what opens a menu", () => {
+  it("opens the block menu for a slash at the start or after a space, with what follows", () => {
+    expect(triggerAt(typed("/"))).toMatchObject({ kind: "slash", query: "", from: 1, to: 2 });
+    expect(triggerAt(typed("/head"))).toMatchObject({
+      kind: "slash",
+      query: "head",
+      from: 1,
+      to: 6,
+    });
+    expect(triggerAt(typed("Hello /code"))).toMatchObject({
+      kind: "slash",
+      query: "code",
+      from: 7,
+      to: 12,
+    });
+    expect(triggerAt(typed("and/or"))).toBeNull();
+    expect(triggerAt(typed("a/b"))).toBeNull();
+    expect(triggerAt(typed("Hello"))).toBeNull();
+  });
+
+  it("opens the mention menu for an at sign, and closes it when a space ends the word", () => {
+    expect(triggerAt(typed("See @Rep"))).toMatchObject({
+      kind: "mention",
+      query: "Rep",
+      from: 5,
+      to: 9,
+    });
+    expect(triggerAt(typed("mail@example"))).toBeNull();
+    expect(triggerAt(typed("See @Report now"))).toBeNull();
+  });
+
+  it("filters the menu by name or keyword", () => {
+    expect(slashMatches("").length).toBe(SLASH_ITEMS.length);
+    expect(slashMatches("head").map((i) => i.id)).toEqual(["h1", "h2", "h3"]);
+    expect(slashMatches("todo").map((i) => i.id)).toEqual(["tasks"]);
+    expect(slashMatches("zzz")).toEqual([]);
+  });
+});
+
+describe("choosing from the menus", () => {
+  const item = (id: string) => {
+    const found = SLASH_ITEMS.find((i) => i.id === id);
+    if (!found) throw new Error(id);
+    return found;
+  };
+
+  it("replaces the typed text with the block, as one undoable step", () => {
+    const state = typed("/head");
+    const trigger = triggerAt(state);
+    if (!trigger) throw new Error("no trigger");
+    const tr = applySlash(state, trigger, item("h2"));
+    if (!tr) throw new Error("no step");
+    const next = state.apply(tr);
+    expect(next.doc.child(0).type.name).toBe("heading");
+    expect(next.doc.child(0).attrs).toMatchObject({ level: 2, blockId: "a" });
+    expect(next.doc.child(0).textContent).toBe("");
+  });
+
+  it("makes lists, quotes, code blocks and dividers", () => {
+    const make = (id: string) => {
+      const state = typed("/x");
+      const trigger = triggerAt(state);
+      const tr = trigger ? applySlash(state, trigger, item(id)) : null;
+      if (!tr) throw new Error(`${id} did nothing`);
+      return state.apply(tr);
+    };
+    expect(names(make("bullets"))).toEqual(["bulletList", "listItem", "paragraph"]);
+    expect(names(make("tasks"))).toEqual(["taskList", "taskItem", "paragraph"]);
+    expect(names(make("quote"))).toEqual(["blockquote", "paragraph"]);
+    expect(names(make("code"))).toEqual(["codeBlock"]);
+    expect(names(make("divider"))).toEqual(["divider", "paragraph"]);
+    expect(names(make("callout"))).toEqual(["callout"]);
+  });
+
+  it("writes a mention as a link to the item, the way every client does, and a space", () => {
+    const state = typed("See @Rep");
+    const trigger = triggerAt(state);
+    if (!trigger) throw new Error("no trigger");
+    const next = state.apply(
+      applyMention(state, trigger, { id: "11111111-1111-4111-8111-111111111111", title: "Report" }),
+    );
+    const paragraph = next.doc.child(0);
+    expect(paragraph.textContent).toBe("See Report ");
+    const link = paragraph.child(1).marks[0];
+    expect(link.type.name).toBe("link");
+    expect(link.attrs.href).toBe("mention:11111111-1111-4111-8111-111111111111");
+  });
+});
+
+describe("checking a task and highlighting", () => {
+  it("flips a task item's check from a position inside it, and nothing outside one", () => {
+    const state = run(stateOf("x"), toggleTasks).state;
+    const flipped = state.apply(toggleTaskAt(state, 3) ?? state.tr);
+    let checked: boolean | null = null;
+    flipped.doc.descendants((node) => {
+      if (node.type.name === "taskItem") checked = node.attrs.checked;
+    });
+    expect(checked).toBe(true);
+    expect(toggleTaskAt(stateOf("plain"), 2)).toBeNull();
+  });
+
+  it("highlights a selection", () => {
+    const base = stateOf("word");
+    const selected = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 1, 5)));
+    const next = run(selected, toggleHighlight).state;
+    expect(next.doc.rangeHasMark(1, 5, pageSchema.marks.highlight)).toBe(true);
+    expect(active(next).highlight).toBe(true);
   });
 });

@@ -3,7 +3,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { View } from "react-native";
 import { applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
-import { useSyncState } from "../data/context.tsx";
+import { recents, search } from "@nookly/shared/data";
+import { useRouter } from "expo-router";
+import { Linking } from "react-native";
+import { useAppData, useSyncState } from "../data/context.tsx";
 import { deviceName } from "../data/sync.ts";
 import { useSetting } from "../data/settings.ts";
 import { useReveal } from "../ui/Screen.tsx";
@@ -29,6 +32,8 @@ export function LivePage({ session, editable }: { session: PageSession; editable
   const name = presenceName(displayName.trim() || user?.username || "Someone", deviceName());
   const person = { name, color: caretColor(user?.id ?? name) };
   const toolbar = useToolbar();
+  const { db } = useAppData();
+  const router = useRouter();
 
   // Edits made elsewhere reach the editor as they arrive.
   useEffect(() => {
@@ -100,6 +105,31 @@ export function LivePage({ session, editable }: { session: PageSession; editable
     [reveal],
   );
 
+  /// Items to mention: what matches what was typed, or the ones opened last.
+  const onSearch = useCallback(
+    async (query: string) => {
+      const items = query.trim() ? await search(db, query, 8) : await recents(db, 8);
+      return JSON.stringify(
+        items
+          .filter((e) => e.id !== session.entityId)
+          .map((e) => ({ id: e.id, title: e.title, key: e.key })),
+      );
+    },
+    [db, session.entityId],
+  );
+
+  /// A mention opens the item; a web address opens in the browser.
+  const onOpen = useCallback(
+    async (href: string) => {
+      if (href.startsWith("mention:")) {
+        router.push(`/entity/${href.slice("mention:".length).split("#")[0]}`);
+      } else if (/^https?:\/\//.test(href)) {
+        await Linking.openURL(href);
+      }
+    },
+    [router],
+  );
+
   return (
     <View ref={anchor} collapsable={false} className="min-h-40">
       <PageEditorDom
@@ -120,6 +150,8 @@ export function LivePage({ session, editable }: { session: PageSession; editable
         onAwareness={onAwareness}
         onState={onState}
         onCaret={onCaret}
+        onSearch={onSearch}
+        onOpen={onOpen}
       />
     </View>
   );

@@ -1,4 +1,4 @@
-import { toggleMark, wrapIn } from "prosemirror-commands";
+import { setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
 import {
   InputRule,
   inputRules,
@@ -8,7 +8,13 @@ import {
 import { keymap } from "prosemirror-keymap";
 import type { Attrs, MarkType, Node, NodeType } from "prosemirror-model";
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from "prosemirror-schema-list";
-import { type Command, type EditorState, Plugin, PluginKey } from "prosemirror-state";
+import {
+  type Command,
+  type EditorState,
+  Plugin,
+  PluginKey,
+  type Transaction,
+} from "prosemirror-state";
 import { z } from "zod";
 import { pageSchema as schema } from "./schema.ts";
 
@@ -58,6 +64,7 @@ export const toggleItalic = mark(marks.italic);
 export const toggleUnderline = mark(marks.underline);
 export const toggleStrike = mark(marks.strike);
 export const toggleCode = mark(marks.code);
+export const toggleHighlight = mark(marks.highlight);
 
 /// The block the selection is in, from the inside out.
 function inside(state: EditorState, name: string): boolean {
@@ -143,6 +150,7 @@ export function active(state: EditorState) {
     underline: has(marks.underline),
     strike: has(marks.strike),
     code: has(marks.code),
+    highlight: has(marks.highlight),
     heading: $from.parent.type === nodes.heading ? Number($from.parent.attrs.level) : 0,
     bullets: inside(state, "bulletList"),
     numbers: inside(state, "orderedList"),
@@ -188,3 +196,140 @@ export const typingKeys = keymap({
   "Mod-u": toggleUnderline,
   "Mod-e": toggleCode,
 });
+
+/// Flips the check of the task item the position is in. False when it isn't in one.
+export function toggleTaskAt(state: EditorState, pos: number): Transaction | null {
+  const $pos = state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    const node = $pos.node(depth);
+    if (node.type === nodes.taskItem) {
+      return state.tr.setNodeMarkup($pos.before(depth), undefined, {
+        ...node.attrs,
+        checked: !node.attrs.checked,
+      });
+    }
+  }
+  return null;
+}
+
+// --- the slash menu and mentions ------------------------------------------------------
+
+/// What is being typed that opens a menu: `/heading` for blocks, `@ada` for an item to
+/// mention. `from` and `to` bound the typed text, trigger included, to be replaced.
+export interface Trigger {
+  kind: "slash" | "mention";
+  query: string;
+  from: number;
+  to: number;
+}
+
+export function triggerAt(state: EditorState): Trigger | null {
+  const { $from, empty } = state.selection;
+  if (!empty || !$from.parent.isTextblock || $from.parent.type === nodes.codeBlock) return null;
+  const before = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+  const found = /(?:^|\s)([/@])([^\s/@]{0,30})$/.exec(before);
+  if (!found) return null;
+  // A slash opens the block menu only at the start of a block, or after a space.
+  const typed = found[1] + found[2];
+  return {
+    kind: found[1] === "/" ? "slash" : "mention",
+    query: found[2],
+    from: $from.pos - typed.length,
+    to: $from.pos,
+  };
+}
+
+export interface SlashItem {
+  id: string;
+  label: string;
+  keywords: string[];
+  run: Command;
+}
+
+/// Empties a paragraph and puts a divider in its place, with a new paragraph after.
+const insertDivider: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  if ($from.parent.type !== nodes.paragraph || $from.depth !== 1) return false;
+  const start = $from.before(1);
+  const end = $from.after(1);
+  dispatch?.(
+    state.tr
+      .replaceWith(start, end, [nodes.divider.create(), nodes.paragraph.create()])
+      .scrollIntoView(),
+  );
+  return true;
+};
+
+export const SLASH_ITEMS: SlashItem[] = [
+  {
+    id: "text",
+    label: "Text",
+    keywords: ["paragraph", "plain"],
+    run: setBlock(nodes.paragraph, {}),
+  },
+  { id: "h1", label: "Heading", keywords: ["title", "h1", "large"], run: toggleHeadingOn(1) },
+  { id: "h2", label: "Subheading", keywords: ["h2", "medium"], run: toggleHeadingOn(2) },
+  { id: "h3", label: "Small heading", keywords: ["h3", "small"], run: toggleHeadingOn(3) },
+  { id: "bullets", label: "Bulleted list", keywords: ["list", "ul", "bullet"], run: toggleBullets },
+  { id: "numbers", label: "Numbered list", keywords: ["list", "ol", "number"], run: toggleNumbers },
+  { id: "tasks", label: "Task list", keywords: ["todo", "check", "checkbox"], run: toggleTasks },
+  { id: "quote", label: "Quote", keywords: ["blockquote"], run: toggleQuote },
+  {
+    id: "code",
+    label: "Code block",
+    keywords: ["code", "snippet"],
+    run: setBlockType(nodes.codeBlock),
+  },
+  {
+    id: "callout",
+    label: "Callout",
+    keywords: ["note", "info", "warning"],
+    run: setBlock(nodes.callout, {}),
+  },
+  { id: "divider", label: "Divider", keywords: ["line", "rule", "separator"], run: insertDivider },
+];
+
+function toggleHeadingOn(level: number): Command {
+  return setBlock(nodes.heading, { level });
+}
+
+/// The menu's items for what has been typed after the slash.
+export function slashMatches(query: string): SlashItem[] {
+  const words = query.trim().toLowerCase();
+  if (!words) return SLASH_ITEMS;
+  return SLASH_ITEMS.filter(
+    (item) =>
+      item.label.toLowerCase().includes(words) || item.keywords.some((k) => k.startsWith(words)),
+  );
+}
+
+/// Puts the chosen block in place of what was typed after the slash.
+export function applySlash(
+  state: EditorState,
+  trigger: Trigger,
+  item: SlashItem,
+): Transaction | null {
+  const cleared = state.apply(state.tr.delete(trigger.from, trigger.to));
+  let result: Transaction | null = null;
+  const ran = item.run(cleared, (tr) => {
+    result = tr;
+  });
+  if (!ran || !result) return null;
+  // The deletion and the block change are one step for undo.
+  const combined = state.tr.delete(trigger.from, trigger.to);
+  for (const step of (result as Transaction).steps) combined.step(step);
+  return combined;
+}
+
+/// Writes a mention in place of what was typed after the `@`: the item's title as a link
+/// to `mention:<id>`, the way every other client writes one, and a space after it.
+export function applyMention(
+  state: EditorState,
+  trigger: Trigger,
+  item: { id: string; title: string },
+): Transaction {
+  const label = item.title.trim() || "Untitled";
+  const link = marks.link.create({ href: `mention:${item.id}` });
+  const text = schema.text(label, [link]);
+  return state.tr.replaceWith(trigger.from, trigger.to, [text, schema.text(" ")]).scrollIntoView();
+}

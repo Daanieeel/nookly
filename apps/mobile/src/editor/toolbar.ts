@@ -9,6 +9,7 @@ export const TOOLBAR = [
   { id: "underline", label: "Underline" },
   { id: "strike", label: "Strikethrough" },
   { id: "code", label: "Code" },
+  { id: "highlight", label: "Highlight" },
   { id: "h1", label: "Heading" },
   { id: "h2", label: "Subheading" },
   { id: "bullets", label: "Bulleted list" },

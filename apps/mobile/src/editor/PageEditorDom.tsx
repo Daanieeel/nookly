@@ -16,13 +16,16 @@ import { gapCursor } from "prosemirror-gapcursor";
 import { keymap } from "prosemirror-keymap";
 import { type Command, EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Ref, useEffect, useRef } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { type AwarenessChanges, type Origin, fromBase64, toBase64 } from "./bridge.ts";
 import type { EditorState as PhoneEditorState, ToolbarId } from "./toolbar.ts";
 import {
+  type Trigger,
   active,
+  applyMention,
+  applySlash,
   blockIds,
   indent,
   markdownRules,
@@ -31,10 +34,14 @@ import {
   toggleBullets,
   toggleCode,
   toggleHeading,
+  toggleHighlight,
   toggleItalic,
   toggleNumbers,
   toggleQuote,
   toggleStrike,
+  toggleTaskAt,
+  triggerAt,
+  slashMatches,
   toggleTasks,
   toggleUnderline,
   typingKeys,
@@ -77,6 +84,10 @@ interface Props {
   onAwareness: (update: string) => Promise<void>;
   /// Whether the editor has the keyboard and which formats are on, as JSON.
   onState: (state: string) => Promise<void>;
+  /// Finds items to mention by what was typed after the `@`, as JSON: `[{ id, title, key }]`.
+  onSearch: (query: string) => Promise<string>;
+  /// A link or mention was tapped: what it points at (`mention:<id>` or a web address).
+  onOpen: (href: string) => Promise<void>;
   /// Where the cursor's line ends, from the top of the editor, so the page can scroll to it.
   onCaret: (bottom: number) => Promise<void>;
 }
@@ -87,6 +98,7 @@ const COMMANDS = {
   underline: toggleUnderline,
   strike: toggleStrike,
   code: toggleCode,
+  highlight: toggleHighlight,
   h1: toggleHeading(1),
   h2: toggleHeading(2),
   bullets: toggleBullets,
@@ -130,6 +142,11 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .pm .toggle { margin: 0 0 .6em; padding-left: .9em; border-left: 3px solid var(--border); }
 .pm .card { margin: 0 0 .6em; padding: .7em .8em; border-radius: 8px; border: 1px solid var(--border); color: var(--muted); font-size: .9em; user-select: none; }
 .pm .math { font-family: ui-monospace, Menlo, monospace; color: var(--muted); }
+.menu { position: absolute; z-index: 5; width: 232px; max-height: 240px; overflow-y: auto; padding: 4px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.menu button { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--fg); font: 15px/1.2 -apple-system, system-ui, sans-serif; text-align: left; }
+.menu button:active { background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.menu small { color: var(--muted); font-size: 12px; }
+.menu p { margin: 0; padding: 9px 10px; color: var(--muted); font: 14px/1.3 -apple-system, system-ui, sans-serif; }
 .pm .ProseMirror-selectednode { outline: 2px solid var(--primary); }
 .pm[contenteditable="false"] { caret-color: transparent; }
 .collaboration-cursor__caret, .ProseMirror-yjs-cursor { position: relative; margin-left: -1px; margin-right: -1px; border-left: 2px solid; border-right: 2px solid; word-break: normal; pointer-events: none; }
@@ -147,12 +164,21 @@ export default function PageEditorDom({
   onAwareness,
   onState,
   onCaret,
+  onSearch,
+  onOpen,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const doc = useRef(new Y.Doc());
   const awareness = useRef(new Awareness(doc.current));
   const focused = useRef(false);
+  /// The menu open under the cursor: block types after a slash, items after an at sign.
+  const [menu, setMenu] = useState<{
+    trigger: Trigger;
+    left: number;
+    top: number;
+  } | null>(null);
+  const [found, setFound] = useState<{ id: string; title: string; key: string }[]>([]);
 
   const methods = {
     applyUpdate: (update: string) =>
@@ -209,6 +235,7 @@ export default function PageEditorDom({
           underline: a.underline,
           strike: a.strike,
           code: a.code,
+          highlight: a.highlight,
           h1: a.heading === 1,
           h2: a.heading === 2,
           bullets: a.bullets,
@@ -221,6 +248,18 @@ export default function PageEditorDom({
       if (focused.current) {
         const caret = e.coordsAtPos(e.state.selection.head);
         void onCaret(caret.bottom + window.scrollY);
+        const trigger = editableRef.current ? triggerAt(e.state) : null;
+        setMenu(
+          trigger
+            ? {
+                trigger,
+                left: Math.max(0, Math.min(caret.left, window.innerWidth - 240)),
+                top: caret.bottom + window.scrollY + 4,
+              }
+            : null,
+        );
+      } else {
+        setMenu(null);
       }
     };
     const editor = new EditorView(host.current, {
@@ -252,6 +291,28 @@ export default function PageEditorDom({
       }),
       attributes: { class: "pm", "data-placeholder": placeholder, spellcheck: "true" },
       editable: () => editableRef.current,
+      handleClick(this: unknown, e: EditorView, pos: number, event: MouseEvent) {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        const link = target?.closest("a");
+        if (link?.getAttribute("href")) {
+          event.preventDefault();
+          void onOpen(link.getAttribute("href") ?? "");
+          return true;
+        }
+        const item = target?.closest("li.task");
+        if (item && editableRef.current) {
+          const box = item.getBoundingClientRect();
+          // The box is drawn in the item's left margin: a tap there checks it.
+          if (event.clientX - box.left < 28) {
+            const tr = toggleTaskAt(e.state, pos);
+            if (tr) {
+              e.dispatch(tr);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
       // The plugins dispatch while the view is still being made: `this` is the view.
       dispatchTransaction(this: EditorView, tr) {
         this.updateState(this.state.apply(tr));
@@ -275,6 +336,34 @@ export default function PageEditorDom({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Items to mention, found for what is typed after the `@`.
+  const mentionQuery = menu?.trigger.kind === "mention" ? menu.trigger.query : null;
+  useEffect(() => {
+    if (mentionQuery === null) {
+      setFound([]);
+      return;
+    }
+    let live = true;
+    const timer = setTimeout(() => {
+      void onSearch(mentionQuery).then((json) => {
+        if (live) setFound(JSON.parse(json));
+      });
+    }, 120);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+    // `onSearch` is the phone's own and stays the same.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mentionQuery]);
+
+  const choose = (apply: (e: EditorView, trigger: Trigger) => void) => {
+    const editor = view.current;
+    if (editor && menu) apply(editor, menu.trigger);
+    setMenu(null);
+    editor?.focus();
+  };
 
   // End to end checks only: scripts run in this web view too, to type into the editor.
   useEffect(() => {
@@ -311,6 +400,53 @@ export default function PageEditorDom({
     <div className="root" style={vars}>
       <style>{CSS}</style>
       <div ref={host} />
+      {menu ? (
+        <div
+          className="menu"
+          role="listbox"
+          aria-label={menu.trigger.kind === "slash" ? "Blocks" : "Items to mention"}
+          style={{ left: menu.left, top: menu.top }}
+        >
+          {menu.trigger.kind === "slash"
+            ? slashMatches(menu.trigger.query).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  // Keeps the selection and the keyboard where they are.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() =>
+                    choose((e, trigger) => {
+                      const tr = applySlash(e.state, trigger, item);
+                      if (tr) e.dispatch(tr);
+                    })
+                  }
+                >
+                  {item.label}
+                </button>
+              ))
+            : found.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() =>
+                    choose((e, trigger) => e.dispatch(applyMention(e.state, trigger, item)))
+                  }
+                >
+                  {item.title || "Untitled"}
+                  <small>{item.key}</small>
+                </button>
+              ))}
+          {menu.trigger.kind === "mention" && found.length === 0 ? <p>No items found</p> : null}
+          {menu.trigger.kind === "slash" && slashMatches(menu.trigger.query).length === 0 ? (
+            <p>No blocks match</p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
