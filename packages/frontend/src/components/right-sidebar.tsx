@@ -62,7 +62,7 @@ export function RightSidebar({
 
   if (collapsed) {
     return (
-      <div className="hidden w-15 shrink-0 flex-col items-center border-l border-border p-3 lg:flex">
+      <div className="hidden w-15 shrink-0 flex-col items-center border-l border-border p-3 @3xl:flex">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" onClick={() => setCollapsed(false)}>
@@ -111,7 +111,7 @@ export function RightSidebar({
 
   return (
     <div
-      className="relative hidden w-(--right-sidebar-width) shrink-0 lg:flex"
+      className="relative hidden w-(--right-sidebar-width) shrink-0 @3xl:flex"
       // SAFETY: `--right-sidebar-width` only ever receives a clamped pixel width.
       style={{ "--right-sidebar-width": `${width}px` } as CSSProperties}
     >

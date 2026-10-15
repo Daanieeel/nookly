@@ -196,7 +196,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
       </div>
 
       {courses.length === 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
           <CoursesEmptyCard onCreate={() => setCreateOpen(true)} />
           {PLACEHOLDER_COURSES.map((p, i) => (
             <CoursePlaceholderCard key={i} {...p} />
@@ -205,7 +205,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
       ) : semesters.length === 0 ? (
         // No Semester exists yet — grouping (and an "Active" section with
         // nothing to contrast against) wouldn't mean anything, so stay flat.
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
           {sortCourses(courses, sort).map((course) => (
             <CourseCard
               key={course.id}
@@ -334,7 +334,7 @@ function CourseSection({
               </Badge>
             )}
             {dates && (
-              <span className="truncate text-xs text-muted-foreground tabular-nums max-sm:hidden">
+              <span className="truncate text-xs text-muted-foreground tabular-nums @max-sm:hidden">
                 {dates}
               </span>
             )}
@@ -355,7 +355,7 @@ function CourseSection({
             )}
           </div>
         </div>
-        <CollapsibleContent className="grid grid-cols-1 gap-3 pt-3 pb-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <CollapsibleContent className="grid grid-cols-1 gap-3 pt-3 pb-2 @sm:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
           {courses.map(children)}
         </CollapsibleContent>
       </section>

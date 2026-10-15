@@ -344,7 +344,7 @@ function BookmarkCard({ bookmark }: { bookmark: Bookmark }) {
           src={preview}
           alt=""
           onError={() => setBroken((b) => ({ ...b, preview }))}
-          className="hidden h-full w-44 shrink-0 border-l border-border object-cover sm:block"
+          className="hidden h-full w-44 shrink-0 border-l border-border object-cover @sm:block"
         />
       )}
     </button>

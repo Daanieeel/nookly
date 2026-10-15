@@ -81,7 +81,7 @@ function ExamPage({ entity }: { entity: Entity }) {
           <div
             className={cn(
               "mb-2 flex flex-wrap items-center gap-1.5 pl-13",
-              !sidebarCollapsed && "lg:hidden",
+              !sidebarCollapsed && "@3xl:hidden",
             )}
           >
             <ExamStatusControl exam={exam} />

@@ -99,7 +99,7 @@ export function DataTable<TData extends RowData>({
           {...columnData(cell.column.columnDef.meta)}
           // SAFETY: only a custom property, which `CSSProperties` can't name.
           style={{ "--col-min": columnMinWidth(cell.column) } as CSSProperties}
-          className="min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 md:data-[hide-below=md]:table-cell md:data-[width=third]:w-1/3 lg:data-[hide-below=lg]:table-cell"
+          className="min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 @lg:data-[hide-below=md]:table-cell @lg:data-[width=third]:w-1/3 @3xl:data-[hide-below=lg]:table-cell"
         >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
@@ -121,7 +121,7 @@ export function DataTable<TData extends RowData>({
                   {...columnData(header.column.columnDef.meta)}
                   // SAFETY: only a custom property, which `CSSProperties` can't name.
                   style={{ "--col-min": columnMinWidth(header.column) } as CSSProperties}
-                  className="min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 md:data-[hide-below=md]:table-cell md:data-[width=third]:w-1/3 lg:data-[hide-below=lg]:table-cell"
+                  className="min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 @lg:data-[hide-below=md]:table-cell @lg:data-[width=third]:w-1/3 @3xl:data-[hide-below=lg]:table-cell"
                 >
                   {header.isPlaceholder
                     ? null

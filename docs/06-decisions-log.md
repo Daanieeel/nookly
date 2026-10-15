@@ -350,3 +350,18 @@ A Task exports as `nookly-task`, a Deck as `nookly-deck` and an Assignment as `n
 - **Assignments export title, status, due day, grade, weight and description.** An Assignment has no sub-items: its Tasks are separate entities and stay behind with the other relationships. A due day that followed a session travels as the plain day it resolved to. The Course is named as text and never looked up, and the import is filed under a Course the user picks, because every Assignment belongs to exactly one.
 
 **Why:** Pages already move this way, and the same rule fits: what belongs to one instance (ids, timestamps, labels, relationships, the Space, scheduling) never travels, and a reference to another entity becomes plain text. No schema changes, so no migration.
+
+---
+
+### Split view: two tab groups, the focused one mirrored in the store
+
+Up to two tab groups sit side by side. The nav store keeps the focused group's tabs and its active tab's view and history in the same live fields as before (`tabs`, `view`, `backStack`, ...), and the other group in `groups`. Group operations are pure functions in `lib/store/tab-groups.ts`. Everything rendered inside a group reads its own view and tab through `useTabGroupScope`, and view shortcuts only fire in the focused group.
+
+- **The focused group drives everything global.** The sidebar, palettes, Back and Forward, Recents and Cmd click act on it, and pressing or focusing inside a group focuses it first, so a click in a group navigates that group without each caller knowing about groups.
+- **Split Right copies the tab, dragging moves it.** As in VS Code. A group with no tabs closes, so the right group only exists while it has one.
+- **One key, both shapes.** `nookly:tabs` still lists every tab flat, which is all the previous release reads, and adds `groups` with tab ids. An older release drops `groups` when it saves, and its tabs then load into one group, so going back and forth never loses a tab.
+- **The same page in both groups has one writer.** Each editor keeps its own document and saves block by block, so two typing at once would overwrite each other. Only the focused group's editor is editable; the other is read only, follows the saves and takes over once its group is focused and no save of the other is in flight.
+- **Views size to their pane.** Page level breakpoints are container queries on the group's scroller, so a list in half the window lays out like a narrow window.
+- **Narrow windows show one group.** Below twice the 360px minimum, only the focused group shows, with a button to switch.
+
+**Rejected:** more than two groups or vertical splits (more layout to manage than a personal tool needs), a store rewritten around a list of groups with derived live fields (touches every navigation call for no behavior gain), sharing one editor document between groups (a large editor refactor), and blocking the same page from opening twice (VS Code allows it and it is useful for long pages).

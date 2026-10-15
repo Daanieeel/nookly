@@ -1,3 +1,4 @@
+import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { IconRestore, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -59,8 +60,8 @@ export function EntityDetailLayout({
   const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
   // A tab keeps where each of its pages was scrolled, unless the page keys it itself.
-  const activeTabId = useNavStore((s) => s.activeTabId);
-  useRememberedScroll(bodyRef, scrollKey ?? `tab:${activeTabId}:${entity.id}`, scrollReady);
+  const { tabId } = useTabGroupScope();
+  useRememberedScroll(bodyRef, scrollKey ?? `tab:${tabId}:${entity.id}`, scrollReady);
 
   useEffect(() => setTitle(entity.title), [entity.id, entity.title]);
   // A fresh page opens with an empty title, so land the cursor there to type. Only on
@@ -180,7 +181,7 @@ export function EntityDetailLayout({
             />
             {headerExtra}
             {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
-            {actions("lg:hidden")}
+            {actions("@3xl:hidden")}
           </div>
           <div ref={bodyRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
             {children}

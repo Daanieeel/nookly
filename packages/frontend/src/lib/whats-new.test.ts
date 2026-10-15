@@ -14,7 +14,7 @@ const entry = {
       description: "Bring a page in.",
       icon: "file-import",
       tag: "New",
-      shortcut: "Mod+I",
+      shortcuts: ["Mod+I", "Mod+Shift+I"],
     },
     { title: "Plain", description: "No extras." },
   ],
@@ -29,7 +29,7 @@ describe("parseWhatsNew", () => {
     expect(read?.highlights[0]).toMatchObject({
       icon: "file-import",
       tag: "New",
-      shortcut: "Mod+I",
+      shortcuts: ["Mod+I", "Mod+Shift+I"],
     });
     expect(read?.more).toEqual({ Improved: ["Faster"], Fixed: ["A crash", "A typo"] });
   });

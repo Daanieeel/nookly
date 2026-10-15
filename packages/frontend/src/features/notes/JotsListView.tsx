@@ -524,7 +524,7 @@ function TitleCell({ row }: { row: JotRow }) {
         )}
         {/* The preview column is hidden at narrow widths, so the title carries it instead. */}
         {row.preview && (
-          <span className="truncate text-xs text-muted-foreground md:hidden">{row.preview}</span>
+          <span className="truncate text-xs text-muted-foreground @lg:hidden">{row.preview}</span>
         )}
       </div>
     </div>

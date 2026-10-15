@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/core";
+import { useNavStore } from "#/lib/store/nav.ts";
 
 let focused: Editor | null = null;
 
@@ -15,7 +16,10 @@ export function trackActiveEditor(editor: Editor): () => void {
   };
 }
 
-/// The editor the user last typed in, while it is still open and can be edited.
+/// The editor the user last typed in, while it is still open, can be edited and sits
+/// in the focused tab group (or in no group, like a dialog's).
 export function activeEditor(): Editor | null {
-  return focused && !focused.isDestroyed && focused.isEditable ? focused : null;
+  if (!focused || focused.isDestroyed || !focused.isEditable) return null;
+  const group = focused.view.dom.closest<HTMLElement>("[data-tab-group]")?.dataset.tabGroup;
+  return group === undefined || group === useNavStore.getState().focusedGroupId ? focused : null;
 }

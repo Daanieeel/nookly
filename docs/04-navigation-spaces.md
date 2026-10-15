@@ -34,16 +34,23 @@ When no icon is chosen, the item falls back to its entity type's default icon, r
 
 ## Tabs
 
-A slim tab strip under the titlebar holds concurrent work. It only shows while more than one tab is open. Each tab is one view with its own Back and Forward history, and several tabs can sit in different Spaces. Open tabs, their order, pins and history are remembered across restarts. Split view is out of scope.
+A slim tab strip under the titlebar holds concurrent work. It only shows while more than one tab is open. Each tab is one view with its own Back and Forward history, and several tabs can sit in different Spaces. Open tabs, their order, pins and history are remembered across restarts.
 
-| Action                    | How                                                                                           |
-| ------------------------- | --------------------------------------------------------------------------------------------- |
-| New tab (opens Dashboard) | `Cmd+T`, the `+` button                                                                       |
-| Open a link in a new tab  | `Cmd+click` or middle click on anything that navigates                                        |
-| Close                     | `Cmd+W`, the tab's `x`, middle click on the tab                                               |
-| Close other tabs          | `Cmd+Shift+W` (keeps the current and pinned tabs)                                             |
-| Switch                    | `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Cmd+Option+Left` and `Cmd+Option+Right`                        |
-| Pin, reorder              | Right click a tab to pin it, drag to reorder. Pinned tabs show only their icon and stay first |
+Split view puts two groups of tabs side by side, like editor groups in VS Code. Each group has its own tabs, active tab, pins and history; nothing else is shared. There are at most two, and the right one exists only while it has a tab. One group is focused (a tinted border): the sidebar, the palettes, `Cmd+T`, `Cmd+W`, tab switching and Cmd click all act on it, and clicking or tabbing into a group focuses it. Closing or moving the last tab of a group closes the group. Split, each group shows its own tab strip above its page; with one group the strip stays under the titlebar. The divider keeps at least 360px per side, remembers its position and splits evenly on double click. A window too narrow for both shows only the focused group, with a button to switch. The same page open in both groups can only be edited in the focused one; the other follows its saves.
+
+| Action                    | How                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New tab (opens Dashboard) | `Cmd+T`, the `+` button                                                                                                                             |
+| Open a link in a new tab  | `Cmd+click` or middle click on anything that navigates                                                                                              |
+| Close                     | `Cmd+W`, the tab's `x`, middle click on the tab                                                                                                     |
+| Close other tabs          | `Cmd+Shift+W` (keeps the current and pinned tabs)                                                                                                   |
+| Switch                    | `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Cmd+Option+Left` and `Cmd+Option+Right`                                                                              |
+| Pin, reorder              | Right click a tab to pin it, drag to reorder. Pinned tabs show only their icon and stay first                                                       |
+| Split right               | `Cmd+Shift+Right`, Split Right in the tab menu, the Split button in the titlebar, the command palettes, or drag a tab to the right edge of the page |
+| Split left                | `Cmd+Shift+Left`, Split Left in the Split button in the titlebar or the command palettes                                                            |
+| Move to the other group   | Drag a tab onto the other group, or Move to Left or Right Group in the tab menu                                                                     |
+| Focus the left or right   | `Cmd+1`, `Cmd+2`, or click into the group                                                                                                           |
+| Resize the groups         | Drag the divider, or focus it and use the arrow keys, Home and End                                                                                  |
 
 Closing the last tab leaves a fresh Dashboard tab.
 

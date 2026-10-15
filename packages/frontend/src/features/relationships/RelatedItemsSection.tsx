@@ -331,7 +331,7 @@ export function RelatedRow({
       />
       <span className="relative">{leading}</span>
       {entity.type !== "note" && entity.type !== "jot" && (
-        <span className="relative hidden w-20 shrink-0 sm:flex">
+        <span className="relative hidden w-20 shrink-0 @sm:flex">
           <EntityKeyCopyInline entityKey={entity.key} className="-ml-1" />
         </span>
       )}
