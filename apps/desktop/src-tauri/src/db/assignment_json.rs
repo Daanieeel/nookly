@@ -42,6 +42,10 @@ struct AssignmentFile {
     grade: Option<f64>,
     #[serde(default)]
     weight: Option<f64>,
+    /// Not graded at all, like homework. Left out of the file when false, so files from
+    /// before it existed read the same.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    ungraded: bool,
     #[serde(default)]
     blocks: Vec<BlockJson>,
 }
@@ -81,6 +85,7 @@ pub fn export_assignment_json(conn: &Connection, entity_id: &str) -> AppResult<S
         due_date: assignment.due_date,
         grade: assignment.grade,
         weight: assignment.weight,
+        ungraded: assignment.ungraded,
         blocks: export_blocks(conn, entity_id)?,
     };
     serde_json::to_string_pretty(&file).map_err(|e| AppError::Io(e.to_string()))
@@ -109,6 +114,11 @@ fn parse(text: &str) -> AppResult<AssignmentFile> {
             "weight must be a number of 0 or more".into(),
         ));
     }
+    if file.ungraded && file.grade.is_some() {
+        return Err(AppError::InvalidInput(
+            "an ungraded assignment has no grade".into(),
+        ));
+    }
     Ok(file)
 }
 
@@ -135,6 +145,9 @@ pub fn import_assignment_json(
             params![file.status, file.grade, id],
         )?;
         assignments::update_assignment_weight(conn, id, file.weight)?;
+        if file.ungraded {
+            assignments::update_assignment_ungraded(conn, id, true)?;
+        }
         import_blocks(conn, id, &file.blocks)?;
         crate::db::entities::get_entity(conn, id)
     })
@@ -157,6 +170,9 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
     }
     if let Some(grade) = file.grade {
         facts.push(format!("Grade {grade}"));
+    }
+    if file.ungraded {
+        facts.push("Not graded".into());
     }
     if let Some(weight) = file.weight {
         facts.push(format!("Weight {weight}"));
@@ -285,6 +301,47 @@ mod tests {
         // Filed under the course it was given, and no other.
         let course = course_title(&fx.conn, &imported.id).unwrap();
         assert_eq!(course.as_deref(), Some("Chemistry"));
+    }
+
+    #[test]
+    fn an_ungraded_assignment_stays_ungraded_and_old_files_read_as_graded() {
+        let fx = fixture();
+        let a = graded(&fx);
+        assignments::update_assignment_ungraded(&fx.conn, &a.id, true).unwrap();
+        let json = export_assignment_json(&fx.conn, &a.id).unwrap();
+        assert!(json.contains("\"ungraded\": true"));
+        let imported =
+            crate::db::portable::import(&fx.conn, &fx.other_space, Some(&fx.other_course), &json)
+                .unwrap();
+        assert!(
+            assignments::get_assignment(&fx.conn, &imported.id)
+                .unwrap()
+                .ungraded
+        );
+
+        // A graded one leaves the field out, and a file without it is graded.
+        let other = graded(&fx);
+        let json = export_assignment_json(&fx.conn, &other.id).unwrap();
+        assert!(!json.contains("ungraded"));
+        let imported =
+            crate::db::portable::import(&fx.conn, &fx.other_space, Some(&fx.other_course), &json)
+                .unwrap();
+        assert!(
+            !assignments::get_assignment(&fx.conn, &imported.id)
+                .unwrap()
+                .ungraded
+        );
+    }
+
+    #[test]
+    fn an_ungraded_file_with_a_grade_is_refused() {
+        let fx = fixture();
+        let a = graded(&fx);
+        let json = export_assignment_json(&fx.conn, &a.id)
+            .unwrap()
+            .replace("\"grade\": 8.5,", "\"grade\": 8.5, \"ungraded\": true,");
+        assert!(json.contains("ungraded"));
+        assert!(parse(&json).is_err());
     }
 
     #[test]

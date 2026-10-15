@@ -468,6 +468,8 @@ export interface Assignment {
   weight: number | null;
   status: string;
   grade: number | null;
+  /// Not graded at all, like homework: no grade, and no share of the course's grade.
+  ungraded: boolean;
 }
 
 export interface FileEntity {

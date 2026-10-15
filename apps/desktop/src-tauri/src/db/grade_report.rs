@@ -100,6 +100,10 @@ pub fn get_grade_report(conn: &Connection, space_id: &str) -> AppResult<GradeRep
             });
     }
     for assignment in crate::db::assignments::list_assignments(conn, space_id)? {
+        // Ungraded work like homework is not part of the grade.
+        if assignment.ungraded {
+            continue;
+        }
         let Some(course_id) = assignment_course.get(&assignment.entity.id) else {
             continue;
         };

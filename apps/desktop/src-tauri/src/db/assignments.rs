@@ -32,6 +32,9 @@ pub struct Assignment {
     pub weight: Option<f64>,
     pub status: String,
     pub grade: Option<f64>,
+    /// Not graded at all, like homework: it has no grade and takes no share of the
+    /// course's grade.
+    pub ungraded: bool,
 }
 
 fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
@@ -43,6 +46,7 @@ fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
         weight: row.get("weight")?,
         status: row.get("status")?,
         grade: row.get("grade")?,
+        ungraded: row.get("ungraded")?,
     })
 }
 
@@ -76,6 +80,7 @@ pub fn create_assignment(
             weight: None,
             status: "not_started".into(),
             grade: None,
+            ungraded: false,
         })
     })
 }
@@ -105,7 +110,7 @@ pub fn create_assignment_due_before_session(
 
 pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -116,7 +121,7 @@ pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assi
 /// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
 pub fn list_assignments_all_spaces(conn: &Connection) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -131,9 +136,26 @@ pub fn update_assignment_status(
     grade: Option<f64>,
 ) -> AppResult<()> {
     crate::db::require_one_of("status", &status, ASSIGNMENT_STATUSES)?;
+    // A grade means it is graded after all; clearing one leaves `ungraded` as it was.
     let affected = conn.execute(
-        "UPDATE assignments SET status = ?1, grade = ?2 WHERE entity_id = ?3",
+        "UPDATE assignments SET status = ?1, grade = ?2, ungraded = CASE WHEN ?2 IS NULL THEN ungraded ELSE 0 END WHERE entity_id = ?3",
         params![status, grade, entity_id],
+    )?;
+    crate::db::require_row(affected, "assignment", entity_id)?;
+    Ok(())
+}
+
+/// Marks an assignment as not graded at all (and drops its grade), or counts it towards
+/// the course's grade again. Turning it off keeps the grade, which is none unless one was
+/// typed since.
+pub fn update_assignment_ungraded(
+    conn: &Connection,
+    entity_id: &str,
+    ungraded: bool,
+) -> AppResult<()> {
+    let affected = conn.execute(
+        "UPDATE assignments SET ungraded = ?1, grade = CASE WHEN ?1 THEN NULL ELSE grade END WHERE entity_id = ?2",
+        params![ungraded, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
@@ -395,7 +417,7 @@ pub fn set_assignment_course(
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
     let mut assignment = conn
         .query_row(
-            "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade FROM entities e
+            "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded FROM entities e
          JOIN assignments a ON a.entity_id = e.id WHERE e.id = ?1",
             params![entity_id],
             row_to_assignment,
@@ -456,7 +478,14 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         kind: FieldKind::Float,
         required_on_create: false,
         writable_on_update: true,
-        description: "Grade received.",
+        description: "Grade received. Setting one clears ungraded.",
+    },
+    FieldDef {
+        name: "ungraded",
+        kind: FieldKind::Boolean,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "True for work that is not graded, like homework: it has no grade and counts for nothing in the Course's grade. Setting it true drops the grade. Defaults to false.",
     },
 ];
 
@@ -468,14 +497,16 @@ fn cli_create_assignment(conn: &Connection, input: CreateInput) -> AppResult<ser
         let weight = crate::db::schema::field_f64(&input.fields, "weight");
         update_assignment_weight(conn, &assignment.entity.id, weight)?;
     }
+    if crate::db::schema::field_bool(&input.fields, "ungraded") == Some(true) {
+        update_assignment_ungraded(conn, &assignment.entity.id, true)?;
+    }
     let session_id = crate::db::schema::field_str(&input.fields, "dueSessionId");
     let days = crate::db::schema::field_i64(&input.fields, "dueSessionOffsetDays")
         .or(session_id.as_ref().map(|_| 0));
     if days.is_some() {
         update_assignment_due_before_session(conn, &assignment.entity.id, days, session_id)?;
-        return cli_get_assignment(conn, &assignment.entity.id);
     }
-    Ok(serde_json::to_value(assignment).expect("Assignment always serializes"))
+    cli_get_assignment(conn, &assignment.entity.id)
 }
 
 fn cli_update_assignment(
@@ -487,6 +518,9 @@ fn cli_update_assignment(
     let status = crate::db::schema::field_str(fields, "status").unwrap_or(current.status);
     let grade = crate::db::schema::field_f64(fields, "grade").or(current.grade);
     update_assignment_status(conn, id, status, grade)?;
+    if let Some(ungraded) = crate::db::schema::field_bool(fields, "ungraded") {
+        update_assignment_ungraded(conn, id, ungraded)?;
+    }
     if let Some(course_id) = crate::db::schema::field_str(fields, "courseId") {
         set_assignment_course(conn, id, course_id)?;
     }

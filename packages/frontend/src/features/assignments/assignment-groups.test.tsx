@@ -47,6 +47,7 @@ describe("assignmentGroupDefs", () => {
     expect(groups.map((g) => [g.id, ids(g.items)])).toEqual([
       ["graded", ["g"]],
       ["no-grade", ["o"]],
+      ["ungraded", []],
     ]);
   });
 
@@ -135,5 +136,24 @@ describe("assignment filters", () => {
 
   it("reads the status for any unknown field", () => {
     expect(assignmentFilterValue(open, "mystery", courseOf)).toBe("in_progress");
+  });
+});
+
+describe("ungraded assignments", () => {
+  const homework = makeAssignment({ ungraded: true, status: "submitted" }, { id: "h" });
+
+  it("have their own value under the grade filter", () => {
+    expect(assignmentFilterValue(homework, "grade", new Map())).toBe("ungraded");
+    expect(assignmentFilterValue(open, "grade", new Map())).toBe("none");
+    expect(assignmentFilterValue(graded, "grade", new Map())).toBe("graded");
+    const grade = assignmentFilterFields([]).find((f) => f.id === "grade");
+    expect(grade?.options.map((o) => o.value)).toEqual(["graded", "none", "ungraded"]);
+  });
+
+  it("are grouped apart from the ones still waiting for a grade", () => {
+    const defs = assignmentGroupDefs("grade", [], courseOf) ?? [];
+    const groups = buildGroups([graded, open, homework], defs, null);
+    expect(ids(groups.find((g) => g.id === "no-grade")?.items ?? [])).toEqual(["o"]);
+    expect(ids(groups.find((g) => g.id === "ungraded")?.items ?? [])).toEqual(["h"]);
   });
 });

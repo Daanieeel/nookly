@@ -1,4 +1,9 @@
-import { IconCalendarEvent, IconClipboardCheck, IconSchool } from "@tabler/icons-react";
+import {
+  IconCalendarEvent,
+  IconClipboardCheck,
+  IconSchool,
+  IconStarOff,
+} from "@tabler/icons-react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -223,12 +228,14 @@ const assignmentSchema = z.object({
   title: z.string(),
   course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
   due: z.custom<DueValue>(),
+  ungraded: z.boolean(),
 });
 type AssignmentValues = z.infer<typeof assignmentSchema>;
 const emptyAssignment: AssignmentValues = {
   title: "",
   course: null,
   due: { dueDate: null, dueSessionOffsetDays: null, dueSessionId: null },
+  ungraded: false,
 };
 
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
@@ -266,7 +273,7 @@ export function CreateAssignmentDialog({
   const course = useStore(form.store, (state) => state.values.course);
 
   const create = useMutation({
-    mutationFn: ({ title, course: picked, due }: AssignmentValues) => {
+    mutationFn: ({ title, course: picked, due, ungraded }: AssignmentValues) => {
       if (!picked) throw new Error("pick a course");
       return createAssignment(
         spaceId,
@@ -275,6 +282,7 @@ export function CreateAssignmentDialog({
         due.dueDate,
         due.dueSessionOffsetDays,
         due.dueSessionId,
+        ungraded,
       );
     },
     onSuccess: async (created, { course: picked }) => {
@@ -403,6 +411,21 @@ export function CreateAssignmentDialog({
               </DuePicker>
             );
           }}
+        </form.Field>
+        <form.Field name="ungraded">
+          {(field) => (
+            <button
+              type="button"
+              aria-pressed={field.state.value}
+              onClick={() => field.handleChange(!field.state.value)}
+              className={cn(PROPERTY_PILL, "aria-pressed:bg-accent aria-pressed:text-foreground")}
+            >
+              <IconStarOff size={14} className="shrink-0" />
+              <span className={cn("truncate", field.state.value && "text-foreground")}>
+                Ungraded
+              </span>
+            </button>
+          )}
         </form.Field>
       </div>
 

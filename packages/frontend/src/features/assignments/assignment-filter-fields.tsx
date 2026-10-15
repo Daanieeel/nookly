@@ -73,7 +73,7 @@ export function assignmentFilterValue(
   if (fieldId === "due") return deadlineBucket(a);
   if (fieldId === "session")
     return sessionDay(a) === format(new Date(), "yyyy-MM-dd") ? "today" : "none";
-  if (fieldId === "grade") return a.grade === null ? "none" : "graded";
+  if (fieldId === "grade") return a.ungraded ? "ungraded" : a.grade === null ? "none" : "graded";
   if (fieldId === "created") return ageBucket(a.entity.createdAt);
   if (fieldId === "updated") return ageBucket(a.entity.updatedAt);
   return a.status;

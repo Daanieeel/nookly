@@ -1,6 +1,6 @@
 import { IconX } from "@tabler/icons-react";
 import { useDebouncer } from "@tanstack/react-pacer";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { StatusIcon } from "#/components/action-feedback.tsx";
 import { TimeInput } from "#/components/time-input.tsx";
 import { useInPlaceInput } from "#/components/use-in-place-input.ts";
@@ -42,10 +42,13 @@ export function NumberProperty({
   unit,
   pending,
   failed,
+  alternative,
 }: SaveState & {
   value: number | null;
   onSave: (next: number | null) => void;
   addLabel: string;
+  /// Offered next to the add button while the value is unset.
+  alternative?: ReactNode;
   /// Names the × button, like "Remove Grade".
   clearLabel: string;
   /// The value "Add" starts from.
@@ -75,6 +78,7 @@ export function NumberProperty({
         <button type="button" onClick={() => change(startAt)} className={PROPERTY_VALUE}>
           <span className="text-muted-foreground">{addLabel}</span>
         </button>
+        {alternative}
         <span className="pointer-events-none absolute right-2">
           <SaveIcon pending={pending} failed={failed} />
         </span>

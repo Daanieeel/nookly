@@ -78,3 +78,30 @@ describe("CreateAssignmentDialog due date", () => {
     });
   });
 });
+
+describe("CreateAssignmentDialog grading", () => {
+  async function create(user: Awaited<ReturnType<typeof openDialog>>["user"]) {
+    await user.click(screen.getByRole("button", { name: /Create assignment/ }));
+    await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
+    return callsOf("create_assignment")[0];
+  }
+
+  it("is graded unless it is marked ungraded", async () => {
+    const { user } = await openDialog();
+    expect(screen.getByRole("button", { name: "Ungraded" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(await create(user)).toMatchObject({ ungraded: false });
+  });
+
+  it("can be created ungraded, like homework", async () => {
+    const { user } = await openDialog();
+    await user.click(screen.getByRole("button", { name: "Ungraded" }));
+    expect(screen.getByRole("button", { name: "Ungraded" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await create(user)).toMatchObject({ ungraded: true });
+  });
+});

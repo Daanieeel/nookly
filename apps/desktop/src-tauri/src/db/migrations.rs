@@ -725,6 +725,13 @@ fn all() -> Vec<M<'static>> {
         -- Task keeps, means it does not repeat.
         ALTER TABLE tasks ADD COLUMN repeat_rule TEXT;
         ",
+    ), M::up(
+        "
+        -- An assignment that is not graded at all, like homework: it has no grade and takes
+        -- no share of its course's grade. 0, which every existing assignment keeps, counts
+        -- towards the grade as before.
+        ALTER TABLE assignments ADD COLUMN ungraded INTEGER NOT NULL DEFAULT 0;
+        ",
     )]
 }
 
@@ -1252,6 +1259,7 @@ mod history {
         0x689c23fb341a5f0a,
         0xfc01de1290319823,
         0xe33f069e6b32963,
+        0x41a5c8877cdedd90,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

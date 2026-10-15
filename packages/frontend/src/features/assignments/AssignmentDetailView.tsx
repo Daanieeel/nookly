@@ -19,6 +19,7 @@ import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { weightPercent } from "#/features/exams/exam-model.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { AssignmentDuePicker } from "./AssignmentDuePicker";
+import { AssignmentGradeField } from "./AssignmentGradeField";
 import {
   ASSIGNMENT_STATUSES,
   assignmentStatus,
@@ -163,7 +164,7 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
       </PropertyRow>
 
       <PropertyRow label="Grade">
-        <GradeField assignment={assignment} />
+        <AssignmentGradeField assignment={assignment} />
       </PropertyRow>
 
       <PropertyRow label="Course">
@@ -205,29 +206,6 @@ function WeightField({ assignment }: { assignment: Assignment }) {
       min={0}
       max={100}
       unit="%"
-      pending={save.isPending}
-      failed={save.isError}
-    />
-  );
-}
-
-function GradeField({ assignment }: { assignment: Assignment }) {
-  const queryClient = useQueryClient();
-  const save = useMutation({
-    mutationFn: (grade: number | null) =>
-      updateAssignmentStatus(assignment.entity.id, assignment.status, grade),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
-      }),
-  });
-  return (
-    <NumberProperty
-      value={assignment.grade}
-      onSave={(grade) => save.mutate(grade)}
-      addLabel="Add grade"
-      clearLabel="Remove Grade"
-      min={0}
       pending={save.isPending}
       failed={save.isError}
     />

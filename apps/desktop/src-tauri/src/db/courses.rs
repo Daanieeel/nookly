@@ -419,7 +419,7 @@ pub fn get_course_grades(conn: &Connection, course_id: &str) -> AppResult<Course
          SELECT a.weight, a.grade FROM assignments a
          JOIN entities e ON e.id = a.entity_id
          JOIN relationships r ON r.from_entity_id = a.entity_id AND r.relationship_type = 'assignment-course'
-         WHERE r.to_entity_id = ?1 AND e.deleted_at IS NULL",
+         WHERE r.to_entity_id = ?1 AND e.deleted_at IS NULL AND a.ungraded = 0",
     )?;
     let items = stmt
         .query_map(params![course_id], |row| Ok((row.get(0)?, row.get(1)?)))?

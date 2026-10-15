@@ -6,7 +6,7 @@
 
 ## Native Fields
 
-`due_date` (fixed, or resolved from the Course sessions; the create and edit pickers can also tie it to one session of the Course through an `assignment-due-session` link, so the day follows that session when it moves, and moves on to the next session after it if that one is cancelled or trashed), `status` (not started, in progress, submitted, graded), an optional `grade` and an optional `weight` (its share of the course grade).
+`due_date` (fixed, or resolved from the Course sessions; the create and edit pickers can also tie it to one session of the Course through an `assignment-due-session` link, so the day follows that session when it moves, and moves on to the next session after it if that one is cancelled or trashed), `status` (not started, in progress, submitted, graded), an optional `grade` and an optional `weight` (its share of the course grade). An Assignment can also be `ungraded`, for work like homework: it has no grade and takes no share of the course grade, so the Grades report leaves it out. The create dialog has an Ungraded toggle and the Grade property offers None.
 
 Assignments do not get Index Cards or Study Blocks. Those stay specific to Exams.
 
@@ -16,4 +16,4 @@ Like Exams: a list that puts dates and status first. It should look clearly diff
 
 ## Export and Import
 
-An Assignment exports as a `nookly-assignment` file (version 1): title, status, due day, grade, weight and description blocks. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.
+An Assignment exports as a `nookly-assignment` file (version 1): title, status, due day, grade, weight, whether it is ungraded and description blocks. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.

@@ -140,6 +140,7 @@ export function createdBucket(a: Assignment, now = new Date()): string {
 export const GRADE_FILTER: { id: string; label: string }[] = [
   { id: "graded", label: "Has a grade" },
   { id: "none", label: "No grade" },
+  { id: "ungraded", label: "Ungraded" },
 ];
 
 // Display options
@@ -292,7 +293,7 @@ export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     icon: "Rocket",
     color: "#a855f7",
     description: "Handed in and waiting for a grade.",
-    filters: [is("status", "submitted")],
+    filters: [is("status", "submitted"), is("grade", "none")],
     display: normalizeDisplay({ layout: "list", grouping: "none" }),
   },
   {

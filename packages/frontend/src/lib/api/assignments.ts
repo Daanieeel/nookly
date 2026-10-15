@@ -8,6 +8,7 @@ export function createAssignment(
   dueDate: string | null,
   dueSessionOffsetDays: number | null = null,
   dueSessionId: string | null = null,
+  ungraded = false,
 ): Promise<Assignment> {
   return invoke("create_assignment", {
     spaceId,
@@ -16,6 +17,7 @@ export function createAssignment(
     dueDate,
     dueSessionOffsetDays,
     dueSessionId,
+    ungraded,
   });
 }
 
@@ -52,6 +54,12 @@ export function updateAssignmentDueBeforeSession(
 /// Its share of the course's grade, as a fraction; `null` clears it.
 export function updateAssignmentWeight(entityId: string, weight: number | null): Promise<void> {
   return invoke("update_assignment_weight", { entityId, weight });
+}
+
+/// Marks an assignment as not graded at all (dropping its grade), or counts it towards the
+/// course's grade again.
+export function updateAssignmentUngraded(entityId: string, ungraded: boolean): Promise<void> {
+  return invoke("update_assignment_ungraded", { entityId, ungraded });
 }
 
 /// Moves an assignment to another Course, replacing its Course link.

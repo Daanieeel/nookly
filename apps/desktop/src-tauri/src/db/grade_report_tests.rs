@@ -297,3 +297,31 @@ fn a_weighted_assignment_reports_its_weight_and_share() {
     assert!((assignment.share - 0.25).abs() < 1e-9);
     assert!((exam.share - 0.75).abs() < 1e-9);
 }
+
+#[test]
+fn an_ungraded_assignment_takes_no_share_of_the_course() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    graded_assignment(&conn, &space.id, &course.id, 2.0);
+    let homework = create_assignment(
+        &conn,
+        space.id.clone(),
+        "Homework".into(),
+        course.id.clone(),
+        None,
+    )
+    .unwrap();
+    crate::db::assignments::update_assignment_ungraded(&conn, &homework.entity.id, true).unwrap();
+
+    let report = get_grade_report(&conn, &space.id).unwrap();
+    let course_report = &report.semesters[0].courses[0];
+    assert_eq!(course_report.items.len(), 1);
+    assert_eq!(course_report.items[0].grade, Some(2.0));
+    assert!((course_report.items[0].share - 1.0).abs() < 1e-9);
+    assert!((course_report.grades.graded_weight - 1.0).abs() < 1e-9);
+    assert_eq!(course_report.grades.item_count, 1);
+
+    let grades = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
+    assert_eq!(grades.item_count, 1);
+    assert!((grades.graded_weight - 1.0).abs() < 1e-9);
+}

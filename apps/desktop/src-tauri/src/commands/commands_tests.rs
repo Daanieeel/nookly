@@ -171,6 +171,7 @@ ipc_commands![
     assignments::update_assignment_due_date,
     assignments::update_assignment_due_before_session,
     assignments::update_assignment_weight,
+    assignments::update_assignment_ungraded,
     assignments::set_assignment_course,
     recipes::create_recipe,
     recipes::list_recipes,
@@ -2193,6 +2194,26 @@ fn assignments_create_list_and_update() {
             .remove(0)
     });
     assert_eq!(stored.grade, None);
+
+    h.ok(
+        "update_assignment_ungraded",
+        json!({ "entityId": id, "ungraded": true }),
+    );
+    assert!(h.db(|c| db::assignments::get_assignment(c, &id).unwrap().ungraded));
+}
+
+#[test]
+fn an_assignment_can_be_created_ungraded() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let course = h.course(&space, "C");
+    let created = h.ok(
+        "create_assignment",
+        json!({ "spaceId": space, "title": "Homework", "courseId": course, "ungraded": true }),
+    );
+    assert_eq!(created["ungraded"], true);
+    let id = id_of(&created);
+    assert!(h.db(|c| db::assignments::get_assignment(c, &id).unwrap().ungraded));
 }
 
 #[test]

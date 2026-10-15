@@ -25,6 +25,7 @@ function assignment(id: string, over: Partial<Assignment> = {}): Assignment {
     weight: null,
     status: "not_started",
     grade: null,
+    ungraded: false,
     ...over,
   };
 }

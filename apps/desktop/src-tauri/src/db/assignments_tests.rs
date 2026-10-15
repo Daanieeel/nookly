@@ -783,3 +783,77 @@ fn a_bad_session_on_create_leaves_no_assignment_behind() {
     assert!(result.is_err());
     assert!(list_assignments(&conn, &space.id).unwrap().is_empty());
 }
+
+#[test]
+fn a_new_assignment_counts_towards_the_grade() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
+    assert!(!a.ungraded);
+    assert!(!get_assignment(&conn, &a.entity.id).unwrap().ungraded);
+}
+
+#[test]
+fn an_ungraded_assignment_has_no_grade_and_a_grade_makes_it_graded_again() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Homework", None);
+    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(2.0)).unwrap();
+
+    update_assignment_ungraded(&conn, &a.entity.id, true).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert!(stored.ungraded);
+    assert!(
+        stored.grade.is_none(),
+        "an ungraded assignment keeps no grade"
+    );
+
+    // Clearing the grade of an ungraded assignment leaves it ungraded.
+    update_assignment_status(&conn, &a.entity.id, "submitted".into(), None).unwrap();
+    assert!(get_assignment(&conn, &a.entity.id).unwrap().ungraded);
+
+    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(1.3)).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert!(!stored.ungraded);
+    assert_eq!(stored.grade, Some(1.3));
+
+    update_assignment_ungraded(&conn, &a.entity.id, false).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert!(!stored.ungraded);
+    assert_eq!(stored.grade, Some(1.3), "turning it off keeps the grade");
+}
+
+#[test]
+fn ungraded_for_a_missing_assignment_is_not_found() {
+    let conn = test_conn();
+    assert!(matches!(
+        update_assignment_ungraded(&conn, "ghost", true),
+        Err(AppError::NotFound(_))
+    ));
+}
+
+#[test]
+fn the_cli_sets_and_reads_ungraded() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let def = crate::db::schema::lookup("assignment").unwrap();
+    let mut fields = crate::db::schema::JsonMap::new();
+    fields.insert("courseId".into(), serde_json::json!(c.id));
+    fields.insert("ungraded".into(), serde_json::json!(true));
+    let created = (def.create)(
+        &conn,
+        crate::db::schema::CreateInput {
+            space_id: space.id.clone(),
+            title: "Homework".into(),
+            fields,
+        },
+    )
+    .unwrap();
+    assert_eq!(created["ungraded"], true);
+
+    let id = created["entity"]["id"].as_str().unwrap();
+    let mut fields = crate::db::schema::JsonMap::new();
+    fields.insert("ungraded".into(), serde_json::json!(false));
+    let updated = (def.update)(&conn, id, &fields).unwrap();
+    assert_eq!(updated["ungraded"], false);
+}

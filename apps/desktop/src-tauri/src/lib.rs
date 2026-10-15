@@ -266,6 +266,7 @@ pub fn run() {
             commands::assignments::update_assignment_due_date,
             commands::assignments::update_assignment_due_before_session,
             commands::assignments::update_assignment_weight,
+            commands::assignments::update_assignment_ungraded,
             commands::assignments::set_assignment_course,
             commands::recipes::create_recipe,
             commands::recipes::list_recipes,
