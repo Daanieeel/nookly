@@ -6,7 +6,7 @@
 
 ## Native Fields
 
-`due_date` (fixed, or resolved from the Course sessions; the create and edit pickers can also tie it to one session of the Course through an `assignment-due-session` link, so the day follows that session when it moves, and moves on to the next session after it if that one is cancelled or trashed), `status` (not started, in progress, submitted, graded), an optional `grade` and an optional `weight` (its share of the course grade). An Assignment can also be `ungraded`, for work like homework: it has no grade and takes no share of the course grade, so the Grades report leaves it out. The create dialog has an Ungraded toggle and the Grade property offers None.
+`due_date` (fixed, or resolved from the Course sessions; the create and edit pickers can also tie it to one session of the Course through an `assignment-due-session` link, so the day follows that session when it moves, and moves on to the next session after it if that one is cancelled or trashed), `status` (not started, in progress, submitted, graded), an optional `grade` and an optional `weight` (its share of the course grade). An Assignment can also be `ungraded`, for work like homework: it has no grade and takes no share of the course grade, so the Grades report leaves it out. The create dialog has a grading badge (gray Ungraded, caution Graded; it starts as Ungraded) and the Grade property offers None.
 
 Assignments do not get Index Cards or Study Blocks. Those stay specific to Exams.
 

@@ -2,6 +2,7 @@ import {
   IconCalendarEvent,
   IconClipboardCheck,
   IconSchool,
+  IconStar,
   IconStarOff,
 } from "@tabler/icons-react";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -235,7 +236,7 @@ const emptyAssignment: AssignmentValues = {
   title: "",
   course: null,
   due: { dueDate: null, dueSessionOffsetDays: null, dueSessionId: null },
-  ungraded: false,
+  ungraded: true,
 };
 
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
@@ -416,14 +417,18 @@ export function CreateAssignmentDialog({
           {(field) => (
             <button
               type="button"
-              aria-pressed={field.state.value}
               onClick={() => field.handleChange(!field.state.value)}
-              className={cn(PROPERTY_PILL, "aria-pressed:bg-accent aria-pressed:text-foreground")}
+              className={cn(
+                PROPERTY_PILL,
+                !field.state.value && "border-caution/40 bg-caution/10 text-caution",
+              )}
             >
-              <IconStarOff size={14} className="shrink-0" />
-              <span className={cn("truncate", field.state.value && "text-foreground")}>
-                Ungraded
-              </span>
+              {field.state.value ? (
+                <IconStarOff size={14} className="shrink-0" />
+              ) : (
+                <IconStar size={14} className="shrink-0" />
+              )}
+              <span className="truncate">{field.state.value ? "Ungraded" : "Graded"}</span>
             </button>
           )}
         </form.Field>

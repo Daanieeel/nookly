@@ -86,22 +86,26 @@ describe("CreateAssignmentDialog grading", () => {
     return callsOf("create_assignment")[0];
   }
 
-  it("is graded unless it is marked ungraded", async () => {
+  it("starts as a gray Ungraded badge and is created ungraded", async () => {
     const { user } = await openDialog();
-    expect(screen.getByRole("button", { name: "Ungraded" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    expect(await create(user)).toMatchObject({ ungraded: false });
+    const badge = screen.getByRole("button", { name: "Ungraded" });
+    expect(badge).not.toHaveClass("text-caution");
+    expect(await create(user)).toMatchObject({ ungraded: true });
   });
 
-  it("can be created ungraded, like homework", async () => {
+  it("flips to a caution colored Graded badge, and back, when clicked", async () => {
     const { user } = await openDialog();
     await user.click(screen.getByRole("button", { name: "Ungraded" }));
-    expect(screen.getByRole("button", { name: "Ungraded" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(await create(user)).toMatchObject({ ungraded: true });
+    const graded = screen.getByRole("button", { name: "Graded" });
+    expect(graded).toHaveClass("text-caution");
+    expect(screen.queryByRole("button", { name: "Ungraded" })).not.toBeInTheDocument();
+    await user.click(graded);
+    expect(screen.getByRole("button", { name: "Ungraded" })).not.toHaveClass("text-caution");
+  });
+
+  it("is created graded after flipping to Graded", async () => {
+    const { user } = await openDialog();
+    await user.click(screen.getByRole("button", { name: "Ungraded" }));
+    expect(await create(user)).toMatchObject({ ungraded: false });
   });
 });
