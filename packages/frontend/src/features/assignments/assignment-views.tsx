@@ -203,7 +203,7 @@ export function AssignmentRow({
       />
       <AssignmentStatusControl assignment={assignment} />
       <AssignmentDueColumns assignment={assignment} done={done} />
-      <span className="relative hidden w-20 shrink-0 sm:flex">
+      <span className="relative hidden w-20 shrink-0 @sm:flex">
         <EntityKeyCopyInline entityKey={assignment.entity.key} className="-ml-1" />
       </span>
       <span
@@ -218,7 +218,7 @@ export function AssignmentRow({
         <CourseChipLink
           course={course}
           onOpen={() => openEntity(course.id, course.spaceId)}
-          className="relative max-md:hidden"
+          className="relative @max-lg:hidden"
         />
       )}
       {space && <SpaceChip space={space} />}
@@ -237,9 +237,9 @@ export function AssignmentColumnLabels() {
         <IconCircleDot size={14} />
       </span>
       <DueColumnLabels />
-      <span className="hidden w-20 shrink-0 sm:block">ID</span>
+      <span className="hidden w-20 shrink-0 @sm:block">ID</span>
       <span className="min-w-0 flex-1">Title</span>
-      <span className="max-md:hidden">Course</span>
+      <span className="@max-lg:hidden">Course</span>
     </div>
   );
 }

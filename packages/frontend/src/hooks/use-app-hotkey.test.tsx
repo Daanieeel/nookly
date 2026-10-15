@@ -2,7 +2,11 @@ import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { settings } from "#/lib/settings/settings.ts";
-import { useAppHotkey, useScreenHotkeys } from "./use-app-hotkey.ts";
+import { TabGroupContext } from "#/components/tab-group-scope.ts";
+import { useNavStore } from "#/lib/store/nav.ts";
+import { useAppHotkey, useScreenHotkey, useScreenHotkeys } from "./use-app-hotkey.ts";
+
+const initialFocus = useNavStore.getState().focusedGroupId;
 import { useCreateShortcut } from "./use-create-shortcut.ts";
 
 afterEach(() => {
@@ -93,5 +97,45 @@ describe("rebinding a shortcut", () => {
     await user.keyboard("{Control>}k{/Control}");
     expect(jot).toHaveBeenCalledTimes(1);
     expect(search).not.toHaveBeenCalled();
+  });
+});
+
+describe("shortcuts inside a split", () => {
+  function InGroup({ groupId, onFire }: { groupId: string; onFire: () => void }) {
+    return (
+      <TabGroupContext.Provider
+        value={{ groupId, tabId: groupId, view: { kind: "dashboard" }, focused: false }}
+      >
+        <Search onFire={onFire} />
+        <Today onFire={onFire} />
+      </TabGroupContext.Provider>
+    );
+  }
+
+  function Today({ onFire }: { onFire: () => void }) {
+    useScreenHotkey("today", onFire);
+    return null;
+  }
+
+  afterEach(() => useNavStore.setState({ focusedGroupId: initialFocus }));
+
+  it("fire only in the focused group", async () => {
+    const user = userEvent.setup({ delay: null });
+    const left = vi.fn();
+    const right = vi.fn();
+    useNavStore.setState({ focusedGroupId: "R" });
+    render(
+      <>
+        <InGroup groupId="L" onFire={left} />
+        <InGroup groupId="R" onFire={right} />
+      </>,
+    );
+    await user.keyboard("{Control>}k{/Control}");
+    await user.keyboard("t");
+    expect(left).not.toHaveBeenCalled();
+    expect(right).toHaveBeenCalledTimes(2);
+    act(() => useNavStore.setState({ focusedGroupId: "L" }));
+    await user.keyboard("t");
+    expect(left).toHaveBeenCalledTimes(1);
   });
 });

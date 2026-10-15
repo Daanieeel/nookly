@@ -193,8 +193,8 @@ function CourseBody({ course }: { course: Entity }) {
       <div
         className={
           courseDecks.length > 0
-            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-            : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            ? "grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-5"
+            : "grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-4"
         }
       >
         <BentoCard

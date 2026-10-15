@@ -305,7 +305,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
             />
           )}
         </form.Field>
-        <ShortcutKbd name="create" className="max-sm:hidden" />
+        <ShortcutKbd name="create" className="@max-sm:hidden" />
         <form.Subscribe selector={hasVisibleErrors}>
           {(blocked) => (
             <Tooltip>
@@ -488,13 +488,13 @@ export function BookmarkRow({
       </span>
       <span className="pointer-events-none relative min-w-0 shrink truncate text-sm">{title}</span>
       {showDescription && bookmark.description && (
-        <span className="pointer-events-none relative min-w-0 flex-1 truncate text-xs text-muted-foreground max-md:hidden">
+        <span className="pointer-events-none relative min-w-0 flex-1 truncate text-xs text-muted-foreground @max-lg:hidden">
           {bookmark.description}
         </span>
       )}
       <span className="pointer-events-none relative ml-auto flex shrink-0 items-center gap-3">
         <LabelChips labels={labels} />
-        <span className="w-32 truncate text-right text-xs text-muted-foreground max-sm:hidden">
+        <span className="w-32 truncate text-right text-xs text-muted-foreground @max-sm:hidden">
           {hostOf(bookmark.url)}
         </span>
         <span className="w-16 text-right text-xs text-muted-foreground tabular-nums">

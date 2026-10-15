@@ -119,7 +119,7 @@ function TaskPage({ entity }: { entity: Entity }) {
           <div
             className={cn(
               "mb-2 flex flex-wrap items-center gap-1.5 pl-13",
-              !sidebarCollapsed && "lg:hidden",
+              !sidebarCollapsed && "@3xl:hidden",
             )}
           >
             <TaskStatusControl task={task} />
@@ -377,7 +377,7 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
                       <TaskStatusControl task={subtask} />
                     </span>
                   )}
-                  <EntityKey entityKey={subtask.entity.key} className="hidden w-16 sm:block" />
+                  <EntityKey entityKey={subtask.entity.key} className="hidden w-16 @sm:block" />
                   <span
                     className={cn(
                       "min-w-0 flex-1 truncate text-sm",
@@ -388,7 +388,7 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
                     {displayTitle(subtask.entity)}
                   </span>
                   {labels.length > 0 && (
-                    <span className="hidden shrink-0 items-center gap-1 md:flex">
+                    <span className="hidden shrink-0 items-center gap-1 @lg:flex">
                       {labels.map((label) => (
                         <LabelChip key={label.id} label={label} />
                       ))}

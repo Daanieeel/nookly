@@ -121,7 +121,7 @@ function SessionPageCards({ occurrence }: { occurrence: SessionOccurrence }) {
     queryFn: () => getSessionPages(occurrence.entity.id),
   });
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 @sm:grid-cols-2">
       <SessionPageCard kind="jot" occurrence={occurrence} page={pages?.jot} loading={!pages} />
       <SessionPageCard kind="note" occurrence={occurrence} page={pages?.note} loading={!pages} />
     </div>

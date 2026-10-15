@@ -44,7 +44,8 @@ import {
 } from "#/lib/api/files.ts";
 import type { Entity, FileEntity } from "#/lib/api/types.ts";
 import { formatDate } from "#/lib/datetime.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
+import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { MarkdownViewer } from "./MarkdownViewer.tsx";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -76,9 +77,11 @@ export function FileDetailView({ entity }: { entity: Entity }) {
     queryFn: () => getFile(entity.id),
   });
   // A page asked for by a mention of it, handed back once the viewer has gone there.
-  const page = useNavStore((s) =>
-    s.focusBlock?.entityId === entity.id ? s.focusBlock.page : undefined,
-  );
+  const { groupId } = useTabGroupScope();
+  const page = useNavStore((s) => {
+    const focus = focusBlockIn(s, groupId);
+    return focus?.entityId === entity.id ? focus.page : undefined;
+  });
   const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
 
   return (

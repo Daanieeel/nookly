@@ -253,7 +253,7 @@ function TitleCell({ row }: { row: NoteRow }) {
         <span className="truncate font-medium">{row.title}</span>
         {/* The preview column is hidden at narrow widths, so the title carries it instead. */}
         {row.preview && (
-          <span className="truncate text-xs text-muted-foreground md:hidden">{row.preview}</span>
+          <span className="truncate text-xs text-muted-foreground @lg:hidden">{row.preview}</span>
         )}
       </div>
     </div>

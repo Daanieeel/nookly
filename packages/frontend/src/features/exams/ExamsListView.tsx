@@ -52,8 +52,8 @@ import { formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 /// Grid shared by every timeline row: date, rail, content. The rail's center is
 /// where the connecting line runs.
 const ROW_GRID =
-  "grid grid-cols-[4.5rem_2rem_minmax(0,1fr)] sm:grid-cols-[5.5rem_2.5rem_minmax(0,1fr)]";
-const LINE = "absolute left-[calc(4.5rem+1rem)] w-px sm:left-[calc(5.5rem+1.25rem)]";
+  "grid grid-cols-[4.5rem_2rem_minmax(0,1fr)] @sm:grid-cols-[5.5rem_2.5rem_minmax(0,1fr)]";
+const LINE = "absolute left-[calc(4.5rem+1rem)] w-px @sm:left-[calc(5.5rem+1.25rem)]";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
@@ -314,7 +314,7 @@ function PastNode({ exam, course, onOpen }: NodeProps) {
     >
       <div className="flex h-9 items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-sm">{displayTitle(exam.entity)}</span>
-        {course && <CourseChip course={course} className="max-sm:hidden" />}
+        {course && <CourseChip course={course} className="@max-sm:hidden" />}
         {exam.grade !== null ? (
           <GradeBadge grade={exam.grade} />
         ) : (

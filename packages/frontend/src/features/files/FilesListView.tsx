@@ -739,11 +739,11 @@ export function FileRow({
         className="absolute inset-0 cursor-pointer outline-none"
       />
       <kind.icon size={16} className={cn("pointer-events-none relative shrink-0", kind.tone)} />
-      <span className="relative hidden w-20 shrink-0 sm:flex">
+      <span className="relative hidden w-20 shrink-0 @sm:flex">
         <EntityKeyCopyInline entityKey={file.entity.key} className="-ml-1" />
       </span>
       <span className="pointer-events-none relative min-w-0 flex-1 truncate text-sm">{title}</span>
-      <span className="pointer-events-none relative w-28 shrink-0 truncate text-xs text-muted-foreground max-md:hidden">
+      <span className="pointer-events-none relative w-28 shrink-0 truncate text-xs text-muted-foreground @max-lg:hidden">
         {kind.label}
       </span>
       <span className="pointer-events-none relative w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">

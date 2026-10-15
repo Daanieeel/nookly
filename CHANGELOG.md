@@ -2,6 +2,21 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.0 (2026-10-15)
+
+### Added
+
+- **Split view.** Work in two groups of tabs side by side. Right click a tab and pick Split Right, press `Mod+Shift+Right` (or `Mod+Shift+Left` for Split Left), use the new Split button next to Import (Split Left or Split Right), run Split Left or Split Right from the command palettes, or drag a tab to the right edge of the page. Each side keeps its own tabs, pins and history, the divider between them can be dragged (double click it to split evenly again), and `Mod+1` and `Mod+2` move between the sides. Your split comes back after a restart, and a narrow window shows one side at a time.
+
+### Changed
+
+- **Pages fit the space they get.** Lists, grids and the details sidebar now adapt to the width of their side of a split, or of the page when the sidebar is collapsed, instead of the whole window.
+- **Long pages stay smooth.** Parts of a page that are scrolled out of view are no longer laid out until you get there.
+
+### Fixed
+
+- **Tabs work better with a screen reader.** Each tab is announced once, without its close button inside it.
+
 ## 0.33.31 (2026-10-15)
 
 ### Fixed

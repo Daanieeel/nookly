@@ -4,7 +4,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { editorExtensions } from "#/features/notes/editor-extensions.ts";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { tabGroups, useNavStore } from "#/lib/store/nav.ts";
 import { makeSpace } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
@@ -49,6 +49,27 @@ describe("New Tab in the commands palette", () => {
     await user.type(await screen.findByPlaceholderText("Run a command…"), "new tab");
     const action = (await screen.findByText("New Tab")).closest("[cmdk-item]");
     expect(action?.querySelector("kbd")).not.toBeNull();
+  });
+});
+
+describe("Split Left and Split Right in the commands palette", () => {
+  beforeEach(() => {
+    mockCommand("list_spaces", []);
+    useNavStore.setState(useNavStore.getInitialState());
+  });
+
+  it.each([
+    ["Split Right", 1],
+    ["Split Left", 0],
+  ])("%s splits the view, focuses the new side and closes the palette", async (name, side) => {
+    const { user } = renderWithProviders(<CommandsPalette />);
+    act(() => useNavStore.getState().setCommandsOpen(true));
+    await user.type(await screen.findByPlaceholderText("Run a command…"), "split");
+    await user.click(await screen.findByText(name));
+    const state = useNavStore.getState();
+    expect(tabGroups(state)).toHaveLength(2);
+    expect(state.focusedGroupId).toBe(tabGroups(state)[side].id);
+    expect(state.commandsOpen).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import { useHasGroupFocus } from "#/components/tab-group-scope.ts";
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -582,8 +583,10 @@ export function PdfViewer({
     setQuery("");
   };
 
+  const hasGroupFocus = useHasGroupFocus();
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (!hasGroupFocus()) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         openSearch();
@@ -593,7 +596,7 @@ export function PdfViewer({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [searchOpen]);
+  }, [searchOpen, hasGroupFocus]);
 
   // Memoized so its identity only changes with `query`: react-pdf tears down
   // and rebuilds the whole text layer whenever this reference changes, and

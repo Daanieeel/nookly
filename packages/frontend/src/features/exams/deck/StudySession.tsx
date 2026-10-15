@@ -1,3 +1,4 @@
+import { useHasGroupFocus } from "#/components/tab-group-scope.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { IconArrowBackUp, IconArrowLeft, IconConfetti } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -94,9 +95,10 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
 
   const keys = useRef({ rate, undoLast, flipped, onExit, hasCard: !!current });
   keys.current = { rate, undoLast, flipped, onExit, hasCard: !!current };
+  const hasGroupFocus = useHasGroupFocus();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target) || e.altKey) return;
+      if (isTypingTarget(e.target) || e.altKey || !hasGroupFocus()) return;
       const k = keys.current;
       if (e.key === "Escape") {
         e.preventDefault();
@@ -119,7 +121,7 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [hasGroupFocus]);
 
   const counts = { new: 0, learning: 0, review: 0 };
   for (const card of queue) counts[stateGroup(card.state)] += 1;

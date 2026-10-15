@@ -4,6 +4,8 @@ import {
   IconCheck,
   IconChecklist,
   IconClipboardCheck,
+  IconColumnInsertLeft,
+  IconColumnInsertRight,
   IconDeviceDesktop,
   IconLayoutDashboard,
   IconLayoutSidebarRight,
@@ -48,7 +50,8 @@ import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
 import { activeEditor } from "#/lib/active-editor.ts";
 import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
-import { type ModuleKey, useNavStore, type View } from "#/lib/store/nav.ts";
+import { type ModuleKey, tabGroups, useNavStore, type View } from "#/lib/store/nav.ts";
+import { canSplitLeft, canSplitRight } from "#/lib/store/tab-groups.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
@@ -260,6 +263,7 @@ export function QuickActions({
   /// Hands focus back to the hosting palette's input (after a Space picker).
   onRefocus: () => void;
 }) {
+  const nav = useNavStore();
   const {
     openEntity,
     setView,
@@ -267,7 +271,8 @@ export function QuickActions({
     view,
     rightSidebarCollapsed,
     setRightSidebarCollapsed,
-  } = useNavStore();
+  } = nav;
+  const tabLayout = { groups: tabGroups(nav), focusedGroupId: nav.focusedGroupId };
   const theme = useThemeStore((s) => s.theme);
   const applyTheme = useThemeStore((s) => s.setTheme);
   const queryClient = useQueryClient();
@@ -465,6 +470,44 @@ export function QuickActions({
         <ShortcutKbd name="newTab" />,
       ),
     },
+    ...(canSplitLeft(tabLayout, nav.activeTabId)
+      ? [
+          {
+            id: "split-left",
+            category: "create" as const,
+            words: "Split Left side by side split view two panes editor group",
+            node: simpleItem(
+              "split-left",
+              IconColumnInsertLeft,
+              "Split Left",
+              () => {
+                useNavStore.getState().splitLeft();
+                onDone();
+              },
+              <ShortcutKbd name="splitLeft" />,
+            ),
+          },
+        ]
+      : []),
+    ...(canSplitRight(tabLayout, nav.activeTabId)
+      ? [
+          {
+            id: "split-right",
+            category: "create" as const,
+            words: "Split Right side by side split view two panes editor group",
+            node: simpleItem(
+              "split-right",
+              IconColumnInsertRight,
+              "Split Right",
+              () => {
+                useNavStore.getState().splitRight();
+                onDone();
+              },
+              <ShortcutKbd name="splitRight" />,
+            ),
+          },
+        ]
+      : []),
     ...(spaces.length > 0
       ? [
           {

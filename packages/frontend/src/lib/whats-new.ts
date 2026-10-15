@@ -7,8 +7,8 @@ const highlight = z.object({
   /// A name from `features/whats-new/icons.ts`.
   icon: z.string().optional(),
   tag: z.enum(["New", "Improved"]).optional(),
-  /// A hotkey such as `Mod+Shift+J`, shown as keys on the card.
-  shortcut: z.string().optional(),
+  /// Hotkeys such as `Mod+Shift+J`, each shown as its own set of keys on the card.
+  shortcuts: z.array(z.string()).default([]),
 });
 
 const entry = z
