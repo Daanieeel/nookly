@@ -171,7 +171,7 @@ export function DeckCounts({ stats }: { stats: DeckSummary["stats"] }) {
     { group: "review", value: stats.due, label: "due" },
   ] as const;
   return (
-    <div className="flex items-center gap-3 text-xs tabular-nums">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs tabular-nums">
       {counts.map((c) => (
         <span
           key={c.group}

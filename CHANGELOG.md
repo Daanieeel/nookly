@@ -16,6 +16,7 @@ All notable changes to Nookly are listed here.
 ### Fixed
 
 - **Dollar amounts in deck cards stay text.** "It costs $5 and $10" no longer turns into a formula, and `\$` shows a plain dollar sign.
+- **Decks on the dashboard fit narrow cards.** The card counts wrap onto a second line instead of running under the Study button.
 
 ## 0.34.3 (2026-10-15)
 
