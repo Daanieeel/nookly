@@ -53,8 +53,8 @@ export const LetterOrderedList = OrderedList.extend({
   },
   // Markdown already reads `a.` and `a)` as a lettered list but forgets the `)`, so the
   // marker is taken from the source line to keep it.
-  parseMarkdown: (token, helpers) => {
-    const parsed = OrderedList.config.parseMarkdown?.(token, helpers) ?? [];
+  parseMarkdown(token, helpers) {
+    const parsed = OrderedList.config.parseMarkdown?.call(this, token, helpers) ?? [];
     const start = letterListStart.exec(token.raw ?? "");
     if (!start || Array.isArray(parsed) || !("type" in parsed) || parsed.type !== "orderedList") {
       return parsed;

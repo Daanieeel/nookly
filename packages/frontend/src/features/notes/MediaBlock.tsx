@@ -257,11 +257,10 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
                 )}
               </span>
             </div>
-            {kind === "audio" &&
-              source.src && (
-                // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
-                <audio src={source.src} controls preload="metadata" className="w-full" />
-              )}
+            {kind === "audio" && source.src && (
+              // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
+              <audio src={source.src} controls preload="metadata" className="w-full" />
+            )}
           </div>
         )}
         <div className="media-toolbar">

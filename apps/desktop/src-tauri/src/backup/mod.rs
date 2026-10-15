@@ -658,7 +658,7 @@ mod tests {
         let info = backup_of(&source, &dest, 10);
         let mut zip = ZipArchive::new(File::open(&info.path).unwrap()).unwrap();
         let names: Vec<String> = (0..zip.len())
-            .map(|i| zip.by_index(i).unwrap().name().to_string())
+            .map(|i| zip.by_index(i).unwrap().name().unwrap().to_string())
             .collect();
         assert!(names.iter().all(|n| !n.starts_with("office-previews")));
         assert!(!names.iter().any(|n| n == "crash.log"));

@@ -22,7 +22,8 @@ export function MarkdownViewer({
     editable: false,
     extensions: [...editorExtensions({ spaceId, pageId: "", getEntities: () => [] }), Markdown],
     editorProps: {
-      attributes: { class: cn("tiptap-content text-sm/relaxed", className) },
+      // Tiptap marks every editor `textbox`, which needs a name; this one only displays text.
+      attributes: { role: "document", class: cn("tiptap-content text-sm/relaxed", className) },
       handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
     },
   });
