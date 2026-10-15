@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.34.1",
+      "date": "2026-10-15",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Split Right and Split Left use `Mod+Alt+Shift+Right` and `Mod+Alt+Shift+Left`, so they no longer clash with selecting text."
+        ]
+      }
+    },
+    {
       "version": "0.34.0",
       "date": "2026-10-15",
       "title": "Split view",
@@ -11,7 +21,7 @@
           "description": "Use the **Split** button, the command palettes or the keyboard to work side by side. `Mod+1` and `Mod+2` switch sides.",
           "icon": "layout-columns",
           "tag": "New",
-          "shortcuts": ["Mod+Shift+ArrowLeft", "Mod+Shift+ArrowRight"]
+          "shortcuts": ["Mod+Alt+Shift+ArrowLeft", "Mod+Alt+Shift+ArrowRight"]
         }
       ],
       "more": {

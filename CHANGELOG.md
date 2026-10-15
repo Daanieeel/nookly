@@ -2,11 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.1 (2026-10-15)
+
+### Changed
+
+- **Split view shortcuts no longer clash with text selection.** Split Right and Split Left are now `Mod+Alt+Shift+Right` and `Mod+Alt+Shift+Left` (Cmd+Option+Shift on Mac, Ctrl+Alt+Shift on Windows and Linux).
+
 ## 0.34.0 (2026-10-15)
 
 ### Added
 
-- **Split view.** Work in two groups of tabs side by side. Right click a tab and pick Split Right, press `Mod+Shift+Right` (or `Mod+Shift+Left` for Split Left), use the new Split button next to Import (Split Left or Split Right), run Split Left or Split Right from the command palettes, or drag a tab to the right edge of the page. Each side keeps its own tabs, pins and history, the divider between them can be dragged (double click it to split evenly again), and `Mod+1` and `Mod+2` move between the sides. Your split comes back after a restart, and a narrow window shows one side at a time.
+- **Split view.** Work in two groups of tabs side by side. Right click a tab and pick Split Right, press `Mod+Alt+Shift+Right` (or `Mod+Alt+Shift+Left` for Split Left), use the new Split button next to Import (Split Left or Split Right), run Split Left or Split Right from the command palettes, or drag a tab to the right edge of the page. Each side keeps its own tabs, pins and history, the divider between them can be dragged (double click it to split evenly again), and `Mod+1` and `Mod+2` move between the sides. Your split comes back after a restart, and a narrow window shows one side at a time.
 
 ### Changed
 

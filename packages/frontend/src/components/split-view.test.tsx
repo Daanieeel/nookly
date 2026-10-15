@@ -94,7 +94,7 @@ describe("split view", () => {
 describe("split view shortcuts", () => {
   it("splits right and focuses either group", async () => {
     const { user } = renderWithProviders(<Harness />);
-    await user.keyboard("{Control>}{Shift>}{ArrowRight}{/Shift}{/Control}");
+    await user.keyboard("{Control>}{Alt>}{Shift>}{ArrowRight}{/Shift}{/Alt}{/Control}");
     expect(groups()).toHaveLength(2);
     expect(useNavStore.getState().focusedGroupId).toBe(groups()[1].id);
     await user.keyboard("{Control>}1{/Control}");
@@ -105,7 +105,7 @@ describe("split view shortcuts", () => {
 
   it("splits left with keys that exist on a German keyboard", async () => {
     const { user } = renderWithProviders(<Harness />);
-    await user.keyboard("{Control>}{Shift>}{ArrowLeft}{/Shift}{/Control}");
+    await user.keyboard("{Control>}{Alt>}{Shift>}{ArrowLeft}{/Shift}{/Alt}{/Control}");
     expect(groups()).toHaveLength(2);
     expect(useNavStore.getState().focusedGroupId).toBe(groups()[0].id);
   });
