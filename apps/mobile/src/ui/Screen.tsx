@@ -26,6 +26,7 @@ export function Screen({
   refreshing?: boolean;
 }) {
   const scroll = useRef<ScrollView>(null);
+  const content = useRef<View>(null);
   const offset = useRef(0);
   const height = useRef(0);
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -37,7 +38,7 @@ export function Screen({
   /// `y` is measured from the top of `anchor`; the page scrolls just enough to show it.
   const reveal = useMemo(
     () => (anchor: View, y: number) => {
-      const node = scroll.current?.getInnerViewNode();
+      const node = content.current;
       if (!node) return;
       anchor.measureLayout(
         node,
@@ -60,7 +61,6 @@ export function Screen({
       <ScrollView
         ref={scroll}
         className={cn("flex-1", PAGE_BACKGROUND)}
-        contentContainerClassName="gap-5 p-4 pb-12"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={32}
@@ -70,7 +70,9 @@ export function Screen({
           onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
         }
       >
-        {children}
+        <View ref={content} collapsable={false} className="gap-5 p-4 pb-12">
+          {children}
+        </View>
       </ScrollView>
     </RevealContext.Provider>
   );
