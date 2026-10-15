@@ -3,6 +3,7 @@ import {
   IconCalendar,
   IconChevronRight,
   IconInfoCircle,
+  IconLayoutSidebar,
   IconNotes,
   IconPalette,
   IconSettings,
@@ -81,6 +82,13 @@ export function SettingsScreen() {
         })}
       </Section>
       <Section>
+        <Row
+          title="Sidebar"
+          subtitle="What it lists first, and in what order"
+          icon={<IconLayoutSidebar size={20} color={theme.colors.mutedForeground} />}
+          trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
+          onPress={() => router.push("/settings/sidebar")}
+        />
         <Row
           title="About"
           subtitle={`Nookly ${Constants.expoConfig?.version ?? ""}`}

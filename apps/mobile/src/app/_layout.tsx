@@ -209,6 +209,16 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="new/jot"
+                options={{
+                  title: "Quick Jot",
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.5, 1],
+                }}
+              />
+              <Stack.Screen name="assignments" options={{ title: "Assignments" }} />
+              <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
+              <Stack.Screen
                 name="new/task"
                 options={{
                   title: "New Task",

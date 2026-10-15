@@ -9,8 +9,10 @@ import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
 import {
   IconCalendarEvent,
   IconChecklist,
+  IconClipboardList,
   IconChevronDown,
   IconChevronRight,
+  IconFeather,
   IconLayoutDashboard,
   IconPlus,
   IconSearch,
@@ -31,7 +33,17 @@ import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
 import { Text } from "../ui/Text.tsx";
 import { cn, row, splitText, withState } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
+import { DEFAULT_TOP, type TopId, topSchema, visibleTop } from "./sidebar-top.ts";
+import { usePreference } from "../data/preferences.ts";
 import { syncLine } from "./sync-status.ts";
+
+const TOP_ICONS = {
+  dashboard: IconLayoutDashboard,
+  calendar: IconCalendarEvent,
+  tasks: IconChecklist,
+  assignments: IconClipboardList,
+  jot: IconFeather,
+} satisfies Record<TopId, typeof IconSearch>;
 
 /// One line of the sidebar: an icon, a name, and the current page lit up.
 function NavRow({
@@ -178,11 +190,8 @@ export function Sidebar({ close }: { close: () => void }) {
     router.push(href);
   };
   const muted = theme.colors.mutedForeground;
-  const top: { label: string; href: string; Icon: typeof IconSearch }[] = [
-    { label: "Dashboard", href: "/", Icon: IconLayoutDashboard },
-    { label: "Calendar", href: "/calendar", Icon: IconCalendarEvent },
-    { label: "Tasks", href: "/tasks", Icon: IconChecklist },
-  ];
+  const [topPref] = usePreference("sidebar.top", topSchema, DEFAULT_TOP);
+  const top = visibleTop(topPref).map((item) => ({ ...item, Icon: TOP_ICONS[item.id] }));
   const { box: searchBox, text: searchText } = splitText(row(INPUT_CLASSES));
   return (
     // Inset like the desktop's (`SIDEBAR_PANEL_CLASSES`): the page's background shows
@@ -208,13 +217,14 @@ export function Sidebar({ close }: { close: () => void }) {
         </Pressable>
       </View>
       <ScrollView className="flex-1" contentContainerClassName="p-2 pt-3">
-        {top.map(({ label, href, Icon }) => (
+        {top.map(({ id, label, href, Icon }) => (
           <NavRow
             key={href}
             label={label}
             active={pathname === href}
             icon={<Icon size={20} color={muted} />}
-            onPress={() => go(href)}
+            // Quick Jot is something to do, so it opens over the page, not instead of it.
+            onPress={() => (id === "jot" ? push(href) : go(href))}
           />
         ))}
         {pinnedItems.length > 0 ? (

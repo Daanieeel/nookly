@@ -15,6 +15,7 @@ import {
   getEntity,
   courseSemester,
   getFile,
+  listUnrefinedJots,
   labelIdsByEntity,
   listAllLabels,
   getSemester,
@@ -330,5 +331,14 @@ export const useTaskLabelIds = (spaceId: string | null, taskIds: string[]) => {
   return useQuery({
     queryKey: [...keys.taskLabels(spaceId), taskIds.length],
     queryFn: () => labelIdsByEntity(db, taskIds),
+  });
+};
+
+/// Jots with no note yet, oldest first.
+export const useUnrefinedJots = (limit = 5) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: [...keys.unrefinedJots, limit],
+    queryFn: () => listUnrefinedJots(db, { limit }),
   });
 };

@@ -1,5 +1,5 @@
-import { type LocalDb, iso, num, optStr, rows, str, write } from "./db.ts";
-import { createEntityStatements } from "./entities.ts";
+import { type LocalDb, first, iso, num, optStr, rows, str, write } from "./db.ts";
+import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
 
 /// A block of a page, as the desktop stores it: markdown text per block.
 export interface BlockRecord {
@@ -123,4 +123,120 @@ export async function pagePreview(db: LocalDb, entityId: string): Promise<string
     )
   )[0];
   return row ? str(row.content) : "";
+}
+
+/// A live Note related to a jot through any relationship, in either direction: the jot has
+/// been refined into it (`LINKED_NOTE` on the desktop).
+const LINKED_NOTE = `SELECT 1 FROM relationships r JOIN entities t
+  ON t.id = CASE WHEN r.from_entity_id = e.id THEN r.to_entity_id ELSE r.from_entity_id END
+  WHERE (r.from_entity_id = e.id OR r.to_entity_id = e.id) AND t.type = 'note' AND t.deleted_at IS NULL`;
+
+export interface JotSummary {
+  entity: EntityRecord;
+  preview: string;
+}
+
+/// Jots not yet refined into a note, oldest first (the most overdue), with the start of
+/// their text: the Dashboard's refine queue.
+export async function listUnrefinedJots(
+  db: LocalDb,
+  query: { spaceId?: string; limit?: number } = {},
+): Promise<JotSummary[]> {
+  const found = await rows(
+    db,
+    `SELECT ${ENTITY_COLUMNS} FROM entities e
+     WHERE e.type = 'jot' AND e.deleted_at IS NULL AND e.hidden_at IS NULL${query.spaceId ? " AND e.space_id = ?" : ""}
+       AND NOT EXISTS (${LINKED_NOTE})
+     ORDER BY e.created_at, e.id LIMIT ?`,
+    ...(query.spaceId ? [query.spaceId] : []),
+    query.limit ?? 50,
+  );
+  const summaries: JotSummary[] = [];
+  for (const row of found) {
+    const entity = toEntity(row);
+    const blocks = await rows(
+      db,
+      `SELECT content FROM blocks WHERE entity_id = ? AND TRIM(content) != ''
+         AND block_type IN ('paragraph','heading1','heading2','heading3','heading4','heading5','heading6','quote','callout','bulleted_list','numbered_list')
+       ORDER BY position`,
+      entity.id,
+    );
+    const preview = blocks
+      .map((b) => str(b.content))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 140);
+    summaries.push({ entity, preview });
+  }
+  return summaries;
+}
+
+/// `refine_jot`: a new note in the jot's Space, titled like the jot unless a title is
+/// given, empty, linked to it with `relates-to`. The jot stays as it is. A jot written for a
+/// session hands the note to that session too, unless it has one.
+export async function refineJot(db: LocalDb, jotId: string, title?: string): Promise<string> {
+  const jot = await first(
+    db,
+    "SELECT space_id, title FROM entities WHERE id = ? AND type = 'jot' AND deleted_at IS NULL",
+    jotId,
+  );
+  if (!jot) throw new Error("Only a jot that is still here can be refined.");
+  const note = await createPage(db, str(jot.space_id), "note", title?.trim() || str(jot.title));
+  const now = iso(db);
+  const statements = [
+    {
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'relates-to', ?)",
+      params: [db.newId(), jotId, note, now],
+    },
+  ];
+  const session = await first(
+    db,
+    "SELECT from_entity_id FROM relationships WHERE to_entity_id = ? AND relationship_type = 'session-jot'",
+    jotId,
+  );
+  if (session) {
+    const has = await first(
+      db,
+      `SELECT 1 AS yes FROM relationships r JOIN entities t ON t.id = r.to_entity_id
+       WHERE r.from_entity_id = ? AND r.relationship_type = 'session-note' AND t.deleted_at IS NULL`,
+      str(session.from_entity_id),
+    );
+    if (!has) {
+      statements.push(
+        {
+          sql: "DELETE FROM relationships WHERE from_entity_id = ? AND relationship_type = 'session-note'",
+          params: [str(session.from_entity_id)],
+        },
+        {
+          sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'session-note', ?)",
+          params: [db.newId(), str(session.from_entity_id), note, now],
+        },
+      );
+    }
+  }
+  await write(db, statements);
+  return note;
+}
+
+/// Quick Jot: a jot made from a line or two of text, instantly. The first line is its
+/// title (up to 80 characters); the whole text is its first paragraph.
+export async function createJotFromText(
+  db: LocalDb,
+  spaceId: string,
+  text: string,
+): Promise<string> {
+  const body = text.trim();
+  if (!body) throw new Error("Write something first.");
+  const title = (body.split("\n")[0] ?? "").trim().slice(0, 80);
+  const { id, statements } = createEntityStatements(db, spaceId, "jot", title);
+  const now = iso(db);
+  await write(db, [
+    ...statements,
+    {
+      sql: "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at) VALUES (?, ?, 0, 'paragraph', ?, ?, ?)",
+      params: [db.newId(), id, body, now, now],
+    },
+  ]);
+  return id;
 }

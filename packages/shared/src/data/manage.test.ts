@@ -19,7 +19,15 @@ import {
   updateLabel,
   updateSpace,
 } from "./manage.ts";
-import { addBlock, createPage, listBlocks } from "./notes.ts";
+import {
+  addBlock,
+  createJotFromText,
+  createPage,
+  listBlocks,
+  listUnrefinedJots,
+  refineJot,
+  updateBlock,
+} from "./notes.ts";
 import {
   convertToSubtask,
   createSubtask,
@@ -323,5 +331,79 @@ describe("making a task with details", () => {
     await expect(createTask(db, space, "x", null, { statusId: "nope" })).rejects.toThrow(
       "isn't in the list",
     );
+  });
+});
+
+describe("jots", () => {
+  it("lists the ones with no note yet, oldest first with a preview, and refining takes one off the list", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    const first = await createPage(db, space, "jot", "Idea one");
+    const second = await createPage(db, space, "jot", "Idea two");
+    await updateBlock(db, (await listBlocks(db, first))[0].id, "A thought about graphs");
+    expect((await listUnrefinedJots(db)).map((j) => [j.entity.title, j.preview])).toEqual([
+      ["Idea one", "A thought about graphs"],
+      ["Idea two", ""],
+    ]);
+    const note = await refineJot(db, first);
+    expect(await getEntity(db, note)).toMatchObject({
+      type: "note",
+      title: "Idea one",
+      spaceId: space,
+    });
+    expect((await listUnrefinedJots(db)).map((j) => j.entity.id)).toEqual([second]);
+    expect(await listUnrefinedJots(db, { spaceId: "other" })).toEqual([]);
+    await expect(refineJot(db, note)).rejects.toThrow("Only a jot");
+  });
+
+  it("hands the note to the session the jot was written for, unless it has one", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    const jot = await createPage(db, space, "jot", "Lecture jot");
+    const session = await createPage(db, space, "note", "stand in for a session");
+    await db.driver.batch([
+      {
+        sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES ('r1', ?, ?, 'session-jot', '2026-10-14T00:00:00Z')",
+        params: [session, jot],
+      },
+    ]);
+    const note = await refineJot(db, jot);
+    expect(
+      (
+        await rows(
+          db,
+          "SELECT to_entity_id FROM relationships WHERE from_entity_id = ? AND relationship_type = 'session-note'",
+          session,
+        )
+      ).map((r) => str(r.to_entity_id)),
+    ).toEqual([note]);
+    // A second jot for the same session leaves the session's note be.
+    const jot2 = await createPage(db, space, "jot", "Another");
+    await db.driver.batch([
+      {
+        sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES ('r2', ?, ?, 'session-jot', '2026-10-14T00:00:00Z')",
+        params: [session, jot2],
+      },
+    ]);
+    await refineJot(db, jot2);
+    expect(
+      (
+        await rows(
+          db,
+          "SELECT to_entity_id FROM relationships WHERE from_entity_id = ? AND relationship_type = 'session-note'",
+          session,
+        )
+      ).map((r) => str(r.to_entity_id)),
+    ).toEqual([note]);
+  });
+});
+
+describe("quick jot", () => {
+  it("makes a jot titled by the first line, holding all the text", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    const id = await createJotFromText(db, space, "  Buy a gift\nfor Ana's birthday  ");
+    expect(await getEntity(db, id)).toMatchObject({ type: "jot", title: "Buy a gift" });
+    expect((await listBlocks(db, id)).map((b) => b.content)).toEqual([
+      "Buy a gift\nfor Ana's birthday",
+    ]);
+    await expect(createJotFromText(db, space, "   ")).rejects.toThrow("Write something");
   });
 });
