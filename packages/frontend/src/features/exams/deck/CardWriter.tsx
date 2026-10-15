@@ -15,7 +15,7 @@ import { Kbd } from "#/components/kbd.tsx";
 import { createCard, updateCard } from "#/lib/api/decks.ts";
 import type { IndexCard } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { faceTextSize } from "./card-text";
+import { CardText, faceTextSize, hasMarkup } from "./card-text";
 import { invalidateDeck } from "./deck-data";
 import { CardSurface, DeckStack, FlipCard } from "./index-card";
 
@@ -102,6 +102,9 @@ export function CardWriter({
     else onDone();
   };
 
+  /// What the side being written holds, drawn as it will read on the card.
+  const shown = side === "front" ? draft.front : draft.back;
+
   const flip = () => setSide((s) => (s === "front" ? "back" : "front"));
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -134,7 +137,7 @@ export function CardWriter({
         <div className="flex flex-col">
           <span className="text-sm font-medium">{editing ? "Editing card" : "New card"}</span>
           <span className="text-xs text-muted-foreground">
-            Supports **bold**, *italic*, `code` and $math$
+            Supports **bold**, *italic*, `code`, $math$ and $$display math$$
           </span>
         </div>
         {!editing && (
@@ -196,6 +199,18 @@ export function CardWriter({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {hasMarkup(shown) && (
+        <section
+          aria-label="Preview"
+          className="rounded-lg border border-dashed border-border px-4 py-3 text-base/7"
+        >
+          <span className="mb-1 block text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Preview
+          </span>
+          <CardText text={shown} />
+        </section>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-1">
         <HintButton keys="Tab" onClick={flip}>

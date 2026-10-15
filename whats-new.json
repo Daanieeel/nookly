@@ -1,6 +1,37 @@
 {
   "versions": [
     {
+      "version": "0.34.6",
+      "date": "2026-10-15",
+      "title": "Ungraded homework, formulas in decks and a smarter slash menu",
+      "summary": "Mark assignments as ungraded, write display formulas on deck cards and find blocks faster with the slash menu.",
+      "highlights": [
+        {
+          "title": "Ungraded assignments",
+          "description": "Mark homework as **Ungraded** when you create it, or pick **None** for its grade, and it stays out of the course grade.",
+          "icon": "notebook",
+          "tag": "New"
+        },
+        {
+          "title": "Formulas in deck cards",
+          "description": "Write `$$…$$` for a formula on its own line and see a preview while you type the card.",
+          "icon": "cards",
+          "tag": "Improved"
+        },
+        {
+          "title": "Smarter slash menu",
+          "description": "Type `/h2`, `/title` or just a few letters in order, like `/bkmk`, to find a block.",
+          "icon": "keyboard",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Fixed": [
+          "Dollar amounts such as $5 and $10 in a deck card stay text instead of turning into a formula."
+        ]
+      }
+    },
+    {
       "version": "0.34.3",
       "date": "2026-10-15",
       "title": "Split view fix",

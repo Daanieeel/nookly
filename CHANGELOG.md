@@ -2,6 +2,21 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.6 (2026-10-15)
+
+### Added
+
+- **Ungraded assignments.** Mark homework as ungraded when you create it, or pick None for its grade. It no longer takes a share of the course grade, and the Grades report leaves it out.
+- **Formulas on their own line in deck cards.** Write `$$…$$` for a centred formula that can run over several lines, or use `\(…\)` and `\[…\]`. The card writer shows a preview as you type.
+
+### Changed
+
+- **The slash menu is easier to search.** `/h2`, `/heading2`, `/title` and `/header` find the headings, and typing letters in order such as `/bkmk` finds Web bookmark. Closer matches stay on top.
+
+### Fixed
+
+- **Dollar amounts in deck cards stay text.** "It costs $5 and $10" no longer turns into a formula, and `\$` shows a plain dollar sign.
+
 ## 0.34.3 (2026-10-15)
 
 ### Fixed

@@ -4,7 +4,7 @@ A standalone module in the sidebar. Its page lays every deck out as a pile, deck
 
 ## Deck (native entity)
 
-Flashcards with inline markdown (bold, italic, code, math) on the front and back, grouped into decks. Cards are scheduled with FSRS, the algorithm Anki uses, and rated Again, Hard, Good or Easy.
+Flashcards with inline markdown (bold, italic, code, math) on the front and back, grouped into decks. Math is `$x^2$` inline or `$$…$$` as a block over several lines, and `\ce{}` draws chemistry. The card writer previews a face that has any markdown. Cards are scheduled with FSRS, the algorithm Anki uses, and rated Again, Hard, Good or Easy.
 
 Cards are records owned by the deck, not entities. They reach the CLI as the deck's `cards` child collection.
 
