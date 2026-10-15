@@ -56,10 +56,17 @@ export interface SyncClientOptions {
 
 const MAX_BACKOFF_MS = 60_000;
 const BASE_BACKOFF_MS = 1_000;
+/// The live channel is one small connection, so it knocks again soon: the longer waits
+/// are for the sync requests themselves.
+const MAX_LIVE_BACKOFF_MS = 10_000;
 
 function isNetworkError(error: Error): boolean {
   return error instanceof NetworkError || error instanceof TypeError;
 }
+
+/// Thrown inside a sync when the client was stopped meanwhile: what the server just
+/// answered is dropped, never written.
+class Stopped extends Error {}
 
 export class SyncClient {
   private readonly engine: SyncEngine;
@@ -94,7 +101,7 @@ export class SyncClient {
     this.onStatus = options.onStatus;
     this.onApplied = options.onApplied;
     this.afterCycle = options.afterCycle;
-    this.debounceMs = options.debounceMs ?? 1_500;
+    this.debounceMs = options.debounceMs ?? 400;
     this.periodMs = options.periodMs ?? 60_000;
   }
 
@@ -125,6 +132,12 @@ export class SyncClient {
     this.closeLive?.();
     this.closeLive = null;
     this.report({ state: "off" });
+  }
+
+  /// Resolves once the sync in flight, if any, has ended. After `stop()` that sync
+  /// writes nothing, so what follows (a sign out wiping sync state) is safe.
+  async finished(): Promise<void> {
+    await this.running?.catch(() => {});
   }
 
   /// Something changed locally; it goes out shortly.
@@ -174,6 +187,7 @@ export class SyncClient {
       if (applied) this.onApplied?.();
       await this.afterCycle?.(applied);
     } catch (cause) {
+      if (cause instanceof Stopped) return;
       const error = cause instanceof Error ? cause : new Error(String(cause));
       this.report({
         state: isNetworkError(error) ? "offline" : "error",
@@ -184,11 +198,16 @@ export class SyncClient {
     }
   }
 
+  private assertStarted() {
+    if (!this.started) throw new Stopped();
+  }
+
   /// Pulls every dataset until the server has nothing more. Whether anything changed.
   private async pullAll(): Promise<boolean> {
     let changed = false;
     for (let page = 0; page < 1_000; page++) {
       const response = await this.transport.pull({ cursors: await this.engine.cursors() });
+      this.assertStarted();
       for (const dataset of response.removed) {
         await this.engine.forget(dataset);
         changed = true;
@@ -207,6 +226,7 @@ export class SyncClient {
       const planned = await this.engine.collect();
       if (planned.length === 0) return;
       const response = await this.transport.push({ changes: planned.map((p) => p.change) });
+      this.assertStarted();
       await this.engine.acknowledge(planned, response.results);
       this.report({ pending: await this.engine.pendingCount() });
     }
@@ -214,8 +234,8 @@ export class SyncClient {
 
   /// Waits longer after each failure, up to a minute, with some spread so a server
   /// coming back isn't hit by every device at once.
-  private backoff(attempt: number): number {
-    const exponential = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt);
+  private backoff(attempt: number, max = MAX_BACKOFF_MS): number {
+    const exponential = Math.min(max, BASE_BACKOFF_MS * 2 ** attempt);
     return exponential / 2 + Math.random() * (exponential / 2);
   }
 
@@ -240,7 +260,7 @@ export class SyncClient {
         this.closeLive = null;
         if (!this.started) return;
         if (this.status.state === "idle") this.report({ state: "offline" });
-        const delay = this.backoff(this.liveAttempts++);
+        const delay = this.backoff(this.liveAttempts++, MAX_LIVE_BACKOFF_MS);
         this.reconnect = setTimeout(() => {
           this.reconnect = null;
           this.openLive();

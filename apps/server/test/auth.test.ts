@@ -1,4 +1,4 @@
-import { ApiRequestError } from "@nookly/shared/api";
+import { ApiClient, ApiRequestError } from "@nookly/shared/api";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   DESKTOP,
@@ -39,6 +39,21 @@ describe("accounts", () => {
     expect((await api.me()).username).toBe("ada");
     // Nothing is mailed to an account without an address.
     expect(server.mailer.sent).toHaveLength(0);
+  });
+
+  it("signs up and in from an app whose networking layer attaches stale cookies", async () => {
+    // A phone's networking layer keeps the cookie of an earlier sign in and sends it
+    // along, without an Origin; the apps use bearer tokens, so it must not matter.
+    const fetch = (url: string, init: RequestInit) =>
+      globalThis.fetch(url, {
+        ...init,
+        headers: { ...Object.fromEntries(new Headers(init.headers)), cookie: "stale=1" },
+      });
+    const appClient = () =>
+      new ApiClient({ baseUrl: server.baseUrl, tokens: new MemoryTokens(), fetch });
+    const user = await appClient().signUp({ username: "grace", password: PASSWORD }, PHONE);
+    expect(user.username).toBe("grace");
+    expect((await appClient().signIn("grace", PASSWORD, PHONE)).username).toBe("grace");
   });
 
   it("signs up with an email too, and confirms it with the emailed link", async () => {

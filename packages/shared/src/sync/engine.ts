@@ -334,6 +334,9 @@ export class SyncEngine {
         ),
       );
     }
+    // Whatever place in a server's history this device remembers belongs to an account
+    // it left; a new first sync reads the whole of the new one.
+    statements.push(run("DELETE FROM sync_meta WHERE key LIKE 'cursor:%'"));
     statements.push(setMeta(META.enabled, "1"));
     await this.batch(statements);
   }

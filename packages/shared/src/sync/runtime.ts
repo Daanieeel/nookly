@@ -535,7 +535,10 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   /// Signs this device out. Every row stays; only what the device knew of the server
   /// goes, so signing in again (to this or another account) is a safe first sync.
   async signOut(): Promise<void> {
+    const client = this.client;
     this.stop();
+    // A sync still on its way must not write after the wipe below.
+    await client?.finished();
     try {
       await this.api?.signOut();
     } catch {
@@ -548,7 +551,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   }
 
   private async signedOutByServer() {
+    const client = this.client;
     this.stop();
+    await client?.finished();
     await this.engine.disable();
     await this.deps.driver.batch([run("DELETE FROM page_docs")]);
     this.store.setState({

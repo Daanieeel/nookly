@@ -25,6 +25,7 @@ import type { Mailer } from "./mail/mailer.ts";
 import { invitePage, resetPasswordPage, resultPage } from "./pages.ts";
 import { RateLimiter } from "./security/rate-limit.ts";
 import { ShareService } from "./shares/service.ts";
+import { withoutCookies } from "./auth/cookies.ts";
 import { Hub, type LiveSocket } from "./sync/hub.ts";
 import { SyncService } from "./sync/service.ts";
 import { CollabService } from "./collab/service.ts";
@@ -282,7 +283,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             }
             if (request.method === "POST" && MAIL_PATHS.has(path))
               limit(limits.email, `mail:${ip}`);
-            return auth.handler(request);
+            return auth.handler(withoutCookies(request));
           },
           { parse: "none", detail: { hide: true } },
         )

@@ -41,6 +41,11 @@ class FakeNetwork {
     if (!this.online) throw new TypeError("Failed to fetch");
   }
 
+  /// Devices holding a live channel right now.
+  live(): number {
+    return this.listeners.size;
+  }
+
   cut() {
     this.online = false;
     for (const l of Array.from(this.listeners)) {
@@ -126,6 +131,64 @@ describe("the sync client", () => {
     expect(a.statuses.at(-1)?.state).toBe("idle");
     a.client.stop();
     b.client.stop();
+  });
+
+  it("is live again within seconds of the network coming back, even after a long outage", async () => {
+    // The longest wait the retries can draw.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    const b = deviceOn(network);
+    await a.client.start();
+    await b.client.start();
+    network.cut();
+    // Long enough for the retries to have backed off as far as they go.
+    await vi.advanceTimersByTimeAsync(10 * 60_000 + 30_000);
+    network.online = true;
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(network.live()).toBe(2);
+    addTask(a.driver, "t1", "After the outage");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(b.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "After the outage" },
+    ]);
+    random.mockRestore();
+    a.client.stop();
+    b.client.stop();
+  });
+
+  it("leaves nothing behind when it is stopped in the middle of a sync", async () => {
+    // Signing out wipes what the device knew of the server; a pull still on its way
+    // must not write a cursor or rows afterwards, or the next account starts from
+    // the last account's place and never sees its own data.
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    addTask(a.driver, "t1", "Before");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const slow = network.server;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const device = deviceOn(network);
+    const transport = network.transport();
+    const held: SyncTransport = {
+      ...transport,
+      pull: async (request) => {
+        await gate;
+        return slow.pull(request);
+      },
+    };
+    const client = new SyncClient({ engine: device.engine, transport: held });
+    void client.start();
+    await vi.advanceTimersByTimeAsync(100);
+    client.stop();
+    release();
+    await client.finished();
+    expect(await device.engine.cursors()).toEqual({});
+    expect(device.driver.rows("SELECT id FROM entities")).toEqual([]);
+    a.client.stop();
   });
 
   it("runs one sync at a time and catches up on what came in during it", async () => {

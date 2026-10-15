@@ -104,6 +104,16 @@ describe("turning sync on", () => {
   });
 });
 
+describe("turning on", () => {
+  it("starts from the beginning of the new server, whatever a cursor left behind says", async () => {
+    // A cursor from the last account would hide everything the next one holds below it.
+    const d = device("a");
+    d.driver.exec("INSERT INTO sync_meta (key, value) VALUES ('cursor:own', '761')");
+    await d.engine.enable();
+    expect(await d.engine.cursors()).toEqual({});
+  });
+});
+
 describe("pushing", () => {
   it("sends parents before children and only what changed", async () => {
     const d = device("a");

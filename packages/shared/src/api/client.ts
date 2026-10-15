@@ -149,6 +149,8 @@ export class ApiClient {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
+        // The token is the credential; a cookie jar's leftovers must not ride along.
+        credentials: "omit",
       });
     } catch (error) {
       throw new NetworkError(error instanceof Error ? error.message : "Network error");
@@ -361,7 +363,12 @@ export class ApiClient {
     headers.set("authorization", `Bearer ${token}`);
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}${path}`, { ...init, method, headers });
+      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        ...init,
+        method,
+        headers,
+        credentials: "omit",
+      });
     } catch (error) {
       throw new NetworkError(error instanceof Error ? error.message : "Network error");
     }
