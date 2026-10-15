@@ -33,7 +33,12 @@ function join(parts: string[]): string {
 }
 
 /// "Good morning, Ada. Today you have 2 sessions and 3 tasks due, 1 overdue, and 12 cards to study."
-export function briefing(input: BriefingInputs): { greeting: string; text: string } {
+export interface Briefing {
+  greeting: string;
+  text: string;
+}
+
+export function briefing(input: BriefingInputs): Briefing {
   const greeting = greetingFor(input.now ?? new Date(), input.name);
   const today: string[] = [];
   if (input.sessionsToday > 0) today.push(count(input.sessionsToday, "session"));
