@@ -52,6 +52,8 @@ export const keys = {
   deck: (id: string) => ["local", "deck", id] as const,
   cards: (deckId: string) => ["local", "cards", deckId] as const,
   related: (id: string) => ["local", "related", id] as const,
+  links: (id: string) => ["local", "links", id] as const,
+  mentions: (id: string) => ["local", "mentions", id] as const,
   labels: (spaceId: string) => ["local", "labels", spaceId] as const,
   entityLabels: (id: string) => ["local", "entity-labels", id] as const,
   sync: {

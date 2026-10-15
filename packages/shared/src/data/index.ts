@@ -14,3 +14,4 @@ export * from "./sessions.ts";
 export * from "./series.ts";
 export * from "./semesters.ts";
 export * from "./views.ts";
+export * from "./relationships.ts";

@@ -1,4 +1,10 @@
 import {
+  addFile,
+  createRelationship,
+  createPage,
+  linkedItems,
+  listBlocks,
+  updateBlock,
   createCard,
   createCourse,
   createDeck,
@@ -201,6 +207,52 @@ describe("the merge editor", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Save Combined" }));
     await waitFor(async () =>
       expect((await getEntity(data.db, task))?.title).toBe("Old and new title"),
+    );
+  });
+});
+
+describe("an item's links", () => {
+  it("shows each link as it reads from this item, and attachments and mentions apart", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Write");
+    const review = await createTask(data.db, space, "Review");
+    const file = await addFile(data.db, space, "spec.pdf", "file:///spec.pdf");
+    await createRelationship(data.db, task, review, "blocks");
+    await createRelationship(data.db, task, file, "attached-file");
+    const page = await createPage(data.db, space, "note", "Plan");
+    await updateBlock(
+      data.db,
+      (await listBlocks(data.db, page))[0].id,
+      `Do [Write](mention:${task}) first.`,
+    );
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={task} /> },
+      data,
+      `/entity/${task}`,
+    );
+    expect(await screen.findByRole("button", { name: /^Review, Blocks · / })).toBeTruthy();
+    expect(screen.getByText("Attachments")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^spec.pdf, Attached file · / })).toBeTruthy();
+    expect(await screen.findByText("Mentioned in")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Plan, / })).toBeTruthy();
+  });
+
+  it("links with the kind of link chosen", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Write");
+    const other = await createTask(data.db, space, "Review");
+    const screen = await renderScreens(
+      { index: () => <Text>Task page</Text>, link: () => <LinkPickerScreen entityId={task} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await fireEvent.press(await screen.findByRole("radio", { name: "Blocks" }));
+    await fireEvent.changeText(screen.getByLabelText("Find an item"), "Review");
+    await fireEvent.press(await screen.findByRole("button", { name: /^Review, / }));
+    await waitFor(async () =>
+      expect((await linkedItems(data.db, task)).map((l) => [l.type.name, l.entity.id])).toEqual([
+        ["blocks", other],
+      ]),
     );
   });
 });

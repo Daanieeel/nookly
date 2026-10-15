@@ -15,6 +15,9 @@ import {
   getEntity,
   courseSemester,
   getFile,
+  linkedItems,
+  mentionedIn,
+  mentionsOf,
   listViews,
   listUnrefinedJots,
   labelIdsByEntity,
@@ -350,5 +353,23 @@ export const useViews = (query: { spaceId?: string; module?: string } = {}) => {
   return useQuery({
     queryKey: keys.views(query.spaceId ?? null, query.module ?? null),
     queryFn: () => listViews(db, query),
+  });
+};
+
+/// Every link of an item, in both directions.
+export const useLinks = (entityId: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.links(entityId), queryFn: () => linkedItems(db, entityId) });
+};
+
+/// What a page mentions, and which pages mention it.
+export const useMentions = (entityId: string) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.mentions(entityId),
+    queryFn: async () => ({
+      mentions: await mentionsOf(db, entityId),
+      mentionedIn: await mentionedIn(db, entityId),
+    }),
   });
 };
