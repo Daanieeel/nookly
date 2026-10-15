@@ -6,7 +6,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Ungraded assignments.** Mark homework as ungraded when you create it, or pick None for its grade. It no longer takes a share of the course grade, and the Grades report leaves it out.
+- **Ungraded assignments.** A new Evaluation property, Ungraded or Graded, tells homework from graded work, in the create dialog and on the assignment. Only a graded assignment shows the Grade field and takes a share of the course grade, and the Grades report leaves ungraded ones out.
 - **Formulas on their own line in deck cards.** Write `$$…$$` for a centred formula that can run over several lines, or use `\(…\)` and `\[…\]`. The card writer shows a preview as you type.
 
 ### Changed

@@ -8,7 +8,7 @@
       "highlights": [
         {
           "title": "Ungraded assignments",
-          "description": "Mark homework as **Ungraded** when you create it, or pick **None** for its grade, and it stays out of the course grade.",
+          "description": "Set an assignment's **Evaluation** to Ungraded for homework, or Graded to add a grade. Ungraded work stays out of the course grade.",
           "icon": "notebook",
           "tag": "New"
         },
