@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.2 (2026-10-15)
+
+### Fixed
+
+- **The dashboard summary no longer repeats your next session.** When a session is about to start, it is mentioned once instead of twice.
+
 ## 0.34.1 (2026-10-15)
 
 ### Changed
