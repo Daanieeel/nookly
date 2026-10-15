@@ -83,6 +83,11 @@ export class ApiRequestError extends Error {
 /// `fetch`, as far as the client uses it.
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
+/// How often the live channel pings, and how long without hearing anything it takes
+/// for dead.
+const LIVE_PING_MS = 15_000;
+const LIVE_SILENCE_MS = 40_000;
+
 export interface ApiClientOptions {
   baseUrl: string;
   tokens: TokenStore;
@@ -460,16 +465,36 @@ export class ApiClient {
     let socket: WebSocket | null = null;
     let closed = false;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
+    // Told once whichever way the connection ends, by the server or by us.
+    const ended = () => {
+      if (heartbeat) clearInterval(heartbeat);
+      heartbeat = null;
+      if (closed) return;
+      closed = true;
+      handlers.onClose();
+    };
     void (async () => {
       const token = await this.sessionToken();
       if (closed || !token) return;
       socket = this.webSocket(url);
+      let heardAt = Date.now();
       socket.addEventListener("open", () => {
+        heardAt = Date.now();
         socket?.send(JSON.stringify({ type: "hello", token }));
-        // Keeps proxies from closing a quiet connection.
-        heartbeat = setInterval(() => socket?.send(JSON.stringify({ type: "ping" })), 25_000);
+        // Keeps proxies from closing a quiet connection, and tells a dead one from a
+        // quiet one: the server answers every ping, so silence means it is gone (a
+        // server that vanished or a network that changed leaves no close event).
+        heartbeat = setInterval(() => {
+          if (Date.now() - heardAt > LIVE_SILENCE_MS) {
+            socket?.close();
+            ended();
+            return;
+          }
+          socket?.send(JSON.stringify({ type: "ping" }));
+        }, LIVE_PING_MS);
       });
       socket.addEventListener("message", (event) => {
+        heardAt = Date.now();
         let message: ServerMessage;
         try {
           message = serverMessageSchema.parse(JSON.parse(String(event.data)));
@@ -483,13 +508,12 @@ export class ApiClient {
           void this.forget().then(() => this.onSignedOut?.());
         }
       });
-      socket.addEventListener("close", () => {
-        if (heartbeat) clearInterval(heartbeat);
-        if (!closed) handlers.onClose();
-      });
+      socket.addEventListener("close", ended);
     })();
     return () => {
       closed = true;
+      if (heartbeat) clearInterval(heartbeat);
+      heartbeat = null;
       socket?.close();
     };
   }
