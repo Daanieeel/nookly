@@ -1,10 +1,12 @@
 import type { TaskRecord, TaskStatus } from "@nookly/shared/data";
 import {
   DEFAULT_DISPLAY,
+  displayFromView,
   dueBucket,
   filterTasks,
   groupTasks,
   orderTasks,
+  viewConfigFromDisplay,
   type TaskDisplay,
 } from "./task-view.ts";
 
@@ -150,5 +152,57 @@ describe("grouping", () => {
     ]);
     expect(groupTasks([overdue, today], display({ grouping: "none" }), ctx())).toHaveLength(1);
     expect(groupTasks([], display({ grouping: "none" }), ctx())).toEqual([]);
+  });
+});
+
+describe("saved views", () => {
+  const all = { statusIds: ["backlog", "todo", "doing", "done"], labelIds: ["l1", "l2"] };
+
+  it("reads a View saved on the computer as far as the phone can show it", () => {
+    const raw = JSON.stringify({
+      filters: [
+        { fieldId: "status", operator: "isNot", values: ["done"] },
+        { fieldId: "label", operator: "is", values: ["l2"] },
+        { fieldId: "due", operator: "is", values: ["overdue"] },
+      ],
+      display: {
+        layout: "board",
+        grouping: "start",
+        ordering: "title",
+        showEmpty: { board: true },
+      },
+    });
+    const { display, ignored } = displayFromView(raw, all);
+    expect(display).toMatchObject({
+      layout: "board",
+      statuses: ["backlog", "todo", "doing"],
+      labels: ["l2"],
+      grouping: "status",
+      ordering: "title",
+    });
+    expect(ignored).toEqual(["due", "grouping by start"]);
+  });
+
+  it("opens an unreadable or empty View as the defaults", () => {
+    expect(displayFromView("nope", all)).toEqual({ display: DEFAULT_DISPLAY, ignored: [] });
+    expect(displayFromView("{}", all).display).toEqual(DEFAULT_DISPLAY);
+    expect(displayFromView('{"filters":"x","display":3}', all).display).toEqual(DEFAULT_DISPLAY);
+  });
+
+  it("writes what the phone shows in the form the desktop reads, and reads it back", () => {
+    const display = {
+      ...DEFAULT_DISPLAY,
+      layout: "board" as const,
+      grouping: "due" as const,
+      statuses: ["todo"],
+      labels: ["l1"],
+    };
+    const config = JSON.parse(viewConfigFromDisplay(display));
+    expect(config.filters).toEqual([
+      { fieldId: "status", operator: "is", values: ["todo"] },
+      { fieldId: "label", operator: "is", values: ["l1"] },
+    ]);
+    expect(config.display).toEqual({ layout: "board", grouping: "due", ordering: "due" });
+    expect(displayFromView(viewConfigFromDisplay(display), all).display).toMatchObject(display);
   });
 });

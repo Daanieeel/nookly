@@ -3,7 +3,9 @@ import {
   createPage,
   createSpace,
   createTask,
+  createView,
   entityLabels,
+  listViews,
   listTasks,
   relatedItems,
   setTaskDates,
@@ -90,5 +92,46 @@ describe("a new task", () => {
       expect((await entityLabels(data.db, task.entity.id)).map((l) => l.id)).toEqual([label]);
       expect((await relatedItems(data.db, task.entity.id)).map((r) => r.entity.id)).toEqual([page]);
     });
+  });
+});
+
+describe("saved views", () => {
+  it("saves the display as a View, opens it again, and a View from the computer narrows the list", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
+    await fireEvent.changeText(screen.getByLabelText("View name"), "Todo only");
+    await fireEvent.press(screen.getByRole("button", { name: "Save View" }));
+    await waitFor(async () => {
+      const [view] = await listViews(data.db, { spaceId: space, module: "tasks" });
+      expect(view.entity.title).toBe("Todo only");
+      expect(JSON.parse(view.config).filters).toEqual([
+        { fieldId: "status", operator: "is", values: ["todo"] },
+      ]);
+    });
+    // Back to everything, then open the saved View.
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
+    expect(await screen.findByText("Backlog · 1")).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("button", { name: "Todo only" }));
+    expect(await screen.findByText("Todo · 1")).toBeTruthy();
+    expect(screen.queryByText("Backlog · 1")).toBeNull();
+  });
+
+  it("says what a View from the computer uses that the phone doesn't show", async () => {
+    const { data, space } = await seeded();
+    await createView(data.db, space, {
+      title: "Overdue board",
+      module: "tasks",
+      config: JSON.stringify({
+        filters: [{ fieldId: "due", operator: "is", values: ["overdue"] }],
+        display: { layout: "board" },
+      }),
+    });
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Overdue board" }));
+    expect(await screen.findByText(/also uses due/)).toBeTruthy();
+    expect(await screen.findByLabelText("Backlog column")).toBeTruthy();
   });
 });

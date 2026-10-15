@@ -15,6 +15,7 @@ import {
   getEntity,
   courseSemester,
   getFile,
+  listViews,
   listUnrefinedJots,
   labelIdsByEntity,
   listAllLabels,
@@ -340,5 +341,14 @@ export const useUnrefinedJots = (limit = 5) => {
   return useQuery({
     queryKey: [...keys.unrefinedJots, limit],
     queryFn: () => listUnrefinedJots(db, { limit }),
+  });
+};
+
+/// Saved Views of a module, of one Space or every Space's.
+export const useViews = (query: { spaceId?: string; module?: string } = {}) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.views(query.spaceId ?? null, query.module ?? null),
+    queryFn: () => listViews(db, query),
   });
 };

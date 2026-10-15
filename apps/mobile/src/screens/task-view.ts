@@ -177,3 +177,71 @@ export function groupTasks(tasks: TaskRecord[], display: TaskDisplay, ctx: Conte
     none,
   ]);
 }
+
+// --- saved views ---------------------------------------------------------------------
+
+const storedView = z.object({
+  filters: z
+    .array(
+      z.object({
+        fieldId: z.string(),
+        operator: z.string(),
+        values: z.array(z.string()),
+      }),
+    )
+    .catch([]),
+  display: z
+    .object({ layout: z.string(), grouping: z.string(), ordering: z.string() })
+    .partial()
+    .catch({}),
+});
+
+/// A saved View of the Tasks page as this phone's display: the status and label filters, the
+/// layout, the grouping and the ordering it can show. What it can't show (a due date filter, a
+/// grouping by start date) is named in `ignored`, so a person knows the list is wider than the
+/// View on the computer.
+export function displayFromView(
+  raw: string,
+  all: { statusIds: string[]; labelIds: string[] },
+): { display: TaskDisplay; ignored: string[] } {
+  let json: unknown = {};
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    // An unreadable View opens as the defaults.
+  }
+  const stored = storedView.parse(json);
+  const display: TaskDisplay = { ...DEFAULT_DISPLAY };
+  const ignored: string[] = [];
+  const pick = (all: string[], filter: { operator: string; values: string[] }) =>
+    filter.operator === "isNot" ? all.filter((id) => !filter.values.includes(id)) : filter.values;
+  for (const filter of stored.filters) {
+    if (filter.fieldId === "status") display.statuses = pick(all.statusIds, filter);
+    else if (filter.fieldId === "label") display.labels = pick(all.labelIds, filter);
+    else ignored.push(filter.fieldId);
+  }
+  const { layout, grouping, ordering } = stored.display;
+  if (layout === "list" || layout === "board") display.layout = layout;
+  const g = GROUPINGS.find((x) => x.id === grouping);
+  if (g) display.grouping = g.id;
+  else if (grouping) ignored.push(`grouping by ${grouping}`);
+  const o = ORDERINGS.find((x) => x.id === ordering);
+  if (o) display.ordering = o.id;
+  else if (ordering) ignored.push(`ordering by ${ordering}`);
+  return { display, ignored };
+}
+
+/// The settings of a View saved from this phone, in the form the desktop reads.
+export function viewConfigFromDisplay(display: TaskDisplay): string {
+  return JSON.stringify({
+    filters: [
+      ...(display.statuses.length > 0
+        ? [{ fieldId: "status", operator: "is", values: display.statuses }]
+        : []),
+      ...(display.labels.length > 0
+        ? [{ fieldId: "label", operator: "is", values: display.labels }]
+        : []),
+    ],
+    display: { layout: display.layout, grouping: display.grouping, ordering: display.ordering },
+  });
+}

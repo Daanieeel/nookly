@@ -10,6 +10,8 @@ export const keys = {
   tasks: (spaceId: string | null) => ["local", "tasks", spaceId] as const,
   task: (id: string) => ["local", "task", id] as const,
   statuses: ["local", "statuses"] as const,
+  views: (spaceId: string | null, module: string | null) =>
+    ["local", "views", spaceId, module] as const,
   unrefinedJots: ["local", "unrefined-jots"] as const,
   allLabels: ["local", "all-labels"] as const,
   taskLabels: (spaceId: string | null) => ["local", "task-labels", spaceId] as const,

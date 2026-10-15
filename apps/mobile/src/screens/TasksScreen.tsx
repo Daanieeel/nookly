@@ -1,7 +1,9 @@
-import { IconAdjustmentsHorizontal, IconPlus } from "@tabler/icons-react-native";
+import { createView, trashEntity } from "@nookly/shared/data";
+import { IconAdjustmentsHorizontal, IconPlus, IconTrash } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
+import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
 import {
   useAllLabels,
@@ -9,9 +11,11 @@ import {
   useStatuses,
   useTaskLabelIds,
   useTasks,
+  useViews,
 } from "../data/queries.ts";
-import { Button, IconButton } from "../ui/Button.tsx";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { Field } from "../ui/Field.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -22,8 +26,10 @@ import {
   GROUPINGS,
   ORDERINGS,
   type TaskDisplay,
+  displayFromView,
   displaySchema,
   groupTasks,
+  viewConfigFromDisplay,
 } from "./task-view.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 
@@ -41,6 +47,32 @@ function DisplayPanel({
   onChange: (next: TaskDisplay) => void;
   spaceId: string | null;
 }) {
+  const theme = useTheme();
+  const module = spaceId ? "tasks" : "tasks-overview";
+  const { data: views = [] } = useViews(spaceId ? { spaceId, module } : { module });
+  const { data: allSpaces = [] } = useSpaces();
+  const { data: allStatuses = [] } = useStatuses();
+  const { data: allLabels = [] } = useAllLabels();
+  const [name, setName] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+  const save = useLocalWrite((db, title: string) => {
+    const space = spaceId ?? allSpaces[0]?.id;
+    if (!space) throw new Error("Make a Space first.");
+    return createView(db, space, { title, module, config: viewConfigFromDisplay(display) });
+  });
+  const drop = useLocalWrite((db, id: string) => trashEntity(db, id));
+  const open = (raw: string) => {
+    const { display: next, ignored } = displayFromView(raw, {
+      statusIds: allStatuses.map((s) => s.id),
+      labelIds: allLabels.map((l) => l.id),
+    });
+    onChange(next);
+    setNote(
+      ignored.length > 0
+        ? `This view also uses ${ignored.join(", ")}, which the phone doesn't show yet.`
+        : null,
+    );
+  };
   const { data: statuses = [] } = useStatuses();
   const { data: labels = [] } = useAllLabels();
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
@@ -121,6 +153,47 @@ function DisplayPanel({
           </ChipGroup>
         </>
       ) : null}
+      <Text variant="small" tone="muted">
+        Saved views
+      </Text>
+      {views.length > 0 ? (
+        <View className="gap-2">
+          {views.map((view) => (
+            <View key={view.entity.id} className="flex-row items-center gap-2">
+              <View className="flex-1 items-start">
+                <Button
+                  label={view.entity.title || "Untitled"}
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => open(view.config)}
+                />
+              </View>
+              <IconButton
+                label={`Delete View ${view.entity.title}`}
+                icon={<IconTrash size={16} color={theme.colors.destructive} />}
+                onPress={() => drop.mutate(view.entity.id)}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {note ? (
+        <Text variant="small" tone="muted">
+          {note}
+        </Text>
+      ) : null}
+      <View className="flex-row items-end gap-2">
+        <View className="flex-1">
+          <Field label="View name" placeholder="Open work" value={name} onChangeText={setName} />
+        </View>
+        <Button
+          label="Save View"
+          variant="secondary"
+          status={statusOf(save)}
+          errorLabel="Couldn't save"
+          onPress={() => name.trim() && save.mutate(name.trim(), { onSuccess: () => setName("") })}
+        />
+      </View>
       <ChipGroup label="Finished tasks" multiple>
         <Chip
           label="Show finished"
