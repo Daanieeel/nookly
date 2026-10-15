@@ -179,7 +179,12 @@ interface NavState {
   /// doesn't scroll as well.
   focusBlockGroupId: string | null;
   sidebarCollapsed: boolean;
+  /// Whether the details sidebar starts collapsed, remembered across launches.
   rightSidebarCollapsed: boolean;
+  /// Each tab group's own collapsed state once it was toggled there, by group id, so
+  /// the two groups of a split collapse their details sidebars independently. Read
+  /// through `rightSidebarCollapsedIn`.
+  rightSidebarCollapsedByGroup: Record<string, boolean>;
   rightSidebarWidth: number;
   recents: RecentEntry[];
   /// Views to return to with Back, oldest first, and to redo with Forward, most
@@ -213,7 +218,8 @@ interface NavState {
   setQuickJotOpen: (open: boolean) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setRightSidebarCollapsed: (collapsed: boolean) => void;
+  /// Collapses the details sidebar of one group, the focused one by default.
+  setRightSidebarCollapsed: (collapsed: boolean, groupId?: string) => void;
   setRightSidebarWidth: (width: number) => void;
 }
 
@@ -357,6 +363,14 @@ export function tabGroups(
       ? { id: group.id, tabs: currentTabs(state), activeTabId: state.activeTabId }
       : group,
   );
+}
+
+/// Whether the details sidebar is collapsed in a group.
+export function rightSidebarCollapsedIn(
+  state: Pick<NavState, "rightSidebarCollapsed" | "rightSidebarCollapsedByGroup">,
+  groupId: string,
+): boolean {
+  return state.rightSidebarCollapsedByGroup[groupId] ?? state.rightSidebarCollapsed;
 }
 
 function layoutOf(state: NavState): TabLayout {
@@ -530,6 +544,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   focusBlockGroupId: null,
   sidebarCollapsed: readStoredCollapsed(),
   rightSidebarCollapsed: readStoredRightSidebarCollapsed(),
+  rightSidebarCollapsedByGroup: {},
   rightSidebarWidth: readStoredRightSidebarWidth(),
   recents: readStoredRecents(),
   backStack: initialTab.backStack,
@@ -735,9 +750,20 @@ export const useNavStore = create<NavState>((set, get) => ({
     preferences.set(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
     set({ sidebarCollapsed });
   },
-  setRightSidebarCollapsed: (rightSidebarCollapsed) => {
-    preferences.set(STORAGE_KEYS.rightSidebarCollapsed, rightSidebarCollapsed ? "1" : "0");
-    set({ rightSidebarCollapsed });
+  setRightSidebarCollapsed: (collapsed, groupId) => {
+    const state = get();
+    const byGroup = {
+      ...state.rightSidebarCollapsedByGroup,
+      [groupId ?? state.focusedGroupId]: collapsed,
+    };
+    // While split, the other group keeps following the remembered default, so only
+    // a single group's choice becomes it.
+    if (state.groups.length > 1) {
+      set({ rightSidebarCollapsedByGroup: byGroup });
+      return;
+    }
+    preferences.set(STORAGE_KEYS.rightSidebarCollapsed, collapsed ? "1" : "0");
+    set({ rightSidebarCollapsed: collapsed, rightSidebarCollapsedByGroup: byGroup });
   },
   setRightSidebarWidth: (width) => {
     const rightSidebarWidth = clampRightSidebarWidth(width);

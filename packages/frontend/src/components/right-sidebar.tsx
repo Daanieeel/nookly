@@ -19,6 +19,7 @@ import {
   useNavStore,
 } from "#/lib/store/nav.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 
 const KEYBOARD_STEP_PX = 16;
 
@@ -48,17 +49,15 @@ export function RightSidebar({
   /// Type specific sections ahead of the shared ones, e.g. a Task's properties.
   children?: React.ReactNode;
 }) {
-  const collapsed = useNavStore((s) => s.rightSidebarCollapsed);
-  const setCollapsed = useNavStore((s) => s.setRightSidebarCollapsed);
+  const [collapsed, setCollapsed] = useRightSidebarCollapsed();
   const storedWidth = useNavStore((s) => s.rightSidebarWidth);
   const setStoredWidth = useNavStore((s) => s.setRightSidebarWidth);
   // Live width while dragging; persisted once on release instead of on every move.
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const width = dragWidth ?? storedWidth;
 
-  useAppHotkey("toggleDetailSidebar", () =>
-    setCollapsed(!useNavStore.getState().rightSidebarCollapsed),
-  );
+  // Only fires in the focused group, so it toggles the sidebar on that side of a split.
+  useAppHotkey("toggleDetailSidebar", () => setCollapsed(!collapsed));
 
   if (collapsed) {
     return (

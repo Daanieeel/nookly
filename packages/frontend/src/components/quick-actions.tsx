@@ -50,7 +50,13 @@ import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
 import { activeEditor } from "#/lib/active-editor.ts";
 import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
-import { type ModuleKey, tabGroups, useNavStore, type View } from "#/lib/store/nav.ts";
+import {
+  type ModuleKey,
+  rightSidebarCollapsedIn,
+  tabGroups,
+  useNavStore,
+  type View,
+} from "#/lib/store/nav.ts";
 import { canSplitLeft, canSplitRight } from "#/lib/store/tab-groups.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -264,14 +270,9 @@ export function QuickActions({
   onRefocus: () => void;
 }) {
   const nav = useNavStore();
-  const {
-    openEntity,
-    setView,
-    activeSpaceId,
-    view,
-    rightSidebarCollapsed,
-    setRightSidebarCollapsed,
-  } = nav;
+  const { openEntity, setView, activeSpaceId, view, setRightSidebarCollapsed } = nav;
+  // The palette acts on the focused group of a split.
+  const rightSidebarCollapsed = rightSidebarCollapsedIn(nav, nav.focusedGroupId);
   const tabLayout = { groups: tabGroups(nav), focusedGroupId: nav.focusedGroupId };
   const theme = useThemeStore((s) => s.theme);
   const applyTheme = useThemeStore((s) => s.setTheme);

@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.3",
+      "date": "2026-10-15",
+      "title": "Split view fix",
+      "summary": "Hiding the details sidebar in split view only affects your side.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Hiding or showing the details sidebar in split view only changes the side you are working in."
+        ]
+      }
+    },
+    {
       "version": "0.34.2",
       "date": "2026-10-15",
       "title": "Dashboard fix",

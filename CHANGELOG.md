@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.3 (2026-10-15)
+
+### Fixed
+
+- **Hiding the details sidebar in split view only affects your side.** The shortcut and the button now hide or show the sidebar of the side you are working in, and the other side stays as it was.
+
 ## 0.34.2 (2026-10-15)
 
 ### Fixed

@@ -15,7 +15,7 @@ import {
   updateAssignmentWeight,
 } from "#/lib/api/assignments.ts";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { weightPercent } from "#/features/exams/exam-model.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { AssignmentDuePicker } from "./AssignmentDuePicker";
@@ -49,7 +49,7 @@ export function AssignmentDetailView({ entity }: { entity: Entity }) {
 }
 
 function AssignmentPage({ entity }: { entity: Entity }) {
-  const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
+  const [sidebarCollapsed] = useRightSidebarCollapsed();
   const { data: assignments = [] } = useQuery({
     queryKey: qk.assignments.bySpace(entity.spaceId),
     queryFn: () => listAssignments(entity.spaceId),

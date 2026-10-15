@@ -254,3 +254,32 @@ describe("split view, restart", () => {
     expect(store.getState().view).toEqual(pinned);
   });
 });
+
+describe("split view, details sidebar", () => {
+  it("collapses the details sidebar of the focused group only", async () => {
+    const { store, tabGroups, rightSidebarCollapsedIn } = await loadNav();
+    store.getState().splitRight();
+    const [left, right] = tabGroups(store.getState());
+    store.getState().setRightSidebarCollapsed(true);
+    expect(rightSidebarCollapsedIn(store.getState(), right.id)).toBe(true);
+    expect(rightSidebarCollapsedIn(store.getState(), left.id)).toBe(false);
+  });
+
+  it("expands one group's details sidebar while the other stays collapsed", async () => {
+    const { store, tabGroups, rightSidebarCollapsedIn } = await loadNav({
+      [STORAGE_KEYS.rightSidebarCollapsed]: "1",
+    });
+    store.getState().splitRight();
+    const [left, right] = tabGroups(store.getState());
+    store.getState().setRightSidebarCollapsed(false, left.id);
+    expect(rightSidebarCollapsedIn(store.getState(), left.id)).toBe(false);
+    expect(rightSidebarCollapsedIn(store.getState(), right.id)).toBe(true);
+  });
+
+  it("remembers the choice for next launch only while not split", async () => {
+    const { store, preferences } = await loadNav();
+    store.getState().splitRight();
+    store.getState().setRightSidebarCollapsed(true);
+    expect(preferences.get(STORAGE_KEYS.rightSidebarCollapsed)).toBeNull();
+  });
+});

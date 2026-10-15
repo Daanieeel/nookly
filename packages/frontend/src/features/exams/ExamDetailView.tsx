@@ -46,7 +46,7 @@ import { listRelationships } from "#/lib/api/relationships.ts";
 import { createStudyBlock, listStudyBlocks } from "#/lib/api/studyBlocks.ts";
 import type { Entity, Exam } from "#/lib/api/types.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { EXAM_STATUSES, examStatus, examStatusKind, weightPercent } from "./exam-model";
 
@@ -64,7 +64,7 @@ export function ExamDetailView({ entity }: { entity: Entity }) {
 }
 
 function ExamPage({ entity }: { entity: Entity }) {
-  const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
+  const [sidebarCollapsed] = useRightSidebarCollapsed();
   const { data: exams = [] } = useQuery({
     queryKey: qk.exams.bySpace(entity.spaceId),
     queryFn: () => listExams(entity.spaceId),
