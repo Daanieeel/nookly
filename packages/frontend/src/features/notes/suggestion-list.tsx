@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Input } from "@nookly/ui/components/input";
 import { cn } from "@nookly/ui/lib/utils";
-import { prefixFirst } from "#/lib/text-search.ts";
+import { rankMatches } from "#/lib/text-search.ts";
 
 export interface SuggestionListItem {
   key: string;
@@ -19,6 +19,8 @@ export interface SuggestionListItem {
   /// Heading the item is listed under. Items of one group must be adjacent;
   /// groups left empty by a search disappear with their heading.
   group?: string;
+  /// Other names the search also matches, such as "h2" for Heading 2.
+  keywords?: string[];
   /// A button at the end of the row that does something other than choose the item
   /// (for a file, adding a page number). Also bound to the right arrow while the row is
   /// highlighted.
@@ -63,7 +65,7 @@ export const SuggestionList = forwardRef<
 
   const visible = useMemo(() => {
     const q = query.trim();
-    return q ? prefixFirst(items, q, (item) => [item.label]) : items;
+    return q ? rankMatches(items, q, (item) => [item.label, ...(item.keywords ?? [])]) : items;
   }, [items, query]);
 
   useEffect(() => setSelected(0), [visible]);

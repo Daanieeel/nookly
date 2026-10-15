@@ -21,6 +21,24 @@ describe("slash menu search", () => {
     expect(titles("math").slice(0, 2)).toEqual(["Math block", "Inline math"]);
   });
 
+  it.each(["h2", "H2", "heading2", "Heading2"])("finds Heading 2 for /%s", (term) => {
+    expect(titles(term)[0]).toBe("Heading 2");
+  });
+
+  it.each([
+    ["title", "Heading 1"],
+    ["subtitle", "Heading 2"],
+    ["header", "Heading 1"],
+    ["h1", "Heading 1"],
+    ["h6", "Heading 6"],
+  ])("finds %s as %s", (term, title) => {
+    expect(titles(term)).toContain(title);
+  });
+
+  it("finds an item by letters typed in order", () => {
+    expect(titles("bkmk")).toContain("Web bookmark");
+  });
+
   it("still finds an item by one of its keywords", () => {
     expect(titles("todo")).toContain("Checklist");
   });

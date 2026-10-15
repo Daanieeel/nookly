@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldText, includesFolded, prefixFirst } from "./text-search.ts";
+import { foldText, includesFolded, rankMatches } from "./text-search.ts";
 
 const COMPOSED = "Übungsblatt";
 const DECOMPOSED = "Übungsblatt";
@@ -102,10 +102,10 @@ describe("what folding must not do", () => {
   });
 });
 
-describe("prefixFirst", () => {
+describe("rankMatches", () => {
   it("lists labels that start with the term before labels that only contain it", () => {
     const labels = ["Heading 1", "Callout", "Inline math", "Linked item"];
-    expect(prefixFirst(labels, "in", (label) => [label])).toEqual([
+    expect(rankMatches(labels, "in", (label) => [label])).toEqual([
       "Inline math",
       "Heading 1",
       "Linked item",
@@ -114,8 +114,8 @@ describe("prefixFirst", () => {
 
   it("ignores case and accents and keeps the given order inside each tier", () => {
     const labels = ["Café au lait", "Decaf", "Cafe noir", "Latte"];
-    expect(prefixFirst(labels, "CAFÉ", (label) => [label])).toEqual(["Café au lait", "Cafe noir"]);
-    expect(prefixFirst(labels, "af", (label) => [label])).toEqual([
+    expect(rankMatches(labels, "CAFÉ", (label) => [label])).toEqual(["Café au lait", "Cafe noir"]);
+    expect(rankMatches(labels, "af", (label) => [label])).toEqual([
       "Café au lait",
       "Decaf",
       "Cafe noir",
@@ -128,10 +128,46 @@ describe("prefixFirst", () => {
       { title: "Toggle", aliases: ["fold"] },
       { title: "Table of contents", aliases: ["toc"] },
     ];
-    expect(prefixFirst(items, "t", (i) => [i.title, ...i.aliases]).map((i) => i.title)).toEqual([
+    expect(rankMatches(items, "t", (i) => [i.title, ...i.aliases]).map((i) => i.title)).toEqual([
       "Heading",
       "Toggle",
       "Table of contents",
     ]);
+  });
+
+  it("finds an item whose letters appear in order, after the ones that contain the term", () => {
+    const labels = ["Hexa Decimal", "Hello World", "Hel o' World", "Other"];
+    expect(rankMatches(labels, "Hel", (label) => [label])).toEqual([
+      "Hello World",
+      "Hel o' World",
+      "Hexa Decimal",
+    ]);
+  });
+
+  it("puts a match at the start before one in the middle or at the end, before a fuzzy one", () => {
+    const labels = ["World Greg Hello", "Hexa Decimal", "World Hello Greg", "Hello World Greg"];
+    expect(rankMatches(labels, "Hel", (label) => [label])).toEqual([
+      "Hello World Greg",
+      "World Greg Hello",
+      "World Hello Greg",
+      "Hexa Decimal",
+    ]);
+  });
+
+  it("ignores spaces in the term and in the label", () => {
+    const labels = ["Heading 1", "Heading 2", "Toggle heading"];
+    for (const term of ["heading2", "heading 2", "Heading 2", "h2"]) {
+      expect(rankMatches(labels, term, (label) => [label])[0]).toBe("Heading 2");
+    }
+    expect(rankMatches(["Math block"], "mathb", (label) => [label])).toEqual(["Math block"]);
+  });
+
+  it("drops what does not contain the letters in order", () => {
+    expect(rankMatches(["Heading 1", "Callout"], "zq", (label) => [label])).toEqual([]);
+    expect(rankMatches(["Callout"], "tc", (label) => [label])).toEqual([]);
+  });
+
+  it("returns everything for a term of only spaces", () => {
+    expect(rankMatches(["a", "b"], "  ", (label) => [label])).toEqual(["a", "b"]);
   });
 });
