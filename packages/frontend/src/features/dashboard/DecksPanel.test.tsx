@@ -25,12 +25,19 @@ beforeEach(() => {
 });
 
 // jsdom has no layout, so this pins the classes that keep a narrow card readable: the counts
-// wrap instead of running under the Study button, and the card keeps room for the button.
+// stay on one line and drop their words (kept for screen readers) when the text column is
+// narrow, and the card keeps room for the Study button.
 describe("DecksPanel on a narrow card", () => {
-  it("lets the counts wrap and leaves room for the Study button", async () => {
+  it("shortens the counts to bare numbers instead of wrapping them", async () => {
     renderWithProviders(<DecksPanel />);
     const card = await screen.findByRole("button", { name: "Open Test" });
     expect(card).toHaveClass("pr-24");
-    expect(screen.getByText("learning").closest("div")).toHaveClass("flex-wrap");
+    const counts = screen.getByText("learning").closest("div");
+    expect(counts).toHaveClass("flex-nowrap");
+    expect(counts).not.toHaveClass("flex-wrap");
+    for (const label of ["new", "learning", "due"]) {
+      expect(screen.getByText(label)).toHaveClass("@max-[13rem]:sr-only");
+    }
+    expect(counts?.parentElement).toHaveClass("@container");
   });
 });

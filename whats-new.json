@@ -28,7 +28,7 @@
       "more": {
         "Fixed": [
           "Dollar amounts such as $5 and $10 in a deck card stay text instead of turning into a formula.",
-          "Decks on the dashboard fit narrow cards: the counts wrap instead of running under the Study button."
+          "Decks on the dashboard look better when space is tight."
         ]
       }
     },

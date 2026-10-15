@@ -37,7 +37,7 @@ function DeckCard({
         className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 pb-4 pr-24 text-left transition-colors outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
       >
         <DeckStack count={deck.stats.total} size="sm" />
-        <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="@container flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-sm font-medium">{displayTitle(entity)}</span>
           {exam && <ExamLine exam={exam} />}
           <DeckCounts stats={deck.stats} />

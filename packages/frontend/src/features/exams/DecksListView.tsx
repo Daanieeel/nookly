@@ -171,7 +171,7 @@ export function DeckCounts({ stats }: { stats: DeckSummary["stats"] }) {
     { group: "review", value: stats.due, label: "due" },
   ] as const;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs tabular-nums">
+    <div className="flex flex-nowrap items-center gap-3 text-xs tabular-nums whitespace-nowrap">
       {counts.map((c) => (
         <span
           key={c.group}
@@ -181,7 +181,8 @@ export function DeckCounts({ stats }: { stats: DeckSummary["stats"] }) {
           )}
         >
           <span className="font-medium">{c.value}</span>
-          <span className="text-muted-foreground">{c.label}</span>
+          {/* Bare numbers where a container is too narrow for the words, still read aloud. */}
+          <span className="text-muted-foreground @max-[13rem]:sr-only">{c.label}</span>
         </span>
       ))}
     </div>
