@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.33.31 (2026-10-15)
+
+### Fixed
+
+- **Long section lists scroll.** The section list in the floating progress pill stops growing at a comfortable height and scrolls when a page has many headings.
+
 ## 0.33.30 (2026-10-13)
 
 ### Added
