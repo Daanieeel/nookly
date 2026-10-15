@@ -56,6 +56,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (40, &[]),
     // A new column; nothing existing changes.
     (41, &[]),
+    // Assignments with neither a grade nor a weight become ungraded.
+    (43, &[("assignments", "ungraded")]),
 ];
 
 /// Tables a migration renamed, old name first.

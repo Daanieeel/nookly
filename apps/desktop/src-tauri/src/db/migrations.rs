@@ -732,6 +732,14 @@ fn all() -> Vec<M<'static>> {
         -- towards the grade as before.
         ALTER TABLE assignments ADD COLUMN ungraded INTEGER NOT NULL DEFAULT 0;
         ",
+    ), M::up(
+        "
+        -- Evaluation backfill. An assignment with a grade, or with a weight, was meant to count
+        -- towards its course grade and stays graded (0), grade and weight untouched. One with
+        -- neither was never evaluated, so it becomes ungraded (1), like homework.
+        UPDATE assignments SET ungraded = 1
+            WHERE ungraded = 0 AND grade IS NULL AND weight IS NULL;
+        ",
     )]
 }
 
@@ -876,6 +884,65 @@ mod grades_module_backfill {
             })
             .unwrap();
         assert_eq!(entity, 1);
+    }
+}
+
+#[cfg(test)]
+mod ungraded_backfill {
+    use super::{MIGRATIONS, MIGRATION_COUNT};
+    use rusqlite::{params, Connection};
+
+    /// The schema version right after the `ungraded` column was added.
+    const BEFORE: usize = 42;
+
+    fn assignment(conn: &Connection, id: &str, grade: Option<f64>, weight: Option<f64>) {
+        conn.execute(
+            "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at)
+             VALUES ('space', 'S', '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+             VALUES (?1, 'space', 'assignment', ?1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'ASG', ?2)",
+            params![id, id.len() as i64 + grade.is_some() as i64 * 10 + weight.is_some() as i64 * 100],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO assignments (entity_id, due_date, status, grade, weight) VALUES (?1, NULL, 'not_started', ?2, ?3)",
+            params![id, grade, weight],
+        )
+        .unwrap();
+    }
+
+    fn row(conn: &Connection, id: &str) -> (bool, Option<f64>, Option<f64>) {
+        conn.query_row(
+            "SELECT ungraded, grade, weight FROM assignments WHERE entity_id = ?1",
+            params![id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn only_assignments_without_a_grade_or_a_weight_become_ungraded() {
+        assert!(*MIGRATION_COUNT > BEFORE);
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        assignment(&conn, "graded", Some(1.7), None);
+        assignment(&conn, "graded-weighted", Some(2.0), Some(0.25));
+        assignment(&conn, "weighted", None, Some(0.25));
+        assignment(&conn, "plain", None, None);
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        assert_eq!(row(&conn, "graded"), (false, Some(1.7), None));
+        assert_eq!(
+            row(&conn, "graded-weighted"),
+            (false, Some(2.0), Some(0.25))
+        );
+        assert_eq!(row(&conn, "weighted"), (false, None, Some(0.25)));
+        assert_eq!(row(&conn, "plain"), (true, None, None));
     }
 }
 
@@ -1260,6 +1327,7 @@ mod history {
         0xfc01de1290319823,
         0xe33f069e6b32963,
         0x41a5c8877cdedd90,
+        0x24962686d752025c,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {
