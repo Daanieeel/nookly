@@ -1,26 +1,49 @@
+<div align="center">
+
+<img src="apps/desktop/src-tauri/icons/128x128.png" alt="Nookly icon" width="96" height="96" />
+
 # Nookly
 
-**The power of Notion without the endless options. A focused, modular desktop app for your notes, tasks and everything in between.**
+**The power of Notion without the endless options.**<br />
+A focused, modular desktop app for your notes, tasks and everything in between.
+
+[![CI](https://github.com/Daanieeel/nookly/actions/workflows/ci.yml/badge.svg)](https://github.com/Daanieeel/nookly/actions/workflows/ci.yml)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
+[![Local first](https://img.shields.io/badge/data-local%20first-22c55e)](#why-nookly)
+
+[Features](#features) · [Why Nookly](#why-nookly) · [Getting started](#getting-started) · [CLI](#command-line-interface) · [Contributing](#contributing)
+
+<br />
+
+<img src="docs/assets/screenshot-dashboard.png" alt="The Nookly dashboard for a student's day: the next lecture, tasks due today, decks to study and the day's sessions on a calendar" width="900" />
+
+</div>
+
+<br />
 
 Nookly gives every part of your life its own purpose built page type. Instead of designing a page from scratch each time, you pick a Task, a Note, a Course or an Exam and start writing. The structure is already there, so your attention goes to the content.
 
 Nookly runs on your computer, keeps your data in a local database, and is open source.
 
+> [!NOTE]
 > A hosted cloud version is planned for the future, for anyone who wants to use Nookly across devices without running it themselves. The local app will stay free and open source.
 
 ## Features
 
-- **Spaces** keep separate areas of your life apart, like university, work or personal projects.
-- **Tasks** in the style of Jira and Linear, with custom statuses, deadlines, labels and real subtasks.
-- **Notes** with a block editor for headings, lists, tables and syntax highlighted code. Any page can be exported to plain Markdown.
-- **Jots** for capturing raw thoughts quickly and refining them into Notes later.
-- **University modules** for Courses, Semesters, Sessions, Exams (with index cards and study blocks) and Assignments.
-- **Files and Bookmarks** so reference material lives next to the work it belongs to.
-- **Relationships** connect any item to any other, in both directions. Attach a file to a task, link a note to an exam, or find everything related to a course.
-- **Dashboard, Pinned, Recents and Search** help you get back to anything quickly, across all Spaces.
-- **Command palette and quick open** for getting around without the mouse.
-- **Light and dark themes**, or follow your system setting.
-- **A full command line interface** that can read and change everything the app can, which makes Nookly easy to script or use with AI agents.
+|     |                            |                                                                                                                    |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 🗂️  | **Spaces**                 | Keep separate areas of your life apart, like university, work or personal projects.                                |
+| ✅  | **Tasks**                  | In the style of Jira and Linear, with custom statuses, deadlines, labels and real subtasks.                        |
+| 📝  | **Notes**                  | A block editor for headings, lists, tables and syntax highlighted code. Any page exports to plain Markdown.        |
+| 💭  | **Jots**                   | Capture raw thoughts quickly and refine them into Notes later.                                                     |
+| 🎓  | **University**             | Courses, Semesters, Sessions, Exams (with index cards and study blocks) and Assignments.                           |
+| 📎  | **Files and Bookmarks**    | Reference material lives next to the work it belongs to.                                                           |
+| 🔗  | **Relationships**          | Connect any item to any other, in both directions. Attach a file to a task or find everything related to a course. |
+| 🧭  | **Dashboard and Search**   | Dashboard, Pinned, Recents and Search help you get back to anything quickly, across all Spaces.                    |
+| ⌨️  | **Keyboard first**         | A command palette and quick open for getting around without the mouse.                                             |
+| 🌗  | **Light and dark**         | Pick a theme or follow your system setting.                                                                        |
+| 🤖  | **Command line interface** | Read and change everything the app can, which makes Nookly easy to script or use with AI agents.                   |
 
 ## Why Nookly
 
@@ -64,7 +87,8 @@ nookly cli task create --space <space-id> --title "Write CLI" --field dueDate=20
 nookly cli relate <from-id> sub-task-of <to-id> --yes
 ```
 
-Notes and Jots can also be edited block by block:
+<details>
+<summary><strong>Editing Notes and Jots block by block</strong></summary>
 
 ```sh
 nookly cli note blocks <note-id>
@@ -74,7 +98,11 @@ nookly cli note reorder-blocks <note-id> <block-id> <block-id> ...
 nookly cli note delete-block <block-id> --yes
 ```
 
-Output is JSON on stdout. Errors are JSON on stderr with a non zero exit code. Commands that change data take `--yes` instead of asking for confirmation, so the CLI never waits for input. Set `NOOKLY_DATA_DIR` to point it at a separate database, which is useful for testing.
+</details>
+
+- **Output** is JSON on stdout. Errors are JSON on stderr with a non zero exit code.
+- **No prompts.** Commands that change data take `--yes` instead of asking for confirmation, so the CLI never waits for input.
+- **Separate data.** Set `NOOKLY_DATA_DIR` to point it at a separate database, which is useful for testing.
 
 ## Contributing
 
