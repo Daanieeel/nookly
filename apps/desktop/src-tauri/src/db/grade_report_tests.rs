@@ -39,7 +39,7 @@ fn graded_assignment(conn: &Connection, space: &str, course: &str, grade: f64) {
         Some("2026-01-15".into()),
     )
     .unwrap();
-    update_assignment_status(conn, &a.entity.id, "graded".into(), Some(grade)).unwrap();
+    update_assignment_status(conn, &a.entity.id, "evaluated".into(), Some(grade)).unwrap();
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn items_carry_their_kind_weight_share_grade_and_date() {
     assert!((exam.share - 0.6).abs() < 1e-9);
     assert_eq!(exam.grade, Some(1.0));
     assert_eq!(exam.status, "upcoming");
-    assert_eq!(assignment.status, "graded");
+    assert_eq!(assignment.status, "evaluated");
     assert_eq!(exam.date.as_deref(), Some("2026-02-01"));
     // An assignment has no weight of its own: it takes what the exams leave.
     assert_eq!(assignment.weight, None);

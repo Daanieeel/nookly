@@ -3,7 +3,7 @@ use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::AppResult;
 
-pub const ASSIGNMENT_STATUSES: &[&str] = &["not_started", "in_progress", "submitted", "graded"];
+pub const ASSIGNMENT_STATUSES: &[&str] = &["not_started", "in_progress", "submitted", "evaluated"];
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 

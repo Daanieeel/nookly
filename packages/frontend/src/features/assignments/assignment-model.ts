@@ -44,7 +44,7 @@ export const ASSIGNMENT_STATUSES: TaskStatus[] = [
   { id: "not_started", name: "Not started", color: "#64748b", doneness: 0, position: 0 },
   { id: "in_progress", name: "In progress", color: "#3b82f6", doneness: 50, position: 1 },
   { id: "submitted", name: "Submitted", color: "#a855f7", doneness: 75, position: 2 },
-  { id: "graded", name: "Graded", color: "#22c55e", doneness: 100, position: 3 },
+  { id: "evaluated", name: "Evaluated", color: "#22c55e", doneness: 100, position: 3 },
 ];
 
 export function assignmentStatus(id: string): TaskStatus {
@@ -52,7 +52,7 @@ export function assignmentStatus(id: string): TaskStatus {
 }
 
 export function statusKindOf(id: string): StatusKind {
-  if (id === "graded") return "completed";
+  if (id === "evaluated") return "completed";
   if (id === "in_progress" || id === "submitted") return "started";
   return "unstarted";
 }
@@ -65,7 +65,7 @@ export function sessionDay(a: Assignment): string | null {
 }
 
 export function isDone(assignment: Assignment): boolean {
-  return assignment.status === "submitted" || assignment.status === "graded";
+  return assignment.status === "submitted" || assignment.status === "evaluated";
 }
 
 // Date buckets
@@ -285,7 +285,7 @@ export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     display: normalizeDisplay({
       layout: "board",
       grouping: "status",
-      hiddenColumns: ["graded", "submitted"],
+      hiddenColumns: ["evaluated", "submitted"],
     }),
   },
   {
@@ -297,11 +297,11 @@ export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     display: normalizeDisplay({ layout: "list", grouping: "none" }),
   },
   {
-    name: "Graded",
+    name: "Evaluated",
     icon: "Star",
     color: "#22c55e",
-    description: "Graded assignments as a board, one column per course.",
-    filters: [is("status", "graded")],
+    description: "Evaluated assignments as a board, one column per course.",
+    filters: [is("status", "evaluated")],
     display: normalizeDisplay({ layout: "board", grouping: "course" }),
   },
 ];

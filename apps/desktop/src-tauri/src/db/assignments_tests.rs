@@ -109,11 +109,11 @@ fn every_documented_status_round_trips_with_a_grade() {
         assert_eq!(stored.status, status);
         assert!(stored.grade.is_none());
     }
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(1.7)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(1.7)).unwrap();
     let stored = get_assignment(&conn, &a.entity.id).unwrap();
     assert_eq!(
         (stored.status.as_str(), stored.grade),
-        ("graded", Some(1.7))
+        ("evaluated", Some(1.7))
     );
 }
 
@@ -135,7 +135,7 @@ fn cli_status_update_keeps_the_existing_grade() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(2.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(2.0)).unwrap();
     let def = crate::db::schema::lookup("assignment").unwrap();
     let mut fields = crate::db::schema::JsonMap::new();
     fields.insert("status".into(), serde_json::json!("submitted"));
@@ -206,13 +206,13 @@ fn trashed_assignments_leave_lists_and_restore() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(1.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(1.0)).unwrap();
     soft_delete_entity(&conn, &a.entity.id).unwrap();
     assert!(list_assignments(&conn, &space.id).unwrap().is_empty());
     assert!(list_assignments_all_spaces(&conn).unwrap().is_empty());
     restore_entity(&conn, &a.entity.id).unwrap();
     let back = get_assignment(&conn, &a.entity.id).unwrap();
-    assert_eq!((back.status.as_str(), back.grade), ("graded", Some(1.0)));
+    assert_eq!((back.status.as_str(), back.grade), ("evaluated", Some(1.0)));
     assert_eq!(courses_of(&conn, &a.entity.id), vec![c.id]);
 }
 
@@ -270,7 +270,7 @@ fn matching_todos_are_generic_task_links() {
 fn updates_on_an_unknown_assignment_report_not_found() {
     let conn = test_conn();
     // Setters must report NotFound naming the missing id.
-    match update_assignment_status(&conn, "ghost", "graded".into(), Some(1.0)) {
+    match update_assignment_status(&conn, "ghost", "evaluated".into(), Some(1.0)) {
         Err(AppError::NotFound(m)) => assert!(m.contains("ghost"), "{m}"),
         other => panic!("expected NotFound, got {other:?}"),
     }
@@ -582,7 +582,7 @@ fn a_weighted_assignment_counts_for_its_share_of_the_course_grade() {
     .unwrap();
     crate::db::exams::update_exam_grade(&conn, &exam.entity.id, Some(1.0)).unwrap();
     let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(3.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(3.0)).unwrap();
     // Without a weight both split the grade evenly.
     let even = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
     assert_eq!(even.grade, Some(2.0));
@@ -798,7 +798,7 @@ fn ungraded_and_the_grade_are_independent_so_a_grade_is_never_lost() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Homework", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(2.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(2.0)).unwrap();
 
     update_assignment_ungraded(&conn, &a.entity.id, true).unwrap();
     let stored = get_assignment(&conn, &a.entity.id).unwrap();

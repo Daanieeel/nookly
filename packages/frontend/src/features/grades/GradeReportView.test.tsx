@@ -67,7 +67,7 @@ const sheet = item({
   kind: "assignment",
   share: 0.4,
   grade: 2.0,
-  status: "graded",
+  status: "evaluated",
   date: "2026-01-15",
 });
 
@@ -218,7 +218,7 @@ describe("GradeReportView", () => {
     await user.type(field, "1.0{Enter}");
     await waitFor(() =>
       expect(callsOf("update_assignment_status")).toEqual([
-        { entityId: "asg-1", status: "graded", grade: 1 },
+        { entityId: "asg-1", status: "evaluated", grade: 1 },
       ]),
     );
   });

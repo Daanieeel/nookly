@@ -740,6 +740,34 @@ fn all() -> Vec<M<'static>> {
         UPDATE assignments SET ungraded = 1
             WHERE ungraded = 0 AND grade IS NULL AND weight IS NULL;
         ",
+    ), M::up(
+        "
+        -- The `graded` assignment status is now `evaluated`. Saved Views name it too: in a
+        -- status filter, and in the hidden columns of a board grouped by status. The grade
+        -- filter and the group of assignments with a grade are also called `graded` and are
+        -- a different thing, so they stay. A config that is not JSON is left as it is.
+        UPDATE assignments SET status = 'evaluated' WHERE status = 'graded';
+
+        UPDATE views SET config = json_set(config, '$.filters', json((
+            SELECT json_group_array(json(CASE
+                WHEN json_extract(f.value, '$.fieldId') = 'status'
+                THEN json_set(f.value, '$.values', json((
+                    SELECT json_group_array(CASE WHEN v.value = 'graded' THEN 'evaluated' ELSE v.value END)
+                    FROM json_each(f.value, '$.values') AS v)))
+                ELSE f.value END))
+            FROM json_each(views.config, '$.filters') AS f)))
+        WHERE module IN ('assignments', 'assignments-overview')
+          AND CASE WHEN json_valid(config) THEN json_type(config, '$.filters') = 'array' ELSE 0 END;
+
+        UPDATE views SET config = json_set(config, '$.display.hiddenColumns', json((
+            SELECT json_group_array(CASE WHEN h.value = 'graded' THEN 'evaluated' ELSE h.value END)
+            FROM json_each(views.config, '$.display.hiddenColumns') AS h)))
+        WHERE module IN ('assignments', 'assignments-overview')
+          AND CASE WHEN json_valid(config)
+                   THEN json_extract(config, '$.display.grouping') = 'status'
+                        AND json_type(config, '$.display.hiddenColumns') = 'array'
+                   ELSE 0 END;
+        ",
     )]
 }
 
@@ -943,6 +971,176 @@ mod ungraded_backfill {
         );
         assert_eq!(row(&conn, "weighted"), (false, None, Some(0.25)));
         assert_eq!(row(&conn, "plain"), (true, None, None));
+    }
+}
+
+#[cfg(test)]
+mod evaluated_status_backfill {
+    use super::{MIGRATIONS, MIGRATION_COUNT};
+    use rusqlite::{params, Connection};
+
+    /// The schema version right before the `graded` status became `evaluated`.
+    const BEFORE: usize = 43;
+
+    fn assignment(conn: &Connection, id: &str, status: &str, n: i64) {
+        conn.execute(
+            "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at)
+             VALUES ('space', 'S', '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+             VALUES (?1, 'space', 'assignment', ?1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'ASG', ?2)",
+            params![id, n],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO assignments (entity_id, due_date, status, grade) VALUES (?1, NULL, ?2, NULL)",
+            params![id, status],
+        )
+        .unwrap();
+    }
+
+    fn view(conn: &Connection, id: &str, module: &str, config: &str, n: i64) {
+        conn.execute(
+            "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at)
+             VALUES ('space', 'S', '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+             VALUES (?1, 'space', 'view', ?1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'VEW', ?2)",
+            params![id, n],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO views (entity_id, module, config) VALUES (?1, ?2, ?3)",
+            params![id, module, config],
+        )
+        .unwrap();
+    }
+
+    fn status(conn: &Connection, id: &str) -> String {
+        conn.query_row(
+            "SELECT status FROM assignments WHERE entity_id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    fn config(conn: &Connection, id: &str) -> serde_json::Value {
+        let text: String = conn
+            .query_row(
+                "SELECT config FROM views WHERE entity_id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn the_graded_status_becomes_evaluated_and_nothing_else_changes() {
+        assert!(*MIGRATION_COUNT > BEFORE);
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        for (n, (id, status)) in [
+            ("a", "not_started"),
+            ("b", "in_progress"),
+            ("c", "submitted"),
+            ("d", "graded"),
+            ("e", "graded"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assignment(&conn, id, status, n as i64 + 1);
+        }
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        let got: Vec<String> = ["a", "b", "c", "d", "e"]
+            .iter()
+            .map(|id| status(&conn, id))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                "not_started",
+                "in_progress",
+                "submitted",
+                "evaluated",
+                "evaluated"
+            ]
+        );
+    }
+
+    #[test]
+    fn saved_views_follow_the_rename_but_the_grade_filter_does_not() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        // A status filter, and a status board with the finished columns hidden.
+        view(
+            &conn,
+            "v1",
+            "assignments",
+            r#"{"filters":[{"fieldId":"status","operator":"is","values":["graded","submitted"]},{"fieldId":"grade","operator":"is","values":["graded"]},{"fieldId":"course","operator":"isNot","values":["graded"]}],"display":{"layout":"board","grouping":"status","hiddenColumns":["graded","submitted"]}}"#,
+            1,
+        );
+        // Grouped by grade, "graded" is the group of assignments with a grade.
+        view(
+            &conn,
+            "v2",
+            "assignments-overview",
+            r#"{"filters":[{"fieldId":"status","operator":"isNot","values":["graded"]}],"display":{"grouping":"grade","hiddenColumns":["graded"]}}"#,
+            2,
+        );
+        // Other modules, and views with nothing to change, are left alone.
+        view(
+            &conn,
+            "v3",
+            "tasks",
+            r#"{"filters":[{"fieldId":"status","operator":"is","values":["graded"]}]}"#,
+            3,
+        );
+        view(&conn, "v4", "assignments", "{}", 4);
+        view(
+            &conn,
+            "v5",
+            "assignments",
+            r#"{"display":{"grouping":"status","hiddenColumns":["submitted"]}}"#,
+            5,
+        );
+        view(&conn, "v6", "assignments", "not json", 6);
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        assert_eq!(
+            config(&conn, "v1"),
+            serde_json::json!({"filters":[{"fieldId":"status","operator":"is","values":["evaluated","submitted"]},{"fieldId":"grade","operator":"is","values":["graded"]},{"fieldId":"course","operator":"isNot","values":["graded"]}],"display":{"layout":"board","grouping":"status","hiddenColumns":["evaluated","submitted"]}})
+        );
+        assert_eq!(
+            config(&conn, "v2"),
+            serde_json::json!({"filters":[{"fieldId":"status","operator":"isNot","values":["evaluated"]}],"display":{"grouping":"grade","hiddenColumns":["graded"]}})
+        );
+        assert_eq!(
+            config(&conn, "v3"),
+            serde_json::json!({"filters":[{"fieldId":"status","operator":"is","values":["graded"]}]})
+        );
+        assert_eq!(config(&conn, "v4"), serde_json::json!({}));
+        assert_eq!(
+            config(&conn, "v5"),
+            serde_json::json!({"display":{"grouping":"status","hiddenColumns":["submitted"]}})
+        );
+        let raw: String = conn
+            .query_row("SELECT config FROM views WHERE entity_id = 'v6'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(raw, "not json");
     }
 }
 
@@ -1328,6 +1526,7 @@ mod history {
         0xe33f069e6b32963,
         0x41a5c8877cdedd90,
         0x24962686d752025c,
+        0x1997bcb69ec851a0,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

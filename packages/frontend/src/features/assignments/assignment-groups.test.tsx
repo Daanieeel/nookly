@@ -7,7 +7,10 @@ import { assignmentGroupDefs } from "./assignment-groups.tsx";
 
 const algebra = makeEntity({ id: "c1", type: "course", title: "Algebra" });
 const untitled = makeEntity({ id: "c2", type: "course", title: "" });
-const graded = makeAssignment({ grade: 1.3, status: "graded", dueDate: "2026-03-01" }, { id: "g" });
+const graded = makeAssignment(
+  { grade: 1.3, status: "evaluated", dueDate: "2026-03-01" },
+  { id: "g" },
+);
 const open = makeAssignment(
   { grade: null, status: "in_progress", dueDate: "2026-03-01" },
   { id: "o" },
@@ -53,7 +56,7 @@ describe("assignmentGroupDefs", () => {
 
   it("groups by status in workflow order", () => {
     const defs = assignmentGroupDefs("status", [], courseOf) ?? [];
-    expect(defs.map((d) => d.id)).toEqual(["not_started", "in_progress", "submitted", "graded"]);
+    expect(defs.map((d) => d.id)).toEqual(["not_started", "in_progress", "submitted", "evaluated"]);
   });
 
   it("groups by course, untitled courses by their placeholder, unlinked ones last", () => {

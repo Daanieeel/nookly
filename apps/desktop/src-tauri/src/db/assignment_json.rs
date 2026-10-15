@@ -34,7 +34,8 @@ struct AssignmentFile {
     /// The Course's name, as text. Not used on import.
     #[serde(default)]
     course: Option<String>,
-    /// One of `not_started`, `in_progress`, `submitted` or `graded`.
+    /// One of `not_started`, `in_progress`, `submitted` or `evaluated`. Files written before
+    /// the rename say `graded`, which reads as `evaluated`.
     status: String,
     #[serde(default)]
     due_date: Option<String>,
@@ -93,7 +94,11 @@ pub fn export_assignment_json(conn: &Connection, entity_id: &str) -> AppResult<S
 
 /// Reads and checks a document without touching the database.
 fn parse(text: &str) -> AppResult<AssignmentFile> {
-    let file: AssignmentFile = parse_document(text, FORMAT, VERSION, "assignment")?;
+    let mut file: AssignmentFile = parse_document(text, FORMAT, VERSION, "assignment")?;
+    // The status was called `graded` until it was renamed.
+    if file.status == "graded" {
+        file.status = "evaluated".into();
+    }
     if file.kind != "assignment" {
         return Err(AppError::InvalidInput(format!(
             "this assignment file holds a \"{}\", not an assignment",
@@ -241,7 +246,7 @@ mod tests {
         )
         .unwrap();
         let id = &a.entity.id;
-        assignments::update_assignment_status(&fx.conn, id, "graded".into(), Some(8.5)).unwrap();
+        assignments::update_assignment_status(&fx.conn, id, "evaluated".into(), Some(8.5)).unwrap();
         assignments::update_assignment_weight(&fx.conn, id, Some(0.25)).unwrap();
         crate::db::notes::create_block(
             &fx.conn,
@@ -287,7 +292,7 @@ mod tests {
                 got.grade,
                 got.weight
             ),
-            ("graded", Some("2026-03-10"), Some(8.5), Some(0.25))
+            ("evaluated", Some("2026-03-10"), Some(8.5), Some(0.25))
         );
         assert_eq!(
             list_blocks(&fx.conn, &imported.id).unwrap()[0].content,
@@ -326,6 +331,20 @@ mod tests {
                 .unwrap()
                 .ungraded
         );
+    }
+
+    #[test]
+    fn an_old_file_with_the_graded_status_reads_as_evaluated() {
+        let fx = fixture();
+        let a = graded(&fx);
+        let json = export_assignment_json(&fx.conn, &a.id).unwrap();
+        assert!(json.contains("\"status\": \"evaluated\""));
+        let old = json.replace("\"status\": \"evaluated\"", "\"status\": \"graded\"");
+        let imported =
+            crate::db::portable::import(&fx.conn, &fx.other_space, Some(&fx.other_course), &old)
+                .unwrap();
+        let got = assignments::get_assignment(&fx.conn, &imported.id).unwrap();
+        assert_eq!(got.status, "evaluated");
     }
 
     #[test]
@@ -468,7 +487,7 @@ mod tests {
             ("assignment", "Lab report 3", Some("course"))
         );
         for fact in [
-            "Status: Graded",
+            "Status: Evaluated",
             "Due 2026-03-10",
             "Grade 8.5",
             "Weight 0.25",

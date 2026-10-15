@@ -921,7 +921,7 @@ mod tests {
         crate::db::assignments::update_assignment_status(
             &conn,
             &assignment.entity.id,
-            "graded".into(),
+            "evaluated".into(),
             Some(1.0),
         )
         .unwrap();

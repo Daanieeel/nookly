@@ -110,4 +110,71 @@ describe("preferences", () => {
       expect(callsOf("plugin:store|set")).toEqual([]);
     });
   });
+
+  describe("assignment status rename", () => {
+    async function load(entries: [string, string][]) {
+      mockCommand("plugin:store|load", 7);
+      mockCommand("plugin:store|entries", [["nookly:file-viewer-theme-backfill", "1"], ...entries]);
+      mockCommand("plugin:store|set", null);
+      const { initPreferences, preferences } = await freshPreferences();
+      await initPreferences();
+      return preferences;
+    }
+
+    const filters = (fieldId: string, ...values: string[]) =>
+      JSON.stringify([{ fieldId, operator: "is", values }]);
+
+    it("renames graded in the saved status filters of every space and of the overview", async () => {
+      const preferences = await load([
+        ["nookly:assignments-filters:space-1", filters("status", "graded", "submitted")],
+        ["nookly:assignments-filters:space-2", filters("status", "graded")],
+        ["nookly:assignments-overview-filters", filters("status", "graded")],
+      ]);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe(
+        filters("status", "evaluated", "submitted"),
+      );
+      expect(preferences.get("nookly:assignments-filters:space-2")).toBe(
+        filters("status", "evaluated"),
+      );
+      expect(preferences.get("nookly:assignments-overview-filters")).toBe(
+        filters("status", "evaluated"),
+      );
+    });
+
+    it("leaves the grade filter, other filters and other pages alone", async () => {
+      const grade = filters("grade", "graded");
+      const tasks = filters("status", "graded");
+      const preferences = await load([
+        ["nookly:assignments-filters:space-1", grade],
+        ["nookly:tasks-filters:space-1", tasks],
+      ]);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe(grade);
+      expect(preferences.get("nookly:tasks-filters:space-1")).toBe(tasks);
+      expect(callsOf("plugin:store|set")).toEqual([]);
+    });
+
+    it("renames a hidden column only when the board is grouped by status", async () => {
+      const preferences = await load([
+        [
+          "nookly:assignments-display",
+          JSON.stringify({ layout: "board", grouping: "status", hiddenColumns: ["graded"] }),
+        ],
+        [
+          "nookly:assignments-overview",
+          JSON.stringify({ layout: "board", grouping: "grade", hiddenColumns: ["graded"] }),
+        ],
+      ]);
+      expect(JSON.parse(preferences.get("nookly:assignments-display") ?? "")).toMatchObject({
+        hiddenColumns: ["evaluated"],
+      });
+      expect(JSON.parse(preferences.get("nookly:assignments-overview") ?? "")).toMatchObject({
+        hiddenColumns: ["graded"],
+      });
+    });
+
+    it("skips what is not JSON", async () => {
+      const preferences = await load([["nookly:assignments-filters:space-1", "nope"]]);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe("nope");
+    });
+  });
 });

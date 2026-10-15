@@ -2154,7 +2154,7 @@ fn assignments_create_list_and_update() {
 
     h.ok(
         "update_assignment_status",
-        json!({ "entityId": id, "status": "graded", "grade": 1.3 }),
+        json!({ "entityId": id, "status": "evaluated", "grade": 1.3 }),
     );
     h.ok(
         "update_assignment_due_date",
@@ -2165,7 +2165,7 @@ fn assignments_create_list_and_update() {
             .unwrap()
             .remove(0)
     });
-    assert_eq!(stored.status, "graded");
+    assert_eq!(stored.status, "evaluated");
     assert_eq!(stored.grade, Some(1.3));
     assert_eq!(stored.due_date.as_deref(), Some("2026-05-05"));
 
@@ -2279,7 +2279,7 @@ fn assignments_update_unknown_is_not_found() {
     let h = Harness::new();
     h.app_err(
         "update_assignment_status",
-        json!({ "entityId": MISSING, "status": "graded", "grade": null }),
+        json!({ "entityId": MISSING, "status": "evaluated", "grade": null }),
         "NotFound",
     );
 }

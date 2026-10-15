@@ -41,7 +41,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
 
-const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
+const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "evaluated"]);
 
 /// Copied rather than imported from `CoursesListView` (same convention that
 /// file itself uses for its own copied helpers) — these are small, presentation

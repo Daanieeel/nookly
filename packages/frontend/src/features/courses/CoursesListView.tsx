@@ -75,7 +75,7 @@ import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 /// Assignment statuses that count as "done" for the course card's progress
 /// ring, mirroring `isDone` in `assignment-model.ts`.
-const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
+const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "evaluated"]);
 
 const COURSE_SORTS = [
   { id: "oldest", label: "Oldest first" },

@@ -33,7 +33,7 @@ function fromDisk(json: string): Partial<DisplayOptions> {
 
 describe("statuses", () => {
   it("finds a status by id and falls back to Not started", () => {
-    expect(assignmentStatus("graded").name).toBe("Graded");
+    expect(assignmentStatus("evaluated").name).toBe("Evaluated");
     expect(assignmentStatus("lost").id).toBe("not_started");
   });
 
@@ -41,13 +41,13 @@ describe("statuses", () => {
     expect(statusKindOf("not_started")).toBe("unstarted");
     expect(statusKindOf("in_progress")).toBe("started");
     expect(statusKindOf("submitted")).toBe("started");
-    expect(statusKindOf("graded")).toBe("completed");
+    expect(statusKindOf("evaluated")).toBe("completed");
     expect(statusKindOf("anything")).toBe("unstarted");
   });
 
-  it("counts submitted and graded as done", () => {
+  it("counts submitted and evaluated as done", () => {
     expect(isDone(makeAssignment({ status: "submitted" }))).toBe(true);
-    expect(isDone(makeAssignment({ status: "graded" }))).toBe(true);
+    expect(isDone(makeAssignment({ status: "evaluated" }))).toBe(true);
     expect(isDone(makeAssignment({ status: "in_progress" }))).toBe(false);
   });
 });
@@ -57,9 +57,9 @@ describe("deadlineBucket", () => {
     [null, "not_started", "none"],
     ["2026-03-10", "not_started", "overdue"],
     ["2026-03-10", "submitted", "done"],
-    ["2026-03-10", "graded", "done"],
+    ["2026-03-10", "evaluated", "done"],
     ["2026-03-11", "not_started", "today"],
-    ["2026-03-11", "graded", "today"],
+    ["2026-03-11", "evaluated", "today"],
     ["2026-03-12", "not_started", "week"],
     ["2026-03-15", "not_started", "week"],
     ["2026-03-16", "not_started", "next"],
@@ -150,12 +150,20 @@ describe("display options", () => {
 
   it("opens the Open preset without the finished columns", () => {
     const open = ASSIGNMENT_VIEW_PRESETS.find((p) => p.name === "Open");
-    expect(open?.display.hiddenColumns).toEqual(["graded", "submitted"]);
+    expect(open?.display.hiddenColumns).toEqual(["evaluated", "submitted"]);
     expect(open?.display.layout).toBe("board");
     // The other presets keep every column.
     for (const preset of ASSIGNMENT_VIEW_PRESETS.filter((p) => p.name !== "Open")) {
       expect(preset.display.hiddenColumns).toEqual([]);
     }
+  });
+
+  it("has an Evaluated preset for the evaluated status", () => {
+    const evaluated = ASSIGNMENT_VIEW_PRESETS.find((p) => p.name === "Evaluated");
+    expect(evaluated?.filters).toEqual([
+      { fieldId: "status", operator: "is", values: ["evaluated"] },
+    ]);
+    expect(ASSIGNMENT_VIEW_PRESETS.some((p) => p.name === "Graded")).toBe(false);
   });
 
   it("reads a saved view from before columns could be hidden as showing every column", () => {
@@ -174,7 +182,7 @@ describe("display options", () => {
 
 describe("orderAssignments", () => {
   const far = makeAssignment(
-    { dueDate: "2026-04-30", status: "graded", grade: 2 },
+    { dueDate: "2026-04-30", status: "evaluated", grade: 2 },
     { id: "far", title: "b", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-03-01T00:00:00Z" },
   );
   const past = makeAssignment(

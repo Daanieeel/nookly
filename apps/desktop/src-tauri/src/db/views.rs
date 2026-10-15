@@ -242,13 +242,13 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("course", None),
             (
                 "status",
-                Some(&["not_started", "in_progress", "submitted", "graded"]),
+                Some(&["not_started", "in_progress", "submitted", "evaluated"]),
             ),
             (
                 "due",
                 Some(&["overdue", "today", "week", "next", "later", "none", "done"]),
             ),
-            ("grade", Some(&["graded", "none"])),
+            ("grade", Some(&["graded", "none", "ungraded"])),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
         ],
@@ -266,13 +266,13 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("course", None),
             (
                 "status",
-                Some(&["not_started", "in_progress", "submitted", "graded"]),
+                Some(&["not_started", "in_progress", "submitted", "evaluated"]),
             ),
             (
                 "due",
                 Some(&["overdue", "today", "week", "next", "later", "none", "done"]),
             ),
-            ("grade", Some(&["graded", "none"])),
+            ("grade", Some(&["graded", "none", "ungraded"])),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
         ],
@@ -422,7 +422,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
     },
     FieldDef {
         name: "position",

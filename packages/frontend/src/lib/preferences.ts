@@ -1,4 +1,5 @@
 import { type Store, load } from "@tauri-apps/plugin-store";
+import { z } from "zod";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 
 /// Device preferences (theme, sidebar state, sort orders...), persisted with the
@@ -22,6 +23,7 @@ export async function initPreferences(): Promise<void> {
     return;
   }
   backfillFileViewerTheme();
+  backfillEvaluatedStatus();
 }
 
 /// One time backfill: a saved "light" file viewer theme becomes the defaults.
@@ -33,6 +35,60 @@ function backfillFileViewerTheme() {
     preferences.set(STORAGE_KEYS.fileViewerTheme, "defaults");
   }
   preferences.set(STORAGE_KEYS.fileViewerThemeBackfill, "1");
+}
+
+const savedFilters = z.array(
+  z.looseObject({ fieldId: z.string(), operator: z.string(), values: z.array(z.string()) }),
+);
+type SavedFilters = z.infer<typeof savedFilters>;
+const savedDisplay = z.looseObject({
+  grouping: z.string().optional(),
+  hiddenColumns: z.array(z.string()).optional(),
+});
+type SavedDisplay = z.infer<typeof savedDisplay>;
+
+const evaluated = (id: string) => (id === "graded" ? "evaluated" : id);
+
+/// Rewrites the value saved under `key` when it reads as `schema`; anything else is left
+/// as it is, since the page falls back to its defaults for what it cannot read.
+function rewrite<T>(key: string, schema: z.ZodType<T>, change: (saved: T) => T) {
+  const raw = cache.get(key);
+  if (raw === undefined) return;
+  let before: string;
+  let after: string;
+  try {
+    const parsed = schema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return;
+    before = JSON.stringify(parsed.data);
+    after = JSON.stringify(change(parsed.data));
+  } catch {
+    return;
+  }
+  if (after !== before) preferences.set(key, after);
+}
+
+/// The assignment status `graded` was renamed `evaluated`. Saved views are rewritten in
+/// the database; this does the same for what the pages remember on this device: their
+/// status filters (one key per Space, and one for the overview) and the hidden columns of
+/// a board grouped by status. The grade filter is also called `graded` and stays. Nothing
+/// is written when nothing matches, so it is safe to run on every launch.
+function backfillEvaluatedStatus() {
+  const filterKeys = [STORAGE_KEYS.assignmentsFilters, STORAGE_KEYS.assignmentsOverviewFilters];
+  for (const key of [...cache.keys()]) {
+    if (!filterKeys.some((base) => key === base || key.startsWith(`${base}:`))) continue;
+    rewrite<SavedFilters>(key, savedFilters, (filters) =>
+      filters.map((filter) =>
+        filter.fieldId === "status" ? { ...filter, values: filter.values.map(evaluated) } : filter,
+      ),
+    );
+  }
+  for (const key of [STORAGE_KEYS.assignmentsDisplay, STORAGE_KEYS.assignmentsOverview]) {
+    rewrite<SavedDisplay>(key, savedDisplay, (display) =>
+      display.grouping === "status" && display.hiddenColumns
+        ? { ...display, hiddenColumns: display.hiddenColumns.map(evaluated) }
+        : display,
+    );
+  }
 }
 
 function persist(write: (store: Store) => Promise<void | boolean>) {

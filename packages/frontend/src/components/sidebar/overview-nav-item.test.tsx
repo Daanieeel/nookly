@@ -45,7 +45,7 @@ describe("nearestDueAssignment", () => {
     const late = makeAssignment({ dueDate: "2026-03-20", status: "todo" });
     const soon = makeAssignment({ dueDate: "2026-03-12", status: "todo" });
     const past = makeAssignment({ dueDate: "2026-03-01", status: "todo" });
-    const done = makeAssignment({ dueDate: "2026-03-11", status: "graded" });
+    const done = makeAssignment({ dueDate: "2026-03-11", status: "evaluated" });
     const undated = makeAssignment({ dueDate: null, status: "todo" });
     expect(nearestDueAssignment([late, soon, past, done, undated], today)).toBe(soon);
   });
@@ -74,7 +74,7 @@ describe("the Assignments item of the sidebar", () => {
 
   it("ignores done and past assignments", async () => {
     setup([
-      makeAssignment({ dueDate: day(1), status: "graded" }, { id: "a1" }),
+      makeAssignment({ dueDate: day(1), status: "evaluated" }, { id: "a1" }),
       makeAssignment({ dueDate: day(-2), status: "todo" }, { id: "a2" }),
       makeAssignment({ dueDate: day(5), status: "todo" }, { id: "a3" }),
     ]);
