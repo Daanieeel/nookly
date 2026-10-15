@@ -16,6 +16,10 @@ export type ScrollProgressSection = {
 /// from the very first one).
 const INDENT_STEP_PX = 14;
 
+/// Open list height cap. Past it the list scrolls vertically. Applied to the
+/// hidden measuring copy so the surface animates to the capped height.
+const LIST_MAX_HEIGHT = "max-h-[min(24rem,60vh)]";
+
 function indentPx(level: number | undefined, minLevel: number): number {
   return Math.max(0, (level ?? minLevel) - minLevel) * INDENT_STEP_PX;
 }
@@ -190,7 +194,7 @@ const ScrollProgress = ({
             {label}
           </span>
         </div>
-        <div ref={openRef} className="w-max p-1.5">
+        <div ref={openRef} className={cn("w-max overflow-hidden p-1.5", LIST_MAX_HEIGHT)}>
           {sections.map((s) => (
             <div
               key={s.id}
@@ -223,7 +227,7 @@ const ScrollProgress = ({
             {open ? (
               <motion.ul
                 key="list"
-                className="absolute inset-0 flex flex-col p-1.5"
+                className="absolute inset-0 flex flex-col overflow-y-auto overscroll-contain p-1.5"
                 initial={{
                   opacity: 0,
                   filter: reduceMotion ? undefined : "blur(4px)",
@@ -238,7 +242,7 @@ const ScrollProgress = ({
                 {sections.map((s, i) => {
                   const isActive = s.id === activeId;
                   return (
-                    <li key={s.id}>
+                    <li key={s.id} className="shrink-0">
                       <button
                         type="button"
                         onClick={() => selectSection(s.id)}
@@ -249,7 +253,9 @@ const ScrollProgress = ({
                             ? "text-accent-foreground"
                             : "text-muted-foreground hover:text-popover-foreground",
                         )}
-                        style={{ paddingLeft: 12 + indentPx(s.level, minLevel) }}
+                        style={{
+                          paddingLeft: 12 + indentPx(s.level, minLevel),
+                        }}
                       >
                         {isActive && (
                           <motion.span

@@ -2,16 +2,16 @@
   "versions": [
     {
       "version": "0.34.0",
-      "date": "2026-10-14",
+      "date": "2026-10-15",
       "title": "Split view",
       "summary": "Two groups of tabs side by side, each with its own tabs and history.",
       "highlights": [
         {
           "title": "Split view",
-          "description": "Right click a tab and pick **Split Right**, or drag it to the right edge, to work side by side. `Mod+1` and `Mod+2` switch sides.",
+          "description": "Use the **Split** button, the command palettes or the keyboard to work side by side. `Mod+1` and `Mod+2` switch sides.",
           "icon": "layout-columns",
           "tag": "New",
-          "shortcut": "Mod+\\"
+          "shortcut": "Mod+Shift+ArrowRight"
         }
       ],
       "more": {
@@ -19,6 +19,16 @@
           "Lists, grids and the details sidebar fit the width of their side of a split."
         ],
         "Fixed": ["Tabs are announced once by screen readers, without their close button."]
+      }
+    },
+    {
+      "version": "0.33.31",
+      "date": "2026-10-15",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The section list in the floating progress pill stops growing at a comfortable height and scrolls when a page has many headings."
+        ]
       }
     },
     {

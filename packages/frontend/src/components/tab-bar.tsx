@@ -202,9 +202,10 @@ function TabItem({
 /// Shortcuts for tabs, and Cmd or middle click on anything that navigates to open it
 /// in a new tab instead.
 export function useTabInteractions() {
-  const { newTab, closeTab, closeOthers, cycle, split, focusAt } = useMemo(
+  const { newTab, closeTab, closeOthers, cycle, split, splitLeft, focusAt } = useMemo(
     () => ({
       split: () => useNavStore.getState().splitRight(),
+      splitLeft: () => useNavStore.getState().splitLeft(),
       focusAt: (index: number) => useNavStore.getState().focusGroupAt(index),
       newTab: () => useNavStore.getState().openInNewTab(),
       closeTab: () => {
@@ -224,6 +225,7 @@ export function useTabInteractions() {
   useAppHotkey("nextTabAlt", () => cycle(1));
   useAppHotkey("previousTabAlt", () => cycle(-1));
   useAppHotkey("splitRight", split);
+  useAppHotkey("splitLeft", splitLeft);
   useAppHotkey("focusLeftGroup", () => focusAt(0));
   useAppHotkey("focusRightGroup", () => focusAt(1));
 

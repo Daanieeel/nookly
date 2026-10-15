@@ -46,6 +46,21 @@ describe("split view, store", () => {
     expect(state.backStack).toEqual([dashboard]);
   });
 
+  it("Split Left opens a copy of the tab in a focused left group", async () => {
+    const { store, tabGroups } = await loadNav();
+    store.getState().setView(pinned);
+    const rightTab = store.getState().activeTabId;
+    store.getState().splitLeft();
+    const state = store.getState();
+    const [left, right] = tabGroups(state);
+    expect(right.tabs.map((t) => t.id)).toEqual([rightTab]);
+    expect(left.tabs).toHaveLength(1);
+    expect(left.tabs[0].id).not.toBe(rightTab);
+    expect(state.focusedGroupId).toBe(left.id);
+    expect(state.view).toEqual(pinned);
+    expect(state.backStack).toEqual([dashboard]);
+  });
+
   it("keeps history per group", async () => {
     const { store, tabGroups } = await loadNav();
     store.getState().splitRight();

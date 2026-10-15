@@ -176,6 +176,13 @@ export const SHORTCUT_META = {
     section: "Tabs",
     scopes: GLOBAL,
   },
+  splitLeft: {
+    title: "Split left",
+    description: "Open the current tab again in a group on the left, side by side.",
+    synonyms: ["split view", "side by side", "two panes", "editor group"],
+    section: "Tabs",
+    scopes: GLOBAL,
+  },
   focusLeftGroup: {
     title: "Focus the left group",
     description: "Move to the tabs on the left while the view is split.",

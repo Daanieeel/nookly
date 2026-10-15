@@ -140,6 +140,8 @@ interface NavState {
   focusGroupAt: (index: number) => void;
   /// Opens a copy of a tab (the active one by default) in the group on the right.
   splitRight: (tabId?: string) => void;
+  /// Opens a copy of a tab (the active one by default) in the group on the left.
+  splitLeft: (tabId?: string) => void;
   /// Moves a tab into another group, or a new one on the right, at `toIndex`.
   moveTabToGroup: (tabId: string, target: GroupTarget, toIndex?: number) => void;
   /// The left group's share of the width while split.
@@ -554,6 +556,15 @@ export const useNavStore = create<NavState>((set, get) => ({
       if (!tab) return {};
       const copy: Tab = { ...tab, id: crypto.randomUUID(), pinned: false };
       return applyLayout(state, groupModel.splitRight(layout, id, copy));
+    }),
+  splitLeft: (tabId) =>
+    set((state) => {
+      const layout = layoutOf(state);
+      const id = tabId ?? state.activeTabId;
+      const tab = findTab(layout, id);
+      if (!tab) return {};
+      const copy: Tab = { ...tab, id: crypto.randomUUID(), pinned: false };
+      return applyLayout(state, groupModel.splitLeft(layout, id, copy));
     }),
   moveTabToGroup: (tabId, target, toIndex) =>
     set((state) =>

@@ -5,6 +5,7 @@ import {
   type TabLayout,
   activateTab,
   addTab,
+  canSplitLeft,
   canSplitRight,
   clampSplitRatio,
   closeOtherTabs,
@@ -15,6 +16,7 @@ import {
   moveTabToGroup,
   pinTab,
   reorderTab,
+  splitLeft,
   splitRight,
 } from "./tab-groups.ts";
 
@@ -100,6 +102,31 @@ describe("tab groups, Split Right", () => {
     expect(splitRight(layout, "b", tab("b2"))).toBe(layout);
     expect(canSplitRight(layout, "b")).toBe(false);
     expect(canSplitRight(layout, "a")).toBe(true);
+  });
+});
+
+describe("tab groups, Split Left", () => {
+  it("opens a copy in a new left group and focuses it", () => {
+    const next = splitLeft(single("a"), "a", tab("a2"));
+    expect(ids(next)).toEqual([["a2"], ["a"]]);
+    expect(next.focusedGroupId).toBe(next.groups[0].id);
+  });
+
+  it("adds the copy to the existing left group", () => {
+    const next = splitLeft(split(["a"], ["b", "c"]), "c", tab("c2"));
+    expect(ids(next)).toEqual([
+      ["a", "c2"],
+      ["b", "c"],
+    ]);
+    expect(next.groups[0].activeTabId).toBe("c2");
+    expect(next.focusedGroupId).toBe(next.groups[0].id);
+  });
+
+  it("never makes a third group", () => {
+    const layout = split(["a"], ["b"]);
+    expect(splitLeft(layout, "a", tab("a2"))).toBe(layout);
+    expect(canSplitLeft(layout, "a")).toBe(false);
+    expect(canSplitLeft(layout, "b")).toBe(true);
   });
 });
 
