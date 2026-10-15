@@ -310,14 +310,14 @@ export function applySlash(
   item: SlashItem,
 ): Transaction | null {
   const cleared = state.apply(state.tr.delete(trigger.from, trigger.to));
-  let result: Transaction | null = null;
+  const made: Transaction[] = [];
   const ran = item.run(cleared, (tr) => {
-    result = tr;
+    made.push(tr);
   });
-  if (!ran || !result) return null;
+  if (!ran || made.length === 0) return null;
   // The deletion and the block change are one step for undo.
   const combined = state.tr.delete(trigger.from, trigger.to);
-  for (const step of (result as Transaction).steps) combined.step(step);
+  for (const step of made[0].steps) combined.step(step);
   return combined;
 }
 

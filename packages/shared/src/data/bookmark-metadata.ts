@@ -8,30 +8,30 @@ export interface PageMetadata {
   faviconUrl: string | null;
 }
 
-const NAMED: Record<string, string> = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  nbsp: " ",
-  rsquo: "’",
-  lsquo: "‘",
-  rdquo: "”",
-  ldquo: "“",
-  ndash: "–",
-  mdash: "—",
-  hellip: "…",
-};
+const NAMED = new Map([
+  ["amp", "&"],
+  ["lt", "<"],
+  ["gt", ">"],
+  ["quot", '"'],
+  ["apos", "'"],
+  ["nbsp", " "],
+  ["rsquo", "\u2019"],
+  ["lsquo", "\u2018"],
+  ["rdquo", "\u201d"],
+  ["ldquo", "\u201c"],
+  ["ndash", "\u2013"],
+  ["mdash", "\u2014"],
+  ["hellip", "\u2026"],
+]);
 
 /// The named entities pages commonly use in titles and descriptions, plus any numeric one.
 export function htmlUnescape(text: string): string {
   return text.replace(/&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);/g, (whole, entity: string) => {
-    let code: number | null = null;
-    if (/^#[xX]/.test(entity)) code = Number.parseInt(entity.slice(2), 16);
-    else if (entity.startsWith("#")) code = Number.parseInt(entity.slice(1), 10);
-    else if (Object.hasOwn(NAMED, entity)) return NAMED[entity];
-    if (code === null || !Number.isFinite(code) || code > 0x10ffff) return whole;
+    if (!entity.startsWith("#")) return NAMED.get(entity) ?? whole;
+    const code = /^#[xX]/.test(entity)
+      ? Number.parseInt(entity.slice(2), 16)
+      : Number.parseInt(entity.slice(1), 10);
+    if (!Number.isFinite(code) || code > 0x10ffff) return whole;
     return String.fromCodePoint(code);
   });
 }

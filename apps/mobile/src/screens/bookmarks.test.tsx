@@ -9,14 +9,9 @@ const PAGE = `<head><title>Kubernetes Deployments</title>
   <link rel="icon" href="/f.png"></head>`;
 
 function serve(html: string, status = 200) {
-  const fake = jest.fn(async () => ({
-    ok: status < 400,
-    status,
-    url: "https://kubernetes.io/docs/",
-    text: async () => html,
-  }));
-  global.fetch = fake as unknown as typeof fetch;
-  return fake;
+  return jest
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async () => new Response(html, { status }));
 }
 
 describe("a bookmark", () => {

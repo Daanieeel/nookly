@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { type LocalDb, first, iso, num, rows, str, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
 
@@ -60,16 +61,21 @@ export async function getView(db: LocalDb, id: string): Promise<ViewRecord | nul
   return row ? toView(row) : null;
 }
 
+/// A View's settings as text: a JSON object, nothing else.
+const configText = z
+  .string()
+  .transform((raw) => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })
+  .pipe(z.looseObject({}));
+
 function checkConfig(config: string) {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(config);
-  } catch {
-    parsed = null;
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+  if (!configText.safeParse(config).success)
     throw new Error("A view's settings are a JSON object.");
-  }
 }
 
 /// `create_view`: at the end of its Space's Views of the module.

@@ -1,8 +1,11 @@
 import {
   DUPLICATE_TYPES,
+  PORTABLE_TYPES,
   type EntityRecord,
   type RepeatRule,
   createSubtask,
+  exportNooklyFile,
+  nooklyFileNoun,
   duplicateEntity,
   markOpened,
   renameEntity,
@@ -17,7 +20,9 @@ import {
 import { EFFORT_STEPS, effortLabel } from "@nookly/shared/effort";
 import { useQuery } from "@tanstack/react-query";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
+import { File, Paths } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
@@ -91,6 +96,16 @@ function Actions({ entity }: { entity: EntityRecord }) {
   const trash = useLocalWrite((db) => trashEntity(db, entity.id));
   const restore = useLocalWrite((db) => restoreEntity(db, entity.id));
   const copy = useLocalWrite((db) => duplicateEntity(db, entity.id));
+  const saveFile = useLocalWrite(async (db, _: undefined) => {
+    const { filename, text } = await exportNooklyFile(db, entity.id);
+    const file = new File(Paths.cache, filename);
+    if (file.exists) file.delete();
+    file.create();
+    file.write(text);
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(file.uri, { mimeType: "application/json", dialogTitle: filename });
+    }
+  });
   return (
     <View className="flex-row flex-wrap gap-2">
       {entity.deletedAt ? (
@@ -133,6 +148,15 @@ function Actions({ entity }: { entity: EntityRecord }) {
               onPress={() =>
                 copy.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) })
               }
+            />
+          ) : null}
+          {PORTABLE_TYPES.includes(entity.type) ? (
+            <Button
+              label={`Save as Nookly ${nooklyFileNoun(entity.type)}`}
+              variant="ghost"
+              status={statusOf(saveFile)}
+              errorLabel="Couldn't save it"
+              onPress={() => saveFile.mutate(undefined)}
             />
           ) : null}
           <Button

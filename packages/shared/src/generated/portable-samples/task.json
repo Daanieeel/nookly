@@ -1,0 +1,31 @@
+{
+  "format": "nookly-task",
+  "version": 1,
+  "kind": "task",
+  "title": "Write report",
+  "status": {
+    "name": "In Progress",
+    "doneness": 50
+  },
+  "startDate": "2026-10-20",
+  "dueDate": "2026-10-30",
+  "effort": 5,
+  "repeat": {
+    "every": 1,
+    "unit": "week"
+  },
+  "blocks": [],
+  "subtasks": [
+    {
+      "title": "Outline",
+      "status": {
+        "name": "Done",
+        "doneness": 100
+      },
+      "startDate": null,
+      "dueDate": null,
+      "effort": null,
+      "blocks": []
+    }
+  ]
+}

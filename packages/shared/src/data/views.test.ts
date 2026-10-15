@@ -46,7 +46,8 @@ describe("saved views", () => {
     await expect(updateViewConfig(db, id, "[]")).rejects.toThrow("JSON object");
     await expect(updateViewConfig(db, id, "nope")).rejects.toThrow("JSON object");
     await expect(
-      createView(db, space, { title: "x", module: "notes" as never, config: "{}" }),
+      // @ts-expect-error views only exist for tasks and assignments pages
+      createView(db, space, { title: "x", module: "notes", config: "{}" }),
     ).rejects.toThrow("not available");
     await expect(updateViewConfig(db, "missing", "{}")).rejects.toThrow("isn't here");
     await trashEntity(db, id);

@@ -88,7 +88,8 @@ export async function setBookmarkMetadata(
   );
   if (!current) throw new Error("This bookmark isn't here anymore.");
   const given = str(current.title);
-  const untouched = !given.trim() || given === str(current.url) || given === titleFromUrl(str(current.url));
+  const untouched =
+    !given.trim() || given === str(current.url) || given === titleFromUrl(str(current.url));
   await write(db, [
     {
       sql: "UPDATE bookmarks SET fetched_title = ?, favicon_url = ?, preview_image_url = ?, description = COALESCE(NULLIF(description, ''), ?), metadata_fetched_at = ? WHERE entity_id = ?",

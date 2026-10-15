@@ -1,0 +1,29 @@
+{
+  "format": "nookly-page",
+  "version": 1,
+  "kind": "note",
+  "title": "Week 1",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "content": "Hello **world**",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    },
+    {
+      "type": "heading2",
+      "content": "Next",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    },
+    {
+      "type": "code",
+      "content": "fn main() {}",
+      "language": "rust",
+      "filename": "main.rs",
+      "attrs": {}
+    }
+  ]
+}

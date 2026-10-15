@@ -200,21 +200,32 @@ const storedView = z.object({
 /// layout, the grouping and the ordering it can show. What it can't show (a due date filter, a
 /// grouping by start date) is named in `ignored`, so a person knows the list is wider than the
 /// View on the computer.
+export interface ViewDisplay {
+  display: TaskDisplay;
+  ignored: string[];
+}
+
+/// A View's JSON as text; anything unreadable is read as no settings at all.
+const viewText = z
+  .string()
+  .transform((raw) => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  })
+  .pipe(storedView);
+
 export function displayFromView(
   raw: string,
   all: { statusIds: string[]; labelIds: string[] },
-): { display: TaskDisplay; ignored: string[] } {
-  let json: unknown = {};
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    // An unreadable View opens as the defaults.
-  }
-  const stored = storedView.parse(json);
+): ViewDisplay {
+  const stored = viewText.parse(raw);
   const display: TaskDisplay = { ...DEFAULT_DISPLAY };
   const ignored: string[] = [];
-  const pick = (all: string[], filter: { operator: string; values: string[] }) =>
-    filter.operator === "isNot" ? all.filter((id) => !filter.values.includes(id)) : filter.values;
+  const pick = (every: string[], filter: { operator: string; values: string[] }) =>
+    filter.operator === "isNot" ? every.filter((id) => !filter.values.includes(id)) : filter.values;
   for (const filter of stored.filters) {
     if (filter.fieldId === "status") display.statuses = pick(all.statusIds, filter);
     else if (filter.fieldId === "label") display.labels = pick(all.labelIds, filter);

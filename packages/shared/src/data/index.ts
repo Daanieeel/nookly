@@ -16,3 +16,4 @@ export * from "./semesters.ts";
 export * from "./views.ts";
 export * from "./relationships.ts";
 export * from "./bookmark-metadata.ts";
+export * from "./portable.ts";

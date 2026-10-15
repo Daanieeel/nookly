@@ -291,7 +291,7 @@ export default function PageEditorDom({
       }),
       attributes: { class: "pm", "data-placeholder": placeholder, spellcheck: "true" },
       editable: () => editableRef.current,
-      handleClick(this: unknown, e: EditorView, pos: number, event: MouseEvent) {
+      handleClick(e: EditorView, pos: number, event: MouseEvent) {
         const target = event.target instanceof HTMLElement ? event.target : null;
         const link = target?.closest("a");
         if (link?.getAttribute("href")) {

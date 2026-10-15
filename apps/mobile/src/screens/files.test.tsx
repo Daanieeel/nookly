@@ -1,4 +1,4 @@
-import { addFile, createSpace, listFiles } from "@nookly/shared/data";
+import { addFile, createCourse, createDeck, createSpace, listFiles } from "@nookly/shared/data";
 import { waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
@@ -38,5 +38,27 @@ describe("files", () => {
     );
     expect(await screen.findByRole("button", { name: "Open In…" })).toBeTruthy();
     await waitFor(async () => expect(await listFiles(data.db)).toHaveLength(1));
+  });
+});
+
+describe("saving as a Nookly file", () => {
+  it("is offered for pages, tasks, decks and assignments, and for nothing else", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const deck = await createDeck(data.db, space, "Sorting");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const deckScreen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={deck} /> },
+      data,
+      `/entity/${deck}`,
+    );
+    expect(await deckScreen.findByRole("button", { name: "Save as Nookly Deck" })).toBeTruthy();
+    const courseScreen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={course} /> },
+      data,
+      `/entity/${course}`,
+    );
+    await courseScreen.findByRole("button", { name: "Pin" });
+    expect(courseScreen.queryByRole("button", { name: /Save as Nookly/ })).toBeNull();
   });
 });

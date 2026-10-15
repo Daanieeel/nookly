@@ -1,0 +1,16 @@
+{
+  "format": "nookly-deck",
+  "version": 1,
+  "kind": "deck",
+  "title": "Sorting",
+  "cards": [
+    {
+      "front": "Quicksort average?",
+      "back": "n log n"
+    },
+    {
+      "front": "Merge sort stable?",
+      "back": "Yes"
+    }
+  ]
+}

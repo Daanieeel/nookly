@@ -1,7 +1,10 @@
 import { MODULE_ENTITY_TYPES, MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
+import { importDeckFile } from "@nookly/shared/data";
 import { IconPlus } from "@tabler/icons-react-native";
+import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
+import { useLocalWrite } from "../data/context.tsx";
 import {
   useAssignments,
   useBookmarks,
@@ -10,10 +13,11 @@ import {
   useEntities,
   useExams,
 } from "../data/queries.ts";
-import { IconButton } from "../ui/Button.tsx";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
 import { GradesScreen, SemesterRows, SessionRows } from "./PlannerScreens.tsx";
@@ -118,6 +122,11 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
     );
   }
   const addFiles = useAddFiles(spaceId);
+  const importDeck = useLocalWrite(async (db, _: undefined) => {
+    const picked = await File.pickFileAsync({ mimeTypes: ["application/json", "text/plain"] });
+    if (picked.canceled) return null;
+    return importDeckFile(db, spaceId, await picked.result.text());
+  });
   if (module === "grades") {
     return (
       <>
@@ -164,7 +173,28 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
         ) : module === "semesters" ? (
           <SemesterRows spaceId={spaceId} />
         ) : STUDY.includes(module) ? (
-          <StudyList spaceId={spaceId} module={module} />
+          <>
+            {module === "decks" ? (
+              <View className="items-start">
+                <Button
+                  label="Import Deck File"
+                  variant="ghost"
+                  status={statusOf(importDeck)}
+                  successLabel="Imported"
+                  errorLabel="Couldn't import it"
+                  onPress={() =>
+                    importDeck.mutate(undefined, {
+                      onSuccess: (id) => id && router.push(`/entity/${id}`),
+                    })
+                  }
+                />
+                {importDeck.error ? (
+                  <Text tone="destructive">{importDeck.error.message}</Text>
+                ) : null}
+              </View>
+            ) : null}
+            <StudyList spaceId={spaceId} module={module} />
+          </>
         ) : (
           <EntityList spaceId={spaceId} module={module} />
         )}
