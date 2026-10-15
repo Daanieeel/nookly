@@ -27,6 +27,14 @@
        (`--card`, see `App.tsx`) and the `--accent` table header, so the header still reads. */
     --block-surface: color-mix(in oklab, var(--card), var(--accent) 50%);
   }
+  /* Long pages: the browser skips layout and paint for top level blocks scrolled out of view
+     and remembers each one's last height (`auto`), so the scrollbar holds still. Find in page,
+     focus and the selection keep their block rendered. A selected block is left out because
+     its outline reaches past the box, which this clips. */
+  .tiptap-content > :not(.ProseMirror-selectednode):not(:has(> .ProseMirror-selectednode)) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 1.75rem;
+  }
   .tiptap-content h1,
   .tiptap-content h2,
   .tiptap-content h3,

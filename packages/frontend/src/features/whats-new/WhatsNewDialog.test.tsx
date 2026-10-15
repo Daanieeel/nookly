@@ -39,9 +39,14 @@ const NOTES = {
           description: "Drop in a page and **check it** first.",
           icon: "file-import",
           tag: "New",
-          shortcut: "Mod+I",
+          shortcuts: ["Mod+I"],
         },
         { title: "Relate in steps", description: "Type, how, which.", tag: "Improved" },
+        {
+          title: "Two sides",
+          description: "Either way works.",
+          shortcuts: ["Mod+Shift+ArrowLeft", "Mod+Shift+ArrowRight"],
+        },
       ],
       more: {
         Improved: ["Wide tables scroll sideways.", "Paste plain text with `Mod+Shift+V`."],
@@ -119,6 +124,15 @@ describe("WhatsNewDialog", () => {
         "Improved",
       ),
     ).toBeTruthy();
+  });
+
+  it("shows every shortcut of a highlight as its own set of keys", async () => {
+    open("0.31.10");
+    const card = (await screen.findByText("Two sides")).closest("li");
+    if (!(card instanceof HTMLElement)) throw new Error("the card is missing");
+    const sets = card.querySelectorAll('[data-slot="kbd-group"]');
+    expect(sets).toHaveLength(2);
+    for (const set of sets) expect(set.querySelectorAll("kbd").length).toBeGreaterThanOrEqual(2);
   });
 
   it("draws the descriptions with the note renderer, so formatting works", async () => {

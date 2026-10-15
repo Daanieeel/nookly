@@ -11,6 +11,7 @@ All notable changes to Nookly are listed here.
 ### Changed
 
 - **Pages fit the space they get.** Lists, grids and the details sidebar now adapt to the width of their side of a split, or of the page when the sidebar is collapsed, instead of the whole window.
+- **Long pages stay smooth.** Parts of a page that are scrolled out of view are no longer laid out until you get there.
 
 ### Fixed
 

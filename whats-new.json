@@ -11,12 +11,13 @@
           "description": "Use the **Split** button, the command palettes or the keyboard to work side by side. `Mod+1` and `Mod+2` switch sides.",
           "icon": "layout-columns",
           "tag": "New",
-          "shortcut": "Mod+Shift+ArrowRight"
+          "shortcuts": ["Mod+Shift+ArrowLeft", "Mod+Shift+ArrowRight"]
         }
       ],
       "more": {
         "Improved": [
-          "Lists, grids and the details sidebar fit the width of their side of a split."
+          "Lists, grids and the details sidebar fit the width of their side of a split.",
+          "Long pages stay smooth: parts scrolled out of view are not laid out until you get there."
         ],
         "Fixed": ["Tabs are announced once by screen readers, without their close button."]
       }
@@ -48,7 +49,7 @@
           "description": "Type `==text==` or select text and press `Mod+Shift+H` to mark it with a highlighter.",
           "icon": "sparkles",
           "tag": "New",
-          "shortcut": "Mod+Shift+H"
+          "shortcuts": ["Mod+Shift+H"]
         },
         {
           "title": "Your own LaTeX commands",
@@ -247,7 +248,7 @@
           "description": "The Import dialog recognises pages, tasks, decks and assignments and shows what is inside before you confirm.",
           "icon": "file-import",
           "tag": "Improved",
-          "shortcut": "Mod+I"
+          "shortcuts": ["Mod+I"]
         },
         {
           "title": "From the command line",
@@ -274,7 +275,7 @@
           "description": "Drop in a page exported from Nookly, choose the Space, relate it to what you have and check what it contains first.",
           "icon": "file-import",
           "tag": "New",
-          "shortcut": "Mod+I"
+          "shortcuts": ["Mod+I"]
         },
         {
           "title": "Share a page",
@@ -287,7 +288,7 @@
           "description": "Open the jot of the session that is running **right now**, or get told there is none.",
           "icon": "notebook",
           "tag": "New",
-          "shortcut": "Mod+Shift+J"
+          "shortcuts": ["Mod+Shift+J"]
         },
         {
           "title": "Relate in three steps",

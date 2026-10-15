@@ -48,12 +48,16 @@ function HighlightRow({ highlight }: { highlight: WhatsNewHighlight }) {
               {highlight.tag}
             </Badge>
           )}
-          {highlight.shortcut && (
-            <KbdGroup className="ml-auto">
-              {displayParts(highlight.shortcut).map((part, index) => (
-                <Kbd key={`${index}-${part}`}>{part}</Kbd>
+          {highlight.shortcuts.length > 0 && (
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {highlight.shortcuts.map((shortcut) => (
+                <KbdGroup key={shortcut}>
+                  {displayParts(shortcut).map((part, index) => (
+                    <Kbd key={`${index}-${part}`}>{part}</Kbd>
+                  ))}
+                </KbdGroup>
               ))}
-            </KbdGroup>
+            </div>
           )}
         </div>
         <Rich text={highlight.description} className="text-xs text-muted-foreground" />
