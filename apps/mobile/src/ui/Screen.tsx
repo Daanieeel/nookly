@@ -20,7 +20,10 @@ export function Screen({
   children,
   onRefresh,
   refreshing = false,
+  wide = false,
 }: {
+  /// Fills a wide pane instead of staying a comfortable reading width (the week view).
+  wide?: boolean;
   children: React.ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -70,7 +73,11 @@ export function Screen({
           onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
         }
       >
-        <View ref={content} collapsable={false} className="gap-5 p-4 pb-12">
+        <View
+          ref={content}
+          collapsable={false}
+          className={cn("gap-5 p-4 pb-12", !wide && "w-full max-w-3xl self-center")}
+        >
           {children}
         </View>
       </ScrollView>

@@ -44,8 +44,7 @@ export function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const continueAlone = () => {
     onboarded.set("1");
-    if (router.canDismiss()) router.dismissAll();
-    router.replace("/");
+    router.dismissTo("/");
   };
   return (
     <View
@@ -63,7 +62,7 @@ export function WelcomeScreen() {
           Your tasks, notes, studies and plans, in one calm place, on every device.
         </Text>
       </View>
-      <View className="gap-3">
+      <View className="w-full max-w-md gap-3 self-center">
         <Button label="Create Account" size="lg" onPress={() => router.push("/account/sign-up")} />
         <Button
           label="Sign In"
@@ -147,8 +146,8 @@ function useAfterSignIn() {
   return () => {
     onboarded.set("1");
     void queryClient.invalidateQueries({ queryKey: keys.local });
-    if (router.canDismiss()) router.dismissAll();
-    router.replace("/");
+    // Back to the app itself, whatever sheets and screens signing in went through.
+    router.dismissTo("/");
   };
 }
 

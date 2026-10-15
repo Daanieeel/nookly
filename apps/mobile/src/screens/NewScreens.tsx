@@ -29,7 +29,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
-import { CoursePicker, ExamPicker } from "./StudyDetail.tsx";
+import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
 import { localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";

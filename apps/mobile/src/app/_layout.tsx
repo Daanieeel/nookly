@@ -14,11 +14,14 @@ import {
   ThemeProvider,
   router,
   useRootNavigationState,
+  usePathname,
   useRouter,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { Sidebar } from "../screens/Sidebar.tsx";
+import { SIDEBAR_WIDTH, SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { type AppData, AppDataProvider, useAppData } from "../data/context.tsx";
 import { openLocalDb } from "../data/database.ts";
@@ -44,7 +47,8 @@ async function start(): Promise<AppData> {
   if (automation) {
     // End to end checks only (`tools/e2e/mobile.ts`); no such address in a normal build.
     const { startAutomation } = await import("../dev/automation.ts");
-    startAutomation(automation, process.env.EXPO_PUBLIC_AUTOMATION_DEVICE ?? "phone", {
+    const { automationDevice } = await import("../dev/device.ts");
+    startAutomation(automation, automationDevice(), {
       db,
       sync,
       queryClient,
@@ -67,6 +71,9 @@ function FirstRun() {
 
 export default function RootLayout() {
   const theme = useTheme();
+  const pathname = usePathname();
+  // The sidebar sits beside the page on a tablet, but not over signing in.
+  const beside = useIsTablet() && !/^\/(welcome|account)/.test(pathname);
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -123,6 +130,183 @@ export default function RootLayout() {
       border: theme.colors.border,
     },
   };
+  const stack = (
+    <Stack
+      screenOptions={{
+        headerLargeTitle: false,
+        headerShadowVisible: false,
+        // The arrow alone: the screen behind has no title worth naming.
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
+      <Stack.Screen
+        name="(drawer)"
+        options={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      />
+      <Stack.Screen
+        name="welcome"
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen name="account/sign-in" options={{ title: "Sign In" }} />
+      <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
+      <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
+      <Stack.Screen name="entity/[id]" options={{ title: "" }} />
+      <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
+      <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+      <Stack.Screen name="settings/[page]" options={{ title: "Settings" }} />
+      <Stack.Screen
+        name="pick/icon"
+        options={{
+          title: "Choose an Icon",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.75, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/move"
+        options={{
+          title: "Move to Space",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/recipe"
+        options={{
+          title: "New Recipe",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5],
+        }}
+      />
+      <Stack.Screen
+        name="new/session"
+        options={{
+          title: "New Session",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.85, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/study-block"
+        options={{
+          title: "New Study Block",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.7, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/semester"
+        options={{
+          title: "New Semester",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.85, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/jot"
+        options={{
+          title: "Quick Jot",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5, 1],
+        }}
+      />
+      <Stack.Screen name="assignments" options={{ title: "Assignments" }} />
+      <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
+      <Stack.Screen name="settings/whats-new" options={{ title: "What's New" }} />
+      <Stack.Screen
+        name="new/task"
+        options={{
+          title: "New Task",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.6, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/page"
+        options={{
+          title: "New Page",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5],
+        }}
+      />
+      <Stack.Screen
+        name="new/entry"
+        options={{
+          title: "New Calendar Entry",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.75, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/bookmark"
+        options={{
+          title: "New Bookmark",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5],
+        }}
+      />
+      <Stack.Screen
+        name="new/space"
+        options={{
+          title: "New Space",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.6],
+        }}
+      />
+      <Stack.Screen
+        name="new/course"
+        options={{
+          title: "New Course",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5],
+        }}
+      />
+      <Stack.Screen
+        name="new/exam"
+        options={{
+          title: "New Exam",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.75, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/assignment"
+        options={{
+          title: "New Assignment",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.75, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/deck"
+        options={{
+          title: "New Deck",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.6, 1],
+        }}
+      />
+      <Stack.Screen
+        name="new/link"
+        options={{
+          title: "Link an Item",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.75, 1],
+        }}
+      />
+      <Stack.Screen name="conflicts" options={{ title: "Review Changes" }} />
+      <Stack.Screen
+        name="study/[deckId]"
+        options={{ title: "Study", presentation: "fullScreenModal" }}
+      />
+    </Stack>
+  );
   return (
     <GestureHandlerRootView className="flex-1 bg-background">
       <QueryClientProvider client={queryClient}>
@@ -130,181 +314,20 @@ export default function RootLayout() {
           <ThemeProvider value={navigation}>
             <StatusBar style="auto" />
             <FirstRun />
-            <Stack
-              screenOptions={{
-                headerLargeTitle: false,
-                headerShadowVisible: false,
-                // The arrow alone: the screen behind has no title worth naming.
-                headerBackButtonDisplayMode: "minimal",
-              }}
-            >
-              <Stack.Screen
-                name="(drawer)"
-                options={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: theme.colors.background },
-                }}
-              />
-              <Stack.Screen
-                name="welcome"
-                options={{
-                  headerShown: false,
-                  presentation: "fullScreenModal",
-                  gestureEnabled: false,
-                }}
-              />
-              <Stack.Screen name="account/sign-in" options={{ title: "Sign In" }} />
-              <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
-              <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
-              <Stack.Screen name="entity/[id]" options={{ title: "" }} />
-              <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
-              <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
-              <Stack.Screen name="settings/[page]" options={{ title: "Settings" }} />
-              <Stack.Screen
-                name="pick/icon"
-                options={{
-                  title: "Choose an Icon",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.75, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/move"
-                options={{
-                  title: "Move to Space",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.5, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/recipe"
-                options={{
-                  title: "New Recipe",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.5],
-                }}
-              />
-              <Stack.Screen
-                name="new/session"
-                options={{
-                  title: "New Session",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.85, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/study-block"
-                options={{
-                  title: "New Study Block",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.7, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/semester"
-                options={{
-                  title: "New Semester",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.85, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/jot"
-                options={{
-                  title: "Quick Jot",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.5, 1],
-                }}
-              />
-              <Stack.Screen name="assignments" options={{ title: "Assignments" }} />
-              <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
-              <Stack.Screen name="settings/whats-new" options={{ title: "What's New" }} />
-              <Stack.Screen
-                name="new/task"
-                options={{
-                  title: "New Task",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.6, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/page"
-                options={{
-                  title: "New Page",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.5],
-                }}
-              />
-              <Stack.Screen
-                name="new/entry"
-                options={{
-                  title: "New Calendar Entry",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.75, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/bookmark"
-                options={{
-                  title: "New Bookmark",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.5],
-                }}
-              />
-              <Stack.Screen
-                name="new/space"
-                options={{
-                  title: "New Space",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.6],
-                }}
-              />
-              <Stack.Screen
-                name="new/course"
-                options={{
-                  title: "New Course",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.5],
-                }}
-              />
-              <Stack.Screen
-                name="new/exam"
-                options={{
-                  title: "New Exam",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.75, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/assignment"
-                options={{
-                  title: "New Assignment",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.75, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/deck"
-                options={{
-                  title: "New Deck",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.6, 1],
-                }}
-              />
-              <Stack.Screen
-                name="new/link"
-                options={{
-                  title: "Link an Item",
-                  presentation: "formSheet",
-                  sheetAllowedDetents: [0.75, 1],
-                }}
-              />
-              <Stack.Screen name="conflicts" options={{ title: "Review Changes" }} />
-              <Stack.Screen
-                name="study/[deckId]"
-                options={{ title: "Study", presentation: "fullScreenModal" }}
-              />
-            </Stack>
+            <SidebarBesideProvider value={beside}>
+              {beside ? (
+                <View className="flex-1 flex-row bg-background">
+                  <View style={{ width: SIDEBAR_WIDTH }}>
+                    <Sidebar close={() => {}} />
+                  </View>
+                  <View className="flex-1 overflow-hidden rounded-l-2xl border-l border-border">
+                    {stack}
+                  </View>
+                </View>
+              ) : (
+                stack
+              )}
+            </SidebarBesideProvider>
           </ThemeProvider>
         </AppDataProvider>
       </QueryClientProvider>

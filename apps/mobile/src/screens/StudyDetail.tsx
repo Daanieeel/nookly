@@ -6,6 +6,7 @@ import {
   setAssignmentCourse,
   setAssignmentDueDate,
   setCourseProfessor,
+  setCourseRoom,
   setDeckExam,
   setExamCourse,
   studyQueue,
@@ -42,6 +43,7 @@ import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 import { AssignmentRows, ExamRows, deckSummary } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
+import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
@@ -82,69 +84,6 @@ function StatusChips({
   );
 }
 
-/// The Course an exam or assignment belongs to: exactly one, of its Space.
-export function CoursePicker({
-  spaceId,
-  value,
-  onChange,
-  readOnly = false,
-}: {
-  spaceId: string;
-  value: string | null;
-  onChange: (courseId: string) => void;
-  readOnly?: boolean;
-}) {
-  const { data: courses = [] } = useCourses(spaceId);
-  if (courses.length === 0) return <Text tone="muted">Make a Course first, under Courses.</Text>;
-  return (
-    <ChipGroup label="Course" scroll>
-      {courses.map((c) => (
-        <Chip
-          key={c.entity.id}
-          label={c.entity.title || "Untitled"}
-          selected={c.entity.id === value}
-          disabled={readOnly}
-          onPress={() => c.entity.id !== value && onChange(c.entity.id)}
-        />
-      ))}
-    </ChipGroup>
-  );
-}
-
-/// The Exam a deck prepares for, or none.
-export function ExamPicker({
-  spaceId,
-  value,
-  onChange,
-  readOnly = false,
-}: {
-  spaceId: string;
-  value: string | null;
-  onChange: (examId: string | null) => void;
-  readOnly?: boolean;
-}) {
-  const { data: exams = [] } = useExams({ spaceId });
-  return (
-    <ChipGroup label="Exam" scroll>
-      <Chip
-        label="No exam"
-        selected={value === null}
-        disabled={readOnly}
-        onPress={() => value !== null && onChange(null)}
-      />
-      {exams.map((e) => (
-        <Chip
-          key={e.entity.id}
-          label={e.entity.title || "Untitled"}
-          selected={e.entity.id === value}
-          disabled={readOnly}
-          onPress={() => e.entity.id !== value && onChange(e.entity.id)}
-        />
-      ))}
-    </ChipGroup>
-  );
-}
-
 function useCourseName(spaceId: string) {
   const { data: courses = [] } = useCourses(spaceId);
   return (id: string | null) => courses.find((c) => c.entity.id === id)?.entity.title;
@@ -157,6 +96,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
   const { data: exams = [] } = useExams({ courseId: id });
   const { data: assignments = [] } = useAssignments({ courseId: id });
   const professor = useLocalWrite((db, value: string | null) => setCourseProfessor(db, id, value));
+  const room = useLocalWrite((db, value: string | null) => setCourseRoom(db, id, value));
   if (!course) return null;
   const spaceId = course.entity.spaceId;
   const add = (what: "exam" | "assignment", label: string) =>
@@ -175,6 +115,13 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
         readOnly={readOnly}
         placeholder="Who teaches it"
         onSave={(value) => professor.mutate(value)}
+      />
+      <TextProperty
+        label="Room"
+        value={course.room}
+        readOnly={readOnly}
+        placeholder="Where it meets"
+        onSave={(value) => room.mutate(value)}
       />
       <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
       <Section title="Exams" action={add("exam", "New Exam")}>

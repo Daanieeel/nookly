@@ -7,6 +7,7 @@ import { recents, search } from "@nookly/shared/data";
 import { useRouter } from "expo-router";
 import { Linking } from "react-native";
 import { useAppData, useSyncState } from "../data/context.tsx";
+import { automationDevice } from "../dev/device.ts";
 import { deviceName } from "../data/sync.ts";
 import { useSetting } from "../data/settings.ts";
 import { useReveal } from "../ui/Screen.tsx";
@@ -150,6 +151,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
         onAwareness={onAwareness}
         onState={onState}
         onCaret={onCaret}
+        automationDevice={automationDevice()}
         onSearch={onSearch}
         onOpen={onOpen}
       />

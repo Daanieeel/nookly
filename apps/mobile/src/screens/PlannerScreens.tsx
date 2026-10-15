@@ -50,7 +50,7 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { CoursePicker } from "./StudyDetail.tsx";
+import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { dayLabel, localDay } from "./dates.ts";
 

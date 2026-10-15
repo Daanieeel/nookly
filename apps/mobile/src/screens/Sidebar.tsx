@@ -66,6 +66,7 @@ function NavRow({
   indent?: number;
   subtitle?: string;
 }) {
+  const theme = useTheme();
   const { box, text } = splitText(
     row(withState(sidebarMenuButtonVariants({ size: "lg" }), { active, state: "closed" })),
   );
@@ -79,7 +80,11 @@ function NavRow({
     >
       {icon}
       <View className="flex-1">
-        <Text numberOfLines={1} className={text}>
+        <Text
+          numberOfLines={1}
+          className={text}
+          style={active ? { color: theme.colors.foreground } : undefined}
+        >
           {label}
         </Text>
         {subtitle ? (
@@ -94,10 +99,15 @@ function NavRow({
 }
 
 function Heading({ title, action }: { title: string; action?: React.ReactNode }) {
+  const theme = useTheme();
   const { box, text } = splitText(row(cn(SIDEBAR_GROUP_LABEL_CLASSES)));
   return (
     <View className={cn(box, "mt-4")}>
-      <Text accessibilityRole="header" className={cn(text, "flex-1")}>
+      <Text
+        accessibilityRole="header"
+        className={cn(text, "flex-1")}
+        style={{ color: theme.colors.mutedForeground }}
+      >
         {title}
       </Text>
       {action}

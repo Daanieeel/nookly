@@ -77,6 +77,7 @@ export function weightPercent(weight: number | null): number | null {
 export interface CourseRecord {
   entity: EntityRecord;
   professor: string | null;
+  room: string | null;
 }
 
 export async function listCourses(db: LocalDb, spaceId?: string): Promise<CourseRecord[]> {
@@ -84,20 +85,22 @@ export async function listCourses(db: LocalDb, spaceId?: string): Promise<Course
   return (
     await rows(
       db,
-      `SELECT ${ENTITY_COLUMNS}, c.professor FROM entities e JOIN courses c ON c.entity_id = e.id
+      `SELECT ${ENTITY_COLUMNS}, c.professor, c.room FROM entities e JOIN courses c ON c.entity_id = e.id
        WHERE ${live}${filter.where} ORDER BY e.created_at`,
       ...filter.params,
     )
-  ).map((r) => ({ entity: toEntity(r), professor: optStr(r.professor) }));
+  ).map((r) => ({ entity: toEntity(r), professor: optStr(r.professor), room: optStr(r.room) }));
 }
 
 export async function getCourse(db: LocalDb, id: string): Promise<CourseRecord | null> {
   const row = await first(
     db,
-    `SELECT ${ENTITY_COLUMNS}, c.professor FROM entities e JOIN courses c ON c.entity_id = e.id WHERE e.id = ?`,
+    `SELECT ${ENTITY_COLUMNS}, c.professor, c.room FROM entities e JOIN courses c ON c.entity_id = e.id WHERE e.id = ?`,
     id,
   );
-  return row ? { entity: toEntity(row), professor: optStr(row.professor) } : null;
+  return row
+    ? { entity: toEntity(row), professor: optStr(row.professor), room: optStr(row.room) }
+    : null;
 }
 
 export async function createCourse(db: LocalDb, spaceId: string, title: string): Promise<string> {
@@ -115,6 +118,10 @@ export async function setCourseProfessor(
   professor: string | null,
 ): Promise<void> {
   await update(db, "courses", id, { professor: clean(professor) });
+}
+
+export async function setCourseRoom(db: LocalDb, id: string, room: string | null): Promise<void> {
+  await update(db, "courses", id, { room: clean(room) });
 }
 
 // --- Exams -----------------------------------------------------------------

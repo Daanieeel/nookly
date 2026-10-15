@@ -27,6 +27,7 @@ import {
   listCards,
   listExams,
   reviewCard,
+  setCourseRoom,
   undoReview,
   setAssignmentCourse,
   setAssignmentDueDate,
@@ -199,5 +200,17 @@ describe("related items and labels", () => {
     expect((await listLabels(db, work)).map((l) => l.name)).toEqual(["Urgent"]);
     await detachLabel(db, task, urgent);
     expect(await entityLabels(db, task)).toEqual([]);
+  });
+});
+
+describe("a course's room", () => {
+  it("is set, cleared, and read with the professor", async () => {
+    const space = await createSpace(db, "Uni", "#3b82f6");
+    const course = await createCourse(db, space, "Algorithms");
+    await setCourseProfessor(db, course, "Prof. Ada");
+    await setCourseRoom(db, course, "  H 0104 ");
+    expect(await getCourse(db, course)).toMatchObject({ professor: "Prof. Ada", room: "H 0104" });
+    await setCourseRoom(db, course, "  ");
+    expect((await getCourse(db, course))?.room).toBeNull();
   });
 });

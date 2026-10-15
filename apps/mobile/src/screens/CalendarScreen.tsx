@@ -11,7 +11,7 @@ import type { AgendaItem } from "@nookly/shared/data";
 import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
+import { Pressable, View } from "react-native";
 import { useSetting } from "../data/settings.ts";
 import { useAgenda, useSpaces } from "../data/queries.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
@@ -21,6 +21,7 @@ import { cn } from "../ui/classes.ts";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
+import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, dayLabel, localDay } from "./dates.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
@@ -134,7 +135,7 @@ function WeekView({
   items: AgendaItem[];
   colorOf: (spaceId: string) => string | undefined;
 }) {
-  const { width } = useWindowDimensions();
+  const width = usePaneWidth();
   const router = useRouter();
   const today = localDay();
   if (width < WIDE) {
@@ -289,7 +290,7 @@ export function CalendarScreen() {
           ),
         }}
       />
-      <Screen onRefresh={onRefresh} refreshing={refreshing}>
+      <Screen onRefresh={onRefresh} refreshing={refreshing} wide>
         <ChipGroup label="View">
           {VIEWS.map((v) => (
             <Chip

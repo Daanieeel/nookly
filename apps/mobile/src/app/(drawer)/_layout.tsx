@@ -2,6 +2,7 @@ import { Drawer, DrawerToggleButton } from "expo-router/drawer";
 import { useWindowDimensions } from "react-native";
 import { Sidebar } from "../../screens/Sidebar.tsx";
 import { PageEdge, insetPageStyle } from "../../ui/inset-page.tsx";
+import { useSidebarBeside } from "../../ui/pane.tsx";
 import { useTheme } from "../../ui/theme.ts";
 
 /// The sidebar, with the page's edge drawn over it.
@@ -22,6 +23,8 @@ function SidebarContent({ close, width }: { close: () => void; width: number }) 
 export default function DrawerLayout() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  // On a tablet the sidebar is beside the page (the root layout), so this one never opens.
+  const beside = useSidebarBeside();
   const drawerWidth = Math.min(width * 0.82, 340);
   return (
     <Drawer
@@ -30,9 +33,12 @@ export default function DrawerLayout() {
       )}
       screenOptions={{
         drawerType: "back",
+        swipeEnabled: !beside,
         swipeEdgeWidth: width,
         overlayColor: "transparent",
-        sceneStyle: insetPageStyle(theme.colors.page),
+        sceneStyle: beside
+          ? { backgroundColor: theme.colors.page }
+          : insetPageStyle(theme.colors.page),
         drawerStyle: {
           width: drawerWidth,
           backgroundColor: theme.colors.background,
@@ -40,12 +46,14 @@ export default function DrawerLayout() {
         headerStyle: { backgroundColor: theme.colors.page },
         headerShadowVisible: false,
         headerTintColor: theme.colors.foreground,
-        headerLeft: () => (
-          <DrawerToggleButton
-            tintColor={theme.colors.foreground}
-            accessibilityLabel="Open Sidebar"
-          />
-        ),
+        headerLeft: beside
+          ? () => null
+          : () => (
+              <DrawerToggleButton
+                tintColor={theme.colors.foreground}
+                accessibilityLabel="Open Sidebar"
+              />
+            ),
       }}
     >
       <Drawer.Screen name="index" options={{ title: "Dashboard" }} />

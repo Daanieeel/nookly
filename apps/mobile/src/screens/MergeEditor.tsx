@@ -2,7 +2,7 @@ import { type ConflictView, combinedText, diffWords } from "@nookly/shared/sync"
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { View, useWindowDimensions } from "react-native";
+import { View } from "react-native";
 import { useAppData } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { Badge } from "../ui/Badge.tsx";
@@ -12,6 +12,7 @@ import { ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { cn } from "../ui/classes.ts";
+import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 
 /// The width from which the two versions sit side by side; below it they stack.
@@ -86,7 +87,7 @@ function Version({
 
 function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
   const { sync } = useAppData();
-  const { width } = useWindowDimensions();
+  const width = usePaneWidth();
   const [combined, setCombined] = useState<string | null>(null);
   useEffect(() => setCombined(null), [view.id]);
   const decide = useMutation({
@@ -195,7 +196,7 @@ export function useConflictViews() {
 export function MergeEditor() {
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const { width } = useWindowDimensions();
+  const width = usePaneWidth();
   const { data: views = [], isFetched } = useConflictViews();
   const [pick, setPick] = useState<string | null>(null);
   const wide = width >= SIDE_BY_SIDE + 300;

@@ -85,6 +85,8 @@ interface Props {
   /// Whether the editor has the keyboard and which formats are on, as JSON.
   onState: (state: string) => Promise<void>;
   /// Finds items to mention by what was typed after the `@`, as JSON: `[{ id, title, key }]`.
+  /// This device's name for end to end checks, which also drive the editor.
+  automationDevice: string;
   onSearch: (query: string) => Promise<string>;
   /// A link or mention was tapped: what it points at (`mention:<id>` or a web address).
   onOpen: (href: string) => Promise<void>;
@@ -164,6 +166,7 @@ export default function PageEditorDom({
   onAwareness,
   onState,
   onCaret,
+  automationDevice,
   onSearch,
   onOpen,
 }: Props) {
@@ -371,8 +374,7 @@ export default function PageEditorDom({
     if (!url) return;
     let stop: (() => void) | undefined;
     void import("../dev/automation.ts").then(({ startAutomation }) => {
-      const device = process.env.EXPO_PUBLIC_AUTOMATION_DEVICE ?? "phone";
-      stop = startAutomation(url, `${device}-editor`, {
+      stop = startAutomation(url, `${automationDevice}-editor`, {
         editor: view.current,
         doc: doc.current,
         awareness: awareness.current,
