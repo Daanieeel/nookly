@@ -45,3 +45,5 @@ PROMPT.md
 .expo/
 
 **/ios/
+
+.env
