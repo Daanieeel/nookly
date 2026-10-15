@@ -1,10 +1,4 @@
-import {
-  IconCalendarEvent,
-  IconClipboardCheck,
-  IconSchool,
-  IconStar,
-  IconStarOff,
-} from "@tabler/icons-react";
+import { IconCalendarEvent, IconClipboardCheck, IconSchool } from "@tabler/icons-react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -18,6 +12,7 @@ import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { type ActiveFilter, type FilterField, applyFilters } from "#/components/filter-menu.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
+import { EvaluationToggle } from "./EvaluationToggle";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
@@ -415,21 +410,11 @@ export function CreateAssignmentDialog({
         </form.Field>
         <form.Field name="ungraded">
           {(field) => (
-            <button
-              type="button"
-              onClick={() => field.handleChange(!field.state.value)}
-              className={cn(
-                PROPERTY_PILL,
-                !field.state.value && "border-caution/40 bg-caution/10 text-caution",
-              )}
-            >
-              {field.state.value ? (
-                <IconStarOff size={14} className="shrink-0" />
-              ) : (
-                <IconStar size={14} className="shrink-0" />
-              )}
-              <span className="truncate">{field.state.value ? "Ungraded" : "Graded"}</span>
-            </button>
+            <EvaluationToggle
+              ungraded={field.state.value}
+              onToggle={field.handleChange}
+              className={cn(PROPERTY_PILL, !field.state.value && "border-caution/40 bg-caution/10")}
+            />
           )}
         </form.Field>
       </div>

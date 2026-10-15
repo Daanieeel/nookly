@@ -19,7 +19,7 @@ import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { weightPercent } from "#/features/exams/exam-model.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { AssignmentDuePicker } from "./AssignmentDuePicker";
-import { AssignmentGradeField } from "./AssignmentGradeField";
+import { AssignmentGradingRows } from "./AssignmentGradingRows";
 import {
   ASSIGNMENT_STATUSES,
   assignmentStatus,
@@ -163,9 +163,7 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
         <WeightField assignment={assignment} />
       </PropertyRow>
 
-      <PropertyRow label="Grade">
-        <AssignmentGradeField assignment={assignment} />
-      </PropertyRow>
+      <AssignmentGradingRows assignment={assignment} />
 
       <PropertyRow label="Course">
         <CourseField assignment={assignment} course={course} />

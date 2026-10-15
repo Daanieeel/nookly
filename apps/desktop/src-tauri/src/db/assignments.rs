@@ -32,8 +32,8 @@ pub struct Assignment {
     pub weight: Option<f64>,
     pub status: String,
     pub grade: Option<f64>,
-    /// Not graded at all, like homework: it has no grade and takes no share of the
-    /// course's grade.
+    /// Not graded at all, like homework: it takes no share of the course's grade. A grade
+    /// it already has is kept for when it is graded again.
     pub ungraded: bool,
 }
 
@@ -136,25 +136,23 @@ pub fn update_assignment_status(
     grade: Option<f64>,
 ) -> AppResult<()> {
     crate::db::require_one_of("status", &status, ASSIGNMENT_STATUSES)?;
-    // A grade means it is graded after all; clearing one leaves `ungraded` as it was.
     let affected = conn.execute(
-        "UPDATE assignments SET status = ?1, grade = ?2, ungraded = CASE WHEN ?2 IS NULL THEN ungraded ELSE 0 END WHERE entity_id = ?3",
+        "UPDATE assignments SET status = ?1, grade = ?2 WHERE entity_id = ?3",
         params![status, grade, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
 }
 
-/// Marks an assignment as not graded at all (and drops its grade), or counts it towards
-/// the course's grade again. Turning it off keeps the grade, which is none unless one was
-/// typed since.
+/// Marks an assignment as not graded at all, or counts it towards the course's grade
+/// again. The grade is kept either way, so switching back never loses one.
 pub fn update_assignment_ungraded(
     conn: &Connection,
     entity_id: &str,
     ungraded: bool,
 ) -> AppResult<()> {
     let affected = conn.execute(
-        "UPDATE assignments SET ungraded = ?1, grade = CASE WHEN ?1 THEN NULL ELSE grade END WHERE entity_id = ?2",
+        "UPDATE assignments SET ungraded = ?1 WHERE entity_id = ?2",
         params![ungraded, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
@@ -478,14 +476,14 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         kind: FieldKind::Float,
         required_on_create: false,
         writable_on_update: true,
-        description: "Grade received. Setting one clears ungraded.",
+        description: "Grade received.",
     },
     FieldDef {
         name: "ungraded",
         kind: FieldKind::Boolean,
         required_on_create: false,
         writable_on_update: true,
-        description: "True for work that is not graded, like homework: it has no grade and counts for nothing in the Course's grade. Setting it true drops the grade. Defaults to false.",
+        description: "True for work that is not graded, like homework: it counts for nothing in the Course's grade and its grade is hidden, but kept. Defaults to false.",
     },
 ];
 

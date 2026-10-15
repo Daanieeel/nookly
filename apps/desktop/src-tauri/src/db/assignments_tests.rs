@@ -794,7 +794,7 @@ fn a_new_assignment_counts_towards_the_grade() {
 }
 
 #[test]
-fn an_ungraded_assignment_has_no_grade_and_a_grade_makes_it_graded_again() {
+fn ungraded_and_the_grade_are_independent_so_a_grade_is_never_lost() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Homework", None);
@@ -803,24 +803,24 @@ fn an_ungraded_assignment_has_no_grade_and_a_grade_makes_it_graded_again() {
     update_assignment_ungraded(&conn, &a.entity.id, true).unwrap();
     let stored = get_assignment(&conn, &a.entity.id).unwrap();
     assert!(stored.ungraded);
-    assert!(
-        stored.grade.is_none(),
-        "an ungraded assignment keeps no grade"
+    assert_eq!(
+        stored.grade,
+        Some(2.0),
+        "the grade stays while it is ungraded"
     );
 
-    // Clearing the grade of an ungraded assignment leaves it ungraded.
-    update_assignment_status(&conn, &a.entity.id, "submitted".into(), None).unwrap();
+    // Saving the status again does not change either.
+    update_assignment_status(&conn, &a.entity.id, "submitted".into(), Some(2.0)).unwrap();
     assert!(get_assignment(&conn, &a.entity.id).unwrap().ungraded);
-
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(1.3)).unwrap();
-    let stored = get_assignment(&conn, &a.entity.id).unwrap();
-    assert!(!stored.ungraded);
-    assert_eq!(stored.grade, Some(1.3));
 
     update_assignment_ungraded(&conn, &a.entity.id, false).unwrap();
     let stored = get_assignment(&conn, &a.entity.id).unwrap();
     assert!(!stored.ungraded);
-    assert_eq!(stored.grade, Some(1.3), "turning it off keeps the grade");
+    assert_eq!(
+        stored.grade,
+        Some(2.0),
+        "counting it again brings the grade back"
+    );
 }
 
 #[test]

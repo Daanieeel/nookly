@@ -383,7 +383,7 @@
         "writableOnUpdate": true
       },
       {
-        "description": "Grade received. Setting one clears ungraded.",
+        "description": "Grade received.",
         "kind": "float",
         "name": "grade",
         "requiredOnCreate": false,
@@ -405,7 +405,7 @@
         "writableOnUpdate": true
       },
       {
-        "description": "True for work that is not graded, like homework: it has no grade and counts for nothing in the Course's grade. Setting it true drops the grade. Defaults to false.",
+        "description": "True for work that is not graded, like homework: it counts for nothing in the Course's grade and its grade is hidden, but kept. Defaults to false.",
         "kind": "boolean",
         "name": "ungraded",
         "requiredOnCreate": false,

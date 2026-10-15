@@ -114,11 +114,6 @@ fn parse(text: &str) -> AppResult<AssignmentFile> {
             "weight must be a number of 0 or more".into(),
         ));
     }
-    if file.ungraded && file.grade.is_some() {
-        return Err(AppError::InvalidInput(
-            "an ungraded assignment has no grade".into(),
-        ));
-    }
     Ok(file)
 }
 
@@ -331,17 +326,6 @@ mod tests {
                 .unwrap()
                 .ungraded
         );
-    }
-
-    #[test]
-    fn an_ungraded_file_with_a_grade_is_refused() {
-        let fx = fixture();
-        let a = graded(&fx);
-        let json = export_assignment_json(&fx.conn, &a.id)
-            .unwrap()
-            .replace("\"grade\": 8.5,", "\"grade\": 8.5, \"ungraded\": true,");
-        assert!(json.contains("ungraded"));
-        assert!(parse(&json).is_err());
     }
 
     #[test]
