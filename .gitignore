@@ -39,3 +39,9 @@ coverage
 
 PLAN.md
 PROMPT.md
+
+.dev/
+
+.expo/
+
+**/ios/
