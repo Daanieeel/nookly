@@ -1,84 +1,171 @@
 # Implementation state: the connected platform
 
-Branch `feat/connected-platform` (worktree `../nookly-connected`, from `mobile-app-and-backend`). Commit and push here, no PRs, no merging. Never run sync or migration code against the real Nookly data: the app in `/Applications` and `~/Library/Application Support/com.nookly.app` are the user's. Debug builds use `apps/desktop/src-tauri/.dev-data` (or `NOOKLY_DATA_DIR`) and their own settings and token files.
+This file is the handover. A coding agent that reads it, plus `AGENTS.md`, `GAP_ANALYSIS.md` and `DECISIONS.md`, should be able to continue without the original conversation. Keep it current with every commit.
 
-**Keep this file current with every commit.** The brief is in the session; `GAP_ANALYSIS.md` is the parity checklist, `DECISIONS.md` the decisions (⚑ marks the ones to double check). `REPORT.md` is written at the end and never committed.
+## 1. Where things are
 
-## Phases
+- Branch: `feat/connected-platform`, worktree `/Users/daniel/Development/03_Personal/Open Source/nookly-connected`. It branched from `mobile-app-and-backend` at `0b5bd915` (the user's main checkout at `/Users/daniel/Development/03_Personal/Open Source/nookly` is on that branch and must stay untouched). 40 commits of this work, latest pushed commit at the time of writing: `a62244b`. Commit and push to `origin feat/connected-platform`. **No PRs, no merges.**
+- Third worktree `/Users/daniel/nk-build` (detached HEAD) exists only for native iOS builds, see 6.3.
+- Not in git on purpose: `REPORT.md` (the user said never to commit it) and `report/screenshots/` (both in `.git/info/exclude`), `.env`.
+- Two old stashes in the repository ("WIP on feat/connected-platform before switching to mobile-app-and-backend") come from an incident where another session switched branches inside this worktree. Leave them alone. Never `git stash`, never switch branches in this worktree.
 
-| Phase                            | State                                                                                                                                                                                                                                                                                                                                          |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Gap analysis and design       | Done: `GAP_ANALYSIS.md`, `DECISIONS.md` (D1 to D25)                                                                                                                                                                                                                                                                                            |
-| 2. Infra and accounts            | Done: root `docker-compose.yml` (Postgres, MinIO), `.env.example`, `bun run stack`, better-auth (username and password, bearer sessions, OAuth providers by env), legacy account migration, S3 file storage by SHA-256 through the AWS SDK                                                                                                     |
-| 3. Desktop on the backend        | Done: account dialog, sign in and create account, first sync with backup first, progress and a checked summary, files and settings sync, sync status in the titlebar, migrations 43 and 44. Verified in the running app against a fixture copy                                                                                                 |
-| 4. Live text, offline, conflicts | Done: Yjs page documents over Hocuspocus, carets, offline copies, merge editor on desktop and phone, conflict badge. Verified with real desktop instances, the iPad simulator and the phone simulator                                                                                                                                          |
-| 5. Mobile parity and design      | Done: every row of `GAP_ANALYSIS.md` is built or documented as desktop only / partial with the reason. Phone and tablet layouts, live editor, merge editor, settings, files, recipes, calendar, study, assignments, grades, views, share files, onboarding and account screens                                                                 |
-| 6. End to end across devices     | Mostly done, see "Where work stopped" below: account created on the iPad, signed in on a fresh desktop, edits both ways, same note edited on two devices merges, offline edits on both ends of one field give the merge editor on desktop and iPad. Last item (first sync migration re-run with the 0.38.1 build) and `REPORT.md` are not done |
+## 2. The brief (what the user asked for)
 
-## Where work stopped
+Mode: fully autonomous. Do not ask the user anything; make the best call, record it in `DECISIONS.md` (decision, alternatives, why; ⚑ marks ones to double check), keep going, commit after each meaningful step with a clear message, do not stop at "mostly works". Anything truly impossible or blocked (paid account, real mail provider) is stubbed behind an interface and listed in the final report.
 
-Latest commit on `feat/connected-platform`: `2b8e8b0` (pushed). The working tree is clean; the only things not in git are `REPORT.md` and `report/screenshots/`, both listed in the repository's `.git/info/exclude` on purpose (the brief says never commit the report).
+Goal: Nookly (Tauri desktop app, Expo mobile app, Elysia server) becomes one connected product. A user signs in on any device and sees and edits the same data live on all of them, including offline with sync on reconnect. The backend is the single source of truth.
 
-### Already done in the last stretch (all committed and pushed)
+Hard rule: **no data loss, ever** (migration, sync, conflict resolution, crash mid write, failed upload). Never delete local data until the server confirmed it persisted. Every destructive or overwriting operation is recoverable (trash, version history or conflict copy). When in doubt keep both versions. **Never run migration or sync code against the user's real Nookly data**; test on copies and generated fixtures only. Tests must try to break this (kill app mid sync, offline mid upload, same item edited on two devices).
 
-- Sidebar text unreadable in dark mode: fixed with theme colours (D23); require cycle between `PlannerScreens` and `StudyDetail` removed (new `StudyPickers.tsx`); tablet layout (D22); course Room field.
-- Found by running two accounts across the iPad, the phone and a real desktop build, each fixed with a test first (D24, D25):
-  - Sign up on a phone refused with "Missing or null Origin": the phone's networking layer sends back the cookie of an earlier sign in. Auth requests now drop cookies on the server (`apps/server/src/auth/cookies.ts`) and the client sends `credentials: "omit"`.
-  - A second account on the same device never saw its own data: a sync still in flight at sign out wrote its cursor after the wipe. A stopped sync now writes nothing, sign out waits for it (`SyncClient.finished()`), and turning sync on clears cursors.
-  - Changes arrived up to a minute late after a server restart: the live socket reconnects within 10 s, pings every 15 s and is dropped after 40 s of silence (`packages/shared/src/api/client.ts`, `live.test.ts`); local changes go out after 400 ms.
-- `cargo test` failed on `every_registered_command_is_covered` (blob, pre sync backup and store folder commands had no test). Fixed with three tests and `NOT_INVOKED` entries in `commands_tests.rs`.
-- One lint error (inline query key) fixed in `lib/query-keys.ts`.
-- Versions bumped: desktop 0.38.1 (changelog section and `whats-new.json` entry written), mobile 0.5.0, server 0.2.1.
-- `DECISIONS.md` has D18 to D25; `GAP_ANALYSIS.md` has no empty Done cell (81 done, 11 partial with reasons, the rest desktop only); the server docs and `apps/server/README.md` now describe the real stack (root compose, `bun run stack`, better-auth, S3) instead of the old JWT setup.
-- Last full run of the checks: `bun run lint` (errors none, warnings only), `format:check`, `typecheck`, `bun run test` (shared 216, frontend 2274 plus the expected fail, mobile 113, server 84 against Postgres), `cargo test` (1243), `bun run duplication` (0.23%). The frontend run showed three timeouts when `cargo test` ran at the same time; they passed alone.
-- Verified in the simulators and desktop builds: the iPad created account `grace`, a fresh desktop signed in and received everything; iPad to desktop and desktop to iPad edits arrived in roughly 0.2 to 2 s (the measurement script is crude, treat as "about a second"); two devices typing in one note merged with nothing lost; both devices offline with different titles gave the merge editor on the desktop and the iPad (both versions, device names, times, changed words marked), resolving on one cleared it on both.
+Architecture: docker compose with Postgres (Drizzle schema and migrations) and MinIO reached only through the AWS S3 SDK v3 (endpoint, bucket and credentials from env); the backend owns auth; clients keep a local cache; `docker compose up` plus a documented dev script brings everything up on localhost; `.env.example` covers every variable; no secrets committed.
 
-### Where I was interrupted
+Accounts: better-auth, username and password first, structured so Google, Apple and GitHub OAuth can be added later; sign up, login, logout, session persistence like a consumer app; password reset stubbed without an email provider; one account works on desktop and mobile.
 
-I was re-running the first sync migration once more, with the 0.38.1 desktop build, as a last regression check after the cursor and sign out changes: a fresh fixture copy (`bun tools/fixtures/desktop.ts <scratch>/run-desktop-h`), start it on automation port 4569, sign in as `ada` (an account that already has data, so the merge case), and look at the backup, progress and summary. The instance did not answer the automation port: the process either exited right after start or its webview never ran scripts (no log output, I did not find out why). I was about to start it in the foreground to see its output when I was stopped. Nothing was changed for this; the earlier run of this scenario (phase 3, an older build) passed, and the server and shared tests cover the same logic (`runtime.test.ts`, `vertical-slice.test.ts`).
+Migrating existing desktop data: on first login with local data, a full local backup first; idempotent and resumable; files go to MinIO with checksum verification; progress and a summary ("X items, Y files migrated"); local data stays until the server confirmed every item; an account that already has data from another device merges, never overwrites.
 
-### Still to do
+Sync: Notion like feel; WebSockets; text content as CRDT (Yjs and Hocuspocus); structured fields per field with version tracking (different fields merge silently, only the same field on both sides is a real conflict); offline everything works against the local cache with a queue and a quiet indicator (synced, syncing, offline, conflict); file upload queue with retry.
 
-1. Re-run that migration check (see above). If the app will not start with a fixture copy, look at its output first; it started fine for the `run-desktop-g` copy earlier. Expected: a backup under `pre-sync-backups`, "X items, Y files" summary, local data untouched, account's existing rows merged.
-2. Write `REPORT.md` (do not commit it): what was built by phase with commit ranges (my commits start at `1b6a32cb`, the branch point is `0b5bd915`, 40 commits to `2b8e8b0`), every decision in `DECISIONS.md` summarised with the ⚑ ones marked, what is stubbed, skipped or fragile (phone files hashed in memory; "keep both" is text only; D7 newest wins; external calendars, CLI, agent files, tabs, shortcuts, Vim and folder backups desktop only; series creation and editing desktop only; no "copy link" on the phone; password reset is a console mailer stub; OAuth providers untested; no real device run, only simulators; nothing can tap a system dialog; the stash incident; simulator runs are not in CI; the "fresh clone" steps were written but the stack was not rebuilt from a literally fresh clone), how to run it and a 15 minute manual checklist covering the Definition of Done, and the screenshots in `report/screenshots/` (desktop dashboard, desktop merge editor and conflict badge, phone sidebar, page editor, dashboard, settings and merge editor, tablet dashboard, page editor and merge editor, the sign up error before its fix, the slash menu).
-3. Optional polish: the sidebar and Settings count only conflicts this device recorded while the merge editor can list more (a count mismatch, seen as "1 change needs a look" above two rows); a few mobile lint warnings (setState in effects in `SettingRow`, `RecipeScreens`, `PageEditor`; unused `_` parameters in `FileScreens` and `RecipeScreens`); the report only checks were not run (`bun run coverage`, `unused`, `audit`, `lint:rust:strict`).
-4. Clean up what I left running on this machine (all mine, none of the user's): the server from `bun run stack` on port 3100, Metro on 8093, the simulator hub on 4600, the debug desktop on automation port 4568 (data in the scratchpad `run-desktop-g`), and possibly a stray debug desktop from the 4569 attempts. The user's own dev server (3000), Expo (8081), vite (1420), their iPhone 17 simulator and `/Applications/Nookly.app` were never touched.
+Conflict UI (merge editor): only for real conflicts; no git vocabulary; "This device", "Other device", device names and timestamps; side by side with differences highlighted (stacked on a phone); per conflict: keep this one, keep the other, keep both, edit a combined version; never blocks the user (the item stays usable, a badge invites resolving); unresolved conflicts never lose either version.
 
-### State of the local test data (disposable)
+Desktop: wire every feature to the backend; account UI (sign in and sign up, account section in settings, signed in state and sync status visible).
 
-Dev Postgres (`nookly-postgres-1`, port 5433) holds accounts `ada` (`correct horse battery`, the desktop fixture's 588 items) and `grace` (`grace hopper compiler`, created on the iPad from the same data). One fixture task (TSK-3) had its title changed by latency probes in both accounts. The throwaway probe accounts were deleted. The iPad simulator is signed in as `grace`, the phone simulator as `ada`.
+Mobile: feature parity with the desktop (every feature, screen and setting; a missing feature counts as a bug), same information architecture adapted to phone and tablet, in the style of the Claude mobile app (calm, native navigation, sheets instead of modals, generous spacing; iPad closer to the desktop layout), onboarding screen then sign in or create account. The user also said the mobile components were ugly, wrongly implemented or fantasy code, and asked to imitate the desktop as closely as possible; there is no shadcn/ui on Expo, `reactnativereusables.com` may be used instead.
 
-## Mobile (phase 5)
+Order of work: 1 gap analysis and design; 2 infra and better-auth; 3 desktop on the backend and local data migration; 4 offline cache, WebSocket sync, CRDT text, conflict UI; 5 mobile parity and design; 6 end to end verification across devices. At the end of each phase run everything and fix what is broken before moving on.
 
-Screens: `apps/mobile/src/screens`, primitives `src/ui` (react-native-reusables style on the desktop's class lists), data on the shared rules `packages/shared/src/data`, sync `packages/shared/src/sync`, live editor `src/editor` (Expo DOM component, D17). Tablet (768 points and up) keeps the sidebar beside the page (D22).
+Definition of done:
 
-Open items: none from the gap analysis; the partials and their reasons are in `GAP_ANALYSIS.md` and D19. Lint shows a few warnings in mobile files (setState in effects, unused `_` parameters) that were left as they are.
+1. Fresh clone, documented steps, full stack on localhost.
+2. A desktop with local data (a test copy) logs in, everything is migrated, verified, nothing lost.
+3. An account created on mobile, logged in on desktop: edits appear within about a second.
+4. The same note edited on two devices at once merges with no conflict.
+5. One device offline, the same field changed on both, reconnect: the merge editor appears, both versions kept until resolved.
+6. Every item in `GAP_ANALYSIS.md` exists and works on mobile.
+7. Typecheck, lint and tests pass.
 
-## Running things
+Final report `REPORT.md` (not committed): what was built phase by phase with commit ranges; every decision from `DECISIONS.md` summarised with the ⚑ ones marked; anything stubbed, skipped or fragile stated plainly; how to run, plus a manual test checklist of at most 15 minutes covering the definition of done; screenshots of desktop, phone and tablet including the merge editor. The user allowed committing and pushing, not opening a PR.
+
+Later instructions from the user:
+
+- "make sure IMPLEMENTATION_STATE.md stays up to date all the time" and "must contain all the information I would give a coding agent to resume working" (this file).
+- "make sure to use the simulator in system dark mode" (`xcrun simctl ui <id> appearance dark`, repeat after a simulator reboots).
+- The user switched the model to Sonnet 5.5 and wants terse caveman style replies in chat (code, commits and docs are written normally). A memory of the user's preferences exists under `~/.claude/projects/.../memory/` (released app so no data loss, terse docs, canonical classes in `packages/ui`, sync and mobile plan).
+
+## 3. Project rules from `AGENTS.md` that bite here
+
+- Nookly is released: user data must be preserved at all costs. Persisted state changes need a new migration in `apps/desktop/src-tauri/src/db/migrations.rs` (append only, never edit an old one), its hash in `EXPECTED_HASHES`, a declaration in `db/upgrade.rs` (`DECLARED`) for any changed existing column, and `cargo test db::upgrade_tests`. Snapshots: `NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib sync::` and `cli::snapshot_tests`. Migrations 43 and 44 are this work's.
+- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.1, mobile 0.5.0 (`apps/mobile/package.json` and `app.json`), server 0.2.1 (the bump tool only touches the desktop).
+- User facing copy: no em or en dashes and no hyphenated sentence structure.
+- Never modify existing primitives or tokens in `packages/ui` (add only). `outline` variants of Button and Badge are rare. Icon only buttons need a tooltip or label. Dialogs and menus get an axe test (`vitest-axe`). Permanent actions use `ConfirmPermanentDialog` (phone: system alert, D18).
+- Every new entity, field or relationship must be exposed through the schema layer the CLI generates from; no one off CLI commands.
+- Tests first for every bug fix and behaviour change; a test that pins a known bug says so.
+- Before finishing run and fix: `bun run lint`, `bun run format:check` (`bunx oxfmt <paths>` formats), `bun run typecheck`, `bun run test` (needs `TEST_DATABASE_URL=postgres://nookly:nookly@127.0.0.1:5433/nookly_test`), `cd apps/desktop/src-tauri && cargo test`, `bun run duplication` (under 1%, currently 0.23%). Report only checks (read, do not silence): `bun run coverage`, `unused`, `audit`, `lint:rust:strict`. While iterating run only the tests of the feature.
+- The lint is a strict "anti slop" oxlint: no runtime `typeof` checks, no open `Record<string, ...>` dictionaries (use `Map` or `satisfies`), no `unknown` or `object` parameters, type assertions need a `// SAFETY:` comment, no chained assertions (`as unknown as X`), no inline query keys (use `qk` from `packages/frontend/src/lib/query-keys.ts`, checked by `bun run lint:keys`).
+
+## 4. Architecture in this branch
+
+- `apps/server` (Bun, Elysia, Drizzle, Postgres): `src/auth` (better-auth: username or email plus password, bearer sessions, OAuth by env keys, `cookies.ts` strips cookies from auth requests), `src/sync` (push, pull, `hub.ts` WebSocket notices on `/v1/sync/ws`), `src/collab` (Hocuspocus Yjs page documents on `/v1/collab`), `src/storage` (S3 blobs by SHA-256), `src/shares`, `src/mail` (console mailer stub), `src/app.ts`. Tests in `apps/server/test` run against a real Postgres.
+- `packages/shared`: the sync engine and client used by desktop webview and phone alike (`src/sync`: `engine.ts` per field records with hybrid logical clocks, `client.ts` debounce, live socket, retry, `runtime.ts` sign in and out, first sync with backup, files, settings, conflicts, `docs.ts` page documents, `conflict-view.ts`), `src/api/client.ts` (`ApiClient`, live socket with ping and silence detection), and `src/data` (TypeScript ports of the desktop's Rust data rules for the phone, D20; a Rust test imports their sample files so they cannot drift).
+- `apps/desktop`: Tauri. Frontend in `packages/frontend` (account dialog, first sync dialog, merge editor, conflict badge, titlebar sync status in `features/sync`). Rust in `apps/desktop/src-tauri` (`commands/blobs.rs`, `commands/backup.rs`, `sync/`, automation server in `src/automation.rs` for debug builds).
+- `apps/mobile` (Expo 57, React Native, NativeWind, `@rn-primitives`, react-native-reusables style): `src/app` routes (Expo Router, drawer, `entity/[id]`, `conflicts`, `account/*`, `settings/*`, `new/*`), `src/screens`, `src/ui` primitives on the desktop's class lists (`@nookly/ui/classes`), `src/data` (SQLite driver, queries, sync wiring, backup, files), `src/editor` (D17: ProseMirror in an Expo DOM component on the desktop's exported schema `packages/shared/src/generated/editor-schema.json`, Yjs bridged as base64), `src/dev/automation.ts` (script bridge for simulators, active only when `EXPO_PUBLIC_AUTOMATION_URL` is set). Tablet (768 points and up) keeps the sidebar beside the page (D22).
+- Docs: `GAP_ANALYSIS.md` (every row has a Done mark: 81 done, 11 partial with reasons, the rest desktop only), `DECISIONS.md` (D1 to D25), `docs/development/server.md` and `apps/server/README.md` (run and deploy), `docs/development/sync-protocol.md`.
+
+Behaviour worth knowing:
+
+- The client pulls before it pushes, so a conflict is recorded on the device that pulled the other edit (`sync_conflicts`); the server also logs truly concurrent ones. The merge editor lists both. The sidebar and Settings count only the device's own, so they can show fewer than the merge editor lists (known mismatch).
+- `updated_at` never counts as a conflict. Same field on both sides: newest wins and is shown, the other is kept and a badge asks (D7).
+- Documents for pages are made by the server once; a page without a document edits its rows as before while offline.
+- Debug desktop builds keep their sync token in `sync-token.dev` in their data folder, never in the keychain.
+- Desktop debug builds default the server address to `http://localhost:3000`; this machine's `.env` (gitignored) uses `PORT=3100` to dodge the user's own dev server, so use "Change Server" in the sign in dialog (or the Server field on the phone) to point at `http://localhost:3100`.
+
+## 5. Phases
+
+| Phase                            | State                                                                                                                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Gap analysis and design       | Done: `GAP_ANALYSIS.md`, `DECISIONS.md`                                                                                                                                                        |
+| 2. Infra and accounts            | Done: root `docker-compose.yml` (Postgres 5433, MinIO 9000 and 9001), `.env.example`, `bun run stack`, better-auth, legacy account migration, S3 blobs                                         |
+| 3. Desktop on the backend        | Done: account dialog, first sync (backup first, progress, checked summary), files and settings sync, titlebar status, migrations 43 and 44. Verified in the running app against fixture copies |
+| 4. Live text, offline, conflicts | Done: Yjs over Hocuspocus, carets, offline copies, merge editor on desktop and phone, conflict badge                                                                                           |
+| 5. Mobile parity and design      | Done: every row of the gap analysis built or documented as partial or desktop only, with phone and tablet layouts                                                                              |
+| 6. End to end across devices     | Mostly done, see 7                                                                                                                                                                             |
+
+Commit ranges (oldest first; the branch point is `0b5bd915`):
+
+- Phase 1: `1b6a32cb` (gap analysis and decisions).
+- Phase 2: `3fe5b88b`, `c24b0898`.
+- Phase 3: `43629bfd`, `e7770df1`, `ee6db08e` (e2e tooling and fixtures).
+- Phase 4: `e011c1dc` to `c7e0b63e` (Yjs documents, Hocuspocus, live pages on desktop, conflicts, merge editor).
+- Phase 5 (mobile): `82ce5bec` to `20f14721` (webcrypto shim, automation bridge, onboarding and account screens, settings, file sync, backup, merge editor, live editor, Space settings, files, recipes, calendar, sessions, study, tasks, dashboard, saved views, links, slash menu, bookmarks, Nookly files, tablet layout).
+- Phase 6 fixes: `6e5f5187`, `3a4397d1`, then `e278c001` (versions, notes, desktop command coverage, lint fix), `2b8e8b0` (docs), `a62244b` (this file's previous version).
+
+## 6. How to run and verify
+
+### 6.1 Stack and tests
 
 ```sh
-cp .env.example .env                 # ports are 3100 here to dodge the user's own dev server on 3000
-docker compose up -d                 # Postgres 5433 and MinIO 9000
-bun run stack                        # server on the host with watch mode
-bun run test                         # needs TEST_DATABASE_URL=postgres://nookly:nookly@127.0.0.1:5433/nookly_test (create the database once)
+cp .env.example .env            # this machine's .env sets PORT=3100
+docker compose up -d            # containers nookly-postgres-1 (5433) and nookly-minio-1 (9000, 9001)
+bun install
+bun run stack                   # migrations, then the server on the host with watch mode
+TEST_DATABASE_URL=postgres://nookly:nookly@127.0.0.1:5433/nookly_test bun run test   # create the database once
+cd apps/desktop/src-tauri && cargo test      # about 4.5 minutes; run alone, the frontend suite times out when it competes for CPU
 ```
 
-Desktop end to end: build with `bun run tauri build --debug --no-bundle` (from `apps/desktop`; the dev server's port 1420 is the user's), start the binary with `NOOKLY_DATA_DIR=<copy of a fixture> NOOKLY_AUTOMATION_PORT=4567`, drive it with `bun tools/e2e/desktop.ts 4567 "<script>"` and `--shot out.png`. Fixtures: `bun tools/fixtures/desktop.ts <empty folder>`.
+Single suites: shared `cd packages/shared && bunx vitest run`; frontend `cd packages/frontend && bunx vitest run <file>` (2274 pass plus one expected fail); mobile `cd apps/mobile && bunx jest` (113); server `bun test apps/server/test/<file>`; Rust `cargo test --lib <filter>`. `tools/gap.py "<row text>" "<mark>" ["note"]` sets a Done mark in `GAP_ANALYSIS.md`.
 
-Mobile end to end (automation names: `phone`, `tablet`, `phone-editor`, `tablet-editor`, a device is a tablet when the simulator is an iPad): Metro on 8091 (`EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 EXPO_PUBLIC_AUTOMATION_DEVICE=phone bunx expo start --port 8091 --lan`), `bun tools/e2e/mobile.ts hub 4600` left running, my own simulators (iPhone 17 Pro `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B`, iPad Pro 13-inch M5 `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D`), always in system dark mode (`xcrun simctl ui <id> appearance dark`, the user asked for it). Nothing can tap a system dialog, so Expo Go's "Open in Expo Go?" prompt is avoided with a real native app: `/Users/daniel/nk-build` is a detached worktree on a path without spaces (the native build scripts break on "Open Source"), built once with `bunx expo run:ios -d <id> --port 8092`; afterwards run Metro from this worktree (`bunx expo start --port 8092 --lan --dev-client --clear` with the automation variables) and `xcrun simctl launch <id> app.nookly.mobile`. Rebuild there only when native modules change. The user's own iPhone 17 simulator and Expo on 8081 are theirs.
+Restarting the server by hand: killing only the listener pid of `bun run stack` once left the old `bun --watch` parent alive holding sockets, so clients kept a connection to nothing. Kill the whole process (check `ps` for `bun --watch src/index.ts`).
 
-## Things to know
+### 6.2 Desktop end to end
 
-- Killing only the listener of `bun run stack` can leave the old `bun --watch` process holding open sockets (the clients then keep a connection to nothing). Kill the whole process when restarting the server by hand.
-- The sidebar and Settings show the count of conflicts this device recorded; the merge editor also lists the ones the server logged, so it can list more.
-- The client pulls before it pushes, so a conflict is recorded on the device that pulled the other edit (`sync_conflicts`); the server only logs ones from truly concurrent pushes. The merge editor lists both.
-- `updated_at` never counts as a conflict.
-- A page without a document on a device while offline edits its rows as before; documents are made by the server, once.
-- Debug builds keep the sync token in `sync-token.dev` in their data folder, never in the keychain.
-- Another session once stashed and switched branches inside this worktree (two stashes named "before switching to mobile-app-and-backend" remain in the repository). Everything committed was untouched; uncommitted work was recovered from the first stash.
+```sh
+cd apps/desktop && bun run tauri build --debug --no-bundle        # port 1420 is the user's vite; this does not use it
+bun tools/fixtures/desktop.ts <empty folder>                      # 120 notes, 40 tasks, study data, a bookmark, 5 files
+cd src-tauri && NOOKLY_DATA_DIR=<folder> NOOKLY_AUTOMATION_PORT=4568 ./target/debug/nookly &
+bun tools/e2e/desktop.ts 4568 "return text().slice(0,200)"       # helpers: click, clickText, type, byText, waitFor, sleep, text
+bun tools/e2e/desktop.ts 4568 --shot out.png
+```
 
-## Known gaps
+Use a copy of a fixture, never the user's data. Pick unused automation ports (4567 to 4569 were mine). Kill instances by port (`lsof -iTCP:<port> -sTCP:LISTEN`), never `pkill -f` on the binary path (that could hit `/Applications/Nookly.app`). Tips: the title input is driven through its React props (`Object.keys(el).find(k => k.startsWith("__reactProps"))`, call `onKeyDown({key:"Enter",...})`); a button's visible text can be doubled (`Couldn't sign inCouldn't sign in`), so match with a regex instead of `byText`; `timeout` does not exist in this zsh.
 
-- Phone files are hashed in memory (fine for a few hundred megabytes).
-- "Keep both" in the merge editor is for text only; dates and numbers offer the two choices.
-- External calendars, CLI, agent files, tabs, shortcuts, Vim, folder backups are desktop only by nature (`GAP_ANALYSIS.md`).
+### 6.3 Mobile end to end (simulators)
+
+- My simulators (the user's own "iPhone 17" simulator `45B8BECE-...`, their Expo on 8081, vite on 1420 and dev server on 3000 are theirs, do not touch): iPhone 17 Pro `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B`, iPad Pro 13-inch (M5) `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D`. Both in dark mode.
+- Native app id `app.nookly.mobile`, a dev client built in the space free worktree `/Users/daniel/nk-build` (the native build scripts break on the space in "Open Source") with `bunx expo run:ios -d <id> --port 8092`. Rebuild there only when native modules change (last build included `expo-sharing`). Expo Go is avoided because its "Open in Expo Go?" system dialog cannot be tapped (osascript and Accessibility automation are denied, idb from an untrusted tap was refused; a stuck dialog was cleared by shutting down and booting that simulator, app data persists).
+- Metro for this worktree: `cd apps/mobile && EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 EXPO_PUBLIC_AUTOMATION_DEVICE=phone EXPO_NO_TELEMETRY=1 bunx expo start --port 8093 --lan --dev-client --clear`; hub `bun tools/e2e/mobile.ts hub 4600` left running; launch with `xcrun simctl launch <id> app.nookly.mobile`.
+- Scripts: `bun tools/e2e/mobile.ts run phone|tablet|phone-editor|tablet-editor "<script>"`. Helpers: `press(label, nth)`, `type(label, value)`, `sleep`, `labels()`, `screenText()`, plus `db`, `sync`, `queryClient`, `router`; the `-editor` devices run inside the editor web view with `editor`, `doc`, `awareness`. `bun tools/e2e/page-client.ts <server> <user> <pass> <entityId> append|read [text]` acts as another device on a page. A device counts as `tablet` when the simulator is an iPad.
+- Gotchas: after Metro hot reloads shared code, the automation context may hold the old runtime objects, so relaunch the app (`simctl terminate` then `launch`) before measuring sync. On the iPad the Welcome route stays mounted under sign in, so `press("Sign In", n)` indexes shift (press the last). Do not call `router.dismissAll()` with no stack (dev toast "POP_TO_TOP not handled"). Screenshots: `xcrun simctl io <id> screenshot file.png`.
+
+### 6.4 Local test data (disposable)
+
+Dev Postgres holds accounts `ada` (`correct horse battery`, the desktop fixture's 588 items and files) and `grace` (`grace hopper compiler`, created on the iPad from the same data). These are local throwaway fixtures. Fixture task TSK-3 (id `b5c5b4af-0b43-4245-9e1a-385048ef8f0d`) had its title changed by latency probes in both accounts. The iPad simulator is signed in as `grace`, the phone as `ada`. The scratchpad folder with fixtures and screenshots is temporary; regenerate fixtures with `tools/fixtures/desktop.ts`.
+
+## 7. Where work stopped
+
+Everything is committed and pushed (latest code commit `2b8e8b0`, plus docs). The working tree was clean.
+
+Done in the last stretch, each with a test first:
+
+- Sidebar text in dark mode (theme colours, D23), require cycle `PlannerScreens` and `StudyDetail` removed (`StudyPickers.tsx`), tablet layout, course Room field.
+- Found by running two accounts on the iPad, phone and a real desktop build (D24, D25): sign up on a phone refused with "Missing or null Origin" (the phone's networking layer sends back an earlier cookie; auth requests drop cookies on the server and the client sends `credentials: "omit"`); a second account on a device never saw its own data (a sync in flight at sign out wrote its cursor after the wipe; now a stopped sync writes nothing, `SyncClient.finished()` lets sign out wait, and `SyncEngine.enable` clears cursors); changes arrived up to a minute late after a server restart (the live socket reconnects within 10 s, pings every 15 s, is dropped after 40 s of silence; local changes go out after 400 ms instead of 1.5 s).
+- `cargo test` failed on `every_registered_command_is_covered` (the blob, pre sync backup and store folder commands had no test); three tests and `NOT_INVOKED` entries added in `commands_tests.rs`. A lint error (inline query key) fixed. Versions bumped (desktop 0.38.1 with changelog and what's new, mobile 0.5.0, server 0.2.1). Decisions D18 to D25 written. Server docs rewritten for the real stack.
+- Last full check run, all green: lint (warnings only), `format:check`, `typecheck`, `bun run test` (shared 216, frontend 2274 plus the expected fail, mobile 113, server 84), `cargo test` (1243), duplication 0.23%.
+- Verified in simulators and desktop builds: iPad created account `grace`, a fresh desktop signed in and received everything; edits both ways arrive in roughly 0.2 to 2 s (crude measurement, say "about a second"); two devices typing in one note merged with nothing lost (an iPad editor and a script client); both devices offline with different titles produced the merge editor on desktop and iPad (device names, times, changed words marked), and resolving on one cleared it on both. A phone merge editor screenshot also exists.
+
+Interrupted at: a last regression check of the first sync migration with the 0.38.1 desktop build. Plan: `bun tools/fixtures/desktop.ts <scratch>/run-desktop-h`, start the debug binary on automation port 4569, sign in as `ada` (an account that already has data, so this is the merge case), confirm a backup in `pre-sync-backups`, the progress and the "X items, Y files" summary, local data untouched. The instance on 4569 never answered the automation port (the process exited right after start or its webview never ran scripts; no log output; cause not found). The next step was to start it in the foreground and read its output. Nothing was changed because of this. The same scenario passed in phase 3 with an older build, and `runtime.test.ts` and the server `vertical-slice.test.ts` cover the logic.
+
+## 8. What is left, in order
+
+1. Re-run the migration check above. If the app will not start on a fixture copy, read its output first (the `run-desktop-g` copy, a fixture signed in as `grace`, started fine on 4568).
+2. Write `REPORT.md` in the repository root (do not commit it): phases with the commit ranges in section 5, every decision D1 to D25 summarised with the ⚑ ones marked, stubbed or fragile list (below), how to run and a manual checklist of at most 15 minutes covering the definition of done (fresh stack; desktop fixture migration; account created on mobile then used on desktop; same note on two devices; offline same field conflict and the merge editor; every gap row on mobile), and the screenshots in `report/screenshots/` (desktop dashboard, desktop merge editor and conflict badge, phone sidebar, page editor, dashboard, settings, merge editor, tablet dashboard, page editor, merge editor, the sign up error before its fix, the slash menu).
+3. Optional polish: unify the conflict count shown in the sidebar and Settings with what the merge editor lists; mobile lint warnings (setState in effects in `SettingRow`, `RecipeScreens`, `PageEditor`; unused `_` parameters in `FileScreens` and `RecipeScreens`); run the report only checks (`bun run coverage`, `unused`, `audit`, `lint:rust:strict`) and read them.
+4. Check the "fresh clone" steps in `apps/server/README.md` from a literally fresh clone (the stack has only been run from this worktree).
+5. Clean up what I left running on this machine, all mine: the server from `bun run stack` on 3100, Metro on 8093, the simulator hub on 4600, the debug desktop on 4568, maybe a stray one from the 4569 attempts. Then a final commit and `git push` (no PR), leaving `REPORT.md` untracked.
+
+Stub, skip and fragile list for the report: phone files are hashed in memory (fine for a few hundred megabytes); "keep both" in the merge editor is text only, dates and numbers offer the two choices (D7); external calendars, CLI, agent files, tabs and split view, keyboard shortcuts, Vim keys, folder backups, Office conversion and OCR are desktop only (D14, D15); series (repeating sessions and calendar entries) are created and edited on the desktop only, and the phone edits single occurrences (D19); the assignment due session selection, the full dashboard briefing text and semester setup are simpler on the phone; saved views exist for Tasks only; inline math shows its source in the phone editor; importing pages, tasks and assignments from Nookly files is desktop only; "copy link" is missing on the phone (needs the `expo-clipboard` native module); password reset uses the console mailer stub; OAuth providers are wired but untested without real keys; everything was verified in simulators and debug desktop builds, never on a real phone, and simulator runs are not in CI; system dialogs cannot be tapped by my tooling; the branch stash incident (section 1).
+
+## 9. Working agreements and cautions
+
+- Never touch the user's real data: `/Applications/Nookly.app`, `~/Library/Application Support/com.nookly.app`, and anything of theirs listed in 6.3. Debug builds use `apps/desktop/src-tauri/.dev-data` or `NOOKLY_DATA_DIR` and their own settings and token files.
+- Do not stash, rebase or switch branches in this worktree; do not open PRs; do not commit `REPORT.md`, `.env` or `report/`.
+- Mobile UI: copy the desktop's look through the shared class lists, no edits to `packages/ui`, system dark mode in the simulators.
+- Update this file, `DECISIONS.md` (new decisions, ⚑ for doubtful ones) and `GAP_ANALYSIS.md` (marks) whenever the state changes.
