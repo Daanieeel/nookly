@@ -117,7 +117,9 @@ export function QuickSwitcher() {
       <SpotlightFooter
         aside={
           <>
-            <ShortcutKbd name="search" />
+            <ShortcutKbd name="commands" />
+            Commands
+            <ShortcutKbd name="search" className="ml-3" />
             Search everything
           </>
         }
