@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.16",
+      "date": "2026-10-16",
+      "title": "Formulas that stay put",
+      "summary": "Formulas no longer turn into plain text with dollar signs.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "A formula no longer comes back as plain text with its dollar signs after a reload when it ended in a space, ran over two lines, held a dollar sign or had a digit right after it."
+        ]
+      }
+    },
+    {
       "version": "0.34.15",
       "date": "2026-10-16",
       "title": "A tidier settings list",
