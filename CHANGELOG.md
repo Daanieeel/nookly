@@ -2,11 +2,15 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.34.8 (2026-10-16)
+## 0.34.9 (2026-10-16)
 
 ### Added
 
 - **Upload a file straight from a page.** The attach menu in the details sidebar has an Upload File button at the top that adds the file to Nookly and attaches it in one step.
+
+### Fixed
+
+- **Long label names no longer squash their checkbox** in the label picker.
 
 ## 0.34.7 (2026-10-16)
 

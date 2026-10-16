@@ -263,7 +263,7 @@ export function LabelsPicker({
                   setSearch("");
                 }}
               >
-                <span className="flex size-4 items-center justify-center">
+                <span className="flex size-4 shrink-0 items-center justify-center">
                   <PendingIcon pending={creating} failed={false} idle={<IconPlus size={14} />} />
                 </span>
                 <span className="truncate">Create “{name}”</span>
@@ -275,7 +275,7 @@ export function LabelsPicker({
                 <CommandItem key={label.id} value={label.name} onSelect={() => onToggle(label.id)}>
                   <span
                     className={cn(
-                      "flex size-4 items-center justify-center rounded-sm border border-input",
+                      "flex size-4 shrink-0 items-center justify-center rounded-sm border border-input",
                       checked && "border-primary bg-primary",
                     )}
                   >
