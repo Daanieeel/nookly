@@ -146,7 +146,8 @@ export const SETTINGS = {
     id: "appearance.fileViewerTheme",
     category: "appearance",
     title: "File viewer theme",
-    description: "How files are drawn in the viewer. Defaults draws code dark and documents light.",
+    description:
+      "How files are drawn in the viewer. Defaults draws code, text and markdown dark and documents light.",
     synonyms: [
       "file preview",
       "code theme",

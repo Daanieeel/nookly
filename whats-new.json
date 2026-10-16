@@ -1,6 +1,20 @@
 {
   "versions": [
     {
+      "version": "0.34.7",
+      "date": "2026-10-16",
+      "title": "Markdown files open again",
+      "summary": "Markdown files with a divider or front matter show their text, and open dark by default.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Markdown files with a `---` divider or front matter no longer open empty.",
+          "Markdown files open dark by default, like code and text files.",
+          "Markdown files no longer have extra space on the left."
+        ]
+      }
+    },
+    {
       "version": "0.34.6",
       "date": "2026-10-15",
       "title": "Ungraded homework, formulas in decks and a smarter slash menu",

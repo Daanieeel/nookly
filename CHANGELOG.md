@@ -2,6 +2,14 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.7 (2026-10-16)
+
+### Fixed
+
+- **Markdown files with a divider or front matter open again.** A `---` line no longer leaves the viewer empty.
+- **Markdown files open dark by default,** like code and text files.
+- **Markdown files no longer have extra space on the left.**
+
 ## 0.34.6 (2026-10-15)
 
 ### Added

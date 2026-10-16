@@ -188,15 +188,15 @@ function useFileText(file: FileEntity, src: string) {
   });
 }
 
-/// Markdown drawn like a Note, in the viewer's document theme.
-function MarkdownFileViewer({ file, src }: { file: FileEntity; src: string }) {
+/// Markdown drawn like a Note, dark by default like raw text.
+export function MarkdownFileViewer({ file, src }: { file: FileEntity; src: string }) {
   const { data: text, isError } = useFileText(file, src);
-  const isDark = useFileViewerIsDark("document");
+  const isDark = useFileViewerIsDark("text");
   if (isError) return <Placeholder file={file} />;
   return (
     <div
       className={cn(
-        "min-h-full rounded-md border border-border bg-background p-6 text-foreground",
+        "min-h-full rounded-md border border-border bg-background p-12 text-foreground",
         fileViewerThemeClass(isDark),
         text === undefined && "animate-pulse",
       )}
