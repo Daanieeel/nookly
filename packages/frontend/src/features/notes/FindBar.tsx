@@ -127,10 +127,12 @@ export function FindBar({
     // `seed` is read when the shortcut was pressed, so only the token re-runs this.
   }, [open, focusToken, editor]); // oxlint-disable-line react-hooks/exhaustive-deps
 
-  // Closing clears the matches.
+  // Closing clears the matches, and the next time the bar opens it starts fresh.
   useEffect(() => {
-    if (open || !editor || editor.isDestroyed) return;
-    closeFind(editor.view);
+    if (open) return;
+    setReplacement("");
+    setShowReplace(false);
+    if (editor && !editor.isDestroyed) closeFind(editor.view);
   }, [open, editor]);
 
   // The current match scrolls to the middle of the page's view.
@@ -146,7 +148,12 @@ export function FindBar({
 
   const close = () => {
     onClose();
-    editor.commands.focus();
+    // The match the search is on stays selected otherwise, and the next search would start
+    // from it.
+    const { from, to } = editor.state.selection;
+    const onMatch = find.matches.some((match) => match.from === from && match.to === to);
+    if (onMatch) editor.chain().focus().setTextSelection(to).run();
+    else editor.commands.focus();
   };
   const onFindKey = (event: KeyboardEvent) => {
     if (event.key === "Enter") {
@@ -154,9 +161,6 @@ export function FindBar({
       if (event.altKey) {
         if (selectAllMatches(view)) view.focus();
       } else stepFind(view, event.shiftKey ? -1 : 1);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      close();
     }
   };
   const onReplaceKey = (event: KeyboardEvent) => {
@@ -164,10 +168,13 @@ export function FindBar({
       event.preventDefault();
       if (event.metaKey || event.ctrlKey) replaceAll(view, replacement);
       else replaceCurrent(view, replacement);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      close();
     }
+  };
+  // Escape closes the bar from any of its controls, not only from the fields.
+  const onBarKey = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    close();
   };
 
   const total = find.matches.length;
@@ -185,6 +192,7 @@ export function FindBar({
       <div
         role="search"
         aria-label="Find in page"
+        onKeyDown={onBarKey}
         className="pointer-events-auto absolute top-0 right-2 grid w-md max-w-[calc(100%-1rem)] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 rounded-lg border border-border bg-popover p-1.5 shadow-lg"
       >
         <IconTip label={showReplace ? "Hide Replace" : "Show Replace"}>
