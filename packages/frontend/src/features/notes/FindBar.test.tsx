@@ -4,6 +4,8 @@ import { makeBlock } from "#/test/fixtures.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { installTauriMock, mockCommand, uninstallTauriMock } from "#/test/tauri.ts";
+import { useEscapeBack } from "#/hooks/use-escape-back.ts";
+import { type View, useNavStore } from "#/lib/store/nav.ts";
 import { BlockEditor } from "./BlockEditor";
 
 beforeEach(() => {
@@ -210,6 +212,28 @@ describe("find in page", () => {
     expect(screen.queryByRole("textbox", { name: "Replace With" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Show Replace" }));
     expect(screen.getByRole("textbox", { name: "Replace With" })).toHaveValue("");
+  });
+
+  it("takes the first Escape before the page goes back, wherever the focus is in the bar", async () => {
+    const list: View = { kind: "module", spaceId: "s1", module: "notes" };
+    const page: View = { kind: "entity", entityId: "e1", spaceId: "s1" };
+    useNavStore.setState({ view: page, backStack: [list], forwardStack: [] });
+    function Page() {
+      useEscapeBack();
+      return <BlockEditor entityId="e1" spaceId="s1" />;
+    }
+    const { user, container } = renderWithProviders(<Page />);
+    await waitFor(() => expect(container.querySelector(".tiptap-content")).not.toBeNull());
+    await user.keyboard("{Control>}f{/Control}");
+    await user.click(screen.getByRole("button", { name: "Show Replace" }));
+    // WebKit does not focus a button when it is clicked, so the press lands on the page.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("search")).toBeNull();
+    expect(useNavStore.getState().view).toEqual(page);
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Escape}");
+    expect(useNavStore.getState().view).toEqual(list);
   });
 
   it("closes from its close button", async () => {
