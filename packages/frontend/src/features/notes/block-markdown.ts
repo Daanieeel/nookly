@@ -63,11 +63,16 @@ export function asNumber(value: JSONAttrValue | undefined): number | undefined {
 /// `**bold**` would otherwise be swallowed by a naive `*italic*` match. Before all of
 /// them, an escaped `\$` and inline math `$…$`: no space just inside either dollar and no
 /// digit right after the closing one, so "$5 and $10" stays text (the pandoc rule). A
+/// formula that is clearly TeX (a `\`, `^`, `_` or brace in it) may have a digit right after,
+/// since "$5-$10" has none of those. `\$` inside a formula is a dollar sign. A
 /// highlight is `==text==` with no space just inside either pair, so "a == b" stays text.
+const MATH_BODY = String.raw`(?:\\\$|[^\s$])(?:(?:\\\$|[^$\n])*?(?:\\\$|[^\s$\\]))?`;
+
 const INLINE_PATTERN = new RegExp(
   [
     String.raw`\\\$`,
-    String.raw`\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)`,
+    String.raw`\$(?=[^$\n]*[\\^_{}])(${MATH_BODY})\$`,
+    String.raw`\$(${MATH_BODY})\$(?!\d)`,
     String.raw`\[([^\]]+)\]\(([^)]+)\)`,
     String.raw`\*\*\*(.+?)\*\*\*`,
     String.raw`\*\*(.+?)\*\*`,
@@ -110,7 +115,8 @@ export function decodeInline(text: string): JSONNode[] {
     if (index > lastIndex) nodes.push({ type: "text", text: text.slice(lastIndex, index) });
     const [
       ,
-      latex,
+      texLatex,
+      plainLatex,
       linkText,
       linkHref,
       boldItalic,
@@ -120,6 +126,7 @@ export function decodeInline(text: string): JSONNode[] {
       codeText,
       italicText,
     ] = match;
+    const latex = texLatex ?? plainLatex;
     if (match[0] === "\\$") {
       nodes.push({ type: "text", text: "$" });
     } else if (latex !== undefined) {
@@ -170,6 +177,19 @@ function encodeHighlight(run: JSONNode[]): string {
   return body ? `${before}==${color ? `{${color}}` : ""}${body}==${after}` : inner;
 }
 
+/// A formula as `$…$`, written so reading it back gives the same formula: line breaks and
+/// the spaces around it go (a space just inside a dollar is not math), an empty one is
+/// dropped, and one that a digit follows and that would then read as text ends in `{}`,
+/// which TeX ignores.
+function encodeMath(latex: string, next: JSONNode | undefined): string {
+  const clean = latex.replace(/\s*\n\s*/g, " ").trim();
+  if (!clean) return "";
+  const digitNext = next?.type === "text" && /^\d/.test(next.text ?? "");
+  const [first] = decodeInline(`$${clean}$${digitNext ? "0" : ""}`);
+  const readsBack = first?.type === "inlineMath" && first.attrs?.latex === clean;
+  return readsBack || clean.endsWith("\\") ? `$${clean}$` : `$${clean}{}$`;
+}
+
 export function encodeInline(nodes: JSONNode[] = []): string {
   const parts: string[] = [];
   for (let i = 0; i < nodes.length; i++) {
@@ -187,7 +207,7 @@ export function encodeInline(nodes: JSONNode[] = []): string {
       continue;
     }
     if (node.type === "inlineMath") {
-      parts.push(`$${asString(node.attrs?.latex) ?? ""}$`);
+      parts.push(encodeMath(asString(node.attrs?.latex) ?? "", nodes[i + 1]));
       continue;
     }
     if (node.type !== "text") continue;

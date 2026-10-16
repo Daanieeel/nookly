@@ -161,3 +161,45 @@ describe("bold and italic together", () => {
     ]);
   });
 });
+
+// A formula that was drawn must still be drawn after a save and reload. One that did not
+// survive came back as raw `$…$` text (#157).
+describe("inline math survives a save and reload", () => {
+  const roundTripsAsMath = (latex: string, before = "", after = "") => {
+    const nodes = [text(before), math(latex), text(after)].filter(
+      (n) => n.type !== "text" || n.text,
+    );
+    return decodeInline(encodeInline(nodes)).filter((n) => n.type === "inlineMath");
+  };
+
+  it("keeps a formula whose text has a space or line break at either end", () => {
+    expect(roundTripsAsMath(" x^2 ")).toEqual([math("x^2")]);
+    expect(roundTripsAsMath("a\nb")).toEqual([math("a b")]);
+  });
+
+  it("keeps a formula followed straight away by a digit", () => {
+    expect(roundTripsAsMath("n^2", "", "5")).toEqual([math("n^2")]);
+    expect(roundTripsAsMath("x", "", "5")).toHaveLength(1);
+    expect(decodeInline(encodeInline([math("x"), text("5")])).at(-1)).toEqual(text("5"));
+  });
+
+  it("keeps a formula holding an escaped dollar", () => {
+    expect(roundTripsAsMath("\\$5")).toEqual([math("\\$5")]);
+  });
+
+  it("writes an empty formula as nothing instead of $$", () => {
+    expect(encodeInline([text("a"), math(""), text("b")])).toBe("ab");
+    expect(encodeInline([math("  ")])).toBe("");
+  });
+
+  it("reads a formula that a digit follows when it is clearly TeX, and not a price", () => {
+    expect(decodeInline("$\\frac{1}{2}$3")).toEqual([math("\\frac{1}{2}"), text("3")]);
+    expect(decodeInline("$5-$10")).toEqual([text("$5-$10")]);
+  });
+
+  it("does not change formulas that were fine", () => {
+    for (const markdown of ["$x^2$", "a $\\frac{3}{4}$ b", "$a==b==c$", "$\\sum_{k=1}^{n} k$."]) {
+      expect(roundTrip(markdown)).toBe(markdown);
+    }
+  });
+});

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.16 (2026-10-16)
+
+### Fixed
+
+- **Formulas stay formulas.** A formula could come back as plain text with its dollar signs after a reload when its text ended in a space or a line break, when a digit followed it straight away, or when it held a dollar sign. They now stay drawn, and the edit box tidies the spaces around a formula when you finish.
+
 ## 0.34.15 (2026-10-16)
 
 ### Fixed
