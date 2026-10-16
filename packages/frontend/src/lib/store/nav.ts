@@ -144,6 +144,11 @@ interface NavState {
   splitLeft: (tabId?: string) => void;
   /// Moves a tab into another group, or a new one on the right, at `toIndex`.
   moveTabToGroup: (tabId: string, target: GroupTarget, toIndex?: number) => void;
+  /// Whether the focused group fills the page with the other hidden. Kept only while
+  /// there are two groups, and not saved.
+  groupZoomed: boolean;
+  /// Zooms the focused group, or shows both groups again.
+  toggleGroupZoom: () => void;
   /// The left group's share of the width while split.
   splitRatio: number;
   setSplitRatio: (ratio: number) => void;
@@ -475,7 +480,12 @@ function showTab(state: NavState, tab: Tab): Partial<NavState> {
 function applyLayout(state: NavState, layout: TabLayout): Partial<NavState> {
   const group = focusedGroup(layout);
   const tab = activeTab(group);
-  const base = { groups: layout.groups, focusedGroupId: group.id, tabs: group.tabs };
+  const base = {
+    groups: layout.groups,
+    focusedGroupId: group.id,
+    tabs: group.tabs,
+    groupZoomed: layout.groups.length > 1 && state.groupZoomed,
+  };
   return tab.id === state.activeTabId ? base : { ...base, ...showTab(state, tab) };
 }
 
@@ -551,6 +561,9 @@ export const useNavStore = create<NavState>((set, get) => ({
   forwardStack: initialTab.forwardStack,
   groups: initialLayout.groups,
   focusedGroupId: initialLayout.focusedGroupId,
+  groupZoomed: false,
+  toggleGroupZoom: () =>
+    set((state) => (state.groups.length > 1 ? { groupZoomed: !state.groupZoomed } : {})),
   splitRatio: readStoredSplitRatio(),
   setSplitRatio: (ratio) => {
     const splitRatio = clampSplitRatio(ratio);
@@ -570,7 +583,10 @@ export const useNavStore = create<NavState>((set, get) => ({
       const tab = findTab(layout, id);
       if (!tab) return {};
       const copy: Tab = { ...tab, id: crypto.randomUUID(), pinned: false };
-      return applyLayout(state, groupModel.splitRight(layout, id, copy));
+      return {
+        ...applyLayout(state, groupModel.splitRight(layout, id, copy)),
+        groupZoomed: false,
+      };
     }),
   splitLeft: (tabId) =>
     set((state) => {
@@ -579,12 +595,16 @@ export const useNavStore = create<NavState>((set, get) => ({
       const tab = findTab(layout, id);
       if (!tab) return {};
       const copy: Tab = { ...tab, id: crypto.randomUUID(), pinned: false };
-      return applyLayout(state, groupModel.splitLeft(layout, id, copy));
+      return {
+        ...applyLayout(state, groupModel.splitLeft(layout, id, copy)),
+        groupZoomed: false,
+      };
     }),
   moveTabToGroup: (tabId, target, toIndex) =>
-    set((state) =>
-      applyLayout(state, groupModel.moveTabToGroup(layoutOf(state), tabId, target, toIndex)),
-    ),
+    set((state) => ({
+      ...applyLayout(state, groupModel.moveTabToGroup(layoutOf(state), tabId, target, toIndex)),
+      groupZoomed: false,
+    })),
   openInNewTab: (view = { kind: "dashboard" }, { activate = true } = {}) =>
     set((state) => applyLayout(state, groupModel.addTab(layoutOf(state), makeTab(view), activate))),
   switchTab: (id) =>

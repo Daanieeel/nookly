@@ -197,6 +197,13 @@ export const SHORTCUT_META = {
     section: "Tabs",
     scopes: GLOBAL,
   },
+  toggleGroupZoom: {
+    title: "Zoom the focused group",
+    description: "Hide the other group so this one fills the page, or show both again.",
+    synonyms: ["split view", "pane", "editor group", "maximize", "fullscreen", "focus"],
+    section: "Tabs",
+    scopes: GLOBAL,
+  },
   quickJot: {
     title: "Quick jot",
     description: "Jot a thought down from anywhere. Refine it into a note later.",

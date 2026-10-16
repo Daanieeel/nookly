@@ -47,7 +47,8 @@ export const useSplitFits = create<{ fits: boolean }>(() => ({ fits: true }));
 export function useSplitShown(): boolean {
   const twoGroups = useNavStore((s) => s.groups.length > 1);
   const fits = useSplitFits((s) => s.fits);
-  return twoGroups && fits;
+  const zoomed = useNavStore((s) => s.groupZoomed);
+  return twoGroups && fits && !zoomed;
 }
 
 /// Views drawing their own edge to edge chrome, like the Linear style Tasks page.
@@ -101,6 +102,7 @@ function useWidth(ref: RefObject<HTMLElement | null>): number | null {
 export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope) => ReactNode }) {
   const groups = useTabGroups();
   const focusedGroupId = useNavStore((s) => s.focusedGroupId);
+  const zoomed = useNavStore((s) => s.groupZoomed);
   const storedRatio = useNavStore((s) => s.splitRatio);
   const draggingTabId = useNavStore((s) => s.draggingTabId);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,7 +113,7 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
   const [dragRatio, setDragRatio] = useState<number | null>(null);
   const ratio = fitRatio(dragRatio ?? storedRatio, width);
 
-  const split = groups.length > 1 && fits;
+  const split = groups.length > 1 && fits && !zoomed;
   const shown = split ? groups : groups.filter((g) => g.id === focusedGroupId);
   const source = draggingTabId
     ? groups.find((g) => g.tabs.some((t) => t.id === draggingTabId))

@@ -32,6 +32,7 @@ export const HOTKEYS = {
   splitLeft: "Mod+Alt+Shift+ArrowLeft",
   focusLeftGroup: "Mod+1",
   focusRightGroup: "Mod+2",
+  toggleGroupZoom: "Mod+Shift+Enter",
   create: "C",
   newItem: "Mod+N",
   nextTask: "J",

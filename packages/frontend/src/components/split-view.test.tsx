@@ -88,6 +88,18 @@ describe("split view", () => {
     }
   });
 
+  it("shows only the focused group while zoomed, and both again after", () => {
+    renderWithProviders(<Harness />);
+    splitWithTrashOnTheRight();
+    act(() => useNavStore.getState().toggleGroupZoom());
+    expect(screen.queryByRole("region", { name: "Left Group" })).toBeNull();
+    expect(screen.queryByRole("separator")).toBeNull();
+    expect(screen.getByText("trash (focused)")).toBeInTheDocument();
+    act(() => useNavStore.getState().toggleGroupZoom());
+    expect(screen.getByRole("region", { name: "Left Group" })).toBeInTheDocument();
+    expect(screen.getByRole("separator")).toBeInTheDocument();
+  });
+
   it("has no axe violations while split", async () => {
     renderWithProviders(<Harness />);
     splitWithTrashOnTheRight();
@@ -117,6 +129,15 @@ describe("split view shortcuts", () => {
     await user.keyboard("{Control>}{Alt>}{Shift>}{ArrowLeft}{/Shift}{/Alt}{/Control}");
     expect(groups()).toHaveLength(2);
     expect(useNavStore.getState().focusedGroupId).toBe(groups()[0].id);
+  });
+
+  it("zooms the focused group with Mod+Shift+Enter and brings the other back", async () => {
+    const { user } = renderWithProviders(<Harness />);
+    splitWithTrashOnTheRight();
+    await user.keyboard("{Control>}{Shift>}{Enter}{/Shift}{/Control}");
+    expect(useNavStore.getState().groupZoomed).toBe(true);
+    await user.keyboard("{Control>}{Shift>}{Enter}{/Shift}{/Control}");
+    expect(useNavStore.getState().groupZoomed).toBe(false);
   });
 
   it("opens a new tab in the focused group", async () => {
@@ -150,6 +171,21 @@ describe("the tab menu", () => {
     fireEvent.contextMenu(screen.getAllByRole("tab")[1]);
     await user.click(await screen.findByRole("menuitem", { name: /Move to Right Group/ }));
     expect(groups().map((g) => g.tabs.map((t) => t.view.kind))).toEqual([["dashboard"], ["trash"]]);
+  });
+
+  it("offers Zoom Group only while split, and Show Both Groups once zoomed", async () => {
+    const { user } = renderWithProviders(<TabMenuHarness />);
+    fireEvent.contextMenu(screen.getByRole("tab"));
+    expect(await screen.findByRole("menuitem", { name: /Split Right/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Zoom Group/ })).toBeNull();
+    await user.keyboard("{Escape}");
+    act(() => useNavStore.getState().splitRight());
+    fireEvent.contextMenu(screen.getAllByRole("tab")[0]);
+    await user.click(await screen.findByRole("menuitem", { name: /Zoom Group/ }));
+    expect(useNavStore.getState().groupZoomed).toBe(true);
+    fireEvent.contextMenu(screen.getAllByRole("tab")[0]);
+    await user.click(await screen.findByRole("menuitem", { name: /Show Both Groups/ }));
+    expect(useNavStore.getState().groupZoomed).toBe(false);
   });
 
   it("has no axe violations with the split items open", async () => {
