@@ -162,7 +162,7 @@ describe("find in page", () => {
       const { user } = await renderPage();
       await user.keyboard("{Control>}f{/Control}");
       const toggle = screen.getByRole("button", { name: "Match Case" });
-      expect(toggle.className).toMatch(/size-6\.5/);
+      expect(toggle.className).toMatch(/\bsize-6\.5\b/);
       expect(toggle.className).toMatch(/rounded-inset/);
       expect(toggle.className).not.toMatch(/\brounded-sm\b/);
     });
