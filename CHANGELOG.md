@@ -2,7 +2,7 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.34.9 (2026-10-16)
+## 0.34.10 (2026-10-16)
 
 ### Added
 
@@ -11,6 +11,7 @@ All notable changes to Nookly are listed here.
 ### Fixed
 
 - **Long label names no longer squash their checkbox** in the label picker.
+- **The attach menu finds files with accents in their name.** Typing "Übungs" now finds "Übungsblatt 2.pdf", and "ubungs" finds it too.
 
 ## 0.34.7 (2026-10-16)
 

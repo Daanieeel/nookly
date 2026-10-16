@@ -1,7 +1,7 @@
 {
   "versions": [
     {
-      "version": "0.34.9",
+      "version": "0.34.10",
       "date": "2026-10-16",
       "title": "Upload and attach in one step",
       "summary": "Add a file to a page straight from the details sidebar.",
@@ -14,7 +14,10 @@
         }
       ],
       "more": {
-        "Fixed": ["Long label names no longer squash their checkbox in the label picker."]
+        "Fixed": [
+          "Long label names no longer squash their checkbox in the label picker.",
+          "The attach menu finds files with accents in their name, so \"Übungs\" finds \"Übungsblatt 2.pdf\"."
+        ]
       }
     },
     {

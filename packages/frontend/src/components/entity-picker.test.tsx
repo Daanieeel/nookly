@@ -52,4 +52,26 @@ describe("EntityPickerList", () => {
     await user.type(box, "nte-1");
     expect(await screen.findByText("Wave notes")).toBeTruthy();
   });
+
+  // macOS stores file names decomposed (U + combining diaeresis), what you type is composed.
+  it.each(["\u00dcbungs", "ubungs"])(
+    "finds a file whose name uses decomposed accents by %s",
+    async (query) => {
+      mockCommand("list_entities", [
+        makeEntity({
+          id: "f1",
+          type: "file",
+          title: "U\u0308bungsblatt 2- Shannon.pdf",
+          key: "FIL-1",
+        }),
+        makeEntity({ id: "n1", type: "note", title: "Wave notes", key: "NTE-1" }),
+      ]);
+      const { user } = renderWithProviders(
+        <EntityPickerList spaceId="space-1" onSelect={() => {}} />,
+      );
+      await user.type(await screen.findByPlaceholderText(SEARCH), query);
+      expect(await screen.findByText(/bungsblatt 2/)).toBeTruthy();
+      expect(screen.queryByText("Wave notes")).toBeNull();
+    },
+  );
 });

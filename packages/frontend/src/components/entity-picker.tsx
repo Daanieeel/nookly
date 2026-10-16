@@ -13,6 +13,12 @@ import { listSessions } from "#/lib/api/sessions.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { sessionMatches, sessionTime } from "#/lib/session-search.ts";
 
+/// Composed and decomposed spellings of an accent (macOS names files with the
+/// latter) compare equal, and so does a letter with and without its accent.
+function foldAccents(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "");
+}
+
 export function EntityPickerPopover({
   spaceId,
   trigger,
@@ -89,7 +95,11 @@ export function EntityPickerList({
       const session = sessionById.get(entity.id);
       const score = query
         ? Math.max(
-            defaultFilter(displayTitle(entity), query, keyKeywords(entity.key)),
+            defaultFilter(
+              foldAccents(displayTitle(entity)),
+              foldAccents(query),
+              keyKeywords(entity.key),
+            ),
             session ? Number(sessionMatches(session, query)) : 0,
           )
         : 1;
