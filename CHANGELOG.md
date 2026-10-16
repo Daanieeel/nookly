@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.17 (2026-10-16)
+
+### Changed
+
+- **Wider pages on wide windows.** Notes and Jots use more of a large window instead of leaving wide empty sides.
+
 ## 0.34.16 (2026-10-16)
 
 ### Fixed

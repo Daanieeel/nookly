@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.17",
+      "date": "2026-10-16",
+      "title": "Less empty space",
+      "summary": "Notes and Jots fill a wide window better.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Notes and Jots grow wider in a large window, so the empty sides next to the text get smaller."
+        ]
+      }
+    },
+    {
       "version": "0.34.16",
       "date": "2026-10-16",
       "title": "Formulas that stay put",
