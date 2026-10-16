@@ -79,7 +79,7 @@ function Toggle({
         aria-pressed={pressed}
         onClick={() => onPressedChange(!pressed)}
         className={cn(
-          "flex h-6.5 w-6 shrink-0 cursor-pointer items-center justify-center rounded-inset text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
+          "flex size-6.5 shrink-0 cursor-pointer items-center justify-center rounded-inset text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
           pressed && "bg-primary/20 text-foreground ring-1 ring-primary/60",
         )}
       >
