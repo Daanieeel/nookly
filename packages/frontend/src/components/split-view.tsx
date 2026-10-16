@@ -197,7 +197,12 @@ function GroupPane({
         <TabBar
           groupId={group.id}
           label={position === "left" ? "Left Group Tabs" : "Right Group Tabs"}
-          className="h-8 border-b-0 bg-transparent px-0 pb-1 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:h-9 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pt-1"
+          className={cn(
+            "h-8 border-b-0 bg-transparent px-0 pb-1 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:h-9 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pt-1",
+            position === "left"
+              ? "group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pl-1"
+              : "group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pr-1",
+          )}
         />
       )}
       <TabGroupContext.Provider value={scope}>

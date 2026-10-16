@@ -60,12 +60,12 @@
     {
       "version": "0.34.18",
       "date": "2026-10-16",
-      "title": "Room above split tabs",
-      "summary": "Split view tabs no longer touch the top edge.",
+      "title": "Split view spacing",
+      "summary": "Fixed the spacing around the tabs in split view.",
       "highlights": [],
       "more": {
         "Fixed": [
-          "With the sidebar collapsed, the tabs of each side of a split view have space above them."
+          "Fixed the spacing around the tabs in split view."
         ]
       }
     },

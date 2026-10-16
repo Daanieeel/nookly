@@ -88,6 +88,15 @@ describe("split view", () => {
     }
   });
 
+  it("keeps the outer edge of each group's tab bar off the window edge with the sidebar collapsed", () => {
+    renderWithProviders(<Harness />);
+    splitWithTrashOnTheRight();
+    const left = screen.getByRole("tablist", { name: "Left Group Tabs" }).parentElement;
+    const right = screen.getByRole("tablist", { name: "Right Group Tabs" }).parentElement;
+    expect(left?.className).toMatch(/collapsed\]\]\/app:pl-1/);
+    expect(right?.className).toMatch(/collapsed\]\]\/app:pr-1/);
+  });
+
   it("shows only the focused group while zoomed, and both again after", () => {
     renderWithProviders(<Harness />);
     splitWithTrashOnTheRight();
