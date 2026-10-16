@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import type { InvokeArgs } from "@tauri-apps/api/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 
 /// A fresh preferences module, as on launch.
@@ -63,6 +65,85 @@ describe("preferences", () => {
     await vi.waitFor(() =>
       expect(logged).toHaveBeenCalledWith("Couldn't save preferences", expect.anything()),
     );
+  });
+
+  describe("a dev build next to the installed app", () => {
+    const storeCall = z.looseObject({ path: z.string().optional(), rid: z.number().optional() });
+    const callOf = (args: InvokeArgs | undefined) => storeCall.parse(args ?? {});
+    const PROD = 7;
+    const DEV = 8;
+
+    /// Both builds share the app data folder, and each writes its whole copy of a file, so
+    /// the dev build keeps its own file instead of overwriting the installed app's tabs.
+    async function loadDev(files: { prod: [string, string][]; dev: [string, string][] }) {
+      vi.stubEnv("MODE", "development");
+      const stored = new Map([
+        [PROD, files.prod],
+        [DEV, files.dev],
+      ]);
+      mockCommandWith("plugin:store|load", (args) =>
+        callOf(args).path === "preferences.dev.json" ? DEV : PROD,
+      );
+      mockCommandWith("plugin:store|entries", (args) => stored.get(callOf(args).rid ?? 0));
+      mockCommand("plugin:store|set", null);
+      mockCommand("plugin:store|delete", true);
+      const { initPreferences, preferences } = await freshPreferences();
+      await initPreferences();
+      return preferences;
+    }
+
+    const backfilled: [string, string] = ["nookly:file-viewer-theme-backfill", "1"];
+
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("keeps the installed app's tabs and split out of the dev build", async () => {
+      const preferences = await loadDev({
+        prod: [backfilled, ["nookly:tabs", "installed tabs"], ["nookly:split-ratio", "0.3"]],
+        dev: [backfilled, ["nookly:tabs", "dev tabs"]],
+      });
+      expect(preferences.get("nookly:tabs")).toBe("dev tabs");
+      expect(preferences.get("nookly:split-ratio")).toBeNull();
+    });
+
+    it("writes only to its own file", async () => {
+      const preferences = await loadDev({ prod: [backfilled], dev: [backfilled] });
+      preferences.set("nookly:tabs", "x");
+      preferences.set("nookly:theme", "dark");
+      preferences.remove("nookly:theme");
+      await vi.waitFor(() => expect(callsOf("plugin:store|delete")).toHaveLength(1));
+      expect(callsOf("plugin:store|set").every((call) => callOf(call).rid === DEV)).toBe(true);
+      expect(callsOf("plugin:store|delete")).toEqual([{ rid: DEV, key: "nookly:theme" }]);
+    });
+
+    it("starts from the installed app's preferences, without its tabs, the first time", async () => {
+      const preferences = await loadDev({
+        prod: [
+          backfilled,
+          ["nookly:sidebar-collapsed", "1"],
+          ["nookly:tabs", "installed tabs"],
+          ["nookly:split-ratio", "0.3"],
+        ],
+        dev: [],
+      });
+      expect(preferences.get("nookly:sidebar-collapsed")).toBe("1");
+      expect(preferences.get("nookly:tabs")).toBeNull();
+      expect(preferences.get("nookly:split-ratio")).toBeNull();
+      await vi.waitFor(() =>
+        expect(callsOf("plugin:store|set")).toContainEqual({
+          rid: DEV,
+          key: "nookly:sidebar-collapsed",
+          value: "1",
+        }),
+      );
+    });
+
+    it("does not copy again once it has a file of its own", async () => {
+      const preferences = await loadDev({
+        prod: [backfilled, ["nookly:sidebar-collapsed", "1"]],
+        dev: [backfilled],
+      });
+      expect(preferences.get("nookly:sidebar-collapsed")).toBeNull();
+    });
   });
 
   describe("file viewer theme backfill", () => {
