@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.15 (2026-10-16)
+
+### Fixed
+
+- **LaTeX lines up with the other settings.** In Settings, the LaTeX page under Editor now sits in line with the other pages and carries an indent icon that shows it belongs to Editor.
+
 ## 0.34.14 (2026-10-16)
 
 ### Fixed

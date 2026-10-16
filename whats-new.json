@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.15",
+      "date": "2026-10-16",
+      "title": "A tidier settings list",
+      "summary": "The LaTeX page lines up with the rest of the Settings list.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The LaTeX page in Settings lines up with the other pages and shows an indent icon to mark it as part of Editor."
+        ]
+      }
+    },
+    {
       "version": "0.34.14",
       "date": "2026-10-16",
       "title": "Roomier deck cards",
