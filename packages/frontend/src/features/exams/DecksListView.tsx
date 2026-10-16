@@ -1,3 +1,4 @@
+import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { IconCalendarStats, IconCards, IconPlayerPlayFilled, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,12 +53,9 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
       className="flex h-full min-h-0 flex-col"
       {...contextTarget("module-view", { spaceId, createLabel: "New Deck", create: startCreate })}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
-          <IconCards size={16} className="text-muted-foreground" />
-          Decks
-        </h1>
-        <div className="flex flex-1 justify-end">
+      <PageHeader>
+        <PageHeaderTitle icon={IconCards}>Decks</PageHeaderTitle>
+        <PageHeaderActions>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="secondary" size="sm" className="gap-1.5" onClick={startCreate}>
@@ -69,8 +67,8 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
               Create a deck <ShortcutKbd name="create" />
             </TooltipContent>
           </Tooltip>
-        </div>
-      </header>
+        </PageHeaderActions>
+      </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex w-full flex-col gap-8 p-6">

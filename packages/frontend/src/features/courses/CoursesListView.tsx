@@ -170,9 +170,9 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
         create: () => setCreateOpen(true),
       })}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-lg font-semibold">Courses</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {courses.length > 1 && (
             // SAFETY: the only items rendered below come from `COURSE_SORTS`, so the
             // picked value is always one of its `CourseSort` ids.

@@ -3,6 +3,7 @@ import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react
 import { isToday } from "date-fns";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
+import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -121,12 +122,9 @@ export function CalendarPageHeader({
 }) {
   const { view, days, anchor, step, setView, startCreate, goToday } = page;
   return (
-    <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border py-2 pr-2 pl-4">
-      <h1 className="flex items-center gap-2 text-sm font-medium">
-        <HeaderIcon size={16} className="text-muted-foreground" />
-        {title}
-      </h1>
-      <div className="flex items-center gap-1">
+    <PageHeader>
+      <PageHeaderTitle icon={HeaderIcon}>{title}</PageHeaderTitle>
+      <div className="flex flex-wrap items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="secondary" size="sm" onClick={goToday}>
@@ -165,8 +163,8 @@ export function CalendarPageHeader({
         )}
       </div>
       {afterNav}
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-        <nav aria-label="Calendar views" className="flex items-center gap-1">
+      <PageHeaderActions>
+        <nav aria-label="Calendar views" className="flex flex-wrap items-center gap-1">
           {CALENDAR_VIEWS.map((v) => (
             <Tooltip key={v.id}>
               <TooltipTrigger asChild>
@@ -199,7 +197,7 @@ export function CalendarPageHeader({
             {createTooltip} {createKbd && <ShortcutKbd name="create" />}
           </TooltipContent>
         </Tooltip>
-      </div>
-    </header>
+      </PageHeaderActions>
+    </PageHeader>
   );
 }

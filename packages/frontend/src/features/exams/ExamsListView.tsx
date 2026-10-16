@@ -1,3 +1,4 @@
+import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconCalendarStats,
@@ -122,12 +123,9 @@ export function ExamsListView({
         create: startCreate,
       })}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
-          <IconCalendarStats size={16} className="text-muted-foreground" />
-          Exams
-        </h1>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+      <PageHeader>
+        <PageHeaderTitle icon={IconCalendarStats}>Exams</PageHeaderTitle>
+        <PageHeaderActions>
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
@@ -142,8 +140,8 @@ export function ExamsListView({
               Create an exam <ShortcutKbd name="create" />
             </TooltipContent>
           </Tooltip>
-        </div>
-      </header>
+        </PageHeaderActions>
+      </PageHeader>
 
       {!isPending && exams.length === 0 ? (
         <div className="p-6">
