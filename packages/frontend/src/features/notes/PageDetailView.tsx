@@ -30,8 +30,14 @@ export function PageDetailView({ entity }: { entity: Entity }) {
         )
       }
     >
-      {/* Room below the last line, so it can scroll clear of the navigator. */}
-      <div className={cn("mx-auto flex w-full max-w-3xl flex-col", showSections && "pb-16")}>
+      {/* Room below the last line, so it can scroll clear of the navigator. The column grows
+          with a wide window, where a fixed width leaves wide empty sides. */}
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-3xl flex-col @5xl:max-w-4xl @[100rem]:max-w-5xl",
+          showSections && "pb-16",
+        )}
+      >
         <BlockEditor
           entityId={entity.id}
           spaceId={entity.spaceId}
