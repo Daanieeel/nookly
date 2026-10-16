@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.37.5",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Files scroll smoothly even with hundreds of PDFs, without lag or blank gaps."]
+      }
+    },
+    {
       "version": "0.37.4",
       "date": "2026-10-16",
       "highlights": [],

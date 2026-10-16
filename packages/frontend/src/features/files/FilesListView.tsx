@@ -85,6 +85,7 @@ import {
   writeDisplay,
 } from "./file-model";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { WindowedFiles } from "./windowed-files";
 
 /// Marks items that just arrived for a moment, so a new file never appears silently.
 function useFreshIds() {
@@ -295,33 +296,29 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   const defs = fileGroupDefs(display.grouping);
   const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
 
-  const renderItems = (items: FileEntity[]) =>
-    display.layout === "grid" ? (
-      <ul
-        aria-label="Files"
-        className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-4"
-      >
-        {items.map((f) => (
+  const renderItems = (items: FileEntity[]) => (
+    <WindowedFiles
+      items={items}
+      layout={display.layout}
+      renderItem={(f) =>
+        display.layout === "grid" ? (
           <FileTile
             key={f.entity.id}
             file={f}
             fresh={fresh.has(f.entity.id)}
             onOpen={() => openFile(f)}
           />
-        ))}
-      </ul>
-    ) : (
-      <div>
-        {items.map((f) => (
+        ) : (
           <FileRow
             key={f.entity.id}
             file={f}
             fresh={fresh.has(f.entity.id)}
             onOpen={() => openFile(f)}
           />
-        ))}
-      </div>
-    );
+        )
+      }
+    />
+  );
 
   const addError = addFromText.isError
     ? `Couldn't add it: ${addFromText.error.message}`
@@ -568,7 +565,7 @@ function Thumbnail({
     return (
       <div className="size-full overflow-hidden bg-white">
         <Suspense fallback={null}>
-          <PdfThumb src={src} width={240} onError={() => onError()} />
+          <PdfThumb src={src} onError={onError} />
         </Suspense>
       </div>
     );

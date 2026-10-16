@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.5 (2026-10-16)
+
+### Fixed
+
+- **Files scroll smoothly with many PDFs.** Large Spaces no longer lag or leave blank gaps while you scroll, and PDF previews appear a few at a time instead of all at once.
+
 ## 0.37.4 (2026-10-16)
 
 ### Changed
