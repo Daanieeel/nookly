@@ -125,6 +125,59 @@ describe("find in page", () => {
     await expectNoA11yViolations(screen.getByRole("search"));
   });
 
+  // jsdom has no layout, so these pin the classes that keep the bar's fields in line.
+  describe("the look of the bar", () => {
+    async function openWithReplace() {
+      const { user } = await renderPage();
+      await user.keyboard("{Control>}f{/Control}");
+      await user.click(screen.getByRole("button", { name: "Show Replace" }));
+      return screen.getByRole("search");
+    }
+
+    it("lines both fields up in one column, so they are the same width", async () => {
+      const bar = await openWithReplace();
+      const replace = screen.getByRole("textbox", { name: "Replace With" });
+      expect(findField().parentElement?.parentElement).toBe(replace.parentElement);
+      expect(replace.parentElement).toBe(bar);
+      expect(bar.className).toMatch(/\bgrid\b/);
+    });
+
+    it("gives both fields the default input background, not the page's", async () => {
+      await openWithReplace();
+      const replace = screen.getByRole("textbox", { name: "Replace With" });
+      for (const field of [findField().parentElement, replace]) {
+        expect(field?.className).toMatch(/\bbg-accent\b/);
+        expect(field?.className).not.toMatch(/\bbg-background\b/);
+      }
+    });
+
+    it("keeps the chevron beside the first field when replace opens", async () => {
+      await openWithReplace();
+      const chevron = screen.getByRole("button", { name: "Hide Replace" });
+      expect(chevron.className).not.toMatch(/self-stretch|h-auto/);
+      expect(chevron.className).toMatch(/\bh-8\b/);
+    });
+
+    it("sizes the toggles to sit inside the field with a small radius", async () => {
+      const { user } = await renderPage();
+      await user.keyboard("{Control>}f{/Control}");
+      const toggle = screen.getByRole("button", { name: "Match Case" });
+      expect(toggle.className).toMatch(/\bh-6\.5\b/);
+      expect(toggle.className).toMatch(/rounded-inset/);
+      expect(toggle.className).not.toMatch(/\brounded-sm\b/);
+    });
+
+    it("leaves a 1px gap between the toggles", async () => {
+      const { user } = await renderPage();
+      await user.keyboard("{Control>}f{/Control}");
+      const row = screen.getByRole("button", { name: "Match Case" }).parentElement;
+      expect(row).toBe(
+        screen.getByRole("button", { name: "Use Regular Expression" }).parentElement,
+      );
+      expect(row?.className).toMatch(/\bgap-px\b/);
+    });
+  });
+
   it("closes from its close button", async () => {
     const { user } = await renderPage();
     await user.keyboard("{Control>}f{/Control}");
