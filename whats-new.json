@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.37.1",
+      "date": "2026-10-16",
+      "title": "Split view fits better",
+      "summary": "Page headers no longer get squeezed together when a page is narrow.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Titles and buttons at the top of a page, such as the Calendar's, move onto a second line instead of overlapping in split view."
+        ]
+      }
+    },
+    {
       "version": "0.37.0",
       "date": "2026-10-16",
       "title": "Quick filters and a fuller course page",
@@ -14,7 +26,7 @@
         },
         {
           "title": "A fuller course page",
-          "description": "Sessions show this week of your calendar with the course's own sessions standing out, and Assignments, Notes and Exams look as they do on their own pages. Notes lists the five most recently edited ones, with **Show more** opening the Notes page on the course.",
+          "description": "See this week's sessions, plus the course's assignments, recent notes and exams, all on one page.",
           "icon": "notebook",
           "tag": "Improved"
         }
@@ -33,7 +45,7 @@
       "highlights": [
         {
           "title": "Find in page",
-          "description": "A search bar at the top right of a page that starts from your selection, selects each match as you step through and replaces one or all. It matches case, whole words and regular expressions, and **Select All Occurrences** puts a cursor in every match.",
+          "description": "Search a page, step through each match and replace one or all. Match case, whole words or patterns, and put a cursor in every match at once.",
           "icon": "file-text",
           "tag": "New",
           "shortcuts": ["Mod+F"]
@@ -64,9 +76,7 @@
       "summary": "Fixed the spacing around the tabs in split view.",
       "highlights": [],
       "more": {
-        "Fixed": [
-          "Fixed the spacing around the tabs in split view."
-        ]
+        "Fixed": ["Fixed the spacing around the tabs in split view."]
       }
     },
     {

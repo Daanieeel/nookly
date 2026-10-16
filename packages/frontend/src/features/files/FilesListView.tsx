@@ -1,3 +1,4 @@
+import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
@@ -337,11 +338,8 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
         create: startImport,
       })}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
-          <IconFile size={16} className="text-muted-foreground" />
-          Files
-        </h1>
+      <PageHeader>
+        <PageHeaderTitle icon={IconFile}>Files</PageHeaderTitle>
         {files.some((f) => f.needsReindex) && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -367,13 +365,13 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
             <TooltipContent>Index older files for search</TooltipContent>
           </Tooltip>
         )}
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+        <PageHeaderActions>
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
           <FileDisplayMenu display={display} onChange={setDisplay} />
-        </div>
-      </header>
+        </PageHeaderActions>
+      </PageHeader>
 
       {!isPending && files.length === 0 ? (
         <div className="p-6">

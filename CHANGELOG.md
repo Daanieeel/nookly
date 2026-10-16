@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.1 (2026-10-16)
+
+### Fixed
+
+- **Pages fit better in split view.** Page headers with titles and buttons, such as the Calendar's, no longer get squeezed together when a page is narrow.
+
 ## 0.37.0 (2026-10-16)
 
 ### Added

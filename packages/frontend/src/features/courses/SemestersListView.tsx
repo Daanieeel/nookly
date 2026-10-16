@@ -141,9 +141,9 @@ export function SemestersListView({ spaceId }: { spaceId: string }) {
         create: () => setCreateOpen(true),
       })}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-lg font-semibold">Semesters</h1>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
             size="sm"
             variant="outline"

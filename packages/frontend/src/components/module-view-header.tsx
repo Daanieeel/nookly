@@ -7,7 +7,9 @@ import { type SaveMutation, ViewSaveBar } from "#/features/views/ViewActions.tsx
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { Button } from "@nookly/ui/components/button";
+import { HEADER_ROW, PageHeaderActions } from "#/components/page-header.tsx";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
+import { cn } from "@nookly/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 
 /// The header of a list and board page (Tasks, Assignments and their cross-Space
@@ -54,9 +56,9 @@ export function ModuleViewHeader<D>({
   return (
     <>
       <header className="flex shrink-0 flex-col gap-2.5 border-b border-border py-2 pr-2 pl-4">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className={cn(HEADER_ROW, "gap-x-1")}>
           <h1
-            className="flex h-8 items-center gap-2 text-sm font-medium"
+            className="flex h-8 shrink-0 items-center gap-2 text-sm font-medium whitespace-nowrap"
             {...(viewMenu && view && entityTarget(view.entity))}
           >
             {view ? (
@@ -66,32 +68,33 @@ export function ModuleViewHeader<D>({
             )}
             {view ? <EditableViewTitle entity={view.entity} /> : title}
           </h1>
-          <div className="flex-1" />
-          {presets}
-          <FilterMenu
-            fields={filterFields}
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-            part="button"
-          />
-          {displayMenu}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="ml-1 gap-1.5"
-                disabled={create.disabled}
-                onClick={create.onClick}
-              >
-                <IconPlus />
-                {create.label}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              {create.tooltip} <ShortcutKbd name="create" />
-            </TooltipContent>
-          </Tooltip>
+          <PageHeaderActions>
+            {presets}
+            <FilterMenu
+              fields={filterFields}
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+              part="button"
+            />
+            {displayMenu}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="ml-1 gap-1.5"
+                  disabled={create.disabled}
+                  onClick={create.onClick}
+                >
+                  <IconPlus />
+                  {create.label}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="flex items-center gap-2">
+                {create.tooltip} <ShortcutKbd name="create" />
+              </TooltipContent>
+            </Tooltip>
+          </PageHeaderActions>
         </div>
         <FilterMenu
           fields={filterFields}
