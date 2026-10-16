@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.14 (2026-10-16)
+
+### Fixed
+
+- **Decks on the dashboard are no longer squeezed.** When a deck card is narrow, its name, counts and Study button stack instead of covering each other.
+
 ## 0.34.13 (2026-10-16)
 
 ### Changed

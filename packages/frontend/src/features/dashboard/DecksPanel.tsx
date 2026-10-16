@@ -29,23 +29,25 @@ function DeckCard({
   const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = deck;
   return (
-    <div className="group relative min-w-0" {...entityTarget(entity)}>
-      <button
-        type="button"
-        onClick={() => openEntity(entity.id, entity.spaceId)}
-        aria-label={`Open ${displayTitle(entity)}`}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 pb-4 pr-24 text-left transition-colors outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <DeckStack count={deck.stats.total} size="sm" />
-        <div className="@container flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium">{displayTitle(entity)}</span>
-          {exam && <ExamLine exam={exam} />}
-          <DeckCounts stats={deck.stats} />
-        </div>
-      </button>
-      <span className="absolute top-3 right-3">
-        <StudyButton deck={deck} />
-      </span>
+    <div className="@container group relative min-w-0" {...entityTarget(entity)}>
+      {/* Stacked while the card is narrow, so the name and counts keep their room; side by
+          side once there is space for the Study button beside them. */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 pb-4 transition-colors hover:bg-accent/40 @sm:flex-row @sm:items-center">
+        <button
+          type="button"
+          onClick={() => openEntity(entity.id, entity.spaceId)}
+          aria-label={`Open ${displayTitle(entity)}`}
+          className="flex min-w-0 flex-1 cursor-pointer flex-col gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring @sm:flex-row @sm:items-center"
+        >
+          <DeckStack count={deck.stats.total} size="sm" />
+          <div className="@container flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-sm font-medium">{displayTitle(entity)}</span>
+            {exam && <ExamLine exam={exam} />}
+            <DeckCounts stats={deck.stats} />
+          </div>
+        </button>
+        <StudyButton deck={deck} className="w-full @sm:w-auto @sm:shrink-0" />
+      </div>
       {space && (
         <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-md bg-card">
           <SpaceChip space={space} />

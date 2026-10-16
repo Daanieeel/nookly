@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.14",
+      "date": "2026-10-16",
+      "title": "Roomier deck cards",
+      "summary": "Deck cards on the dashboard stay readable when narrow.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Decks on the dashboard are no longer squeezed: a narrow card stacks its name, counts and Study button."
+        ]
+      }
+    },
+    {
       "version": "0.34.13",
       "date": "2026-10-16",
       "title": "IDs in tabs",

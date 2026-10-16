@@ -190,7 +190,7 @@ export function DeckCounts({ stats }: { stats: DeckSummary["stats"] }) {
 }
 
 /// Opens the deck straight into a study session.
-export function StudyButton({ deck }: { deck: DeckSummary }) {
+export function StudyButton({ deck, className }: { deck: DeckSummary; className?: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = deck;
   const toStudy = studyCount(deck.stats);
@@ -199,6 +199,7 @@ export function StudyButton({ deck }: { deck: DeckSummary }) {
       <TooltipTrigger asChild>
         <Button
           size="sm"
+          className={className}
           aria-label={`Study ${toStudy} cards of ${displayTitle(entity)}`}
           onClick={() => {
             requestStudy(entity.id);
