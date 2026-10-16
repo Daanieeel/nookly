@@ -29,7 +29,7 @@ export function ModuleView({
     case "tasks":
       return <TasksListView spaceId={spaceId} viewId={viewId} />;
     case "notes":
-      return <NotesListView spaceId={spaceId} />;
+      return <NotesListView spaceId={spaceId} filterCourseId={filterCourseId} />;
     case "jots":
       return <JotsListView spaceId={spaceId} />;
     case "courses":

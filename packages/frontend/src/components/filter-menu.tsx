@@ -1,5 +1,12 @@
 import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
-import { IconCheck, IconFilter, IconX, type Icon as TablerIcon } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconFilter,
+  IconStar,
+  IconStarFilled,
+  IconX,
+  type Icon as TablerIcon,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
@@ -28,6 +35,7 @@ import type { Entity } from "#/lib/api/types.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { sameFilter } from "#/lib/quick-filters.ts";
 
 /// Command menu filters in the style of `docs/skills/data-tables.md` (the
 /// tablecn filter menu): one "Filter" button opens a searchable field list,
@@ -117,10 +125,14 @@ export function FilterMenu({
   onFiltersChange,
   onDone,
   part = "all",
+  quickFilters,
 }: {
   fields: FilterField[];
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
+  /// Gives each chip a star that adds its filter to the page's quick filters, or takes
+  /// it out again. Omitted, the chips have none.
+  quickFilters?: { favorites: ActiveFilter[]; onToggle: (filter: ActiveFilter) => void };
   /// Called when a popover closes, e.g. to hand focus back to a search input.
   onDone?: () => void;
   /// Renders the Filter button and the chips together, or only one of them, so a
@@ -172,6 +184,12 @@ export function FilterMenu({
                 )
               }
               onDone={onDone}
+              quick={
+                quickFilters && {
+                  favorite: quickFilters.favorites.some((f) => sameFilter(f, filter)),
+                  onToggle: () => quickFilters.onToggle(filter),
+                }
+              }
             />
           );
         })}
@@ -279,12 +297,14 @@ function FilterChip({
   filter,
   onChange,
   onDone,
+  quick,
 }: {
   field: FilterField;
   filter: ActiveFilter;
   /// `null` removes the filter.
   onChange: (filter: ActiveFilter | null) => void;
   onDone?: () => void;
+  quick?: { favorite: boolean; onToggle: () => void };
 }) {
   const selected = field.options.filter((o) => filter.values.includes(o.value));
   const single = selected.length === 1 ? selected[0] : undefined;
@@ -413,6 +433,27 @@ function FilterChip({
           </Command>
         </PopoverContent>
       </Popover>
+      {quick && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="Quick Filter"
+              aria-pressed={quick.favorite}
+              onClick={() => {
+                quick.onToggle();
+                onDone?.();
+              }}
+              className={cn(CHIP_SEGMENT, "px-1", quick.favorite && "text-primary")}
+            >
+              {quick.favorite ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {quick.favorite ? "Remove from Quick Filters" : "Add to Quick Filters"}
+          </TooltipContent>
+        </Tooltip>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <button

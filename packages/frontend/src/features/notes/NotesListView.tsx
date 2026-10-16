@@ -8,7 +8,7 @@ import {
   type Updater,
   useTable,
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import type { DataTableGroup } from "#/components/data-table/data-table.tsx";
@@ -16,6 +16,8 @@ import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, FilterMenu } from "#/components/filter-menu.tsx";
+import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
+import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { listLabels } from "#/lib/api/labels.ts";
@@ -44,11 +46,26 @@ import {} from "#/lib/datetime.ts";
 import {} from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
+function courseFilter(courseId: string | undefined): ActiveFilter[] {
+  return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
+}
+
 export interface NoteRow {
   summary: PageSummary;
   title: string;
   preview: string;
   labels: Label[];
+}
+
+/// The table rows of Notes, each with its title, preview and the labels it carries.
+export function toNoteRows(summaries: PageSummary[], spaceLabels: Label[]): NoteRow[] {
+  const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
+  return summaries.map((summary) => ({
+    summary,
+    title: displayTitle(summary.entity),
+    preview: notePreviewText(summary.preview, summary.entity.title),
+    labels: summary.labelIds.flatMap((id) => labelsById.get(id) ?? []),
+  }));
 }
 
 const readSorting = () => readStoredSorting(STORAGE_KEYS.notesSort);
@@ -77,11 +94,20 @@ export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
 /// Notes as a data table (docs/skills/data-tables.md, client mode): every Note of this
 /// Space is already in memory, so search, sorting and filtering all run locally.
 /// Global cross Space search stays in Cmd+K.
-export function NotesListView({ spaceId }: { spaceId: string }) {
+export function NotesListView({
+  spaceId,
+  filterCourseId,
+}: {
+  spaceId: string;
+  /// A Course page's "Show more" lands here with this, applied as a regular Course filter.
+  filterCourseId?: string;
+}) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
+  useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
+  const quick = useQuickFilters(`${STORAGE_KEYS.notesQuickFilters}:${spaceId}`);
   const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
@@ -106,15 +132,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
   const startNote = () => !create.isPending && create.mutate();
   useCreateShortcut(startNote);
 
-  const rows = useMemo<NoteRow[]>(() => {
-    const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
-    return summaries.map((summary) => ({
-      summary,
-      title: displayTitle(summary.entity),
-      preview: notePreviewText(summary.preview, summary.entity.title),
-      labels: summary.labelIds.flatMap((id) => labelsById.get(id) ?? []),
-    }));
-  }, [summaries, spaceLabels]);
+  const rows = useMemo(() => toNoteRows(summaries, spaceLabels), [summaries, spaceLabels]);
 
   const filterFields = useMemo(() => noteFilterFields(rows, spaceLabels), [rows, spaceLabels]);
 
@@ -213,8 +231,20 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
           placeholder="Filter notes"
           ariaLabel="Filter notes in this Space"
         />
+        <QuickFilterBar
+          fields={filterFields}
+          filters={filters}
+          onFiltersChange={setFilters}
+          favorites={quick.favorites}
+          onRemove={quick.toggle}
+        />
         <div className="flex-1">
-          <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          <FilterMenu
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            quickFilters={{ favorites: quick.favorites, onToggle: quick.toggle }}
+          />
         </div>
       </div>
 

@@ -29,6 +29,8 @@ import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
+import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
+import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
@@ -205,6 +207,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>(initialJotFilters);
+  const quick = useQuickFilters(`${STORAGE_KEYS.jotsQuickFilters}:${spaceId}`);
   const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
@@ -373,8 +376,20 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           placeholder="Filter Jots"
           ariaLabel="Filter Jots in this Space"
         />
+        <QuickFilterBar
+          fields={filterFields}
+          filters={filters}
+          onFiltersChange={setFilters}
+          favorites={quick.favorites}
+          onRemove={quick.toggle}
+        />
         <div className="flex-1">
-          <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          <FilterMenu
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            quickFilters={{ favorites: quick.favorites, onToggle: quick.toggle }}
+          />
         </div>
       </div>
 

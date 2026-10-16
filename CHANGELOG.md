@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.0 (2026-10-16)
+
+### Added
+
+- **Quick filters on Notes and Jots.** Star a filter to keep it in a bar next to the search field, where one click turns it on or off. Each page and Space keeps its own.
+- **Notes on the Course page.** The five most recently edited Notes of a course, with Show more opening the Notes page on that course.
+
+### Changed
+
+- **A fuller Course page.** The page now runs from the notes editor to the stat tiles, Sessions, Assignments, Notes and Exams. Sessions is this week of your calendar with the course's own sessions standing out, and Assignments, Notes and Exams look as they do on their own pages.
+- **The next session tile names the session.** It shows the session's name along with its day, time and how soon it starts.
+
 ## 0.36.0 (2026-10-16)
 
 ### Added

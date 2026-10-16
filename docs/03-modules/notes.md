@@ -37,6 +37,10 @@ A mention is a link whose label is the entity's title when it was written. Renam
 
 `Cmd+F` opens a find and replace bar at the top right of a page: selected text starts the search, Enter and Shift+Enter step through the matches and select them, and toggles switch match case, whole word and regular expressions (`$1` in the replacement). Select All Occurrences puts a caret in every match to type over them together.
 
+## Quick Filters
+
+The Notes and Jots pages keep favorite filters per page and Space. The star on a filter chip adds that filter to the bar beside the search field, where one click turns it on or off.
+
 ## Layout Direction
 
 A full-width document canvas. The writing surface never uses a list plus detail pane split. The page itself is the canvas.

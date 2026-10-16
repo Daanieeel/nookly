@@ -1,6 +1,31 @@
 {
   "versions": [
     {
+      "version": "0.37.0",
+      "date": "2026-10-16",
+      "title": "Quick filters and a fuller course page",
+      "summary": "Keep your favorite filters one click away, and see a course's week, assignments, notes and exams on its page.",
+      "highlights": [
+        {
+          "title": "Quick filters",
+          "description": "Star a filter on the Notes or Jots page to keep it in a dotted bar next to the search field. One click turns it on or off.",
+          "icon": "sparkles",
+          "tag": "New"
+        },
+        {
+          "title": "A fuller course page",
+          "description": "Sessions show this week of your calendar with the course's own sessions standing out, and Assignments, Notes and Exams look as they do on their own pages. Notes lists the five most recently edited ones, with **Show more** opening the Notes page on the course.",
+          "icon": "notebook",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The next session tile on a course page names the session as well as its day and time."
+        ]
+      }
+    },
+    {
       "version": "0.36.0",
       "date": "2026-10-16",
       "title": "Find and replace in a page",

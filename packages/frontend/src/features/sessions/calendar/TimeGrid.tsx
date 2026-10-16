@@ -98,6 +98,7 @@ export function TimeGrid({
   columns,
   selection,
   highlightIds,
+  emphasisIds,
   onSelect,
   onPickDay,
   slotCreateNoun,
@@ -111,6 +112,10 @@ export function TimeGrid({
   /// The range a create dialog is open for, kept highlighted meanwhile.
   selection: SlotRange | null;
   highlightIds: Set<string>;
+  /// When set, only these items keep full weight and everything else, external events
+  /// included, fades: a cut-out of the calendar for one Course shows that Course's items
+  /// plainly and the rest of the week as context.
+  emphasisIds?: Set<string>;
   /// Omitted on an embedded, read only slice of the calendar: empty time is then
   /// not draggable and creates nothing.
   onSelect?: (range: SlotRange) => void;
@@ -145,6 +150,7 @@ export function TimeGrid({
   const rowRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const nowMinutes = useNowMinutes();
+  const isDimmed = (id: string) => emphasisIds !== undefined && !emphasisIds.has(id);
   const single = columns.length === 1;
   // Passed to each item block so dragging it to a new place can resolve which
   // day it landed on.
@@ -244,7 +250,11 @@ export function TimeGrid({
                 )}
               >
                 {allDay.map((event) => (
-                  <ExternalEventChip key={event.id} event={event} />
+                  <ExternalEventChip
+                    key={event.id}
+                    event={event}
+                    dimmed={emphasisIds !== undefined}
+                  />
                 ))}
                 {allDayExams.map((exam) => (
                   <ExamChip
@@ -252,6 +262,7 @@ export function TimeGrid({
                     exam={exam}
                     highlighted={highlightIds.has(exam.entity.id)}
                     accentColor={spaceColor?.(exam.entity.spaceId)}
+                    dimmed={isDimmed(exam.entity.id)}
                   />
                 ))}
                 {allDayCalendarEntries.map((entry) => (
@@ -262,6 +273,7 @@ export function TimeGrid({
                     highlighted={highlightIds.has(entry.entity.id)}
                     accentColor={spaceColor?.(entry.entity.spaceId)}
                     secondary={secondaryKind === "calendarEntry"}
+                    dimmed={isDimmed(entry.entity.id)}
                     daySpan={daySpanFor(entry, day)}
                   />
                 ))}
@@ -395,6 +407,7 @@ export function TimeGrid({
                       highlighted={highlightIds.has(item.occurrence.entity.id)}
                       accentColor={spaceColor?.(item.occurrence.entity.spaceId)}
                       secondary={secondaryKind === "session"}
+                      dimmed={isDimmed(item.occurrence.entity.id)}
                       days={days}
                       dayIndex={dayIndex}
                     />
@@ -410,6 +423,7 @@ export function TimeGrid({
                       highlighted={highlightIds.has(item.entry.entity.id)}
                       accentColor={spaceColor?.(item.entry.entity.spaceId)}
                       secondary={secondaryKind === "calendarEntry"}
+                      dimmed={isDimmed(item.entry.entity.id)}
                       days={days}
                       dayIndex={dayIndex}
                     />
@@ -423,11 +437,17 @@ export function TimeGrid({
                       position={position}
                       highlighted={highlightIds.has(item.exam.entity.id)}
                       accentColor={spaceColor?.(item.exam.entity.spaceId)}
+                      dimmed={isDimmed(item.exam.entity.id)}
                     />
                   );
                 }
                 return (
-                  <ExternalEventBlock key={item.event.id} event={item.event} position={position} />
+                  <ExternalEventBlock
+                    key={item.event.id}
+                    event={item.event}
+                    position={position}
+                    dimmed={emphasisIds !== undefined}
+                  />
                 );
               })}
             </div>
