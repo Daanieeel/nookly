@@ -181,6 +181,37 @@ describe("find in page", () => {
     });
   });
 
+  it("closes with Escape from anywhere in the bar, also with replace open", async () => {
+    const { user } = await renderPage();
+    await user.keyboard("{Control>}f{/Control}");
+    await user.click(screen.getByRole("button", { name: "Show Replace" }));
+    expect(screen.getByRole("button", { name: "Hide Replace" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("search")).toBeNull();
+    await user.keyboard("{Control>}f{/Control}");
+    await user.click(screen.getByRole("button", { name: "Show Replace" }));
+    await user.click(screen.getByRole("textbox", { name: "Replace With" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("search")).toBeNull();
+  });
+
+  it("starts empty and collapsed again after it was closed", async () => {
+    const { user, container } = await renderPage();
+    await user.keyboard("{Control>}f{/Control}");
+    await user.type(findField(), "alpha");
+    await user.click(screen.getByRole("button", { name: "Show Replace" }));
+    await user.type(screen.getByRole("textbox", { name: "Replace With" }), "omega");
+    await user.keyboard("{Escape}");
+    expect(matches(container)).toHaveLength(0);
+    await user.keyboard("{Control>}f{/Control}");
+    expect(findField()).toHaveValue("");
+    expect(screen.getByRole("status")).toHaveTextContent("");
+    expect(matches(container)).toHaveLength(0);
+    expect(screen.queryByRole("textbox", { name: "Replace With" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show Replace" }));
+    expect(screen.getByRole("textbox", { name: "Replace With" })).toHaveValue("");
+  });
+
   it("closes from its close button", async () => {
     const { user } = await renderPage();
     await user.keyboard("{Control>}f{/Control}");
