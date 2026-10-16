@@ -283,3 +283,47 @@ describe("split view, details sidebar", () => {
     expect(preferences.get(STORAGE_KEYS.rightSidebarCollapsed)).toBeNull();
   });
 });
+
+describe("split view, zoom", () => {
+  it("does nothing with one group", async () => {
+    const { store } = await loadNav();
+    store.getState().toggleGroupZoom();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+
+  it("toggles between zoomed and both groups", async () => {
+    const { store } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    expect(store.getState().groupZoomed).toBe(true);
+    store.getState().toggleGroupZoom();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+
+  it("stays zoomed when focus moves to the other group", async () => {
+    const { store } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    store.getState().focusGroupAt(0);
+    expect(store.getState().groupZoomed).toBe(true);
+  });
+
+  it("ends when the other group closes, so a later split shows both groups", async () => {
+    const { store, tabGroups } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    store.getState().closeTab(tabGroups(store.getState())[1].tabs[0].id);
+    expect(tabGroups(store.getState())).toHaveLength(1);
+    expect(store.getState().groupZoomed).toBe(false);
+    store.getState().splitRight();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+
+  it("ends when a tab is split or moved, so the result is visible", async () => {
+    const { store } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    store.getState().splitLeft();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+});

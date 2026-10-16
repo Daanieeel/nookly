@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.35.0 (2026-10-16)
+
+### Added
+
+- **Zoom a group.** Press `Mod+Shift+Enter`, or right click a tab and pick Zoom Group, to hide the other side of a split view and give the focused side the whole page. Press it again to bring both sides back.
+
 ## 0.34.18 (2026-10-16)
 
 ### Fixed

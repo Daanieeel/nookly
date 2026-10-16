@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "0.35.0",
+      "date": "2026-10-16",
+      "title": "Zoom into one side of a split",
+      "summary": "Hide the other side of a split view and give the focused side the whole page.",
+      "highlights": [
+        {
+          "title": "Zoom a group",
+          "description": "Hide the other side of a split view until you press the shortcut again, or pick **Zoom Group** in a tab's menu.",
+          "icon": "layout-columns",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+Enter"]
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.34.18",
       "date": "2026-10-16",
       "title": "Room above split tabs",

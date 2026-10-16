@@ -50,6 +50,7 @@ Split view puts two groups of tabs side by side, like editor groups in VS Code. 
 | Split left                | `Cmd+Option+Shift+Left` (`Ctrl+Alt+Shift+Left`), Split Left in the Split button in the titlebar or the command palettes                                                                                  |
 | Move to the other group   | Drag a tab onto the other group, or Move to Left or Right Group in the tab menu                                                                                                                          |
 | Focus the left or right   | `Cmd+1`, `Cmd+2`, or click into the group                                                                                                                                                                |
+| Zoom a group              | `Cmd+Shift+Enter` hides the other group until pressed again, or Zoom Group in the tab menu                                                                                                               |
 | Resize the groups         | Drag the divider, or focus it and use the arrow keys, Home and End                                                                                                                                       |
 
 Closing the last tab leaves a fresh Dashboard tab.
