@@ -169,7 +169,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   /* A control sitting inside a field, like the toggles of the find bar. */
-  --radius-inset: 0.25rem;
+  --radius-inset: 0.3125rem;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
