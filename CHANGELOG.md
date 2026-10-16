@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.18 (2026-10-16)
+
+### Fixed
+
+- **Split view tabs have room above them.** With the sidebar collapsed, the tabs of each side no longer touch the top edge.
+
 ## 0.34.17 (2026-10-16)
 
 ### Changed
