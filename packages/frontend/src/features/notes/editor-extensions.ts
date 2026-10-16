@@ -25,6 +25,7 @@ import {
   Video,
   WebBookmark,
 } from "./custom-block-extensions";
+import { FindInPage } from "./find-in-page";
 import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
 import { InlineCode, InlineMarkCleanup } from "./inline-mark-cleanup";
@@ -98,6 +99,7 @@ export function editorExtensions({
     Highlight,
     InlineCode,
     InlineMarkCleanup,
+    FindInPage,
     BlockSelection,
     SlashCommand.configure({ getEntities }),
     CodeCompletion,

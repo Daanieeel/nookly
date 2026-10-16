@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "0.36.0",
+      "date": "2026-10-16",
+      "title": "Find and replace in a page",
+      "summary": "Search the page you are writing in, and replace what you find.",
+      "highlights": [
+        {
+          "title": "Find in page",
+          "description": "A search bar at the top right of a page that starts from your selection, selects each match as you step through and replaces one or all. It matches case, whole words and regular expressions, and **Select All Occurrences** puts a cursor in every match.",
+          "icon": "file-text",
+          "tag": "New",
+          "shortcuts": ["Mod+F"]
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.35.0",
       "date": "2026-10-16",
       "title": "Zoom into one side of a split",
