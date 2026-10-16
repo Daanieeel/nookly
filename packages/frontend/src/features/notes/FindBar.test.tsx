@@ -167,14 +167,14 @@ describe("find in page", () => {
       expect(toggle.className).not.toMatch(/\brounded-sm\b/);
     });
 
-    it("leaves a 1px gap between the toggles", async () => {
+    it("leaves a 2px gap between the toggles", async () => {
       const { user } = await renderPage();
       await user.keyboard("{Control>}f{/Control}");
       const row = screen.getByRole("button", { name: "Match Case" }).parentElement;
       expect(row).toBe(
         screen.getByRole("button", { name: "Use Regular Expression" }).parentElement,
       );
-      expect(row?.className).toMatch(/\bgap-px\b/);
+      expect(row?.className).toMatch(/\bgap-0\.5\b/);
     });
   });
 

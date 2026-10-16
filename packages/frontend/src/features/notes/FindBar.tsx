@@ -216,7 +216,7 @@ export function FindBar({
             onKeyDown={onFindKey}
             className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
           />
-          <div className="flex items-center gap-px">
+          <div className="flex items-center gap-0.5">
             <Toggle
               label="Match Case"
               pressed={find.caseSensitive}
