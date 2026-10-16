@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.12 (2026-10-16)
+
+### Added
+
+- **Say what a file is attached to.** On a file or bookmark, Relate to now offers Attached to, so you can link it to a page from the file's side.
+
 ## 0.34.11 (2026-10-16)
 
 ### Fixed

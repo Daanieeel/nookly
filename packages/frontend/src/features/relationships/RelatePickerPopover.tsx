@@ -38,7 +38,10 @@ const SYMMETRIC_TYPES = new Set(["relates-to"]);
 function relateOptions(types: RelationshipTypeInfo[], entityType: string): RelateOption[] {
   return types.flatMap((t) => {
     const options: RelateOption[] = [];
-    if (t.fromType === null || t.fromType === entityType) {
+    // A File or Bookmark is what gets attached, so it only ever offers "attached to".
+    const attaches =
+      t.name === "attached-file" && (entityType === "file" || entityType === "bookmark");
+    if (!attaches && (t.fromType === null || t.fromType === entityType)) {
       options.push({
         key: `${t.name}:forward`,
         type: t.name,

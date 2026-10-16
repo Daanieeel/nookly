@@ -39,6 +39,19 @@ export function hiddenRelationshipTypes(entity: Pick<Entity, "type">): Set<strin
   ]);
 }
 
+/// The relationship types a "Relate to" picker offers for `entity`: all but the hidden
+/// ones. A File or Bookmark also gets `attached-file`, since attaching it to a page is
+/// done from that page's own Attachments section, and from here it is the way to say
+/// what this one is attached to.
+export function pickableRelationshipTypes<T extends { name: string }>(
+  types: T[],
+  entity: Pick<Entity, "type">,
+): T[] {
+  const hidden = hiddenRelationshipTypes(entity);
+  const attachable = entity.type === "file" || entity.type === "bookmark";
+  return types.filter((t) => !hidden.has(t.name) || (attachable && t.name === "attached-file"));
+}
+
 /// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
 export function RelationshipsPanel({ entity }: { entity: Entity }) {
@@ -79,7 +92,7 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       : (def?.inverseLabel ?? r.relationshipType);
     return { key: r.id, entityId: isFrom ? r.toEntityId : r.fromEntityId, label };
   });
-  const pickableTypes = types.filter((t) => !hidden.has(t.name));
+  const pickableTypes = pickableRelationshipTypes(types, entity);
 
   return (
     <SidebarSection icon={<IconLink size={14} />} title="Relationships" count={visible.length}>

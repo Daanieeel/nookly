@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.12",
+      "date": "2026-10-16",
+      "title": "Attach from the file's side",
+      "summary": "Relate a file or bookmark to a page as an attachment.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "On a file or bookmark, **Relate to** now offers *Attached to*, so you can attach it to a page from its own side."
+        ]
+      }
+    },
+    {
       "version": "0.34.11",
       "date": "2026-10-16",
       "title": "Search ignores accents",

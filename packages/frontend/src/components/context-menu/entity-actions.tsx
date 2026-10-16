@@ -19,7 +19,7 @@ import { useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { NewLabelForm } from "#/components/label-manager.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
 import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
-import { hiddenRelationshipTypes } from "#/features/relationships/RelationshipsPanel.tsx";
+import { pickableRelationshipTypes } from "#/features/relationships/RelationshipsPanel.tsx";
 import { RelatePicker } from "#/features/relationships/RelatePickerPopover.tsx";
 import { duplicateEntity, restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import { attachLabel, detachLabel, listLabels, listLabelsForEntity } from "#/lib/api/labels.ts";
@@ -83,7 +83,6 @@ function RelateFromMenu({
     queryKey: qk.relationships.types,
     queryFn: listRelationshipTypes,
   });
-  const hidden = hiddenRelationshipTypes(entity);
   const relate = useMutation({
     mutationFn: async (vars: { otherId: string; relationshipType: string; reverse: boolean }) => {
       if (vars.reverse) await createRelationship(vars.otherId, entity.id, vars.relationshipType);
@@ -99,7 +98,7 @@ function RelateFromMenu({
         spaceId={entity.spaceId}
         exclude={entity.id}
         entityType={entity.type}
-        types={types.filter((t) => !hidden.has(t.name))}
+        types={pickableRelationshipTypes(types, entity)}
         onSelect={(target, relationshipType, reverse) => {
           if (!relate.isPending) relate.mutate({ otherId: target.id, relationshipType, reverse });
         }}

@@ -345,3 +345,39 @@ describe("RelatePicker, going back", () => {
     expect(await screen.findByRole("option", { name: /^Task/ })).toBeTruthy();
   });
 });
+
+describe("RelationshipsPanel, relating a file", () => {
+  const ATTACHED: RelationshipTypeInfo = {
+    name: "attached-file",
+    label: "Attached file",
+    inverseLabel: "attached to",
+    description: "",
+    fromType: null,
+    toType: null,
+  };
+
+  async function relateFrom(entityType: string) {
+    const me = makeEntity({ id: "me", type: entityType });
+    mockCommand("list_relationships", []);
+    mockCommand("list_relationship_types", [RELATES, ATTACHED]);
+    mockCommand("list_spaces", []);
+    mockCommand("list_entities", [makeEntity({ id: "n1", type: "note", title: "Wave notes" }), me]);
+    const { user } = renderWithProviders(<RelationshipsPanel entity={me} />);
+    await user.click(screen.getByRole("button", { name: /Relate to/ }));
+    await user.click(await screen.findByRole("option", { name: /^Note/ }));
+    return (await screen.findAllByRole("option")).map((o) => o.textContent);
+  }
+
+  it.each(["file", "bookmark"])("offers Attached to when relating a %s", async (entityType) => {
+    expect(await relateFrom(entityType)).toEqual([
+      expect.stringContaining("Related to"),
+      expect.stringContaining("Attached to"),
+    ]);
+  });
+
+  it("keeps attachments out of the menu for anything else, which has the Attachments panel", async () => {
+    // Only "Related to" fits, so the step is skipped and the items show.
+    expect(await relateFrom("note")).toEqual([expect.stringContaining("Wave notes")]);
+    expect(screen.queryByText(/Attached/)).toBeNull();
+  });
+});
