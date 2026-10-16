@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.37.4",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The title, search and filters of Notes and Jots stay in view while the list scrolls underneath."
+        ],
+        "Fixed": [
+          "Notes and Jots open quicker and keep up while you type, even with thousands of entries."
+        ]
+      }
+    },
+    {
       "version": "0.37.3",
       "date": "2026-10-16",
       "highlights": [],

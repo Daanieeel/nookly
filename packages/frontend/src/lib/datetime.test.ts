@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { setDateTimeSettings } from "#/test/time.ts";
 import {
   clockCycle,
@@ -117,5 +117,17 @@ describe("settings", () => {
     expect(settings.get("general.timeFormat")).toBe("american");
     expect(settings.get("general.dateFormat")).toBe("timezone");
     expect(useDateTimeSettings.getState().timeFormat).toBe("american");
+  });
+});
+
+describe("formatting many dates", () => {
+  it("builds one formatter per kind, not one per date, as a long list formats a date in every row", () => {
+    european();
+    const build = vi.spyOn(Intl, "DateTimeFormat");
+    for (let day = 1; day <= 28; day++) {
+      formatShortDate(`2026-09-${String(day).padStart(2, "0")}`);
+      formatDate(`2026-09-${String(day).padStart(2, "0")}`);
+    }
+    expect(build.mock.calls.length).toBeLessThan(10);
   });
 });

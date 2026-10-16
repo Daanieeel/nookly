@@ -192,10 +192,13 @@ export function PageSummaryTable<T extends { summary: PageSummary }>({
   table,
   spaceId,
   groups,
+  scrollX,
 }: {
   table: TanstackTable<DataTableFeatures, T>;
   spaceId: string;
   groups?: DataTableGroup<T>[];
+  /// Scrolls sideways when the columns cannot fit, which is the default (see `DataTable`).
+  scrollX?: boolean;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
@@ -203,6 +206,7 @@ export function PageSummaryTable<T extends { summary: PageSummary }>({
     <DataTable
       table={table}
       groups={groups}
+      scrollX={scrollX}
       onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
       onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
       rowContextTarget={(row) => entityTarget(row.summary.entity)}

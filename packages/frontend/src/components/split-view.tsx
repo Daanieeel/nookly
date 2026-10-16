@@ -60,6 +60,8 @@ const BLEED_MODULES = new Set([
   "decks",
   "files",
   "bookmarks",
+  "notes",
+  "jots",
 ]);
 
 function isBleedView(view: View): boolean {
@@ -228,6 +230,7 @@ function PaneBody({
       >
         <div
           ref={pageRef}
+          data-scroll-root=""
           className={cn(
             "@container min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
             !isBleedView(view) && "p-6",

@@ -29,6 +29,7 @@ import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
+import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
 import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { LabelDot } from "#/components/label-chip.tsx";
@@ -337,73 +338,76 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   };
 
   return (
-    <div
-      className="flex w-full flex-col gap-3"
+    <ScrollingListPage
+      ready={!isPending}
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Jot",
         create: () => setQuickJotOpen(true),
       })}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
-          Jots
-          <span className="text-sm font-normal text-muted-foreground tabular-nums">
-            {rows.length}
-          </span>
-        </h1>
-        {newJotButton}
-      </div>
+      top={
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
+              Jots
+              <span className="text-sm font-normal text-muted-foreground tabular-nums">
+                {rows.length}
+              </span>
+            </h1>
+            {newJotButton}
+          </div>
 
-      <div className="flex flex-wrap items-center gap-1">
-        {PRESETS.map((preset) => (
-          <Button
-            key={preset.id}
-            variant={activePreset === preset.id ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={activePreset === preset.id}
-            className="gap-1.5"
-            onClick={() => {
-              setFilters(preset.filters);
-              preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
-            }}
-          >
-            <preset.icon size={14} />
-            {preset.label}
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {presetCounts.get(preset.id)}
-            </span>
-          </Button>
-        ))}
-      </div>
+          <div className="flex flex-wrap items-center gap-1">
+            {PRESETS.map((preset) => (
+              <Button
+                key={preset.id}
+                variant={activePreset === preset.id ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={activePreset === preset.id}
+                className="gap-1.5"
+                onClick={() => {
+                  setFilters(preset.filters);
+                  preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
+                }}
+              >
+                <preset.icon size={14} />
+                {preset.label}
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {presetCounts.get(preset.id)}
+                </span>
+              </Button>
+            ))}
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <ListSearchInput
-          query={query}
-          onQueryChange={setQuery}
-          placeholder="Filter Jots"
-          ariaLabel="Filter Jots in this Space"
-        />
-        <div className="ml-auto">
-          <FilterMenu
-            {...filterMenuProps}
-            part="button"
-            beforeButton={
-              <QuickFilterBar
-                fields={filterFields}
-                filters={filters}
-                onFiltersChange={setFilters}
-                favorites={quick.favorites}
-                onRemove={quick.toggle}
+          <div className="flex flex-wrap items-center gap-2">
+            <ListSearchInput
+              query={query}
+              onQueryChange={setQuery}
+              placeholder="Filter Jots"
+              ariaLabel="Filter Jots in this Space"
+            />
+            <div className="ml-auto">
+              <FilterMenu
+                {...filterMenuProps}
+                part="button"
+                beforeButton={
+                  <QuickFilterBar
+                    fields={filterFields}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    favorites={quick.favorites}
+                    onRemove={quick.toggle}
+                  />
+                }
               />
-            }
-          />
-        </div>
-      </div>
-      <FilterMenu {...filterMenuProps} part="chips" />
-
+            </div>
+          </div>
+          <FilterMenu {...filterMenuProps} part="chips" />
+        </>
+      }
+    >
       {data.length > 0 ? (
-        <PageSummaryTable table={table} spaceId={spaceId} />
+        <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} />
       ) : (
         !isPending && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -425,7 +429,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           </div>
         )
       )}
-    </div>
+    </ScrollingListPage>
   );
 }
 

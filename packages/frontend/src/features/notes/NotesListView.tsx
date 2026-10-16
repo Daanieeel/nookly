@@ -16,6 +16,7 @@ import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, FilterMenu } from "#/components/filter-menu.tsx";
+import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
 import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { Button } from "@nookly/ui/components/button";
@@ -206,59 +207,62 @@ export function NotesListView({
   };
 
   return (
-    <div
-      className="flex w-full flex-col gap-3"
+    <ScrollingListPage
+      ready={!isPending}
       {...contextTarget("module-view", { spaceId, createLabel: "New Note", create: startNote })}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
-          Notes
-          <span className="text-sm font-normal text-muted-foreground tabular-nums">
-            {rows.length}
-          </span>
-        </h1>
-        <Button
-          variant={createStatus === "error" ? "destructive" : "secondary"}
-          size="sm"
-          className="gap-1.5"
-          onClick={startNote}
-        >
-          <StatusButtonContent
-            status={createStatus}
-            icon={<IconPlus size={14} />}
-            label="New Note"
-            errorLabel="Couldn't create note, try again"
-          />
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <ListSearchInput
-          query={query}
-          onQueryChange={setQuery}
-          placeholder="Filter notes"
-          ariaLabel="Filter notes in this Space"
-        />
-        <div className="ml-auto">
-          <FilterMenu
-            {...filterMenuProps}
-            part="button"
-            beforeButton={
-              <QuickFilterBar
-                fields={filterFields}
-                filters={filters}
-                onFiltersChange={setFilters}
-                favorites={quick.favorites}
-                onRemove={quick.toggle}
+      top={
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
+              Notes
+              <span className="text-sm font-normal text-muted-foreground tabular-nums">
+                {rows.length}
+              </span>
+            </h1>
+            <Button
+              variant={createStatus === "error" ? "destructive" : "secondary"}
+              size="sm"
+              className="gap-1.5"
+              onClick={startNote}
+            >
+              <StatusButtonContent
+                status={createStatus}
+                icon={<IconPlus size={14} />}
+                label="New Note"
+                errorLabel="Couldn't create note, try again"
               />
-            }
-          />
-        </div>
-      </div>
-      <FilterMenu {...filterMenuProps} part="chips" />
+            </Button>
+          </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <ListSearchInput
+              query={query}
+              onQueryChange={setQuery}
+              placeholder="Filter notes"
+              ariaLabel="Filter notes in this Space"
+            />
+            <div className="ml-auto">
+              <FilterMenu
+                {...filterMenuProps}
+                part="button"
+                beforeButton={
+                  <QuickFilterBar
+                    fields={filterFields}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    favorites={quick.favorites}
+                    onRemove={quick.toggle}
+                  />
+                }
+              />
+            </div>
+          </div>
+          <FilterMenu {...filterMenuProps} part="chips" />
+        </>
+      }
+    >
       {data.length > 0 ? (
-        <PageSummaryTable table={table} spaceId={spaceId} groups={groups} />
+        <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} groups={groups} />
       ) : (
         !isPending && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -276,7 +280,7 @@ export function NotesListView({
           </div>
         )
       )}
-    </div>
+    </ScrollingListPage>
   );
 }
 

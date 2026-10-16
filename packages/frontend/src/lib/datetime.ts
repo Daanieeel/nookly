@@ -43,9 +43,36 @@ export function listTimezones(): string[] {
   }
 }
 
+/// Building a formatter is slow, and a long list formats a date in every row, so each
+/// kind is built once.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function dateTimeFormat(
+  locale: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  // A formatter without a zone keeps the OS's zone from when it was built, so the zone is
+  // part of the key and a change of it builds a new one.
+  const key = `${locale}|${options.timeZone ?? systemTimezone()}|${JSON.stringify(options)}`;
+  let format = formatters.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, format);
+  }
+  return format;
+}
+
+/// How long the OS's zone is remembered. It can change while the app runs (travel, a
+/// changed setting), so it is read again after this.
+const SYSTEM_ZONE_MS = 5000;
+let systemZone: { zone: string; readAt: number } | null = null;
+
 /// The OS's own zone, like `Europe/Berlin`.
 export function systemTimezone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const now = Date.now();
+  if (!systemZone || now - systemZone.readAt > SYSTEM_ZONE_MS) {
+    systemZone = { zone: Intl.DateTimeFormat().resolvedOptions().timeZone, readAt: now };
+  }
+  return systemZone.zone;
 }
 
 function readSettings(): DateTimeSettings {
@@ -116,7 +143,7 @@ function zoneFor(value: Date | string): string | undefined {
 /// wording. The year shows only when it isn't this one.
 export function formatShortDate(value: Date | string, now = new Date()): string {
   const date = asDate(value);
-  return new Intl.DateTimeFormat(localeFor(settings().dateFormat), {
+  return dateTimeFormat(localeFor(settings().dateFormat), {
     month: "short",
     day: "numeric",
     year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
@@ -130,11 +157,9 @@ export function formatDate(value: Date | string): string {
   const mode = settings().dateFormat;
   const zone = zoneFor(value);
   if (mode === "timezone") {
-    return new Intl.DateTimeFormat(localeFor(mode), { dateStyle: "medium", timeZone: zone }).format(
-      date,
-    );
+    return dateTimeFormat(localeFor(mode), { dateStyle: "medium", timeZone: zone }).format(date);
   }
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const parts = dateTimeFormat("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -149,7 +174,7 @@ export function formatDate(value: Date | string): string {
 /// A clock time: `2:30 PM`, `14:30` or the zone's own style.
 export function formatTime(value: Date | string): string {
   const mode = settings().timeFormat;
-  return new Intl.DateTimeFormat(localeFor(mode), {
+  return dateTimeFormat(localeFor(mode), {
     hour: "numeric",
     minute: "2-digit",
     hour12: mode === "timezone" ? undefined : mode === "american",
@@ -162,7 +187,7 @@ export function formatClock(hhmm: string): string {
   const [h, m] = hhmm.split(":").map(Number);
   const date = new Date(2000, 0, 1, h, m || 0);
   const mode = settings().timeFormat;
-  return new Intl.DateTimeFormat(localeFor(mode), {
+  return dateTimeFormat(localeFor(mode), {
     hour: "numeric",
     minute: "2-digit",
     hour12: mode === "timezone" ? undefined : mode === "american",
@@ -172,7 +197,7 @@ export function formatClock(hhmm: string): string {
 /// Whether clock times show on a 12 hour clock, and what the AM and PM labels are.
 export function clockCycle() {
   const mode = settings().timeFormat;
-  const format = new Intl.DateTimeFormat(localeFor(mode), {
+  const format = dateTimeFormat(localeFor(mode), {
     hour: "numeric",
     hour12: mode === "timezone" ? undefined : mode === "american",
   });
@@ -190,7 +215,7 @@ export function formatDateTime(value: Date | string): string {
 
 /// The weekday's name in the date format's language.
 export function formatWeekday(value: Date | string, width: "short" | "long" = "long"): string {
-  return new Intl.DateTimeFormat(localeFor(settings().dateFormat), {
+  return dateTimeFormat(localeFor(settings().dateFormat), {
     weekday: width,
     timeZone: zoneFor(value),
   }).format(asDate(value));
@@ -198,7 +223,7 @@ export function formatWeekday(value: Date | string, width: "short" | "long" = "l
 
 /// A month and year heading, like a calendar's "September 2026".
 export function formatMonth(value: Date): string {
-  return new Intl.DateTimeFormat(localeFor(settings().dateFormat), {
+  return dateTimeFormat(localeFor(settings().dateFormat), {
     month: "long",
     year: "numeric",
   }).format(value);
@@ -212,7 +237,7 @@ export interface ZonedDayMinutes {
 /// An instant's calendar day (`YYYY-MM-DD`) and minutes past midnight in the
 /// chosen zone, for placing it on a day grid.
 export function zonedDayMinutes(iso: string): ZonedDayMinutes {
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const parts = dateTimeFormat("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

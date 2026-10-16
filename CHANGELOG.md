@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.4 (2026-10-16)
+
+### Changed
+
+- **Notes and Jots scroll under their header.** The title, search and filters stay in view while the list scrolls, and the list no longer scrolls sideways.
+
+### Fixed
+
+- **Notes and Jots stay fast with thousands of entries.** Long lists open quicker, scroll smoothly and keep up while you type in the search field.
+
 ## 0.37.3 (2026-10-16)
 
 ### Fixed
