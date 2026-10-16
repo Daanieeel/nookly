@@ -5,7 +5,7 @@ import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx
 import { tabGroups, useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { SplitView, fitsSplit } from "./split-view.tsx";
+import { OtherGroupButton, SplitView, fitsSplit } from "./split-view.tsx";
 import { TabBar, useTabInteractions } from "./tab-bar.tsx";
 import { useTabGroupScope } from "./tab-group-scope.ts";
 import "./tab-actions.tsx";
@@ -154,6 +154,20 @@ describe("split view", () => {
     act(() => useNavStore.getState().toggleGroupZoom());
     act(() => useNavStore.getState().toggleGroupZoom());
     expect(events.filter((e) => e.endsWith("trash"))).toEqual([]);
+  });
+
+  it("marks the side of the group the switch button shows, in its icon", () => {
+    renderWithProviders(<OtherGroupButton />);
+    expect(screen.queryByRole("button", { name: /Show (Left|Right) Group/ })).toBeNull();
+    act(() => useNavStore.getState().splitRight());
+    // The right group is focused, so the button shows the left one.
+    expect(
+      screen.getByRole("button", { name: "Show Left Group" }).querySelector("[data-side]"),
+    ).toHaveAttribute("data-side", "left");
+    act(() => useNavStore.getState().focusGroupAt(0));
+    expect(
+      screen.getByRole("button", { name: "Show Right Group" }).querySelector("[data-side]"),
+    ).toHaveAttribute("data-side", "right");
   });
 
   it("has no axe violations while split", async () => {

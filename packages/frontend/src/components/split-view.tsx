@@ -1,4 +1,3 @@
-import { IconLayoutColumns } from "@tabler/icons-react";
 import {
   type CSSProperties,
   type ReactNode,
@@ -361,13 +360,42 @@ function GroupDropZone({ groupId }: { groupId: string }) {
   );
 }
 
+/// A window split in two, with the half of the group it stands for filled in.
+function SplitSideIcon({ side }: { side: "left" | "right" }) {
+  return (
+    <svg
+      data-side={side}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M12 4v16" />
+      <path
+        d={
+          side === "left"
+            ? "M5 4h7v16H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+            : "M12 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7z"
+        }
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
+  );
+}
+
 /// With two groups but no room for both, the focused group's tab bar offers to switch.
 export function OtherGroupButton() {
   const groups = useNavStore((s) => s.groups);
   const focusedGroupId = useNavStore((s) => s.focusedGroupId);
   const other = groups.find((g) => g.id !== focusedGroupId);
   if (!other) return null;
-  const label = groups[0].id === other.id ? "Show Left Group" : "Show Right Group";
+  const side = groups[0].id === other.id ? "left" : "right";
+  const label = side === "left" ? "Show Left Group" : "Show Right Group";
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -378,7 +406,7 @@ export function OtherGroupButton() {
           className="ml-auto shrink-0"
           onClick={() => useNavStore.getState().focusGroup(other.id)}
         >
-          <IconLayoutColumns />
+          <SplitSideIcon side={side} />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
