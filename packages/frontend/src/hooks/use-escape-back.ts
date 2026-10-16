@@ -7,7 +7,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import type { Entity } from "#/lib/api/types.ts";
 
 /// Anything that is open on top of the page and takes the first Escape itself.
-const OPEN_LAYERS =
+export const OPEN_LAYERS =
   "[role=dialog],[role=alertdialog],[role=menu],[role=listbox],[data-radix-popper-content-wrapper],[data-owns-escape]";
 
 /// Escape on a page (a file, jot, note, ...) goes back to the list it was opened

@@ -17,6 +17,7 @@ import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { OPEN_LAYERS } from "#/hooks/use-escape-back.ts";
 import {
   closeFind,
   findStateOf,
@@ -32,6 +33,22 @@ export function selectedSearchText(editor: Editor): string {
   const { from, to, empty } = editor.state.selection;
   if (empty) return "";
   return editor.state.doc.textBetween(from, to, "\n", "￼").replace(/￼/g, "");
+}
+
+/// Layers that take an Escape of their own, other than the bar itself.
+const OPEN_LAYERS_BESIDES_BAR = OPEN_LAYERS.replace(",[data-owns-escape]", "");
+
+/// Closes the bar and puts the focus back in the page.
+function closeBar(editor: Editor, onClose: () => void) {
+  onClose();
+  // The match the search is on stays selected otherwise, and the next search would start
+  // from it.
+  const { from, to } = editor.state.selection;
+  const onMatch = findStateOf(editor.state).matches.some(
+    (match) => match.from === from && match.to === to,
+  );
+  if (onMatch) editor.chain().focus().setTextSelection(to).run();
+  else editor.commands.focus();
 }
 
 function IconTip({
@@ -143,18 +160,23 @@ export function FindBar({
       ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [open, editor, find.current, find.matches]);
 
+  // Escape closes the bar wherever the focus is, as a click on one of its buttons may not
+  // focus them. `data-owns-escape` keeps the page from also going back (`use-escape-back.ts`).
+  useEffect(() => {
+    if (!open || !editor) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || document.querySelector(OPEN_LAYERS_BESIDES_BAR)) return;
+      event.preventDefault();
+      closeBar(editor, onClose);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, editor, onClose]);
+
   if (!open || !editor) return null;
   const view = editor.view;
 
-  const close = () => {
-    onClose();
-    // The match the search is on stays selected otherwise, and the next search would start
-    // from it.
-    const { from, to } = editor.state.selection;
-    const onMatch = find.matches.some((match) => match.from === from && match.to === to);
-    if (onMatch) editor.chain().focus().setTextSelection(to).run();
-    else editor.commands.focus();
-  };
+  const close = () => closeBar(editor, onClose);
   const onFindKey = (event: KeyboardEvent) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -169,12 +191,6 @@ export function FindBar({
       if (event.metaKey || event.ctrlKey) replaceAll(view, replacement);
       else replaceCurrent(view, replacement);
     }
-  };
-  // Escape closes the bar from any of its controls, not only from the fields.
-  const onBarKey = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    close();
   };
 
   const total = find.matches.length;
@@ -192,7 +208,7 @@ export function FindBar({
       <div
         role="search"
         aria-label="Find in page"
-        onKeyDown={onBarKey}
+        data-owns-escape
         className="pointer-events-auto absolute top-0 right-2 grid w-md max-w-[calc(100%-1rem)] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 rounded-lg border border-border bg-popover p-1.5 shadow-lg"
       >
         <IconTip label={showReplace ? "Hide Replace" : "Show Replace"}>
