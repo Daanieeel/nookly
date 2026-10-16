@@ -3,8 +3,6 @@
     {
       "version": "0.37.1",
       "date": "2026-10-16",
-      "title": "Split view fits better",
-      "summary": "Page headers no longer get squeezed together when a page is narrow.",
       "highlights": [],
       "more": {
         "Fixed": [
