@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, within } from "@testing-library/react";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { tabGroups, useNavStore } from "#/lib/store/nav.ts";
@@ -64,6 +65,34 @@ describe("split view", () => {
     expect(useNavStore.getState().view).toEqual({ kind: "dashboard" });
   });
 
+  it("follows the pointer while dragging the divider without redrawing the pages", () => {
+    let renders = 0;
+    function Page() {
+      renders++;
+      return <p>page</p>;
+    }
+    renderWithProviders(<SplitView renderGroup={() => <Page />} />);
+    splitWithTrashOnTheRight();
+    const divider = screen.getByRole("separator", { name: "Resize Groups" });
+    // SAFETY: the divider always sits inside the split's container.
+    const container = divider.parentElement as HTMLElement;
+    // SAFETY: the drag only reads `left` and `width` of the box.
+    container.getBoundingClientRect = () => ({ left: 0, width: 2000 }) as DOMRect;
+    divider.setPointerCapture = () => {};
+    const before = renders;
+    fireEvent.pointerDown(divider, { pointerId: 1, clientX: 1000 });
+    fireEvent.pointerMove(divider, { pointerId: 1, clientX: 600 });
+    expect(container.style.getPropertyValue("--group-share")).toBe("30%");
+    fireEvent.pointerMove(divider, { pointerId: 1, clientX: 1300 });
+    expect(container.style.getPropertyValue("--group-share")).toBe("65%");
+    expect(renders).toBe(before);
+    expect(useNavStore.getState().splitRatio).toBe(0.5);
+    fireEvent.pointerUp(divider, { pointerId: 1 });
+    expect(useNavStore.getState().splitRatio).toBeCloseTo(0.65);
+    expect(container.style.getPropertyValue("--group-share")).toBe("65%");
+    expect(divider).toHaveAttribute("aria-valuenow", "65");
+  });
+
   it("resizes with the arrow keys and resets on double click", () => {
     renderWithProviders(<Harness />);
     splitWithTrashOnTheRight();
@@ -107,6 +136,24 @@ describe("split view", () => {
     act(() => useNavStore.getState().toggleGroupZoom());
     expect(screen.getByRole("region", { name: "Left Group" })).toBeInTheDocument();
     expect(screen.getByRole("separator")).toBeInTheDocument();
+  });
+
+  it("keeps the focused group's page mounted while zooming, so it does not reload", () => {
+    const events: string[] = [];
+    function Page() {
+      const { view } = useTabGroupScope();
+      useEffect(() => {
+        events.push(`mount ${view.kind}`);
+        return () => void events.push(`unmount ${view.kind}`);
+      }, [view.kind]);
+      return <p>{view.kind}</p>;
+    }
+    renderWithProviders(<SplitView renderGroup={() => <Page />} />);
+    splitWithTrashOnTheRight();
+    events.length = 0;
+    act(() => useNavStore.getState().toggleGroupZoom());
+    act(() => useNavStore.getState().toggleGroupZoom());
+    expect(events.filter((e) => e.endsWith("trash"))).toEqual([]);
   });
 
   it("has no axe violations while split", async () => {
