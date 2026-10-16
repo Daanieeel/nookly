@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.37.3",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Quick filters now star a filter such as Course in the Filter menu, and one click opens its choices."
+        ]
+      }
+    },
+    {
       "version": "0.37.2",
       "date": "2026-10-16",
       "highlights": [],
@@ -26,12 +36,6 @@
       "title": "Quick filters and a fuller course page",
       "summary": "Keep your favorite filters one click away, and see a course's week, assignments, notes and exams on its page.",
       "highlights": [
-        {
-          "title": "Quick filters",
-          "description": "Star a filter on the Notes or Jots page to keep it in a dotted bar next to the search field. One click turns it on or off.",
-          "icon": "sparkles",
-          "tag": "New"
-        },
         {
           "title": "A fuller course page",
           "description": "See this week's sessions, plus the course's assignments, recent notes and exams, all on one page.",

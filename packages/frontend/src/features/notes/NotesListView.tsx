@@ -197,6 +197,14 @@ export function NotesListView({
     );
   }
 
+  const filterMenuProps = {
+    fields: filterFields,
+    filters,
+    onFiltersChange: setFilters,
+    clearAllIn: "button" as const,
+    quickFilters: { favorites: quick.favorites, onToggle: quick.toggle },
+  };
+
   return (
     <div
       className="flex w-full flex-col gap-3"
@@ -231,22 +239,23 @@ export function NotesListView({
           placeholder="Filter notes"
           ariaLabel="Filter notes in this Space"
         />
-        <QuickFilterBar
-          fields={filterFields}
-          filters={filters}
-          onFiltersChange={setFilters}
-          favorites={quick.favorites}
-          onRemove={quick.toggle}
-        />
-        <div className="flex-1">
+        <div className="ml-auto">
           <FilterMenu
-            fields={filterFields}
-            filters={filters}
-            onFiltersChange={setFilters}
-            quickFilters={{ favorites: quick.favorites, onToggle: quick.toggle }}
+            {...filterMenuProps}
+            part="button"
+            beforeButton={
+              <QuickFilterBar
+                fields={filterFields}
+                filters={filters}
+                onFiltersChange={setFilters}
+                favorites={quick.favorites}
+                onRemove={quick.toggle}
+              />
+            }
           />
         </div>
       </div>
+      <FilterMenu {...filterMenuProps} part="chips" />
 
       {data.length > 0 ? (
         <PageSummaryTable table={table} spaceId={spaceId} groups={groups} />

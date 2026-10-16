@@ -4,11 +4,12 @@ import {
   IconFilter,
   IconStar,
   IconStarFilled,
+  IconStarOff,
   IconX,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
   Command,
@@ -35,7 +36,6 @@ import type { Entity } from "#/lib/api/types.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { sameFilter } from "#/lib/quick-filters.ts";
 
 /// Command menu filters in the style of `docs/skills/data-tables.md` (the
 /// tablecn filter menu): one "Filter" button opens a searchable field list,
@@ -126,13 +126,19 @@ export function FilterMenu({
   onDone,
   part = "all",
   quickFilters,
+  beforeButton,
+  clearAllIn = "chips",
 }: {
   fields: FilterField[];
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
-  /// Gives each chip a star that adds its filter to the page's quick filters, or takes
-  /// it out again. Omitted, the chips have none.
-  quickFilters?: { favorites: ActiveFilter[]; onToggle: (filter: ActiveFilter) => void };
+  /// Gives each field in the list, and each chip, a star that adds the field to the page's
+  /// quick filters, or takes it out again. Omitted, they have none.
+  quickFilters?: { favorites: string[]; onToggle: (fieldId: string) => void };
+  /// Shown right before the Filter button, e.g. the page's quick filters.
+  beforeButton?: ReactNode;
+  /// Where "Clear all" goes: after the chips, or left of the Filter button.
+  clearAllIn?: "chips" | "button";
   /// Called when a popover closes, e.g. to hand focus back to a search input.
   onDone?: () => void;
   /// Renders the Filter button and the chips together, or only one of them, so a
@@ -164,6 +170,20 @@ export function FilterMenu({
     onOpenChange(false);
   }
 
+  const clearAll = filters.length > 0 && (
+    <Button
+      variant="linkMuted"
+      size="sm"
+      className={cn(part === "chips" && "ml-auto")}
+      onClick={() => {
+        onFiltersChange([]);
+        onDone?.();
+      }}
+    >
+      Clear all
+    </Button>
+  );
+
   if (part === "chips" && filters.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -186,8 +206,8 @@ export function FilterMenu({
               onDone={onDone}
               quick={
                 quickFilters && {
-                  favorite: quickFilters.favorites.some((f) => sameFilter(f, filter)),
-                  onToggle: () => quickFilters.onToggle(filter),
+                  favorite: quickFilters.favorites.includes(target.id),
+                  onToggle: () => quickFilters.onToggle(target.id),
                 }
               }
             />
@@ -195,94 +215,261 @@ export function FilterMenu({
         })}
       {/* Modal so its own scroll lock wins over the enclosing dialog's, which
           otherwise swallows wheel events on this portaled list. */}
-      {showButton && available.length > 0 && (
-        <Popover modal open={open} onOpenChange={onOpenChange}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button variant="secondary" size="sm" className="ml-auto gap-1.5">
-                  <IconFilter />
+      {showButton && (
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+          {beforeButton}
+          {clearAllIn === "button" && clearAll}
+          {available.length > 0 && (
+            <Popover modal open={open} onOpenChange={onOpenChange}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="secondary" size="sm" className="gap-1.5">
+                      <IconFilter />
+                      Filter
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="flex items-center gap-2">
                   Filter
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              Filter
-              <ShortcutKbd name="filter" />
-            </TooltipContent>
-          </Tooltip>
-          <PopoverContent
-            className="w-56"
-            align="end"
-            aria-label="Filter"
-            onKeyDown={stopKeys}
-            onCloseAutoFocus={(e) => {
-              e.preventDefault();
-              onDone?.();
-            }}
-          >
-            <Command loop filter={accentInsensitiveFilter}>
-              <CommandInput
-                value={search}
-                onValueChange={setSearch}
-                placeholder={field ? `Filter by ${field.label.toLowerCase()}…` : "Filter by…"}
-                onKeyDown={(e) => {
-                  // Backspace on an empty input steps back to the field list.
-                  if (e.key === "Backspace" && search === "" && field) {
-                    e.preventDefault();
-                    setFieldId(null);
-                  }
+                  <ShortcutKbd name="filter" />
+                </TooltipContent>
+              </Tooltip>
+              <PopoverContent
+                className="w-56"
+                align="end"
+                aria-label="Filter"
+                onKeyDown={stopKeys}
+                onCloseAutoFocus={(e) => {
+                  e.preventDefault();
+                  onDone?.();
                 }}
-              />
-              <CommandList className="p-1">
-                <CommandEmpty>No matches.</CommandEmpty>
-                {field ? (
-                  <CommandGroup heading={field.label} className="p-0">
-                    {field.options.map((option) => (
-                      <CommandItem
-                        key={option.value}
-                        value={option.label}
-                        keywords={optionKeywords(option)}
-                        onSelect={() => addValue(field, option.value)}
-                      >
-                        <OptionContent option={option} />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ) : (
-                  available.map((f) => (
-                    <CommandItem
-                      key={f.id}
-                      value={f.label}
-                      onSelect={() => {
-                        setFieldId(f.id);
-                        setSearch("");
-                      }}
-                    >
-                      <f.icon />
-                      <span className="truncate">{f.label}</span>
-                    </CommandItem>
-                  ))
-                )}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+              >
+                <Command loop filter={accentInsensitiveFilter}>
+                  <CommandInput
+                    value={search}
+                    onValueChange={setSearch}
+                    placeholder={field ? `Filter by ${field.label.toLowerCase()}…` : "Filter by…"}
+                    onKeyDown={(e) => {
+                      // Mod+Enter stars the highlighted field instead of picking it.
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !field && quickFilters) {
+                        e.preventDefault();
+                        const highlighted = e.currentTarget
+                          .closest("[cmdk-root]")
+                          ?.querySelector("[cmdk-item][data-selected=true]")
+                          ?.getAttribute("data-value");
+                        const target = available.find(
+                          (f) => f.label.toLowerCase() === highlighted?.toLowerCase(),
+                        );
+                        if (target) quickFilters.onToggle(target.id);
+                      }
+                      // Backspace on an empty input steps back to the field list.
+                      if (e.key === "Backspace" && search === "" && field) {
+                        e.preventDefault();
+                        setFieldId(null);
+                      }
+                    }}
+                  />
+                  <CommandList className="p-1">
+                    <CommandEmpty>No matches.</CommandEmpty>
+                    {field ? (
+                      <CommandGroup heading={field.label} className="p-0">
+                        {field.options.map((option) => (
+                          <CommandItem
+                            key={option.value}
+                            value={option.label}
+                            keywords={optionKeywords(option)}
+                            onSelect={() => addValue(field, option.value)}
+                          >
+                            <OptionContent option={option} />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ) : (
+                      available.map((f) => (
+                        <CommandItem
+                          key={f.id}
+                          value={f.label}
+                          onSelect={() => {
+                            setFieldId(f.id);
+                            setSearch("");
+                          }}
+                        >
+                          <f.icon />
+                          <span className="truncate">{f.label}</span>
+                          {quickFilters && (
+                            <QuickFilterStar
+                              label={f.label}
+                              favorite={quickFilters.favorites.includes(f.id)}
+                              onToggle={() => quickFilters.onToggle(f.id)}
+                              className="ml-auto size-5 rounded-sm"
+                              inList
+                            />
+                          )}
+                        </CommandItem>
+                      ))
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       )}
-      {showChips && filters.length > 0 && (
-        <Button
-          variant="linkMuted"
-          size="sm"
-          className={cn(part === "chips" && "ml-auto")}
-          onClick={() => {
-            onFiltersChange([]);
-            onDone?.();
-          }}
-        >
-          Clear all
-        </Button>
-      )}
+      {showChips && clearAllIn === "chips" && clearAll}
     </div>
+  );
+}
+
+/// A star that adds a field to the page's quick filters, or takes it out again. Inside the
+/// field list (`inList`) it is a mouse-only extra, as a control cannot sit inside an option:
+/// Mod+Enter stars the highlighted field there.
+function QuickFilterStar({
+  label,
+  favorite,
+  onToggle,
+  className,
+  inList,
+}: {
+  label: string;
+  favorite: boolean;
+  onToggle: () => void;
+  className?: string;
+  inList?: boolean;
+}) {
+  const text = favorite ? `Remove ${label} from Quick Filters` : `Add ${label} to Quick Filters`;
+  const field = <code className="rounded-sm bg-background/20 px-1 font-mono">{label}</code>;
+  const props = {
+    "aria-label": text,
+    // Keeps the click from picking the field it sits in, or moving the focus off the list.
+    onPointerDown: (e: PointerEvent) => e.preventDefault(),
+    onClick: (e: MouseEvent) => {
+      e.stopPropagation();
+      onToggle();
+    },
+    className: cn(
+      "flex shrink-0 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground",
+      favorite && "text-primary hover:text-primary",
+      className,
+    ),
+    children: !favorite ? (
+      <IconStar size={14} />
+    ) : inList ? (
+      <IconStarFilled size={14} />
+    ) : (
+      <IconStarOff size={14} />
+    ),
+  };
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {inList ? (
+          <span aria-hidden {...props} />
+        ) : (
+          <button type="button" aria-pressed={favorite} {...props} />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>
+        {favorite ? "Remove " : "Add "}
+        {field}
+        {favorite ? " from Quick Filters" : " to Quick Filters"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/// The options of a field with a check each, to pick any number of them. Picked options
+/// float to the top for fast deselecting, in the order they were in when the list opened:
+/// recomputing it on every toggle would reorder options out from under a user mid-click.
+/// `filter` is `undefined` while the field is not filtered; picking the first option sets it,
+/// and unpicking the last clears it (`onChange(null)`).
+function FilterValueList({
+  field,
+  filter,
+  onChange,
+}: {
+  field: FilterField;
+  filter: ActiveFilter | undefined;
+  onChange: (filter: ActiveFilter | null) => void;
+}) {
+  const [order] = useState(() => {
+    const picked = (o: FilterOption) => filter?.values.includes(o.value) ?? false;
+    return [...field.options.filter(picked), ...field.options.filter((o) => !picked(o))].map(
+      (o) => o.value,
+    );
+  });
+  const orderedOptions = [...field.options].sort(
+    (a, b) => order.indexOf(a.value) - order.indexOf(b.value),
+  );
+
+  function toggle(value: string) {
+    const current = filter?.values ?? [];
+    const values = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    onChange(
+      values.length > 0 ? { fieldId: field.id, operator: filter?.operator ?? "is", values } : null,
+    );
+  }
+
+  return (
+    <Command loop filter={accentInsensitiveFilter}>
+      <CommandInput placeholder={`Search ${field.label.toLowerCase()}…`} />
+      <CommandList className="p-1">
+        <CommandEmpty>No matches.</CommandEmpty>
+        {orderedOptions.map((option) => {
+          const checked = filter?.values.includes(option.value) ?? false;
+          return (
+            <CommandItem
+              key={option.value}
+              value={option.label}
+              keywords={optionKeywords(option)}
+              onSelect={() => toggle(option.value)}
+            >
+              <span
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-sm border border-input",
+                  checked && "border-primary bg-primary text-primary-foreground",
+                )}
+              >
+                {checked && <IconCheck size={12} className="text-primary-foreground" />}
+              </span>
+              <OptionContent option={option} />
+            </CommandItem>
+          );
+        })}
+      </CommandList>
+    </Command>
+  );
+}
+
+/// The popover of `FilterValueList`, as a filter chip and a quick filter both open it.
+export function FilterValuePopover({
+  field,
+  filter,
+  onChange,
+  onDone,
+  align,
+}: {
+  field: FilterField;
+  filter: ActiveFilter | undefined;
+  onChange: (filter: ActiveFilter | null) => void;
+  onDone?: () => void;
+  align?: "start" | "center" | "end";
+}) {
+  return (
+    <PopoverContent
+      className="w-56"
+      align={align}
+      aria-label={`Filter by ${field.label.toLowerCase()}`}
+      onKeyDown={stopKeys}
+      onCloseAutoFocus={(e) => {
+        e.preventDefault();
+        onDone?.();
+      }}
+    >
+      <FilterValueList field={field} filter={filter} onChange={onChange} />
+    </PopoverContent>
   );
 }
 
@@ -315,21 +502,6 @@ function FilterChip({
     onDone?.();
   };
 
-  // Selected options float to the top for fast deselecting, frozen at the
-  // order they were in when the popover opened — recomputing this on every
-  // toggle would reorder options out from under a user mid-click.
-  const [order, setOrder] = useState<string[] | null>(null);
-  const orderedOptions = order
-    ? [...field.options].sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value))
-    : field.options;
-
-  function toggle(value: string) {
-    const values = filter.values.includes(value)
-      ? filter.values.filter((v) => v !== value)
-      : [...filter.values, value];
-    onChange(values.length > 0 ? { ...filter, values } : null);
-  }
-
   return (
     <div className="flex h-7 items-center divide-x divide-border overflow-hidden rounded-md border border-input bg-accent text-xs">
       <span className="flex h-full items-center justify-center gap-1 px-1.5 text-muted-foreground">
@@ -356,20 +528,7 @@ function FilterChip({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Popover
-        modal
-        onOpenChange={(next) => {
-          if (next) {
-            const selectedValues = field.options
-              .filter((o) => filter.values.includes(o.value))
-              .map((o) => o.value);
-            const unselectedValues = field.options
-              .filter((o) => !filter.values.includes(o.value))
-              .map((o) => o.value);
-            setOrder([...selectedValues, ...unselectedValues]);
-          }
-        }}
-      >
+      <Popover modal>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -380,7 +539,7 @@ function FilterChip({
             {single ? (
               <>
                 {single.icon}
-                <span className="max-w-32 truncate">{single.label}</span>
+                <span className="max-w-[15ch] truncate">{single.label}</span>
               </>
             ) : iconsOnly ? (
               <span className="flex items-center gap-1">
@@ -398,61 +557,18 @@ function FilterChip({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent
-          className="w-56"
-          aria-label={`Filter by ${field.label.toLowerCase()}`}
-          onKeyDown={stopKeys}
-          onCloseAutoFocus={refocus}
-        >
-          <Command loop filter={accentInsensitiveFilter}>
-            <CommandInput placeholder={`Search ${field.label.toLowerCase()}…`} />
-            <CommandList className="p-1">
-              <CommandEmpty>No matches.</CommandEmpty>
-              {orderedOptions.map((option) => {
-                const checked = filter.values.includes(option.value);
-                return (
-                  <CommandItem
-                    key={option.value}
-                    value={option.label}
-                    keywords={optionKeywords(option)}
-                    onSelect={() => toggle(option.value)}
-                  >
-                    <span
-                      className={cn(
-                        "flex size-4 items-center justify-center rounded-sm border border-input",
-                        checked && "border-primary bg-primary text-primary-foreground",
-                      )}
-                    >
-                      {checked && <IconCheck size={12} className="text-primary-foreground" />}
-                    </span>
-                    <OptionContent option={option} />
-                  </CommandItem>
-                );
-              })}
-            </CommandList>
-          </Command>
-        </PopoverContent>
+        <FilterValuePopover field={field} filter={filter} onChange={onChange} onDone={onDone} />
       </Popover>
       {quick && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="Quick Filter"
-              aria-pressed={quick.favorite}
-              onClick={() => {
-                quick.onToggle();
-                onDone?.();
-              }}
-              className={cn(CHIP_SEGMENT, "px-1", quick.favorite && "text-primary")}
-            >
-              {quick.favorite ? <IconStarFilled size={14} /> : <IconStar size={14} />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {quick.favorite ? "Remove from Quick Filters" : "Add to Quick Filters"}
-          </TooltipContent>
-        </Tooltip>
+        <QuickFilterStar
+          label={field.label}
+          favorite={quick.favorite}
+          onToggle={() => {
+            quick.onToggle();
+            onDone?.();
+          }}
+          className={cn(CHIP_SEGMENT, "px-1")}
+        />
       )}
       <Tooltip>
         <TooltipTrigger asChild>

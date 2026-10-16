@@ -29,6 +29,13 @@ function renderMenu(filters: ActiveFilter[] = []) {
 }
 
 describe("FilterMenu", () => {
+  it("cuts the option a chip shows at 15 characters, whatever the filter", () => {
+    renderMenu([{ fieldId: "course", operator: "is", values: ["c1"] }]);
+    const label = screen.getByRole("button", { name: "Course: Algorithms" }).querySelector("span");
+    expect(label?.className).toContain("max-w-[15ch]");
+    expect(label?.className).toContain("truncate");
+  });
+
   it("lists an entity option with its icon and key, and finds it by key", async () => {
     const { onFiltersChange, user } = renderMenu();
     await user.click(screen.getByRole("button", { name: /Filter/ }));

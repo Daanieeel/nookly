@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.3 (2026-10-16)
+
+### Fixed
+
+- **Quick filters star a filter, not its choices.** Star a filter such as Course in the Filter menu to keep it next to the Filter button, where one click opens its choices.
+- **Checkboxes keep their size.** The checkboxes in the Filter menu no longer get squeezed when a name is long.
+
 ## 0.37.2 (2026-10-16)
 
 ### Fixed
@@ -18,7 +25,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Quick filters on Notes and Jots.** Star a filter to keep it in a bar next to the search field, where one click turns it on or off. Each page and Space keeps its own.
+- **Quick filters on Notes and Jots.** Star a filter such as Course in the Filter menu to keep it next to the Filter button, where one click opens its choices. Each page and Space keeps its own.
 - **Notes on the Course page.** The five most recently edited Notes of a course, with Show more opening the Notes page on that course.
 
 ### Changed

@@ -152,6 +152,7 @@
     appearance: none;
     display: grid;
     place-content: center;
+    flex-shrink: 0;
     width: 0.9375rem;
     height: 0.9375rem;
     margin: 0;

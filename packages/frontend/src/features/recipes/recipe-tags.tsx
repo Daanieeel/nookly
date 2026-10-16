@@ -135,7 +135,7 @@ export function RecipeTagsPicker({
                 <CommandItem key={tag.id} value={tag.name} onSelect={() => onToggle(tag.id)}>
                   <span
                     className={cn(
-                      "flex size-4 items-center justify-center rounded-sm border border-input",
+                      "flex size-4 shrink-0 items-center justify-center rounded-sm border border-input",
                       checked && "border-primary bg-primary",
                     )}
                   >
