@@ -26,7 +26,21 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 const MANIFEST: &str = "manifest.json";
 const DB_FILE: &str = "nookly.db";
 const FORMAT_VERSION: u32 = 1;
-const NAME_PREFIX: &str = "nookly-backup-";
+/// A dev build and the installed app write to the same backup folder when they share the
+/// setting, so each names its backups differently and only ever lists, prunes or counts
+/// its own.
+const NAME_PREFIX: &str = if cfg!(debug_assertions) {
+    "nookly-dev-backup-"
+} else {
+    "nookly-backup-"
+};
+/// What the other kind of build calls its backups.
+#[cfg(test)]
+const OTHER_BUILD_PREFIX: &str = if cfg!(debug_assertions) {
+    "nookly-backup-"
+} else {
+    "nookly-dev-backup-"
+};
 const NAME_SUFFIX: &str = ".zip";
 const PENDING_DIR: &str = "pending-restore";
 const SAFETY_DIR: &str = "restore-safety";
@@ -680,6 +694,35 @@ mod tests {
             second.manifest.unwrap().file_count
         );
         fs::remove_dir_all(source).ok();
+    }
+
+    #[test]
+    fn leaves_the_other_builds_backups_alone() {
+        let source = populated("Own");
+        let dest = scratch("dest");
+        let others: Vec<PathBuf> = ["20190101-000000", "20190102-000000"]
+            .iter()
+            .map(|stamp| dest.join(format!("{OTHER_BUILD_PREFIX}{stamp}{NAME_SUFFIX}")))
+            .collect();
+        for other in &others {
+            fs::write(other, b"theirs").unwrap();
+        }
+        let first = backup_of(&source, &dest, 1);
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let second = backup_of(&source, &dest, 1);
+        let listed: Vec<String> = list_backups(&dest)
+            .unwrap()
+            .into_iter()
+            .map(|b| b.name)
+            .collect();
+        assert_eq!(listed, vec![second.name.clone()]);
+        assert!(!Path::new(&first.path).exists());
+        for other in &others {
+            assert_eq!(fs::read(other).unwrap(), b"theirs");
+        }
+        for dir in [source, dest] {
+            fs::remove_dir_all(dir).ok();
+        }
     }
 
     #[test]
