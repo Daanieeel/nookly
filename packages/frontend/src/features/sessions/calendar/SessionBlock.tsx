@@ -30,6 +30,7 @@ export function SessionBlock({
   highlighted,
   accentColor,
   secondary,
+  dimmed,
   days,
   dayIndex,
 }: {
@@ -43,6 +44,8 @@ export function SessionBlock({
   /// next to that Space's own Calendar entries: rendered with less visual
   /// weight, but still fully editable via the same popover.
   secondary?: boolean;
+  /// Faded further than `secondary`, for what the page the grid sits on is not about.
+  dimmed?: boolean;
   /// The visible days on the time grid, and this occurrence's own column
   /// among them, so dragging it to a new place can resolve which day it
   /// landed on (see `useItemDrag`).
@@ -93,6 +96,7 @@ export function SessionBlock({
           ? "border border-border bg-muted text-muted-foreground"
           : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground",
         secondary && !occurrence.cancelled && "opacity-70",
+        dimmed && "opacity-40 hover:opacity-100",
         highlighted && "ring-2 ring-(--session-color)",
         previewRange && "z-30 shadow-lg transition-none",
         draggable && "cursor-grab active:cursor-grabbing",
@@ -171,6 +175,7 @@ export function SessionChip({
   highlighted,
   accentColor,
   secondary,
+  dimmed,
 }: {
   spaceId: string;
   occurrence: SessionOccurrence;
@@ -178,6 +183,8 @@ export function SessionChip({
   accentColor?: string;
   /// See `SessionBlock`'s `secondary`.
   secondary?: boolean;
+  /// See `SessionBlock`'s `dimmed`.
+  dimmed?: boolean;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
   return (
@@ -193,6 +200,7 @@ export function SessionChip({
             ? "border border-transparent text-muted-foreground line-through hover:bg-accent"
             : "border-2 border-(--session-color) bg-(--session-color)/6 text-foreground hover:bg-(--session-color)/14",
           secondary && !occurrence.cancelled && "opacity-70",
+          dimmed && "opacity-40 hover:opacity-100",
           highlighted && "ring-2 ring-(--session-color)",
         )}
         // SAFETY: see `SessionBlock` above — a hex color or the `--primary` token.

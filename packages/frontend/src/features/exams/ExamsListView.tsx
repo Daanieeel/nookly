@@ -111,24 +111,7 @@ export function ExamsListView({
   );
 
   const visible = applyFilters(exams, filters, (exam) => courseOf.get(exam.entity.id)?.id ?? "");
-  const now = new Date();
-  const dated = visible
-    .filter((e): e is Exam & { examDate: string } => e.examDate !== null)
-    .map((exam) => ({
-      exam,
-      days: differenceInCalendarDays(parseISO(exam.examDate), now),
-    }))
-    .sort((a, b) => a.exam.examDate.localeCompare(b.exam.examDate));
-  const past = dated.filter((d) => d.days < 0);
-  const [next, ...later] = dated.filter((d) => d.days >= 0);
-  const undated = visible.filter((e) => e.examDate === null);
-
   const open = (exam: Exam) => openEntity(exam.entity.id, spaceId);
-  const nodeProps = (exam: Exam) => ({
-    exam,
-    course: courseOf.get(exam.entity.id),
-    onOpen: () => open(exam),
-  });
 
   return (
     <div
@@ -182,45 +165,80 @@ export function ExamsListView({
         // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
         <div className="min-h-0 flex-1 overflow-y-auto" onKeyDown={moveRowFocus}>
           <div className="flex w-full flex-col gap-6 py-8 pr-4 pl-8">
-            {dated.length > 0 && (
-              <div className="relative">
-                <span aria-hidden className={cn(LINE, "inset-y-3 bg-border")} />
-                <ol aria-label="Exam timeline" className="flex flex-col">
-                  {past.map(({ exam }) => (
-                    <PastNode key={exam.entity.id} {...nodeProps(exam)} />
-                  ))}
-                  <TodayMarker />
-                  {next && <NextNode days={next.days} {...nodeProps(next.exam)} />}
-                  {later.map(({ exam, days }) => (
-                    <FutureNode key={exam.entity.id} days={days} {...nodeProps(exam)} />
-                  ))}
-                </ol>
-              </div>
-            )}
-            {undated.length > 0 && (
-              <section aria-label="Not scheduled yet" className="flex flex-col">
-                <p className={cn(ROW_GRID, "pb-1 text-xs font-medium text-muted-foreground")}>
-                  <span className="col-start-3 pl-1">Not scheduled yet</span>
-                </p>
-                <div className="relative">
-                  <span
-                    aria-hidden
-                    className={cn(LINE, "inset-y-3 border-l border-dashed border-border")}
-                  />
-                  <ol className="flex flex-col">
-                    {undated.map((exam) => (
-                      <FutureNode key={exam.entity.id} days={null} {...nodeProps(exam)} />
-                    ))}
-                  </ol>
-                </div>
-              </section>
-            )}
+            <ExamTimeline exams={visible} courseOf={courseOf} onOpen={open} />
           </div>
         </div>
       )}
 
       <CreateExamDialog spaceId={spaceId} open={createOpen} onOpenChange={setCreateOpen} />
     </div>
+  );
+}
+
+/// The Exams page's timeline: past exams fade out above, the next one stands out, later ones
+/// follow in order, and exams without a date wait below. Also drawn on a Course page.
+export function ExamTimeline({
+  exams,
+  courseOf,
+  onOpen,
+}: {
+  exams: Exam[];
+  courseOf: Map<string, Entity>;
+  onOpen: (exam: Exam) => void;
+}) {
+  const now = new Date();
+  const dated = exams
+    .filter((e): e is Exam & { examDate: string } => e.examDate !== null)
+    .map((exam) => ({
+      exam,
+      days: differenceInCalendarDays(parseISO(exam.examDate), now),
+    }))
+    .sort((a, b) => a.exam.examDate.localeCompare(b.exam.examDate));
+  const past = dated.filter((d) => d.days < 0);
+  const [next, ...later] = dated.filter((d) => d.days >= 0);
+  const undated = exams.filter((e) => e.examDate === null);
+  const nodeProps = (exam: Exam) => ({
+    exam,
+    course: courseOf.get(exam.entity.id),
+    onOpen: () => onOpen(exam),
+  });
+
+  return (
+    <>
+      {dated.length > 0 && (
+        <div className="relative">
+          <span aria-hidden className={cn(LINE, "inset-y-3 bg-border")} />
+          <ol aria-label="Exam timeline" className="flex flex-col">
+            {past.map(({ exam }) => (
+              <PastNode key={exam.entity.id} {...nodeProps(exam)} />
+            ))}
+            <TodayMarker />
+            {next && <NextNode days={next.days} {...nodeProps(next.exam)} />}
+            {later.map(({ exam, days }) => (
+              <FutureNode key={exam.entity.id} days={days} {...nodeProps(exam)} />
+            ))}
+          </ol>
+        </div>
+      )}
+      {undated.length > 0 && (
+        <section aria-label="Not scheduled yet" className="flex flex-col">
+          <p className={cn(ROW_GRID, "pb-1 text-xs font-medium text-muted-foreground")}>
+            <span className="col-start-3 pl-1">Not scheduled yet</span>
+          </p>
+          <div className="relative">
+            <span
+              aria-hidden
+              className={cn(LINE, "inset-y-3 border-l border-dashed border-border")}
+            />
+            <ol className="flex flex-col">
+              {undated.map((exam) => (
+                <FutureNode key={exam.entity.id} days={null} {...nodeProps(exam)} />
+              ))}
+            </ol>
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 

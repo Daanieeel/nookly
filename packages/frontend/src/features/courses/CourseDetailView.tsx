@@ -5,6 +5,7 @@ import {
   IconChartBar,
   IconCards,
   IconClipboardList,
+  IconNotes,
   IconWriting,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -20,8 +21,6 @@ import { differenceInCalendarDays } from "date-fns";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { TextProperty } from "#/components/property-fields.tsx";
 import { PropertyRow } from "#/components/property-row.tsx";
-import { entityTarget } from "#/components/context-menu/registry.ts";
-import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { CardContent, CardHeader, CardTitle } from "@nookly/ui/components/card";
 import { InteractiveCard } from "@nookly/ui/components/interactive-card";
@@ -32,14 +31,23 @@ import {
   getCourseNotes,
   updateCourseProfessor,
 } from "#/lib/api/courses.ts";
+import { AssignmentRow } from "#/features/assignments/assignment-views.tsx";
+import { ExamTimeline } from "#/features/exams/ExamsListView.tsx";
+import { RecentNotesTable } from "#/features/notes/RecentNotesTable.tsx";
 import { getDeckStats, listDecks } from "#/lib/api/decks.ts";
+import { listLabels } from "#/lib/api/labels.ts";
+import { listNoteSummaries } from "#/lib/api/notes.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
+import { CourseWeekCutout } from "./CourseWeekCutout.tsx";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
+
+/// Notes a Course page rolls up before "Show more".
+const RECENT_NOTES = 5;
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "evaluated"]);
 
@@ -60,7 +68,7 @@ function formatGrade(grade: number): string {
 /// (Relationships incl. Semester/sequel-prequel, Attachments, Mentioned) all
 /// come free from `EntityDetailLayout`, exactly like every other entity type.
 /// Only the body — Course Notes, the bento quick-access grid, and the
-/// scrollable Sessions/Exams/Assignments sections — is Course-specific.
+/// Sessions, Assignments, Notes and Exams sections — is Course-specific.
 export function CourseDetailView({ entity }: { entity: Entity }) {
   return (
     <EntityDetailLayout entity={entity} sidebar={<PropertiesPanel course={entity} />}>
@@ -138,6 +146,18 @@ function CourseBody({ course }: { course: Entity }) {
     queryFn: () => listDecks(spaceId),
   });
 
+  const { data: noteSummaries = [] } = useQuery({
+    queryKey: qk.entities.noteSummaries(spaceId),
+    queryFn: () => listNoteSummaries(spaceId),
+  });
+  const { data: spaceLabels = [] } = useQuery({
+    queryKey: qk.labels.bySpace(spaceId),
+    queryFn: () => listLabels(spaceId),
+  });
+  const courseNoteSummaries = noteSummaries.filter((n) =>
+    n.courses.some((c) => c.id === course.id),
+  );
+
   const { courseSessions, courseExams, courseAssignments } = courseLinkedItems(
     relationships,
     course.id,
@@ -179,8 +199,17 @@ function CourseBody({ course }: { course: Entity }) {
     .filter((a) => a.dueDate)
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
 
-  const viewAll = (module: "sessions" | "exams" | "assignments") =>
+  const viewAll = (module: "sessions" | "exams" | "assignments" | "notes") =>
     setView({ kind: "module", spaceId, module, filterCourseId: course.id });
+
+  // What the week cut-out shows plainly: the Course's own Sessions and Exams.
+  const courseCalendarIds = new Set([
+    ...courseSessions.map((s) => s.entity.id),
+    ...courseExams.map((e) => e.entity.id),
+  ]);
+  const assignmentsByDue = [...courseAssignments].sort((a, b) =>
+    (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
+  );
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -204,7 +233,8 @@ function CourseBody({ course }: { course: Entity }) {
         >
           {nextSession ? (
             <>
-              <p className="text-sm font-medium">
+              <p className="truncate text-sm font-medium">{displayTitle(nextSession.entity)}</p>
+              <p className="text-xs text-muted-foreground">
                 {formatWeekday(nextSession.date)} {formatClock(nextSession.startTime)}
               </p>
               <p className="text-xs text-muted-foreground">in {dateLabel(nextSession.date)}</p>
@@ -272,46 +302,8 @@ function CourseBody({ course }: { course: Entity }) {
         )}
       </div>
 
-      <CourseSection
-        title="Sessions"
-        onViewAll={() => viewAll("sessions")}
-        empty={courseSessions.length === 0}
-        emptyIcon={IconCalendarStats}
-        emptyLabel="No sessions yet"
-      >
-        {[...courseSessions]
-          .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime))
-          .slice(0, 5)
-          .map((s) => (
-            <SectionRow
-              key={s.entity.id}
-              entity={s.entity}
-              title={displayTitle(s.entity)}
-              meta={`${formatWeekday(s.date, "short")} ${formatShortDate(s.date)} · ${formatClock(s.startTime)}`}
-              onClick={() => openEntity(s.entity.id, spaceId)}
-            />
-          ))}
-      </CourseSection>
-
-      <CourseSection
-        title="Exams"
-        onViewAll={() => viewAll("exams")}
-        empty={courseExams.length === 0}
-        emptyIcon={IconWriting}
-        emptyLabel="No exams yet"
-      >
-        {[...courseExams]
-          .sort((a, b) => (a.examDate ?? "").localeCompare(b.examDate ?? ""))
-          .map((e) => (
-            <SectionRow
-              key={e.entity.id}
-              entity={e.entity}
-              title={displayTitle(e.entity)}
-              meta={e.examDate ?? undefined}
-              badge={e.status}
-              onClick={() => openEntity(e.entity.id, spaceId)}
-            />
-          ))}
+      <CourseSection title="Sessions" onViewAll={() => viewAll("sessions")}>
+        <CourseWeekCutout courseIds={courseCalendarIds} />
       </CourseSection>
 
       <CourseSection
@@ -321,18 +313,48 @@ function CourseBody({ course }: { course: Entity }) {
         emptyIcon={IconClipboardList}
         emptyLabel="No assignments yet"
       >
-        {[...courseAssignments]
-          .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
-          .map((a) => (
-            <SectionRow
+        <div className="flex flex-col overflow-hidden rounded-lg border border-border [&>*:last-child]:border-b-0">
+          {assignmentsByDue.map((a) => (
+            <AssignmentRow
               key={a.entity.id}
-              entity={a.entity}
-              title={displayTitle(a.entity)}
-              meta={a.dueDate ?? undefined}
-              badge={a.status}
-              onClick={() => openEntity(a.entity.id, spaceId)}
+              assignment={a}
+              course={course}
+              onOpen={() => openEntity(a.entity.id, spaceId)}
             />
           ))}
+        </div>
+      </CourseSection>
+
+      <CourseSection
+        title="Notes"
+        actionLabel="Show more"
+        onViewAll={() => viewAll("notes")}
+        empty={courseNoteSummaries.length === 0}
+        emptyIcon={IconNotes}
+        emptyLabel="No notes yet"
+      >
+        <RecentNotesTable
+          summaries={courseNoteSummaries}
+          labels={spaceLabels}
+          spaceId={spaceId}
+          limit={RECENT_NOTES}
+        />
+      </CourseSection>
+
+      <CourseSection
+        title="Exams"
+        onViewAll={() => viewAll("exams")}
+        empty={courseExams.length === 0}
+        emptyIcon={IconWriting}
+        emptyLabel="No exams yet"
+      >
+        <div className="flex flex-col gap-6 py-2 pr-2">
+          <ExamTimeline
+            exams={courseExams}
+            courseOf={new Map(courseExams.map((e) => [e.entity.id, course]))}
+            onOpen={(exam) => openEntity(exam.entity.id, spaceId)}
+          />
+        </div>
       </CourseSection>
     </div>
   );
@@ -368,16 +390,19 @@ function BentoCard({
 function CourseSection({
   title,
   onViewAll,
-  empty,
+  actionLabel = "View all",
+  empty = false,
   emptyIcon,
   emptyLabel,
   children,
 }: {
   title: string;
   onViewAll: () => void;
-  empty: boolean;
-  emptyIcon: TablerIcon;
-  emptyLabel: string;
+  /// What the button that opens the section's full page says.
+  actionLabel?: string;
+  empty?: boolean;
+  emptyIcon?: TablerIcon;
+  emptyLabel?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -385,46 +410,14 @@ function CourseSection({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">{title}</h2>
         <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onViewAll}>
-          View all <IconArrowRight size={12} />
+          {actionLabel} <IconArrowRight size={12} />
         </Button>
       </div>
-      {empty ? (
+      {empty && emptyIcon && emptyLabel ? (
         <EmptyState icon={emptyIcon} title={emptyLabel} compact />
       ) : (
-        <div className="flex flex-col rounded-lg border border-border">{children}</div>
+        children
       )}
     </div>
-  );
-}
-
-function SectionRow({
-  entity,
-  title,
-  meta,
-  badge,
-  onClick,
-}: {
-  /// What the row stands for, so a right-click opens that entity's menu.
-  entity: Entity;
-  title: string;
-  meta?: string;
-  badge?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      {...entityTarget(entity)}
-      className="flex items-center gap-2.5 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-accent"
-    >
-      <span className="min-w-0 flex-1 truncate">{title}</span>
-      {meta && <span className="shrink-0 text-xs text-muted-foreground">{meta}</span>}
-      {badge && (
-        <Badge variant="outline" className="shrink-0">
-          {badge}
-        </Badge>
-      )}
-    </button>
   );
 }

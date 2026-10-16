@@ -18,6 +18,8 @@ export const STORAGE_KEYS = {
   coursesSort: "nookly:courses-sort",
   jotsSort: "nookly:jots-sort",
   jotsPreset: "nookly:jots-preset",
+  notesQuickFilters: "nookly:notes-quick-filters",
+  jotsQuickFilters: "nookly:jots-quick-filters",
   tasksDisplay: "nookly:tasks-display",
   tasksOverview: "nookly:tasks-overview",
   tasksFilters: "nookly:tasks-filters",
