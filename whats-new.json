@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.13",
+      "date": "2026-10-16",
+      "title": "IDs in tabs",
+      "summary": "Tabs show the ID of the page they have open.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Tabs show the ID of their page, such as TSK-14, so similar names are easy to tell apart."
+        ]
+      }
+    },
+    {
       "version": "0.34.12",
       "date": "2026-10-16",
       "title": "Attach from the file's side",

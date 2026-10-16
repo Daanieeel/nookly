@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.13 (2026-10-16)
+
+### Changed
+
+- **Tabs show the ID of their page.** A tab for a task, note or file now starts with its ID, such as TSK-14, so similar names are easy to tell apart.
+
 ## 0.34.12 (2026-10-16)
 
 ### Added

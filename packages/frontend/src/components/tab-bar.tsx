@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useMemo } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityKey } from "#/components/entity-key.tsx";
 import { SpaceDot } from "#/components/space-chip.tsx";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { getEntity } from "#/lib/api/entities.ts";
@@ -34,6 +35,8 @@ import { cn } from "@nookly/ui/lib/utils";
 interface TabLabel {
   icon: ReactNode;
   label: string;
+  /// The entity's `TSK-14` key, shown before the name.
+  entityKey?: string;
   spaceId?: string;
 }
 
@@ -82,6 +85,7 @@ function useTabLabel(view: View): TabLabel {
       return {
         icon: entity ? <EntityIcon entity={entity} /> : null,
         label: entity ? displayTitle(entity) : "Loading",
+        entityKey: entity?.key,
         spaceId: view.spaceId,
       };
   }
@@ -107,7 +111,7 @@ function TabItem({
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
-  const { icon, label, spaceId } = useTabLabel(tab.view);
+  const { icon, label, entityKey, spaceId } = useTabLabel(tab.view);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = spaceId ? spaces.find((s) => s.id === spaceId) : undefined;
   const { dragOver, dropProps } = useDropTarget(() => {
@@ -161,6 +165,7 @@ function TabItem({
       >
         {space && <SpaceDot space={space} />}
         {icon}
+        {!tab.pinned && entityKey && <EntityKey entityKey={entityKey} />}
         {!tab.pinned && <span className="truncate">{label}</span>}
       </div>
       {!tab.pinned && (
@@ -192,7 +197,7 @@ function TabItem({
   return tab.pinned ? (
     <Tooltip>
       <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
+      <TooltipContent side="bottom">{entityKey ? `${entityKey} ${label}` : label}</TooltipContent>
     </Tooltip>
   ) : (
     content
