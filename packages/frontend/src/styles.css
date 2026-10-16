@@ -259,6 +259,27 @@
   .tiptap-content .inline-math-selected {
     background: color-mix(in oklab, var(--primary) 12%, transparent);
   }
+  /* Find in page (`find-in-page.ts`): every match, and the one the bar is on. */
+  .tiptap-content .find-match {
+    border-radius: 0.125rem;
+    background: color-mix(in oklab, #facc15 38%, transparent);
+  }
+  .tiptap-content .find-match-current {
+    background: color-mix(in oklab, #fb923c 60%, transparent);
+    outline: 1px solid #fb923c;
+  }
+  .tiptap-content .find-multi {
+    border-radius: 0.125rem;
+    background: color-mix(in oklab, var(--primary) 28%, transparent);
+  }
+  .tiptap-content .find-multi-caret {
+    display: inline-block;
+    width: 0;
+    height: 1.1em;
+    margin: 0 -1px;
+    vertical-align: text-bottom;
+    border-left: 2px solid var(--primary);
+  }
   .tiptap-content .entity-card {
     padding: 0.5rem 0.625rem;
     border: 1px solid var(--border);

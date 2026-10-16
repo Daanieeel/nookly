@@ -1,4 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,6 +38,7 @@ import { openLink } from "./open-link";
 import { HighlightColorBar } from "./HighlightColorBar";
 import { TableControls } from "./TableControls";
 import { VimIndicator } from "./VimIndicator";
+import { FindBar, selectedSearchText } from "./FindBar";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
@@ -316,6 +318,23 @@ function HydratedBlockEditor({
     },
   });
 
+  // Find in page, for a page of its own: not an editor embedded in another page.
+  const [findOpen, setFindOpen] = useState(false);
+  const [findFocus, setFindFocus] = useState({ token: 0, seed: "" });
+  useAppHotkey(
+    "findInPage",
+    () => {
+      if (!editor) return;
+      const selected = selectedSearchText(editor);
+      setFindFocus(({ token }) => ({
+        token: token + 1,
+        seed: selected.includes("\n") ? "" : selected,
+      }));
+      setFindOpen(true);
+    },
+    { enabled: !compact },
+  );
+
   // The palette's text commands act on the page last typed in.
   useEffect(() => (editor ? trackActiveEditor(editor) : undefined), [editor]);
 
@@ -566,6 +585,15 @@ function HydratedBlockEditor({
       <TableColumnHandles editor={editor} />
       <BlockHandles editor={editor} />
       <HighlightColorBar editor={editor} />
+      {!compact && (
+        <FindBar
+          editor={editor}
+          open={findOpen}
+          focusToken={findFocus.token}
+          seed={findFocus.seed}
+          onClose={() => setFindOpen(false)}
+        />
+      )}
       <EditorContent editor={editor} />
       <VimIndicator editor={editor} />
       {pasteFiles.popover}

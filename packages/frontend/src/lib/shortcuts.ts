@@ -18,7 +18,15 @@ export type ShortcutName = keyof typeof HOTKEYS;
 
 /// Where a shortcut is active. `global` is everywhere, so it overlaps every scope;
 /// two shortcuts on one key are only a clash when their scopes overlap.
-export type ShortcutScope = "global" | "lists" | "calendar" | "task" | "deck" | "study" | "pdf";
+export type ShortcutScope =
+  | "global"
+  | "lists"
+  | "calendar"
+  | "task"
+  | "deck"
+  | "study"
+  | "pdf"
+  | "page";
 
 export const SHORTCUT_SECTIONS = [
   "Navigation",
@@ -77,6 +85,13 @@ export const SHORTCUT_META = {
     synonyms: ["narrow", "refine", "where", "view options"],
     section: "Navigation",
     scopes: GLOBAL,
+  },
+  findInPage: {
+    title: "Find in page",
+    description: "Search the page you are writing in, with replace.",
+    synonyms: ["search", "replace", "find and replace", "cmd f", "look up"],
+    section: "Navigation",
+    scopes: ["page"],
   },
   toggleSidebar: {
     title: "Collapse or expand the sidebar",

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.36.0 (2026-10-16)
+
+### Added
+
+- **Find in a page.** Press `Mod+F` to search the page you are writing in. Selected text starts the search, Enter and Shift+Enter step through the matches and select each one, and you can match case, match whole words or use regular expressions. Open the replace field to replace one match or all of them, or pick Select All Occurrences to type over every match at once.
+
 ## 0.35.0 (2026-10-16)
 
 ### Added

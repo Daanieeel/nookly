@@ -33,6 +33,10 @@ Custom markdown works in every free text field across the app, not just in Notes
 
 A mention is a link whose label is the entity's title when it was written. Renaming any entity rewrites the labels that still show its old title (or "Untitled Note" and the like, when it had none) in every page block, inside the rename. A label the author changed is left alone.
 
+## Find in Page
+
+`Cmd+F` opens a find and replace bar at the top right of a page: selected text starts the search, Enter and Shift+Enter step through the matches and select them, and toggles switch match case, whole word and regular expressions (`$1` in the replacement). Select All Occurrences puts a caret in every match to type over them together.
+
 ## Layout Direction
 
 A full-width document canvas. The writing surface never uses a list plus detail pane split. The page itself is the canvas.

@@ -15,6 +15,7 @@ export const HOTKEYS = {
   quickJotSession: "Mod+Shift+J",
   import: "Mod+I",
   filter: "Mod+Shift+F",
+  findInPage: "Mod+F",
   toggleSidebar: "Mod+S",
   toggleDetailSidebar: "Mod+Shift+S",
   back: "Mod+[",
