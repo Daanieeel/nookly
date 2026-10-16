@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldText, includesFolded, rankMatches } from "./text-search.ts";
+import { foldText, includesFolded, rankMatches, startsWithWords } from "./text-search.ts";
 
 const COMPOSED = "Übungsblatt";
 const DECOMPOSED = "Übungsblatt";
@@ -169,5 +169,17 @@ describe("rankMatches", () => {
 
   it("returns everything for a term of only spaces", () => {
     expect(rankMatches(["a", "b"], "  ", (label) => [label])).toEqual(["a", "b"]);
+  });
+});
+
+describe("startsWithWords", () => {
+  it("needs every typed word to start some word of the text", () => {
+    expect(startsWithWords("Go to Trash", "go tr")).toBe(true);
+    expect(startsWithWords("Go to Trash", "go x")).toBe(false);
+  });
+
+  it("ignores accents however they are spelled", () => {
+    expect(startsWithWords(`Open ${DECOMPOSED} 1`, "\u00fcbung")).toBe(true);
+    expect(startsWithWords(`Open ${COMPOSED} 1`, "ubung")).toBe(true);
   });
 });

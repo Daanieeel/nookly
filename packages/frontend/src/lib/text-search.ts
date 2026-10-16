@@ -25,9 +25,35 @@ const SPELLED_OUT_AS = new Map([
 ]);
 const SPELLED_OUT = new RegExp(`[${[...SPELLED_OUT_AS.keys()].join("")}]`, "gu");
 
+/// `text` folded the way `foldText` does, plus, for every character of the result, the
+/// index it came from in `text`. Lets a match found in the folded text be highlighted in
+/// the original, where an accent can be one character or two.
+export function foldWithOrigins(text: string) {
+  let folded = "";
+  const origins: number[] = [];
+  let at = 0;
+  for (const char of text) {
+    const part = foldText(char);
+    folded += part;
+    for (let i = 0; i < part.length; i++) origins.push(at);
+    at += char.length;
+  }
+  return { folded, origins };
+}
+
 /// Whether `text` contains `needle`, ignoring case and accents.
 export function includesFolded(text: string, needle: string): boolean {
   return foldText(text).includes(foldText(needle));
+}
+
+/// True when every typed word is the start of some word in `text`, ignoring case and
+/// accents, so "new" finds every "New …" action and "go tr" finds "Go to Trash".
+export function startsWithWords(text: string, query: string): boolean {
+  const words = foldText(text).split(/\s+/u);
+  return foldText(query)
+    .split(/\s+/u)
+    .filter(Boolean)
+    .every((q) => words.some((w) => w.startsWith(q)));
 }
 
 /// Folded text without its spaces, so `heading2`, `heading 2` and `Heading 2` compare equal.

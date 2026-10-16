@@ -61,6 +61,8 @@ import { canSplitLeft, canSplitRight } from "#/lib/store/tab-groups.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
+import { startsWithWords } from "#/lib/text-search.ts";
 
 /// Entity types simple enough to be created directly from a palette with just a
 /// title (§3.2/§9 — "typing task: jumps straight into task creation"). Anything
@@ -114,17 +116,6 @@ function matchQuickCreate(trimmed: string): QuickCreateMatch[] {
     }
   }
   return matches;
-}
-
-/// True when every typed word is the start of some word in `text`, so "new"
-/// finds every "New …" action and "go tr" finds "Go to Trash".
-function matchesWords(text: string, query: string): boolean {
-  const words = text.toLowerCase().split(/\s+/);
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((q) => words.some((w) => w.startsWith(q)));
 }
 
 /// Leading glyph for every quick action row, so "create a Task" never reads
@@ -190,7 +181,7 @@ function SpacePickerItem({
           onRefocus();
         }}
       >
-        <PickerCommand loop>
+        <PickerCommand loop filter={accentInsensitiveFilter}>
           <CommandInput placeholder="Pick a Space…" />
           <CommandList className="p-1">
             <CommandEmpty>No Space matches.</CommandEmpty>
@@ -668,7 +659,7 @@ export function QuickActions({
   const visible = entries.filter((e) => {
     if (mode === "suggestions") return e.suggested;
     if (mode === "commands" && !trimmed) return true;
-    return matchesWords(e.words, trimmed);
+    return startsWithWords(e.words, trimmed);
   });
   if (visible.length === 0) return null;
 

@@ -1,4 +1,5 @@
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { includesFolded } from "#/lib/text-search.ts";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
@@ -319,11 +320,9 @@ export function LatexMacrosPanel() {
   const hasComments = /^\s*%/m.test(text);
 
   const write = (next: MacroEntry[]) => setText(serializeLatexMacros(next));
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
   const shown = needle
-    ? entries.filter(
-        (e) => e.name.toLowerCase().includes(needle) || e.body.toLowerCase().includes(needle),
-      )
+    ? entries.filter((e) => includesFolded(e.name, needle) || includesFolded(e.body, needle))
     : entries;
 
   function save(entry: MacroEntry) {

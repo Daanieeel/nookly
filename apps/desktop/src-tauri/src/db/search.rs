@@ -304,6 +304,30 @@ mod tests {
         assert_eq!(parse_key_query("tsk14"), Some(("TSK".into(), "14".into())));
     }
 
+    /// macOS names files with decomposed accents (`U` + combining diaeresis), while
+    /// typing gives the composed `\u{dc}`; both, and the bare letter, must find the file.
+    #[test]
+    fn search_ignores_how_an_accent_is_spelled() {
+        let conn = crate::db::test_conn();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let file = create_entity(
+            &conn,
+            space.id.clone(),
+            "file".into(),
+            "U\u{308}bungsblatt 2- Shannon.pdf".into(),
+            None,
+        )
+        .unwrap();
+        for query in ["\u{dc}bungs", "U\u{308}bungs", "ubungs", "\u{dc}BUNGS"] {
+            let hits = search(&conn, query, None).unwrap();
+            assert_eq!(
+                hits.first().map(|h| h.entity_id.as_str()),
+                Some(file.id.as_str()),
+                "query {query:?}"
+            );
+        }
+    }
+
     #[test]
     fn search_finds_indexed_title() {
         let conn = crate::db::test_conn();

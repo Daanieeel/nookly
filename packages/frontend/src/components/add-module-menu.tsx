@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -62,7 +63,7 @@ export function AddModuleMenu({
         {tooltip && <TooltipContent side="top">{tooltip}</TooltipContent>}
       </Tooltip>
       <PopoverContent align="start" className="w-80 p-0">
-        <Command>
+        <Command filter={accentInsensitiveFilter}>
           <CommandInput placeholder="Add a module…" />
           <CommandList>
             <CommandEmpty>All modules already added.</CommandEmpty>

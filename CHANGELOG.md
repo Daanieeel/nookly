@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.34.11 (2026-10-16)
+
+### Fixed
+
+- **Search ignores accents everywhere.** Quick open, commands, search and every list in a menu find "Übungsblatt" whether you type "Übungs" or "ubungs", and whether the file name came from macOS or not.
+
 ## 0.34.10 (2026-10-16)
 
 ### Added

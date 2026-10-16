@@ -1,5 +1,6 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { IconChevronLeft } from "@tabler/icons-react";
-import { Command, defaultFilter } from "cmdk";
+import { Command } from "cmdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { EntityIcon } from "#/components/entity-icon.tsx";
@@ -220,9 +221,9 @@ export function RelatePicker({
           score: t.session
             ? Math.max(
                 Number(sessionMatches(t.session, query)),
-                defaultFilter(t.entity.key, query, []),
+                accentInsensitiveFilter(t.entity.key, query, []),
               )
-            : defaultFilter(valueOf(t), query, keyKeywords(t.entity.key)),
+            : accentInsensitiveFilter(valueOf(t), query, keyKeywords(t.entity.key)),
         }))
         .filter((m) => m.score > 0)
         .toSorted((a, b) => b.score - a.score)
@@ -248,7 +249,12 @@ export function RelatePicker({
     step === 1 ? "Search types…" : step === 2 ? "Search relations…" : "Search what to relate to…";
 
   return (
-    <Command key={step} shouldFilter={step !== 3} className="flex flex-col">
+    <Command
+      key={step}
+      shouldFilter={step !== 3}
+      filter={accentInsensitiveFilter}
+      className="flex flex-col"
+    >
       {step > 1 && (
         <nav
           aria-label="Relation"

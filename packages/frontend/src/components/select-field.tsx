@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { IconCheck, IconSelector } from "@tabler/icons-react";
 import { Fragment, type ReactNode, useState } from "react";
@@ -73,7 +74,7 @@ export function SelectField({
         aria-label={ariaLabel}
         align="end"
       >
-        <Command loop>
+        <Command loop filter={accentInsensitiveFilter}>
           {searchable && (
             <CommandInput
               value={search}

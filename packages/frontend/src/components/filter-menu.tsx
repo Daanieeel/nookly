@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { IconCheck, IconFilter, IconX, type Icon as TablerIcon } from "@tabler/icons-react";
 import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
@@ -202,7 +203,7 @@ export function FilterMenu({
               onDone?.();
             }}
           >
-            <Command loop>
+            <Command loop filter={accentInsensitiveFilter}>
               <CommandInput
                 value={search}
                 onValueChange={setSearch}
@@ -383,7 +384,7 @@ function FilterChip({
           onKeyDown={stopKeys}
           onCloseAutoFocus={refocus}
         >
-          <Command loop>
+          <Command loop filter={accentInsensitiveFilter}>
             <CommandInput placeholder={`Search ${field.label.toLowerCase()}…`} />
             <CommandList className="p-1">
               <CommandEmpty>No matches.</CommandEmpty>

@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.11",
+      "date": "2026-10-16",
+      "title": "Search ignores accents",
+      "summary": "Search finds names with accents however you type them.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Quick open, commands, search and every list in a menu find \"Übungsblatt\" whether you type \"Übungs\" or \"ubungs\"."
+        ]
+      }
+    },
+    {
       "version": "0.34.10",
       "date": "2026-10-16",
       "title": "Upload and attach in one step",

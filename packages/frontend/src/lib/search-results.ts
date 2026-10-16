@@ -1,4 +1,5 @@
 import type { SearchHit, Space } from "#/lib/api/types.ts";
+import { foldText, foldWithOrigins } from "#/lib/text-search.ts";
 
 /// Fixed order of entity type subgroups inside a Space group in the Cmd+K
 /// results. Never re-sorted by count or relevance, so the grouped structure
@@ -117,21 +118,33 @@ export function snippetSegments(snippet: string): TextSegment[] {
   return segments;
 }
 
-/// Splits `text` into segments, marking every case-insensitive occurrence of
-/// any whitespace separated word in `query`.
+/// Splits `text` into segments, marking every occurrence of any whitespace separated
+/// word in `query`, ignoring case and accents.
 export function termSegments(text: string, query: string): TextSegment[] {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = foldText(query).split(/\s+/u).filter(Boolean);
   if (terms.length === 0) return [{ text, match: false }];
-  const lower = text.toLowerCase();
+  const { folded, origins } = foldWithOrigins(text);
   const marked = Array.from({ length: text.length }, () => false);
   for (const term of terms) {
-    let from = lower.indexOf(term);
+    let from = folded.indexOf(term);
     while (from !== -1) {
-      marked.fill(true, from, from + term.length);
-      from = lower.indexOf(term, from + term.length);
+      markFolded(marked, origins, text.length, from, from + term.length);
+      from = folded.indexOf(term, from + term.length);
     }
   }
   return indexSegments(text, marked);
+}
+
+/// Marks the characters of the original text behind folded characters `from` up to
+/// `to`, including any combining marks that follow the last one.
+function markFolded(
+  marked: boolean[],
+  origins: number[],
+  length: number,
+  from: number,
+  to: number,
+) {
+  marked.fill(true, origins[from], to < origins.length ? origins[to] : length);
 }
 
 function indexSegments(text: string, marked: boolean[]): TextSegment[] {
@@ -152,18 +165,18 @@ export interface FuzzyMatch {
   segments: TextSegment[];
 }
 
-/// Title only fuzzy match for the Cmd+P quick switcher. Returns `null` when the
-/// query's letters don't all appear, in order, in `title`.
+/// Title only fuzzy match for the Cmd+P quick switcher, ignoring case and accents.
+/// Returns `null` when the query's letters don't all appear, in order, in `title`.
 export function fuzzyMatch(title: string, query: string): FuzzyMatch | null {
-  const needle = query.trim().toLowerCase();
+  const needle = foldText(query.trim());
   if (!needle) return { tier: 0, spread: 0, segments: [{ text: title, match: false }] };
-  const lower = title.toLowerCase();
+  const { folded, origins } = foldWithOrigins(title);
   const marked = Array.from({ length: title.length }, () => false);
 
-  const at = lower.indexOf(needle);
+  const at = folded.indexOf(needle);
   if (at !== -1) {
-    marked.fill(true, at, at + needle.length);
-    const tier = lower === needle ? 0 : at === 0 ? 1 : 2;
+    markFolded(marked, origins, title.length, at, at + needle.length);
+    const tier = folded === needle ? 0 : at === 0 ? 1 : 2;
     return { tier, spread: at, segments: indexSegments(title, marked) };
   }
 
@@ -171,10 +184,10 @@ export function fuzzyMatch(title: string, query: string): FuzzyMatch | null {
   let spread = 0;
   for (const char of needle) {
     if (char === " ") continue;
-    const found = lower.indexOf(char, from);
+    const found = folded.indexOf(char, from);
     if (found === -1) return null;
     spread += found - from;
-    marked[found] = true;
+    markFolded(marked, origins, title.length, found, found + 1);
     from = found + 1;
   }
   return { tier: 3, spread, segments: indexSegments(title, marked) };

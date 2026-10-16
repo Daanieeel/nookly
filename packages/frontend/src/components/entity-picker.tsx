@@ -1,4 +1,4 @@
-import { Command, defaultFilter } from "cmdk";
+import { Command } from "cmdk";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { EntityIcon } from "#/components/entity-icon.tsx";
@@ -7,17 +7,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/p
 import { listEntities } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { sessionMatches, sessionTime } from "#/lib/session-search.ts";
-
-/// Composed and decomposed spellings of an accent (macOS names files with the
-/// latter) compare equal, and so does a letter with and without its accent.
-function foldAccents(text: string): string {
-  return text.normalize("NFD").replace(/\p{M}/gu, "");
-}
 
 export function EntityPickerPopover({
   spaceId,
@@ -95,11 +90,7 @@ export function EntityPickerList({
       const session = sessionById.get(entity.id);
       const score = query
         ? Math.max(
-            defaultFilter(
-              foldAccents(displayTitle(entity)),
-              foldAccents(query),
-              keyKeywords(entity.key),
-            ),
+            accentInsensitiveFilter(displayTitle(entity), query, keyKeywords(entity.key)),
             session ? Number(sessionMatches(session, query)) : 0,
           )
         : 1;
