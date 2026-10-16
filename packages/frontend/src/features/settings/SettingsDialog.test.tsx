@@ -294,22 +294,21 @@ describe("the settings dialog", () => {
   });
 
   describe("the LaTeX page under Editor", () => {
-    it("is a child of Editor in the navigation, lined up with the other items", async () => {
+    it("is a child of Editor in the navigation, indented under it", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
       const editor = within(nav).getByRole("button", { name: "Editor" });
       const latex = within(nav).getByRole("button", { name: "LaTeX" });
       expect(editor.compareDocumentPosition(latex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(latex.className).not.toMatch(/pl-/);
-      const icon = latex.querySelector("svg");
-      expect(icon?.getAttribute("width")).toBe(editor.querySelector("svg")?.getAttribute("width"));
+      expect(latex.className).toMatch(/pl-/);
+      expect(editor.className).not.toMatch(/pl-/);
     });
 
-    it("shows an indent icon to mark it as subordinate to Editor", async () => {
+    it("shows a corner connector icon to mark it as subordinate to Editor", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
       const latex = within(nav).getByRole("button", { name: "LaTeX" });
-      expect(latex.querySelector("svg")).toHaveClass("tabler-icon-indent-increase");
+      expect(latex.querySelector("svg")).toHaveClass("tabler-icon-corner-down-right");
     });
 
     it("holds the LaTeX macros, and the Editor page does not", async () => {

@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.37.1",
+      "date": "2026-10-16",
+      "title": "LaTeX settings, indented again",
+      "summary": "The LaTeX page sits indented under Editor in Settings.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The LaTeX page in Settings is indented under Editor again, with a corner connector icon to show it is part of Editor."
+        ]
+      }
+    },
+    {
       "version": "0.37.0",
       "date": "2026-10-16",
       "title": "Quick filters and a fuller course page",
