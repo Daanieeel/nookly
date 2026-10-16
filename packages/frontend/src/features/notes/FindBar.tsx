@@ -38,8 +38,10 @@ export function selectedSearchText(editor: Editor): string {
 /// Layers that take an Escape of their own, other than the bar itself.
 const OPEN_LAYERS_BESIDES_BAR = OPEN_LAYERS.replace(",[data-owns-escape]", "");
 
-/// Closes the bar and puts the focus back in the page.
-function closeBar(editor: Editor, onClose: () => void) {
+/// Closes the bar. The focus goes back to the page, unless `restoreFocus` is off: an Escape
+/// pressed with nothing in the bar focused leaves nothing to type into, so the next Escape
+/// goes back (`use-escape-back.ts`) instead of first leaving the page's text.
+function closeBar(editor: Editor, onClose: () => void, restoreFocus = true) {
   onClose();
   // The match the search is on stays selected otherwise, and the next search would start
   // from it.
@@ -47,8 +49,10 @@ function closeBar(editor: Editor, onClose: () => void) {
   const onMatch = findStateOf(editor.state).matches.some(
     (match) => match.from === from && match.to === to,
   );
-  if (onMatch) editor.chain().focus().setTextSelection(to).run();
-  else editor.commands.focus();
+  if (onMatch) {
+    if (restoreFocus) editor.chain().focus().setTextSelection(to).run();
+    else editor.commands.setTextSelection(to);
+  } else if (restoreFocus) editor.commands.focus();
 }
 
 function IconTip({
@@ -167,7 +171,8 @@ export function FindBar({
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || document.querySelector(OPEN_LAYERS_BESIDES_BAR)) return;
       event.preventDefault();
-      closeBar(editor, onClose);
+      const inBar = document.activeElement?.closest("[role=search]") != null;
+      closeBar(editor, onClose, inBar);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

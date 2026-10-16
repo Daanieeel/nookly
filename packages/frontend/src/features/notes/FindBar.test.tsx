@@ -1,12 +1,15 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeBlock } from "#/test/fixtures.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { installTauriMock, mockCommand, uninstallTauriMock } from "#/test/tauri.ts";
 import { useEscapeBack } from "#/hooks/use-escape-back.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
+import { Editor } from "@tiptap/core";
 import { BlockEditor } from "./BlockEditor";
+import { FindBar } from "./FindBar";
+import { editorExtensions } from "./editor-extensions";
 
 beforeEach(() => {
   // jsdom has no layout; the block handles probe the point under the pointer.
@@ -232,8 +235,41 @@ describe("find in page", () => {
     expect(screen.queryByRole("search")).toBeNull();
     expect(useNavStore.getState().view).toEqual(page);
     await user.keyboard("{Escape}");
-    await user.keyboard("{Escape}");
     expect(useNavStore.getState().view).toEqual(list);
+  });
+
+  describe("where the focus goes when Escape closes the bar", () => {
+    function mount() {
+      const editor = new Editor({
+        extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
+        content: "<p>alpha</p>",
+      });
+      const focus = vi.spyOn(editor.view, "focus");
+      const view = renderWithProviders(
+        <FindBar editor={editor} open focusToken={0} seed="" onClose={() => {}} />,
+      );
+      return { editor, focus, ...view };
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+    it("goes back to the page when it was in the bar", async () => {
+      const { editor, focus, user } = mount();
+      await user.click(findField());
+      await user.keyboard("{Escape}");
+      await settle();
+      expect(focus).toHaveBeenCalled();
+      editor.destroy();
+    });
+
+    it("stays where it is when nothing in the bar had it, so the next Escape goes back", async () => {
+      const { editor, focus, user } = mount();
+      await user.click(screen.getByRole("button", { name: "Show Replace" }));
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      await user.keyboard("{Escape}");
+      await settle();
+      expect(focus).not.toHaveBeenCalled();
+      editor.destroy();
+    });
   });
 
   it("closes from its close button", async () => {
