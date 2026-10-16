@@ -294,13 +294,22 @@ describe("the settings dialog", () => {
   });
 
   describe("the LaTeX page under Editor", () => {
-    it("is a child of Editor in the navigation, indented under it", async () => {
+    it("is a child of Editor in the navigation, lined up with the other items", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
       const editor = within(nav).getByRole("button", { name: "Editor" });
       const latex = within(nav).getByRole("button", { name: "LaTeX" });
       expect(editor.compareDocumentPosition(latex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(latex.className).toMatch(/pl-/);
+      expect(latex.className).not.toMatch(/pl-/);
+      const icon = latex.querySelector("svg");
+      expect(icon?.getAttribute("width")).toBe(editor.querySelector("svg")?.getAttribute("width"));
+    });
+
+    it("shows an indent icon to mark it as subordinate to Editor", async () => {
+      renderOpen();
+      const nav = await screen.findByRole("navigation", { name: "Settings categories" });
+      const latex = within(nav).getByRole("button", { name: "LaTeX" });
+      expect(latex.querySelector("svg")).toHaveClass("tabler-icon-indent-increase");
     });
 
     it("holds the LaTeX macros, and the Editor page does not", async () => {
