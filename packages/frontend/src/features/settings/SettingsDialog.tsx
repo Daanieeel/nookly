@@ -2,7 +2,7 @@ import {
   IconArchive,
   IconFileCode,
   IconCalendar,
-  IconIndentIncrease,
+  IconCornerDownRight,
   IconKeyboard,
   IconNotes,
   IconPalette,
@@ -55,7 +55,7 @@ interface NavItem {
   category: SettingCategory;
   label: string;
   icon: TablerIcon;
-  /// A page under the item before it, marked by its icon.
+  /// Drawn indented under the item before it, with a corner connector as its icon.
   child?: boolean;
 }
 
@@ -65,7 +65,7 @@ const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => {
   if (id !== "notes") return [item];
   return [
     item,
-    { id: "latex", category: "notes", label: "LaTeX", icon: IconIndentIncrease, child: true },
+    { id: "latex", category: "notes", label: "LaTeX", icon: IconCornerDownRight, child: true },
   ];
 });
 
@@ -288,11 +288,12 @@ export function SettingsDialog() {
                     onClick={() => pick(item)}
                     className={cn(
                       "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                      item.child && "pl-7",
                       active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
                       searching && count === 0 && "opacity-50",
                     )}
                   >
-                    <Icon size={16} className="shrink-0" />
+                    <Icon size={item.child ? 14 : 16} className="shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{label}</span>
                     {searching && (
                       <span className="text-xs tabular-nums" aria-label={`${count} matches`}>

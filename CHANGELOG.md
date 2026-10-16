@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.1 (2026-10-16)
+
+### Fixed
+
+- **LaTeX stays indented under Editor.** In Settings, the LaTeX page sits indented under Editor again, with a corner connector icon that shows it belongs to Editor.
+
 ## 0.37.0 (2026-10-16)
 
 ### Added
