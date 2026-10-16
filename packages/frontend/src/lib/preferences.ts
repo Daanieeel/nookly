@@ -8,22 +8,56 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 /// memory at once and reach disk shortly after. Keys are in `STORAGE_KEYS`.
 
 const FILE = "preferences.json";
+const DEV_FILE = "preferences.dev.json";
+/// What belongs to one running instance, not to the device: the open tabs and the split. A
+/// dev build starts without the installed app's.
+const INSTANCE_KEYS: string[] = [STORAGE_KEYS.tabs, STORAGE_KEYS.splitRatio];
 
 let store: Store | null = null;
 const cache = new Map<string, string>();
+
+/// A dev build (`tauri dev`) shares the app data folder with the installed app, and each of
+/// them writes its whole copy of a store file. Sharing `preferences.json` would let the one
+/// overwrite the other's tabs, so a dev build keeps its own file. Vitest runs in mode `test`.
+function isDevBuild(): boolean {
+  return import.meta.env.MODE === "development";
+}
 
 /// Loads every saved preference. Must finish before anything reads one; when
 /// the store can't load, every read falls back to its default.
 export async function initPreferences(): Promise<void> {
   try {
-    store = await load(FILE, { defaults: {}, autoSave: 100 });
-    for (const [key, value] of await store.entries<string>()) cache.set(key, value);
+    if (isDevBuild()) {
+      store = await load(DEV_FILE, { defaults: {}, autoSave: 100 });
+      const own = await store.entries<string>();
+      for (const [key, value] of own) cache.set(key, value);
+      if (own.length === 0) {
+        await copyInstalledPreferences(store).catch((error) =>
+          console.error("Couldn't copy the installed app's preferences", error),
+        );
+      }
+    } else {
+      store = await load(FILE, { defaults: {}, autoSave: 100 });
+      for (const [key, value] of await store.entries<string>()) cache.set(key, value);
+    }
   } catch (error) {
     console.error("Couldn't load preferences", error);
     return;
   }
   backfillFileViewerTheme();
   backfillEvaluatedStatus();
+}
+
+/// The first time a dev build runs, it starts from the installed app's preferences, minus
+/// the tabs and split that belong to the other instance. The installed app's file is only
+/// read, never written.
+async function copyInstalledPreferences(own: Store) {
+  const installed = await load(FILE, { defaults: {}, autoSave: false });
+  for (const [key, value] of await installed.entries<string>()) {
+    if (INSTANCE_KEYS.includes(key)) continue;
+    cache.set(key, value);
+    await own.set(key, value);
+  }
 }
 
 /// One time backfill: a saved "light" file viewer theme becomes the defaults.
