@@ -253,7 +253,7 @@ const THEME_OPTIONS: { theme: Theme; label: string; icon: TablerIcon }[] = [
 /// Quick actions shared by Cmd+K (search) and Cmd+Shift+P (commands only):
 /// creation, navigation, Space jumps and settings, matched by typed words.
 ///
-/// - `search`: Cmd+K with a query, one "Quick actions" group.
+/// - `search`: Cmd+K with a query, one "Quick Commands" group.
 /// - `suggestions`: Cmd+K before typing, a short suggested subset.
 /// - `commands`: Cmd+Shift+P, every match grouped by category.
 export function QuickActions({
@@ -273,13 +273,19 @@ export function QuickActions({
   const { openEntity, setView, activeSpaceId, view, setRightSidebarCollapsed } = nav;
   // The palette acts on the focused group of a split.
   const rightSidebarCollapsed = rightSidebarCollapsedIn(nav, nav.focusedGroupId);
-  const tabLayout = { groups: tabGroups(nav), focusedGroupId: nav.focusedGroupId };
+  const tabLayout = {
+    groups: tabGroups(nav),
+    focusedGroupId: nav.focusedGroupId,
+  };
   const theme = useThemeStore((s) => s.theme);
   const applyTheme = useThemeStore((s) => s.setTheme);
   const queryClient = useQueryClient();
   const trimmed = query.trim();
 
-  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({
+    queryKey: qk.spaces,
+    queryFn: listSpaces,
+  });
   // Same keys the sidebar uses, so these are usually already cached.
   const spaceModules = useQueries({
     queries: spaces.map((space) => ({
@@ -541,9 +547,24 @@ export function QuickActions({
         ]
       : []),
     ...[
-      { id: "dashboard", icon: IconLayoutDashboard, label: "Dashboard", keywords: "home overview" },
-      { id: "calendar", icon: IconCalendarWeek, label: "Calendar", keywords: "unified schedule" },
-      { id: "tasks", icon: IconChecklist, label: "Tasks", keywords: "todo overview all spaces" },
+      {
+        id: "dashboard",
+        icon: IconLayoutDashboard,
+        label: "Dashboard",
+        keywords: "home overview",
+      },
+      {
+        id: "calendar",
+        icon: IconCalendarWeek,
+        label: "Calendar",
+        keywords: "unified schedule",
+      },
+      {
+        id: "tasks",
+        icon: IconChecklist,
+        label: "Tasks",
+        keywords: "todo overview all spaces",
+      },
       {
         id: "assignments",
         icon: IconClipboardCheck,
@@ -551,7 +572,12 @@ export function QuickActions({
         keywords: "homework overview all spaces",
       },
       { id: "pinned", icon: IconPin, label: "Pinned", keywords: "favorites" },
-      { id: "trash", icon: IconTrash, label: "Trash", keywords: "deleted restore bin" },
+      {
+        id: "trash",
+        icon: IconTrash,
+        label: "Trash",
+        keywords: "deleted restore bin",
+      },
     ].map((n): ActionEntry => ({
       id: n.id,
       category: "navigate",
@@ -613,7 +639,9 @@ export function QuickActions({
         onDone();
         // The palette is gone by the time this can fail, so a toast is all that is left.
         openSettingsFile().catch(() =>
-          notify.error("Couldn't open the settings file", { description: "Try again." }),
+          notify.error("Couldn't open the settings file", {
+            description: "Try again.",
+          }),
         );
       }),
     },
@@ -646,7 +674,7 @@ export function QuickActions({
 
   if (mode !== "commands") {
     return (
-      <Command.Group heading="Quick actions" className={mode === "search" ? "pt-2" : undefined}>
+      <Command.Group heading="Quick Commands" className={mode === "search" ? "pt-2" : undefined}>
         {visible.map((e) => e.node)}
       </Command.Group>
     );

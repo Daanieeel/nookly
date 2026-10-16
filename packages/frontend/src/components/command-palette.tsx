@@ -34,8 +34,8 @@ import {
   groupHits,
   snippetSegments,
   termSegments,
-  TYPE_GROUPS,
-  typeGroupFor,
+  SEARCH_GROUPS,
+  searchGroupFor,
 } from "#/lib/search-results.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { qk } from "#/lib/query-keys.ts";
@@ -56,7 +56,10 @@ export function CommandPalette() {
   // Search runs once typing pauses, not on every keystroke.
   const [searchTerm] = useDebouncedValue(trimmed, { wait: 120 });
 
-  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({
+    queryKey: qk.spaces,
+    queryFn: listSpaces,
+  });
   const { data: entities } = useQuery({
     queryKey: qk.entities.all,
     queryFn: () => listEntities(null, false),
@@ -113,7 +116,7 @@ export function CommandPalette() {
       id: "type",
       label: "Type",
       icon: IconCategory,
-      options: TYPE_GROUPS.map((g) => {
+      options: SEARCH_GROUPS.map((g) => {
         const Icon = iconForType(g.types[0] ?? "");
         return { value: g.key, label: g.label, icon: <Icon size={14} /> };
       }),
@@ -136,7 +139,7 @@ export function CommandPalette() {
     applyFilters(items, filters, (item, fieldId) => {
       if (fieldId === "space") return item.spaceId;
       if (fieldId === "label") return entityLabelIds?.[idOf(item)] ?? [];
-      return typeGroupFor(item.type).key;
+      return searchGroupFor(item.type).key;
     });
   const groups = groupHits(
     passesFilters(hits, (h) => h.entityId),
@@ -275,8 +278,16 @@ export function CommandPalette() {
                         value={`viewall-${space.id}-${group.key}`}
                         onSelect={() =>
                           setFilters([
-                            { fieldId: "space", operator: "is", values: [space.id] },
-                            { fieldId: "type", operator: "is", values: [group.key] },
+                            {
+                              fieldId: "space",
+                              operator: "is",
+                              values: [space.id],
+                            },
+                            {
+                              fieldId: "type",
+                              operator: "is",
+                              values: [group.key],
+                            },
                           ])
                         }
                         className="text-muted-foreground"
@@ -301,7 +312,9 @@ export function CommandPalette() {
       <SpotlightFooter
         aside={
           <>
-            <ShortcutKbd name="quickSwitcher" />
+            <ShortcutKbd name="commands" />
+            Commands
+            <ShortcutKbd name="quickSwitcher" className="ml-3" />
             Quick open
           </>
         }

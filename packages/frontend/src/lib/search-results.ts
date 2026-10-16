@@ -9,7 +9,11 @@ export const TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
   { key: "jots", label: "Jots", types: ["jot"] },
   { key: "courses", label: "Courses", types: ["course"] },
   { key: "semesters", label: "Semesters", types: ["semester"] },
-  { key: "sessions", label: "Sessions", types: ["session", "session_template"] },
+  {
+    key: "sessions",
+    label: "Sessions",
+    types: ["session", "session_template"],
+  },
   { key: "exams", label: "Exams", types: ["exam"] },
   { key: "decks", label: "Decks", types: ["index_card_deck"] },
   { key: "study_blocks", label: "Study Blocks", types: ["study_block"] },
@@ -19,6 +23,24 @@ export const TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
 ];
 
 const OTHER_GROUP = { key: "other", label: "Other" };
+
+/// Type subgroup order in the Cmd+K results. Types not listed fall into Other.
+const SEARCH_GROUP_KEYS = [
+  "files",
+  "notes",
+  "bookmarks",
+  "jots",
+  "tasks",
+  "assignments",
+  "sessions",
+  "courses",
+];
+
+/// The Cmd+K subgroups in display order, Other last.
+export const SEARCH_GROUPS: { key: string; label: string; types: string[] }[] = [
+  ...SEARCH_GROUP_KEYS.flatMap((key) => TYPE_GROUPS.filter((g) => g.key === key)),
+  { ...OTHER_GROUP, types: [] },
+];
 
 export interface HitTypeGroup {
   key: string;
@@ -35,17 +57,22 @@ export function typeGroupFor(type: string): { key: string; label: string } {
   return TYPE_GROUPS.find((g) => g.types.includes(type)) ?? OTHER_GROUP;
 }
 
+/// The Cmd+K subgroup of an entity type; anything not in `SEARCH_GROUPS` is Other.
+export function searchGroupFor(type: string): { key: string; label: string } {
+  return SEARCH_GROUPS.find((g) => g.types.includes(type)) ?? OTHER_GROUP;
+}
+
 /// Groups search hits by Space (in sidebar order), then by entity type (in
-/// `TYPE_GROUPS` order). Hits keep the backend's relevance order within a
+/// `SEARCH_GROUPS` order). Hits keep the backend's relevance order within a
 /// subgroup, which already puts title matches ahead of block matches.
 export function groupHits(hits: SearchHit[], spaces: Space[]): HitSpaceGroup[] {
-  const order = [...TYPE_GROUPS.map((g) => g.key), OTHER_GROUP.key];
+  const order = SEARCH_GROUPS.map((g) => g.key);
   return spaces.flatMap((space) => {
     const inSpace = hits.filter((h) => h.spaceId === space.id);
     if (inSpace.length === 0) return [];
     const byType = new Map<string, HitTypeGroup>();
     for (const hit of inSpace) {
-      const group = typeGroupFor(hit.type);
+      const group = searchGroupFor(hit.type);
       const existing = byType.get(group.key);
       if (existing) existing.hits.push(hit);
       else byType.set(group.key, { ...group, hits: [hit] });
