@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { makeEntity } from "#/test/fixtures.ts";
+import { makeEntity, makeFile } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { mockCommand, mockCommandWith } from "#/test/tauri.ts";
+import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { AttachmentsPanel } from "./AttachmentsPanel.tsx";
 
 const base = { fromBlockId: null, toBlockId: null, createdAt: "2026-01-01T00:00:00Z" };
@@ -65,5 +65,45 @@ describe("AttachmentsPanel", () => {
     );
     expect(within(files).getByRole("button", { name: /Item x.*attached to/ })).toBeTruthy();
     expect(within(files).getAllByRole("button", { name: "Remove attachment" })).toHaveLength(2);
+  });
+
+  describe("Upload File", () => {
+    const open = async (me: ReturnType<typeof makeEntity>) => {
+      mockCommand("list_relationships", []);
+      mockCommand("list_entities", []);
+      const view = renderWithProviders(<AttachmentsPanel entity={me} />);
+      await view.user.click(screen.getByRole("button", { name: /Attach file or bookmark/ }));
+      return view;
+    };
+
+    it("imports the picked file into the Space and attaches it to the page", async () => {
+      const me = makeEntity({ id: "me", spaceId: "sp1", type: "note" });
+      mockCommand("plugin:dialog|open", "/tmp/report.pdf");
+      mockCommand("import_file", makeFile({}, { id: "f1", spaceId: "sp1" }));
+      mockCommand("create_relationship", { id: "r1" });
+      const { user } = await open(me);
+
+      await user.click(screen.getByRole("button", { name: "Upload File" }));
+
+      await waitFor(() => expect(callsOf("create_relationship")).toHaveLength(1));
+      expect(callsOf("import_file")).toEqual([{ spaceId: "sp1", sourcePath: "/tmp/report.pdf" }]);
+      expect(callsOf("create_relationship")[0]).toMatchObject({
+        fromEntityId: "me",
+        toEntityId: "f1",
+        relationshipType: "attached-file",
+      });
+    });
+
+    it("attaches nothing when the file picker is cancelled", async () => {
+      const me = makeEntity({ id: "me", spaceId: "sp1", type: "note" });
+      mockCommand("plugin:dialog|open", null);
+      const { user } = await open(me);
+
+      await user.click(screen.getByRole("button", { name: "Upload File" }));
+
+      await waitFor(() => expect(callsOf("plugin:dialog|open")).toHaveLength(1));
+      expect(callsOf("import_file")).toEqual([]);
+      expect(callsOf("create_relationship")).toEqual([]);
+    });
   });
 });

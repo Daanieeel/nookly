@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.34.8",
+      "date": "2026-10-16",
+      "title": "Upload and attach in one step",
+      "summary": "Add a file to a page straight from the details sidebar.",
+      "highlights": [
+        {
+          "title": "Upload File",
+          "description": "The attach menu in the details sidebar has an **Upload File** button at the top that adds a file to Nookly and attaches it to the page at once.",
+          "icon": "file-import",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.34.7",
       "date": "2026-10-16",
       "title": "Markdown files open again",

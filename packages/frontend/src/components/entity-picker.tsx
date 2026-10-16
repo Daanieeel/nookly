@@ -19,6 +19,7 @@ export function EntityPickerPopover({
   onSelect,
   exclude,
   typeFilter,
+  header,
 }: {
   spaceId: string;
   trigger: React.ReactNode;
@@ -26,12 +27,15 @@ export function EntityPickerPopover({
   exclude?: string;
   /// Restricts the picker to one or more entity `type`s. Omit to allow any type.
   typeFilter?: string | string[];
+  /// Pinned above the search box. `close` dismisses the popover.
+  header?: (close: () => void) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent {...dialogPopover("w-72 p-0")} align="start">
+        {header?.(() => setOpen(false))}
         <EntityPickerList
           spaceId={spaceId}
           exclude={exclude}

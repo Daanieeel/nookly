@@ -1,9 +1,11 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconPaperclip, IconPlus } from "@tabler/icons-react";
+import { IconPaperclip, IconPlus, IconUpload } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@nookly/ui/components/button";
+import { importFile } from "#/lib/api/files.ts";
 import {
   createRelationship,
   deleteRelationship,
@@ -28,8 +30,27 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
     mutationFn: (toEntityId: string) => createRelationship(entity.id, toEntityId, "attached-file"),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
   });
+  /// Copies the picked files into this Space and attaches each to the page.
+  const upload = useMutation({
+    mutationFn: async () => {
+      const picked = await open({ multiple: true, directory: false });
+      if (!picked) return;
+      const paths = Array.isArray(picked) ? picked : [picked];
+      const files = await Promise.all(paths.map((path) => importFile(entity.spaceId, path)));
+      await Promise.all(
+        files.map((f) => createRelationship(entity.id, f.entity.id, "attached-file")),
+      );
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.files.bySpace(entity.spaceId) }),
+        queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(entity.spaceId) }),
+      ]),
+  });
   // The new row appearing is the confirmation, so the trigger shows no success state.
-  const createStatus = create.isSuccess ? "idle" : statusOf(create);
+  const attachStatus = [create, upload].find((m) => m.isPending || m.isError);
+  const createStatus = attachStatus ? statusOf(attachStatus) : "idle";
 
   const attachments = relationships.filter((r) => r.relationshipType === "attached-file");
   const isFile = entity.type === "file" || entity.type === "bookmark";
@@ -45,6 +66,22 @@ export function AttachmentsPanel({ entity }: { entity: Entity }) {
           spaceId={entity.spaceId}
           exclude={entity.id}
           typeFilter={["file", "bookmark"]}
+          header={(close) => (
+            <div className="border-b border-border p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-full justify-start gap-2 px-2 font-normal [&_svg]:size-3.5"
+                onClick={() => {
+                  close();
+                  upload.mutate();
+                }}
+              >
+                <IconUpload size={14} />
+                Upload File
+              </Button>
+            </div>
+          )}
           trigger={
             <Button
               variant="ghost"
