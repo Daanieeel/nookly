@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.34.18",
+      "date": "2026-10-16",
+      "title": "Room above split tabs",
+      "summary": "Split view tabs no longer touch the top edge.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "With the sidebar collapsed, the tabs of each side of a split view have space above them."
+        ]
+      }
+    },
+    {
       "version": "0.34.17",
       "date": "2026-10-16",
       "title": "Less empty space",

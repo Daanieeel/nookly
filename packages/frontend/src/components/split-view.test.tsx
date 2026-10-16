@@ -79,6 +79,15 @@ describe("split view", () => {
     expect(useNavStore.getState().splitRatio).toBe(0.5);
   });
 
+  it("gives each group's tab bar room above and below, even with the sidebar collapsed", () => {
+    renderWithProviders(<Harness />);
+    splitWithTrashOnTheRight();
+    for (const name of ["Left Group Tabs", "Right Group Tabs"]) {
+      const bar = screen.getByRole("tablist", { name }).parentElement;
+      expect(bar?.className).toMatch(/collapsed\]\]\/app:pt-1/);
+    }
+  });
+
   it("has no axe violations while split", async () => {
     renderWithProviders(<Harness />);
     splitWithTrashOnTheRight();

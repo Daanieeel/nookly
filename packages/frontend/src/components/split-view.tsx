@@ -195,7 +195,7 @@ function GroupPane({
         <TabBar
           groupId={group.id}
           label={position === "left" ? "Left Group Tabs" : "Right Group Tabs"}
-          className="h-8 border-b-0 bg-transparent px-0 pb-1"
+          className="h-8 border-b-0 bg-transparent px-0 pb-1 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:h-9 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pt-1"
         />
       )}
       <TabGroupContext.Provider value={scope}>
@@ -357,7 +357,7 @@ function GroupDropZone({ groupId }: { groupId: string }) {
       aria-hidden
       {...dropProps}
       className={cn(
-        "absolute inset-x-0 top-8 bottom-0 z-30 rounded-xl border-2 border-dashed transition-colors",
+        "absolute inset-x-0 top-8 bottom-0 z-30 rounded-xl group-has-[[data-slot=sidebar][data-state=collapsed]]/app:top-9 border-2 border-dashed transition-colors",
         dragOver ? "border-primary/60 bg-primary/10" : "border-transparent",
       )}
     />
