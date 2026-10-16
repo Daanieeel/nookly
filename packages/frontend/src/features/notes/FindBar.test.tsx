@@ -175,6 +175,9 @@ describe("find in page", () => {
         screen.getByRole("button", { name: "Use Regular Expression" }).parentElement,
       );
       expect(row?.className).toMatch(/\bgap-0\.5\b/);
+      for (const name of ["Match Case", "Match Whole Word", "Use Regular Expression"]) {
+        expect(screen.getByRole("button", { name }).className).toMatch(/\bml-1\b/);
+      }
     });
   });
 
