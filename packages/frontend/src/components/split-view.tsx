@@ -109,9 +109,7 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
   const width = useWidth(containerRef);
   const fits = width === null || fitsSplit(width);
   useEffect(() => useSplitFits.setState({ fits }), [fits]);
-  // Live while the divider is dragged; saved once on release.
-  const [dragRatio, setDragRatio] = useState<number | null>(null);
-  const ratio = fitRatio(dragRatio ?? storedRatio, width);
+  const ratio = fitRatio(storedRatio, width);
 
   const split = groups.length > 1 && fits && !zoomed;
   const shown = split ? groups : groups.filter((g) => g.id === focusedGroupId);
@@ -123,13 +121,7 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
   shown.forEach((group, index) => {
     if (index === 1) {
       items.push(
-        <SplitDivider
-          key="divider"
-          ratio={ratio}
-          containerRef={containerRef}
-          width={width}
-          onDrag={setDragRatio}
-        />,
+        <SplitDivider key="divider" ratio={ratio} containerRef={containerRef} width={width} />,
       );
     }
     items.push(
@@ -138,7 +130,6 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
         group={group}
         position={split ? (index === 0 ? "left" : "right") : "only"}
         focused={group.id === focusedGroupId}
-        ratio={ratio}
         renderGroup={renderGroup}
         acceptsDrop={split && source !== undefined && source.id !== group.id}
       />,
@@ -146,7 +137,12 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
   });
 
   return (
-    <div ref={containerRef} className="relative flex min-h-0 min-w-0 flex-1">
+    <div
+      ref={containerRef}
+      className="relative flex min-h-0 min-w-0 flex-1"
+      // SAFETY: `--group-share` only ever receives a clamped fraction as a percentage.
+      style={{ "--group-share": `${ratio * 100}%` } as CSSProperties}
+    >
       {items}
       {!split && groups.length === 1 && source && source.tabs.length > 1 && <NewGroupDropZone />}
     </div>
@@ -157,14 +153,12 @@ function GroupPane({
   group,
   position,
   focused,
-  ratio,
   renderGroup,
   acceptsDrop,
 }: {
   group: TabGroup;
   position: "only" | "left" | "right";
   focused: boolean;
-  ratio: number;
   renderGroup: (scope: TabGroupScope) => ReactNode;
   acceptsDrop: boolean;
 }) {
@@ -175,10 +169,11 @@ function GroupPane({
   );
   const split = position !== "only";
   const focus = () => useNavStore.getState().focusGroup(group.id);
-  const Landmark = split ? "section" : "div";
 
+  // Always a `div`: a different element type would remount the page when a split is zoomed.
   return (
-    <Landmark
+    <div
+      role={split ? "region" : undefined}
       aria-label={split ? (position === "left" ? "Left Group" : "Right Group") : undefined}
       data-tab-group={group.id}
       onPointerDownCapture={focus}
@@ -188,10 +183,6 @@ function GroupPane({
         // Half the divider's `w-3` comes off the left group's share.
         position === "left" ? "w-[calc(var(--group-share)-6px)] shrink-0" : "flex-1",
       )}
-      // SAFETY: `--group-share` only ever receives a clamped fraction as a percentage.
-      style={
-        position === "left" ? ({ "--group-share": `${ratio * 100}%` } as CSSProperties) : undefined
-      }
     >
       {split && (
         <TabBar
@@ -209,7 +200,7 @@ function GroupPane({
         <PaneBody scope={scope} highlighted={focused && split} renderGroup={renderGroup} />
       </TabGroupContext.Provider>
       {acceptsDrop && <GroupDropZone groupId={group.id} />}
-    </Landmark>
+    </div>
   );
 }
 
@@ -267,12 +258,10 @@ function SplitDivider({
   ratio,
   containerRef,
   width,
-  onDrag,
 }: {
   ratio: number;
   containerRef: RefObject<HTMLDivElement | null>;
   width: number | null;
-  onDrag: (ratio: number | null) => void;
 }) {
   const save = (next: number) => useNavStore.getState().setSplitRatio(fitRatio(next, width));
 
@@ -286,9 +275,11 @@ function SplitDivider({
     let latest = ratio;
     document.body.style.userSelect = "none";
     document.body.style.cursor = "col-resize";
+    // The pages are not redrawn while dragging: the groups read `--group-share` from the
+    // container, so moving the divider is one style write per move. The ratio is saved on release.
     const onMove = (move: PointerEvent) => {
       latest = fitRatio((move.clientX - box.left) / box.width, box.width);
-      onDrag(latest);
+      container.style.setProperty("--group-share", `${latest * 100}%`);
     };
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove);
@@ -297,7 +288,6 @@ function SplitDivider({
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
       save(latest);
-      onDrag(null);
     };
     handle.addEventListener("pointermove", onMove);
     handle.addEventListener("pointerup", onUp);

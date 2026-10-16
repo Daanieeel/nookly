@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.2 (2026-10-16)
+
+### Fixed
+
+- **Split view is faster.** Zooming a group with the shortcut is quicker and the page stays put instead of reloading, and dragging the divider between two groups is smooth.
+
 ## 0.37.1 (2026-10-16)
 
 ### Fixed

@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.37.2",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Zooming a split group is faster and no longer reloads the page, and dragging the divider between groups is smooth."
+        ]
+      }
+    },
+    {
       "version": "0.37.1",
       "date": "2026-10-16",
       "highlights": [],
