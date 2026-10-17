@@ -333,7 +333,6 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
     fields: filterFields,
     filters,
     onFiltersChange: setFilters,
-    clearAllIn: "button" as const,
     quickFilters: { favorites: quick.favorites, onToggle: quick.toggle },
   };
 

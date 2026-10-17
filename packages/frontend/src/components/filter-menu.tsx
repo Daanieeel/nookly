@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import { Fragment, useState } from "react";
 import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
+import { badgeVariants } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import {
   Command,
@@ -153,7 +154,6 @@ export function FilterMenu({
   part = "all",
   quickFilters,
   beforeButton,
-  clearAllIn = "chips",
 }: {
   fields: FilterField[];
   filters: ActiveFilter[];
@@ -163,12 +163,11 @@ export function FilterMenu({
   quickFilters?: { favorites: string[]; onToggle: (fieldId: string) => void };
   /// Shown right before the Filter button, e.g. the page's quick filters.
   beforeButton?: ReactNode;
-  /// Where "Clear all" goes: after the chips, or left of the Filter button.
-  clearAllIn?: "chips" | "button";
   /// Called when a popover closes, e.g. to hand focus back to a search input.
   onDone?: () => void;
-  /// Renders the Filter button and the chips together, or only one of them, so a
-  /// page can place them apart. Render each part once, with the same props.
+  /// Renders the Filter button and the chips together, the button's row above the chips, or
+  /// only one of them, so a page can place them apart. Render each part once, with the same
+  /// props. "Clear filters" always goes with the button.
   part?: "all" | "button" | "chips";
 }) {
   const showChips = part !== "button";
@@ -204,73 +203,104 @@ export function FilterMenu({
     <Button
       variant="linkMuted"
       size="sm"
-      className={cn(part === "chips" && "ml-auto")}
       onClick={() => {
         onFiltersChange([]);
         onDone?.();
       }}
     >
-      Clear all
+      Clear filters
     </Button>
   );
 
   if (part === "chips" && filters.length === 0) return null;
-  return (
+  const buttonRow = showButton && (
+    <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+      {beforeButton}
+      {clearAll}
+      {available.length > 0 && (
+        <AddFilterPopover
+          available={available}
+          quickFilters={quickFilters}
+          onAdd={addValue}
+          onDone={onDone}
+          toggleWithHotkey
+          align="end"
+          trigger={
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button variant="secondary" size="sm" className="gap-1.5">
+                    <IconFilter />
+                    Filter
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent className="flex items-center gap-2">
+                Filter
+                <ShortcutKbd name="filter" />
+              </TooltipContent>
+            </Tooltip>
+          }
+        />
+      )}
+    </div>
+  );
+
+  const chipRow = showChips && (
     <div className="flex flex-wrap items-center gap-1.5">
-      {showChips &&
-        filterGroups(filters).map((group, groupIndex) => {
-          const chips = group.flatMap((filter, i) => {
-            const target = fields.find((f) => f.id === filter.fieldId);
-            if (!target) return [];
-            return [
-              i > 0 && (
-                <JoinToggle
-                  key={`join-${filter.fieldId}`}
-                  join="or"
-                  onToggle={() => setJoin(filter, "and")}
-                />
-              ),
-              <FilterChip
-                key={filter.fieldId}
-                field={target}
-                filter={filter}
-                onChange={(next) =>
-                  onFiltersChange(
-                    next
-                      ? filters.map((f) => (f.fieldId === filter.fieldId ? next : f))
-                      : filters.filter((f) => f.fieldId !== filter.fieldId),
-                  )
+      {filterGroups(filters).map((group, groupIndex) => {
+        const chips = group.flatMap((filter, i) => {
+          const target = fields.find((f) => f.id === filter.fieldId);
+          if (!target) return [];
+          return [
+            i > 0 && (
+              <JoinToggle
+                key={`join-${filter.fieldId}`}
+                join="or"
+                onToggle={() => setJoin(filter, "and")}
+              />
+            ),
+            <FilterChip
+              key={filter.fieldId}
+              field={target}
+              filter={filter}
+              onChange={(next) =>
+                onFiltersChange(
+                  next
+                    ? filters.map((f) => (f.fieldId === filter.fieldId ? next : f))
+                    : filters.filter((f) => f.fieldId !== filter.fieldId),
+                )
+              }
+              onDone={onDone}
+              quick={
+                quickFilters && {
+                  favorite: quickFilters.favorites.includes(target.id),
+                  onToggle: () => quickFilters.onToggle(target.id),
                 }
-                onDone={onDone}
-                quick={
-                  quickFilters && {
-                    favorite: quickFilters.favorites.includes(target.id),
-                    onToggle: () => quickFilters.onToggle(target.id),
-                  }
-                }
-              />,
-            ];
-          });
-          const first = group[0];
-          return (
-            <Fragment key={first?.fieldId}>
-              {groupIndex > 0 && first && (
-                <JoinToggle join="and" onToggle={() => setJoin(first, "or")} />
-              )}
-              {group.length > 1 ? (
-                <div
-                  role="group"
-                  aria-label="Match any of these filters"
-                  className="flex items-center gap-1 rounded-lg border border-foreground/15 bg-foreground/5 p-0.5"
-                >
-                  {chips}
-                </div>
-              ) : (
-                chips
-              )}
-            </Fragment>
-          );
-        })}
+              }
+            />,
+          ];
+        });
+        const first = group[0];
+        return (
+          <Fragment key={first?.fieldId}>
+            {groupIndex > 0 && first && (
+              <JoinToggle join="and" onToggle={() => setJoin(first, "or")} />
+            )}
+            {group.length > 1 ? (
+              <div
+                role="group"
+                aria-label="Match any of these filters"
+                className="flex items-center gap-1 rounded-lg border border-foreground/15 bg-foreground/5 p-0.5"
+              >
+                {chips}
+              </div>
+            ) : (
+              chips
+            )}
+          </Fragment>
+        );
+      })}
       {showChips && filters.length > 0 && available.length > 0 && (
         <>
           <JoinToggle
@@ -298,43 +328,18 @@ export function FilterMenu({
           />
         </>
       )}
-      {/* Modal so its own scroll lock wins over the enclosing dialog's, which
-          otherwise swallows wheel events on this portaled list. */}
-      {showButton && (
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-          {beforeButton}
-          {clearAllIn === "button" && clearAll}
-          {available.length > 0 && (
-            <AddFilterPopover
-              available={available}
-              quickFilters={quickFilters}
-              onAdd={addValue}
-              onDone={onDone}
-              toggleWithHotkey
-              align="end"
-              trigger={
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <Button variant="secondary" size="sm" className="gap-1.5">
-                        <IconFilter />
-                        Filter
-                      </Button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent className="flex items-center gap-2">
-                    Filter
-                    <ShortcutKbd name="filter" />
-                  </TooltipContent>
-                </Tooltip>
-              }
-            />
-          )}
-        </div>
-      )}
-      {showChips && clearAllIn === "chips" && clearAll}
     </div>
   );
+
+  if (part === "all") {
+    return (
+      <div className="flex flex-col gap-1.5">
+        {buttonRow}
+        {filters.length > 0 && chipRow}
+      </div>
+    );
+  }
+  return buttonRow || chipRow;
 }
 
 /// A popover that lists the fields still free to filter by, then the chosen field's options,
@@ -614,7 +619,7 @@ export function FilterValuePopover({
 }
 
 /// The word between two chips: "and" while both must match, "or" once either will do.
-/// One click flips it, and the "or" is filled so a joined pair stands out.
+/// One click flips it, and the "or" is a neutral gray badge so a joined pair stands out.
 function JoinToggle({
   join,
   next,
@@ -638,7 +643,7 @@ function JoinToggle({
           className={cn(
             "flex h-5 cursor-pointer items-center rounded-full px-1.5 text-xs leading-none font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
             either
-              ? "bg-primary text-primary-foreground hover:bg-primary/85"
+              ? badgeVariants({ variant: "neutral", size: "md", className: "rounded-full" })
               : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
           )}
         >

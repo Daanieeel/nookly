@@ -202,7 +202,6 @@ export function NotesListView({
     fields: filterFields,
     filters,
     onFiltersChange: setFilters,
-    clearAllIn: "button" as const,
     quickFilters: { favorites: quick.favorites, onToggle: quick.toggle },
   };
 

@@ -163,4 +163,45 @@ describe("FilterMenu", () => {
       await expectNoA11yViolations();
     });
   });
+
+  describe("Clear filters", () => {
+    const ONE: ActiveFilter[] = [{ fieldId: "course", operator: "is", values: ["c1"] }];
+
+    it("is not offered without filters", () => {
+      renderMenu();
+      expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    });
+
+    it("clears every filter", async () => {
+      const { onFiltersChange, user } = renderMenu(ONE);
+      expect(screen.queryByRole("button", { name: "Clear all" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Clear filters" }));
+      expect(onFiltersChange).toHaveBeenCalledWith([]);
+    });
+
+    it("sits with the Filter button, in a row above the chips", () => {
+      const status = { id: "status", label: "Status", icon: IconSchool, options: [] };
+      renderMenu(ONE, [...FIELDS, status]);
+      const clear = screen.getByRole("button", { name: "Clear filters" });
+      const filter = screen.getByRole("button", { name: "Filter" });
+      const chip = screen.getByRole("button", { name: "Course: Algorithms" });
+      expect(filter.parentElement).toContainElement(clear);
+      expect(clear.parentElement).not.toContainElement(chip);
+      expect(clear.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("goes with the Filter button when the page places the chips apart", () => {
+      const props = { fields: FIELDS, filters: ONE, onFiltersChange: vi.fn() };
+      const { container } = render(
+        <TooltipProvider>
+          <FilterMenu {...props} part="button" />
+          <p>between</p>
+          <FilterMenu {...props} part="chips" />
+        </TooltipProvider>,
+      );
+      const clear = screen.getByRole("button", { name: "Clear filters" });
+      expect(container.firstElementChild).toContainElement(clear);
+      expect(screen.getByText("between").nextElementSibling).not.toContainElement(clear);
+    });
+  });
 });

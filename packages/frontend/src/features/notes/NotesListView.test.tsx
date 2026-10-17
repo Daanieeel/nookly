@@ -50,11 +50,11 @@ describe("quick filters on the Notes page", () => {
     expect(screen.queryByText("Groceries")).toBeNull();
   });
 
-  it("keeps the applied filters on a row of their own, with Clear all left of the Filter button", async () => {
+  it("keeps the applied filters on a row of their own, with Clear filters left of the Filter button", async () => {
     renderWithProviders(<NotesListView spaceId="space-1" filterCourseId="c1" />);
     await screen.findByText("Sorting lecture");
     const filter = screen.getByRole("button", { name: "Filter" });
-    const clear = screen.getByRole("button", { name: "Clear all" });
+    const clear = screen.getByRole("button", { name: "Clear filters" });
     const chips = screen.getByRole("button", { name: "Remove Filter" }).closest("div.flex-wrap");
     expect(chips).not.toContainElement(filter);
     expect(chips).not.toContainElement(clear);

@@ -5,13 +5,15 @@
       "date": "2026-10-17",
       "highlights": [
         {
-          "title": "Match either filter",
-          "description": "Click **and** between two filter chips to switch it to **or**, and the list shows items that fit either one. Saved Views remember it.",
+          "title": "Filter with OR",
+          "description": "Show items that match either filter. Click **and** between two filters to switch it to **or**.",
           "icon": "filter",
           "tag": "New"
         }
       ],
-      "more": {}
+      "more": {
+        "Improved": ["Clear filters always sits next to the Filter button, above your filters."]
+      }
     },
     {
       "version": "0.37.6",
