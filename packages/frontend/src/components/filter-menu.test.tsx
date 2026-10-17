@@ -92,9 +92,47 @@ describe("FilterMenu", () => {
       },
     ];
 
-    it("shows no connector for a single chip", () => {
+    it("shows no connector between chips for a single chip", () => {
       renderMenu([TWO[0]!], FIELDS_TWO);
-      expect(screen.queryByRole("button", { name: /Match/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Match/ })).not.toBeInTheDocument();
+    });
+
+    it("shows no placeholder while nothing is filtered", () => {
+      renderMenu([], FIELDS_TWO);
+      expect(screen.queryByRole("button", { name: "Add filter" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Next filter/ })).not.toBeInTheDocument();
+    });
+
+    it("always ends the chips with an and and a dotted placeholder that adds a filter", async () => {
+      const { onFiltersChange, user } = renderMenu([TWO[0]!], FIELDS_TWO);
+      expect(
+        screen.getByRole("button", { name: "Next filter: match both. Switch to match either" }),
+      ).toHaveTextContent("and");
+      const placeholder = screen.getByRole("button", { name: "Add filter" });
+      expect(placeholder.className).toContain("border-dotted");
+      await user.click(placeholder);
+      await user.click(screen.getByRole("option", { name: "Status" }));
+      await user.click(screen.getByRole("option", { name: "To do" }));
+      expect(onFiltersChange).toHaveBeenCalledWith(TWO);
+    });
+
+    it("adds the next filter joined with or once the trailing and is switched", async () => {
+      const { onFiltersChange, user } = renderMenu([TWO[0]!], FIELDS_TWO);
+      await user.click(
+        screen.getByRole("button", { name: "Next filter: match both. Switch to match either" }),
+      );
+      expect(
+        screen.getByRole("button", { name: "Next filter: match either. Switch to match both" }),
+      ).toHaveTextContent("or");
+      await user.click(screen.getByRole("button", { name: "Add filter" }));
+      await user.click(screen.getByRole("option", { name: "Status" }));
+      await user.click(screen.getByRole("option", { name: "To do" }));
+      expect(onFiltersChange).toHaveBeenCalledWith([TWO[0], { ...TWO[1], join: "or" }]);
+    });
+
+    it("hides the placeholder once every field is filtered", () => {
+      renderMenu(TWO, FIELDS_TWO);
+      expect(screen.queryByRole("button", { name: "Add filter" })).not.toBeInTheDocument();
     });
 
     it("offers an and connector between two chips, which switches the second to or", async () => {

@@ -6,7 +6,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- **Match either filter with "or".** Between two filter chips, click **and** to switch it to **or**, and an item shows when it fits either one. Chips joined with **or** sit together in a highlighted box, and click **or** to switch back. Saved Views remember it too.
+- **Match either filter with "or".** Between two filter chips, click **and** to switch it to **or**, and an item shows when it fits either one. Chips joined with **or** sit together in a box, and click **or** to switch back. A dotted **Add filter** placeholder after your filters is always there, with its own **and** or **or** in front, so the option is easy to spot. Saved Views remember it too.
 
 ## 0.37.6 (2026-10-17)
 
