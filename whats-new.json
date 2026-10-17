@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.38.0",
+      "date": "2026-10-17",
+      "highlights": [
+        {
+          "title": "Match either filter",
+          "description": "Click **and** between two filter chips to switch it to **or**, and the list shows items that fit either one. Saved Views remember it.",
+          "icon": "filter",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.37.6",
       "date": "2026-10-17",
       "highlights": [],

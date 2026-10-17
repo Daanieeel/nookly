@@ -357,6 +357,9 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
                 f.get("operator").unwrap_or(&serde_json::Value::Null),
                 &["is", "isNot"],
             )?;
+            if let Some(join) = f.get("join") {
+                one_of("filter join", join, &["and", "or"])?;
+            }
             let values = string_list(
                 "filter values",
                 f.get("values").unwrap_or(&serde_json::Value::Null),
@@ -430,7 +433,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
     },
     FieldDef {
         name: "position",
@@ -652,6 +655,11 @@ mod tests {
         assert!(validate_config("tasks", good).is_ok());
         assert!(validate_config("tasks", "{}").is_ok());
         assert!(validate_config(
+            "tasks",
+            r#"{"filters":[{"fieldId":"due","operator":"is","values":["overdue"]},{"fieldId":"start","operator":"is","values":["today"],"join":"or"}]}"#
+        )
+        .is_ok());
+        assert!(validate_config(
             "tasks-overview",
             r#"{"filters":[{"fieldId":"space","operator":"is","values":["any-space-id"]}],"display":{"grouping":"space"}}"#
         )
@@ -683,6 +691,10 @@ mod tests {
             (
                 "tasks",
                 r#"{"filters":[{"fieldId":"due","operator":"is","values":[]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"is","values":["today"],"join":"xor"}]}"#,
             ),
             ("tasks", r#"{"display":{"grouping":"course"}}"#),
             ("tasks", r#"{"display":{"ordering":"grade"}}"#),

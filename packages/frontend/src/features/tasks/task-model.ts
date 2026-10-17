@@ -10,7 +10,7 @@ import {
   IconTag,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import type { ActiveFilter } from "#/components/filter-menu.tsx";
+import { type ActiveFilter, matchesFilters } from "#/components/filter-menu.tsx";
 import type { Label, Task, TaskStatus } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
@@ -359,7 +359,7 @@ export function filterValues(task: Task, fieldId: string): string[] {
 
 /// "is" keeps a task matching any chosen value, "is not" one matching none of them.
 export function passesFilters(task: Task, filters: ActiveFilter[]): boolean {
-  return filters.every((f) => {
+  return matchesFilters(filters, (f) => {
     const hit = filterValues(task, f.fieldId).some((v) => f.values.includes(v));
     return f.operator === "is" ? hit : !hit;
   });

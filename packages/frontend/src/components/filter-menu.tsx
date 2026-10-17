@@ -8,7 +8,7 @@ import {
   IconX,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -84,13 +84,38 @@ export interface FilterField {
 
 export type FilterOperator = "is" | "isNot";
 
+export type FilterJoin = "and" | "or";
+
 export interface ActiveFilter {
   fieldId: string;
   operator: FilterOperator;
   values: string[];
+  /// How the chip connects to the one before it: `"or"` lets an item pass on either of the
+  /// two, `"and"` (or none) needs both. Ignored on the first chip.
+  join?: FilterJoin;
 }
 
-/// Keeps items passing every filter. `valueOf` reads the item's value(s) for a
+/// The filters as groups of chips joined with "or". An item must pass every group, and
+/// one chip of a group is enough: `A, B or C, D` reads `A and (B or C) and D`.
+export function filterGroups(filters: ActiveFilter[]): ActiveFilter[][] {
+  const groups: ActiveFilter[][] = [];
+  for (const filter of filters) {
+    const last = groups.at(-1);
+    if (last && filter.join === "or") last.push(filter);
+    else groups.push([filter]);
+  }
+  return groups;
+}
+
+/// Whether an item passes the filters, `passes` saying whether it passes one of them.
+export function matchesFilters(
+  filters: ActiveFilter[],
+  passes: (filter: ActiveFilter) => boolean,
+): boolean {
+  return filterGroups(filters).every((group) => group.some(passes));
+}
+
+/// Keeps items passing the filters. `valueOf` reads the item's value(s) for a
 /// field — an array for a field an item can carry several of at once (e.g. Labels).
 export function applyFilters<T>(
   items: T[],
@@ -98,7 +123,7 @@ export function applyFilters<T>(
   valueOf: (item: T, fieldId: string) => string | string[],
 ): T[] {
   return items.filter((item) =>
-    filters.every((f) => {
+    matchesFilters(filters, (f) => {
       const value = valueOf(item, f.fieldId);
       const matches = Array.isArray(value)
         ? value.some((v) => f.values.includes(v))
@@ -168,6 +193,11 @@ export function FilterMenu({
     .filter((f) => !filters.some((a) => a.fieldId === f.id))
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 
+  function setJoin(target: ActiveFilter, join: FilterJoin) {
+    onFiltersChange(filters.map((f) => (f.fieldId === target.fieldId ? { ...f, join } : f)));
+    onDone?.();
+  }
+
   function addValue(target: FilterField, value: string) {
     onFiltersChange([...filters, { fieldId: target.id, operator: "is", values: [value] }]);
     onOpenChange(false);
@@ -191,29 +221,57 @@ export function FilterMenu({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {showChips &&
-        filters.map((filter) => {
-          const target = fields.find((f) => f.id === filter.fieldId);
-          if (!target) return null;
-          return (
-            <FilterChip
-              key={filter.fieldId}
-              field={target}
-              filter={filter}
-              onChange={(next) =>
-                onFiltersChange(
-                  next
-                    ? filters.map((f) => (f.fieldId === filter.fieldId ? next : f))
-                    : filters.filter((f) => f.fieldId !== filter.fieldId),
-                )
-              }
-              onDone={onDone}
-              quick={
-                quickFilters && {
-                  favorite: quickFilters.favorites.includes(target.id),
-                  onToggle: () => quickFilters.onToggle(target.id),
+        filterGroups(filters).map((group, groupIndex) => {
+          const chips = group.flatMap((filter, i) => {
+            const target = fields.find((f) => f.id === filter.fieldId);
+            if (!target) return [];
+            return [
+              i > 0 && (
+                <JoinToggle
+                  key={`join-${filter.fieldId}`}
+                  join="or"
+                  onToggle={() => setJoin(filter, "and")}
+                />
+              ),
+              <FilterChip
+                key={filter.fieldId}
+                field={target}
+                filter={filter}
+                onChange={(next) =>
+                  onFiltersChange(
+                    next
+                      ? filters.map((f) => (f.fieldId === filter.fieldId ? next : f))
+                      : filters.filter((f) => f.fieldId !== filter.fieldId),
+                  )
                 }
-              }
-            />
+                onDone={onDone}
+                quick={
+                  quickFilters && {
+                    favorite: quickFilters.favorites.includes(target.id),
+                    onToggle: () => quickFilters.onToggle(target.id),
+                  }
+                }
+              />,
+            ];
+          });
+          const first = group[0];
+          return (
+            <Fragment key={first?.fieldId}>
+              {groupIndex > 0 && first && (
+                <JoinToggle join="and" onToggle={() => setJoin(first, "or")} />
+              )}
+              {group.length > 1 ? (
+                <div
+                  role="group"
+                  aria-label="Match any of these filters"
+                  className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/5 p-0.5"
+                >
+                  {chips}
+                </div>
+              ) : (
+                chips
+              )}
+            </Fragment>
           );
         })}
       {/* Modal so its own scroll lock wins over the enclosing dialog's, which
@@ -473,6 +531,38 @@ export function FilterValuePopover({
     >
       <FilterValueList field={field} filter={filter} onChange={onChange} />
     </PopoverContent>
+  );
+}
+
+/// The word between two chips: "and" while both must match, "or" once either will do.
+/// One click flips it, and the "or" is filled so a joined pair stands out.
+function JoinToggle({ join, onToggle }: { join: FilterJoin; onToggle: () => void }) {
+  const either = join === "or";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={
+            either ? "Match either. Switch to match both" : "Match both. Switch to match either"
+          }
+          onClick={onToggle}
+          className={cn(
+            "flex h-5 cursor-pointer items-center rounded-full px-1.5 text-xs leading-none font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            either
+              ? "bg-primary text-primary-foreground hover:bg-primary/85"
+              : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
+          )}
+        >
+          {either ? "or" : "and"}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {either
+          ? "Matches either filter. Click to need both."
+          : "Needs both filters. Click to match either."}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

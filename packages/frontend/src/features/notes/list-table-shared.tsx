@@ -4,7 +4,7 @@ import type { ColumnDef, SortingState, Table as TanstackTable } from "@tanstack/
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { DataTable, type DataTableGroup } from "#/components/data-table/data-table.tsx";
 import { DataTableColumnHeader } from "#/components/data-table/data-table-column-header.tsx";
-import type { ActiveFilter, FilterField } from "#/components/filter-menu.tsx";
+import { type ActiveFilter, type FilterField, matchesFilters } from "#/components/filter-menu.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { Input } from "@nookly/ui/components/input";
 import type { Label, PageSummary } from "#/lib/api/types.ts";
@@ -55,7 +55,7 @@ export function passesRowFilters<T>(
   filters: ActiveFilter[],
   has: (row: T, fieldId: string, value: string) => boolean,
 ): boolean {
-  return filters.every((f) => {
+  return matchesFilters(filters, (f) => {
     const hit = f.values.some((v) => has(row, f.fieldId, v));
     return f.operator === "is" ? hit : !hit;
   });

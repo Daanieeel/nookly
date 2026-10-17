@@ -140,7 +140,7 @@ const PRESETS: Preset[] = [
 
 function filterKey(filters: ActiveFilter[]): string {
   return filters
-    .map((f) => `${f.fieldId}:${f.operator}:${[...f.values].sort().join(",")}`)
+    .map((f) => `${f.fieldId}:${f.operator}:${f.join ?? "and"}:${[...f.values].sort().join(",")}`)
     .sort()
     .join("|");
 }

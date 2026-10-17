@@ -365,3 +365,13 @@ Up to two tab groups sit side by side. The nav store keeps the focused group's t
 - **Narrow windows show one group.** Below twice the 360px minimum, only the focused group shows, with a button to switch.
 
 **Rejected:** more than two groups or vertical splits (more layout to manage than a personal tool needs), a store rewritten around a list of groups with derived live fields (touches every navigation call for no behavior gain), sharing one editor document between groups (a large editor refactor), and blocking the same page from opening twice (VS Code allows it and it is useful for long pages).
+
+---
+
+### Filter chips join with AND, or with OR between neighbours
+
+A filter chip carries an optional `join` (`"and"` or `"or"`) saying how it connects to the chip before it. Chips linked by `or` form a group, and an item must pass every group and one chip of each: `A, B or C, D` reads `A and (B or C) and D`. One `matchesFilters` in `filter-menu.tsx` evaluates every list, so a page uses it instead of `every`. No `join` means `and`, so saved Views and remembered filters from before need no migration.
+
+**Why:** the common case stays a plain row of chips, and the one extra control is the word between two chips, which flips on a click.
+
+**Rejected:** nested groups and an AND/OR builder (heavy for a chip row), and an OR that binds looser than AND (`A and B or C` is easy to misread without brackets).

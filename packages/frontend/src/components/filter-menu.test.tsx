@@ -76,4 +76,53 @@ describe("FilterMenu", () => {
       "Updated",
     ]);
   });
+
+  describe("joining chips with or", () => {
+    const TWO: ActiveFilter[] = [
+      { fieldId: "course", operator: "is", values: ["c1"] },
+      { fieldId: "status", operator: "is", values: ["todo"] },
+    ];
+    const FIELDS_TWO = [
+      ...FIELDS,
+      {
+        id: "status",
+        label: "Status",
+        icon: IconSchool,
+        options: [{ value: "todo", label: "To do" }],
+      },
+    ];
+
+    it("shows no connector for a single chip", () => {
+      renderMenu([TWO[0]!], FIELDS_TWO);
+      expect(screen.queryByRole("button", { name: /Match/ })).not.toBeInTheDocument();
+    });
+
+    it("offers an and connector between two chips, which switches the second to or", async () => {
+      const { onFiltersChange, user } = renderMenu(TWO, FIELDS_TWO);
+      const connector = screen.getByRole("button", { name: "Match both. Switch to match either" });
+      expect(connector).toHaveTextContent("and");
+      await user.click(connector);
+      expect(onFiltersChange).toHaveBeenCalledWith([TWO[0], { ...TWO[1], join: "or" }]);
+    });
+
+    it("shows an or connector that switches back to and", async () => {
+      const joined: ActiveFilter[] = [TWO[0]!, { ...TWO[1]!, join: "or" }];
+      const { onFiltersChange, user } = renderMenu(joined, FIELDS_TWO);
+      const connector = screen.getByRole("button", { name: "Match either. Switch to match both" });
+      expect(connector).toHaveTextContent("or");
+      expect(screen.getByRole("group", { name: "Match any of these filters" })).toBeInTheDocument();
+      await user.click(connector);
+      expect(onFiltersChange).toHaveBeenCalledWith([TWO[0], { ...TWO[1], join: "and" }]);
+    });
+
+    it("keeps unjoined chips outside a group", () => {
+      renderMenu(TWO, FIELDS_TWO);
+      expect(screen.queryByRole("group", { name: /Match any/ })).not.toBeInTheDocument();
+    });
+
+    it("has no a11y violations", async () => {
+      renderMenu([TWO[0]!, { ...TWO[1]!, join: "or" }], FIELDS_TWO);
+      await expectNoA11yViolations();
+    });
+  });
 });

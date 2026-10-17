@@ -19,7 +19,12 @@ import { contextTarget, entityTarget } from "#/components/context-menu/registry.
 import { EmptyState } from "#/components/empty-state.tsx";
 import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
-import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  matchesFilters,
+} from "#/components/filter-menu.tsx";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -59,7 +64,7 @@ function looksLikeUrl(text: string): boolean {
 /// "Labels is any of" matches a bookmark carrying any chosen label, "is not" one
 /// carrying none of them.
 function passesFilters(bookmark: Bookmark, filters: ActiveFilter[]): boolean {
-  return filters.every((f) => {
+  return matchesFilters(filters, (f) => {
     const hit =
       f.fieldId === "labels"
         ? bookmark.labelIds.some((id) => f.values.includes(id))
