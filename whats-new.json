@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.37.6",
+      "date": "2026-10-17",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Assignments can be filtered by when they were evaluated.",
+          "The Completed filter for Tasks is now called Completed at.",
+          "Every Filter menu lists its filters alphabetically."
+        ]
+      }
+    },
+    {
       "version": "0.37.5",
       "date": "2026-10-16",
       "highlights": [],

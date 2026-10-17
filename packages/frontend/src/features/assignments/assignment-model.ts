@@ -137,6 +137,12 @@ export function createdBucket(a: Assignment, now = new Date()): string {
   return ageBucket(a.entity.createdAt, now);
 }
 
+/// Evaluated at filter: when the assignment was evaluated, or not at all.
+export const EVALUATED_BUCKETS: { id: string; label: string }[] = [
+  ...AGE_BUCKETS,
+  { id: "none", label: "Not evaluated" },
+];
+
 export const GRADE_FILTER: { id: string; label: string }[] = [
   { id: "graded", label: "Has a grade" },
   { id: "none", label: "No grade" },

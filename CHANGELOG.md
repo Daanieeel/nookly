@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.37.6 (2026-10-17)
+
+### Added
+
+- **Filter assignments by when they were evaluated.** The new Evaluated at filter works like Completed at does for Tasks.
+
+### Changed
+
+- **Tasks' Completed filter is now called Completed at.**
+- **Filters are listed alphabetically.** Every Filter menu now lists its filters in alphabetical order.
+
 ## 0.37.5 (2026-10-16)
 
 ### Fixed

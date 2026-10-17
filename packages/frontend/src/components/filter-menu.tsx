@@ -163,7 +163,10 @@ export function FilterMenu({
   }
 
   // Fields that already have a chip are edited through that chip, not re-added.
-  const available = fields.filter((f) => !filters.some((a) => a.fieldId === f.id));
+  // Listed alphabetically, whatever order the page gives its fields in.
+  const available = fields
+    .filter((f) => !filters.some((a) => a.fieldId === f.id))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 
   function addValue(target: FilterField, value: string) {
     onFiltersChange([...filters, { fieldId: target.id, operator: "is", values: [value] }]);

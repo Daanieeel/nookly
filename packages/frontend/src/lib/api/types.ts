@@ -470,6 +470,8 @@ export interface Assignment {
   grade: number | null;
   /// Not graded at all, like homework: no grade, and no share of the course's grade.
   ungraded: boolean;
+  /// Read only. When the status last changed to evaluated; null while it is not.
+  evaluatedAt: string | null;
 }
 
 export interface FileEntity {

@@ -35,6 +35,9 @@ pub struct Assignment {
     /// Not graded at all, like homework: it takes no share of the course's grade. A grade
     /// it already has is kept for when it is graded again.
     pub ungraded: bool,
+    /// When the status last moved into evaluated; `None` while it is not evaluated.
+    /// Read only: only a status change touches it.
+    pub evaluated_at: Option<String>,
 }
 
 fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
@@ -47,6 +50,7 @@ fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
         status: row.get("status")?,
         grade: row.get("grade")?,
         ungraded: row.get("ungraded")?,
+        evaluated_at: row.get("evaluated_at")?,
     })
 }
 
@@ -81,6 +85,7 @@ pub fn create_assignment(
             status: "not_started".into(),
             grade: None,
             ungraded: false,
+            evaluated_at: None,
         })
     })
 }
@@ -110,7 +115,7 @@ pub fn create_assignment_due_before_session(
 
 pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -121,7 +126,7 @@ pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assi
 /// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
 pub fn list_assignments_all_spaces(conn: &Connection) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -136,9 +141,17 @@ pub fn update_assignment_status(
     grade: Option<f64>,
 ) -> AppResult<()> {
     crate::db::require_one_of("status", &status, ASSIGNMENT_STATUSES)?;
+    // The stamp is kept while it stays evaluated and cleared when it is reopened.
     let affected = conn.execute(
-        "UPDATE assignments SET status = ?1, grade = ?2 WHERE entity_id = ?3",
-        params![status, grade, entity_id],
+        "UPDATE assignments SET
+            evaluated_at = CASE
+                WHEN ?1 <> 'evaluated' THEN NULL
+                WHEN status = 'evaluated' AND evaluated_at IS NOT NULL THEN evaluated_at
+                ELSE ?4 END,
+            status = ?1,
+            grade = ?2
+         WHERE entity_id = ?3",
+        params![status, grade, entity_id, crate::db::now()],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
     Ok(())
@@ -415,7 +428,7 @@ pub fn set_assignment_course(
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
     let mut assignment = conn
         .query_row(
-            "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded FROM entities e
+            "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
          JOIN assignments a ON a.entity_id = e.id WHERE e.id = ?1",
             params![entity_id],
             row_to_assignment,
@@ -477,6 +490,13 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         required_on_create: false,
         writable_on_update: true,
         description: "Grade received.",
+    },
+    FieldDef {
+        name: "evaluatedAt",
+        kind: FieldKind::DateTime,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "Read only. When the status last changed to evaluated; empty while it is not evaluated.",
     },
     FieldDef {
         name: "ungraded",

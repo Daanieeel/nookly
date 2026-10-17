@@ -857,3 +857,50 @@ fn the_cli_sets_and_reads_ungraded() {
     let updated = (def.update)(&conn, id, &fields).unwrap();
     assert_eq!(updated["ungraded"], false);
 }
+
+#[test]
+fn evaluated_at_follows_the_status_only() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
+    let id = &a.entity.id;
+    assert!(a.evaluated_at.is_none());
+
+    update_assignment_status(&conn, id, "evaluated".into(), Some(1.0)).unwrap();
+    let first = get_assignment(&conn, id).unwrap().evaluated_at.unwrap();
+
+    // Saving the same status again and unrelated edits keep the stamp.
+    update_assignment_status(&conn, id, "evaluated".into(), Some(2.0)).unwrap();
+    update_assignment_weight(&conn, id, Some(0.5)).unwrap();
+    update_assignment_ungraded(&conn, id, true).unwrap();
+    assert_eq!(
+        get_assignment(&conn, id).unwrap().evaluated_at.unwrap(),
+        first
+    );
+
+    update_assignment_status(&conn, id, "submitted".into(), Some(2.0)).unwrap();
+    assert!(get_assignment(&conn, id).unwrap().evaluated_at.is_none());
+}
+
+#[test]
+fn evaluated_at_is_read_only_through_the_cli() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), None).unwrap();
+    let stamp = get_assignment(&conn, &a.entity.id)
+        .unwrap()
+        .evaluated_at
+        .unwrap();
+
+    let schema = crate::db::schema::lookup("assignment").unwrap();
+    let field = schema
+        .fields
+        .iter()
+        .find(|f| f.name == "evaluatedAt")
+        .unwrap();
+    assert!(!field.writable_on_update);
+
+    let json = serde_json::to_value(get_assignment(&conn, &a.entity.id).unwrap()).unwrap();
+    assert_eq!(json["evaluatedAt"], stamp);
+}

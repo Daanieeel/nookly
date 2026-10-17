@@ -18,11 +18,11 @@ const FIELDS = [
   },
 ];
 
-function renderMenu(filters: ActiveFilter[] = []) {
+function renderMenu(filters: ActiveFilter[] = [], fields = FIELDS) {
   const onFiltersChange = vi.fn<(filters: ActiveFilter[]) => void>();
   render(
     <TooltipProvider>
-      <FilterMenu fields={FIELDS} filters={filters} onFiltersChange={onFiltersChange} />
+      <FilterMenu fields={fields} filters={filters} onFiltersChange={onFiltersChange} />
     </TooltipProvider>,
   );
   return { onFiltersChange, user: userEvent.setup() };
@@ -60,5 +60,20 @@ describe("FilterMenu", () => {
     const option = screen.getByRole("option", { name: /Databases/ });
     expect(within(option).getByText("CRS-7")).toBeInTheDocument();
     await expectNoA11yViolations();
+  });
+
+  it("lists the fields alphabetically, whatever order the page gives them", async () => {
+    const field = (id: string, label: string) => ({ id, label, icon: IconSchool, options: [] });
+    const { user } = renderMenu(
+      [],
+      [field("u", "Updated"), field("c", "Course"), field("s", "Status"), field("d", "due date")],
+    );
+    await user.click(screen.getByRole("button", { name: /Filter/ }));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Course",
+      "due date",
+      "Status",
+      "Updated",
+    ]);
   });
 });

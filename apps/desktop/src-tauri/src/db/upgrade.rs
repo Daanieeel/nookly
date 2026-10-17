@@ -60,6 +60,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (43, &[("assignments", "ungraded")]),
     // The `graded` status is renamed `evaluated`, in the rows and in saved Views.
     (44, &[("assignments", "status"), ("views", "config")]),
+    // A new column; nothing existing changes.
+    (45, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

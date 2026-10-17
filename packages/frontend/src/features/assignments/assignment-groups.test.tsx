@@ -104,8 +104,33 @@ describe("assignment filters", () => {
       "due",
       "session",
       "grade",
+      "evaluated",
       "created",
       "updated",
+    ]);
+  });
+
+  it("filters on when an assignment was evaluated", () => {
+    freezeTime("2026-03-11T10:00:00");
+    const today = makeAssignment(
+      { status: "evaluated", evaluatedAt: "2026-03-11T08:00:00" },
+      { id: "e" },
+    );
+    const old = makeAssignment(
+      { status: "evaluated", evaluatedAt: "2026-01-02T08:00:00" },
+      { id: "e2" },
+    );
+    expect(assignmentFilterValue(today, "evaluated", courseOf)).toBe("today");
+    expect(assignmentFilterValue(old, "evaluated", courseOf)).toBe("earlier");
+    expect(assignmentFilterValue(open, "evaluated", courseOf)).toBe("none");
+    const field = assignmentFilterFields([]).find((f) => f.id === "evaluated");
+    expect(field?.label).toBe("Evaluated at");
+    expect(field?.options.map((o) => o.label)).toEqual([
+      "Today",
+      "This week",
+      "Last week",
+      "Earlier",
+      "Not evaluated",
     ]);
   });
 

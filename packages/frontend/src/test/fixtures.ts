@@ -112,6 +112,7 @@ export function makeAssignment(
     status: "not_started",
     grade: null,
     ungraded: false,
+    evaluatedAt: null,
     ...patch,
   };
 }

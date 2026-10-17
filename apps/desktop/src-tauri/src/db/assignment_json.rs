@@ -141,8 +141,10 @@ pub fn import_assignment_json(
         )?;
         let id = &created.entity.id;
         conn.execute(
-            "UPDATE assignments SET status = ?1, grade = ?2 WHERE entity_id = ?3",
-            params![file.status, file.grade, id],
+            "UPDATE assignments SET status = ?1, grade = ?2,
+                evaluated_at = CASE WHEN ?1 = 'evaluated' THEN ?4 END
+             WHERE entity_id = ?3",
+            params![file.status, file.grade, id, crate::db::now()],
         )?;
         assignments::update_assignment_weight(conn, id, file.weight)?;
         if file.ungraded {

@@ -768,6 +768,16 @@ fn all() -> Vec<M<'static>> {
                         AND json_type(config, '$.display.hiddenColumns') = 'array'
                    ELSE 0 END;
         ",
+    ), M::up(
+        "
+        -- When an assignment was evaluated, for filtering like a Task's `completed_at`.
+        -- Assignments already evaluated get their last edit time as the best known stand
+        -- in; every other assignment starts empty.
+        ALTER TABLE assignments ADD COLUMN evaluated_at TEXT;
+        UPDATE assignments
+        SET evaluated_at = (SELECT updated_at FROM entities WHERE entities.id = assignments.entity_id)
+        WHERE status = 'evaluated';
+        ",
     )]
 }
 
@@ -1527,6 +1537,7 @@ mod history {
         0x41a5c8877cdedd90,
         0x24962686d752025c,
         0x1997bcb69ec851a0,
+        0x6e30f1a43205502b,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {
