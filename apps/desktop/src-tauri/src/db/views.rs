@@ -224,7 +224,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
             (
-                "completed",
+                "completedAt",
                 Some(&["today", "week", "last", "earlier", "none"]),
             ),
             ("effort", None),
@@ -250,7 +250,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ),
             ("grade", Some(&["graded", "none", "ungraded"])),
             (
-                "evaluated",
+                "evaluatedAt",
                 Some(&["today", "week", "last", "earlier", "none"]),
             ),
             ("created", Some(AGE_VALUES)),
@@ -278,7 +278,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ),
             ("grade", Some(&["graded", "none", "ungraded"])),
             (
-                "evaluated",
+                "evaluatedAt",
                 Some(&["today", "week", "last", "earlier", "none"]),
             ),
             ("created", Some(AGE_VALUES)),
@@ -430,7 +430,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluated (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
     },
     FieldDef {
         name: "position",
@@ -697,5 +697,56 @@ mod tests {
                 "{module} {config}"
             );
         }
+    }
+
+    #[test]
+    fn migration_46_renames_the_completed_and_evaluated_filter_fields_in_saved_views() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migration_upgrade_tests::migrate_to(&mut conn, 45);
+        // The Views stand alone here, without the entities they belong to.
+        conn.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
+        let config = |fields: &[&str]| {
+            let filters: Vec<_> = fields
+                .iter()
+                .map(|f| format!(r#"{{"fieldId":"{f}","operator":"is","values":["today"]}}"#))
+                .collect();
+            format!(
+                r#"{{"filters":[{}],"display":{{"grouping":"none"}}}}"#,
+                filters.join(",")
+            )
+        };
+        let rows = [
+            ("tasks", config(&["status", "completed"])),
+            ("tasks-overview", config(&["completed"])),
+            ("assignments", config(&["evaluated", "grade"])),
+            ("assignments-overview", config(&["evaluated"])),
+            // A config that is not JSON, or has no filters, is left as it is.
+            ("tasks", "nope".to_string()),
+            ("tasks", r#"{"display":{}}"#.to_string()),
+        ];
+        for (n, (module, config)) in rows.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO views (entity_id, module, config) VALUES (?1, ?2, ?3)",
+                params![format!("v{n}"), module, config],
+            )
+            .unwrap();
+        }
+
+        crate::db::migration_upgrade_tests::migrate_to(&mut conn, 46);
+
+        let read = |n: usize| -> String {
+            conn.query_row(
+                "SELECT config FROM views WHERE entity_id = ?1",
+                params![format!("v{n}")],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(read(0), config(&["status", "completedAt"]));
+        assert_eq!(read(1), config(&["completedAt"]));
+        assert_eq!(read(2), config(&["evaluatedAt", "grade"]));
+        assert_eq!(read(3), config(&["evaluatedAt"]));
+        assert_eq!(read(4), "nope");
+        assert_eq!(read(5), r#"{"display":{}}"#);
     }
 }

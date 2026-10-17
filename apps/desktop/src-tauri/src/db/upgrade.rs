@@ -62,6 +62,9 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (44, &[("assignments", "status"), ("views", "config")]),
     // A new column; nothing existing changes.
     (45, &[]),
+    // The `completed` and `evaluated` filter fields become `completedAt` and `evaluatedAt`
+    // in saved Views.
+    (46, &[("views", "config")]),
 ];
 
 /// Tables a migration renamed, old name first.

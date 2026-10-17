@@ -258,4 +258,49 @@ describe("preferences", () => {
       expect(preferences.get("nookly:assignments-filters:space-1")).toBe("nope");
     });
   });
+
+  describe("filter field renames", () => {
+    async function load(entries: [string, string][]) {
+      mockCommand("plugin:store|load", 7);
+      mockCommand("plugin:store|entries", [["nookly:file-viewer-theme-backfill", "1"], ...entries]);
+      mockCommand("plugin:store|set", null);
+      const { initPreferences, preferences } = await freshPreferences();
+      await initPreferences();
+      return preferences;
+    }
+
+    const filters = (...fieldIds: string[]) =>
+      JSON.stringify(fieldIds.map((fieldId) => ({ fieldId, operator: "is", values: ["today"] })));
+
+    it("renames the completed filter of the Tasks pages and the evaluated one of the Assignments pages", async () => {
+      const preferences = await load([
+        ["nookly:tasks-filters:space-1", filters("status", "completed")],
+        ["nookly:tasks-overview-filters", filters("completed")],
+        ["nookly:assignments-filters:space-1", filters("evaluated", "grade")],
+        ["nookly:assignments-overview-filters", filters("evaluated")],
+      ]);
+      expect(preferences.get("nookly:tasks-filters:space-1")).toBe(
+        filters("status", "completedAt"),
+      );
+      expect(preferences.get("nookly:tasks-overview-filters")).toBe(filters("completedAt"));
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe(
+        filters("evaluatedAt", "grade"),
+      );
+      expect(preferences.get("nookly:assignments-overview-filters")).toBe(filters("evaluatedAt"));
+    });
+
+    it("leaves the other pages and the renamed filters alone", async () => {
+      const notes = filters("completed");
+      const done = filters("completedAt");
+      const preferences = await load([
+        ["nookly:notes-filters:space-1", notes],
+        ["nookly:tasks-filters:space-1", done],
+        ["nookly:assignments-filters:space-1", "nope"],
+      ]);
+      expect(preferences.get("nookly:notes-filters:space-1")).toBe(notes);
+      expect(preferences.get("nookly:tasks-filters:space-1")).toBe(done);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe("nope");
+      expect(callsOf("plugin:store|set")).toEqual([]);
+    });
+  });
 });

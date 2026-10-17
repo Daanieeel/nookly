@@ -104,7 +104,7 @@ describe("assignment filters", () => {
       "due",
       "session",
       "grade",
-      "evaluated",
+      "evaluatedAt",
       "created",
       "updated",
     ]);
@@ -120,10 +120,10 @@ describe("assignment filters", () => {
       { status: "evaluated", evaluatedAt: "2026-01-02T08:00:00" },
       { id: "e2" },
     );
-    expect(assignmentFilterValue(today, "evaluated", courseOf)).toBe("today");
-    expect(assignmentFilterValue(old, "evaluated", courseOf)).toBe("earlier");
-    expect(assignmentFilterValue(open, "evaluated", courseOf)).toBe("none");
-    const field = assignmentFilterFields([]).find((f) => f.id === "evaluated");
+    expect(assignmentFilterValue(today, "evaluatedAt", courseOf)).toBe("today");
+    expect(assignmentFilterValue(old, "evaluatedAt", courseOf)).toBe("earlier");
+    expect(assignmentFilterValue(open, "evaluatedAt", courseOf)).toBe("none");
+    const field = assignmentFilterFields([]).find((f) => f.id === "evaluatedAt");
     expect(field?.label).toBe("Evaluated at");
     expect(field?.options.map((o) => o.label)).toEqual([
       "Today",

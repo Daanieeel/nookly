@@ -50,7 +50,7 @@ export function taskFilterFields(
     CREATED_FILTER_FIELD,
     UPDATED_FILTER_FIELD,
     {
-      id: "completed",
+      id: "completedAt",
       label: "Completed at",
       icon: IconCalendarCheck,
       options: COMPLETED_BUCKETS.map((b) => ({ value: b.id, label: b.label })),

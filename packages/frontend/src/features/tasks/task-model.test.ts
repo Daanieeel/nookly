@@ -374,7 +374,7 @@ describe("filters", () => {
     expect(filterValues(task, "start")).toEqual(["none"]);
     expect(filterValues(task, "created")).toEqual(["earlier"]);
     expect(filterValues(task, "updated")).toEqual(["today"]);
-    expect(filterValues(task, "completed")).toEqual(["today"]);
+    expect(filterValues(task, "completedAt")).toEqual(["today"]);
     expect(filterValues(task, "course")).toEqual(["c1"]);
     expect(filterValues(task, "semester")).toEqual(["sem1"]);
     expect(filterValues(task, "effort")).toEqual(["3"]);
@@ -382,7 +382,7 @@ describe("filters", () => {
   });
 
   it("reads open and unestimated tasks as none", () => {
-    expect(filterValues(makeTask(), "completed")).toEqual(["none"]);
+    expect(filterValues(makeTask(), "completedAt")).toEqual(["none"]);
     expect(filterValues(makeTask(), "effort")).toEqual(["none"]);
   });
 

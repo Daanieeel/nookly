@@ -46,6 +46,7 @@ export async function initPreferences(): Promise<void> {
   }
   backfillFileViewerTheme();
   backfillEvaluatedStatus();
+  backfillTimestampFilters();
 }
 
 /// The first time a dev build runs, it starts from the installed app's preferences, minus
@@ -122,6 +123,30 @@ function backfillEvaluatedStatus() {
         ? { ...display, hiddenColumns: display.hiddenColumns.map(evaluated) }
         : display,
     );
+  }
+}
+
+/// The Completed filter of Tasks and the Evaluated filter of Assignments became the fields
+/// `completedAt` and `evaluatedAt`. Saved views are rewritten in the database; this does the
+/// same for the default filters each page remembers on this device (one key per Space, and
+/// one for the overview). Nothing is written when nothing matches, so it is safe to run on
+/// every launch.
+function backfillTimestampFilters() {
+  const renames: [string[], string, string][] = [
+    [[STORAGE_KEYS.tasksFilters, STORAGE_KEYS.tasksOverviewFilters], "completed", "completedAt"],
+    [
+      [STORAGE_KEYS.assignmentsFilters, STORAGE_KEYS.assignmentsOverviewFilters],
+      "evaluated",
+      "evaluatedAt",
+    ],
+  ];
+  for (const key of [...cache.keys()]) {
+    for (const [bases, from, to] of renames) {
+      if (!bases.some((base) => key === base || key.startsWith(`${base}:`))) continue;
+      rewrite<SavedFilters>(key, savedFilters, (filters) =>
+        filters.map((filter) => (filter.fieldId === from ? { ...filter, fieldId: to } : filter)),
+      );
+    }
   }
 }
 

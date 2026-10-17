@@ -778,6 +778,25 @@ fn all() -> Vec<M<'static>> {
         SET evaluated_at = (SELECT updated_at FROM entities WHERE entities.id = assignments.entity_id)
         WHERE status = 'evaluated';
         ",
+    ), M::up(
+        "
+        -- The Completed filter of Tasks and the Evaluated filter of Assignments are now the
+        -- fields `completedAt` and `evaluatedAt`, like the fields they read. Saved Views name
+        -- them by id, so every filter on them is renamed. A config that is not JSON, or has
+        -- no filters, is left as it is.
+        UPDATE views SET config = json_set(config, '$.filters', json((
+            SELECT json_group_array(json(CASE
+                WHEN json_extract(f.value, '$.fieldId') = 'completed'
+                     AND views.module IN ('tasks', 'tasks-overview')
+                THEN json_set(f.value, '$.fieldId', 'completedAt')
+                WHEN json_extract(f.value, '$.fieldId') = 'evaluated'
+                     AND views.module IN ('assignments', 'assignments-overview')
+                THEN json_set(f.value, '$.fieldId', 'evaluatedAt')
+                ELSE f.value END))
+            FROM json_each(views.config, '$.filters') AS f)))
+        WHERE module IN ('tasks', 'tasks-overview', 'assignments', 'assignments-overview')
+          AND CASE WHEN json_valid(config) THEN json_type(config, '$.filters') = 'array' ELSE 0 END;
+        ",
     )]
 }
 
@@ -1538,6 +1557,7 @@ mod history {
         0x24962686d752025c,
         0x1997bcb69ec851a0,
         0x6e30f1a43205502b,
+        0xafdae1e221857ce0,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

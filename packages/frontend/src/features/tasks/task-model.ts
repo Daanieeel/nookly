@@ -350,7 +350,7 @@ export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "start") return [dayBucket(task.startDate)];
   if (fieldId === "created") return [ageBucket(task.entity.createdAt)];
   if (fieldId === "updated") return [ageBucket(task.entity.updatedAt)];
-  if (fieldId === "completed") return [task.completedAt ? ageBucket(task.completedAt) : "none"];
+  if (fieldId === "completedAt") return [task.completedAt ? ageBucket(task.completedAt) : "none"];
   if (fieldId === "course") return task.courseIds;
   if (fieldId === "semester") return task.semesterIds;
   if (fieldId === "effort") return [task.effort == null ? NO_EFFORT : String(task.effort)];
@@ -396,7 +396,7 @@ export const TASK_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     icon: "Sparkles",
     color: "#22c55e",
     description: "Done this week, newest change first.",
-    filters: [is("status", "done"), is("completed", "today", "week")],
+    filters: [is("status", "done"), is("completedAt", "today", "week")],
     display: normalizeDisplay({ layout: "list", grouping: "none", ordering: "updated" }),
   },
   {
@@ -404,7 +404,7 @@ export const TASK_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     icon: "Trophy",
     color: "#a855f7",
     description: "Done before this week, grouped by when it last changed.",
-    filters: [is("status", "done"), is("completed", "last", "earlier")],
+    filters: [is("status", "done"), is("completedAt", "last", "earlier")],
     display: normalizeDisplay({ layout: "list", grouping: "updated", ordering: "updated" }),
   },
   {

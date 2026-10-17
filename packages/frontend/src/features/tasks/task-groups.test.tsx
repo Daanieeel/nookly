@@ -152,7 +152,7 @@ describe("taskFilterFields", () => {
       "start",
       "created",
       "updated",
-      "completed",
+      "completedAt",
       "effort",
     ]);
   });

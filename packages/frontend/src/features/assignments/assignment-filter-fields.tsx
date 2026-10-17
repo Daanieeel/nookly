@@ -61,7 +61,7 @@ export function assignmentFilterFields(courses: Entity[]): FilterField[] {
       options: GRADE_FILTER.map((g) => ({ value: g.id, label: g.label })),
     },
     {
-      id: "evaluated",
+      id: "evaluatedAt",
       label: "Evaluated at",
       icon: IconCalendarCheck,
       options: EVALUATED_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
@@ -82,7 +82,7 @@ export function assignmentFilterValue(
   if (fieldId === "session")
     return sessionDay(a) === format(new Date(), "yyyy-MM-dd") ? "today" : "none";
   if (fieldId === "grade") return a.ungraded ? "ungraded" : a.grade === null ? "none" : "graded";
-  if (fieldId === "evaluated") return a.evaluatedAt ? ageBucket(a.evaluatedAt) : "none";
+  if (fieldId === "evaluatedAt") return a.evaluatedAt ? ageBucket(a.evaluatedAt) : "none";
   if (fieldId === "created") return ageBucket(a.entity.createdAt);
   if (fieldId === "updated") return ageBucket(a.entity.updatedAt);
   return a.status;
