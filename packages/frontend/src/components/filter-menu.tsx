@@ -264,7 +264,7 @@ export function FilterMenu({
                 <div
                   role="group"
                   aria-label="Match any of these filters"
-                  className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/5 p-0.5"
+                  className="flex items-center gap-1 rounded-lg border border-foreground/15 bg-foreground/5 p-0.5"
                 >
                   {chips}
                 </div>
