@@ -650,15 +650,7 @@ function JoinToggle({
           {either ? "or" : "and"}
         </button>
       </TooltipTrigger>
-      <TooltipContent>
-        {next
-          ? either
-            ? "The next filter can match instead. Click to need both."
-            : "The next filter must match too. Click to match either."
-          : either
-            ? "Matches either filter. Click to need both."
-            : "Needs both filters. Click to match either."}
-      </TooltipContent>
+      <TooltipContent>{either ? "Switch to and" : "Switch to or"}</TooltipContent>
     </Tooltip>
   );
 }
