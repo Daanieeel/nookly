@@ -375,3 +375,13 @@ A filter chip carries an optional `join` (`"and"` or `"or"`) saying how it conne
 **Why:** the common case stays a plain row of chips, and the one extra control is the word between two chips, which flips on a click.
 
 **Rejected:** nested groups and an AND/OR builder (heavy for a chip row), and an OR that binds looser than AND (`A and B or C` is easy to misread without brackets).
+
+---
+
+### PDF, Word and OpenDocument exports are made in the webview from one print layout
+
+A page turns into one print layout (`page-document.ts`) of a few shared pieces, and a writer per format draws it: pdfmake for PDF, the `docx` package for Word, hand written ODF XML zipped for OpenDocument. Figures are drawn in the webview, formulas with MathJax since KaTeX's HTML can't become a picture. The backend only writes the bytes (`write_page_export`).
+
+**Why:** formulas, diagrams and circuits are drawn by the frontend already, so the exports show them as pictures instead of source. One layout keeps the three formats alike, and a new block type needs one entry, not three.
+
+**Rejected:** printing the webview to PDF (no control over pages from the app, and no Word or OpenDocument), writing the files in Rust (every figure would come out as source), and embedding fonts in Word and OpenDocument files (a much bigger file for fonts readers mostly have stand ins for).

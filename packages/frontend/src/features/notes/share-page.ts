@@ -1,7 +1,7 @@
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
-import { fileBaseName, savePageMarkdownFile } from "./PageExportMenu.tsx";
+import { fileBaseName, savePageMarkdownFile } from "./page-file.ts";
 
 export type ShareFormat = "markdown" | "json";
 

@@ -8,6 +8,8 @@ A true block model. Every block can be addressed, reordered, and used as a relat
 
 Every block type, standard or custom, **must** implement a markdown serialization method. This guarantees that exporting a full page to plain markdown always works, even with custom blocks. A complete export matters more than a pretty one.
 
+Every block type also **must** have a print layout in `BLOCK_EXPORTERS` (`packages/frontend/src/features/page-export/page-document.ts`), which the PDF, Word and OpenDocument exports read. The `satisfies Record<BlockType, …>` makes a block type without one a type error.
+
 ## v1 Scope
 
 Ship only the standard blocks: paragraph, headings, lists, code, quote, table, image, and embed.
@@ -21,6 +23,12 @@ Custom blocks from third party modules are still future work.
 A Note or Jot exports as a `nookly-page` JSON file (version 1): `format`, `version`, `kind`, `title` and the `blocks` in order, each with `type`, `content`, `language`, `filename` and `attrs`, so every block type ports natively instead of through markdown. Ids, timestamps, labels, links, the icon and the Space are not exported.
 Mentions become plain text. A block that points at a File or another entity (image, video, audio, file, bookmark, entity card) becomes a paragraph with that item's name, since it does not exist for the reader. Media and embeds that hold a plain URL stay as they are.
 Import always creates a new page in the chosen Space from a file of up to 20 MB. An unknown block type becomes a paragraph, a block that fails its type's checks refuses the whole file, and nothing is created on any error. The titlebar Import button, Cmd+I (outside text fields) and the "Import from File" command open a dialog (which also takes task, deck and assignment files) that picks the file, lists what it creates and leaves out, lets the user pick the Space and relations for the new page, and imports only after a confirmation.
+
+## Export
+
+**Export...** (the Export button, the more actions menu and the right click menu) opens one dialog for Markdown, PDF, Word (`.docx`) and OpenDocument (`.odt`), with a live preview of the pages beside the options: the title as a heading on top, page size, orientation, margins and text size, remembered per device. Copy Page as Markdown and Export as Nookly Page stay separate items.
+
+Markdown comes from the backend as before. The other three are made in the webview from one print layout of the page (`features/page-export/`): every block turns into a few shared pieces (heading, paragraph, list, table, code, quote, callout, figure, rule), and one writer per format draws those (pdfmake, docx, and hand written ODF XML). Formulas (MathJax), diagrams (Mermaid) and circuits become pictures; one that fails to draw shows its source. In a PDF, inline math is spelled out in text where it can be, since a picture can't sit inside a line there. The PDF embeds Inter and Source Code Pro; Word and OpenDocument name Arial and Courier New, which every reader has. `write_page_export` writes the bytes and accepts only those three extensions.
 
 The Share button at the top of a page's details sidebar, and Share in its more actions menu, offer Markdown or the Nookly page file and open the system share menu through the Web Share API. Where the webview cannot share files, the same choice opens the save dialog instead.
 Code is in `src-tauri/src/db/page_json.rs`. It is an app level file action, not an entity or field, so it has no CLI schema entry.

@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.39.0",
+      "date": "2026-10-19",
+      "highlights": [
+        {
+          "title": "Export as PDF, Word or OpenDocument",
+          "description": "Choose **Export...** on a Note or Jot to save it as a PDF, Word or OpenDocument file, with a preview of every page and the title on top if you like.",
+          "icon": "file-export",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": ["Saving a page as Markdown now happens in the same Export dialog."]
+      }
+    },
+    {
       "version": "0.38.0",
       "date": "2026-10-17",
       "highlights": [

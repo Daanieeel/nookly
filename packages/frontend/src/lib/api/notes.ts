@@ -91,6 +91,12 @@ export async function exportPageMarkdown(entityId: string, path: string): Promis
   return invoke("export_page_markdown", { entityId, path, preamble });
 }
 
+/// Writes a page the app rendered (PDF, Word or OpenDocument) to `path`. The bytes go as the
+/// raw request body, so a large file is not blown up into a JSON number array.
+export function writePageExport(path: string, bytes: Uint8Array): Promise<void> {
+  return invoke("write_page_export", bytes, { headers: { "x-path": encodeURIComponent(path) } });
+}
+
 /// The language a new code block in this note starts with, or null to follow the app default.
 export function getNoteCodeLanguage(entityId: string): Promise<string | null> {
   return invoke("get_note_code_language", { entityId });

@@ -23,6 +23,12 @@ function userMacros(): Record<string, string> {
   return parsed.macros;
 }
 
+/// Every command a formula can use: the gate operators and the user's own, KaTeX style
+/// (`\\name` to its expansion).
+export function latexMacros() {
+  return { ...GATE_MACROS, ...userMacros() };
+}
+
 /// LaTeX rendering for the math blocks and inline math, through KaTeX with the
 /// mhchem extension (`\ce{H2O}`), the gate operators above and the user's own commands. Errors come back as a
 /// message instead of a throw, so a half typed formula shows what's wrong rather than nothing.
@@ -40,7 +46,7 @@ export function renderMath(
       strict: "ignore",
       trust: false,
       // KaTeX writes a macro's definitions into this object, so each call gets a copy.
-      macros: { ...GATE_MACROS, ...userMacros(), ...extraMacros },
+      macros: { ...latexMacros(), ...extraMacros },
       output: "htmlAndMathml",
     });
     return null;

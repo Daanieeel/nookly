@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.39.0 (2026-10-19)
+
+### Added
+
+- **Export Notes and Jots as PDF, Word or OpenDocument.** The new **Export...** option opens one dialog for every file format, Markdown included, with a preview of the pages as they will print. Pick the page size, orientation, margins and text size, and choose whether the title goes on top as a heading. Formulas, diagrams and circuits come out as pictures, and every other block keeps its look.
+
+### Changed
+
+- **Save as Markdown file moved into Export.** Markdown is now one of the formats in the Export dialog. Copy Page as Markdown and Export as Nookly Page stay where they were.
+
 ## 0.38.0 (2026-10-17)
 
 ### Added

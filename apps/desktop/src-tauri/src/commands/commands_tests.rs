@@ -93,6 +93,7 @@ ipc_commands![
     notes::reorder_blocks,
     notes::render_page_markdown,
     notes::export_page_markdown,
+    notes::write_page_export,
     portable::render_entity_json,
     portable::export_entity_json,
     portable::preview_entity_json,
@@ -389,6 +390,37 @@ impl Harness {
                 .unwrap(),
                 body: InvokeBody::Json(args),
                 headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        )
+        .map(|body| body.deserialize::<Value>().unwrap())
+    }
+
+    /// Invokes `cmd` with `bytes` as its raw body and `headers`, like
+    /// `invoke(cmd, bytes, { headers })` in the frontend.
+    fn call_raw(&self, cmd: &str, bytes: &[u8], headers: &[(&str, &str)]) -> Result<Value, Value> {
+        let mut map = http::HeaderMap::new();
+        for (name, value) in headers {
+            map.insert(
+                http::HeaderName::from_bytes(name.as_bytes()).unwrap(),
+                http::HeaderValue::from_str(value).unwrap(),
+            );
+        }
+        get_ipc_response(
+            &self.webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: if cfg!(windows) {
+                    "http://tauri.localhost"
+                } else {
+                    "tauri://localhost"
+                }
+                .parse()
+                .unwrap(),
+                body: InvokeBody::Raw(bytes.to_vec()),
+                headers: map,
                 invoke_key: tauri::test::INVOKE_KEY.to_string(),
             },
         )
@@ -1753,6 +1785,64 @@ fn notes_export_to_an_unwritable_path_is_an_io_error() {
         json!({ "entityId": page, "path": out.to_string_lossy() }),
         "Io",
     );
+    assert!(!out.exists());
+}
+
+/// The path as the webview sends it, percent encoded like `encodeURIComponent`.
+fn encoded_path(path: &std::path::Path) -> String {
+    url::form_urlencoded::byte_serialize(path.to_string_lossy().as_bytes())
+        .collect::<String>()
+        .replace('+', "%20")
+}
+
+#[test]
+fn notes_write_page_export_writes_the_bytes_to_the_chosen_path() {
+    let h = Harness::new();
+    let out = h.dir.path().join("Week 3 + notes.pdf");
+    let path = encoded_path(&out);
+    let result = h.call_raw("write_page_export", b"%PDF-1.7 bytes", &[("x-path", &path)]);
+    assert_eq!(result, Ok(Value::Null));
+    assert_eq!(std::fs::read(&out).unwrap(), b"%PDF-1.7 bytes");
+
+    for name in ["page.docx", "page.odt"] {
+        let out = h.dir.path().join(name);
+        let path = encoded_path(&out);
+        h.call_raw("write_page_export", b"PK", &[("x-path", &path)])
+            .unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), b"PK");
+    }
+}
+
+#[test]
+fn notes_write_page_export_refuses_other_files() {
+    let h = Harness::new();
+    // Only the export formats: this is never a way to write any file at all.
+    for name in ["page.md", "page.sh", "page", ".pdf"] {
+        let out = h.dir.path().join(name);
+        let path = encoded_path(&out);
+        let err = h
+            .call_raw("write_page_export", b"x", &[("x-path", &path)])
+            .unwrap_err();
+        assert_eq!(err["kind"], "InvalidInput", "{name}: {err}");
+        assert!(!out.exists(), "{name}");
+    }
+    let err = h.call_raw("write_page_export", b"x", &[]).unwrap_err();
+    assert_eq!(err["kind"], "InvalidInput", "{err}");
+    let err = h
+        .call("write_page_export", json!({ "path": "/tmp/x.pdf" }))
+        .unwrap_err();
+    assert_eq!(err["kind"], "InvalidInput", "{err}");
+}
+
+#[test]
+fn notes_write_page_export_to_an_unwritable_path_is_an_io_error() {
+    let h = Harness::new();
+    let out = h.dir.path().join("missing-dir").join("page.pdf");
+    let path = encoded_path(&out);
+    let err = h
+        .call_raw("write_page_export", b"x", &[("x-path", &path)])
+        .unwrap_err();
+    assert_eq!(err["kind"], "Io", "{err}");
     assert!(!out.exists());
 }
 

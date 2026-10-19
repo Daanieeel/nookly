@@ -44,6 +44,9 @@ export const qk = {
   noteCodeLanguage: (entityId: string) => ["note-code-language", entityId] as const,
   pageMarkdown: (entityId: string) => ["page-markdown", entityId] as const,
   pageJson: (entityId: string) => ["page-json", entityId] as const,
+  pageExport: (entityId: string) => ["page-export", entityId] as const,
+  pageExportPreview: (entityId: string, options: string) =>
+    ["page-export-preview", entityId, options] as const,
   mentioning: (entityId: string) => ["mentioning-entities", entityId] as const,
   embeddedPageIds: ["embedded-page-ids"] as const,
   search: (query: string) => ["search", query] as const,

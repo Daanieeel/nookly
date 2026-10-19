@@ -152,6 +152,39 @@ pub fn export_page_markdown(
     std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }
 
+/// The formats the app renders a page to itself (`write_page_export`).
+const PAGE_EXPORT_EXTENSIONS: &[&str] = &["pdf", "docx", "odt"];
+
+/// Writes a page the app rendered to PDF, Word or OpenDocument to the path picked in
+/// the save dialog. The file comes as the raw request body, so a large one is not blown
+/// up into a JSON number array, and the path, percent encoded, in the `x-path` header.
+/// Only those formats are written, so this never stands in for writing any file.
+#[tauri::command]
+pub fn write_page_export(request: tauri::ipc::Request<'_>) -> AppResult<()> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(AppError::InvalidInput(
+            "Expected the file as raw bytes".into(),
+        ));
+    };
+    let path = request
+        .headers()
+        .get("x-path")
+        .and_then(|v| v.to_str().ok())
+        .map(crate::db::files::percent_decode)
+        .ok_or_else(|| AppError::InvalidInput("Missing x-path header".into()))?;
+    let path = std::path::Path::new(&path);
+    let has_name = path
+        .file_stem()
+        .is_some_and(|stem| !stem.to_string_lossy().starts_with('.'));
+    let extension = path.extension().map(|e| e.to_string_lossy().to_lowercase());
+    if !has_name || !extension.is_some_and(|e| PAGE_EXPORT_EXTENSIONS.contains(&e.as_str())) {
+        return Err(AppError::InvalidInput(
+            "A page exports only as a .pdf, .docx or .odt file".into(),
+        ));
+    }
+    std::fs::write(path, bytes).map_err(|err| AppError::Io(err.to_string()))
+}
+
 #[tauri::command]
 pub fn get_note_code_language(
     state: State<DbState>,

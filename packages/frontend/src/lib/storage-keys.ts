@@ -38,4 +38,5 @@ export const STORAGE_KEYS = {
   calendarView: "nookly:calendar-view",
   backupError: "nookly:backup-error",
   gradeSemesters: "nookly:grade-semesters",
+  pageExport: "nookly:page-export",
 } as const;
