@@ -1,13 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import { type ComponentType, useEffect, useMemo, useRef, useState } from "react";
+import { Document, type DocumentProps, Page, type PageProps, pdfjs } from "react-pdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
 ).toString();
 
-/// The exported pages as they will print, each as wide as the preview pane.
-export function PdfPreview({ bytes }: { bytes: Uint8Array }) {
+/// The exported pages as they will print, each as wide as the preview pane. The react-pdf
+/// components can be swapped for stand ins in tests, where pdf.js does not run.
+export function PdfPreview({
+  bytes,
+  documentComponent: DocumentComponent = Document,
+  pageComponent: PageComponent = Page,
+}: {
+  bytes: Uint8Array;
+  documentComponent?: ComponentType<DocumentProps>;
+  pageComponent?: ComponentType<PageProps>;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [pages, setPages] = useState(0);
@@ -27,13 +36,21 @@ export function PdfPreview({ bytes }: { bytes: Uint8Array }) {
   return (
     <div ref={ref} className="w-full">
       {width > 0 && (
-        <Document file={file} loading={null} onLoadSuccess={({ numPages }) => setPages(numPages)}>
+        <DocumentComponent
+          file={file}
+          // No <Suspense> boundary anywhere in this app: a document that suspends on a new
+          // file (every option change makes one) would crash the dialog.
+          suspense={false}
+          loading={null}
+          onLoadSuccess={({ numPages }) => setPages(numPages)}
+        >
           <div className="flex flex-col gap-3">
             {Array.from({ length: pages }, (_, i) => (
-              <Page
+              <PageComponent
                 key={i}
                 pageNumber={i + 1}
                 width={width}
+                suspense={false}
                 loading={null}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
@@ -41,7 +58,7 @@ export function PdfPreview({ bytes }: { bytes: Uint8Array }) {
               />
             ))}
           </div>
-        </Document>
+        </DocumentComponent>
       )}
     </div>
   );
