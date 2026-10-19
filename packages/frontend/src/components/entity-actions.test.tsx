@@ -22,10 +22,17 @@ async function openMoreActions(entity = note, exportable = true) {
 describe("EntityActions more menu", () => {
   it("offers every page export, including the Nookly page file", async () => {
     await openMoreActions();
-    expect(
-      await screen.findByRole("menuitem", { name: /Save as Markdown file/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Export..." })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Copy Page as Markdown/ })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /Export as Nookly Page/ })).toBeInTheDocument();
+    // Markdown files are saved from the Export dialog now.
+    expect(screen.queryByRole("menuitem", { name: /Save as Markdown file/ })).toBeNull();
+  });
+
+  it("opens the Export dialog from the more actions menu", async () => {
+    const { user } = await openMoreActions();
+    await user.click(await screen.findByRole("menuitem", { name: "Export..." }));
+    expect(await screen.findByRole("dialog", { name: "Export Page" })).toBeInTheDocument();
   });
 
   it("has no export for an entity that is not a page", async () => {

@@ -14,9 +14,10 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   CopyPageMarkdownItem,
+  ExportPageItem,
   PageExportMenu,
-  SaveMarkdownFileItem,
 } from "#/features/notes/PageExportMenu.tsx";
+import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
 import { ShareButton, ShareMenuSub } from "#/features/notes/SharePage.tsx";
 import { SaveNooklyFileItem } from "#/features/portable/save-nookly-file.tsx";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
@@ -44,6 +45,7 @@ export function EntityActions({
 }) {
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const noun = exportable ? "Page" : labelForType(entity.type);
   const pinLabel = entity.pinned ? `Unpin ${noun}` : `Pin ${noun}`;
@@ -122,7 +124,7 @@ export function EntityActions({
             <>
               <DropdownMenuSeparator />
               <CopyPageMarkdownItem entity={entity} />
-              <SaveMarkdownFileItem entity={entity} onDone={closeMenu} />
+              <ExportPageItem onSelect={() => setExporting(true)} />
               <SaveNooklyFileItem entity={entity} onDone={closeMenu} />
               <ShareMenuSub entity={entity} onDone={closeMenu} />
             </>
@@ -140,6 +142,7 @@ export function EntityActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {exporting && <ExportPageDialog entity={entity} open onOpenChange={setExporting} />}
     </div>
   );
 }

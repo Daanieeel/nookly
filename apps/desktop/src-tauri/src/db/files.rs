@@ -515,7 +515,7 @@ fn filename_from_url(url: &str) -> Option<String> {
     sanitize(&percent_decode(last))
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     url::form_urlencoded::parse(format!("x={s}").as_bytes())
         .next()
         .map(|(_, v)| v.into_owned())

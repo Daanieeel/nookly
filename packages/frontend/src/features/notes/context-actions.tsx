@@ -33,7 +33,7 @@ import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts"
 import { useState } from "react";
 import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./block-conversion";
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
-import { savePageMarkdownFile } from "./PageExportMenu";
+import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
 import { refineJotIntoNote } from "./refine-jot";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
@@ -347,11 +347,14 @@ registerEntityType<EntityRecord>({
       run: async ({ entity }) => copyText(await renderPageMarkdown(entity.id)),
     },
     {
-      id: "save-markdown",
+      id: "export-page",
       group: "share",
-      label: "Save as Markdown File…",
+      label: "Export…",
       icon: IconFileDownload,
-      run: ({ entity }) => savePageMarkdownFile(entity),
+      run: ({ entity }, helpers) =>
+        helpers.openDialog((close) => (
+          <ExportPageDialog entity={entity} open onOpenChange={(open) => !open && close()} />
+        )),
     },
     {
       id: "save-nookly-page",
