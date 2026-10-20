@@ -5,38 +5,52 @@ import {
   monthGrid,
   resolveWeekStart,
   sameMonth,
-  weekDays,
 } from "@nookly/shared/calendar-grid";
 import type { AgendaItem } from "@nookly/shared/data";
+import { type GridView, daysOfView } from "@nookly/shared/time-grid";
 import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
+import { z } from "zod";
 import { Pressable, View } from "react-native";
 import { useSetting } from "../data/settings.ts";
+import { usePreference } from "../data/preferences.ts";
 import { useAgenda, useSpaces } from "../data/queries.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { cn } from "../ui/classes.ts";
+import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, dayLabel, localDay } from "./dates.ts";
+import { TimeGrid } from "./TimeGrid.tsx";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 
 const AGENDA_DAYS = 14;
-/// From this width the week is seven columns, as on the desktop.
+/// From this pane width the calendar is the desktop's: day, work week, week and month.
 const WIDE = 700;
 
-type CalendarView = "agenda" | "day" | "week" | "month";
-const VIEWS: { id: CalendarView; label: string }[] = [
+type CalendarView = "agenda" | GridView | "month";
+
+/// A phone: an agenda, and the hours of a day, three days or a week. An iPad, the desktop's:
+/// the hours of a day, a work week and a week, and a month.
+const PHONE_VIEWS: { id: CalendarView; label: string }[] = [
   { id: "agenda", label: "Agenda" },
   { id: "day", label: "Day" },
+  { id: "threeDay", label: "3 Days" },
+  { id: "week", label: "Week" },
+];
+const WIDE_VIEWS: { id: CalendarView; label: string }[] = [
+  { id: "agenda", label: "Agenda" },
+  { id: "day", label: "Day" },
+  { id: "workWeek", label: "Work Week" },
   { id: "week", label: "Week" },
   { id: "month", label: "Month" },
 ];
+const viewSchema = z.enum(["agenda", "day", "threeDay", "workWeek", "week", "month"]);
 
 const KIND_LABELS = {
   session: "Session",
@@ -74,15 +88,15 @@ function useRange(view: CalendarView, anchor: string) {
   const [setting] = useSetting("calendar.weekStart");
   const [dateFormat] = useSetting("general.dateFormat");
   const weekStart = resolveWeekStart(setting, automaticWeekStart(dateFormat));
-  if (view === "day") {
-    return { weekStart, from: anchor, to: anchor, title: dayLabel(anchor) };
-  }
-  if (view === "week") {
-    const days = weekDays(anchor, weekStart);
-    const first = new Date(`${days[0]}T00:00:00`);
-    const last = new Date(`${days[6]}T00:00:00`);
-    const short = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-    return { weekStart, from: days[0], to: days[6], title: `${short(first)} to ${short(last)}` };
+  if (view === "agenda") {
+    const today = localDay();
+    return {
+      weekStart,
+      days: [] as string[],
+      from: today,
+      to: addDays(today, AGENDA_DAYS - 1),
+      title: "Next two weeks",
+    };
   }
   if (view === "month") {
     const grid = monthGrid(anchor, weekStart);
@@ -90,11 +104,18 @@ function useRange(view: CalendarView, anchor: string) {
       month: "long",
       year: "numeric",
     });
-    return { weekStart, from: grid[0][0], to: grid.at(-1)?.[6] ?? anchor, title };
+    return { weekStart, days: [], from: grid[0][0], to: grid.at(-1)?.[6] ?? anchor, title };
   }
-  const today = localDay();
-  return { weekStart, from: today, to: addDays(today, AGENDA_DAYS - 1), title: "Next two weeks" };
+  const days = daysOfView(view, anchor, weekStart);
+  const short = (day: string) =>
+    new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const title =
+    days.length === 1 ? dayLabel(anchor) : `${short(days[0])} to ${short(days[days.length - 1])}`;
+  return { weekStart, days, from: days[0], to: days[days.length - 1], title };
 }
+
+/// How far Previous and Next move a view.
+const STEP_DAYS = { day: 1, threeDay: 3, workWeek: 7, week: 7 } satisfies Record<GridView, number>;
 
 /// What a day holds: its items in their Space's color.
 function DayList({
@@ -122,66 +143,6 @@ function DayList({
         ))
       )}
     </Section>
-  );
-}
-
-/// Seven columns on a tablet, a list of days on a phone.
-function WeekView({
-  days,
-  items,
-  colorOf,
-}: {
-  days: string[];
-  items: AgendaItem[];
-  colorOf: (spaceId: string) => string | undefined;
-}) {
-  const width = usePaneWidth();
-  const router = useRouter();
-  const today = localDay();
-  if (width < WIDE) {
-    return (
-      <>
-        {days.map((day) => (
-          <DayList key={day} items={items} day={day} colorOf={colorOf} />
-        ))}
-      </>
-    );
-  }
-  return (
-    <View className="flex-row gap-1.5">
-      {days.map((day) => (
-        <View key={day} className="flex-1 gap-1.5">
-          <Text
-            variant="small"
-            className={cn("text-center font-medium", day === today && "text-primary")}
-          >
-            {new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
-              weekday: "short",
-              day: "numeric",
-            })}
-          </Text>
-          {onDay(items, day).map((item) => (
-            <Pressable
-              key={`${item.id}-${day}`}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.title}, ${dayLabel(day, today)}`}
-              onPress={() => router.push(`/entity/${item.id}`)}
-              className="rounded-md border-l-4 bg-card p-1.5 active:opacity-70"
-              style={{ borderLeftColor: colorOf(item.spaceId) ?? "#94a3b8" }}
-            >
-              <Text variant="small" numberOfLines={2}>
-                {item.title || "Untitled"}
-              </Text>
-              {!item.allDay && item.startTime ? (
-                <Text variant="small" tone="muted">
-                  {item.startTime}
-                </Text>
-              ) : null}
-            </Pressable>
-          ))}
-        </View>
-      ))}
-    </View>
   );
 }
 
@@ -258,12 +219,22 @@ function MonthView({
 }
 
 /// Every Space's Sessions, Calendar entries, Exams and Study blocks in their Space's
-/// color, as an agenda or a day, a week or a month, like the desktop's unified Calendar.
+/// color: an agenda, or the hours of a day, three days, a week; on an iPad the desktop's
+/// day, work week, week and month.
 export function CalendarScreen() {
   const theme = useTheme();
   const router = useRouter();
   const today = localDay();
-  const [view, setView] = useState<CalendarView>("agenda");
+  const width = usePaneWidth();
+  const wide = width >= WIDE;
+  const available = wide ? WIDE_VIEWS : PHONE_VIEWS;
+  const [stored, setStored] = usePreference("calendar.view", viewSchema, wide ? "week" : "agenda");
+  // A view the screen does not have at this width (a month on a phone) falls back.
+  const view: CalendarView = available.some((v) => v.id === stored)
+    ? stored
+    : wide
+      ? "week"
+      : "agenda";
   const [anchor, setAnchor] = useState(today);
   const range = useRange(view, anchor);
   const { data: items = [] } = useAgenda(range.from, range.to);
@@ -274,69 +245,86 @@ export function CalendarScreen() {
     setAnchor((day) =>
       view === "month"
         ? addMonthsTo(day, direction)
-        : addDaysTo(day, direction * (view === "week" ? 7 : 1)),
+        : view === "agenda"
+          ? day
+          : addDaysTo(day, direction * STEP_DAYS[view]),
     );
-  const days = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
+  const agendaDays = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
+  const controls = (
+    <>
+      <ChipGroup label="View">
+        {available.map((v) => (
+          <Chip
+            key={v.id}
+            label={v.label}
+            selected={view === v.id}
+            onPress={() => {
+              setStored(v.id);
+              if (v.id === "agenda") setAnchor(today);
+            }}
+          />
+        ))}
+      </ChipGroup>
+      {view !== "agenda" ? (
+        <View className="flex-row items-center gap-1">
+          <IconButton
+            label="Previous"
+            icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+            onPress={() => step(-1)}
+          />
+          <Text className="flex-1 text-center font-medium" accessibilityRole="header">
+            {range.title}
+          </Text>
+          <IconButton
+            label="Next"
+            icon={<IconChevronRight size={20} color={theme.colors.foreground} />}
+            onPress={() => step(1)}
+          />
+          <Button label="Today" variant="ghost" size="sm" onPress={() => setAnchor(today)} />
+        </View>
+      ) : null}
+    </>
+  );
+  const header = (
+    <Stack.Screen
+      options={{
+        headerRight: () => (
+          <IconButton
+            label="New Calendar Entry"
+            icon={<IconPlus size={22} color={theme.colors.foreground} />}
+            onPress={() => router.push("/new/entry")}
+          />
+        ),
+      }}
+    />
+  );
+  if (view !== "agenda" && view !== "month") {
+    // The hours fill the screen and scroll on their own; only the controls sit above them.
+    return (
+      <>
+        {header}
+        <View className={cn("flex-1 gap-2 pt-3", PAGE_BACKGROUND)}>
+          <View className="gap-2 px-3">{controls}</View>
+          <TimeGrid days={range.days} items={items} width={width} colorOf={colorOf} />
+        </View>
+      </>
+    );
+  }
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <IconButton
-              label="New Calendar Entry"
-              icon={<IconPlus size={22} color={theme.colors.foreground} />}
-              onPress={() => router.push("/new/entry")}
-            />
-          ),
-        }}
-      />
+      {header}
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide>
-        <ChipGroup label="View">
-          {VIEWS.map((v) => (
-            <Chip
-              key={v.id}
-              label={v.label}
-              selected={view === v.id}
-              onPress={() => {
-                setView(v.id);
-                if (v.id === "agenda") setAnchor(today);
-              }}
-            />
-          ))}
-        </ChipGroup>
-        {view !== "agenda" ? (
-          <View className="flex-row items-center gap-1">
-            <IconButton
-              label="Previous"
-              icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
-              onPress={() => step(-1)}
-            />
-            <Text className="flex-1 text-center font-medium" accessibilityRole="header">
-              {range.title}
-            </Text>
-            <IconButton
-              label="Next"
-              icon={<IconChevronRight size={20} color={theme.colors.foreground} />}
-              onPress={() => step(1)}
-            />
-            <Button label="Today" variant="ghost" size="sm" onPress={() => setAnchor(today)} />
-          </View>
-        ) : null}
+        {controls}
         {view === "agenda" ? (
           <>
             {items.length === 0 ? <Text tone="muted">Nothing in the next two weeks.</Text> : null}
-            {days
+            {agendaDays
               .filter((day) => onDay(items, day).length > 0 || day === today)
               .map((day) => (
                 <DayList key={day} items={items} day={day} colorOf={colorOf} />
               ))}
           </>
-        ) : null}
-        {view === "day" ? <DayList items={items} day={anchor} colorOf={colorOf} /> : null}
-        {view === "week" ? (
-          <WeekView days={weekDays(anchor, range.weekStart)} items={items} colorOf={colorOf} />
-        ) : null}
-        {view === "month" ? (
+        ) : (
           <MonthView
             anchor={anchor}
             weekStart={range.weekStart}
@@ -345,7 +333,7 @@ export function CalendarScreen() {
             onPick={setAnchor}
             colorOf={colorOf}
           />
-        ) : null}
+        )}
       </Screen>
     </>
   );

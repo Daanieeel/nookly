@@ -16,6 +16,7 @@
     "./latex": "./src/latex.ts",
     "./whats-new": "./src/whats-new.ts",
     "./calendar-grid": "./src/calendar-grid.ts",
+    "./time-grid": "./src/time-grid.ts",
     "./academic": "./src/academic.ts",
     "./effort": "./src/effort.ts",
     "./icons": "./src/icons.ts",

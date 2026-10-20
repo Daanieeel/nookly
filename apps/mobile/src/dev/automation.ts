@@ -11,6 +11,7 @@ type Fiber = {
   sibling: Fiber | null;
   memoizedProps: Record<string, unknown> | null;
   type: unknown;
+  stateNode?: unknown;
 };
 
 interface DevtoolsHook {
@@ -91,6 +92,36 @@ async function press(label: string, nth = 0): Promise<boolean> {
   return true;
 }
 
+/// Where the pressable labelled `label` is on screen, in points: what a finger can hit.
+function measure(
+  label: string,
+  nth = 0,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  let seen = 0;
+  const target = find(
+    (f, props) =>
+      isPressable(props) &&
+      (props.accessibilityLabel === label || textOf(f) === label) &&
+      seen++ === nth,
+  );
+  let host: Fiber | null = target;
+  while (host && typeof host.type !== "string") host = host.child;
+  const node = host?.stateNode as
+    | {
+        canonical?: { publicInstance?: unknown };
+        measureInWindow?: unknown;
+      }
+    | null
+    | undefined;
+  const view = (node?.canonical?.publicInstance ?? node) as {
+    measureInWindow?: (done: (x: number, y: number, w: number, h: number) => void) => void;
+  } | null;
+  if (!view?.measureInWindow) return Promise.resolve(null);
+  return new Promise((resolve) =>
+    view.measureInWindow?.((x, y, width, height) => resolve({ x, y, width, height })),
+  );
+}
+
 /// Types `value` into the input labelled or placeholdered `label`.
 async function type(label: string, value: string): Promise<boolean> {
   const target = await waitFor(() =>
@@ -141,7 +172,7 @@ export interface AutomationContext {
 /// Starts asking `url` for scripts. `context` is what scripts can reach by name
 /// (the router, the sync runtime, the database).
 export function startAutomation(url: string, device: string, context: AutomationContext) {
-  const helpers = { press, type, sleep, waitFor, screenText, labels, ...context };
+  const helpers = { press, type, sleep, waitFor, screenText, labels, measure, ...context };
   let stopped = false;
   void (async () => {
     while (!stopped) {
