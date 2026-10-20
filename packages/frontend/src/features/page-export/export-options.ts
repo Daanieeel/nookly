@@ -65,16 +65,12 @@ export const FORMATS = {
   markdown: { label: "Markdown", extension: "md", filter: "Markdown" },
 } satisfies Record<ExportFormat, Labeled & { extension: string; filter: string }>;
 
-/// The United States and Canada print on Letter, everyone else on A4.
-export function defaultPageSize(locale: string): PageSizeId {
-  return /-(US|CA)\b/i.test(locale) ? "letter" : "a4";
-}
-
-export function defaultOptions(locale = navigator.language): PageExportOptions {
+/// A4 for everyone; the dialog still offers Letter and the others.
+export function defaultOptions(): PageExportOptions {
   return {
     format: "pdf",
     includeTitle: true,
-    pageSize: defaultPageSize(locale),
+    pageSize: "a4",
     landscape: false,
     margins: "normal",
     textSize: "medium",

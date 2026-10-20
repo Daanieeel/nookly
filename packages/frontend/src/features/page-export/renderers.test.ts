@@ -62,7 +62,7 @@ const doc: ExportDocument = {
 };
 
 const options = (patch: Partial<PageExportOptions> = {}): PageExportOptions => ({
-  ...defaultOptions("de-DE"),
+  ...defaultOptions(),
   ...patch,
 });
 

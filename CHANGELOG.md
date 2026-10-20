@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.39.3 (2026-10-20)
+
+### Changed
+
+- **Exports start on A4.** PDF, Word and OpenDocument exports now default to A4 for everyone. Letter and the other sizes are still in the Export dialog.
+
 ## 0.39.2 (2026-10-20)
 
 ### Changed
