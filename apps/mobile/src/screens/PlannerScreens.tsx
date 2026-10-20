@@ -20,16 +20,10 @@ import {
   updateSemester,
   updateStudyBlock,
 } from "@nookly/shared/data";
-import {
-  IconCalendarEvent,
-  IconClock,
-  IconMapPin,
-  IconNotes,
-  IconPlus,
-} from "@tabler/icons-react-native";
+import { IconCalendarEvent, IconClock, IconMapPin, IconPlus } from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useDb, useLocalWrite } from "../data/context.tsx";
 import {
@@ -51,6 +45,7 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
+import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
@@ -60,6 +55,7 @@ import { useTheme } from "../ui/theme.ts";
 import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { dayLabel, localDay } from "./dates.ts";
+import { PageEditor } from "./PageEditor.tsx";
 
 /// Sessions, study blocks, semesters and grades: what a student plans and is graded on.
 
@@ -117,84 +113,112 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
   const cancel = useLocalWrite((db, cancelled: boolean) => overrideSession(db, id, { cancelled }));
   if (!session) return null;
   return (
-    <View className="gap-4">
-      {session.courseTitle && session.courseId ? (
-        <Section>
-          <Row
-            title={session.courseTitle}
-            subtitle="Course"
-            icon={<EntityIcon type="course" />}
-            onPress={() => router.push(`/entity/${session.courseId}`)}
-          />
-        </Section>
-      ) : null}
-      {session.templateId ? (
-        <Text tone="muted">
-          Part of a weekly series. A change here is for this session only; edit the whole series on
-          your computer.
-        </Text>
-      ) : null}
-      {session.cancelled ? <Text tone="caution">Cancelled</Text> : null}
-      <PropertyList>
-        <DayProperty
-          name="day"
-          icon={<IconCalendarEvent size={20} color={muted} />}
-          label="Day"
-          clearable={false}
-          value={session.date}
-          readOnly={readOnly}
-          onChange={(date) => date && patch.mutate({ date })}
-        />
-        <DayProperty
-          name="starts"
-          icon={<IconClock size={20} color={muted} />}
-          label="Starts"
-          mode="time"
-          clearable={false}
-          value={session.startTime}
-          readOnly={readOnly}
-          onChange={(startTime) => startTime && patch.mutate({ startTime })}
-        />
-        <DayProperty
-          name="ends"
-          icon={<IconClock size={20} color={muted} />}
-          label="Ends"
-          mode="time"
-          clearable={false}
-          value={session.endTime}
-          readOnly={readOnly}
-          onChange={(endTime) => endTime && patch.mutate({ endTime })}
-        />
-        <TextRow
-          icon={<IconMapPin size={20} color={muted} />}
-          label="Where"
-          value={session.location}
-          readOnly={readOnly}
-          placeholder="Room 5"
-          onSave={(location) => patch.mutate({ location })}
-        />
-        <TextRow
-          icon={<IconNotes size={20} color={muted} />}
-          label="Notes"
+    <>
+      <MainPart>
+        <SessionNotes
           value={session.notes}
           readOnly={readOnly}
-          placeholder="Bring a laptop"
           onSave={(notes) => patch.mutate({ notes })}
         />
-      </PropertyList>
-      {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
-      {!readOnly ? (
-        <View className="items-start">
-          <Button
-            label={session.cancelled ? "Bring Back" : "Cancel This Session"}
-            variant="ghost"
-            status={statusOf(cancel)}
-            errorLabel="Couldn't change it"
-            onPress={() => cancel.mutate(!session.cancelled)}
-          />
+      </MainPart>
+      <DetailsPart>
+        <View className="gap-4">
+          {session.courseTitle && session.courseId ? (
+            <Section>
+              <Row
+                title={session.courseTitle}
+                subtitle="Course"
+                icon={<EntityIcon type="course" />}
+                onPress={() => router.push(`/entity/${session.courseId}`)}
+              />
+            </Section>
+          ) : null}
+          {session.templateId ? (
+            <Text tone="muted">
+              Part of a weekly series. A change here is for this session only; edit the whole series
+              on your computer.
+            </Text>
+          ) : null}
+          {session.cancelled ? <Text tone="caution">Cancelled</Text> : null}
+          <PropertyList>
+            <DayProperty
+              name="day"
+              icon={<IconCalendarEvent size={20} color={muted} />}
+              label="Day"
+              clearable={false}
+              value={session.date}
+              readOnly={readOnly}
+              onChange={(date) => date && patch.mutate({ date })}
+            />
+            <DayProperty
+              name="starts"
+              icon={<IconClock size={20} color={muted} />}
+              label="Starts"
+              mode="time"
+              clearable={false}
+              value={session.startTime}
+              readOnly={readOnly}
+              onChange={(startTime) => startTime && patch.mutate({ startTime })}
+            />
+            <DayProperty
+              name="ends"
+              icon={<IconClock size={20} color={muted} />}
+              label="Ends"
+              mode="time"
+              clearable={false}
+              value={session.endTime}
+              readOnly={readOnly}
+              onChange={(endTime) => endTime && patch.mutate({ endTime })}
+            />
+            <TextRow
+              icon={<IconMapPin size={20} color={muted} />}
+              label="Where"
+              value={session.location}
+              readOnly={readOnly}
+              placeholder="Room 5"
+              onSave={(location) => patch.mutate({ location })}
+            />
+          </PropertyList>
+          {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
+          {!readOnly ? (
+            <View className="items-start">
+              <Button
+                label={session.cancelled ? "Bring Back" : "Cancel This Session"}
+                variant="ghost"
+                status={statusOf(cancel)}
+                errorLabel="Couldn't change it"
+                onPress={() => cancel.mutate(!session.cancelled)}
+              />
+            </View>
+          ) : null}
         </View>
-      ) : null}
-    </View>
+      </DetailsPart>
+    </>
+  );
+}
+
+/// What was said or set for one session, written in the page itself.
+function SessionNotes({
+  value,
+  readOnly,
+  onSave,
+}: {
+  value: string | null;
+  readOnly: boolean;
+  onSave: (text: string | null) => void;
+}) {
+  const [text, setText] = useState(value ?? "");
+  useEffect(() => setText(value ?? ""), [value]);
+  return (
+    <Field
+      label="Notes for this session"
+      multiline
+      editable={!readOnly}
+      placeholder="Notes for this session…"
+      value={text}
+      onChangeText={setText}
+      onEndEditing={() => text !== (value ?? "") && onSave(text.trim() || null)}
+    />
   );
 }
 
@@ -322,50 +346,55 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
   );
   if (!block) return null;
   return (
-    <View className="gap-4">
-      {exam ? (
-        <Section>
-          <Row
-            title={exam.entity.title || "Exam"}
-            subtitle="Exam"
-            icon={<EntityIcon type="exam" />}
-            onPress={() => router.push(`/entity/${exam.entity.id}`)}
+    <>
+      <MainPart>
+        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        {exam ? (
+          <Section>
+            <Row
+              title={exam.entity.title || "Exam"}
+              subtitle="Exam"
+              icon={<EntityIcon type="exam" />}
+              onPress={() => router.push(`/entity/${exam.entity.id}`)}
+            />
+          </Section>
+        ) : null}
+      </MainPart>
+      <DetailsPart>
+        <PropertyList>
+          <DayProperty
+            name="day"
+            icon={<IconCalendarEvent size={20} color={muted} />}
+            label="Day"
+            clearable={false}
+            value={block.date}
+            readOnly={readOnly}
+            onChange={(date) => date && patch.mutate({ date })}
           />
-        </Section>
-      ) : null}
-      <PropertyList>
-        <DayProperty
-          name="day"
-          icon={<IconCalendarEvent size={20} color={muted} />}
-          label="Day"
-          clearable={false}
-          value={block.date}
-          readOnly={readOnly}
-          onChange={(date) => date && patch.mutate({ date })}
-        />
-        <DayProperty
-          name="starts"
-          icon={<IconClock size={20} color={muted} />}
-          label="Starts"
-          mode="time"
-          clearable={false}
-          value={block.startTime}
-          readOnly={readOnly}
-          onChange={(startTime) => startTime && patch.mutate({ startTime })}
-        />
-        <DayProperty
-          name="ends"
-          icon={<IconClock size={20} color={muted} />}
-          label="Ends"
-          mode="time"
-          clearable={false}
-          value={block.endTime}
-          readOnly={readOnly}
-          onChange={(endTime) => endTime && patch.mutate({ endTime })}
-        />
-      </PropertyList>
-      {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
-    </View>
+          <DayProperty
+            name="starts"
+            icon={<IconClock size={20} color={muted} />}
+            label="Starts"
+            mode="time"
+            clearable={false}
+            value={block.startTime}
+            readOnly={readOnly}
+            onChange={(startTime) => startTime && patch.mutate({ startTime })}
+          />
+          <DayProperty
+            name="ends"
+            icon={<IconClock size={20} color={muted} />}
+            label="Ends"
+            mode="time"
+            clearable={false}
+            value={block.endTime}
+            readOnly={readOnly}
+            onChange={(endTime) => endTime && patch.mutate({ endTime })}
+          />
+        </PropertyList>
+        {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
+      </DetailsPart>
+    </>
   );
 }
 
@@ -479,64 +508,69 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
   const notes = useLocalWrite((db, _: undefined) => getOrCreateSemesterNotes(db, id));
   if (!semester) return null;
   return (
-    <View className="gap-4">
-      <PropertyList>
-        <DayProperty
-          name="starts"
-          icon={<IconCalendarEvent size={20} color={muted} />}
-          label="Starts"
-          clearable={false}
-          value={semester.startDate}
-          readOnly={readOnly}
-          onChange={(startDate) => startDate && update.mutate({ startDate })}
-        />
-        <DayProperty
-          name="ends"
-          icon={<IconCalendarEvent size={20} color={muted} />}
-          label="Ends"
-          clearable={false}
-          value={semester.endDate}
-          readOnly={readOnly}
-          onChange={(endDate) => endDate && update.mutate({ endDate })}
-        />
-      </PropertyList>
-      {!readOnly ? (
-        <View className="flex-row flex-wrap gap-2">
-          <Button
-            label={semester.isCurrent ? "This Is the Current Semester" : "Make Current"}
-            variant="secondary"
-            disabled={semester.isCurrent}
-            status={statusOf(current)}
-            errorLabel="Couldn't change it"
-            onPress={() => current.mutate(undefined)}
+    <>
+      <MainPart>
+        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <Section title="Courses">
+          {members.length === 0 ? <Empty text="No courses in this semester." /> : null}
+          {courses
+            .filter((c) => members.includes(c.entity.id))
+            .map((c) => (
+              <View key={c.entity.id}>
+                <Row
+                  title={c.entity.title || "Untitled"}
+                  subtitle={c.professor ?? c.entity.key}
+                  icon={<EntityIcon type="course" icon={c.entity.icon} />}
+                  onPress={() => router.push(`/entity/${c.entity.id}`)}
+                />
+              </View>
+            ))}
+        </Section>
+      </MainPart>
+      <DetailsPart>
+        <PropertyList>
+          <DayProperty
+            name="starts"
+            icon={<IconCalendarEvent size={20} color={muted} />}
+            label="Starts"
+            clearable={false}
+            value={semester.startDate}
+            readOnly={readOnly}
+            onChange={(startDate) => startDate && update.mutate({ startDate })}
           />
-          <Button
-            label="Open Notes"
-            variant="ghost"
-            status={statusOf(notes)}
-            errorLabel="Couldn't open them"
-            onPress={() =>
-              notes.mutate(undefined, { onSuccess: (note) => router.push(`/entity/${note}`) })
-            }
+          <DayProperty
+            name="ends"
+            icon={<IconCalendarEvent size={20} color={muted} />}
+            label="Ends"
+            clearable={false}
+            value={semester.endDate}
+            readOnly={readOnly}
+            onChange={(endDate) => endDate && update.mutate({ endDate })}
           />
-        </View>
-      ) : null}
-      <Section title="Courses">
-        {members.length === 0 ? <Empty text="No courses in this semester." /> : null}
-        {courses
-          .filter((c) => members.includes(c.entity.id))
-          .map((c) => (
-            <View key={c.entity.id}>
-              <Row
-                title={c.entity.title || "Untitled"}
-                subtitle={c.professor ?? c.entity.key}
-                icon={<EntityIcon type="course" icon={c.entity.icon} />}
-                onPress={() => router.push(`/entity/${c.entity.id}`)}
-              />
-            </View>
-          ))}
-      </Section>
-    </View>
+        </PropertyList>
+        {!readOnly ? (
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              label={semester.isCurrent ? "This Is the Current Semester" : "Make Current"}
+              variant="secondary"
+              disabled={semester.isCurrent}
+              status={statusOf(current)}
+              errorLabel="Couldn't change it"
+              onPress={() => current.mutate(undefined)}
+            />
+            <Button
+              label="Open Notes"
+              variant="ghost"
+              status={statusOf(notes)}
+              errorLabel="Couldn't open them"
+              onPress={() =>
+                notes.mutate(undefined, { onSuccess: (note) => router.push(`/entity/${note}`) })
+              }
+            />
+          </View>
+        ) : null}
+      </DetailsPart>
+    </>
   );
 }
 

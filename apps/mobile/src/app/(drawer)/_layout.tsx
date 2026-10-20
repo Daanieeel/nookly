@@ -1,68 +1,41 @@
-import { Drawer, DrawerToggleButton } from "expo-router/drawer";
-import { useWindowDimensions } from "react-native";
-import { Sidebar } from "../../screens/Sidebar.tsx";
-import { PageEdge, insetPageStyle } from "../../ui/inset-page.tsx";
+import { Stack } from "expo-router";
+import { IconMenu2 } from "@tabler/icons-react-native";
 import { useSidebarBeside } from "../../ui/pane.tsx";
+import { IconButton } from "../../ui/Button.tsx";
+import { useSidebarDrawer } from "../../shell/SidebarDrawer.tsx";
 import { useTheme } from "../../ui/theme.ts";
 
-/// The sidebar, with the page's edge drawn over it.
-function SidebarContent({ close, width }: { close: () => void; width: number }) {
+/// The app's top level pages. The sidebar is the root layout's drawer around the whole
+/// stack, so it opens from any page; here is its menu button, except on a tablet where
+/// the sidebar already sits beside the page.
+export default function TopLevelLayout() {
   const theme = useTheme();
-  return (
-    <>
-      <Sidebar close={close} />
-      <PageEdge drawerWidth={width} dark={theme.dark} />
-    </>
-  );
-}
-
-/// Like Claude's: the sidebar waits behind the page, and the page slides aside to show
-/// it, its corners rounded and its edge outlined. Open it from the menu button or with
-/// a swipe to the right anywhere on the page (a row with its own swipe actions keeps
-/// its swipe). Details open on top, with a back button.
-export default function DrawerLayout() {
-  const theme = useTheme();
-  const { width } = useWindowDimensions();
-  // On a tablet the sidebar is beside the page (the root layout), so this one never opens.
   const beside = useSidebarBeside();
-  const drawerWidth = Math.min(width * 0.82, 340);
+  const drawer = useSidebarDrawer();
   return (
-    <Drawer
-      drawerContent={({ navigation }) => (
-        <SidebarContent close={() => navigation.closeDrawer()} width={drawerWidth} />
-      )}
+    <Stack
       screenOptions={{
-        drawerType: "back",
-        swipeEnabled: !beside,
-        swipeEdgeWidth: width,
-        overlayColor: "transparent",
-        sceneStyle: beside
-          ? { backgroundColor: theme.colors.page }
-          : insetPageStyle(theme.colors.page),
-        drawerStyle: {
-          width: drawerWidth,
-          backgroundColor: theme.colors.background,
-        },
+        contentStyle: { backgroundColor: theme.colors.page },
         headerStyle: { backgroundColor: theme.colors.page },
         headerShadowVisible: false,
         headerTintColor: theme.colors.foreground,
-        headerLeft: beside
-          ? () => null
-          : () => (
-              <DrawerToggleButton
-                tintColor={theme.colors.foreground}
-                accessibilityLabel="Open Sidebar"
-              />
-            ),
+        headerLeft: () =>
+          beside || !drawer ? null : (
+            <IconButton
+              label="Open Sidebar"
+              icon={<IconMenu2 size={22} color={theme.colors.foreground} />}
+              onPress={drawer.open}
+            />
+          ),
       }}
     >
-      <Drawer.Screen name="index" options={{ title: "Dashboard" }} />
-      <Drawer.Screen name="calendar" options={{ title: "Calendar" }} />
-      <Drawer.Screen name="tasks" options={{ title: "Tasks" }} />
-      <Drawer.Screen name="search" options={{ title: "Search" }} />
-      <Drawer.Screen name="trash" options={{ title: "Trash" }} />
-      <Drawer.Screen name="space/[id]" options={{ title: "Space" }} />
-      <Drawer.Screen name="module/[spaceId]/[module]" options={{ title: "" }} />
-    </Drawer>
+      <Stack.Screen name="index" options={{ title: "Dashboard" }} />
+      <Stack.Screen name="calendar" options={{ title: "Calendar" }} />
+      <Stack.Screen name="tasks" options={{ title: "Tasks" }} />
+      <Stack.Screen name="search" options={{ title: "Search" }} />
+      <Stack.Screen name="trash" options={{ title: "Trash" }} />
+      <Stack.Screen name="space/[id]" options={{ title: "Space" }} />
+      <Stack.Screen name="module/[spaceId]/[module]" options={{ title: "" }} />
+    </Stack>
   );
 }

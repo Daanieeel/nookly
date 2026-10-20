@@ -2,8 +2,6 @@ import {
   DUPLICATE_TYPES,
   PORTABLE_TYPES,
   type EntityRecord,
-  type RepeatRule,
-  createSubtask,
   exportNooklyFile,
   nooklyFileNoun,
   duplicateEntity,
@@ -11,62 +9,31 @@ import {
   renameEntity,
   restoreEntity,
   setPinned,
-  setTaskDates,
-  setTaskEffort,
-  setTaskRepeat,
-  setTaskStatus,
   trashEntity,
 } from "@nookly/shared/data";
-import { EFFORT_STEPS, effortLabel } from "@nookly/shared/effort";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
-import {
-  IconCalendarDue,
-  IconCalendarPlus,
-  IconCircleDot,
-  IconDots,
-  IconGauge,
-  IconPlus,
-  IconRepeat,
-} from "@tabler/icons-react-native";
+import { IconChevronLeft, IconDots, IconInfoCircle } from "@tabler/icons-react-native";
 import { File, Paths } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
-import { useSetting } from "../data/settings.ts";
-import {
-  useEntity,
-  useSpaces,
-  useStatuses,
-  useSubtaskProgress,
-  useSubtasks,
-  useTask,
-} from "../data/queries.ts";
+import { useEntity, useSpaces } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
-import { PropertyList } from "../ui/Property.tsx";
-import { ChoiceProperty, DayProperty } from "../ui/property-rows.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Section } from "../ui/Row.tsx";
+import { IconButton } from "../ui/Button.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { DetailsDrawer, useDetails } from "../shell/DetailsDrawer.tsx";
 import { useSplit } from "../shell/split-context.ts";
-import { useInspectorShown } from "../ui/pane.tsx";
-import { LabelsProperty } from "./RelatedSection.tsx";
+import { useInspectorShown, useIsTablet } from "../ui/pane.tsx";
+import { PartProvider } from "../ui/parts.tsx";
+import { ItemParts } from "./ItemParts.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
-import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
-import { BookmarkDetail } from "./BookmarkDetail.tsx";
-import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
-import { addDays, localDay } from "./dates.ts";
-import { FileDetail } from "./FileScreens.tsx";
-import { PageEditor } from "./PageEditor.tsx";
-import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
-import { RecipeDetail } from "./RecipeScreens.tsx";
-import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { type MenuItem, useMenu } from "../ui/menu.tsx";
 
@@ -156,169 +123,13 @@ function useEntityMenu(entity: EntityRecord): MenuItem[] {
   return items;
 }
 
-const REPEATS: { label: string; rule: RepeatRule | null }[] = [
-  { label: "Never", rule: null },
-  { label: "Daily", rule: { every: 1, unit: "day" } },
-  { label: "Weekly", rule: { every: 1, unit: "week" } },
-  { label: "Monthly", rule: { every: 1, unit: "month" } },
-];
-
-/// A task's sub-tasks, one level deep, with how far along they are.
-function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const theme = useTheme();
-  const { data: subtasks = [] } = useSubtasks(id);
-  const { data: statuses = [] } = useStatuses();
-  const { data: progress } = useSubtaskProgress(id);
-  const [title, setTitle] = useState("");
-  const add = useLocalWrite((db, text: string) => createSubtask(db, id, text));
-  const submit = () => {
-    const text = title.trim();
-    if (text) add.mutate(text, { onSuccess: () => setTitle("") });
-  };
-  return (
-    <Section
-      title="Sub-tasks"
-      action={
-        progress === null || progress === undefined ? undefined : (
-          <Text variant="small" tone="muted">
-            {Math.round(progress)}% done
-          </Text>
-        )
-      }
-    >
-      {subtasks.map((task) => (
-        <View key={task.entity.id}>
-          <TaskRow task={task} statuses={statuses} />
-        </View>
-      ))}
-      {!readOnly ? (
-        <View className="min-h-12 flex-row items-center gap-2 px-4">
-          <IconPlus size={18} color={theme.colors.mutedForeground} />
-          <TextInput
-            accessibilityLabel="New sub-task"
-            value={title}
-            onChangeText={setTitle}
-            onSubmitEditing={submit}
-            returnKeyType="done"
-            placeholder="Add a sub-task"
-            placeholderTextColor={theme.colors.mutedForeground}
-            className="h-12 flex-1 font-sans text-sm text-foreground"
-          />
-          {title.trim() ? (
-            <Button
-              label="Add Sub-task"
-              variant="secondary"
-              size="sm"
-              status={statusOf(add)}
-              errorLabel="Couldn't add"
-              onPress={submit}
-            />
-          ) : null}
-        </View>
-      ) : null}
-    </Section>
-  );
-}
-
-/// A task's properties, one card of rows: tap a row to change it.
-function TaskDetail({
-  id,
-  readOnly,
-  labels,
-}: {
-  id: string;
-  readOnly: boolean;
-  /// The labels row, when it belongs in this card.
-  labels?: React.ReactNode;
-}) {
-  const theme = useTheme();
-  const { data: task } = useTask(id);
-  const { data: statuses = [] } = useStatuses();
-  const status = useLocalWrite((db, statusId: string) => setTaskStatus(db, id, statusId));
-  const dates = useLocalWrite((db, due: string | null) =>
-    setTaskDates(db, id, task?.startDate ?? null, due),
-  );
-  const start = useLocalWrite((db, day: string | null) =>
-    setTaskDates(db, id, day, task?.dueDate ?? null),
-  );
-  const effort = useLocalWrite((db, value: number | null) => setTaskEffort(db, id, value));
-  const [scale] = useSetting("general.effortScale");
-  const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
-  if (!task) return null;
-  const muted = theme.colors.mutedForeground;
-  const repeatId =
-    REPEATS.find((r) => JSON.stringify(r.rule) === JSON.stringify(task.repeat))?.label ?? "Custom";
-  return (
-    <PropertyList>
-      <ChoiceProperty
-        name="status"
-        icon={<IconCircleDot size={20} color={muted} />}
-        label="Status"
-        value={task.statusId}
-        readOnly={readOnly}
-        options={statuses.map((s) => ({
-          id: s.id,
-          label: s.name,
-          icon: <StatusIcon status={s} size={16} />,
-        }))}
-        onChange={(statusId) => status.mutate(statusId)}
-      />
-      <ChoiceProperty
-        name="effort"
-        icon={<IconGauge size={20} color={muted} />}
-        label="Effort"
-        value={task.effort === null ? "none" : String(task.effort)}
-        readOnly={readOnly}
-        options={[
-          { id: "none", label: "None" },
-          ...EFFORT_STEPS.map((step) => ({
-            id: String(step.value),
-            label: effortLabel(step.value, scale),
-          })),
-        ]}
-        onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
-      />
-      <DayProperty
-        name="start"
-        icon={<IconCalendarPlus size={20} color={muted} />}
-        label="Start date"
-        value={task.startDate}
-        readOnly={readOnly}
-        onChange={(day) => start.mutate(day)}
-      />
-      <DayProperty
-        name="due"
-        icon={<IconCalendarDue size={20} color={muted} />}
-        label="Due date"
-        value={task.dueDate}
-        readOnly={readOnly}
-        quick={[
-          { label: "Today", value: localDay() },
-          { label: "Tomorrow", value: addDays(localDay(), 1) },
-        ]}
-        onChange={(day) => dates.mutate(day)}
-      />
-      <ChoiceProperty
-        name="repeat"
-        icon={<IconRepeat size={20} color={muted} />}
-        label="Repeat"
-        value={repeatId}
-        readOnly={readOnly}
-        options={REPEATS.map((r) => ({ id: r.label, label: r.label }))}
-        onChange={(label) => repeat.mutate(REPEATS.find((r) => r.label === label)?.rule ?? null)}
-      />
-      {labels}
-    </PropertyList>
-  );
-}
-
-/// One entity, as its own type shows it. Every type gets its title, Space, key and the
-/// "more" menu (pin, move, trash and so on); tasks, pages, bookmarks and calendar entries
-/// also their own fields.
+/// One entity, as its own type shows it: a top bar (back, key, more), the title, and the
+/// parts of the type that belong in the middle of the page. Everything else, the properties
+/// and settings, sits in the details: beside the page on a wide iPad, else behind it, a
+/// swipe or the details button away.
 export function EntityScreen({ id, embedded = false }: { id: string; embedded?: boolean }) {
   const { db } = useAppData();
   const { data: entity, isLoading } = useEntity(id);
-  // Beside the page on a wide iPad; else behind it, a swipe away.
   const inspector = useInspectorShown();
   useEffect(() => {
     void markOpened(db, id);
@@ -334,46 +145,86 @@ export function EntityScreen({ id, embedded = false }: { id: string; embedded?: 
   return inspector ? (
     <OpenEntity entity={entity} embedded={embedded} />
   ) : (
-    <DetailsDrawer id={entity.id} labels={entity.type !== "task" && entity.type !== "sub_task"}>
+    <DetailsDrawer id={entity.id}>
       <OpenEntity entity={entity} embedded={embedded} />
     </DetailsDrawer>
   );
 }
 
+/// The bar over an item on a phone, drawn inside the page so the whole page, bar included,
+/// slides aside and is rounded with the details drawer: back, the item's key, and its
+/// conflict badge, details and more.
+function TopBar({ entity, menu }: { entity: EntityRecord; menu: MenuItem[] }) {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const present = useMenu();
+  const details = useDetails();
+  const muted = theme.colors.mutedForeground;
+  return (
+    <View className="flex-row items-center gap-1 px-2 pb-1" style={{ paddingTop: insets.top + 4 }}>
+      <IconButton
+        label="Back"
+        icon={<IconChevronLeft size={24} color={theme.colors.foreground} />}
+        onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      />
+      <Text variant="small" tone="muted" className="flex-1">
+        {entity.key}
+      </Text>
+      <ConflictBadge entityId={entity.id} />
+      {details ? (
+        <IconButton
+          label="Show Details"
+          icon={<IconInfoCircle size={22} color={muted} />}
+          onPress={() => details.show()}
+        />
+      ) : null}
+      {menu.length > 0 ? (
+        <IconButton
+          label="More"
+          icon={<IconDots size={22} color={muted} />}
+          onPress={() => present.show(entity.title || entity.key, menu)}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 function OpenEntity({ entity, embedded }: { entity: EntityRecord; embedded: boolean }) {
-  const id = entity.id;
   const { data: spaces = [] } = useSpaces();
   const readOnly = useReadOnly(entity);
   const theme = useTheme();
   const present = useMenu();
   const menu = useEntityMenu(entity);
-  const inspector = useInspectorShown();
-  // The task's own card keeps its labels row, unless the details beside the page hold them.
+  const tablet = useIsTablet();
   const space = spaces.find((s) => s.id === entity.spaceId);
-  // Labels and links belong to a Space of your own, not to one shared with you, and the
-  // details pane takes them when it is beside the page.
-  const withLabels = !(entity.deletedAt || isSharedSpace(entity.spaceId) || inspector);
+  // On a phone the bar above the page carries the key and the actions; beside the
+  // details pane (tablet, split view) they sit in the page's first row.
+  const bar = !embedded && !tablet;
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1"
     >
-      {embedded ? null : <Stack.Screen options={{ title: "" }} />}
+      {embedded ? null : <Stack.Screen options={{ headerShown: false }} />}
+      {bar ? <TopBar entity={entity} menu={menu} /> : null}
       <Screen>
         <View className="gap-2">
           <View className="flex-row flex-wrap items-center gap-2">
-            <Text variant="small" tone="muted">
-              {entity.key}
-            </Text>
+            {bar ? null : (
+              <Text variant="small" tone="muted">
+                {entity.key}
+              </Text>
+            )}
             {space ? <SpaceDot color={space.color} /> : null}
             <Text variant="small" tone="muted">
               {space?.name ?? ""}
             </Text>
             {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
             {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
-            <ConflictBadge entityId={entity.id} />
+            {bar ? null : <ConflictBadge entityId={entity.id} />}
             <View className="flex-1" />
-            {menu.length > 0 ? (
+            {!bar && menu.length > 0 ? (
               <IconButton
                 label="More"
                 icon={<IconDots size={22} color={theme.colors.mutedForeground} />}
@@ -383,34 +234,9 @@ function OpenEntity({ entity, embedded }: { entity: EntityRecord; embedded: bool
           </View>
           <TitleField entity={entity} readOnly={readOnly} />
         </View>
-        {entity.type === "task" || entity.type === "sub_task" ? (
-          <>
-            <TaskDetail
-              id={id}
-              readOnly={readOnly}
-              labels={
-                withLabels ? <LabelsProperty entity={entity} readOnly={readOnly} /> : undefined
-              }
-            />
-            {entity.type === "task" ? <Subtasks id={id} readOnly={readOnly} /> : null}
-          </>
-        ) : null}
-        {entity.type === "note" || entity.type === "jot" ? (
-          <PageEditor entityId={id} readOnly={readOnly} />
-        ) : null}
-        {entity.type === "file" ? <FileDetail id={id} /> : null}
-        {entity.type === "session" ? <SessionDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "study_block" ? <StudyBlockDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "semester" ? <SemesterDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "recipe" ? <RecipeDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "bookmark" ? <BookmarkDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "calendar_entry" ? (
-          <CalendarEntryDetail id={id} readOnly={readOnly} />
-        ) : null}
-        {entity.type === "course" ? <CourseDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "exam" ? <ExamDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "assignment" ? <AssignmentDetail id={id} readOnly={readOnly} /> : null}
-        {entity.type === "index_card_deck" ? <DeckDetail id={id} readOnly={readOnly} /> : null}
+        <PartProvider value="main">
+          <ItemParts entity={entity} readOnly={readOnly} />
+        </PartProvider>
       </Screen>
       <EditorToolbar />
     </KeyboardAvoidingView>

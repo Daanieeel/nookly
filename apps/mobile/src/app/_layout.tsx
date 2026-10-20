@@ -20,6 +20,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { TabletShell } from "../shell/TabletShell.tsx";
 
 import { SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
@@ -34,6 +35,9 @@ import { createSync, onboardedStore, serverUrlStore, themeStore } from "../data/
 restoreTheme(themeStore);
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+
+/// The pages of the sidebar itself: nothing to go back to from them.
+const TOP_LEVEL = /^\/($|calendar|tasks|search|trash|space\/|module\/)/;
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { networkMode: "always" }, mutations: { networkMode: "always" } },
@@ -330,7 +334,14 @@ export default function RootLayout() {
             {beside ? (
               <TabletShell>{stack}</TabletShell>
             ) : (
-              <SidebarBesideProvider value={false}>{stack}</SidebarBesideProvider>
+              <SidebarBesideProvider value={false}>
+                <SidebarDrawer
+                  enabled={!/^\/(welcome|account)/.test(pathname)}
+                  edgeBack={!TOP_LEVEL.test(pathname)}
+                >
+                  {stack}
+                </SidebarDrawer>
+              </SidebarBesideProvider>
             )}
           </ThemeProvider>
         </AppDataProvider>

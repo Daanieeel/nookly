@@ -143,8 +143,25 @@ function RowsEditor({ entityId, readOnly }: { entityId: string; readOnly: boolea
 }
 
 /// A page's body: the live editor when this phone has the page's document, else its
-/// blocks as text fields (DECISIONS.md D6).
-export function PageEditor({ entityId, readOnly }: { entityId: string; readOnly: boolean }) {
+/// blocks as text fields (DECISIONS.md D6). Only notes and jots have a document; the
+/// description of any other item is its blocks (`live` off).
+export function PageEditor({
+  entityId,
+  readOnly,
+  live = true,
+}: {
+  entityId: string;
+  readOnly: boolean;
+  live?: boolean;
+}) {
+  return live ? (
+    <LiveOrRows entityId={entityId} readOnly={readOnly} />
+  ) : (
+    <RowsEditor entityId={entityId} readOnly={readOnly} />
+  );
+}
+
+function LiveOrRows({ entityId, readOnly }: { entityId: string; readOnly: boolean }) {
   const page = usePageSession(entityId);
   if (page.state === "live") {
     return <LivePage session={page.session} editable={!readOnly && !page.session.readOnly} />;

@@ -29,6 +29,7 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { cn } from "../ui/classes.ts";
+import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { Empty, ROW_DIVIDER, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -254,134 +255,138 @@ export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }
   if (!recipe) return null;
   const chosen = recipe.tags.map((t) => t.id);
   return (
-    <View className="gap-5">
-      {bannerUri && bannerExists ? (
-        <Image
-          accessibilityLabel="Banner"
-          source={{ uri: bannerUri }}
-          resizeMode="cover"
-          className="h-40 w-full rounded-lg bg-muted"
-        />
-      ) : recipe.bannerBlob ? (
-        <Text tone="muted">
-          The banner is in your account and arrives when this phone has synced.
-        </Text>
-      ) : null}
-      {!readOnly ? (
-        <View className="items-start">
-          <Button
-            label="Choose Banner"
-            variant="ghost"
-            status={statusOf(banner)}
-            errorLabel="Couldn't use it"
-            onPress={() => banner.mutate(undefined)}
+    <>
+      <MainPart>
+        {bannerUri && bannerExists ? (
+          <Image
+            accessibilityLabel="Banner"
+            source={{ uri: bannerUri }}
+            resizeMode="cover"
+            className="h-40 w-full rounded-lg bg-muted"
           />
-        </View>
-      ) : null}
-      <Section title="Kind">
-        <View className="p-3">
-          <ChipGroup label="Kind">
-            {RECIPE_KINDS.map((value, index) => (
-              <Chip
-                key={value}
-                label={KIND_LABELS[index]}
-                selected={recipe.kind === value}
-                disabled={readOnly}
-                onPress={() => kind.mutate(value)}
+        ) : recipe.bannerBlob ? (
+          <Text tone="muted">
+            The banner is in your account and arrives when this phone has synced.
+          </Text>
+        ) : null}
+        {!readOnly ? (
+          <View className="items-start">
+            <Button
+              label="Choose Banner"
+              variant="ghost"
+              status={statusOf(banner)}
+              errorLabel="Couldn't use it"
+              onPress={() => banner.mutate(undefined)}
+            />
+          </View>
+        ) : null}
+        <Section title="Ingredients">
+          {parts?.ingredients.length === 0 ? <Empty text="No ingredients yet." /> : null}
+          {parts?.ingredients.map((item, index) => (
+            <View key={item.id}>
+              <Part
+                item={item}
+                index={index}
+                count={parts.ingredients.length}
+                readOnly={readOnly}
+                onText={(text) => editIngredient.mutate({ id: item.id, text })}
+                onMove={(to) => moveIng.mutate({ id: item.id, to })}
+                onDelete={() => dropIngredient.mutate(item.id)}
               />
-            ))}
-          </ChipGroup>
-        </View>
-      </Section>
-      <Section
-        title={
-          recipe.durationMinutes === null && recipe.totalDurationMinutes !== null
-            ? `Time, ${minutes(recipe.totalDurationMinutes)} from the steps`
-            : "Time"
-        }
-      >
-        <View className="p-3">
-          <Field
-            label="Minutes"
-            keyboardType="number-pad"
-            editable={!readOnly}
-            placeholder="Add up the steps"
-            value={duration}
-            onChangeText={setDuration}
-            onEndEditing={() => {
-              const value = duration.trim() === "" ? null : Number.parseInt(duration, 10);
-              if (value === null || (Number.isInteger(value) && value >= 0)) time.mutate(value);
-            }}
-          />
-        </View>
-      </Section>
-      <Section title="Tags">
-        <View className="p-3">
-          <ChipGroup label="Tags" multiple>
-            {catalog.map((tag) => (
-              <Chip
-                key={tag.id}
-                label={tag.name}
-                multiple
-                selected={chosen.includes(tag.id)}
-                disabled={readOnly}
-                onPress={() =>
-                  tags.mutate(
-                    chosen.includes(tag.id)
-                      ? chosen.filter((c) => c !== tag.id)
-                      : [...chosen, tag.id],
-                  )
+            </View>
+          ))}
+          {!readOnly ? (
+            <AddLine label="Ingredient" onAdd={(text) => addIngredient.mutate(text)} />
+          ) : null}
+        </Section>
+        <Section title="Steps">
+          {parts?.steps.length === 0 ? <Empty text="No steps yet." /> : null}
+          {parts?.steps.map((item, index) => (
+            <View key={item.id}>
+              <Part
+                item={item}
+                index={index}
+                count={parts.steps.length}
+                readOnly={readOnly}
+                onText={(text) => editStep.mutate({ id: item.id, patch: { text } })}
+                onMove={(to) => moveSt.mutate({ id: item.id, to })}
+                onDelete={() => dropStep.mutate(item.id)}
+                extra={
+                  <StepDuration
+                    step={item}
+                    onChange={(value) =>
+                      editStep.mutate({ id: item.id, patch: { durationMinutes: value } })
+                    }
+                  />
                 }
               />
-            ))}
-          </ChipGroup>
-        </View>
-      </Section>
-      <Section title="Ingredients">
-        {parts?.ingredients.length === 0 ? <Empty text="No ingredients yet." /> : null}
-        {parts?.ingredients.map((item, index) => (
-          <View key={item.id}>
-            <Part
-              item={item}
-              index={index}
-              count={parts.ingredients.length}
-              readOnly={readOnly}
-              onText={(text) => editIngredient.mutate({ id: item.id, text })}
-              onMove={(to) => moveIng.mutate({ id: item.id, to })}
-              onDelete={() => dropIngredient.mutate(item.id)}
+            </View>
+          ))}
+          {!readOnly ? <AddLine label="Step" onAdd={(text) => addStep.mutate(text)} /> : null}
+        </Section>
+      </MainPart>
+      <DetailsPart>
+        <Section title="Kind">
+          <View className="p-3">
+            <ChipGroup label="Kind">
+              {RECIPE_KINDS.map((value, index) => (
+                <Chip
+                  key={value}
+                  label={KIND_LABELS[index]}
+                  selected={recipe.kind === value}
+                  disabled={readOnly}
+                  onPress={() => kind.mutate(value)}
+                />
+              ))}
+            </ChipGroup>
+          </View>
+        </Section>
+        <Section
+          title={
+            recipe.durationMinutes === null && recipe.totalDurationMinutes !== null
+              ? `Time, ${minutes(recipe.totalDurationMinutes)} from the steps`
+              : "Time"
+          }
+        >
+          <View className="p-3">
+            <Field
+              label="Minutes"
+              keyboardType="number-pad"
+              editable={!readOnly}
+              placeholder="Add up the steps"
+              value={duration}
+              onChangeText={setDuration}
+              onEndEditing={() => {
+                const value = duration.trim() === "" ? null : Number.parseInt(duration, 10);
+                if (value === null || (Number.isInteger(value) && value >= 0)) time.mutate(value);
+              }}
             />
           </View>
-        ))}
-        {!readOnly ? (
-          <AddLine label="Ingredient" onAdd={(text) => addIngredient.mutate(text)} />
-        ) : null}
-      </Section>
-      <Section title="Steps">
-        {parts?.steps.length === 0 ? <Empty text="No steps yet." /> : null}
-        {parts?.steps.map((item, index) => (
-          <View key={item.id}>
-            <Part
-              item={item}
-              index={index}
-              count={parts.steps.length}
-              readOnly={readOnly}
-              onText={(text) => editStep.mutate({ id: item.id, patch: { text } })}
-              onMove={(to) => moveSt.mutate({ id: item.id, to })}
-              onDelete={() => dropStep.mutate(item.id)}
-              extra={
-                <StepDuration
-                  step={item}
-                  onChange={(value) =>
-                    editStep.mutate({ id: item.id, patch: { durationMinutes: value } })
+        </Section>
+        <Section title="Tags">
+          <View className="p-3">
+            <ChipGroup label="Tags" multiple>
+              {catalog.map((tag) => (
+                <Chip
+                  key={tag.id}
+                  label={tag.name}
+                  multiple
+                  selected={chosen.includes(tag.id)}
+                  disabled={readOnly}
+                  onPress={() =>
+                    tags.mutate(
+                      chosen.includes(tag.id)
+                        ? chosen.filter((c) => c !== tag.id)
+                        : [...chosen, tag.id],
+                    )
                   }
                 />
-              }
-            />
+              ))}
+            </ChipGroup>
           </View>
-        ))}
-        {!readOnly ? <AddLine label="Step" onAdd={(text) => addStep.mutate(text)} /> : null}
-      </Section>
-    </View>
+        </Section>
+      </DetailsPart>
+    </>
   );
 }
 

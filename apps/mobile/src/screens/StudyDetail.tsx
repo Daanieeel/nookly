@@ -52,6 +52,7 @@ import { Field } from "../ui/Field.tsx";
 import { Property, PropertyList, useOpenRow } from "../ui/Property.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DatePanel, shownValue } from "../ui/DateField.tsx";
+import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { ChoiceProperty, DayProperty, NumberRow, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -61,6 +62,7 @@ import { fieldError } from "./forms.ts";
 import { AssignmentRows, ExamRows, deckSummary } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
 import { CourseProperty, ExamProperty } from "./StudyPickers.tsx";
+import { PageEditor } from "./PageEditor.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
@@ -105,31 +107,36 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
     );
   return (
     <>
-      <PropertyList>
-        <TextRow
-          icon={<IconUser size={20} color={muted} />}
-          label="Professor"
-          value={course.professor}
-          readOnly={readOnly}
-          placeholder="Who teaches it"
-          onSave={(value) => professor.mutate(value)}
-        />
-        <TextRow
-          icon={<IconDoor size={20} color={muted} />}
-          label="Room"
-          value={course.room}
-          readOnly={readOnly}
-          placeholder="Where it meets"
-          onSave={(value) => room.mutate(value)}
-        />
-        <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
-      </PropertyList>
-      <Section title="Exams" action={add("exam", "New Exam")}>
-        <ExamRows exams={exams} />
-      </Section>
-      <Section title="Assignments" action={add("assignment", "New Assignment")}>
-        <AssignmentRows assignments={assignments} />
-      </Section>
+      <MainPart>
+        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <Section title="Exams" action={add("exam", "New Exam")}>
+          <ExamRows exams={exams} />
+        </Section>
+        <Section title="Assignments" action={add("assignment", "New Assignment")}>
+          <AssignmentRows assignments={assignments} />
+        </Section>
+      </MainPart>
+      <DetailsPart>
+        <PropertyList>
+          <TextRow
+            icon={<IconUser size={20} color={muted} />}
+            label="Professor"
+            value={course.professor}
+            readOnly={readOnly}
+            placeholder="Who teaches it"
+            onSave={(value) => professor.mutate(value)}
+          />
+          <TextRow
+            icon={<IconDoor size={20} color={muted} />}
+            label="Room"
+            value={course.room}
+            readOnly={readOnly}
+            placeholder="Where it meets"
+            onSave={(value) => room.mutate(value)}
+          />
+          <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
+        </PropertyList>
+      </DetailsPart>
     </>
   );
 }
@@ -145,67 +152,72 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const muted = theme.colors.mutedForeground;
   return (
     <>
-      <PropertyList>
-        <ChoiceProperty
-          name="status"
-          icon={<IconCircleDot size={20} color={muted} />}
-          label="Status"
-          value={exam.status}
-          readOnly={readOnly}
-          options={statusOptions(EXAM_STATUSES)}
-          onChange={(status) => update.mutate({ status })}
-        />
-        <CourseProperty
-          icon={<IconSchool size={20} color={muted} />}
-          spaceId={exam.entity.spaceId}
-          value={exam.courseId}
-          readOnly={readOnly}
-          onChange={(courseId) => course.mutate(courseId)}
-        />
-        <DayProperty
-          name="day"
-          icon={<IconCalendarEvent size={20} color={muted} />}
-          label="Day"
-          value={exam.examDate}
-          readOnly={readOnly}
-          onChange={(examDate) => update.mutate({ examDate })}
-        />
-        <DayProperty
-          name="time"
-          icon={<IconClock size={20} color={muted} />}
-          label="Time"
-          mode="time"
-          placeholder="All day"
-          value={exam.examTime}
-          readOnly={readOnly}
-          onChange={(examTime) => update.mutate({ examTime })}
-        />
-        <TextRow
-          icon={<IconDoor size={20} color={muted} />}
-          label="Room"
-          value={exam.room}
-          readOnly={readOnly}
-          placeholder="H 0104"
-          onSave={(room) => update.mutate({ room })}
-        />
-        <NumberRow
-          icon={<IconPercentage size={20} color={muted} />}
-          label="Weight (%)"
-          value={weightPercent(exam.weight)}
-          readOnly={readOnly}
-          placeholder="20"
-          onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
-        />
-        <NumberRow
-          icon={<IconAward size={20} color={muted} />}
-          label="Grade"
-          value={exam.grade}
-          readOnly={readOnly}
-          placeholder="1.7"
-          onSave={(grade) => update.mutate({ grade })}
-        />
-      </PropertyList>
-      <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
+      <MainPart>
+        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
+      </MainPart>
+      <DetailsPart>
+        <PropertyList>
+          <ChoiceProperty
+            name="status"
+            icon={<IconCircleDot size={20} color={muted} />}
+            label="Status"
+            value={exam.status}
+            readOnly={readOnly}
+            options={statusOptions(EXAM_STATUSES)}
+            onChange={(status) => update.mutate({ status })}
+          />
+          <CourseProperty
+            icon={<IconSchool size={20} color={muted} />}
+            spaceId={exam.entity.spaceId}
+            value={exam.courseId}
+            readOnly={readOnly}
+            onChange={(courseId) => course.mutate(courseId)}
+          />
+          <DayProperty
+            name="day"
+            icon={<IconCalendarEvent size={20} color={muted} />}
+            label="Day"
+            value={exam.examDate}
+            readOnly={readOnly}
+            onChange={(examDate) => update.mutate({ examDate })}
+          />
+          <DayProperty
+            name="time"
+            icon={<IconClock size={20} color={muted} />}
+            label="Time"
+            mode="time"
+            placeholder="All day"
+            value={exam.examTime}
+            readOnly={readOnly}
+            onChange={(examTime) => update.mutate({ examTime })}
+          />
+          <TextRow
+            icon={<IconDoor size={20} color={muted} />}
+            label="Room"
+            value={exam.room}
+            readOnly={readOnly}
+            placeholder="H 0104"
+            onSave={(room) => update.mutate({ room })}
+          />
+          <NumberRow
+            icon={<IconPercentage size={20} color={muted} />}
+            label="Weight (%)"
+            value={weightPercent(exam.weight)}
+            readOnly={readOnly}
+            placeholder="20"
+            onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
+          />
+          <NumberRow
+            icon={<IconAward size={20} color={muted} />}
+            label="Grade"
+            value={exam.grade}
+            readOnly={readOnly}
+            placeholder="1.7"
+            onSave={(grade) => update.mutate({ grade })}
+          />
+        </PropertyList>
+      </DetailsPart>
     </>
   );
 }
@@ -323,47 +335,52 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
   const muted = theme.colors.mutedForeground;
   return (
     <>
-      <PropertyList>
-        <ChoiceProperty
-          name="status"
-          icon={<IconCircleDot size={20} color={muted} />}
-          label="Status"
-          value={assignment.status}
-          readOnly={readOnly}
-          options={statusOptions(ASSIGNMENT_STATUSES)}
-          onChange={(status) => update.mutate({ status })}
-        />
-        <CourseProperty
-          icon={<IconSchool size={20} color={muted} />}
-          spaceId={assignment.entity.spaceId}
-          value={assignment.courseId}
-          readOnly={readOnly}
-          onChange={(courseId) => course.mutate(courseId)}
-        />
-        <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
-        <NumberRow
-          icon={<IconPercentage size={20} color={muted} />}
-          label="Weight (%)"
-          value={weightPercent(assignment.weight)}
-          readOnly={readOnly}
-          placeholder="10"
-          onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
-        />
-        <NumberRow
-          icon={<IconAward size={20} color={muted} />}
-          label="Grade"
-          value={assignment.grade}
-          readOnly={readOnly}
-          placeholder="1.3"
-          onSave={(grade) => update.mutate({ grade })}
-        />
-      </PropertyList>
-      {followsSession ? (
-        <Text variant="small" tone="muted">
-          Due {assignment.dueSessionOffsetDays} days before a session of{" "}
-          {courseName(assignment.courseId) ?? "its course"}, so the day moves with the session.
-        </Text>
-      ) : null}
+      <MainPart>
+        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+      </MainPart>
+      <DetailsPart>
+        <PropertyList>
+          <ChoiceProperty
+            name="status"
+            icon={<IconCircleDot size={20} color={muted} />}
+            label="Status"
+            value={assignment.status}
+            readOnly={readOnly}
+            options={statusOptions(ASSIGNMENT_STATUSES)}
+            onChange={(status) => update.mutate({ status })}
+          />
+          <CourseProperty
+            icon={<IconSchool size={20} color={muted} />}
+            spaceId={assignment.entity.spaceId}
+            value={assignment.courseId}
+            readOnly={readOnly}
+            onChange={(courseId) => course.mutate(courseId)}
+          />
+          <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
+          <NumberRow
+            icon={<IconPercentage size={20} color={muted} />}
+            label="Weight (%)"
+            value={weightPercent(assignment.weight)}
+            readOnly={readOnly}
+            placeholder="10"
+            onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
+          />
+          <NumberRow
+            icon={<IconAward size={20} color={muted} />}
+            label="Grade"
+            value={assignment.grade}
+            readOnly={readOnly}
+            placeholder="1.3"
+            onSave={(grade) => update.mutate({ grade })}
+          />
+        </PropertyList>
+        {followsSession ? (
+          <Text variant="small" tone="muted">
+            Due {assignment.dueSessionOffsetDays} days before a session of{" "}
+            {courseName(assignment.courseId) ?? "its course"}, so the day moves with the session.
+          </Text>
+        ) : null}
+      </DetailsPart>
     </>
   );
 }
@@ -485,45 +502,49 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const queue = studyQueue(cards);
   return (
     <>
-      <Section title="Study">
-        <Padded>
-          <Text tone="muted">{deckSummary(deck.stats)}</Text>
-          <Button
-            label={queue.length > 0 ? `Study ${queue.length}` : "Nothing due now"}
-            disabled={queue.length === 0}
-            onPress={() => router.push(`/study/${id}`)}
+      <DetailsPart>
+        <PropertyList>
+          <ExamProperty
+            icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
+            spaceId={deck.entity.spaceId}
+            value={deck.examId}
+            readOnly={readOnly}
+            onChange={(examId) => exam.mutate(examId)}
           />
-        </Padded>
-      </Section>
-      <PropertyList>
-        <ExamProperty
-          icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
-          spaceId={deck.entity.spaceId}
-          value={deck.examId}
-          readOnly={readOnly}
-          onChange={(examId) => exam.mutate(examId)}
-        />
-      </PropertyList>
-      {!readOnly ? (
-        <Section title="New card">
-          <CardForm
-            initial={{ front: "", back: "" }}
-            submitLabel="Add Card"
-            status={add}
-            onSubmit={async (card) => {
-              await add.mutateAsync(card);
-            }}
-          />
+        </PropertyList>
+      </DetailsPart>
+      <MainPart>
+        <Section title="Study">
+          <Padded>
+            <Text tone="muted">{deckSummary(deck.stats)}</Text>
+            <Button
+              label={queue.length > 0 ? `Study ${queue.length}` : "Nothing due now"}
+              disabled={queue.length === 0}
+              onPress={() => router.push(`/study/${id}`)}
+            />
+          </Padded>
         </Section>
-      ) : null}
-      <Section title={`Cards · ${cards.length}`}>
-        {cards.length === 0 ? <Empty text="No cards yet." /> : null}
-        {cards.map((card) => (
-          <View key={card.id}>
-            <CardRow card={card} readOnly={readOnly} />
-          </View>
-        ))}
-      </Section>
+        {!readOnly ? (
+          <Section title="New card">
+            <CardForm
+              initial={{ front: "", back: "" }}
+              submitLabel="Add Card"
+              status={add}
+              onSubmit={async (card) => {
+                await add.mutateAsync(card);
+              }}
+            />
+          </Section>
+        ) : null}
+        <Section title={`Cards · ${cards.length}`}>
+          {cards.length === 0 ? <Empty text="No cards yet." /> : null}
+          {cards.map((card) => (
+            <View key={card.id}>
+              <CardRow card={card} readOnly={readOnly} />
+            </View>
+          ))}
+        </Section>
+      </MainPart>
     </>
   );
 }

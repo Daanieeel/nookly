@@ -1,8 +1,10 @@
 import { createSpace, createTask, setPinned } from "@nookly/shared/data";
 import { fireEvent } from "expo-router/testing-library";
+import { Slot } from "expo-router";
 import { Text } from "react-native";
 import DrawerLayout from "../app/(drawer)/_layout.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
+import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 
 describe("the sidebar", () => {
@@ -32,8 +34,13 @@ describe("the sidebar", () => {
 });
 
 describe("the app's frame", () => {
-  it("opens the sidebar from the menu button", async () => {
+  it("opens the sidebar from the menu button, which is the whole app's drawer", async () => {
     const screen = await renderScreens({
+      _layout: () => (
+        <SidebarDrawer enabled edgeBack={false}>
+          <Slot />
+        </SidebarDrawer>
+      ),
       "(drawer)/_layout": DrawerLayout,
       "(drawer)/index": () => <Text>Home</Text>,
     });

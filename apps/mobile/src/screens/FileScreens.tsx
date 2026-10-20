@@ -9,6 +9,7 @@ import {
 } from "@nookly/shared/data";
 import {
   IconBrandDropbox,
+  IconCalendarEvent,
   IconCode,
   IconFile,
   IconFileSpreadsheet,
@@ -30,6 +31,10 @@ import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles } from "../data/queries.ts";
 import { Button } from "../ui/Button.tsx";
+import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { InfoRow } from "../ui/property-rows.tsx";
+import { dayLabel } from "./dates.ts";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -148,28 +153,68 @@ function Preview({ file }: { file: FileRecord }) {
   return null;
 }
 
-/// A file's own page: what it is, a preview, and a way to open it elsewhere.
+/// A file's own page: the file in the page, as far as the phone can show it; what it is
+/// and where it came from in the details.
 export function FileDetail({ id }: { id: string }) {
+  const theme = useTheme();
+  const muted = theme.colors.mutedForeground;
   const { data: file } = useFile(id);
   if (!file) return null;
   const path = file.localPath ?? file.sourcePath;
   const link = file.url;
+  const name = nameOf(file);
   const open = async () => {
     if (path && (await Sharing.isAvailableAsync())) await Sharing.shareAsync(path);
   };
   return (
-    <View className="gap-4">
-      <Text tone="muted">{state(file)}</Text>
-      <Preview file={file} />
-      {path ? <Button label="Open In…" variant="secondary" onPress={() => void open()} /> : null}
-      {isLinkOnly(file) && link ? (
-        <Button label="Open Link" variant="secondary" onPress={() => void Linking.openURL(link)} />
-      ) : null}
-      {isDownloading(file) ? (
-        <Text tone="muted">
-          The contents are in your account. They arrive when this phone has synced.
-        </Text>
-      ) : null}
-    </View>
+    <>
+      <MainPart>
+        <View className="gap-4">
+          <Preview file={file} />
+          {path ? (
+            <Button label="Open In…" variant="secondary" onPress={() => void open()} />
+          ) : null}
+          {isLinkOnly(file) && link ? (
+            <Button
+              label="Open Link"
+              variant="secondary"
+              onPress={() => void Linking.openURL(link)}
+            />
+          ) : null}
+          {isDownloading(file) ? (
+            <Text tone="muted">
+              The contents are in your account. They arrive when this phone has synced.
+            </Text>
+          ) : null}
+        </View>
+      </MainPart>
+      <DetailsPart>
+        <View className="gap-3">
+          <Text tone="muted">{state(file)}</Text>
+          <PropertyList>
+            <InfoRow
+              icon={<IconFile size={20} color={muted} />}
+              label="Kind"
+              value={KIND_LABELS[fileKindOf(name)]}
+            />
+            <InfoRow
+              icon={<IconFileText size={20} color={muted} />}
+              label="File name"
+              value={name}
+            />
+            <InfoRow
+              icon={<IconLink size={20} color={muted} />}
+              label={link ? "Source" : "Location"}
+              value={link ?? file.sourcePath ?? "In Nookly"}
+            />
+            <InfoRow
+              icon={<IconCalendarEvent size={20} color={muted} />}
+              label="Added"
+              value={dayLabel(file.entity.createdAt.slice(0, 10))}
+            />
+          </PropertyList>
+        </View>
+      </DetailsPart>
+    </>
   );
 }

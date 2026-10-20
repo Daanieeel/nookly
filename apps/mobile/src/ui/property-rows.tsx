@@ -224,3 +224,16 @@ export function NumberRow({
     </View>
   );
 }
+
+/// A property that is only read: a kind, a date added, a path.
+export function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return <Property icon={icon} label={label} value={value} />;
+}

@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext, useMemo, useState } from "react";
+import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
 import { ScrollView, View, useWindowDimensions } from "react-native";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,22 +13,23 @@ export const useDetails = () => useContext(DetailsHandle);
 
 /// The sidebar turned around: an open item sits above its details, as the page sits above
 /// the left sidebar, and a swipe the other way slides the page aside to show them.
-export function DetailsDrawer({
-  id,
-  labels,
-  children,
-}: {
-  id: string;
-  /// Whether the details hold the labels, or the page does (a task's card).
-  labels: boolean;
-  children: ReactNode;
-}) {
+export function DetailsDrawer({ id, children }: { id: string; children: ReactNode }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const handle = useMemo(() => ({ show: () => setOpen(true) }), []);
   const drawerWidth = Math.min(width * 0.86, 360);
+  // Closed, only a drag to the left is this drawer's; a drag to the right belongs to the
+  // sidebar behind the whole app.
+  const configure = useCallback(
+    (
+      gesture: Parameters<
+        NonNullable<React.ComponentProps<typeof Drawer>["configureGestureHandler"]>
+      >[0],
+    ) => (open ? gesture : gesture.activeOffsetX([-10_000, -5])),
+    [open],
+  );
   return (
     <Drawer
       open={open}
@@ -37,6 +38,7 @@ export function DetailsDrawer({
       drawerPosition="right"
       drawerType="back"
       swipeEdgeWidth={width}
+      configureGestureHandler={configure}
       overlayStyle={{ backgroundColor: "transparent" }}
       drawerStyle={{ width: drawerWidth, backgroundColor: theme.colors.background }}
       renderDrawerContent={() => (
@@ -49,7 +51,7 @@ export function DetailsDrawer({
             <Text variant="small" tone="muted" accessibilityRole="header">
               Details
             </Text>
-            <DetailsBody id={id} labels={labels} />
+            <DetailsBody id={id} />
           </ScrollView>
         </View>
       )}
