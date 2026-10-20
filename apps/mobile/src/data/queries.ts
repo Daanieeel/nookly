@@ -21,6 +21,7 @@ import {
   mentionsOf,
   listViews,
   courseSemesters,
+  sessionPage,
   listPageSummaries,
   listUnrefinedJots,
   labelIdsByEntity,
@@ -402,5 +403,14 @@ export const useCourseSemesters = (spaceId: string | null) => {
   return useQuery({
     queryKey: keys.courseSemesters(spaceId),
     queryFn: () => courseSemesters(db, spaceId ?? undefined),
+  });
+};
+
+/// The Jot or Note written for a session, if there is one.
+export const useSessionPage = (sessionId: string, kind: "jot" | "note") => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.sessionPage(sessionId, kind),
+    queryFn: () => sessionPage(db, sessionId, kind),
   });
 };

@@ -3,6 +3,7 @@ import {
   createExam,
   createOneOffSession,
   createSemester,
+  sessionPage,
   createSpace,
   createStudyBlock,
   courseSemester,
@@ -101,6 +102,32 @@ describe("an exam's study blocks", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "New Study Block" })).toBeTruthy();
     expect(await listStudyBlocks(data.db, { examId: exam })).toHaveLength(1);
+  });
+});
+
+describe("a session's pages", () => {
+  it("makes the Jot and the Note for one session and then opens them", async () => {
+    const { data, space, course } = await seeded();
+    const id = await createOneOffSession(data.db, space, {
+      title: "Lecture 1",
+      courseId: course,
+      date: "2026-10-21",
+      startTime: "10:00",
+      endTime: "11:30",
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={id} /> },
+      data,
+      `/entity/${id}`,
+    );
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "Create Jot for This Session" }),
+    );
+    await waitFor(async () => expect(await sessionPage(data.db, id, "jot")).not.toBeNull());
+    expect(
+      await screen.findByRole("button", { name: /^Algorithms, 2026-10-21, JOT-/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create Note for This Session" })).toBeTruthy();
   });
 });
 

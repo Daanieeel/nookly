@@ -9,6 +9,7 @@ import {
 import {
   createCourse,
   createOneOffSession,
+  createSessionPage,
   createSemester,
   courseSemester,
   createStudyBlock,
@@ -34,6 +35,7 @@ import {
   useSemester,
   useSemesters,
   useSession,
+  useSessionPage,
   useSessions,
   useSpaces,
   useStudyBlock,
@@ -85,6 +87,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
           readOnly={readOnly}
           onSave={(notes) => patch.mutate({ notes })}
         />
+        <SessionPages sessionId={id} readOnly={readOnly} />
       </MainPart>
       <DetailsPart>
         <View className="gap-4">
@@ -742,5 +745,54 @@ function AddCourse({
         </View>
       </View>
     </Section>
+  );
+}
+
+/// The Jot and the Note written for this session: each opens, or is made on the spot.
+function SessionPages({ sessionId, readOnly }: { sessionId: string; readOnly: boolean }) {
+  return (
+    <View className="gap-3">
+      <SessionPageCard sessionId={sessionId} kind="jot" readOnly={readOnly} />
+      <SessionPageCard sessionId={sessionId} kind="note" readOnly={readOnly} />
+    </View>
+  );
+}
+
+function SessionPageCard({
+  sessionId,
+  kind,
+  readOnly,
+}: {
+  sessionId: string;
+  kind: "jot" | "note";
+  readOnly: boolean;
+}) {
+  const router = useRouter();
+  const { data: page } = useSessionPage(sessionId, kind);
+  const make = useLocalWrite((db, _: undefined) => createSessionPage(db, sessionId, kind));
+  const noun = kind === "jot" ? "Jot" : "Note";
+  if (page) {
+    return (
+      <Section title={noun}>
+        <Row
+          title={page.title || `Untitled ${noun}`}
+          subtitle={page.key}
+          icon={<EntityIcon type={kind} icon={page.icon} />}
+          onPress={() => router.push(`/entity/${page.id}`)}
+        />
+      </Section>
+    );
+  }
+  if (readOnly) return null;
+  return (
+    <View className="items-start">
+      <Button
+        label={`Create ${noun} for This Session`}
+        variant="secondary"
+        status={statusOf(make)}
+        errorLabel="Couldn't create it"
+        onPress={() => make.mutate(undefined, { onSuccess: (id) => router.push(`/entity/${id}`) })}
+      />
+    </View>
   );
 }

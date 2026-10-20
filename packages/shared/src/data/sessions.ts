@@ -1,5 +1,6 @@
 import { type LocalDb, first, iso, num, optStr, rows, str, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
+import { createPage } from "./notes.ts";
 import { FIELD, markOverride, validateDate, validateTimes } from "./series.ts";
 
 /// Sessions of a course and study blocks for an exam, as the desktop keeps them
@@ -296,4 +297,48 @@ export async function updateStudyBlock(
     },
     { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
   ]);
+}
+
+/// The Jot or Note written for one session, if there is a live one.
+export async function sessionPage(
+  db: LocalDb,
+  sessionId: string,
+  kind: "jot" | "note",
+): Promise<EntityRecord | null> {
+  const row = await first(
+    db,
+    `SELECT ${ENTITY_COLUMNS} FROM relationships r JOIN entities e ON e.id = r.to_entity_id
+     WHERE r.from_entity_id = ? AND r.relationship_type = ? AND e.deleted_at IS NULL
+     ORDER BY r.created_at DESC LIMIT 1`,
+    sessionId,
+    `session-${kind}`,
+  );
+  return row ? toEntity(row) : null;
+}
+
+/// A new Jot or Note for a session, linked to it (`session-jot`, `session-note`), titled
+/// after the session's course. A session has one of each, so an existing one is returned.
+export async function createSessionPage(
+  db: LocalDb,
+  sessionId: string,
+  kind: "jot" | "note",
+): Promise<string> {
+  const existing = await sessionPage(db, sessionId, kind);
+  if (existing) return existing.id;
+  const session = await getSession(db, sessionId);
+  if (!session) throw new Error("This session isn't here anymore.");
+  const name = session.courseTitle || session.entity.title || "Session";
+  const page = await createPage(
+    db,
+    session.entity.spaceId,
+    kind,
+    `${name}, ${session.date}`,
+  );
+  await write(db, [
+    {
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, ?, ?)",
+      params: [db.newId(), sessionId, page, `session-${kind}`, iso(db)],
+    },
+  ]);
+  return page;
 }

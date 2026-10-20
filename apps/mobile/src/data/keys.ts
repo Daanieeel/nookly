@@ -23,6 +23,7 @@ export const keys = {
   courseSemester: (courseId: string) => ["local", "course-semester", courseId] as const,
   sessions: (spaceId: string | null, courseId: string | null) =>
     ["local", "sessions", spaceId, courseId] as const,
+  sessionPage: (id: string, kind: string) => ["local", "session-page", id, kind] as const,
   session: (id: string) => ["local", "session", id] as const,
   studyBlocks: (spaceId: string | null, examId: string | null) =>
     ["local", "study-blocks", spaceId, examId] as const,
