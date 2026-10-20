@@ -9,18 +9,27 @@ import {
 import { EFFORT_STEPS, effortLabel } from "@nookly/shared/effort";
 import {
   IconCalendarDue,
+  IconChevronDown,
+  IconChevronUp,
   IconCalendarPlus,
   IconCircleDot,
   IconGauge,
   IconPlus,
   IconRepeat,
 } from "@tabler/icons-react-native";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { TextInput, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useSetting } from "../data/settings.ts";
-import { useStatuses, useSubtaskProgress, useSubtasks, useTask } from "../data/queries.ts";
-import { Button, statusOf } from "../ui/Button.tsx";
+import {
+  useStatuses,
+  useSubtaskProgress,
+  useSubtasks,
+  useTask,
+  useTasks,
+} from "../data/queries.ts";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty } from "../ui/property-rows.tsx";
@@ -28,6 +37,7 @@ import { Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, localDay } from "./dates.ts";
+import { orderTasks } from "./task-view.ts";
 import { PageEditor } from "./PageEditor.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 
@@ -190,5 +200,45 @@ export function TaskItem({ id, readOnly, sub }: { id: string; readOnly: boolean;
         <TaskProperties id={id} readOnly={readOnly} />
       </DetailsPart>
     </>
+  );
+}
+
+/// The small stepper in the header of a task: where it stands among its Space's open tasks
+/// in the order of the list ("3 / 12") and arrows to the one before and after.
+export function TaskStepper({ id, spaceId }: { id: string; spaceId: string }) {
+  const theme = useTheme();
+  const router = useRouter();
+  const { data: tasks = [] } = useTasks(spaceId);
+  const { data: statuses = [] } = useStatuses();
+  const order = orderTasks(
+    tasks.filter(
+      (t) =>
+        t.entity.type === "task" &&
+        ((statuses.find((s) => s.id === t.statusId)?.doneness ?? 0) < 100 || t.entity.id === id),
+    ),
+    "due",
+    statuses,
+  );
+  const index = order.findIndex((t) => t.entity.id === id);
+  if (index < 0 || order.length < 2) return null;
+  const go = (to: number) => router.replace(`/entity/${order[to].entity.id}`);
+  return (
+    <View className="flex-row items-center">
+      <Text variant="small" tone="muted">
+        {`${index + 1} / ${order.length}`}
+      </Text>
+      <IconButton
+        label="Previous Task"
+        size="iconSm"
+        icon={<IconChevronUp size={16} color={theme.colors.mutedForeground} />}
+        onPress={() => index > 0 && go(index - 1)}
+      />
+      <IconButton
+        label="Next Task"
+        size="iconSm"
+        icon={<IconChevronDown size={16} color={theme.colors.mutedForeground} />}
+        onPress={() => index < order.length - 1 && go(index + 1)}
+      />
+    </View>
   );
 }

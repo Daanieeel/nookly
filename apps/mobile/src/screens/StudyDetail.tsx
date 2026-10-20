@@ -1,6 +1,8 @@
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import {
   type AssignmentRecord,
+  createDeck,
+  setDeckExam,
   setAssignmentCourse,
   setAssignmentDueBeforeSession,
   setAssignmentDueDate,
@@ -25,7 +27,8 @@ import {
   IconUser,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
+import { useState } from "react";
+import { TextInput, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import {
@@ -35,6 +38,8 @@ import {
   useCourses,
   useExam,
   useAssignmentDueSession,
+  useDecks,
+  useGradeReport,
   useExams,
   useSessions,
 } from "../data/queries.ts";
@@ -45,7 +50,10 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DatePanel, shownValue } from "../ui/DateField.tsx";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { ChoiceProperty, DayProperty, NumberRow, TextRow } from "../ui/property-rows.tsx";
-import { Section } from "../ui/Row.tsx";
+import { Empty, Row, Section } from "../ui/Row.tsx";
+import { CARD_CLASSES } from "@nookly/ui/classes";
+import { cn } from "../ui/classes.ts";
+import { EntityIcon } from "../ui/icons.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel, localDay } from "./dates.ts";
@@ -54,6 +62,7 @@ import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
 import { PageEditor } from "./PageEditor.tsx";
+import { courseStats, inDays } from "./course-stats.ts";
 import { StatusIcon } from "./TaskRow.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
@@ -100,10 +109,50 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
     <>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
-        <Section title="Exams" action={add("exam", "New Exam")}>
+        <CourseTiles courseId={id} spaceId={spaceId} />
+        <Section
+          title="Sessions"
+          action={
+            <Button
+              label="View all"
+              variant="ghost"
+              size="sm"
+              onPress={() => router.push(`/module/${spaceId}/sessions`)}
+            />
+          }
+        >
+          <SessionList courseId={id} />
+        </Section>
+        <Section
+          title="Exams"
+          action={
+            <>
+              {add("exam", "New Exam")}
+              <Button
+                label="View all"
+                variant="ghost"
+                size="sm"
+                onPress={() => router.push(`/module/${spaceId}/exams`)}
+              />
+            </>
+          }
+        >
           <ExamRows exams={exams} />
         </Section>
-        <Section title="Assignments" action={add("assignment", "New Assignment")}>
+        <Section
+          title="Assignments"
+          action={
+            <>
+              {add("assignment", "New Assignment")}
+              <Button
+                label="View all"
+                variant="ghost"
+                size="sm"
+                onPress={() => router.push(`/module/${spaceId}/assignments`)}
+              />
+            </>
+          }
+        >
           <AssignmentRows assignments={assignments} />
         </Section>
       </MainPart>
@@ -145,6 +194,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
     <>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <ExamDecks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
         <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
       </MainPart>
       <DetailsPart>
@@ -440,5 +490,161 @@ export function CardForm({
         {onDelete ? <Button label="Delete Card" variant="ghost" onPress={onDelete} /> : null}
       </View>
     </Padded>
+  );
+}
+
+/// A course's next three sessions, from today on.
+function SessionList({ courseId }: { courseId: string }) {
+  const router = useRouter();
+  const { data: sessions = [] } = useSessions({ courseId });
+  const today = localDay();
+  const upcoming = sessions
+    .filter((s) => !s.cancelled && s.date >= today)
+    .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`))
+    .slice(0, 3);
+  if (upcoming.length === 0) return <Empty text="No sessions yet." />;
+  return upcoming.map((s) => (
+    <View key={s.entity.id}>
+      <Row
+        title={s.entity.title || "Session"}
+        subtitle={`${dayLabel(s.date)} · ${s.startTime} to ${s.endTime}${s.location ? ` · ${s.location}` : ""}`}
+        icon={<EntityIcon type="session" icon={s.entity.icon} />}
+        onPress={() => router.push(`/entity/${s.entity.id}`)}
+      />
+    </View>
+  ));
+}
+
+function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <View className={cn(CARD_CLASSES, "flex-1 gap-1 p-3")} style={{ minWidth: 140 }}>
+      <Text variant="small" tone="muted">
+        {label}
+      </Text>
+      <Text className="font-heading text-lg" numberOfLines={1}>
+        {value}
+      </Text>
+      {note ? (
+        <Text variant="small" tone="muted" numberOfLines={1}>
+          {note}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/// The course's bento row: the next session, the next exam, the open assignments and the
+/// grade so far, and how far the study has got when it has decks.
+function CourseTiles({ courseId, spaceId }: { courseId: string; spaceId: string }) {
+  const { data: sessions = [] } = useSessions({ courseId });
+  const { data: exams = [] } = useExams({ courseId });
+  const { data: assignments = [] } = useAssignments({ courseId });
+  const { data: decks = [] } = useDecks(spaceId);
+  const { data: report } = useGradeReport(spaceId);
+  const today = localDay();
+  const stats = courseStats(courseId, sessions, exams, assignments, today);
+  const grade = report?.semesters.flatMap((g) => g.courses).find((c) => c.course.id === courseId)
+    ?.grades.grade;
+  const open = assignments.filter((a) => a.status !== "submitted" && a.status !== "graded");
+  const examIds = new Set(exams.map((e) => e.entity.id));
+  const mine = decks.filter((d) => d.examId && examIds.has(d.examId));
+  const cards = mine.reduce((n, d) => n + d.stats.total, 0);
+  const fresh = mine.reduce((n, d) => n + d.stats.new, 0);
+  const session = stats.nextSession;
+  return (
+    <View className="flex-row flex-wrap gap-3">
+      <Tile
+        label="Next Session"
+        value={session ? `${dayLabel(session.date)} ${session.startTime}` : "None"}
+        note={session?.location ?? undefined}
+      />
+      <Tile
+        label="Next Exam"
+        value={stats.exams.next ? shortDay(stats.exams.next) : "None"}
+        note={stats.exams.next ? inDays(stats.exams.next, today) : undefined}
+      />
+      <Tile
+        label="Open Assignments"
+        value={`${open.length} open / ${assignments.length} total`}
+        note={
+          stats.assignments.nextDue ? `due ${inDays(stats.assignments.nextDue, today)}` : undefined
+        }
+      />
+      <Tile
+        label="Course Grade"
+        value={
+          grade === null || grade === undefined ? "No grade" : String(Math.round(grade * 100) / 100)
+        }
+      />
+      {cards > 0 ? (
+        <Tile
+          label="Study Progress"
+          value={`${Math.round(((cards - fresh) / cards) * 100)}%`}
+          note={`${cards} cards`}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+const shortDay = (day: string) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+/// The decks written for an exam, with how many cards are left to study, and a line to add one.
+function ExamDecks({
+  examId,
+  spaceId,
+  readOnly,
+}: {
+  examId: string;
+  spaceId: string;
+  readOnly: boolean;
+}) {
+  const theme = useTheme();
+  const router = useRouter();
+  const { data: decks = [] } = useDecks(spaceId);
+  const [title, setTitle] = useState("");
+  const add = useLocalWrite(async (db, name: string) => {
+    const deck = await createDeck(db, spaceId, name);
+    await setDeckExam(db, deck, examId);
+    return deck;
+  });
+  const mine = decks.filter((d) => d.examId === examId);
+  const submit = () => {
+    const name = title.trim();
+    if (name) add.mutate(name, { onSuccess: () => setTitle("") });
+  };
+  return (
+    <Section title="Decks">
+      {mine.length === 0 ? <Empty text="No decks for this exam yet." /> : null}
+      {mine.map((d) => {
+        const waiting = d.stats.due + d.stats.learning + d.stats.new;
+        return (
+          <View key={d.entity.id}>
+            <Row
+              title={d.entity.title || "Untitled"}
+              subtitle={`${waiting} to study of ${d.stats.total}`}
+              icon={<EntityIcon type="index_card_deck" icon={d.entity.icon} />}
+              onPress={() => router.push(`/entity/${d.entity.id}`)}
+            />
+          </View>
+        );
+      })}
+      {readOnly ? null : (
+        <View className="min-h-12 flex-row items-center gap-2 px-4">
+          <IconPlus size={18} color={theme.colors.mutedForeground} />
+          <TextInput
+            accessibilityLabel="New deck"
+            value={title}
+            onChangeText={setTitle}
+            onSubmitEditing={submit}
+            returnKeyType="done"
+            placeholder="Deck name"
+            placeholderTextColor={theme.colors.mutedForeground}
+            className="h-12 flex-1 font-sans text-sm text-foreground"
+          />
+        </View>
+      )}
+    </Section>
   );
 }

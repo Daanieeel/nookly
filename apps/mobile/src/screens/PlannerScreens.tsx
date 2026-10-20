@@ -7,6 +7,7 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import {
+  createCourse,
   createOneOffSession,
   createSemester,
   courseSemester,
@@ -26,11 +27,14 @@ import { View } from "react-native";
 import { useDb, useLocalWrite } from "../data/context.tsx";
 import {
   useCourseSemester,
+  useAssignments,
   useCourses,
+  useExams,
   useExam,
   useSemester,
   useSemesters,
   useSession,
+  useSessions,
   useSpaces,
   useStudyBlock,
   useStudyBlocks,
@@ -49,7 +53,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
-import { dayLabel, localDay } from "./dates.ts";
+import { addDays, dayLabel, localDay } from "./dates.ts";
 import { PageEditor } from "./PageEditor.tsx";
 
 /// Sessions, study blocks, semesters and grades: what a student plans and is graded on.
@@ -440,6 +444,7 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
     <>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <SemesterStats spaceId={semester.entity.spaceId} courseIds={members} />
         <Section title="Courses">
           {members.length === 0 ? <Empty text="No courses in this semester." /> : null}
           {courses
@@ -455,6 +460,13 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
               </View>
             ))}
         </Section>
+        {readOnly ? null : (
+          <AddCourse
+            semesterId={id}
+            spaceId={semester.entity.spaceId}
+            unassigned={courses.filter((c) => !members.includes(c.entity.id))}
+          />
+        )}
       </MainPart>
       <DetailsPart>
         <PropertyList>
@@ -633,5 +645,102 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
         onPress={submit}
       />
     </Screen>
+  );
+}
+
+/// The semester at a glance, rolled up across its courses: sessions this week, exams in the
+/// next 7 days and assignments still open.
+function SemesterStats({ spaceId, courseIds }: { spaceId: string; courseIds: string[] }) {
+  const { data: sessions = [] } = useSessions({ spaceId });
+  const { data: exams = [] } = useExams({ spaceId });
+  const { data: assignments = [] } = useAssignments({ spaceId });
+  const today = localDay();
+  const weekEnd = addDays(today, 6);
+  const horizon = addDays(today, 7);
+  const mine = new Set(courseIds);
+  const week = sessions.filter(
+    (s) =>
+      s.courseId && mine.has(s.courseId) && !s.cancelled && s.date >= today && s.date <= weekEnd,
+  ).length;
+  const coming = exams.filter(
+    (e) =>
+      e.courseId &&
+      mine.has(e.courseId) &&
+      e.status !== "done" &&
+      e.examDate &&
+      e.examDate >= today &&
+      e.examDate <= horizon,
+  ).length;
+  const open = assignments.filter(
+    (a) => a.courseId && mine.has(a.courseId) && a.status !== "submitted" && a.status !== "graded",
+  ).length;
+  const stat = (value: number, label: string) => (
+    <View className="flex-1 items-center gap-0.5 rounded-lg border border-border p-3">
+      <Text className="font-heading text-2xl">{value}</Text>
+      <Text variant="small" tone="muted" className="text-center">
+        {label}
+      </Text>
+    </View>
+  );
+  return (
+    <View className="flex-row gap-2">
+      {stat(week, "sessions this week")}
+      {stat(coming, "upcoming exams")}
+      {stat(open, "open assignments")}
+    </View>
+  );
+}
+
+/// Takes a course that has no semester yet into this one, or makes a new one and links it.
+function AddCourse({
+  semesterId,
+  spaceId,
+  unassigned,
+}: {
+  semesterId: string;
+  spaceId: string;
+  unassigned: { entity: { id: string; title: string } }[];
+}) {
+  const [name, setName] = useState("");
+  const link = useLocalWrite((db, courseId: string) => setCourseSemester(db, courseId, semesterId));
+  const create = useLocalWrite(async (db, title: string) => {
+    const course = await createCourse(db, spaceId, title);
+    await setCourseSemester(db, course, semesterId);
+  });
+  return (
+    <Section title="Add course">
+      <View className="gap-3 p-3">
+        {unassigned.length > 0 ? (
+          <ChipGroup label="Courses without a semester" scroll>
+            {unassigned.map((c) => (
+              <Chip
+                key={c.entity.id}
+                label={c.entity.title || "Untitled"}
+                selected={false}
+                onPress={() => link.mutate(c.entity.id)}
+              />
+            ))}
+          </ChipGroup>
+        ) : null}
+        <View className="flex-row items-end gap-2">
+          <View className="flex-1">
+            <Field
+              label="New course"
+              placeholder="Algorithms I"
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
+          <Button
+            label="Create & Link"
+            variant="secondary"
+            status={statusOf(create)}
+            disabled={!name.trim()}
+            errorLabel="Couldn't add"
+            onPress={() => create.mutate(name.trim(), { onSuccess: () => setName("") })}
+          />
+        </View>
+      </View>
+    </Section>
   );
 }

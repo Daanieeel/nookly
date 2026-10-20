@@ -33,6 +33,7 @@ import { useSplit } from "../shell/split-context.ts";
 import { useInspectorShown, useIsTablet } from "../ui/pane.tsx";
 import { PartProvider } from "../ui/parts.tsx";
 import { ItemParts } from "./ItemParts.tsx";
+import { TaskStepper } from "./TaskDetail.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { type MenuItem, useMenu } from "../ui/menu.tsx";
@@ -171,6 +172,7 @@ function TopBar({ entity, menu }: { entity: EntityRecord; menu: MenuItem[] }) {
       <Text variant="small" tone="muted" className="flex-1">
         {entity.key}
       </Text>
+      {entity.type === "task" ? <TaskStepper id={entity.id} spaceId={entity.spaceId} /> : null}
       <ConflictBadge entityId={entity.id} />
       {details ? (
         <IconButton
@@ -222,6 +224,9 @@ function OpenEntity({ entity, embedded }: { entity: EntityRecord; embedded: bool
             </Text>
             {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
             {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
+            {!bar && entity.type === "task" ? (
+              <TaskStepper id={entity.id} spaceId={entity.spaceId} />
+            ) : null}
             {bar ? null : <ConflictBadge entityId={entity.id} />}
             <View className="flex-1" />
             {!bar && menu.length > 0 ? (
