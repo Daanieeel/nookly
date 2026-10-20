@@ -1,4 +1,5 @@
 import type { AgendaItem } from "@nookly/shared/data";
+import { allDayChipLook, blockLook, withAlpha } from "@nookly/shared/calendar-style";
 import {
   DAY_MINUTES,
   type Segment,
@@ -10,9 +11,8 @@ import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSetting } from "../data/settings.ts";
-import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
+import { useCalendarColors } from "./calendar-colors.ts";
 import { localDay } from "./dates.ts";
 
 /// Pixels per hour, and the least a block is drawn tall (a short item stays tappable).
@@ -69,8 +69,8 @@ export function TimeGrid({
   width: number;
   colorOf: (spaceId: string) => string | undefined;
 }) {
-  const theme = useTheme();
   const router = useRouter();
+  const colors = useCalendarColors();
   const [startHour] = useSetting("calendar.dayStartHour");
   const [timeFormat] = useSetting("general.timeFormat");
   const now = useNowMinutes();
@@ -90,7 +90,6 @@ export function TimeGrid({
   }, [startHour, days.length]);
 
   const open = (id: string) => router.push(`/entity/${id}`);
-  const tint = (color: string | undefined, alpha: string) => `${color ?? "#94a3b8"}${alpha}`;
 
   return (
     <View className="flex-1" style={{ width }}>
@@ -110,20 +109,25 @@ export function TimeGrid({
                   month: "long",
                 })}
               >
-                <Text variant="small" tone="muted" numberOfLines={1}>
+                <Text
+                  variant="small"
+                  tone="muted"
+                  numberOfLines={1}
+                  className={isToday ? "font-medium" : undefined}
+                  style={isToday ? { color: colors.today.label } : undefined}
+                >
                   {narrow
                     ? DAY_NARROW[weekday]
                     : date.toLocaleDateString(undefined, { weekday: "short" })}
                 </Text>
                 <View
-                  className={cn(
-                    "h-6 min-w-6 items-center justify-center rounded-full px-1",
-                    isToday && "bg-primary",
-                  )}
+                  className="h-6 min-w-6 items-center justify-center rounded-full px-1"
+                  style={isToday ? { backgroundColor: colors.today.pill } : undefined}
                 >
                   <Text
                     variant="small"
-                    className={cn("font-medium", isToday && "text-primary-foreground")}
+                    className="font-medium"
+                    style={isToday ? { color: colors.today.pillText } : undefined}
                   >
                     {number}
                   </Text>
@@ -136,23 +140,31 @@ export function TimeGrid({
           <View className="flex-row pb-1">
             {content.map(({ day, allDay }) => (
               <View key={day} style={{ width: column }} className="gap-0.5 px-px">
-                {allDay.slice(0, MAX_ALL_DAY).map((item) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.title || "Untitled"}, all day`}
-                    onPress={() => open(item.id)}
-                    className="justify-center overflow-hidden rounded px-1 active:opacity-70"
-                    style={{
-                      height: ALL_DAY_ROW_PX,
-                      backgroundColor: tint(colorOf(item.spaceId), "33"),
-                    }}
-                  >
-                    <Text numberOfLines={1} style={{ fontSize: narrow ? 9 : 11, lineHeight: 14 }}>
-                      {item.title || "Untitled"}
-                    </Text>
-                  </Pressable>
-                ))}
+                {allDay.slice(0, MAX_ALL_DAY).map((item) => {
+                  const look = allDayChipLook(item.kind);
+                  const color = colors.accent(item.kind, colorOf(item.spaceId));
+                  return (
+                    <Pressable
+                      key={item.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.title || "Untitled"}, all day`}
+                      onPress={() => open(item.id)}
+                      className="justify-center overflow-hidden rounded px-1 active:opacity-70"
+                      style={{
+                        height: ALL_DAY_ROW_PX,
+                        backgroundColor: withAlpha(color, look.fillAlpha),
+                        borderWidth: look.borderWidth,
+                        borderColor: withAlpha(color, look.borderAlpha),
+                        borderLeftWidth: look.leftBar || look.borderWidth,
+                        borderLeftColor: color,
+                      }}
+                    >
+                      <Text numberOfLines={1} style={{ fontSize: narrow ? 9 : 11, lineHeight: 14 }}>
+                        {item.title || "Untitled"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
                 {allDay.length > MAX_ALL_DAY ? (
                   <Text variant="small" tone="muted" style={{ fontSize: 10 }}>
                     + {allDay.length - MAX_ALL_DAY}
@@ -192,11 +204,15 @@ export function TimeGrid({
               return (
                 <View
                   key={day}
-                  className={cn(
-                    "absolute inset-y-0 border-l border-border/60",
-                    day === today && "bg-primary/5",
-                  )}
-                  style={{ left: index * column, width: column }}
+                  className="absolute inset-y-0 border-l border-border/60"
+                  style={{
+                    left: index * column,
+                    width: column,
+                    backgroundColor:
+                      day === today
+                        ? withAlpha(colors.today.column.base, colors.today.column.alpha)
+                        : undefined,
+                  }}
                 >
                   {timed.map((segment: Segment<AgendaItem>) => {
                     const { item } = segment;
@@ -204,7 +220,8 @@ export function TimeGrid({
                     if (!lane) return null;
                     const g = blockGeometry(segment, lane, HOUR_PX, MIN_BLOCK_PX);
                     const w = g.width * column - 2;
-                    const color = colorOf(item.spaceId);
+                    const look = blockLook(item.kind);
+                    const color = colors.accent(item.kind, colorOf(item.spaceId));
                     const lines = Math.max(1, Math.floor((g.height - 6) / 13));
                     const roomy = w >= 90 && g.height >= 44;
                     const time = [item.startTime, item.endTime].filter(Boolean).join(" to ");
@@ -220,9 +237,11 @@ export function TimeGrid({
                           top: g.top + 1,
                           width: w,
                           height: g.height - 2,
-                          backgroundColor: tint(color, theme.dark ? "40" : "26"),
-                          borderLeftWidth: 3,
-                          borderLeftColor: color ?? "#94a3b8",
+                          backgroundColor: withAlpha(color, look.fillAlpha),
+                          borderWidth: look.borderWidth,
+                          borderColor: withAlpha(color, look.borderAlpha),
+                          borderLeftWidth: look.leftBar || look.borderWidth,
+                          borderLeftColor: color,
                           paddingHorizontal: narrow ? 2 : 5,
                           paddingVertical: 2,
                         }}

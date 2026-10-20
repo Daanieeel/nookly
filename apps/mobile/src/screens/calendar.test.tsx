@@ -169,6 +169,27 @@ describe("the calendar on a phone", () => {
   });
 });
 
+describe("the calendar's colors", () => {
+  it("draw each kind of item as the desktop does, in its Space's color", async () => {
+    const { data } = await planned();
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    await fireEvent.press(await screen.findByRole("radio", { name: "Day" }));
+    const style = async (name: RegExp) =>
+      ReactNative.StyleSheet.flatten((await screen.findByRole("button", { name })).props.style);
+    // A calendar entry: a bar on the left, a stronger tint.
+    const entry = await style(/^Dentist/);
+    expect(entry.borderLeftWidth).toBe(4);
+    expect(entry.borderLeftColor).toBe("#3b82f6");
+    expect(entry.backgroundColor).toBe("#3b82f64d");
+    // A session: an outline all round, a faint tint.
+    const session = await style(/^Lecture 1/);
+    expect(session.borderWidth).toBe(2);
+    expect(session.borderLeftWidth).toBe(2);
+    expect(session.borderColor).toBe("#3b82f6ff");
+    expect(session.backgroundColor).toBe("#3b82f60f");
+  });
+});
+
 describe("the dashboard", () => {
   it("lists today's items on a phone and lays out today's hours beside its lists on an iPad", async () => {
     const { data } = await planned();

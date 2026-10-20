@@ -86,6 +86,7 @@ function Version({
 }
 
 function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
+  const theme = useTheme();
   const { sync } = useAppData();
   const width = usePaneWidth();
   const [combined, setCombined] = useState<string | null>(null);
@@ -108,7 +109,7 @@ function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
     return (
       <View className="gap-3">
         <View className="flex-row items-start gap-2">
-          <IconAlertTriangle size={16} className="mt-0.5" color="#f59e0b" />
+          <IconAlertTriangle size={16} className="mt-0.5" color={theme.colors.caution} />
           <Text className="flex-1">
             This was removed on one device and changed on another. Nothing was deleted: you can
             bring it back.

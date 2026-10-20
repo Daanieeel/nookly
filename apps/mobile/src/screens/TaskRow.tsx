@@ -12,6 +12,7 @@ import { useLocalWrite } from "../data/context.tsx";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
 import { Row } from "../ui/Row.tsx";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
+import { useTheme } from "../ui/theme.ts";
 import { dayLabel, localDay } from "./dates.ts";
 
 /// A task's status as its circle, the way the desktop draws it.
@@ -22,7 +23,8 @@ export function StatusIcon({
   status: TaskStatus | undefined;
   size?: number;
 }) {
-  const color = status?.color ?? "#94a3b8";
+  const theme = useTheme();
+  const color = status?.color ?? theme.colors.mutedForeground;
   const label = status?.name ?? "Status";
   if (!status || status.id === "backlog")
     return <IconCircleDashed size={size} color={color} accessibilityLabel={label} />;

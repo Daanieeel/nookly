@@ -1,6 +1,7 @@
 "use dom";
 /// <reference lib="dom" />
 
+import { highlightCss } from "@nookly/shared/highlight";
 import {
   undo as yUndo,
   redo as yRedo,
@@ -69,6 +70,8 @@ export interface EditorColors {
   muted: string;
   border: string;
   primary: string;
+  /// A dark page: highlights are dimmed, as on the desktop.
+  dark: boolean;
 }
 
 interface Props {
@@ -135,7 +138,6 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .pm pre { margin: 0 0 .6em; padding: .7em .8em; border-radius: 8px; background: color-mix(in srgb, var(--fg) 7%, transparent); overflow-x: auto; font: 14px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
 .pm code { font: .9em ui-monospace, Menlo, monospace; background: color-mix(in srgb, var(--fg) 8%, transparent); padding: .1em .3em; border-radius: 4px; }
 .pm pre code { background: none; padding: 0; }
-.pm mark { background: color-mix(in srgb, #facc15 45%, transparent); color: inherit; border-radius: 3px; }
 .pm a { color: var(--primary); }
 .pm hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
 .pm table { border-collapse: collapse; margin: 0 0 .6em; width: 100%; }
@@ -401,6 +403,7 @@ export default function PageEditorDom({
   return (
     <div className="root" style={vars}>
       <style>{CSS}</style>
+      <style>{highlightCss(".pm", colors.dark)}</style>
       <div ref={host} />
       {menu ? (
         <div

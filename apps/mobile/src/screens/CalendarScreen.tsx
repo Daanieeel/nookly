@@ -26,6 +26,7 @@ import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, dayLabel, localDay } from "./dates.ts";
+import { useCalendarColors } from "./calendar-colors.ts";
 import { TimeGrid } from "./TimeGrid.tsx";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 
@@ -61,6 +62,8 @@ const KIND_LABELS = {
 
 export function AgendaRow({ item, color }: { item: AgendaItem; color?: string }) {
   const router = useRouter();
+  const colors = useCalendarColors();
+  const accent = colors.accent(item.kind, color);
   const time = item.allDay
     ? "All day"
     : [item.startTime, item.endTime].filter(Boolean).join(" to ");
@@ -68,12 +71,7 @@ export function AgendaRow({ item, color }: { item: AgendaItem; color?: string })
     <Row
       title={item.title || (item.kind === "session" ? "Session" : "Untitled")}
       subtitle={[KIND_LABELS[item.kind], time, item.location].filter(Boolean).join(", ")}
-      icon={
-        <View
-          className="w-1 self-stretch rounded-full bg-border"
-          style={color ? { backgroundColor: color } : undefined}
-        />
-      }
+      icon={<View className="w-1 self-stretch rounded-full" style={{ backgroundColor: accent }} />}
       trailing={color ? <SpaceDot color={color} /> : null}
       onPress={() => router.push(`/entity/${item.id}`)}
     />
@@ -165,6 +163,7 @@ function MonthView({
   colorOf: (spaceId: string) => string | undefined;
 }) {
   const today = localDay();
+  const colors = useCalendarColors();
   const grid = monthGrid(anchor, weekStart);
   return (
     <>
@@ -205,7 +204,7 @@ function MonthView({
                       <View
                         key={item.id}
                         className="size-1.5 rounded-full"
-                        style={{ backgroundColor: colorOf(item.spaceId) ?? "#94a3b8" }}
+                        style={{ backgroundColor: colors.accent(item.kind, colorOf(item.spaceId)) }}
                       />
                     ))}
                   </View>

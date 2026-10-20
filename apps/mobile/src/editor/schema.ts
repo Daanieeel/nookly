@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { EDITOR_SCHEMA, type SchemaAttr } from "@nookly/shared/editor-schema";
+import { parseHighlightColor } from "@nookly/shared/highlight";
 import { z } from "zod";
 import { type DOMOutputSpec, type MarkSpec, type NodeSpec, Schema } from "prosemirror-model";
 
@@ -79,7 +80,20 @@ const MARK_PARSE = new Map<string, MarkSpec["parseDOM"]>([
   ["italic", [{ tag: "em" }, { tag: "i" }]],
   ["strike", [{ tag: "s" }, { tag: "del" }]],
   ["underline", [{ tag: "u" }]],
-  ["highlight", [{ tag: "mark" }]],
+  [
+    "highlight",
+    [
+      {
+        tag: "mark",
+        // The colour the desktop stores: none for the default yellow.
+        getAttrs: (el) => ({
+          color: parseHighlightColor(
+            el instanceof HTMLElement ? el.getAttribute("data-color") : null,
+          ),
+        }),
+      },
+    ],
+  ],
   ["code", [{ tag: "code" }]],
   [
     "link",
@@ -150,6 +164,10 @@ function markSpec(name: string): MarkSpec {
   spec.toDOM = (m): DOMOutputSpec => {
     const tag = MARK_TAGS.get(name) ?? "span";
     if (name === "link") return [tag, { href: String(m.attrs.href ?? "") }, 0];
+    if (name === "highlight") {
+      const color = parseHighlightColor(text.nullable().catch(null).parse(m.attrs.color));
+      return [tag, color ? { "data-color": color } : {}, 0];
+    }
     return [tag, 0];
   };
   return spec;

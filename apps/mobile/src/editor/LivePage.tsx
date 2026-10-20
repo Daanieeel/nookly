@@ -145,6 +145,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
           muted: theme.colors.mutedForeground,
           border: theme.colors.border,
           primary: theme.colors.primary,
+          dark: theme.dark,
         }}
         onReady={onReady}
         onUpdate={onUpdate}

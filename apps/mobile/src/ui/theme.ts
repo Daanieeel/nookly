@@ -26,6 +26,8 @@ export interface Theme {
     primaryForeground: string;
     mutedForeground: string;
     destructive: string;
+    /// The theme's purple, a calendar entry's color when its Space has none.
+    accentPurple: string;
     positive: string;
     caution: string;
   };
@@ -44,6 +46,7 @@ export function useTheme(): Theme {
       primaryForeground: useToken("primary-foreground"),
       mutedForeground: useToken("muted-foreground"),
       destructive: useToken("destructive"),
+      accentPurple: useToken("accent-purple"),
       positive: useToken("accent-green"),
       caution: useToken("accent-yellow"),
     },
