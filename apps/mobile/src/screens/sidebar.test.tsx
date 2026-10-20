@@ -1,4 +1,4 @@
-import { createSpace, createTask, setPinned } from "@nookly/shared/data";
+import { createSpace, createTask, createView, setPinned } from "@nookly/shared/data";
 import { fireEvent } from "expo-router/testing-library";
 import { Slot } from "expo-router";
 import { Text } from "react-native";
@@ -47,5 +47,31 @@ describe("the app's frame", () => {
     expect(await screen.findByText("Home")).toBeTruthy();
     await fireEvent.press(screen.getByLabelText("Open Sidebar"));
     expect(await screen.findByRole("search", { name: "Search" })).toBeTruthy();
+  });
+});
+
+describe("the sidebar's card and views", () => {
+  it("says the date and week and one thing that waits, and opens its list", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, work, "Late", "2000-01-01");
+    const screen = await renderScreens(
+      { index: () => <Sidebar close={() => {}} />, tasks: () => <Text>Tasks page</Text> },
+      data,
+    );
+    expect(await screen.findByText(/Week \d+/)).toBeTruthy();
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "Today, 1 task due or overdue" }),
+    );
+    expect(await screen.findByText("Tasks page")).toBeTruthy();
+  });
+
+  it("unfolds the saved views under Tasks", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    await createView(data.db, work, { title: "Open work", module: "tasks-overview", config: "{}" });
+    const screen = await renderScreens({ index: () => <Sidebar close={() => {}} /> }, data);
+    await fireEvent.press((await screen.findAllByRole("button", { name: "Show Task Views" }))[0]);
+    expect(await screen.findByRole("button", { name: "Open work, saved view" })).toBeTruthy();
   });
 });

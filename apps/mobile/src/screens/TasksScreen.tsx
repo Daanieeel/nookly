@@ -1,8 +1,8 @@
 import { createView } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconAdjustmentsHorizontal, IconFilter, IconPlus } from "@tabler/icons-react-native";
-import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
@@ -209,6 +209,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
     initial,
   );
   const [panel, setPanel] = useState<"filter" | "display" | null>(null);
+  const { view: requested } = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState("all");
   const [note, setNote] = useState<string | null>(null);
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
@@ -251,6 +252,12 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         : null,
     );
   };
+  // A view picked in the sidebar opens once the list of views is here.
+  useEffect(() => {
+    if (requested && views.some((v) => v.entity.id === requested)) openView(requested);
+    // Only when the request or the views change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requested, views.length]);
   const toggle = (list: string[], id: string) =>
     list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
   const active = [

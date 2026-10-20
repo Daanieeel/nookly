@@ -22,12 +22,25 @@ import {
   IconUsers,
 } from "@tabler/icons-react-native";
 import { type Href, usePathname, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Space } from "@nookly/shared/data";
 import { useSyncState } from "../data/context.tsx";
-import { usePinned, useRecents, useSpaceModules, useSpaces } from "../data/queries.ts";
+import {
+  useDecks,
+  useExams,
+  usePinned,
+  useRecents,
+  useSpaceModules,
+  useSpaces,
+  useStatuses,
+  useTasks,
+  useUnrefinedJots,
+  useViews,
+} from "../data/queries.ts";
+import { tasksFor } from "./dashboard-model.ts";
+import { localDay } from "./dates.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
 import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
@@ -117,6 +130,149 @@ function Heading({ title, action }: { title: string; action?: React.ReactNode })
   );
 }
 
+/// Tasks with a chevron that unfolds the saved views of the cross Space overview.
+function TasksRow({
+  icon,
+  active,
+  go,
+}: {
+  icon: React.ReactNode;
+  active: boolean;
+  go: (href: Href) => void;
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  const { data: views = [] } = useViews({ module: "tasks-overview" });
+  const Chevron = open ? IconChevronDown : IconChevronRight;
+  return (
+    <View>
+      <NavRow
+        label="Tasks"
+        active={active}
+        icon={icon}
+        trailing={
+          views.length > 0 ? (
+            <IconButton
+              label={open ? "Hide Task Views" : "Show Task Views"}
+              size="iconSm"
+              icon={<Chevron size={16} color={theme.colors.mutedForeground} />}
+              onPress={() => setOpen((o) => !o)}
+            />
+          ) : null
+        }
+        onPress={() => go("/tasks")}
+      />
+      {open
+        ? views.map((view) => (
+            <NavRow
+              key={view.entity.id}
+              indent={1}
+              label={view.entity.title || "Untitled"}
+              accessibilityLabel={`${view.entity.title || "Untitled"}, saved view`}
+              icon={<IconChecklist size={16} color={theme.colors.mutedForeground} />}
+              onPress={() => go(`/tasks?view=${view.entity.id}`)}
+            />
+          ))
+        : null}
+    </View>
+  );
+}
+
+/// The small figure beside a module: the next exam's day, how many decks.
+function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
+  const { data: exams = [] } = useExams({ spaceId });
+  const { data: decks = [] } = useDecks(spaceId);
+  const today = localDay();
+  let text: string | null = null;
+  if (module === "exams") {
+    const next = exams
+      .filter((e) => e.status !== "done" && e.examDate !== null && e.examDate >= today)
+      .map((e) => e.examDate ?? "")
+      .sort()[0];
+    text = next
+      ? new Date(`${next}T00:00:00`).toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+        })
+      : null;
+  } else if (module === "decks" && decks.length > 0) {
+    text = String(decks.length);
+  }
+  return text ? (
+    <Text variant="small" tone="muted">
+      {text}
+    </Text>
+  ) : null;
+}
+
+/// The week number of a day, ISO style (the week with its Thursday in the year).
+export function isoWeek(date: Date): number {
+  const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const weekday = day.getUTCDay() || 7;
+  day.setUTCDate(day.getUTCDate() + 4 - weekday);
+  const yearStart = Date.UTC(day.getUTCFullYear(), 0, 1);
+  return Math.ceil(((day.getTime() - yearStart) / 86_400_000 + 1) / 7);
+}
+
+/// The card at the top of the sidebar, like the desktop's: today's date and week, and one
+/// line about what waits, changing every few seconds; tapping it opens the matching list.
+function DayCard({ go }: { go: (href: Href) => void }) {
+  const theme = useTheme();
+  const { data: tasks = [] } = useTasks(null);
+  const { data: statuses = [] } = useStatuses();
+  const { data: decks = [] } = useDecks(null);
+  const { data: jots = [] } = useUnrefinedJots(50);
+  const { data: spaces = [] } = useSpaces();
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 6000);
+    return () => clearInterval(timer);
+  }, []);
+  const today = localDay();
+  const due = tasksFor("today", tasks, statuses, today).length;
+  const cards = decks.reduce((n, d) => n + d.stats.due + d.stats.learning + d.stats.new, 0);
+  const first = spaces[0]?.id;
+  const lines: { text: string; href: Href }[] = [
+    ...(due > 0
+      ? [{ text: `${due} ${due === 1 ? "task" : "tasks"} due or overdue`, href: "/tasks" as Href }]
+      : []),
+    ...(cards > 0 && first
+      ? [
+          {
+            text: `${cards} ${cards === 1 ? "card" : "cards"} to study`,
+            href: `/module/${first}/decks` as Href,
+          },
+        ]
+      : []),
+    ...(jots.length > 0 && first
+      ? [
+          {
+            text: `${jots.length} ${jots.length === 1 ? "jot" : "jots"} to refine`,
+            href: `/module/${first}/jots` as Href,
+          },
+        ]
+      : []),
+  ];
+  const now = new Date();
+  const line = lines.length > 0 ? lines[tick % lines.length] : null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Today, ${line?.text ?? "nothing waiting"}`}
+      disabled={!line}
+      onPress={() => line && go(line.href)}
+      className="mx-1 mb-2 gap-0.5 rounded-lg border border-sidebar-border p-3 active:opacity-80"
+    >
+      <Text variant="small" tone="muted">
+        {`${now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })} · Week ${isoWeek(now)}`}
+      </Text>
+      <Text style={{ color: theme.colors.foreground }}>
+        {line?.text ?? "Nothing waiting. Enjoy the calm."}
+      </Text>
+    </Pressable>
+  );
+}
+
 /// A Space and, once opened, its modules, as in the desktop's sidebar.
 function SpaceRows({
   space,
@@ -171,6 +327,7 @@ function SpaceRows({
                 accessibilityLabel={`${MODULE_LABELS[module]} in ${space.name}`}
                 active={pathname === href}
                 icon={<Icon size={18} color={theme.colors.mutedForeground} />}
+                trailing={<ModuleMeta spaceId={space.id} module={module} />}
                 onPress={() => go(href)}
               />
             );
@@ -229,16 +386,26 @@ export function Sidebar({ close }: { close: () => void }) {
         </Pressable>
       </View>
       <ScrollView className="flex-1" contentContainerClassName="p-2 pt-3">
-        {top.map(({ id, label, href, Icon }) => (
-          <NavRow
-            key={href}
-            label={label}
-            active={pathname === href}
-            icon={<Icon size={20} color={muted} />}
-            // Quick Jot is something to do, so it opens over the page, not instead of it.
-            onPress={() => (id === "jot" ? push(href) : go(href))}
-          />
-        ))}
+        <DayCard go={go} />
+        {top.map(({ id, label, href, Icon }) =>
+          id === "tasks" ? (
+            <TasksRow
+              key={href}
+              icon={<Icon size={20} color={muted} />}
+              active={pathname === href}
+              go={go}
+            />
+          ) : (
+            <NavRow
+              key={href}
+              label={label}
+              active={pathname === href}
+              icon={<Icon size={20} color={muted} />}
+              // Quick Jot is something to do, so it opens over the page, not instead of it.
+              onPress={() => (id === "jot" ? push(href) : go(href))}
+            />
+          ),
+        )}
         {pinnedItems.length > 0 ? (
           <>
             <Heading title="Pinned" />
