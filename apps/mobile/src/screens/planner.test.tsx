@@ -10,19 +10,13 @@ import {
   getSession,
   listStudyBlocks,
   setCourseSemester,
-  updateExam,
 } from "@nookly/shared/data";
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
-import {
-  GradesScreen,
-  NewSemesterScreen,
-  NewSessionScreen,
-  SemesterRows,
-} from "./PlannerScreens.tsx";
+import { NewSemesterScreen, NewSessionScreen, SemesterRows } from "./PlannerScreens.tsx";
 
 async function seeded() {
   const data = testData();
@@ -184,28 +178,5 @@ describe("semesters", () => {
         end_date: "2027-07-15",
       });
     });
-  });
-});
-
-describe("the grade report", () => {
-  it("shows the average, each semester and course, and the work behind a grade", async () => {
-    const { data, space, course } = await seeded();
-    const ws = await createSemester(data.db, space, { title: "WS 25/26" });
-    await setCourseSemester(data.db, course, ws);
-    const exam = await createExam(data.db, space, "Final", course, "2026-02-01");
-    await updateExam(data.db, exam, { grade: 1.7, weight: 0.6 });
-    const screen = await renderScreens({ index: () => <GradesScreen spaceId={space} /> }, data);
-    expect(await screen.findByText("Cumulative average")).toBeTruthy();
-    expect(screen.getAllByText("1.7").length).toBeGreaterThan(0);
-    expect(screen.getByRole("header", { name: "WS 25/26" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Algorithms, 100% decided$/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Final, Exam · .*counts 100%$/ })).toBeTruthy();
-  });
-
-  it("explains an empty report", async () => {
-    const data = testData();
-    const space = await createSpace(data.db, "Uni", "#3b82f6");
-    const screen = await renderScreens({ index: () => <GradesScreen spaceId={space} /> }, data);
-    expect(await screen.findByText(/No courses to report on yet/)).toBeTruthy();
   });
 });

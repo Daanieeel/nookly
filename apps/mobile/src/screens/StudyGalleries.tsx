@@ -1,14 +1,7 @@
 import type { CourseRecord, DeckRecord, ExamRecord, SemesterRecord } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import {
-  IconCalendarStats,
-  IconChevronDown,
-  IconChevronRight,
-  IconPlayerPlayFilled,
-  IconSchool,
-} from "@tabler/icons-react-native";
+import { IconCalendarStats, IconPlayerPlayFilled, IconSchool } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   useAssignments,
@@ -20,6 +13,7 @@ import {
   useSessions,
 } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
+import { Band } from "../ui/Band.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
@@ -96,45 +90,6 @@ function CourseCard({ course }: { course: CourseRecord }) {
         </View>
       </View>
     </Pressable>
-  );
-}
-
-/// A band of the page that folds away: a semester with its courses under it.
-function Band({
-  icon,
-  title,
-  count,
-  badge,
-  children,
-  initiallyOpen = true,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  count: number;
-  badge?: string;
-  children: React.ReactNode;
-  initiallyOpen?: boolean;
-}) {
-  const theme = useTheme();
-  const [open, setOpen] = useState(initiallyOpen);
-  const Chevron = open ? IconChevronDown : IconChevronRight;
-  return (
-    <View className="gap-3">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={title}
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((o) => !o)}
-        className="min-h-9 flex-row items-center gap-2"
-      >
-        <Chevron size={16} color={theme.colors.mutedForeground} />
-        {icon}
-        <Text className="font-medium">{title}</Text>
-        <Text tone="muted">{count}</Text>
-        {badge ? <Badge label={badge} variant="positive" size="sm" /> : null}
-      </Pressable>
-      {open ? children : null}
-    </View>
   );
 }
 

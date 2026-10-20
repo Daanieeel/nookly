@@ -7,7 +7,6 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import {
-  type GradeItem,
   type SemesterRecord,
   createOneOffSession,
   createSemester,
@@ -30,7 +29,6 @@ import {
   useCourseSemester,
   useCourses,
   useExam,
-  useGradeReport,
   useSemester,
   useSemesters,
   useSessions,
@@ -703,83 +701,6 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
         errorLabel="Couldn't create"
         onPress={submit}
       />
-    </Screen>
-  );
-}
-
-// --- grades ---------------------------------------------------------------------------
-
-/// Up to two decimals, so a 1.7 stays 1.7 and a 1.5333 becomes 1.53.
-export const formatGrade = (grade: number | null) =>
-  grade === null ? "No grade" : String(Math.round(grade * 100) / 100);
-const formatShare = (share: number) => `${Math.round(share * 100)}%`;
-
-function GradeItemRow({ item }: { item: GradeItem }) {
-  const router = useRouter();
-  return (
-    <Row
-      title={item.entity.title || (item.kind === "exam" ? "Exam" : "Assignment")}
-      subtitle={join(
-        item.kind === "exam" ? "Exam" : "Assignment",
-        item.date ? dayLabel(item.date) : null,
-        `counts ${formatShare(item.share)}`,
-      )}
-      icon={<EntityIcon type={item.kind} icon={item.entity.icon} />}
-      trailing={<Text className="font-medium">{formatGrade(item.grade)}</Text>}
-      onPress={() => router.push(`/entity/${item.entity.id}`)}
-    />
-  );
-}
-
-/// Your grades as a transcript: the average on top, then one semester after another with
-/// each course's grade, how much of it is decided and the work behind it.
-export function GradesScreen({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
-  const { data: report } = useGradeReport(spaceId);
-  if (!report) return null;
-  if (report.semesters.length === 0) {
-    return (
-      <Screen>
-        <Empty text="No courses to report on yet. Add courses, then their exams and assignments, and your grades show up here." />
-      </Screen>
-    );
-  }
-  return (
-    <Screen>
-      <View className="gap-1">
-        <Text variant="small" tone="muted">
-          Cumulative average
-        </Text>
-        <Text variant="title" className="text-3xl">
-          {formatGrade(report.gpa)}
-        </Text>
-      </View>
-      {report.semesters.map((group) => (
-        <View key={group.semester?.entity.id ?? "none"} className="gap-4">
-          <View className="flex-row items-baseline justify-between px-1">
-            <Text accessibilityRole="header" className="font-medium">
-              {group.semester ? group.semester.entity.title.trim() || "Untitled" : "No semester"}
-            </Text>
-            <Text tone="muted">{formatGrade(group.gpa)}</Text>
-          </View>
-          {group.courses.map((course) => (
-            <Section key={course.course.id}>
-              <Row
-                title={course.course.title || "Untitled"}
-                subtitle={`${formatShare(course.grades.gradedWeight)} decided`}
-                icon={<EntityIcon type="course" icon={course.course.icon} />}
-                trailing={<Text className="font-semibold">{formatGrade(course.grades.grade)}</Text>}
-                onPress={() => router.push(`/entity/${course.course.id}`)}
-              />
-              {course.items.map((item) => (
-                <View key={item.entity.id}>
-                  <GradeItemRow item={item} />
-                </View>
-              ))}
-            </Section>
-          ))}
-        </View>
-      ))}
     </Screen>
   );
 }
