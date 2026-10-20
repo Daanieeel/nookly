@@ -54,8 +54,9 @@ import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
+import { DetailsDrawer, useDetails } from "../shell/DetailsDrawer.tsx";
 import { useInspectorShown } from "../ui/pane.tsx";
-import { LabelsProperty, LabelsSection, RelatedSection } from "./RelatedSection.tsx";
+import { LabelsProperty } from "./RelatedSection.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
 import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
@@ -90,6 +91,7 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
 /// or restore for an item in the Trash.
 function useEntityMenu(entity: EntityRecord): MenuItem[] {
   const router = useRouter();
+  const details = useDetails();
   const signedIn = useSyncState((s) => s.user !== null);
   const shareable =
     SHAREABLE_TYPES.some((t) => t === entity.type) && !isSharedSpace(entity.spaceId);
@@ -111,6 +113,7 @@ function useEntityMenu(entity: EntityRecord): MenuItem[] {
     return [{ label: "Restore", onPress: () => restore.mutate(undefined) }];
   }
   const items: MenuItem[] = [];
+  if (details) items.push({ label: "Show Details", onPress: () => details.show() });
   if (signedIn && shareable) {
     items.push({ label: "Share", onPress: () => router.push(`/new/share?entityId=${entity.id}`) });
   }
@@ -410,6 +413,8 @@ function TaskDetail({
 export function EntityScreen({ id }: { id: string }) {
   const { db } = useAppData();
   const { data: entity, isLoading } = useEntity(id);
+  // Beside the page on a wide iPad; else behind it, a swipe away.
+  const inspector = useInspectorShown();
   useEffect(() => {
     void markOpened(db, id);
   }, [db, id]);
@@ -421,7 +426,13 @@ export function EntityScreen({ id }: { id: string }) {
       </Screen>
     );
   }
-  return <OpenEntity entity={entity} />;
+  return inspector ? (
+    <OpenEntity entity={entity} />
+  ) : (
+    <DetailsDrawer id={entity.id} labels={entity.type !== "task" && entity.type !== "sub_task"}>
+      <OpenEntity entity={entity} />
+    </DetailsDrawer>
+  );
 }
 
 function OpenEntity({ entity }: { entity: EntityRecord }) {
@@ -431,8 +442,8 @@ function OpenEntity({ entity }: { entity: EntityRecord }) {
   const theme = useTheme();
   const present = useMenu();
   const menu = useEntityMenu(entity);
-  // The details pane beside the page takes labels and links.
   const inspector = useInspectorShown();
+  // The task's own card keeps its labels row, unless the details beside the page hold them.
   const space = spaces.find((s) => s.id === entity.spaceId);
   // Labels and links belong to a Space of your own, not to one shared with you, and the
   // details pane takes them when it is beside the page.
@@ -495,15 +506,6 @@ function OpenEntity({ entity }: { entity: EntityRecord }) {
         {entity.type === "exam" ? <ExamDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "assignment" ? <AssignmentDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "index_card_deck" ? <DeckDetail id={id} readOnly={readOnly} /> : null}
-        {/* Labels and links belong to a Space of your own, not to one shared with you. */}
-        {entity.deletedAt || isSharedSpace(entity.spaceId) || inspector ? null : (
-          <>
-            {entity.type === "task" || entity.type === "sub_task" ? null : (
-              <LabelsSection entity={entity} readOnly={readOnly} />
-            )}
-            <RelatedSection entity={entity} readOnly={readOnly} />
-          </>
-        )}
       </Screen>
       <EditorToolbar />
     </KeyboardAvoidingView>

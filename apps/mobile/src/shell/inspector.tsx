@@ -6,12 +6,22 @@ import { useReadOnly } from "../screens/useReadOnly.ts";
 import { INSPECTOR_WIDTH } from "../ui/pane.tsx";
 import { Text } from "../ui/Text.tsx";
 
-/// The desktop's right sidebar: the labels of the open item and everything it is tied to,
-/// beside the page instead of at the bottom of it.
-export function Inspector({ id }: { id: string }) {
+/// What the details hold: the labels of an item and everything it is tied to.
+export function DetailsBody({ id, labels = true }: { id: string; labels?: boolean }) {
   const { data: entity } = useEntity(id);
   const readOnly = useReadOnly(entity);
   if (!entity || entity.deletedAt || isSharedSpace(entity.spaceId)) return null;
+  return (
+    <>
+      {labels ? <LabelsSection entity={entity} readOnly={readOnly} /> : null}
+      <RelatedSection entity={entity} readOnly={readOnly} />
+    </>
+  );
+}
+
+/// The desktop's right sidebar: the details of the open item beside the page instead of
+/// at the bottom of it.
+export function Inspector({ id }: { id: string }) {
   return (
     <View
       accessibilityLabel="Details"
@@ -22,8 +32,7 @@ export function Inspector({ id }: { id: string }) {
         <Text variant="small" tone="muted" accessibilityRole="header">
           Details
         </Text>
-        <LabelsSection entity={entity} readOnly={readOnly} />
-        <RelatedSection entity={entity} readOnly={readOnly} />
+        <DetailsBody id={id} />
       </ScrollView>
     </View>
   );
