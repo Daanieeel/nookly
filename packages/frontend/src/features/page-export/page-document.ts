@@ -8,6 +8,7 @@ import {
 } from "#/features/notes/custom-block-rows.ts";
 import { mathBlockLatex } from "#/features/notes/math.ts";
 import { parseHighlightColor } from "#/features/notes/highlight-colors.ts";
+import { parseTextColor } from "#/features/notes/text-colors.ts";
 import type { Block, BlockType } from "#/lib/api/types.ts";
 import type {
   CalloutTone,
@@ -45,6 +46,9 @@ function nodesToRuns(nodes: JSONNode[] | undefined): Run[] {
       else if (mark.type === "code") run.code = true;
       else if (mark.type === "highlight") {
         run.highlight = parseHighlightColor(asString(mark.attrs?.color)) ?? "yellow";
+      } else if (mark.type === "textColor") {
+        const color = parseTextColor(asString(mark.attrs?.color));
+        if (color) run.color = color;
       } else if (mark.type === "link") {
         const href = asString(mark.attrs?.href);
         if (href) run.link = href;

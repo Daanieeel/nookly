@@ -16,6 +16,7 @@ import {
   FONTS,
   HEADING_SCALE,
   HIGHLIGHT_FILLS,
+  TEXT_COLOR_FILLS,
   INLINE_MATH_EM_PX,
   PX_TO_PT,
   TITLE_SCALE,
@@ -151,6 +152,9 @@ export function odtFiles(doc: ExportDocument, options: PageExportOptions): OdtFi
           );
         if (run.highlight)
           props.push(`fo:background-color="${hex(HIGHLIGHT_FILLS[run.highlight])}"`);
+        // One `fo:color` only: a hint's or a link's own colour wins.
+        if (run.color && !run.muted && !run.link && !props.some((p) => p.startsWith("fo:color=")))
+          props.push(`fo:color="${hex(TEXT_COLOR_FILLS[run.color])}"`);
         if (run.muted) props.push(`fo:color="${hex(COLORS.muted)}"`);
         if (run.link) {
           props.push(
@@ -331,5 +335,9 @@ export async function odtBytes(
   zip.file("styles.xml", files.styles);
   zip.file("meta.xml", files.meta);
   for (const [name, png] of files.pictures) zip.file(name, png);
-  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE", mimeType: MIMETYPE });
+  return zip.generateAsync({
+    type: "uint8array",
+    compression: "DEFLATE",
+    mimeType: MIMETYPE,
+  });
 }

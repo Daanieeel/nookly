@@ -30,6 +30,7 @@ import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
 import { InlineCode, InlineMarkCleanup } from "./inline-mark-cleanup";
 import { Highlight } from "./highlight-extension";
+import { TextColor } from "./text-color-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
 import { TabIndent } from "./tab-indent-extension";
@@ -88,7 +89,9 @@ export function editorExtensions({
       defaultLanguage: "plaintext",
       getNewLanguage: getNewCodeLanguage,
     }),
-    Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
+    Placeholder.configure({
+      placeholder: "Type “/” for commands, or just start writing…",
+    }),
     // `cellMinWidth` is the narrowest a column gets before the table scrolls sideways.
     TableKit.configure({ table: { resizable: true, cellMinWidth: 120 } }),
     PinnedColumns,
@@ -97,6 +100,7 @@ export function editorExtensions({
     HeadingAnchors,
     ArrowLigatures,
     Highlight,
+    TextColor,
     InlineCode,
     InlineMarkCleanup,
     FindInPage,

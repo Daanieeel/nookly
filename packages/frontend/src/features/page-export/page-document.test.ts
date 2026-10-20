@@ -34,6 +34,15 @@ describe("pageDocument", () => {
     ]);
   });
 
+  it("reads a text colour into a run, next to the other marks", () => {
+    expect(runsOf("a {red}b **c**{/} {chartreuse}d{/}")).toEqual([
+      { kind: "text", text: "a " },
+      { kind: "text", text: "b ", color: "red" },
+      { kind: "text", text: "c", bold: true, color: "red" },
+      { kind: "text", text: " {chartreuse}d{/}" },
+    ]);
+  });
+
   it("counts numbered lists the way the editor does, nested lists included", () => {
     const [list] = one(
       block("numbered_list", "one\n\tinner\ntwo", { attrs: { marker: "a)", start: "2" } }),

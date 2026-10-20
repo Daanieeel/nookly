@@ -35,6 +35,18 @@ export const HIGHLIGHT_FILLS = {
   purple: "DDD6FE",
 } satisfies Record<NonNullable<TextRun["highlight"]>, string>;
 
+/// Text colors, the editor's light shades, which read well on white paper.
+export const TEXT_COLOR_FILLS = {
+  red: "DC2626",
+  orange: "EA580C",
+  yellow: "CA8A04",
+  green: "16A34A",
+  blue: "2563EB",
+  purple: "9333EA",
+  pink: "DB2777",
+  gray: "6B7280",
+} satisfies Record<NonNullable<TextRun["color"]>, string>;
+
 export const CALLOUTS = {
   note: { label: "Note", fill: "EFF6FF", accent: "2563EB" },
   tip: { label: "Tip", fill: "F0FDF4", accent: "16A34A" },

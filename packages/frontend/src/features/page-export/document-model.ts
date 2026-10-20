@@ -3,6 +3,7 @@
 /// only knows how to draw them, never the blocks themselves.
 
 import type { HighlightColorId } from "#/features/notes/highlight-colors.ts";
+import type { TextColorId } from "#/features/notes/text-colors.ts";
 
 /// A picture ready to place: PNG bytes and the size it shows at, in CSS pixels.
 export interface ExportImage {
@@ -19,6 +20,8 @@ export interface TextRun {
   code?: boolean;
   /// `"yellow"` for the default highlight.
   highlight?: HighlightColorId | "yellow";
+  /// The text colour, drawn under a link's or a hint's own colour.
+  color?: TextColorId;
   link?: string;
   /// Drawn in the muted text color: a hint, a date, a state.
   muted?: boolean;
