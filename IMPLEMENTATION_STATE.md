@@ -199,12 +199,14 @@ New asks from the user (2026-10-20), after the list above:
 
 - [x] C1 calendar: agenda kept; phone gets Day, 3 Days, Week as hour grids (`screens/TimeGrid.tsx`, model in `packages/shared/src/time-grid.ts`), iPad gets the desktop's Day, Work Week, Week, Month plus Agenda; blocks never overflow their column, narrow blocks show the title only. View choice is remembered (`calendar.view`). Desktop's `layoutLanes` now comes from the shared module.
 - [x] L1 Linear style item pages: `ui/Property.tsx` (PropertyList, Property rows with expandable choices), a More menu (`ui/menu.tsx`, native action sheet, injectable for tests via `MenuProvider`; tests use `test/menu.ts`), compact sub-tasks, labels as a property row. Done for tasks and pages. [ ] L2 the other detail screens (session, exam, assignment, course, bookmark, recipe, calendar entry, deck, file, semester, study block) still use card per field: move them to PropertyList.
+- [x] D1 details drawer: on a phone (and an iPad too narrow for the pane) the details of an open item sit behind the page like the sidebar turned around (`shell/DetailsDrawer.tsx` on `react-native-drawer-layout`, swipe anywhere, or More, Show Details). Swiping was not verified in a simulator (my tooling cannot swipe); the tree is covered by jest.
+- [x] K1 shared colors: `packages/shared/src/calendar-style.ts` (item looks per kind, accent fallbacks, today marking) and `blocks/highlight-colors.ts` (`highlightCss`) are the one source; the desktop's Tailwind classes are checked against them by `features/sessions/calendar/calendar-style.test.ts` and `features/notes/highlight-style.test.ts`. Mobile has no hard coded hex left except the editor's yjs cursor fallback and shadows. Rule from the user: always use the same colors, shared.
 - [ ] L3 sidebar rows reported by the user as only reacting when the text is hit exactly: the rows measure full width (304 by 40) so this could not be reproduced without real touches; ask which device and where (phone drawer or iPad).
 - Dev bridge: `measure(label)` and `data` (the shared data functions) are available to simulator scripts; `tools/e2e/mobile.ts run phone "<script>"`. ada's phone data now has seeded calendar entries this week (throwaway).
 
 Parity gaps (phone and iPad):
 
-- [ ] P1 copy link (needs N1)
+- [x] P1 copy link (menu item; `ui/clipboard.tsx` seam; pastes as a mention like the desktop)
 - [ ] P2 import pages, tasks, assignments from Nookly files
 - [ ] P3 saved views for Assignments, and saved views listed under modules in the sidebar
 - [ ] P4 inline math rendered and editable in the editor
