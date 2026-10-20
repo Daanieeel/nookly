@@ -71,7 +71,8 @@ describe("the sidebar's card and views", () => {
     const work = await createSpace(data.db, "Work", "#3b82f6");
     await createView(data.db, work, { title: "Open work", module: "tasks-overview", config: "{}" });
     const screen = await renderScreens({ index: () => <Sidebar close={() => {}} /> }, data);
-    await fireEvent.press((await screen.findAllByRole("button", { name: "Show Task Views" }))[0]);
+    const toggles = await screen.findAllByRole("button", { name: "Show Task Views" });
+    await fireEvent.press(toggles[toggles.length - 1]);
     expect(await screen.findByRole("button", { name: "Open work, saved view" })).toBeTruthy();
   });
 });
