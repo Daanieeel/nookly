@@ -1,0 +1,20 @@
+{
+  "format": "nookly-assignment",
+  "version": 1,
+  "kind": "assignment",
+  "title": "Lab report 3",
+  "course": "Algorithms",
+  "status": "graded",
+  "dueDate": "2026-03-10",
+  "grade": 8.5,
+  "weight": 0.25,
+  "blocks": [
+    {
+      "type": "paragraph",
+      "content": "Hand in **both** parts.",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    }
+  ]
+}

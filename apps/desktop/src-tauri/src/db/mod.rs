@@ -38,6 +38,8 @@ mod office_text;
 pub mod page_json;
 pub mod portable;
 #[cfg(test)]
+mod portable_desktop_samples_tests;
+#[cfg(test)]
 mod portable_phone_tests;
 pub mod recipes;
 #[cfg(test)]

@@ -1,0 +1,73 @@
+{
+  "format": "nookly-page",
+  "version": 1,
+  "kind": "note",
+  "title": "Week 1",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "content": "Hello **world**",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    },
+    {
+      "type": "heading1",
+      "content": "Part one",
+      "language": null,
+      "filename": null,
+      "attrs": {
+        "toggle": "closed"
+      }
+    },
+    {
+      "type": "numbered_list",
+      "content": "first\nsecond",
+      "language": null,
+      "filename": null,
+      "attrs": {
+        "marker": "a)",
+        "start": "2"
+      }
+    },
+    {
+      "type": "code",
+      "content": "fn main() {}",
+      "language": "rust",
+      "filename": null,
+      "attrs": {}
+    },
+    {
+      "type": "table",
+      "content": "A\tB\n1\t2",
+      "language": null,
+      "filename": null,
+      "attrs": {
+        "pinned": "1"
+      }
+    },
+    {
+      "type": "timeline",
+      "content": "2026-01-01\tStart\n2026-02-01\tEnd",
+      "language": null,
+      "filename": null,
+      "attrs": {
+        "title": "Plan"
+      }
+    },
+    {
+      "type": "checklist",
+      "content": "[x] done\n[ ] todo",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    },
+    {
+      "type": "divider",
+      "content": "",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    }
+  ]
+}

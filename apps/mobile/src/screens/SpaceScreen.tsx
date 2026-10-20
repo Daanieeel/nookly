@@ -1,6 +1,6 @@
 import { MODULE_LABELS, type ModuleKey, isModuleKey } from "@nookly/shared/modules";
 import { Stack, useRouter } from "expo-router";
-import { IconSettings } from "@tabler/icons-react-native";
+import { IconFileImport, IconSettings } from "@tabler/icons-react-native";
 import { View } from "react-native";
 import { IconButton } from "../ui/Button.tsx";
 import { useSpaceModules, useSpaces } from "../data/queries.ts";
@@ -69,6 +69,14 @@ export function SpaceScreen({ spaceId }: { spaceId: string }) {
           {rows(shown)}
         </Section>
         {more.length > 0 ? <Section title="Start something">{rows(more)}</Section> : null}
+        <Section>
+          <Row
+            title="Import a Nookly File"
+            subtitle="A page, task, deck or assignment saved on a computer"
+            icon={<IconFileImport size={18} color={theme.colors.mutedForeground} />}
+            onPress={() => router.push(`/new/import?spaceId=${spaceId}`)}
+          />
+        </Section>
       </Screen>
     </>
   );

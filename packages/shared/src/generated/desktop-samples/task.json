@@ -1,0 +1,39 @@
+{
+  "format": "nookly-task",
+  "version": 1,
+  "kind": "task",
+  "title": "Write the report",
+  "status": {
+    "name": "In Progress",
+    "doneness": 50
+  },
+  "startDate": "2026-03-01",
+  "dueDate": "2026-03-10",
+  "effort": 5,
+  "repeat": {
+    "every": 2,
+    "unit": "week"
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "content": "Cover **three** topics.",
+      "language": null,
+      "filename": null,
+      "attrs": {}
+    }
+  ],
+  "subtasks": [
+    {
+      "title": "Outline",
+      "status": {
+        "name": "Done",
+        "doneness": 100
+      },
+      "startDate": null,
+      "dueDate": "2026-03-05",
+      "effort": null,
+      "blocks": []
+    }
+  ]
+}

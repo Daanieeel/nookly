@@ -35,7 +35,7 @@ import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
-function useTargetSpace(asked?: string) {
+export function useTargetSpace(asked?: string) {
   const { data: spaces = [] } = useSpaces();
   const [chosen, setChosen] = useState<string | null>(asked ?? null);
   return [chosen ?? spaces[0]?.id ?? null, setChosen] as const;

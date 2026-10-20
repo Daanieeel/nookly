@@ -30,3 +30,16 @@ export class RecordingClipboard {
     this.copied.push(text);
   }
 }
+
+/// A file picker that always picks the same text (or backs out, with null).
+export class FixedFilePicker {
+  readonly text: string | null;
+
+  constructor(text: string | null) {
+    this.text = text;
+  }
+
+  async pickText() {
+    return this.text;
+  }
+}

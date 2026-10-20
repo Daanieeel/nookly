@@ -10,6 +10,7 @@ import { phoneSettings } from "../data/settings.ts";
 import type { MobileSync } from "../data/sync.ts";
 import { MenuProvider, type MenuPresenter, nativeMenu } from "../ui/menu.tsx";
 import { ClipboardProvider, type ClipboardWriter, systemClipboard } from "../ui/clipboard.tsx";
+import { FilePickerProvider, type TextFilePicker, systemFilePicker } from "../ui/file-picker.tsx";
 import { WindowWidthProvider } from "../ui/pane.tsx";
 
 let ids = 0;
@@ -66,6 +67,8 @@ export async function renderScreens(
     menu?: MenuPresenter;
     /// Where copied text goes.
     clipboard?: ClipboardWriter;
+    /// What the file picker hands over.
+    filePicker?: TextFilePicker;
   } = {},
 ) {
   const queryClient = new QueryClient({
@@ -85,7 +88,9 @@ export async function renderScreens(
         <WindowWidthProvider value={options.width ?? null}>
           <MenuProvider value={options.menu ?? nativeMenu}>
             <ClipboardProvider value={options.clipboard ?? systemClipboard}>
-              {children}
+              <FilePickerProvider value={options.filePicker ?? systemFilePicker}>
+                {children}
+              </FilePickerProvider>
             </ClipboardProvider>
           </MenuProvider>
         </WindowWidthProvider>

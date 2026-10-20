@@ -288,6 +288,14 @@ export default function RootLayout() {
         }}
       />
       <Stack.Screen
+        name="new/import"
+        options={{
+          title: "Import a File",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.7, 1],
+        }}
+      />
+      <Stack.Screen
         name="new/deck"
         options={{
           title: "New Deck",

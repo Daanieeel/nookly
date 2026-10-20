@@ -89,6 +89,13 @@ export const COMMANDS: PaletteCommand[] = [
     keywords: ["link", "url", "website"],
   },
   {
+    id: "import",
+    title: "Import a Nookly File",
+    section: "Create",
+    route: "/new/import",
+    keywords: ["open", "load", "file", "bring in"],
+  },
+  {
     id: "new-space",
     title: "New Space",
     section: "Create",

@@ -1,0 +1,12 @@
+{
+  "format": "nookly-deck",
+  "version": 1,
+  "kind": "deck",
+  "title": "Sorting",
+  "cards": [
+    {
+      "front": "Quicksort?",
+      "back": "n log n"
+    }
+  ]
+}

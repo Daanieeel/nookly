@@ -99,7 +99,7 @@ export async function getTask(db: LocalDb, id: string): Promise<TaskRecord | nul
   return row ? toTask(row) : null;
 }
 
-function createTaskStatements(
+export function createTaskStatements(
   db: LocalDb,
   spaceId: string,
   title: string,

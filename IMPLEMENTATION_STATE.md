@@ -207,7 +207,7 @@ New asks from the user (2026-10-20), after the list above:
 Parity gaps (phone and iPad):
 
 - [x] P1 copy link (menu item; `ui/clipboard.tsx` seam; pastes as a mention like the desktop)
-- [ ] P2 import pages, tasks, assignments from Nookly files
+- [x] P2 import pages, tasks, assignments from Nookly files (`packages/shared/src/data/portable-import.ts`, sheet `new/import`, Space screen row, palette command). Block types the phone's shared converter knows are kept; others become paragraphs. Custom block content is not validated beyond that. Desktop written samples in `generated/desktop-samples` are kept current by `db/portable_desktop_samples_tests.rs` (`NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib db::portable_desktop_samples_tests`) and read by `portable-import.test.ts`.
 - [ ] P3 saved views for Assignments, and saved views listed under modules in the sidebar
 - [ ] P4 inline math rendered and editable in the editor
 - [ ] P5 series for sessions and calendar entries (create, edit scope, delete)
