@@ -7,6 +7,7 @@ All notable changes to Nookly are listed here.
 ### Added
 
 - **Colored text in Notes and Jots.** Select text and pick Red, Orange, Yellow, Green, Blue, Purple, Pink or Gray from the color bar that appears below it, or remove the color again. Colors work together with bold, italic, highlights and links, and come along into PDF, Word and OpenDocument exports. Markdown files leave them out.
+- **Page intervals for files.** A file in a page can now name the last page of its interval, such as pages 3 to 9, in a second field next to the first page. The file still opens on the first page.
 
 ## 0.39.3 (2026-10-20)
 

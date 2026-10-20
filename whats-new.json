@@ -11,7 +11,9 @@
           "tag": "New"
         }
       ],
-      "more": {}
+      "more": {
+        "Improved": ["A file in a page can name the last page of its interval, like pages 3 to 9."]
+      }
     },
     {
       "version": "0.39.3",
