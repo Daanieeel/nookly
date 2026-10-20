@@ -16,7 +16,7 @@
     },
     "apps/desktop": {
       "name": "@nookly/desktop",
-      "version": "0.39.0",
+      "version": "0.39.1",
       "dependencies": {
         "@nookly/frontend": "workspace:*",
         "@nookly/ui": "workspace:*",

@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.39.1",
+      "date": "2026-10-20",
+      "highlights": [],
+      "more": {
+        "Improved": ["The Open settings file button is now called Show settings file."]
+      }
+    },
+    {
       "version": "0.39.0",
       "date": "2026-10-19",
       "highlights": [

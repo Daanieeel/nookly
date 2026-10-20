@@ -194,7 +194,7 @@ function OpenSettingsFileButton() {
           <StatusButtonContent
             status={status}
             icon={<IconFileCode size={16} />}
-            label="Open settings file"
+            label="Show settings file"
             errorLabel="Couldn't open, try again"
           />
         </Button>

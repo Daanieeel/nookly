@@ -6,7 +6,7 @@ Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `ge
 
 ## Settings file
 
-"Open Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in every build (the store plugin ignores `.dev-data`), so a debug build edits the installed app's settings. Edit with the app closed: it saves its own copy over the file.
+"Show Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in every build (the store plugin ignores `.dev-data`), so a debug build edits the installed app's settings. Edit with the app closed: it saves its own copy over the file.
 
 ## Add a setting
 
