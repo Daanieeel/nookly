@@ -18,6 +18,7 @@ export const keys = {
   allLabels: ["local", "all-labels"] as const,
   taskLabels: (spaceId: string | null) => ["local", "task-labels", spaceId] as const,
   semesters: (spaceId: string | null) => ["local", "semesters", spaceId] as const,
+  courseSemesters: (spaceId: string | null) => ["local", "course-semesters", spaceId] as const,
   semester: (id: string) => ["local", "semester", id] as const,
   courseSemester: (courseId: string) => ["local", "course-semester", courseId] as const,
   sessions: (spaceId: string | null, courseId: string | null) =>

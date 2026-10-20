@@ -21,10 +21,36 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
 import { JotList, NoteList } from "./PageLists.tsx";
+import { CourseGallery, DeckGrid, ExamTimeline } from "./StudyGalleries.tsx";
 import { GradesScreen, SemesterRows, SessionRows } from "./PlannerScreens.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
+
+/// Brings in a deck written to a file, from the phone's files.
+function ImportDeckButton({ spaceId }: { spaceId: string }) {
+  const router = useRouter();
+  const importDeck = useLocalWrite(async (db, _: undefined) => {
+    const picked = await File.pickFileAsync({ mimeTypes: ["application/json", "text/plain"] });
+    if (picked.canceled) return null;
+    return importDeckFile(db, spaceId, await picked.result.text());
+  });
+  return (
+    <View className="items-start">
+      <Button
+        label="Import Deck File"
+        variant="ghost"
+        status={statusOf(importDeck)}
+        successLabel="Imported"
+        errorLabel="Couldn't import it"
+        onPress={() =>
+          importDeck.mutate(undefined, { onSuccess: (id) => id && router.push(`/entity/${id}`) })
+        }
+      />
+      {importDeck.error ? <Text tone="destructive">{importDeck.error.message}</Text> : null}
+    </View>
+  );
+}
 
 /// What "+" makes in a module, where the phone can make it.
 const CREATE = new Map<ModuleKey, (spaceId: string) => string>([
@@ -59,6 +85,9 @@ function StudyList({ spaceId, module }: { spaceId: string; module: ModuleKey }) 
     </Section>
   );
 }
+
+/// Modules shown as galleries that use the whole width of a wide page.
+const GALLERIES: ModuleKey[] = ["courses", "decks", "files", "recipes", "bookmarks"];
 
 const STUDY: ModuleKey[] = ["courses", "exams", "assignments", "decks"];
 
@@ -123,11 +152,6 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
     );
   }
   const addFiles = useAddFiles(spaceId);
-  const importDeck = useLocalWrite(async (db, _: undefined) => {
-    const picked = await File.pickFileAsync({ mimeTypes: ["application/json", "text/plain"] });
-    if (picked.canceled) return null;
-    return importDeckFile(db, spaceId, await picked.result.text());
-  });
   if (module === "grades") {
     return (
       <>
@@ -162,8 +186,17 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
                 : undefined,
         }}
       />
-      <Screen>
-        {module === "notes" ? (
+      <Screen wide={GALLERIES.includes(module)}>
+        {module === "courses" ? (
+          <CourseGallery spaceId={spaceId} />
+        ) : module === "exams" ? (
+          <ExamTimeline spaceId={spaceId} />
+        ) : module === "decks" ? (
+          <>
+            <ImportDeckButton spaceId={spaceId} />
+            <DeckGrid spaceId={spaceId} />
+          </>
+        ) : module === "notes" ? (
           <NoteList spaceId={spaceId} />
         ) : module === "jots" ? (
           <JotList spaceId={spaceId} />
@@ -179,25 +212,6 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
           <SemesterRows spaceId={spaceId} />
         ) : STUDY.includes(module) ? (
           <>
-            {module === "decks" ? (
-              <View className="items-start">
-                <Button
-                  label="Import Deck File"
-                  variant="ghost"
-                  status={statusOf(importDeck)}
-                  successLabel="Imported"
-                  errorLabel="Couldn't import it"
-                  onPress={() =>
-                    importDeck.mutate(undefined, {
-                      onSuccess: (id) => id && router.push(`/entity/${id}`),
-                    })
-                  }
-                />
-                {importDeck.error ? (
-                  <Text tone="destructive">{importDeck.error.message}</Text>
-                ) : null}
-              </View>
-            ) : null}
             <StudyList spaceId={spaceId} module={module} />
           </>
         ) : (

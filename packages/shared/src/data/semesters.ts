@@ -143,6 +143,17 @@ export async function courseSemester(db: LocalDb, courseId: string): Promise<str
   return row ? str(row.to_entity_id) : null;
 }
 
+/// Every course's semester at once, by course id, for a page that groups courses by it.
+export async function courseSemesters(db: LocalDb, spaceId?: string): Promise<Map<string, string>> {
+  const found = await rows(
+    db,
+    `SELECT r.from_entity_id, r.to_entity_id FROM relationships r JOIN entities c ON c.id = r.from_entity_id
+     WHERE r.relationship_type = 'course-semester' AND c.deleted_at IS NULL${spaceId ? " AND c.space_id = ?" : ""}`,
+    ...(spaceId ? [spaceId] : []),
+  );
+  return new Map(found.map((r) => [str(r.from_entity_id), str(r.to_entity_id)]));
+}
+
 /// `set_course_semester`: a course has one semester at a time, so the old link goes first.
 /// `null` takes the course out of its semester.
 export async function setCourseSemester(

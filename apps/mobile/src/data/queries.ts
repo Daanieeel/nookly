@@ -20,6 +20,7 @@ import {
   mentionedIn,
   mentionsOf,
   listViews,
+  courseSemesters,
   listPageSummaries,
   listUnrefinedJots,
   labelIdsByEntity,
@@ -392,5 +393,14 @@ export const usePageSummaries = (spaceId: string | null, type: "note" | "jot") =
   return useQuery({
     queryKey: keys.pageSummaries(spaceId, type),
     queryFn: () => listPageSummaries(db, { spaceId: spaceId ?? undefined, type }),
+  });
+};
+
+/// Every course's semester at once, by course id.
+export const useCourseSemesters = (spaceId: string | null) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.courseSemesters(spaceId),
+    queryFn: () => courseSemesters(db, spaceId ?? undefined),
   });
 };

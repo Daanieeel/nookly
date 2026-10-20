@@ -5,6 +5,7 @@ import { getEntity } from "./entities.ts";
 import { listBlocks } from "./notes.ts";
 import {
   courseSemester,
+  courseSemesters,
   createSemester,
   currentSemesterId,
   getOrCreateCourseNotes,
@@ -107,6 +108,19 @@ describe("semesters", () => {
       title: "Algorithms Notes",
     });
     expect(await listBlocks(db, notes)).toHaveLength(1);
+  });
+});
+
+describe("the semester of every course", () => {
+  it("lists them at once and leaves out courses with none and trashed ones", async () => {
+    const a = await createSemester(db, space, { title: "A" });
+    const inA = await createCourse(db, space, "In A");
+    const gone = await createCourse(db, space, "Gone");
+    await createCourse(db, space, "Loose");
+    await setCourseSemester(db, inA, a);
+    await setCourseSemester(db, gone, a);
+    await trashEntity(db, gone);
+    expect(await courseSemesters(db, space)).toEqual(new Map([[inA, a]]));
   });
 });
 
