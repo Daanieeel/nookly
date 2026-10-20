@@ -1,6 +1,17 @@
 import { createContext, useContext } from "react";
 import { useWindowDimensions } from "react-native";
 
+/// The window's width, unless a test says otherwise (a phone's width in a test of an iPad's
+/// screen): the one place the app asks for it.
+const WindowWidth = createContext<number | null>(null);
+export const WindowWidthProvider = WindowWidth.Provider;
+
+function useWindowWidth(): number {
+  const override = useContext(WindowWidth);
+  const { width } = useWindowDimensions();
+  return override ?? width;
+}
+
 /// From this window width (an iPad, a phone held wide) the sidebar stays open beside the
 /// page, closer to the desktop, instead of waiting behind it.
 export const TABLET_WIDTH = 768;
@@ -16,7 +27,7 @@ export function useSidebarBeside(): boolean {
 
 /// Whether the window is wide enough for that.
 export function useIsTablet(): boolean {
-  return useWindowDimensions().width >= TABLET_WIDTH;
+  return useWindowWidth() >= TABLET_WIDTH;
 }
 
 export const INSPECTOR_WIDTH = 340;
@@ -29,7 +40,7 @@ export const useInspectorShown = () => useContext(InspectorShown);
 /// The width a page has to itself: the window's, less the sidebar and the details pane when
 /// they sit beside it.
 export function usePaneWidth(): number {
-  const { width } = useWindowDimensions();
+  const width = useWindowWidth();
   const sidebar = useSidebarBeside() ? SIDEBAR_WIDTH : 0;
   const inspector = useInspectorShown() ? INSPECTOR_WIDTH : 0;
   return width - sidebar - inspector;

@@ -1,19 +1,31 @@
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { onShortcut, setShortcuts } from "../../modules/nookly-keys/src/index.ts";
+import * as system from "../../modules/nookly-keys/src/index.ts";
 import type { PaletteCommand } from "./commands.ts";
-import { SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
+import { type Shortcut, SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
+/// What the host needs of the system's keyboard shortcuts (`modules/nookly-keys`).
+export interface KeySystem {
+  setShortcuts(items: Shortcut[]): void;
+  onShortcut(listener: (id: string) => void): () => void;
+}
+
 /// Registers the keyboard shortcuts with the system for as long as it is shown, and does
 /// what each one asks. Shows nothing.
-export function ShortcutHost({ onAction }: { onAction: (action: AppAction) => void }) {
+export function ShortcutHost({
+  onAction,
+  keys = system,
+}: {
+  onAction: (action: AppAction) => void;
+  keys?: KeySystem;
+}) {
   const router = useRouter();
   const open = useShell((s) => s.open);
   useEffect(() => {
-    setShortcuts(SHORTCUTS);
+    keys.setShortcuts(SHORTCUTS);
     const run = (id: ShortcutId) => {
       switch (id) {
         case "search":
@@ -35,14 +47,14 @@ export function ShortcutHost({ onAction }: { onAction: (action: AppAction) => vo
           return onAction(id);
       }
     };
-    const stop = onShortcut((id) => {
+    const stop = keys.onShortcut((id) => {
       const known = SHORTCUTS.find((s) => s.id === id);
       if (known) run(known.id);
     });
     return () => {
       stop();
-      setShortcuts([]);
+      keys.setShortcuts([]);
     };
-  }, [open, onAction, router]);
+  }, [open, onAction, router, keys]);
   return null;
 }

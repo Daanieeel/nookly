@@ -83,6 +83,8 @@ export function AgendaRow({ item, color }: { item: AgendaItem; color?: string })
 const onDay = (items: AgendaItem[], day: string) =>
   items.filter((i) => i.date <= day && (i.endDate ?? i.date) >= day);
 
+const NO_DAYS: string[] = [];
+
 /// The days a view shows and the label it carries.
 function useRange(view: CalendarView, anchor: string) {
   const [setting] = useSetting("calendar.weekStart");
@@ -92,7 +94,7 @@ function useRange(view: CalendarView, anchor: string) {
     const today = localDay();
     return {
       weekStart,
-      days: [] as string[],
+      days: NO_DAYS,
       from: today,
       to: addDays(today, AGENDA_DAYS - 1),
       title: "Next two weeks",
@@ -104,7 +106,7 @@ function useRange(view: CalendarView, anchor: string) {
       month: "long",
       year: "numeric",
     });
-    return { weekStart, days: [], from: grid[0][0], to: grid.at(-1)?.[6] ?? anchor, title };
+    return { weekStart, days: NO_DAYS, from: grid[0][0], to: grid.at(-1)?.[6] ?? anchor, title };
   }
   const days = daysOfView(view, anchor, weekStart);
   const short = (day: string) =>

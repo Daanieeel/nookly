@@ -10,7 +10,6 @@ import {
 } from "@nookly/shared/data";
 import { fireEvent } from "expo-router/testing-library";
 import * as ReactNative from "react-native";
-import useWindowDimensions from "react-native/Libraries/Utilities/useWindowDimensions";
 import { renderScreens, testData } from "../test/render.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { CalendarScreen } from "./CalendarScreen.tsx";
@@ -107,24 +106,13 @@ async function listSpacesFor(data: Awaited<ReturnType<typeof planned>>["data"]) 
   return (await listSpaces(data.db)).map((space) => space.id);
 }
 
-jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
-  __esModule: true,
-  default: jest.fn(),
-}));
-const dimensions = jest.mocked(useWindowDimensions);
-const IPAD = { width: 750, height: 1024, scale: 2, fontScale: 1 };
-beforeEach(() => dimensions.mockReturnValue(IPAD));
-
-/// A phone's width for one test: the calendar reads the window's.
-function asPhone() {
-  dimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
-}
+/// A phone's width: the calendar reads the window's.
+const PHONE = 390;
 
 describe("the calendar on a phone", () => {
   it("offers the agenda, a day, three days and a week, and no month", async () => {
-    asPhone();
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", PHONE);
     for (const name of ["Agenda", "Day", "3 Days", "Week"]) {
       expect(await screen.findByRole("radio", { name })).toBeTruthy();
     }
@@ -133,9 +121,8 @@ describe("the calendar on a phone", () => {
   });
 
   it("lays the hours out with each item where it belongs, three days at a time", async () => {
-    asPhone();
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", PHONE);
     await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
     expect(await screen.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lecture 1, 11:00 to 12:30" })).toBeTruthy();
@@ -145,7 +132,6 @@ describe("the calendar on a phone", () => {
   });
 
   it("keeps every block inside its day's column on a full week, however narrow", async () => {
-    asPhone();
     const { data, today } = await planned();
     // Two items at the same time share a column's width.
     await createCalendarEntry(data.db, (await listSpacesFor(data))[0], {
@@ -156,7 +142,7 @@ describe("the calendar on a phone", () => {
       allDay: false,
       location: "Room 123 in the building across town",
     });
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", PHONE);
     await fireEvent.press(await screen.findByRole("radio", { name: "Week" }));
     const blocks = await screen.findAllByRole("button", { name: /, \d\d:\d\d( to \d\d:\d\d)?$/ });
     expect(blocks.length).toBeGreaterThanOrEqual(5);

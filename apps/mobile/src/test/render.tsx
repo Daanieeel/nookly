@@ -8,6 +8,7 @@ import type { ComponentType, ReactNode } from "react";
 import { AppDataProvider, type Preference } from "../data/context.tsx";
 import { phoneSettings } from "../data/settings.ts";
 import type { MobileSync } from "../data/sync.ts";
+import { WindowWidthProvider } from "../ui/pane.tsx";
 
 let ids = 0;
 
@@ -56,6 +57,8 @@ export async function renderScreens(
   routes: Record<string, ComponentType>,
   data = testData(),
   initialUrl = "/",
+  /// A window width other than the test renderer's (a phone's).
+  width: number | null = null,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -71,7 +74,7 @@ export async function renderScreens(
           onboarded: data.onboarded,
         }}
       >
-        {children}
+        <WindowWidthProvider value={width}>{children}</WindowWidthProvider>
       </AppDataProvider>
     </QueryClientProvider>
   );

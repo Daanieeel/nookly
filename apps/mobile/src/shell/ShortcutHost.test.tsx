@@ -1,28 +1,27 @@
 import { act, waitFor } from "expo-router/testing-library";
 import { renderScreens } from "../test/render.tsx";
-import { ShortcutHost } from "./ShortcutHost.tsx";
+import { type KeySystem, ShortcutHost } from "./ShortcutHost.tsx";
 import { useShell } from "./store.ts";
 
 let listener: ((id: string) => void) | null = null;
 const registered: string[][] = [];
 
-jest.mock("../../modules/nookly-keys/src/index.ts", () => ({
-  keysAvailable: true,
-  setShortcuts: (items: { id: string }[]) => registered.push(items.map((i) => i.id)),
-  onShortcut: (fn: (id: string) => void) => {
+const fakeKeys: KeySystem = {
+  setShortcuts: (items) => void registered.push(items.map((i) => i.id)),
+  onShortcut: (fn) => {
     listener = fn;
     return () => {
       listener = null;
     };
   },
-}));
+};
 
 const press = (id: string) => act(() => listener?.(id));
 
 async function setup() {
   const actions: string[] = [];
   const screen = await renderScreens({
-    index: () => <ShortcutHost onAction={(action) => actions.push(action)} />,
+    index: () => <ShortcutHost keys={fakeKeys} onAction={(action) => actions.push(action)} />,
     settings: () => null,
     "new/jot": () => null,
   });
