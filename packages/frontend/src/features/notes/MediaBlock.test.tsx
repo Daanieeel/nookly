@@ -4,7 +4,7 @@ import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeEntity, makeFile } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { currentTabs, useNavStore } from "#/lib/store/nav.ts";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
 import { editorExtensions } from "./editor-extensions";
 
@@ -49,12 +49,30 @@ describe("opening media with Cmd or Ctrl and a click", () => {
     ]);
   });
 
-  it("opens a file from its card, with Ctrl too", async () => {
+  // #166: a file block is a link to a file in Nookly, so Cmd or Ctrl opens that file's page in
+  // a new tab; the toolbar's Open File still hands it to the system viewer.
+  it("opens a file's page in a new tab from its card, with Ctrl too", async () => {
+    mockCommand("touch_entity_opened", null);
+    useNavStore.setState({ view: { kind: "dashboard" } });
     await open("file", "syllabus.pdf");
     const name = await screen.findByText("syllabus.pdf");
-    fireEvent.click(name);
+    for (const modifier of [{ metaKey: true }, { ctrlKey: true }]) {
+      const before = currentTabs(useNavStore.getState()).length;
+      fireEvent.click(name, modifier);
+      expect(currentTabs(useNavStore.getState())).toHaveLength(before + 1);
+      expect(currentTabs(useNavStore.getState()).at(-1)?.view).toMatchObject({
+        kind: "entity",
+        entityId: "f1",
+      });
+    }
+    // The page the click came from stays in front.
+    expect(useNavStore.getState().view).toMatchObject({ kind: "dashboard" });
     expect(callsOf("plugin:opener|open_path")).toHaveLength(0);
-    fireEvent.click(name, { ctrlKey: true });
+  });
+
+  it("opens a file from the toolbar in the system viewer", async () => {
+    await open("file", "syllabus.pdf");
+    fireEvent.click(await screen.findByRole("button", { name: "Open File" }));
     expect(callsOf("plugin:opener|open_path")).toEqual([
       expect.objectContaining({ path: "/data/files/syllabus.pdf" }),
     ]);
