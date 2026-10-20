@@ -18,7 +18,6 @@ import {
   trashEntity,
 } from "@nookly/shared/data";
 import { EFFORT_STEPS, effortLabel } from "@nookly/shared/effort";
-import { useQuery } from "@tanstack/react-query";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import { File, Paths } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
@@ -27,7 +26,6 @@ import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
-import { keys } from "../data/keys.ts";
 import { useSetting } from "../data/settings.ts";
 import {
   useEntity,
@@ -46,7 +44,9 @@ import { Empty, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
+import { useInspectorShown } from "../ui/pane.tsx";
 import { LabelsSection, RelatedSection } from "./RelatedSection.tsx";
+import { useReadOnly } from "./useReadOnly.ts";
 import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
 import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
@@ -56,18 +56,6 @@ import { PageEditor } from "./PageEditor.tsx";
 import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
 import { RecipeDetail } from "./RecipeScreens.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
-
-/// A page someone shared to view only can't be changed here either.
-function useReadOnly(entity: EntityRecord | null | undefined): boolean {
-  const { sync } = useAppData();
-  const shared = entity ? isSharedSpace(entity.spaceId) : false;
-  const { data: role } = useQuery({
-    queryKey: keys.role(entity?.id ?? ""),
-    queryFn: () => sync.engine.roleOf(entity?.id ?? ""),
-    enabled: shared,
-  });
-  return role === "viewer" || Boolean(entity?.deletedAt);
-}
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
   const [title, setTitle] = useState(entity.title);
@@ -344,6 +332,8 @@ export function EntityScreen({ id }: { id: string }) {
   const { data: entity, isLoading } = useEntity(id);
   const { data: spaces = [] } = useSpaces();
   const readOnly = useReadOnly(entity);
+  // The details pane beside the page takes labels and links.
+  const inspector = useInspectorShown();
   useEffect(() => {
     void markOpened(db, id);
   }, [db, id]);
@@ -398,7 +388,7 @@ export function EntityScreen({ id }: { id: string }) {
         {entity.type === "assignment" ? <AssignmentDetail id={id} readOnly={readOnly} /> : null}
         {entity.type === "index_card_deck" ? <DeckDetail id={id} readOnly={readOnly} /> : null}
         {/* Labels and links belong to a Space of your own, not to one shared with you. */}
-        {entity.deletedAt || isSharedSpace(entity.spaceId) ? null : (
+        {entity.deletedAt || isSharedSpace(entity.spaceId) || inspector ? null : (
           <>
             <LabelsSection entity={entity} readOnly={readOnly} />
             <RelatedSection entity={entity} readOnly={readOnly} />

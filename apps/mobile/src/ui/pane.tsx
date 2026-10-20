@@ -19,8 +19,21 @@ export function useIsTablet(): boolean {
   return useWindowDimensions().width >= TABLET_WIDTH;
 }
 
-/// The width a page has to itself: the window's, less the sidebar when it sits beside it.
+export const INSPECTOR_WIDTH = 340;
+
+/// Whether a details pane sits beside the page, so the page leaves labels and links to it.
+const InspectorShown = createContext(false);
+export const InspectorShownProvider = InspectorShown.Provider;
+export const useInspectorShown = () => useContext(InspectorShown);
+
+/// The width a page has to itself: the window's, less the sidebar and the details pane when
+/// they sit beside it.
 export function usePaneWidth(): number {
   const { width } = useWindowDimensions();
-  return useSidebarBeside() ? width - SIDEBAR_WIDTH : width;
+  const sidebar = useSidebarBeside() ? SIDEBAR_WIDTH : 0;
+  const inspector = useInspectorShown() ? INSPECTOR_WIDTH : 0;
+  return width - sidebar - inspector;
 }
+
+/// From this width for the page (window less sidebar) a details pane fits beside it.
+export const INSPECTOR_MIN_PANE = 900;
