@@ -126,6 +126,7 @@ describe("semesters", () => {
       data,
       `/entity/${course}`,
     );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Semester, / }));
     await fireEvent.press(await screen.findByRole("radio", { name: "WS 25/26" }));
     await waitFor(async () => expect(await courseSemester(data.db, course)).toBe(ws));
   });

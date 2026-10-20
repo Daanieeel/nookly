@@ -53,8 +53,9 @@ describe("a task's effort and sub-tasks", () => {
     await fireEvent.press(await screen.findByRole("button", { name: /^Effort, / }));
     await fireEvent.press(await screen.findByRole("radio", { name: "M" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBe(3));
-    await fireEvent.press(screen.getByRole("button", { name: /^Effort, / }));
-    await fireEvent.press(screen.getByRole("radio", { name: "None" }));
+    // The row shows the estimate once the page has it.
+    await fireEvent.press(await screen.findByRole("button", { name: "Effort, M" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "None" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBeNull());
   });
 

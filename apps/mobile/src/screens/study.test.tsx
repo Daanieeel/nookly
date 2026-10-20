@@ -53,6 +53,7 @@ describe("an exam", () => {
       data,
       `/entity/${exam}`,
     );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Status, / }));
     await fireEvent.press(await screen.findByRole("radio", { name: "Studying" }));
     await pick(screen, "Day", new Date(2027, 1, 10));
     await pick(screen, "Time", new Date(2027, 1, 10, 9, 30));

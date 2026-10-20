@@ -20,7 +20,13 @@ import {
   updateSemester,
   updateStudyBlock,
 } from "@nookly/shared/data";
-import { IconPlus } from "@tabler/icons-react-native";
+import {
+  IconCalendarEvent,
+  IconClock,
+  IconMapPin,
+  IconNotes,
+  IconPlus,
+} from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -45,7 +51,8 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { TextProperty } from "../ui/PropertyFields.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { ChoiceProperty, DayProperty, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -57,9 +64,6 @@ import { dayLabel, localDay } from "./dates.ts";
 /// Sessions, study blocks, semesters and grades: what a student plans and is graded on.
 
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
-const Padded = ({ children }: { children: React.ReactNode }) => (
-  <View className="gap-3 p-3">{children}</View>
-);
 
 /// "9:00 to 10:30".
 const span = (start: string, end: string) => `${start} to ${end}`;
@@ -103,6 +107,8 @@ export function SessionRows({ spaceId }: { spaceId: string }) {
 /// A session's own day, time and place, changed for this one session. Whole series are
 /// edited on the computer.
 export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
+  const muted = theme.colors.mutedForeground;
   const router = useRouter();
   const { data: session } = useSession(id);
   const patch = useLocalWrite((db, p: Parameters<typeof overrideSession>[2]) =>
@@ -129,54 +135,54 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
         </Text>
       ) : null}
       {session.cancelled ? <Text tone="caution">Cancelled</Text> : null}
-      <Section title="When and where">
-        <Padded>
-          <DateField
-            label="Day"
-            clearable={false}
-            value={session.date}
-            readOnly={readOnly}
-            onChange={(date) => date && patch.mutate({ date })}
-          />
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <DateField
-                label="Starts"
-                mode="time"
-                clearable={false}
-                value={session.startTime}
-                readOnly={readOnly}
-                onChange={(startTime) => startTime && patch.mutate({ startTime })}
-              />
-            </View>
-            <View className="flex-1">
-              <DateField
-                label="Ends"
-                mode="time"
-                clearable={false}
-                value={session.endTime}
-                readOnly={readOnly}
-                onChange={(endTime) => endTime && patch.mutate({ endTime })}
-              />
-            </View>
-          </View>
-          {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
-          <TextProperty
-            label="Where"
-            value={session.location}
-            readOnly={readOnly}
-            placeholder="Room 5"
-            onSave={(location) => patch.mutate({ location })}
-          />
-          <TextProperty
-            label="Notes"
-            value={session.notes}
-            readOnly={readOnly}
-            placeholder="Bring a laptop"
-            onSave={(notes) => patch.mutate({ notes })}
-          />
-        </Padded>
-      </Section>
+      <PropertyList>
+        <DayProperty
+          name="day"
+          icon={<IconCalendarEvent size={20} color={muted} />}
+          label="Day"
+          clearable={false}
+          value={session.date}
+          readOnly={readOnly}
+          onChange={(date) => date && patch.mutate({ date })}
+        />
+        <DayProperty
+          name="starts"
+          icon={<IconClock size={20} color={muted} />}
+          label="Starts"
+          mode="time"
+          clearable={false}
+          value={session.startTime}
+          readOnly={readOnly}
+          onChange={(startTime) => startTime && patch.mutate({ startTime })}
+        />
+        <DayProperty
+          name="ends"
+          icon={<IconClock size={20} color={muted} />}
+          label="Ends"
+          mode="time"
+          clearable={false}
+          value={session.endTime}
+          readOnly={readOnly}
+          onChange={(endTime) => endTime && patch.mutate({ endTime })}
+        />
+        <TextRow
+          icon={<IconMapPin size={20} color={muted} />}
+          label="Where"
+          value={session.location}
+          readOnly={readOnly}
+          placeholder="Room 5"
+          onSave={(location) => patch.mutate({ location })}
+        />
+        <TextRow
+          icon={<IconNotes size={20} color={muted} />}
+          label="Notes"
+          value={session.notes}
+          readOnly={readOnly}
+          placeholder="Bring a laptop"
+          onSave={(notes) => patch.mutate({ notes })}
+        />
+      </PropertyList>
+      {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
       {!readOnly ? (
         <View className="items-start">
           <Button
@@ -306,6 +312,8 @@ export function ExamStudyBlocks({
 }
 
 export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
+  const muted = theme.colors.mutedForeground;
   const router = useRouter();
   const { data: block } = useStudyBlock(id);
   const { data: exam } = useExam(block?.examId ?? "");
@@ -325,40 +333,38 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
           />
         </Section>
       ) : null}
-      <Section title="When">
-        <Padded>
-          <DateField
-            label="Day"
-            clearable={false}
-            value={block.date}
-            readOnly={readOnly}
-            onChange={(date) => date && patch.mutate({ date })}
-          />
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <DateField
-                label="Starts"
-                mode="time"
-                clearable={false}
-                value={block.startTime}
-                readOnly={readOnly}
-                onChange={(startTime) => startTime && patch.mutate({ startTime })}
-              />
-            </View>
-            <View className="flex-1">
-              <DateField
-                label="Ends"
-                mode="time"
-                clearable={false}
-                value={block.endTime}
-                readOnly={readOnly}
-                onChange={(endTime) => endTime && patch.mutate({ endTime })}
-              />
-            </View>
-          </View>
-          {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
-        </Padded>
-      </Section>
+      <PropertyList>
+        <DayProperty
+          name="day"
+          icon={<IconCalendarEvent size={20} color={muted} />}
+          label="Day"
+          clearable={false}
+          value={block.date}
+          readOnly={readOnly}
+          onChange={(date) => date && patch.mutate({ date })}
+        />
+        <DayProperty
+          name="starts"
+          icon={<IconClock size={20} color={muted} />}
+          label="Starts"
+          mode="time"
+          clearable={false}
+          value={block.startTime}
+          readOnly={readOnly}
+          onChange={(startTime) => startTime && patch.mutate({ startTime })}
+        />
+        <DayProperty
+          name="ends"
+          icon={<IconClock size={20} color={muted} />}
+          label="Ends"
+          mode="time"
+          clearable={false}
+          value={block.endTime}
+          readOnly={readOnly}
+          onChange={(endTime) => endTime && patch.mutate({ endTime })}
+        />
+      </PropertyList>
+      {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
     </View>
   );
 }
@@ -455,6 +461,8 @@ export function SemesterRows({ spaceId }: { spaceId: string }) {
 
 /// A semester: its dates, whether it is the current one, its notes and its courses.
 export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
+  const muted = theme.colors.mutedForeground;
   const router = useRouter();
   const { data: semester } = useSemester(id);
   const { data: courses = [] } = useCourses(semester?.entity.spaceId ?? null);
@@ -472,24 +480,26 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
   if (!semester) return null;
   return (
     <View className="gap-4">
-      <Section title="Dates">
-        <Padded>
-          <DateField
-            label="Starts"
-            value={semester.startDate}
-            readOnly={readOnly}
-            onChange={(startDate) => startDate && update.mutate({ startDate })}
-            clearable={false}
-          />
-          <DateField
-            label="Ends"
-            value={semester.endDate}
-            readOnly={readOnly}
-            onChange={(endDate) => endDate && update.mutate({ endDate })}
-            clearable={false}
-          />
-        </Padded>
-      </Section>
+      <PropertyList>
+        <DayProperty
+          name="starts"
+          icon={<IconCalendarEvent size={20} color={muted} />}
+          label="Starts"
+          clearable={false}
+          value={semester.startDate}
+          readOnly={readOnly}
+          onChange={(startDate) => startDate && update.mutate({ startDate })}
+        />
+        <DayProperty
+          name="ends"
+          icon={<IconCalendarEvent size={20} color={muted} />}
+          label="Ends"
+          clearable={false}
+          value={semester.endDate}
+          readOnly={readOnly}
+          onChange={(endDate) => endDate && update.mutate({ endDate })}
+        />
+      </PropertyList>
       {!readOnly ? (
         <View className="flex-row flex-wrap gap-2">
           <Button
@@ -543,7 +553,7 @@ function useSemesterMembers(semesterId: string, courseIds: string[]) {
   });
 }
 
-/// The semester a course runs in, chosen from the Space's semesters.
+/// The semester a course runs in, chosen from the Space's semesters, as a row of its card.
 export function CourseSemesterPicker({
   courseId,
   spaceId,
@@ -553,6 +563,7 @@ export function CourseSemesterPicker({
   spaceId: string;
   readOnly: boolean;
 }) {
+  const theme = useTheme();
   const { data: semesters = [] } = useSemesters(spaceId);
   const { data: current } = useCourseSemester(courseId);
   const set = useLocalWrite((db, semesterId: string | null) =>
@@ -560,27 +571,18 @@ export function CourseSemesterPicker({
   );
   if (semesters.length === 0) return null;
   return (
-    <Section title="Semester">
-      <Padded>
-        <ChipGroup label="Semester" scroll>
-          <Chip
-            label="None"
-            selected={!current}
-            disabled={readOnly}
-            onPress={() => current && set.mutate(null)}
-          />
-          {semesters.map((s) => (
-            <Chip
-              key={s.entity.id}
-              label={s.entity.title || "Untitled"}
-              selected={s.entity.id === current}
-              disabled={readOnly}
-              onPress={() => s.entity.id !== current && set.mutate(s.entity.id)}
-            />
-          ))}
-        </ChipGroup>
-      </Padded>
-    </Section>
+    <ChoiceProperty
+      name="semester"
+      icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
+      label="Semester"
+      value={current ?? "none"}
+      readOnly={readOnly}
+      options={[
+        { id: "none", label: "None" },
+        ...semesters.map((s) => ({ id: s.entity.id, label: s.entity.title || "Untitled" })),
+      ]}
+      onChange={(id) => set.mutate(id === "none" ? null : id)}
+    />
   );
 }
 

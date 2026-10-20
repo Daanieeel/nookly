@@ -16,7 +16,18 @@ import {
   weightPercent,
 } from "@nookly/shared/data";
 import { useForm } from "@tanstack/react-form";
-import { IconPlus } from "@tabler/icons-react-native";
+import {
+  IconAward,
+  IconCalendarDue,
+  IconCalendarEvent,
+  IconCircleDot,
+  IconClock,
+  IconDoor,
+  IconPercentage,
+  IconPlus,
+  IconSchool,
+  IconUser,
+} from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -33,17 +44,16 @@ import {
   useExams,
 } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
-import { NumberProperty, TextProperty } from "../ui/PropertyFields.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { ChoiceProperty, DayProperty, NumberRow, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 import { AssignmentRows, ExamRows, deckSummary } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
-import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
+import { CourseProperty, ExamProperty } from "./StudyPickers.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
@@ -53,35 +63,13 @@ function Padded({ children }: { children: React.ReactNode }) {
   return <View className="gap-3 p-3">{children}</View>;
 }
 
-function StatusChips({
-  statuses,
-  value,
-  onChange,
-  readOnly,
-}: {
-  statuses: FixedStatus[];
-  value: string;
-  onChange: (id: string) => void;
-  readOnly: boolean;
-}) {
-  return (
-    <Section title="Status">
-      <Padded>
-        <ChipGroup label="Status">
-          {statuses.map((s) => (
-            <Chip
-              key={s.id}
-              label={s.name}
-              selected={s.id === value}
-              disabled={readOnly}
-              icon={<StatusIcon status={s} size={16} />}
-              onPress={() => s.id !== value && onChange(s.id)}
-            />
-          ))}
-        </ChipGroup>
-      </Padded>
-    </Section>
-  );
+/// A fixed set of statuses as the options of a row.
+function statusOptions(statuses: FixedStatus[]) {
+  return statuses.map((s) => ({
+    id: s.id,
+    label: s.name,
+    icon: <StatusIcon status={s} size={16} />,
+  }));
 }
 
 function useCourseName(spaceId: string) {
@@ -99,31 +87,36 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
   const room = useLocalWrite((db, value: string | null) => setCourseRoom(db, id, value));
   if (!course) return null;
   const spaceId = course.entity.spaceId;
+  const muted = theme.colors.mutedForeground;
   const add = (what: "exam" | "assignment", label: string) =>
     readOnly ? undefined : (
       <IconButton
         label={label}
-        icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
+        icon={<IconPlus size={18} color={muted} />}
         onPress={() => router.push(`/new/${what}?spaceId=${spaceId}&courseId=${id}`)}
       />
     );
   return (
     <>
-      <TextProperty
-        label="Professor"
-        value={course.professor}
-        readOnly={readOnly}
-        placeholder="Who teaches it"
-        onSave={(value) => professor.mutate(value)}
-      />
-      <TextProperty
-        label="Room"
-        value={course.room}
-        readOnly={readOnly}
-        placeholder="Where it meets"
-        onSave={(value) => room.mutate(value)}
-      />
-      <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
+      <PropertyList>
+        <TextRow
+          icon={<IconUser size={20} color={muted} />}
+          label="Professor"
+          value={course.professor}
+          readOnly={readOnly}
+          placeholder="Who teaches it"
+          onSave={(value) => professor.mutate(value)}
+        />
+        <TextRow
+          icon={<IconDoor size={20} color={muted} />}
+          label="Room"
+          value={course.room}
+          readOnly={readOnly}
+          placeholder="Where it meets"
+          onSave={(value) => room.mutate(value)}
+        />
+        <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
+      </PropertyList>
       <Section title="Exams" action={add("exam", "New Exam")}>
         <ExamRows exams={exams} />
       </Section>
@@ -135,91 +128,83 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
 }
 
 export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
   const { data: exam } = useExam(id);
   const update = useLocalWrite((db, patch: Parameters<typeof updateExam>[2]) =>
     updateExam(db, id, patch),
   );
   const course = useLocalWrite((db, courseId: string) => setExamCourse(db, id, courseId));
   if (!exam) return null;
+  const muted = theme.colors.mutedForeground;
   return (
     <>
-      <StatusChips
-        statuses={EXAM_STATUSES}
-        value={exam.status}
-        readOnly={readOnly}
-        onChange={(status) => update.mutate({ status })}
-      />
-      <Section title="Course">
-        <Padded>
-          <CoursePicker
-            spaceId={exam.entity.spaceId}
-            value={exam.courseId}
-            readOnly={readOnly}
-            onChange={(courseId) => course.mutate(courseId)}
-          />
-        </Padded>
-      </Section>
-      <Section title="When and where">
-        <Padded>
-          <View className="flex-row gap-3">
-            <View className="flex-3">
-              <DateField
-                label="Day"
-                value={exam.examDate}
-                readOnly={readOnly}
-                onChange={(examDate) => update.mutate({ examDate })}
-              />
-            </View>
-            <View className="flex-2">
-              <DateField
-                label="Time"
-                mode="time"
-                placeholder="All day"
-                value={exam.examTime}
-                readOnly={readOnly}
-                onChange={(examTime) => update.mutate({ examTime })}
-              />
-            </View>
-          </View>
-          <TextProperty
-            label="Room"
-            value={exam.room}
-            readOnly={readOnly}
-            placeholder="H 0104"
-            onSave={(room) => update.mutate({ room })}
-          />
-        </Padded>
-      </Section>
+      <PropertyList>
+        <ChoiceProperty
+          name="status"
+          icon={<IconCircleDot size={20} color={muted} />}
+          label="Status"
+          value={exam.status}
+          readOnly={readOnly}
+          options={statusOptions(EXAM_STATUSES)}
+          onChange={(status) => update.mutate({ status })}
+        />
+        <CourseProperty
+          icon={<IconSchool size={20} color={muted} />}
+          spaceId={exam.entity.spaceId}
+          value={exam.courseId}
+          readOnly={readOnly}
+          onChange={(courseId) => course.mutate(courseId)}
+        />
+        <DayProperty
+          name="day"
+          icon={<IconCalendarEvent size={20} color={muted} />}
+          label="Day"
+          value={exam.examDate}
+          readOnly={readOnly}
+          onChange={(examDate) => update.mutate({ examDate })}
+        />
+        <DayProperty
+          name="time"
+          icon={<IconClock size={20} color={muted} />}
+          label="Time"
+          mode="time"
+          placeholder="All day"
+          value={exam.examTime}
+          readOnly={readOnly}
+          onChange={(examTime) => update.mutate({ examTime })}
+        />
+        <TextRow
+          icon={<IconDoor size={20} color={muted} />}
+          label="Room"
+          value={exam.room}
+          readOnly={readOnly}
+          placeholder="H 0104"
+          onSave={(room) => update.mutate({ room })}
+        />
+        <NumberRow
+          icon={<IconPercentage size={20} color={muted} />}
+          label="Weight (%)"
+          value={weightPercent(exam.weight)}
+          readOnly={readOnly}
+          placeholder="20"
+          onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
+        />
+        <NumberRow
+          icon={<IconAward size={20} color={muted} />}
+          label="Grade"
+          value={exam.grade}
+          readOnly={readOnly}
+          placeholder="1.7"
+          onSave={(grade) => update.mutate({ grade })}
+        />
+      </PropertyList>
       <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
-      <Section title="Grade">
-        <Padded>
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <NumberProperty
-                label="Weight (%)"
-                value={weightPercent(exam.weight)}
-                readOnly={readOnly}
-                placeholder="20"
-                onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
-              />
-            </View>
-            <View className="flex-1">
-              <NumberProperty
-                label="Grade"
-                value={exam.grade}
-                readOnly={readOnly}
-                placeholder="1.7"
-                onSave={(grade) => update.mutate({ grade })}
-              />
-            </View>
-          </View>
-        </Padded>
-      </Section>
     </>
   );
 }
 
 export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
   const { data: assignment } = useAssignment(id);
   const update = useLocalWrite((db, patch: Parameters<typeof updateAssignment>[2]) =>
     updateAssignment(db, id, patch),
@@ -229,65 +214,58 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
   const courseName = useCourseName(assignment?.entity.spaceId ?? "");
   if (!assignment) return null;
   const followsSession = assignment.dueSessionOffsetDays !== null;
+  const muted = theme.colors.mutedForeground;
   return (
     <>
-      <StatusChips
-        statuses={ASSIGNMENT_STATUSES}
-        value={assignment.status}
-        readOnly={readOnly}
-        onChange={(status) => update.mutate({ status })}
-      />
-      <Section title="Course">
-        <Padded>
-          <CoursePicker
-            spaceId={assignment.entity.spaceId}
-            value={assignment.courseId}
-            readOnly={readOnly}
-            onChange={(courseId) => course.mutate(courseId)}
-          />
-        </Padded>
-      </Section>
-      <Section title="Due">
-        <Padded>
-          <DateField
-            label="Due date"
-            value={assignment.dueDate}
-            readOnly={readOnly}
-            onChange={(day) => due.mutate(day)}
-          />
-          {followsSession ? (
-            <Text variant="small" tone="muted">
-              Due {assignment.dueSessionOffsetDays} days before a session of{" "}
-              {courseName(assignment.courseId) ?? "its course"}, set on the desktop. Picking a day
-              here fixes it to that day.
-            </Text>
-          ) : null}
-        </Padded>
-      </Section>
-      <Section title="Grade">
-        <Padded>
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <NumberProperty
-                label="Weight (%)"
-                value={weightPercent(assignment.weight)}
-                readOnly={readOnly}
-                placeholder="10"
-                onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
-              />
-            </View>
-            <View className="flex-1">
-              <NumberProperty
-                label="Grade"
-                value={assignment.grade}
-                readOnly={readOnly}
-                placeholder="1.3"
-                onSave={(grade) => update.mutate({ grade })}
-              />
-            </View>
-          </View>
-        </Padded>
-      </Section>
+      <PropertyList>
+        <ChoiceProperty
+          name="status"
+          icon={<IconCircleDot size={20} color={muted} />}
+          label="Status"
+          value={assignment.status}
+          readOnly={readOnly}
+          options={statusOptions(ASSIGNMENT_STATUSES)}
+          onChange={(status) => update.mutate({ status })}
+        />
+        <CourseProperty
+          icon={<IconSchool size={20} color={muted} />}
+          spaceId={assignment.entity.spaceId}
+          value={assignment.courseId}
+          readOnly={readOnly}
+          onChange={(courseId) => course.mutate(courseId)}
+        />
+        <DayProperty
+          name="due"
+          icon={<IconCalendarDue size={20} color={muted} />}
+          label="Due date"
+          value={assignment.dueDate}
+          readOnly={readOnly}
+          onChange={(day) => due.mutate(day)}
+        />
+        <NumberRow
+          icon={<IconPercentage size={20} color={muted} />}
+          label="Weight (%)"
+          value={weightPercent(assignment.weight)}
+          readOnly={readOnly}
+          placeholder="10"
+          onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
+        />
+        <NumberRow
+          icon={<IconAward size={20} color={muted} />}
+          label="Grade"
+          value={assignment.grade}
+          readOnly={readOnly}
+          placeholder="1.3"
+          onSave={(grade) => update.mutate({ grade })}
+        />
+      </PropertyList>
+      {followsSession ? (
+        <Text variant="small" tone="muted">
+          Due {assignment.dueSessionOffsetDays} days before a session of{" "}
+          {courseName(assignment.courseId) ?? "its course"}, set on the desktop. Picking a day here
+          fixes it to that day.
+        </Text>
+      ) : null}
     </>
   );
 }
@@ -397,6 +375,7 @@ function CardRow({ card, readOnly }: { card: IndexCard; readOnly: boolean }) {
 }
 
 export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
   const router = useRouter();
   const { data: deck } = useDeck(id);
   const { data: cards = [] } = useCards(id);
@@ -418,16 +397,15 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
           />
         </Padded>
       </Section>
-      <Section title="Exam">
-        <Padded>
-          <ExamPicker
-            spaceId={deck.entity.spaceId}
-            value={deck.examId}
-            readOnly={readOnly}
-            onChange={(examId) => exam.mutate(examId)}
-          />
-        </Padded>
-      </Section>
+      <PropertyList>
+        <ExamProperty
+          icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
+          spaceId={deck.entity.spaceId}
+          value={deck.examId}
+          readOnly={readOnly}
+          onChange={(examId) => exam.mutate(examId)}
+        />
+      </PropertyList>
       {!readOnly ? (
         <Section title="New card">
           <CardForm

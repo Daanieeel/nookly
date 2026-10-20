@@ -26,7 +26,7 @@ import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Property, PropertyList } from "../ui/Property.tsx";
+import { Property, PropertyList, useOpenRow } from "../ui/Property.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -106,7 +106,7 @@ export function LabelsProperty({ entity, readOnly }: { entity: EntityRecord; rea
   const theme = useTheme();
   const { data: labels = [] } = useLabels(entity.spaceId);
   const { data: attached = [] } = useEntityLabels(entity.id);
-  const [open, setOpen] = useState(false);
+  const row = useOpenRow("labels");
   const [name, setName] = useState("");
   const toggle = useLocalWrite((db, input: { labelId: string; on: boolean }) =>
     input.on
@@ -125,8 +125,8 @@ export function LabelsProperty({ entity, readOnly }: { entity: EntityRecord; rea
       label="Labels"
       value={attached.length === 0 ? "None" : attached.map((l) => l.name).join(", ")}
       disabled={readOnly}
-      expanded={open}
-      onPress={() => setOpen((o) => !o)}
+      expanded={row.open}
+      onPress={row.toggle}
     >
       {labels.length > 0 ? (
         <ChipGroup label="Labels" multiple>

@@ -45,11 +45,10 @@ import {
   useTask,
 } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
-import { DatePanel, openAndroidPicker, shownValue } from "../ui/DateField.tsx";
-import { Property, PropertyList } from "../ui/Property.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { ChoiceProperty, DayProperty } from "../ui/property-rows.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -216,71 +215,6 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   );
 }
 
-/// A day property: its row opens the system's calendar (iPhone: below the row), with the
-/// quick picks and Clear.
-function DateProperty({
-  icon,
-  label,
-  value,
-  readOnly,
-  open,
-  onOpen,
-  onChange,
-  quick = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | null;
-  readOnly: boolean;
-  open: boolean;
-  onOpen: () => void;
-  onChange: (day: string | null) => void;
-  quick?: boolean;
-}) {
-  const press = () => {
-    if (Platform.OS === "android") openAndroidPicker("date", value, onChange);
-    else onOpen();
-  };
-  return (
-    <Property
-      icon={icon}
-      label={label}
-      value={value ? shownValue("date", value) : "None"}
-      disabled={readOnly}
-      expanded={open}
-      onPress={press}
-    >
-      <DatePanel label={label} mode="date" value={value} onPick={onChange} onClose={onOpen} />
-      <View className="flex-row flex-wrap gap-2">
-        {quick ? (
-          <>
-            <Button
-              variant="secondary"
-              size="sm"
-              label="Today"
-              onPress={() => onChange(localDay())}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              label="Tomorrow"
-              onPress={() => onChange(addDays(localDay(), 1))}
-            />
-          </>
-        ) : null}
-        {value ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            label={`Clear ${label}`}
-            onPress={() => onChange(null)}
-          />
-        ) : null}
-      </View>
-    </Property>
-  );
-}
-
 /// A task's properties, one card of rows: tap a row to change it.
 function TaskDetail({
   id,
@@ -295,8 +229,6 @@ function TaskDetail({
   const theme = useTheme();
   const { data: task } = useTask(id);
   const { data: statuses = [] } = useStatuses();
-  const [open, setOpen] = useState<string | null>(null);
-  const toggle = (name: string) => setOpen((now) => (now === name ? null : name));
   const status = useLocalWrite((db, statusId: string) => setTaskStatus(db, id, statusId));
   const dates = useLocalWrite((db, due: string | null) =>
     setTaskDates(db, id, task?.startDate ?? null, due),
@@ -308,107 +240,68 @@ function TaskDetail({
   const [scale] = useSetting("general.effortScale");
   const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
   if (!task) return null;
-  const current = statuses.find((s) => s.id === task.statusId);
   const muted = theme.colors.mutedForeground;
-  const repeatLabel =
+  const repeatId =
     REPEATS.find((r) => JSON.stringify(r.rule) === JSON.stringify(task.repeat))?.label ?? "Custom";
   return (
     <PropertyList>
-      <Property
+      <ChoiceProperty
+        name="status"
         icon={<IconCircleDot size={20} color={muted} />}
         label="Status"
-        value={current?.name ?? ""}
-        valueIcon={current ? <StatusIcon status={current} size={16} /> : undefined}
-        disabled={readOnly}
-        expanded={open === "status"}
-        onPress={() => toggle("status")}
-      >
-        <ChipGroup label="Status">
-          {statuses.map((s) => (
-            <Chip
-              key={s.id}
-              label={s.name}
-              selected={s.id === task.statusId}
-              icon={<StatusIcon status={s} size={16} />}
-              onPress={() => {
-                if (s.id !== task.statusId) status.mutate(s.id);
-                setOpen(null);
-              }}
-            />
-          ))}
-        </ChipGroup>
-      </Property>
-      <Property
+        value={task.statusId}
+        readOnly={readOnly}
+        options={statuses.map((s) => ({
+          id: s.id,
+          label: s.name,
+          icon: <StatusIcon status={s} size={16} />,
+        }))}
+        onChange={(statusId) => status.mutate(statusId)}
+      />
+      <ChoiceProperty
+        name="effort"
         icon={<IconGauge size={20} color={muted} />}
         label="Effort"
-        value={task.effort === null ? "None" : effortLabel(task.effort, scale)}
-        disabled={readOnly}
-        expanded={open === "effort"}
-        onPress={() => toggle("effort")}
-      >
-        <ChipGroup label="Effort">
-          <Chip
-            label="None"
-            selected={task.effort === null}
-            onPress={() => {
-              effort.mutate(null);
-              setOpen(null);
-            }}
-          />
-          {EFFORT_STEPS.map((step) => (
-            <Chip
-              key={step.value}
-              label={effortLabel(step.value, scale)}
-              selected={task.effort === step.value}
-              onPress={() => {
-                effort.mutate(step.value);
-                setOpen(null);
-              }}
-            />
-          ))}
-        </ChipGroup>
-      </Property>
-      <DateProperty
+        value={task.effort === null ? "none" : String(task.effort)}
+        readOnly={readOnly}
+        options={[
+          { id: "none", label: "None" },
+          ...EFFORT_STEPS.map((step) => ({
+            id: String(step.value),
+            label: effortLabel(step.value, scale),
+          })),
+        ]}
+        onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
+      />
+      <DayProperty
+        name="start"
         icon={<IconCalendarPlus size={20} color={muted} />}
         label="Start date"
         value={task.startDate}
         readOnly={readOnly}
-        open={open === "start"}
-        onOpen={() => toggle("start")}
         onChange={(day) => start.mutate(day)}
       />
-      <DateProperty
+      <DayProperty
+        name="due"
         icon={<IconCalendarDue size={20} color={muted} />}
         label="Due date"
         value={task.dueDate}
         readOnly={readOnly}
-        open={open === "due"}
-        onOpen={() => toggle("due")}
+        quick={[
+          { label: "Today", value: localDay() },
+          { label: "Tomorrow", value: addDays(localDay(), 1) },
+        ]}
         onChange={(day) => dates.mutate(day)}
-        quick
       />
-      <Property
+      <ChoiceProperty
+        name="repeat"
         icon={<IconRepeat size={20} color={muted} />}
         label="Repeat"
-        value={repeatLabel}
-        disabled={readOnly}
-        expanded={open === "repeat"}
-        onPress={() => toggle("repeat")}
-      >
-        <ChipGroup label="Repeat">
-          {REPEATS.map((r) => (
-            <Chip
-              key={r.label}
-              label={r.label}
-              selected={JSON.stringify(r.rule) === JSON.stringify(task.repeat)}
-              onPress={() => {
-                repeat.mutate(r.rule);
-                setOpen(null);
-              }}
-            />
-          ))}
-        </ChipGroup>
-      </Property>
+        value={repeatId}
+        readOnly={readOnly}
+        options={REPEATS.map((r) => ({ id: r.label, label: r.label }))}
+        onChange={(label) => repeat.mutate(REPEATS.find((r) => r.label === label)?.rule ?? null)}
+      />
       {labels}
     </PropertyList>
   );
