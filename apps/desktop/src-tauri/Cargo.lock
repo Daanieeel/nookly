@@ -3857,7 +3857,7 @@ dependencies = [
 
 [[package]]
 name = "nookly"
-version = "0.39.2"
+version = "0.39.3"
 dependencies = [
  "base64 0.23.1",
  "block2",

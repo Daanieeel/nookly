@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.39.3",
+      "date": "2026-10-20",
+      "highlights": [],
+      "more": {
+        "Improved": ["Exports to PDF, Word and OpenDocument start on A4 instead of Letter."]
+      }
+    },
+    {
       "version": "0.39.2",
       "date": "2026-10-20",
       "highlights": [],
