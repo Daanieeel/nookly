@@ -21,6 +21,9 @@ export interface AppData {
   theme: Preference;
   /// Set once the welcome screen was answered (an account, or none), so it shows once.
   onboarded: Preference;
+  /// A full copy of the phone's data, checked after it is written. The phone has it;
+  /// a test has none.
+  backup?: () => Promise<{ path: string }>;
 }
 
 const AppDataContext = createContext<AppData | null>(null);

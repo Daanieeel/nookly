@@ -26,6 +26,7 @@ import { TabletShell } from "../shell/TabletShell.tsx";
 import { SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { type AppData, AppDataProvider, useAppData } from "../data/context.tsx";
+import { backUpBeforeSync } from "../data/backup.ts";
 import { openLocalDb } from "../data/database.ts";
 import { keys } from "../data/keys.ts";
 import { restoreTheme } from "../data/appearance.ts";
@@ -63,7 +64,14 @@ async function start(): Promise<AppData> {
       tabs: (await import("../shell/tabs-store.ts")).tabActions,
     });
   }
-  return { db, sync, serverUrl: serverUrlStore, theme: themeStore, onboarded: onboardedStore };
+  return {
+    db,
+    sync,
+    serverUrl: serverUrlStore,
+    theme: themeStore,
+    onboarded: onboardedStore,
+    backup: () => backUpBeforeSync(db.sqlite),
+  };
 }
 
 /// A phone that never answered the welcome screen opens on it, once.
