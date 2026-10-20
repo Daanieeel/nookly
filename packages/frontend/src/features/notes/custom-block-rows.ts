@@ -18,7 +18,7 @@ export const ATOM_BLOCK_ATTRS = {
   image: ["caption"],
   video: ["caption"],
   audio: ["caption"],
-  file: ["caption", "page"],
+  file: ["caption", "page", "pageTo"],
   embed: [],
   bookmark: [],
 } as const satisfies Record<string, readonly string[]>;

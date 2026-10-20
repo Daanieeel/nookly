@@ -153,6 +153,9 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   // SAFETY: a file node only ever writes `page` as a string or null.
   const pageAttr = asString(node.attrs.page as JSONAttrValue | undefined) ?? "";
   const page = Number(pageAttr) >= 1 ? Math.floor(Number(pageAttr)) : null;
+  // SAFETY: a file node only ever writes `pageTo` as a string or null.
+  const pageToAttr = asString(node.attrs.pageTo as JSONAttrValue | undefined) ?? "";
+  const pageTo = Number(pageToAttr) >= 1 ? Math.floor(Number(pageToAttr)) : null;
   const { source, missing } = useSource(content);
   const editable = editor.isEditable;
 
@@ -251,8 +254,10 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
                 {kind === "file" && source.paged && (editable || page) ? (
                   <PageField
                     page={page}
+                    pageTo={pageTo}
                     editable={editable}
                     onChange={(next) => updateAttributes({ page: next ? String(next) : null })}
+                    onChangeTo={(next) => updateAttributes({ pageTo: next ? String(next) : null })}
                   />
                 ) : (
                   source.url && (
@@ -313,42 +318,67 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   );
 }
 
-/// The page of a file the block opens on, in the line under its name. It reads as text, not
-/// as a field: a "Page" label and a bare digits field, no box.  Plain text when the block is read only.
-/// Clicking it must not open the file.
+/// The page of a file the block opens on, and optionally the last page of the interval it is
+/// about, in the line under its name. It reads as text, not as a field: a "Page" label and
+/// bare digits fields, no box. The file opens on the first page; the last one is for the reader.
+/// Plain text when the block is read only. Clicking it must not open the file.
 function PageField({
   page,
+  pageTo,
   editable,
   onChange,
+  onChangeTo,
 }: {
   page: number | null;
+  pageTo: number | null;
   editable: boolean;
   onChange: (page: number | null) => void;
+  onChangeTo: (page: number | null) => void;
 }) {
   if (!editable) {
-    return <span className="truncate text-xs text-muted-foreground">Page {page}</span>;
+    return (
+      <span className="truncate text-xs text-muted-foreground">
+        {pageTo ? `Pages ${page} to ${pageTo}` : `Page ${page}`}
+      </span>
+    );
   }
   return (
-    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- only keeps a click on the label from reaching the card, which opens the file
-    <label
-      className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-within:text-foreground"
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only keeps a click on the fields from reaching the card, which opens the file
+    <div
+      className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground focus-within:text-foreground hover:text-foreground"
       onClick={(event) => event.stopPropagation()}
     >
       Page
-      <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        value={page ?? ""}
-        placeholder="..."
-        aria-label="Open on page"
-        onChange={(event) => {
-          const next = Number(event.target.value.replaceAll(/\D/g, "").slice(0, 5));
-          onChange(next >= 1 ? next : null);
-        }}
-        className="w-16 min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
-      />
-    </label>
+      <PageNumberInput value={page} label="Open on page" onChange={onChange} />
+      to
+      <PageNumberInput value={pageTo} label="Open to page" onChange={onChangeTo} />
+    </div>
+  );
+}
+
+function PageNumberInput({
+  value,
+  label,
+  onChange,
+}: {
+  value: number | null;
+  label: string;
+  onChange: (page: number | null) => void;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      value={value ?? ""}
+      placeholder="..."
+      aria-label={label}
+      onChange={(event) => {
+        const next = Number(event.target.value.replaceAll(/\D/g, "").slice(0, 5));
+        onChange(next >= 1 ? next : null);
+      }}
+      className="w-12 min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
+    />
   );
 }
 

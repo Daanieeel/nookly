@@ -139,6 +139,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [
@@ -926,6 +932,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [
@@ -1305,6 +1317,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [
@@ -2067,6 +2085,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [
@@ -2437,6 +2461,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [
@@ -3447,6 +3477,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [
@@ -3856,6 +3892,12 @@
                 "kind": "integer",
                 "min": 1,
                 "name": "page"
+              },
+              {
+                "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+                "kind": "integer",
+                "min": 1,
+                "name": "pageTo"
               }
             ],
             "heading1 to heading6": [

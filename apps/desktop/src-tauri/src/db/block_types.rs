@@ -1126,6 +1126,12 @@ const PAGE_ATTR: BlockAttrDef = BlockAttrDef {
     description: "Page of the file to open it on, for a PDF or other file shown page by page.",
 };
 
+const PAGE_TO_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "pageTo",
+    kind: AttrKind::Integer { min: 1 },
+    description: "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+};
+
 const MEDIA_FORMAT: &str = "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into \
                             Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under \
                             its Mentioned in.";
@@ -1164,7 +1170,7 @@ inventory::submit! {
     BlockTypeDef {
         block_type: "file",
         content_format: MEDIA_FORMAT,
-        attrs: &[CAPTION_ATTR, PAGE_ATTR],
+        attrs: &[CAPTION_ATTR, PAGE_ATTR, PAGE_TO_ATTR],
         validate: validate_media,
         to_markdown: |block| media_link(block).map_or(String::new(), |(label, target)| format!("[{label}]({target})")),
     }
@@ -1433,6 +1439,27 @@ mod tests {
         assert!(validate_attrs("file", &page("12")).is_ok());
         assert!(validate_attrs("file", &page("0")).is_err());
         assert!(validate_attrs("image", &page("2")).is_err());
+    }
+
+    // #169: a file block can name the last page of the part it is about. It is only a note
+    // for the reader; the file still opens on `page`, and the link keeps that page alone.
+    #[test]
+    fn a_file_block_can_name_the_last_page_of_an_interval() {
+        let interval = block(
+            "file",
+            "[a.pdf](mention:f-1)",
+            &[("page", "3"), ("pageTo", "9")],
+        );
+        assert_eq!(
+            (lookup("file").unwrap().to_markdown)(&interval),
+            "[a.pdf](mention:f-1#p3)"
+        );
+        let to = |n: &str| BlockAttrs::from([("pageTo".to_string(), n.to_string())]);
+        assert!(validate_attrs("file", &to("9")).is_ok());
+        assert!(validate_attrs("file", &to("")).is_ok());
+        assert!(validate_attrs("file", &to("0")).is_err());
+        assert!(validate_attrs("file", &to("x")).is_err());
+        assert!(validate_attrs("image", &to("9")).is_err());
     }
 
     #[test]
