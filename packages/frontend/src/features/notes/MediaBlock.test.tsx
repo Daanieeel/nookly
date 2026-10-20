@@ -157,7 +157,7 @@ describe("a file block that opens on a page", () => {
   it("sizes each page field to its digits, so the to stays next to the first number", async () => {
     const { user } = await open("file", "syllabus.pdf");
     const first = await screen.findByRole("textbox", { name: "Open on page" });
-    const width = () => first.style.width;
+    const width = () => first.style.getPropertyValue("--digits");
     const empty = width();
     await user.type(first, "123");
     await waitFor(() => expect(first).toHaveValue("123"));
