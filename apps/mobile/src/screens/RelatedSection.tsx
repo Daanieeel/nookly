@@ -8,7 +8,7 @@ import {
   createRelationship,
   unrelate,
 } from "@nookly/shared/data";
-import { IconLinkOff, IconPlus } from "@tabler/icons-react-native";
+import { IconLinkOff, IconPlus, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
@@ -26,6 +26,7 @@ import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
+import { Property, PropertyList } from "../ui/Property.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -99,10 +100,13 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
   );
 }
 
-/// The Space's labels as chips: tap to put one on or take it off, or name a new one.
-export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
+/// The Space's labels as a property row: its value is the labels on the item; opened, the
+/// Space's labels as chips (tap to put one on or take it off) and a field to name a new one.
+export function LabelsProperty({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
+  const theme = useTheme();
   const { data: labels = [] } = useLabels(entity.spaceId);
   const { data: attached = [] } = useEntityLabels(entity.id);
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const toggle = useLocalWrite((db, input: { labelId: string; on: boolean }) =>
     input.on
@@ -114,53 +118,64 @@ export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; read
     await attachLabel(db, entity.id, id);
   });
   const on = new Set(attached.map((l) => l.id));
+  const submit = () => name.trim() && add.mutate(name, { onSuccess: () => setName("") });
+  return (
+    <Property
+      icon={<IconTag size={20} color={theme.colors.mutedForeground} />}
+      label="Labels"
+      value={attached.length === 0 ? "None" : attached.map((l) => l.name).join(", ")}
+      disabled={readOnly}
+      expanded={open}
+      onPress={() => setOpen((o) => !o)}
+    >
+      {labels.length > 0 ? (
+        <ChipGroup label="Labels" multiple>
+          {labels.map((label) => (
+            <Chip
+              key={label.id}
+              multiple
+              label={label.name}
+              selected={on.has(label.id)}
+              icon={
+                <View className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
+              }
+              onPress={() => toggle.mutate({ labelId: label.id, on: !on.has(label.id) })}
+            />
+          ))}
+        </ChipGroup>
+      ) : null}
+      <View className="flex-row items-end gap-2">
+        <View className="flex-1">
+          <Field
+            label="New label"
+            placeholder="Urgent"
+            value={name}
+            onChangeText={setName}
+            returnKeyType="done"
+            onSubmitEditing={submit}
+          />
+        </View>
+        <Button
+          variant="secondary"
+          label="Add"
+          status={statusOf(add)}
+          disabled={!name.trim()}
+          errorLabel="Couldn't add"
+          onPress={submit}
+        />
+      </View>
+    </Property>
+  );
+}
+
+/// The labels of an item that has no card of properties of its own: one row.
+export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
+  const { data: attached = [] } = useEntityLabels(entity.id);
   if (readOnly && attached.length === 0) return null;
   return (
-    <Section title="Labels">
-      <View className="gap-3 p-3">
-        {labels.length > 0 ? (
-          <ChipGroup label="Labels" multiple>
-            {(readOnly ? attached : labels).map((label) => (
-              <Chip
-                key={label.id}
-                multiple
-                label={label.name}
-                selected={on.has(label.id)}
-                disabled={readOnly}
-                icon={
-                  <View className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
-                }
-                onPress={() => toggle.mutate({ labelId: label.id, on: !on.has(label.id) })}
-              />
-            ))}
-          </ChipGroup>
-        ) : null}
-        {!readOnly ? (
-          <View className="flex-row items-end gap-2">
-            <View className="flex-1">
-              <Field
-                label="New label"
-                placeholder="Urgent"
-                value={name}
-                onChangeText={setName}
-                returnKeyType="done"
-                onSubmitEditing={() =>
-                  name.trim() && add.mutate(name, { onSuccess: () => setName("") })
-                }
-              />
-            </View>
-            <Button
-              variant="secondary"
-              label="Add"
-              status={statusOf(add)}
-              disabled={!name.trim()}
-              errorLabel="Couldn't add"
-              onPress={() => add.mutate(name, { onSuccess: () => setName("") })}
-            />
-          </View>
-        ) : null}
-      </View>
-    </Section>
+    <PropertyList>
+      <LabelsProperty entity={entity} readOnly={readOnly} />
+    </PropertyList>
   );
 }
 

@@ -10,6 +10,7 @@ import {
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { ApiClient } from "@nookly/shared/api";
+import { RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { ShareScreen } from "./ShareScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
@@ -67,10 +68,12 @@ describe("a page", () => {
   it("edits its blocks as text and saves when done typing", async () => {
     const { data, space } = await seeded();
     const page = await createPage(data.db, space, "note", "Physics");
+    const menu = new RecordingMenu();
     const screen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={page} /> },
       data,
       `/entity/${page}`,
+      { menu },
     );
     const block = await screen.findByLabelText("Text block");
     await fireEvent.changeText(block, "Waves move energy");
@@ -78,9 +81,11 @@ describe("a page", () => {
     await waitFor(async () =>
       expect((await listBlocks(data.db, page))[0].content).toBe("Waves move energy"),
     );
-    await fireEvent.press(screen.getByRole("button", { name: "Move to Trash" }));
+    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    menu.choose("Move to Trash");
     expect(await screen.findByText("In Trash")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Restore" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    expect(menu.labels()).toEqual(["Restore"]);
   });
 });
 

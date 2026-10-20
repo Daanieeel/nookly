@@ -50,8 +50,10 @@ describe("a task's effort and sub-tasks", () => {
       data,
       `/entity/${task}`,
     );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Effort, / }));
     await fireEvent.press(await screen.findByRole("radio", { name: "M" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBe(3));
+    await fireEvent.press(screen.getByRole("button", { name: /^Effort, / }));
     await fireEvent.press(screen.getByRole("radio", { name: "None" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBeNull());
   });
@@ -73,7 +75,7 @@ describe("a task's effort and sub-tasks", () => {
       ]),
     );
     expect(await screen.findByText("First step", { exact: false })).toBeTruthy();
-    expect(await screen.findByText("Sub-tasks, 0% done")).toBeTruthy();
+    expect(await screen.findByText("0% done")).toBeTruthy();
   });
 });
 

@@ -136,6 +136,7 @@ describe("a task's due date, labels and links", () => {
     await screen.findByText("Status");
     await pick(screen, "Due date", new Date(2026, 9, 31));
     await waitFor(async () => expect((await getTask(data.db, task))?.dueDate).toBe("2026-10-31"));
+    await fireEvent.press(screen.getByRole("button", { name: "Labels, None" }));
     await fireEvent.changeText(screen.getByLabelText("New label"), "Urgent");
     await fireEvent.press(screen.getByRole("button", { name: "Add" }));
     await waitFor(async () =>

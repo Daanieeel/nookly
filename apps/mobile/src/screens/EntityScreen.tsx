@@ -19,6 +19,15 @@ import {
 } from "@nookly/shared/data";
 import { EFFORT_STEPS, effortLabel } from "@nookly/shared/effort";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
+import {
+  IconCalendarDue,
+  IconCalendarPlus,
+  IconCircleDot,
+  IconDots,
+  IconGauge,
+  IconPlus,
+  IconRepeat,
+} from "@tabler/icons-react-native";
 import { File, Paths } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
@@ -36,16 +45,17 @@ import {
   useTask,
 } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
-import { Button, statusOf } from "../ui/Button.tsx";
+import { DatePanel, openAndroidPicker, shownValue } from "../ui/DateField.tsx";
+import { Property, PropertyList } from "../ui/Property.tsx";
+import { useTheme } from "../ui/theme.ts";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { DateField } from "../ui/DateField.tsx";
-import { Field } from "../ui/Field.tsx";
-import { Empty, Section } from "../ui/Row.tsx";
+import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { useInspectorShown } from "../ui/pane.tsx";
-import { LabelsSection, RelatedSection } from "./RelatedSection.tsx";
+import { LabelsProperty, LabelsSection, RelatedSection } from "./RelatedSection.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
 import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
@@ -56,6 +66,7 @@ import { PageEditor } from "./PageEditor.tsx";
 import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
 import { RecipeDetail } from "./RecipeScreens.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
+import { type MenuItem, useMenu } from "../ui/menu.tsx";
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
   const [title, setTitle] = useState(entity.title);
@@ -75,7 +86,9 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
   );
 }
 
-function Actions({ entity }: { entity: EntityRecord }) {
+/// What the "more" button of an open item offers: pin, share, move, duplicate, save, trash;
+/// or restore for an item in the Trash.
+function useEntityMenu(entity: EntityRecord): MenuItem[] {
   const router = useRouter();
   const signedIn = useSyncState((s) => s.user !== null);
   const shareable =
@@ -94,76 +107,39 @@ function Actions({ entity }: { entity: EntityRecord }) {
       await Sharing.shareAsync(file.uri, { mimeType: "application/json", dialogTitle: filename });
     }
   });
-  return (
-    <View className="flex-row flex-wrap gap-2">
-      {entity.deletedAt ? (
-        <Button
-          variant="secondary"
-          label="Restore"
-          status={statusOf(restore)}
-          errorLabel="Couldn't restore"
-          onPress={() => restore.mutate(undefined)}
-        />
-      ) : (
-        <>
-          {signedIn && shareable ? (
-            <Button
-              label="Share"
-              variant="ghost"
-              onPress={() => router.push(`/new/share?entityId=${entity.id}`)}
-            />
-          ) : null}
-          <Button
-            label="Icon"
-            variant="ghost"
-            onPress={() =>
-              router.push({ pathname: "/pick/icon", params: { kind: "entity", id: entity.id } })
-            }
-          />
-          {entity.type !== "sub_task" && !isSharedSpace(entity.spaceId) ? (
-            <Button
-              label="Move to Space"
-              variant="ghost"
-              onPress={() => router.push(`/new/move?entityId=${entity.id}`)}
-            />
-          ) : null}
-          {DUPLICATE_TYPES.includes(entity.type) && !isSharedSpace(entity.spaceId) ? (
-            <Button
-              label="Duplicate"
-              variant="ghost"
-              status={statusOf(copy)}
-              errorLabel="Couldn't copy"
-              onPress={() =>
-                copy.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) })
-              }
-            />
-          ) : null}
-          {PORTABLE_TYPES.includes(entity.type) ? (
-            <Button
-              label={`Save as Nookly ${nooklyFileNoun(entity.type)}`}
-              variant="ghost"
-              status={statusOf(saveFile)}
-              errorLabel="Couldn't save it"
-              onPress={() => saveFile.mutate(undefined)}
-            />
-          ) : null}
-          <Button
-            label={entity.pinned ? "Unpin" : "Pin"}
-            variant="ghost"
-            status={statusOf(pin)}
-            onPress={() => pin.mutate(!entity.pinned)}
-          />
-          <Button
-            label="Move to Trash"
-            variant="ghost"
-            status={statusOf(trash)}
-            errorLabel="Couldn't move it"
-            onPress={() => trash.mutate(undefined)}
-          />
-        </>
-      )}
-    </View>
-  );
+  if (entity.deletedAt) {
+    return [{ label: "Restore", onPress: () => restore.mutate(undefined) }];
+  }
+  const items: MenuItem[] = [];
+  if (signedIn && shareable) {
+    items.push({ label: "Share", onPress: () => router.push(`/new/share?entityId=${entity.id}`) });
+  }
+  items.push({ label: entity.pinned ? "Unpin" : "Pin", onPress: () => pin.mutate(!entity.pinned) });
+  items.push({
+    label: "Change Icon",
+    onPress: () =>
+      router.push({ pathname: "/pick/icon", params: { kind: "entity", id: entity.id } }),
+  });
+  if (entity.type !== "sub_task" && !isSharedSpace(entity.spaceId)) {
+    items.push({
+      label: "Move to Space",
+      onPress: () => router.push(`/new/move?entityId=${entity.id}`),
+    });
+  }
+  if (DUPLICATE_TYPES.includes(entity.type) && !isSharedSpace(entity.spaceId)) {
+    items.push({
+      label: "Duplicate",
+      onPress: () => copy.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) }),
+    });
+  }
+  if (PORTABLE_TYPES.includes(entity.type)) {
+    items.push({
+      label: `Save as Nookly ${nooklyFileNoun(entity.type)}`,
+      onPress: () => saveFile.mutate(undefined),
+    });
+  }
+  items.push({ label: "Move to Trash", destructive: true, onPress: () => trash.mutate(undefined) });
+  return items;
 }
 
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
@@ -175,6 +151,7 @@ const REPEATS: { label: string; rule: RepeatRule | null }[] = [
 
 /// A task's sub-tasks, one level deep, with how far along they are.
 function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
   const { data: subtasks = [] } = useSubtasks(id);
   const { data: statuses = [] } = useStatuses();
   const { data: progress } = useSubtaskProgress(id);
@@ -186,46 +163,130 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   };
   return (
     <Section
-      title={
-        progress === null || progress === undefined
-          ? "Sub-tasks"
-          : `Sub-tasks, ${Math.round(progress)}% done`
+      title="Sub-tasks"
+      action={
+        progress === null || progress === undefined ? undefined : (
+          <Text variant="small" tone="muted">
+            {Math.round(progress)}% done
+          </Text>
+        )
       }
     >
-      {subtasks.length === 0 ? <Empty text="No sub-tasks." /> : null}
       {subtasks.map((task) => (
         <View key={task.entity.id}>
           <TaskRow task={task} statuses={statuses} />
         </View>
       ))}
       {!readOnly ? (
-        <View className="flex-row items-end gap-2 p-3">
-          <View className="flex-1">
-            <Field
-              label="New sub-task"
-              value={title}
-              onChangeText={setTitle}
-              onSubmitEditing={submit}
-              returnKeyType="done"
-              placeholder="Add a sub-task"
-            />
-          </View>
-          <Button
-            label="Add Sub-task"
-            variant="secondary"
-            status={statusOf(add)}
-            errorLabel="Couldn't add"
-            onPress={submit}
+        <View className="min-h-12 flex-row items-center gap-2 px-4">
+          <IconPlus size={18} color={theme.colors.mutedForeground} />
+          <TextInput
+            accessibilityLabel="New sub-task"
+            value={title}
+            onChangeText={setTitle}
+            onSubmitEditing={submit}
+            returnKeyType="done"
+            placeholder="Add a sub-task"
+            placeholderTextColor={theme.colors.mutedForeground}
+            className="h-12 flex-1 font-sans text-sm text-foreground"
           />
+          {title.trim() ? (
+            <Button
+              label="Add Sub-task"
+              variant="secondary"
+              size="sm"
+              status={statusOf(add)}
+              errorLabel="Couldn't add"
+              onPress={submit}
+            />
+          ) : null}
         </View>
       ) : null}
     </Section>
   );
 }
 
-function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+/// A day property: its row opens the system's calendar (iPhone: below the row), with the
+/// quick picks and Clear.
+function DateProperty({
+  icon,
+  label,
+  value,
+  readOnly,
+  open,
+  onOpen,
+  onChange,
+  quick = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | null;
+  readOnly: boolean;
+  open: boolean;
+  onOpen: () => void;
+  onChange: (day: string | null) => void;
+  quick?: boolean;
+}) {
+  const press = () => {
+    if (Platform.OS === "android") openAndroidPicker("date", value, onChange);
+    else onOpen();
+  };
+  return (
+    <Property
+      icon={icon}
+      label={label}
+      value={value ? shownValue("date", value) : "None"}
+      disabled={readOnly}
+      expanded={open}
+      onPress={press}
+    >
+      <DatePanel label={label} mode="date" value={value} onPick={onChange} onClose={onOpen} />
+      <View className="flex-row flex-wrap gap-2">
+        {quick ? (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              label="Today"
+              onPress={() => onChange(localDay())}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              label="Tomorrow"
+              onPress={() => onChange(addDays(localDay(), 1))}
+            />
+          </>
+        ) : null}
+        {value ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            label={`Clear ${label}`}
+            onPress={() => onChange(null)}
+          />
+        ) : null}
+      </View>
+    </Property>
+  );
+}
+
+/// A task's properties, one card of rows: tap a row to change it.
+function TaskDetail({
+  id,
+  readOnly,
+  labels,
+}: {
+  id: string;
+  readOnly: boolean;
+  /// The labels row, when it belongs in this card.
+  labels?: React.ReactNode;
+}) {
+  const theme = useTheme();
   const { data: task } = useTask(id);
   const { data: statuses = [] } = useStatuses();
+  const [open, setOpen] = useState<string | null>(null);
+  const toggle = (name: string) => setOpen((now) => (now === name ? null : name));
   const status = useLocalWrite((db, statusId: string) => setTaskStatus(db, id, statusId));
   const dates = useLocalWrite((db, due: string | null) =>
     setTaskDates(db, id, task?.startDate ?? null, due),
@@ -237,103 +298,118 @@ function TaskDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   const [scale] = useSetting("general.effortScale");
   const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
   if (!task) return null;
+  const current = statuses.find((s) => s.id === task.statusId);
+  const muted = theme.colors.mutedForeground;
+  const repeatLabel =
+    REPEATS.find((r) => JSON.stringify(r.rule) === JSON.stringify(task.repeat))?.label ?? "Custom";
   return (
-    <>
-      <Section title="Status">
-        <View className="p-3">
-          <ChipGroup label="Status">
-            {statuses.map((s) => (
-              <Chip
-                key={s.id}
-                label={s.name}
-                selected={s.id === task.statusId}
-                disabled={readOnly}
-                icon={<StatusIcon status={s} size={16} />}
-                onPress={() => s.id !== task.statusId && status.mutate(s.id)}
-              />
-            ))}
-          </ChipGroup>
-        </View>
-      </Section>
-      <Section title="Effort">
-        <View className="p-3">
-          <ChipGroup label="Effort">
+    <PropertyList>
+      <Property
+        icon={<IconCircleDot size={20} color={muted} />}
+        label="Status"
+        value={current?.name ?? ""}
+        valueIcon={current ? <StatusIcon status={current} size={16} /> : undefined}
+        disabled={readOnly}
+        expanded={open === "status"}
+        onPress={() => toggle("status")}
+      >
+        <ChipGroup label="Status">
+          {statuses.map((s) => (
             <Chip
-              label="None"
-              selected={task.effort === null}
-              disabled={readOnly}
-              onPress={() => effort.mutate(null)}
+              key={s.id}
+              label={s.name}
+              selected={s.id === task.statusId}
+              icon={<StatusIcon status={s} size={16} />}
+              onPress={() => {
+                if (s.id !== task.statusId) status.mutate(s.id);
+                setOpen(null);
+              }}
             />
-            {EFFORT_STEPS.map((step) => (
-              <Chip
-                key={step.value}
-                label={effortLabel(step.value, scale)}
-                selected={task.effort === step.value}
-                disabled={readOnly}
-                onPress={() => effort.mutate(step.value)}
-              />
-            ))}
-          </ChipGroup>
-        </View>
-      </Section>
-      <Section title="Start">
-        <View className="p-3">
-          <DateField
-            label="Start date"
-            value={task.startDate}
-            readOnly={readOnly}
-            onChange={(day) => start.mutate(day)}
+          ))}
+        </ChipGroup>
+      </Property>
+      <Property
+        icon={<IconGauge size={20} color={muted} />}
+        label="Effort"
+        value={task.effort === null ? "None" : effortLabel(task.effort, scale)}
+        disabled={readOnly}
+        expanded={open === "effort"}
+        onPress={() => toggle("effort")}
+      >
+        <ChipGroup label="Effort">
+          <Chip
+            label="None"
+            selected={task.effort === null}
+            onPress={() => {
+              effort.mutate(null);
+              setOpen(null);
+            }}
           />
-        </View>
-      </Section>
-      <Section title="Due">
-        <View className="gap-2 p-3">
-          <DateField
-            label="Due date"
-            value={task.dueDate}
-            readOnly={readOnly}
-            onChange={(day) => dates.mutate(day)}
-          />
-          {!readOnly ? (
-            <View className="flex-row gap-2">
-              <Button variant="secondary" label="Today" onPress={() => dates.mutate(localDay())} />
-              <Button
-                variant="secondary"
-                label="Tomorrow"
-                onPress={() => dates.mutate(addDays(localDay(), 1))}
-              />
-            </View>
-          ) : null}
-        </View>
-      </Section>
-      <Section title="Repeat">
-        <View className="p-3">
-          <ChipGroup label="Repeat">
-            {REPEATS.map((r) => (
-              <Chip
-                key={r.label}
-                label={r.label}
-                disabled={readOnly}
-                selected={JSON.stringify(r.rule) === JSON.stringify(task.repeat)}
-                onPress={() => repeat.mutate(r.rule)}
-              />
-            ))}
-          </ChipGroup>
-        </View>
-      </Section>
-    </>
+          {EFFORT_STEPS.map((step) => (
+            <Chip
+              key={step.value}
+              label={effortLabel(step.value, scale)}
+              selected={task.effort === step.value}
+              onPress={() => {
+                effort.mutate(step.value);
+                setOpen(null);
+              }}
+            />
+          ))}
+        </ChipGroup>
+      </Property>
+      <DateProperty
+        icon={<IconCalendarPlus size={20} color={muted} />}
+        label="Start date"
+        value={task.startDate}
+        readOnly={readOnly}
+        open={open === "start"}
+        onOpen={() => toggle("start")}
+        onChange={(day) => start.mutate(day)}
+      />
+      <DateProperty
+        icon={<IconCalendarDue size={20} color={muted} />}
+        label="Due date"
+        value={task.dueDate}
+        readOnly={readOnly}
+        open={open === "due"}
+        onOpen={() => toggle("due")}
+        onChange={(day) => dates.mutate(day)}
+        quick
+      />
+      <Property
+        icon={<IconRepeat size={20} color={muted} />}
+        label="Repeat"
+        value={repeatLabel}
+        disabled={readOnly}
+        expanded={open === "repeat"}
+        onPress={() => toggle("repeat")}
+      >
+        <ChipGroup label="Repeat">
+          {REPEATS.map((r) => (
+            <Chip
+              key={r.label}
+              label={r.label}
+              selected={JSON.stringify(r.rule) === JSON.stringify(task.repeat)}
+              onPress={() => {
+                repeat.mutate(r.rule);
+                setOpen(null);
+              }}
+            />
+          ))}
+        </ChipGroup>
+      </Property>
+      {labels}
+    </PropertyList>
   );
 }
 
-/// One entity, as its own type shows it. Every type gets its title, Space, key, Pin
-/// and Trash; Tasks, pages, bookmarks and calendar entries also their own fields.
+/// One entity, as its own type shows it. Every type gets its title, Space, key and the
+/// "more" menu (pin, move, trash and so on); tasks, pages, bookmarks and calendar entries
+/// also their own fields.
 export function EntityScreen({ id }: { id: string }) {
   const { db } = useAppData();
   const { data: entity, isLoading } = useEntity(id);
-  const { data: spaces = [] } = useSpaces();
-  const readOnly = useReadOnly(entity);
-  // The details pane beside the page takes labels and links.
-  const inspector = useInspectorShown();
   useEffect(() => {
     void markOpened(db, id);
   }, [db, id]);
@@ -345,17 +421,34 @@ export function EntityScreen({ id }: { id: string }) {
       </Screen>
     );
   }
+  return <OpenEntity entity={entity} />;
+}
+
+function OpenEntity({ entity }: { entity: EntityRecord }) {
+  const id = entity.id;
+  const { data: spaces = [] } = useSpaces();
+  const readOnly = useReadOnly(entity);
+  const theme = useTheme();
+  const present = useMenu();
+  const menu = useEntityMenu(entity);
+  // The details pane beside the page takes labels and links.
+  const inspector = useInspectorShown();
   const space = spaces.find((s) => s.id === entity.spaceId);
+  // Labels and links belong to a Space of your own, not to one shared with you, and the
+  // details pane takes them when it is beside the page.
+  const withLabels = !(entity.deletedAt || isSharedSpace(entity.spaceId) || inspector);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1"
     >
-      <Stack.Screen options={{ title: entity.key }} />
+      <Stack.Screen options={{ title: "" }} />
       <Screen>
         <View className="gap-2">
-          <TitleField entity={entity} readOnly={readOnly} />
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row flex-wrap items-center gap-2">
+            <Text variant="small" tone="muted">
+              {entity.key}
+            </Text>
             {space ? <SpaceDot color={space.color} /> : null}
             <Text variant="small" tone="muted">
               {space?.name ?? ""}
@@ -363,11 +456,26 @@ export function EntityScreen({ id }: { id: string }) {
             {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
             {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
             <ConflictBadge entityId={entity.id} />
+            <View className="flex-1" />
+            {menu.length > 0 ? (
+              <IconButton
+                label="More"
+                icon={<IconDots size={22} color={theme.colors.mutedForeground} />}
+                onPress={() => present.show(entity.title || entity.key, menu)}
+              />
+            ) : null}
           </View>
+          <TitleField entity={entity} readOnly={readOnly} />
         </View>
         {entity.type === "task" || entity.type === "sub_task" ? (
           <>
-            <TaskDetail id={id} readOnly={readOnly} />
+            <TaskDetail
+              id={id}
+              readOnly={readOnly}
+              labels={
+                withLabels ? <LabelsProperty entity={entity} readOnly={readOnly} /> : undefined
+              }
+            />
             {entity.type === "task" ? <Subtasks id={id} readOnly={readOnly} /> : null}
           </>
         ) : null}
@@ -390,11 +498,12 @@ export function EntityScreen({ id }: { id: string }) {
         {/* Labels and links belong to a Space of your own, not to one shared with you. */}
         {entity.deletedAt || isSharedSpace(entity.spaceId) || inspector ? null : (
           <>
-            <LabelsSection entity={entity} readOnly={readOnly} />
+            {entity.type === "task" || entity.type === "sub_task" ? null : (
+              <LabelsSection entity={entity} readOnly={readOnly} />
+            )}
             <RelatedSection entity={entity} readOnly={readOnly} />
           </>
         )}
-        {!readOnly || entity.deletedAt ? <Actions entity={entity} /> : null}
       </Screen>
       <EditorToolbar />
     </KeyboardAvoidingView>

@@ -1,5 +1,6 @@
 import { addFile, createCourse, createDeck, createSpace, listFiles } from "@nookly/shared/data";
-import { waitFor } from "expo-router/testing-library";
+import { fireEvent, waitFor } from "expo-router/testing-library";
+import { RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { FileRows } from "./FileScreens.tsx";
@@ -47,18 +48,24 @@ describe("saving as a Nookly file", () => {
     const space = await createSpace(data.db, "Uni", "#3b82f6");
     const deck = await createDeck(data.db, space, "Sorting");
     const course = await createCourse(data.db, space, "Algorithms");
+    const deckMenu = new RecordingMenu();
     const deckScreen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={deck} /> },
       data,
       `/entity/${deck}`,
+      { menu: deckMenu },
     );
-    expect(await deckScreen.findByRole("button", { name: "Save as Nookly Deck" })).toBeTruthy();
+    await fireEvent.press(await deckScreen.findByRole("button", { name: "More" }));
+    expect(deckMenu.labels()).toContain("Save as Nookly Deck");
+    const courseMenu = new RecordingMenu();
     const courseScreen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={course} /> },
       data,
       `/entity/${course}`,
+      { menu: courseMenu },
     );
-    await courseScreen.findByRole("button", { name: "Pin" });
-    expect(courseScreen.queryByRole("button", { name: /Save as Nookly/ })).toBeNull();
+    await fireEvent.press(await courseScreen.findByRole("button", { name: "More" }));
+    expect(courseMenu.labels()).toContain("Pin");
+    expect(courseMenu.labels().some((l) => l.startsWith("Save as Nookly"))).toBe(false);
   });
 });

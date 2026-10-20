@@ -112,7 +112,9 @@ const PHONE = 390;
 describe("the calendar on a phone", () => {
   it("offers the agenda, a day, three days and a week, and no month", async () => {
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", PHONE);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: PHONE,
+    });
     for (const name of ["Agenda", "Day", "3 Days", "Week"]) {
       expect(await screen.findByRole("radio", { name })).toBeTruthy();
     }
@@ -122,7 +124,9 @@ describe("the calendar on a phone", () => {
 
   it("lays the hours out with each item where it belongs, three days at a time", async () => {
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", PHONE);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: PHONE,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
     expect(await screen.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lecture 1, 11:00 to 12:30" })).toBeTruthy();
@@ -142,7 +146,9 @@ describe("the calendar on a phone", () => {
       allDay: false,
       location: "Room 123 in the building across town",
     });
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", PHONE);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: PHONE,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "Week" }));
     const blocks = await screen.findAllByRole("button", { name: /, \d\d:\d\d( to \d\d:\d\d)?$/ });
     expect(blocks.length).toBeGreaterThanOrEqual(5);

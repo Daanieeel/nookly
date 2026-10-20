@@ -37,6 +37,56 @@ function shown(mode: "date" | "time", value: string): string {
   });
 }
 
+/// The system's picker, open below its field (iPhone and iPad). A day closes it once picked.
+export function DatePanel({
+  label,
+  mode,
+  value,
+  onPick,
+  onClose,
+}: {
+  label: string;
+  mode: "date" | "time";
+  value: string | null;
+  onPick: (value: string) => void;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <DateTimePicker
+      testID={`${label} picker`}
+      value={toDate(mode, value)}
+      mode={mode}
+      display={mode === "date" ? "inline" : "spinner"}
+      accentColor={theme.colors.primary}
+      themeVariant={theme.dark ? "dark" : "light"}
+      onValueChange={(_, date) => {
+        onPick(fromDate(mode, date));
+        if (mode === "date") onClose();
+      }}
+    />
+  );
+}
+
+/// Android's own dialog for a day or a time.
+export function openAndroidPicker(
+  mode: "date" | "time",
+  value: string | null,
+  onPick: (value: string) => void,
+) {
+  DateTimePickerAndroid.open({
+    value: toDate(mode, value),
+    mode,
+    is24Hour: true,
+    onValueChange: (_, date) => onPick(fromDate(mode, date)),
+  });
+}
+
+/// The words a day or a time is shown in.
+export function shownValue(mode: "date" | "time", value: string): string {
+  return shown(mode, value);
+}
+
 /// A day or a time picked from the system's own picker, stored as the desktop stores
 /// it. On iPhone the calendar opens below the field; on Android, as a dialog.
 export function DateField({
@@ -58,18 +108,9 @@ export function DateField({
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
-  const pick = (date: Date) => onChange(fromDate(mode, date));
   const press = () => {
-    if (Platform.OS === "android") {
-      DateTimePickerAndroid.open({
-        value: toDate(mode, value),
-        mode,
-        is24Hour: true,
-        onValueChange: (_, date) => pick(date),
-      });
-    } else {
-      setOpen((o) => !o);
-    }
+    if (Platform.OS === "android") openAndroidPicker(mode, value, onChange);
+    else setOpen((o) => !o);
   };
   const input = splitText(row(INPUT_CLASSES));
   const text = value
@@ -104,17 +145,12 @@ export function DateField({
         ) : null}
       </View>
       {open && Platform.OS !== "android" ? (
-        <DateTimePicker
-          testID={`${label} picker`}
-          value={toDate(mode, value)}
+        <DatePanel
+          label={label}
           mode={mode}
-          display={mode === "date" ? "inline" : "spinner"}
-          accentColor={theme.colors.primary}
-          themeVariant={theme.dark ? "dark" : "light"}
-          onValueChange={(_, date) => {
-            pick(date);
-            if (mode === "date") setOpen(false);
-          }}
+          value={value}
+          onPick={onChange}
+          onClose={() => setOpen(false)}
         />
       ) : null}
     </View>
