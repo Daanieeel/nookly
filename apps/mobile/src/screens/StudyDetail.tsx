@@ -1,19 +1,13 @@
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import {
   type AssignmentRecord,
-  type IndexCard,
-  createCard,
-  deleteCard,
   setAssignmentCourse,
   setAssignmentDueBeforeSession,
   setAssignmentDueDate,
   setCourseProfessor,
   setCourseRoom,
-  setDeckExam,
   setExamCourse,
-  studyQueue,
   updateAssignment,
-  updateCard,
   updateExam,
   weightPercent,
 } from "@nookly/shared/data";
@@ -31,17 +25,14 @@ import {
   IconUser,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import {
   useAssignment,
   useAssignments,
-  useCards,
   useCourse,
   useCourses,
-  useDeck,
   useExam,
   useAssignmentDueSession,
   useExams,
@@ -54,14 +45,14 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DatePanel, shownValue } from "../ui/DateField.tsx";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { ChoiceProperty, DayProperty, NumberRow, TextRow } from "../ui/property-rows.tsx";
-import { Empty, Section } from "../ui/Row.tsx";
+import { Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
-import { AssignmentRows, ExamRows, deckSummary } from "./StudyLists.tsx";
+import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
-import { CourseProperty, ExamProperty } from "./StudyPickers.tsx";
+import { CourseProperty } from "./StudyPickers.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
 
@@ -390,7 +381,7 @@ const cardSchema = z.object({
   back: z.string().trim().min(1, "Write the answer"),
 });
 
-function CardForm({
+export function CardForm({
   initial,
   submitLabel,
   onSubmit,
@@ -449,102 +440,5 @@ function CardForm({
         {onDelete ? <Button label="Delete Card" variant="ghost" onPress={onDelete} /> : null}
       </View>
     </Padded>
-  );
-}
-
-function CardRow({ card, readOnly }: { card: IndexCard; readOnly: boolean }) {
-  const [editing, setEditing] = useState(false);
-  const save = useLocalWrite((db, next: { front: string; back: string }) =>
-    updateCard(db, card.id, next.front, next.back),
-  );
-  const remove = useLocalWrite((db) => deleteCard(db, card.id));
-  if (editing) {
-    return (
-      <CardForm
-        initial={{ front: card.front, back: card.back }}
-        submitLabel="Save Card"
-        status={save}
-        onSubmit={async (next) => {
-          await save.mutateAsync(next);
-          setEditing(false);
-        }}
-        onDelete={() => remove.mutate(undefined)}
-      />
-    );
-  }
-  return (
-    <Pressable
-      accessibilityRole={readOnly ? undefined : "button"}
-      accessibilityLabel={`${card.front}, ${card.back}`}
-      accessibilityHint={readOnly ? undefined : "Edit the card"}
-      disabled={readOnly}
-      onPress={() => setEditing(true)}
-      className="gap-1 border-b border-border/60 p-3 active:bg-accent/40"
-    >
-      <Text numberOfLines={2}>{card.front}</Text>
-      <Text variant="small" tone="muted" numberOfLines={2}>
-        {card.back}
-      </Text>
-    </Pressable>
-  );
-}
-
-export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const theme = useTheme();
-  const router = useRouter();
-  const { data: deck } = useDeck(id);
-  const { data: cards = [] } = useCards(id);
-  const exam = useLocalWrite((db, examId: string | null) => setDeckExam(db, id, examId));
-  const add = useLocalWrite((db, card: { front: string; back: string }) =>
-    createCard(db, id, card.front, card.back),
-  );
-  if (!deck) return null;
-  const queue = studyQueue(cards);
-  return (
-    <>
-      <DetailsPart>
-        <PropertyList>
-          <ExamProperty
-            icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
-            spaceId={deck.entity.spaceId}
-            value={deck.examId}
-            readOnly={readOnly}
-            onChange={(examId) => exam.mutate(examId)}
-          />
-        </PropertyList>
-      </DetailsPart>
-      <MainPart>
-        <Section title="Study">
-          <Padded>
-            <Text tone="muted">{deckSummary(deck.stats)}</Text>
-            <Button
-              label={queue.length > 0 ? `Study ${queue.length}` : "Nothing due now"}
-              disabled={queue.length === 0}
-              onPress={() => router.push(`/study/${id}`)}
-            />
-          </Padded>
-        </Section>
-        {!readOnly ? (
-          <Section title="New card">
-            <CardForm
-              initial={{ front: "", back: "" }}
-              submitLabel="Add Card"
-              status={add}
-              onSubmit={async (card) => {
-                await add.mutateAsync(card);
-              }}
-            />
-          </Section>
-        ) : null}
-        <Section title={`Cards · ${cards.length}`}>
-          {cards.length === 0 ? <Empty text="No cards yet." /> : null}
-          {cards.map((card) => (
-            <View key={card.id}>
-              <CardRow card={card} readOnly={readOnly} />
-            </View>
-          ))}
-        </Section>
-      </MainPart>
-    </>
   );
 }

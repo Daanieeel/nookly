@@ -10,7 +10,8 @@ import { FileDetail } from "./FileScreens.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
 import { RecipeDetail } from "./RecipeScreens.tsx";
-import { AssignmentDetail, CourseDetail, DeckDetail, ExamDetail } from "./StudyDetail.tsx";
+import { DeckDetail } from "./DeckPage.tsx";
+import { AssignmentDetail, CourseDetail, ExamDetail } from "./StudyDetail.tsx";
 import { TaskItem } from "./TaskDetail.tsx";
 
 /// What an item shows of itself by its type. The same element stands in the page (inside a
