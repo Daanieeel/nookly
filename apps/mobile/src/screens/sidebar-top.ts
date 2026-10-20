@@ -8,6 +8,7 @@ export const TOP_ITEMS = [
   { id: "calendar", label: "Calendar", href: "/calendar" },
   { id: "tasks", label: "Tasks", href: "/tasks" },
   { id: "assignments", label: "Assignments", href: "/assignments" },
+  { id: "pinned", label: "Pinned", href: "/pinned" },
   { id: "jot", label: "Quick Jot", href: "/new/jot" },
 ] as const;
 

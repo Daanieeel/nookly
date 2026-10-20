@@ -37,7 +37,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 
 /// The pages of the sidebar itself: nothing to go back to from them.
-const TOP_LEVEL = /^\/($|calendar|tasks|search|trash|space\/|module\/)/;
+const TOP_LEVEL = /^\/($|calendar|tasks|pinned|search|trash|space\/|module\/)/;
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { networkMode: "always" }, mutations: { networkMode: "always" } },

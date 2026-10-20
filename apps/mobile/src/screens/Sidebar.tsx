@@ -10,6 +10,7 @@ import {
   IconCalendarEvent,
   IconChecklist,
   IconClipboardList,
+  IconPin,
   IconChevronDown,
   IconChevronRight,
   IconFeather,
@@ -42,6 +43,7 @@ const TOP_ICONS = {
   calendar: IconCalendarEvent,
   tasks: IconChecklist,
   assignments: IconClipboardList,
+  pinned: IconPin,
   jot: IconFeather,
 } satisfies Record<TopId, typeof IconSearch>;
 

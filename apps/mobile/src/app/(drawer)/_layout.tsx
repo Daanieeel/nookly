@@ -33,6 +33,7 @@ export default function TopLevelLayout() {
       <Stack.Screen name="calendar" options={{ title: "Calendar" }} />
       <Stack.Screen name="tasks" options={{ title: "Tasks" }} />
       <Stack.Screen name="search" options={{ title: "Search" }} />
+      <Stack.Screen name="pinned" options={{ title: "Pinned" }} />
       <Stack.Screen name="trash" options={{ title: "Trash" }} />
       <Stack.Screen name="space/[id]" options={{ title: "Space" }} />
       <Stack.Screen name="module/[spaceId]/[module]" options={{ title: "" }} />
