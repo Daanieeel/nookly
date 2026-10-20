@@ -28,7 +28,7 @@ import { hasPages } from "#/features/files/file-kind.ts";
 import { getFile, importFile } from "#/lib/api/files.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { notify } from "#/components/notify.tsx";
 import { inheritPageContext } from "#/features/relationships/inherit-context.ts";
@@ -196,11 +196,15 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   const openOnModifierClick = (event: MouseEvent<HTMLElement>) => {
     if (event.metaKey || event.ctrlKey) openSource();
   };
-  /// A plain click on a file's card opens its page in Nookly; Cmd or Ctrl still opens the
-  /// file itself.
+  /// A click on a file's card opens its page in Nookly, and Cmd or Ctrl opens it in a new
+  /// tab. The toolbar's Open File is the way to the system viewer. A card with no file
+  /// behind it (a web link) opens the link on Cmd or Ctrl.
   const openFileCard = (event: MouseEvent<HTMLElement>) => {
-    if (event.metaKey || event.ctrlKey) openSource();
-    else if (kind === "file") openInNookly();
+    const modifier = event.metaKey || event.ctrlKey;
+    if (kind === "file" && source?.entity) {
+      if (modifier) armNewTabIntent();
+      openInNookly();
+    } else if (modifier) openSource();
   };
 
   return (

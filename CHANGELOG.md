@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.39.2 (2026-10-20)
+
+### Changed
+
+- **Cmd or Ctrl and a click on a file opens it in a new tab.** A file embedded in a page now opens inside Nookly in a new tab instead of in your default app. Open File on its toolbar still uses your default app.
+
 ## 0.39.1 (2026-10-20)
 
 ### Changed

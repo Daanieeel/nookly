@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.39.2",
+      "date": "2026-10-20",
+      "highlights": [],
+      "more": {
+        "Improved": ["Cmd or Ctrl and a click on a file in a page opens it in a new Nookly tab."]
+      }
+    },
+    {
       "version": "0.39.1",
       "date": "2026-10-20",
       "highlights": [],
