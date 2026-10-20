@@ -135,6 +135,12 @@ fn the_files_the_desktop_writes_are_the_samples_the_phone_reads() {
     check("assignment", &portable::export_entity(&conn, aid).unwrap());
 
     let deck = decks::create_deck(&conn, space.id.clone(), "Sorting".into(), None).unwrap();
-    decks::create_card(&conn, deck.id.clone(), "Quicksort?".into(), "n log n".into()).unwrap();
+    decks::create_card(
+        &conn,
+        deck.id.clone(),
+        "Quicksort?".into(),
+        "n log n".into(),
+    )
+    .unwrap();
     check("deck", &portable::export_entity(&conn, &deck.id).unwrap());
 }

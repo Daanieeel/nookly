@@ -189,11 +189,11 @@ iPad, desktop like (width 768 and up, bigger at 1000 and up):
 - [x] N1 (built and running in the iPad simulator; key commands not verifiable without a hardware keyboard) native batch: `expo-clipboard` and a local Swift module `modules/nookly-keys` (UIKeyCommand on `UIApplication`, event `onShortcut`; hold Command shows the system's shortcut sheet). One rebuild of the dev client from a clone at a path without spaces. Hardware keys cannot be sent by my tooling, so the module also has `emit(id)` for the automation bridge and the Swift part stays unverified on a real keyboard: say so in the report.
 - [x] I1 titlebar strip above the page: collapse sidebar, back, quick open field, sync status, settings
 - [x] I2 command palette and quick open (modal; also the target of Command K and Command P)
-- [x] I3 shortcuts (Settings list still to do): the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
+- [x] I3 shortcuts (list in Settings, Keyboard Shortcuts; no rebinding): the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
 - [x] I4 right inspector beside a page: Attachments, Mentioned, Mentioned in, Relationships (desktop's right sidebar)
 - [x] I5 dashboard as on the desktop: lists left, week calendar right; tasks board and calendar use the wide pane
 - [x] I6 tabs (`shell/tabs.ts` pure, `tabs-store.ts` persisted, `TabStrip.tsx`) and split view (`SplitPane.tsx`: an item beside the page; More, Open Beside; Command Backslash; links inside the second pane open in the first). Shortcuts: Command T, W, Control Tab, Command Backslash. Dev bridge: `tabs.setRight(path)` in simulator scripts.
-- [ ] I7 Vim keys in the editor (per device setting, hardware keyboard)
+- [ ] I7 Vim keys in the editor: the desktop's is `features/notes/vim-extension.ts` (760 lines, TipTap `Extension`) plus `vim-core.ts` (pure). Not ported: it would have to become a plain ProseMirror plugin shared by both editors. Not started.
 
 New asks from the user (2026-10-20), after the list above:
 
