@@ -45,7 +45,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 ## D7. Same field, both sides: newest wins for now, the other is kept and a badge asks ⚑
 
 - **Decision:** a real conflict (the same field changed on two devices without either seeing the other) never blocks anything. The item shows the newer value right away, the other value is stored in full, and a badge on the item and in the sidebar's sync status invites a decision. The merge editor shows both versions side by side (stacked on phones) with differences highlighted, and offers Keep this one, Keep the other, Keep both and Edit combined.
-  - Keep both: for text it joins both versions in the combined editor; for a date, status or other single value it makes a copy of the item holding the other value ("<title> (from iPhone)").
+  - Keep both: for text it joins both versions in the combined editor. Single values (a date, a status) have no Keep both: the desktop does not offer it either, so Keep this one, Keep the other or Edit combined decide them. (An earlier version of this text promised a copy of the item; that was never built.)
   - A conflict stays until someone decides. Dismissing is the same as Keep this one, and nothing is deleted: the decision is recorded and the other value stays in the conflict log.
 - **Alternatives:** freeze the item until resolved; always ask before applying.
 - **Why:** the brief says conflicts never block and both versions are kept until resolved.
@@ -149,3 +149,47 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 - **Decision:** the debounce before a local change is sent is 400 ms (it was 1.5 s), so an edit shows on another device in about a second.
 - **Why:** the brief asks for about a second; a batch every 400 ms during continuous edits is cheap.
+
+## D26. The calendar is hour grids, and its colours come from one shared file
+
+- **Decision:** the phone shows Day, 3 Days and Week as hour grids plus an Agenda; an iPad shows the desktop's Day, Work Week, Week and Month. `packages/shared/src/calendar-style.ts` and `blocks/highlight-colors.ts` hold the colours of items and highlights; `desktop-drift.test.ts` checks the desktop's Tailwind classes against them.
+- **Why:** the user asked that colours are always the same on every client, shared in one place.
+
+## D27. The iPad window is the desktop's: titlebar, palette, shortcuts, tabs, split view
+
+- **Decision:** from 768 points the shell has a titlebar strip, a tab strip, the details pane beside an open item (from 900 points of page width) and a split view; the command palette is an in window overlay.
+- **Alternatives:** a `Modal` for the palette. It crashed the app when it closed while the page behind changed (`RCTViewComponentView unmountChildComponentView`).
+- **To double check:** the Swift key commands (`modules/nookly-keys`) were never exercised on a hardware keyboard.
+
+## D28. An item's page has a page and details, and its own top bar
+
+- **Decision:** every item type marks what belongs in the middle (`MainPart`: title, the description, its own lists) and what is a property or setting (`DetailsPart`); the same screen renders twice, in the page and in the details (`ItemParts.tsx`, `ui/parts.tsx`). On a phone the details are a drawer on the right (`shell/DetailsDrawer.tsx`), on a wide iPad the inspector beside the page. The native header is hidden on item pages; the page draws its own top bar (back, key, stepper, conflict badge, details, more) so the whole page, bar included, slides and is rounded.
+- **Why:** the user's feedback (2026-10-20): black showed above the rounded corners, and properties crowded the main page.
+
+## D29. The sidebar is one drawer around the whole app
+
+- **Decision:** on a phone `shell/SidebarDrawer.tsx` (`react-native-drawer-layout`) wraps the whole stack, so a swipe to the right opens the sidebar from any page. It claims only drags to the right, and leaves the left 24 points to the system's back swipe on a page that can go back; the details drawer claims drags to the left. A touch may drift 16 points sideways before it stops being a tap.
+- **To double check:** swiping was never verified with a finger or a simulator (my tooling cannot swipe).
+
+## D30. Assignment due days are resolved at read time, as on the desktop
+
+- **Decision:** an assignment that follows a session shows the day of that session minus its days before, computed when it is read (`resolveDue`); the stored day is not trusted. This fixed a real bug on the phone.
+
+## D31. Nookly file import: unknown blocks become paragraphs; samples are checked both ways
+
+- **Decision:** a block type the phone cannot edit becomes a paragraph on import; the desktop writes its samples, the phone reads them (`db/portable_desktop_samples_tests.rs`, `portable-import.test.ts`).
+
+## D32. Sync rounds only when something is pending; test seams instead of module mocks
+
+- **Decision:** a local change with nothing to send starts no sync round (`notifyLocalChange` checks `pendingCount`). Lint forbids module mocking, so a test supplies window width, the menu, the clipboard, the file picker and the key system through providers (`renderScreens(..., options)`).
+
+## D33. `PAGES.md` is the source of truth for what a mobile page shows
+
+- **Decision:** pages follow `PAGES.md` (written from desktop 0.38.3). New pure helpers keep the rules testable: `dashboard-model.ts`, `briefing-runs.ts` (the desktop's sentence), `assignment-view.ts`, `course-stats.ts`, `pinned-groups.ts`. Shared data got `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
+- **Decided on the way:** a Space's Tasks open as a board on an iPad and a list by status on a phone, the overview as a list by due date; Assignments group by deadline with a round checkbox; the Dashboard's "Show N more" expands in place (no filtered overview to jump to); a link pasted in Files is kept only if it is a Drive, Dropbox or iCloud link or a direct file link, a web page is refused (as on the desktop); a bookmark's page is read after it is saved; a jot's "Refine into New Note" is on its details.
+- **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Vim keys, Office conversion and OCR, the PDF paged viewer, the five step semester wizard, series (D19).
+
+## D34. A page made on the phone asks for its document again a few times
+
+- **Decision:** a page made less than two minutes ago, while the phone is online, asks the server for its document up to three more times, three seconds apart, before it settles for the rows editor. The server refuses a page it has not received yet ("No such page"); the first sync round delivers it.
+- **Why:** pages made on the phone opened in the rows editor instead of the live one.
