@@ -20,6 +20,7 @@ import {
   mentionedIn,
   mentionsOf,
   listViews,
+  listPageSummaries,
   listUnrefinedJots,
   labelIdsByEntity,
   listAllLabels,
@@ -382,5 +383,14 @@ export const useMentions = (entityId: string) => {
       mentions: await mentionsOf(db, entityId),
       mentionedIn: await mentionedIn(db, entityId),
     }),
+  });
+};
+
+/// A Space's notes or jots (or every Space's) as a list shows them.
+export const usePageSummaries = (spaceId: string | null, type: "note" | "jot") => {
+  const db = useDb();
+  return useQuery({
+    queryKey: keys.pageSummaries(spaceId, type),
+    queryFn: () => listPageSummaries(db, { spaceId: spaceId ?? undefined, type }),
   });
 };

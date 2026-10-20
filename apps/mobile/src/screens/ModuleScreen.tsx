@@ -20,6 +20,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
+import { JotList, NoteList } from "./PageLists.tsx";
 import { GradesScreen, SemesterRows, SessionRows } from "./PlannerScreens.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
@@ -162,7 +163,11 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
         }}
       />
       <Screen>
-        {module === "bookmarks" ? (
+        {module === "notes" ? (
+          <NoteList spaceId={spaceId} />
+        ) : module === "jots" ? (
+          <JotList spaceId={spaceId} />
+        ) : module === "bookmarks" ? (
           <BookmarkList spaceId={spaceId} />
         ) : module === "files" ? (
           <FileRows spaceId={spaceId} />

@@ -240,3 +240,69 @@ export async function createJotFromText(
   ]);
   return id;
 }
+
+export interface PageSummary {
+  entity: EntityRecord;
+  /// The start of the page's text.
+  preview: string;
+  labels: { id: string; name: string; color: string }[];
+  /// For a jot: the note it was refined into, if any.
+  refinedInto: { id: string; title: string } | null;
+}
+
+/// A Space's notes or jots (or every Space's), most recently edited first, with what a list
+/// shows of each: the start of its text, its labels and, for a jot, its note.
+export async function listPageSummaries(
+  db: LocalDb,
+  query: { spaceId?: string; type: "note" | "jot" },
+): Promise<PageSummary[]> {
+  const found = await rows(
+    db,
+    `SELECT ${ENTITY_COLUMNS} FROM entities e
+     WHERE e.type = ? AND e.deleted_at IS NULL AND e.hidden_at IS NULL${query.spaceId ? " AND e.space_id = ?" : ""}
+     ORDER BY e.updated_at DESC, e.id`,
+    query.type,
+    ...(query.spaceId ? [query.spaceId] : []),
+  );
+  const summaries: PageSummary[] = [];
+  for (const row of found) {
+    const entity = toEntity(row);
+    const blocks = await rows(
+      db,
+      `SELECT content FROM blocks WHERE entity_id = ? AND TRIM(content) != ''
+         AND block_type IN ('paragraph','heading1','heading2','heading3','heading4','heading5','heading6','quote','callout','bulleted_list','numbered_list')
+       ORDER BY position LIMIT 4`,
+      entity.id,
+    );
+    const labels = await rows(
+      db,
+      "SELECT l.id, l.name, l.color FROM labels l JOIN entity_labels el ON el.label_id = l.id WHERE el.entity_id = ? ORDER BY l.name",
+      entity.id,
+    );
+    const linked =
+      query.type === "jot"
+        ? await first(
+            db,
+            `SELECT t.id, t.title FROM relationships r JOIN entities t
+               ON t.id = CASE WHEN r.from_entity_id = ? THEN r.to_entity_id ELSE r.from_entity_id END
+             WHERE (r.from_entity_id = ? OR r.to_entity_id = ?) AND t.type = 'note' AND t.deleted_at IS NULL
+             ORDER BY r.created_at DESC LIMIT 1`,
+            entity.id,
+            entity.id,
+            entity.id,
+          )
+        : undefined;
+    summaries.push({
+      entity,
+      preview: blocks
+        .map((b) => str(b.content))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 160),
+      labels: labels.map((l) => ({ id: str(l.id), name: str(l.name), color: str(l.color) })),
+      refinedInto: linked ? { id: str(linked.id), title: str(linked.title) } : null,
+    });
+  }
+  return summaries;
+}

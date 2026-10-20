@@ -13,6 +13,8 @@ export const keys = {
   views: (spaceId: string | null, module: string | null) =>
     ["local", "views", spaceId, module] as const,
   unrefinedJots: ["local", "unrefined-jots"] as const,
+  pageSummaries: (spaceId: string | null, type: string) =>
+    ["local", "page-summaries", spaceId, type] as const,
   allLabels: ["local", "all-labels"] as const,
   taskLabels: (spaceId: string | null) => ["local", "task-labels", spaceId] as const,
   semesters: (spaceId: string | null) => ["local", "semesters", spaceId] as const,
