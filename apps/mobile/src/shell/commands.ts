@@ -7,7 +7,18 @@ export interface PaletteCommand {
   title: string;
   section: "Go to" | "Create" | "App";
   route?: string;
-  action?: "sync" | "toggleSidebar" | "toggleInspector" | "back" | "forward";
+  action?:
+    | "sync"
+    | "toggleSidebar"
+    | "toggleInspector"
+    | "back"
+    | "forward"
+    | "newTab"
+    | "closeTab"
+    | "nextTab"
+    | "previousTab"
+    | "splitRight"
+    | "closeSplit";
   /// Other words someone might type.
   keywords: string[];
   shortcut?: ShortcutId;
@@ -140,6 +151,37 @@ export const COMMANDS: PaletteCommand[] = [
     action: "forward",
     keywords: ["next"],
     shortcut: "forward",
+  },
+  {
+    id: "new-tab",
+    title: "New Tab",
+    section: "App",
+    action: "newTab",
+    keywords: ["open"],
+    shortcut: "newTab",
+  },
+  {
+    id: "close-tab",
+    title: "Close Tab",
+    section: "App",
+    action: "closeTab",
+    keywords: ["remove"],
+    shortcut: "closeTab",
+  },
+  {
+    id: "split-right",
+    title: "Split Right",
+    section: "App",
+    action: "splitRight",
+    keywords: ["beside", "side by side", "two pages"],
+    shortcut: "splitRight",
+  },
+  {
+    id: "close-split",
+    title: "Close Split View",
+    section: "App",
+    action: "closeSplit",
+    keywords: ["one page"],
   },
 ];
 

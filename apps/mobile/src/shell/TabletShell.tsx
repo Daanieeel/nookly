@@ -1,4 +1,5 @@
 import { usePathname } from "expo-router";
+import { useEffect } from "react";
 import { useWindowDimensions } from "react-native";
 import type { ReactNode } from "react";
 import { View } from "react-native";
@@ -13,7 +14,12 @@ import {
 import { Inspector } from "./inspector.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { ShortcutHost } from "./ShortcutHost.tsx";
+import { TabStrip } from "./TabStrip.tsx";
 import { Titlebar } from "./Titlebar.tsx";
+import { SplitPane } from "./SplitPane.tsx";
+import { SplitProvider } from "./split-context.ts";
+import { tabActions, useTabs } from "./tabs-store.ts";
+import { useTabCommands } from "./useTabCommands.ts";
 import { useShellActions } from "./actions.ts";
 import { history } from "./history.ts";
 import { useInspectorCollapsed, useSidebarCollapsed } from "./layout-prefs.ts";
@@ -30,10 +36,16 @@ export function TabletShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // The titlebar's back and forward read the history as it is for this page.
   history.visit(pathname);
+  const { tabs, active } = useTabs((s) => s.state);
+  const right = tabs.find((t) => t.id === active)?.right ?? null;
+  const tabCommands = useTabCommands();
+  // The tab that is open is on the page the router shows.
+  useEffect(() => tabActions.visit(pathname), [pathname]);
   // Details beside an open item, when the page keeps room to breathe.
   const openId = /^\/entity\/([^/]+)/.exec(pathname)?.[1];
   const pane = width - (collapsed ? 0 : SIDEBAR_WIDTH);
-  const inspectorShown = Boolean(openId) && !inspectorCollapsed && pane >= INSPECTOR_MIN_PANE;
+  const inspectorShown =
+    Boolean(openId) && !inspectorCollapsed && !right && pane >= INSPECTOR_MIN_PANE;
   return (
     <SidebarBesideProvider value={!collapsed}>
       <View className="flex-1 flex-row bg-background">
@@ -50,12 +62,20 @@ export function TabletShell({ children }: { children: ReactNode }) {
           }
         >
           <Titlebar onAction={onAction} sidebarCollapsed={collapsed} top={insets.top} />
-          <View className="flex-1 flex-row">
-            <View className="flex-1">
-              <InspectorShownProvider value={inspectorShown}>{children}</InspectorShownProvider>
+          <TabStrip />
+          <SplitProvider value={{ show: (path) => tabCommands.split(path) }}>
+            <View className="flex-1 flex-row">
+              <View className="flex-1">
+                <InspectorShownProvider value={inspectorShown}>{children}</InspectorShownProvider>
+              </View>
+              {inspectorShown && openId ? <Inspector id={openId} /> : null}
+              {right ? (
+                <View className="flex-1">
+                  <SplitPane path={right} onClose={() => tabCommands.split(null)} />
+                </View>
+              ) : null}
             </View>
-            {inspectorShown && openId ? <Inspector id={openId} /> : null}
-          </View>
+          </SplitProvider>
         </View>
       </View>
       <ShortcutHost onAction={onAction} />

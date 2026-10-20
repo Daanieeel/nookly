@@ -56,6 +56,7 @@ async function start(): Promise<AppData> {
       router,
       // The data functions, to set a scene from a script.
       data: await import("@nookly/shared/data"),
+      tabs: (await import("../shell/tabs-store.ts")).tabActions,
     });
   }
   return { db, sync, serverUrl: serverUrlStore, theme: themeStore, onboarded: onboardedStore };

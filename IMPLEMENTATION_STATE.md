@@ -192,7 +192,7 @@ iPad, desktop like (width 768 and up, bigger at 1000 and up):
 - [x] I3 shortcuts (Settings list still to do): the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
 - [x] I4 right inspector beside a page: Attachments, Mentioned, Mentioned in, Relationships (desktop's right sidebar)
 - [x] I5 dashboard as on the desktop: lists left, week calendar right; tasks board and calendar use the wide pane
-- [ ] I6 tabs, and split view of two pages
+- [x] I6 tabs (`shell/tabs.ts` pure, `tabs-store.ts` persisted, `TabStrip.tsx`) and split view (`SplitPane.tsx`: an item beside the page; More, Open Beside; Command Backslash; links inside the second pane open in the first). Shortcuts: Command T, W, Control Tab, Command Backslash. Dev bridge: `tabs.setRight(path)` in simulator scripts.
 - [ ] I7 Vim keys in the editor (per device setting, hardware keyboard)
 
 New asks from the user (2026-10-20), after the list above:

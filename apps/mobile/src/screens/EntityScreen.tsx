@@ -54,6 +54,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { DetailsDrawer, useDetails } from "../shell/DetailsDrawer.tsx";
+import { useSplit } from "../shell/split-context.ts";
 import { useInspectorShown } from "../ui/pane.tsx";
 import { LabelsProperty } from "./RelatedSection.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
@@ -92,6 +93,7 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
 function useEntityMenu(entity: EntityRecord): MenuItem[] {
   const router = useRouter();
   const details = useDetails();
+  const split = useSplit();
   const clipboard = useClipboard();
   const signedIn = useSyncState((s) => s.user !== null);
   const shareable =
@@ -115,6 +117,9 @@ function useEntityMenu(entity: EntityRecord): MenuItem[] {
   }
   const items: MenuItem[] = [];
   if (details) items.push({ label: "Show Details", onPress: () => details.show() });
+  if (split) {
+    items.push({ label: "Open Beside", onPress: () => split.show(`/entity/${entity.id}`) });
+  }
   if (signedIn && shareable) {
     items.push({ label: "Share", onPress: () => router.push(`/new/share?entityId=${entity.id}`) });
   }
@@ -310,7 +315,7 @@ function TaskDetail({
 /// One entity, as its own type shows it. Every type gets its title, Space, key and the
 /// "more" menu (pin, move, trash and so on); tasks, pages, bookmarks and calendar entries
 /// also their own fields.
-export function EntityScreen({ id }: { id: string }) {
+export function EntityScreen({ id, embedded = false }: { id: string; embedded?: boolean }) {
   const { db } = useAppData();
   const { data: entity, isLoading } = useEntity(id);
   // Beside the page on a wide iPad; else behind it, a swipe away.
@@ -327,15 +332,15 @@ export function EntityScreen({ id }: { id: string }) {
     );
   }
   return inspector ? (
-    <OpenEntity entity={entity} />
+    <OpenEntity entity={entity} embedded={embedded} />
   ) : (
     <DetailsDrawer id={entity.id} labels={entity.type !== "task" && entity.type !== "sub_task"}>
-      <OpenEntity entity={entity} />
+      <OpenEntity entity={entity} embedded={embedded} />
     </DetailsDrawer>
   );
 }
 
-function OpenEntity({ entity }: { entity: EntityRecord }) {
+function OpenEntity({ entity, embedded }: { entity: EntityRecord; embedded: boolean }) {
   const id = entity.id;
   const { data: spaces = [] } = useSpaces();
   const readOnly = useReadOnly(entity);
@@ -353,7 +358,7 @@ function OpenEntity({ entity }: { entity: EntityRecord }) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1"
     >
-      <Stack.Screen options={{ title: "" }} />
+      {embedded ? null : <Stack.Screen options={{ title: "" }} />}
       <Screen>
         <View className="gap-2">
           <View className="flex-row flex-wrap items-center gap-2">

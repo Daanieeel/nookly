@@ -44,7 +44,14 @@ export function ShortcutHost({
         case "toggleInspector":
         case "back":
         case "forward":
+        case "newTab":
+        case "closeTab":
+        case "splitRight":
           return onAction(id);
+        case "nextTab":
+          return onAction("nextTab");
+        case "previousTab":
+          return onAction("previousTab");
       }
     };
     const stop = keys.onShortcut((id) => {

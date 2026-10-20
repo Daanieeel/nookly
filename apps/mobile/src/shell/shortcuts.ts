@@ -13,11 +13,16 @@ export type ShortcutId =
   | "toggleSidebar"
   | "toggleInspector"
   | "back"
-  | "forward";
+  | "forward"
+  | "newTab"
+  | "closeTab"
+  | "nextTab"
+  | "previousTab"
+  | "splitRight";
 
 export interface Shortcut extends KeyShortcut {
   id: ShortcutId;
-  section: "Navigation" | "Create";
+  section: "Navigation" | "Tabs" | "Create";
 }
 
 export const SHORTCUTS: Shortcut[] = [
@@ -47,6 +52,17 @@ export const SHORTCUTS: Shortcut[] = [
   },
   { id: "back", key: "[", modifiers: ["command"], title: "Go Back", section: "Navigation" },
   { id: "forward", key: "]", modifiers: ["command"], title: "Go Forward", section: "Navigation" },
+  { id: "newTab", key: "t", modifiers: ["command"], title: "New Tab", section: "Tabs" },
+  { id: "closeTab", key: "w", modifiers: ["command"], title: "Close Tab", section: "Tabs" },
+  { id: "nextTab", key: "\t", modifiers: ["control"], title: "Next Tab", section: "Tabs" },
+  {
+    id: "previousTab",
+    key: "\t",
+    modifiers: ["control", "shift"],
+    title: "Previous Tab",
+    section: "Tabs",
+  },
+  { id: "splitRight", key: "\\", modifiers: ["command"], title: "Split Right", section: "Tabs" },
   { id: "quickJot", key: "j", modifiers: ["command"], title: "Quick Jot", section: "Create" },
   { id: "newItem", key: "n", modifiers: ["command"], title: "New Item", section: "Create" },
 ];
