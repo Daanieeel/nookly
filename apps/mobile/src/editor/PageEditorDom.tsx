@@ -2,6 +2,8 @@
 /// <reference lib="dom" />
 
 import { highlightCss } from "@nookly/shared/highlight";
+import type { ParsedMacros } from "@nookly/shared/latex";
+import { inlineMathView, mathBlockView } from "./math-views.ts";
 import {
   undo as yUndo,
   redo as yRedo,
@@ -15,6 +17,7 @@ import { baseKeymap } from "prosemirror-commands";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { keymap } from "prosemirror-keymap";
+import type { Node as ProseNode } from "prosemirror-model";
 import { type Command, EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { type Ref, useEffect, useRef, useState } from "react";
@@ -80,6 +83,8 @@ interface Props {
   editable: boolean;
   person: { name: string; color: string };
   colors: EditorColors;
+  /// The person's own LaTeX commands from Settings.
+  macros: ParsedMacros["macros"];
   placeholder: string;
   /// The web view has started: the phone answers with the document so far.
   onReady: () => Promise<void>;
@@ -139,6 +144,12 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .pm code { font: .9em ui-monospace, Menlo, monospace; background: color-mix(in srgb, var(--fg) 8%, transparent); padding: .1em .3em; border-radius: 4px; }
 .pm pre code { background: none; padding: 0; }
 .pm a { color: var(--primary); }
+.pm .math { padding: 0 .15em; }
+.pm .math math { font-size: 1.05em; }
+.pm .math-empty, .pm .math-error { color: var(--muted); font: .9em ui-monospace, Menlo, monospace; }
+.pm .mathblock .source { margin-bottom: .2em; font-size: 13px; opacity: .75; }
+.pm .mathblock .rendered { padding: .2em 0 .6em; overflow-x: auto; text-align: center; }
+.pm .mathblock .rendered:empty { display: none; }
 .pm hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
 .pm table { border-collapse: collapse; margin: 0 0 .6em; width: 100%; }
 .pm td, .pm th { border: 1px solid var(--border); padding: .35em .5em; vertical-align: top; }
@@ -162,6 +173,7 @@ export default function PageEditorDom({
   editable,
   person,
   colors,
+  macros,
   placeholder,
   onReady,
   onUpdate,
@@ -294,8 +306,32 @@ export default function PageEditorDom({
           gapCursor(),
         ],
       }),
+      nodeViews: {
+        inlineMath: inlineMathView(() => macrosRef.current),
+        math: mathBlockView(() => macrosRef.current),
+        equation: mathBlockView(() => macrosRef.current),
+      },
       attributes: { class: "pm", "data-placeholder": placeholder, spellcheck: "true" },
       editable: () => editableRef.current,
+      // A tap on a formula in the text opens its source to change.
+      handleClickOn(
+        _view: EditorView,
+        _pos: number,
+        node: ProseNode,
+        nodePos: number,
+        event: MouseEvent,
+      ) {
+        if (node.type.name !== "inlineMath" || !editableRef.current) return false;
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        const box = target?.closest(".math")?.getBoundingClientRect();
+        setMathEdit({
+          pos: nodePos,
+          latex: String(node.attrs.latex ?? ""),
+          top: (box?.bottom ?? event.clientY) + 6,
+          left: Math.max(8, (box?.left ?? event.clientX) - 8),
+        });
+        return true;
+      },
       handleClick(e: EditorView, pos: number, event: MouseEvent) {
         const target = event.target instanceof HTMLElement ? event.target : null;
         const link = target?.closest("a");
@@ -386,6 +422,15 @@ export default function PageEditorDom({
   }, []);
 
   const editableRef = useRef(editable);
+  const macrosRef = useRef(macros);
+  macrosRef.current = macros;
+  /// The formula being edited: where it is in the page, its source, and where it sits.
+  const [mathEdit, setMathEdit] = useState<{
+    pos: number;
+    latex: string;
+    top: number;
+    left: number;
+  } | null>(null);
   editableRef.current = editable;
   useEffect(() => {
     view.current?.setProps({ editable: () => editable });
@@ -405,6 +450,40 @@ export default function PageEditorDom({
       <style>{CSS}</style>
       <style>{highlightCss(".pm", colors.dark)}</style>
       <div ref={host} />
+      {mathEdit ? (
+        <form
+          className="menu"
+          aria-label="Formula"
+          style={{ left: mathEdit.left, top: mathEdit.top, width: 280 }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const editor = view.current;
+            if (editor) {
+              editor.dispatch(
+                editor.state.tr.setNodeMarkup(mathEdit.pos, undefined, { latex: mathEdit.latex }),
+              );
+              editor.focus();
+            }
+            setMathEdit(null);
+          }}
+        >
+          <input
+            aria-label="LaTeX"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            value={mathEdit.latex}
+            onChange={(event) => setMathEdit({ ...mathEdit, latex: event.target.value })}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              font: "15px ui-monospace, Menlo, monospace",
+            }}
+          />
+        </form>
+      ) : null}
       {menu ? (
         <div
           className="menu"

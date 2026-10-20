@@ -1,5 +1,5 @@
 import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
 import { applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
@@ -9,6 +9,7 @@ import { Linking } from "react-native";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { automationDevice } from "../dev/device.ts";
 import { deviceName } from "../data/sync.ts";
+import { parseLatexMacros } from "@nookly/shared/latex";
 import { useSetting } from "../data/settings.ts";
 import { useReveal } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -30,6 +31,8 @@ export function LivePage({ session, editable }: { session: PageSession; editable
   const ready = useRef(false);
   const user = useSyncState((s) => s.user);
   const [displayName] = useSetting("general.displayName");
+  const [macroText] = useSetting("notes.latexMacros");
+  const macros = useMemo(() => parseLatexMacros(macroText).macros, [macroText]);
   const name = presenceName(displayName.trim() || user?.username || "Someone", deviceName());
   const person = { name, color: caretColor(user?.id ?? name) };
   const toolbar = useToolbar();
@@ -138,6 +141,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
         dom={{ matchContents: true, useExpoDOMWebView: true, scrollEnabled: false }}
         editable={editable}
         person={person}
+        macros={macros}
         placeholder="Write something"
         colors={{
           foreground: theme.colors.foreground,

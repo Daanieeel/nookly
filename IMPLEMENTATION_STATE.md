@@ -204,6 +204,11 @@ New asks from the user (2026-10-20), after the list above:
 - [ ] L3 sidebar rows reported by the user as only reacting when the text is hit exactly: the rows measure full width (304 by 40) so this could not be reproduced without real touches; ask which device and where (phone drawer or iPad).
 - Dev bridge: `measure(label)` and `data` (the shared data functions) are available to simulator scripts; `tools/e2e/mobile.ts run phone "<script>"`. ada's phone data now has seeded calendar entries this week (throwaway).
 
+User feedback 2026-10-20 (late), to do next, in this order:
+
+- [ ] F1 Corner radius in the wrong place on item pages (assignment page screenshot): the details drawer rounds the page below the native header, so black shows above the rounded corners. The whole screen, header included, has to slide and be rounded like the left sidebar's page: hide the native header on item pages and draw our own top bar (back, key, More) inside the drawer's page.
+- [ ] F2 Main content versus details, for every item type (notes, jots, tasks, sub tasks, semesters, exams, assignments, courses, sessions, study blocks, decks, recipes, bookmarks, files, calendar entries): the main container holds only what is in the middle of the desktop's page (title, the page or description editor, sub tasks, the item's own lists: a deck's cards, a course's exams and assignments, a semester's courses, a study session's actions). Every property and setting (the property card, labels, links, status, dates, course, room, grade ...) goes in the details sidebar: the right drawer on a phone, the inspector beside the page on a wide iPad, and the details of a split pane. Do it by giving each detail component a `Main` and a `Details` part. Descriptions: tasks, sub tasks, exams and assignments get the description editor in the main part (rows editor; only note and jot pages try the live document). Update the tests.
+
 Parity gaps (phone and iPad):
 
 - [x] P1 copy link (menu item; `ui/clipboard.tsx` seam; pastes as a mention like the desktop)
