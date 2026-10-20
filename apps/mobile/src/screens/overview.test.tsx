@@ -15,6 +15,7 @@ import { renderScreens, testData } from "../test/render.tsx";
 import { readPreference } from "../data/preferences.ts";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
+import { EntityScreen } from "./EntityScreen.tsx";
 import { QuickJotScreen } from "./QuickJot.tsx";
 import { SidebarSettingsScreen } from "./settings/SidebarSettings.tsx";
 import { DEFAULT_TOP, topSchema } from "./sidebar-top.ts";
@@ -31,15 +32,24 @@ describe("the dashboard", () => {
       { index: () => <DashboardScreen />, "entity/[id]": () => <Text>Opened</Text> },
       data,
     );
-    expect(
-      await screen.findByText(/Today you have 1 task due\. Also 1 overdue and 1 jot to refine\./),
-    ).toBeTruthy();
-    expect(screen.getByText("Jots to refine")).toBeTruthy();
-    // The row and its button are both buttons; the button is the inner one.
-    const buttons = screen.getAllByRole("button", { name: "Refine" });
-    await fireEvent.press(buttons[buttons.length - 1]);
-    await waitFor(async () => expect(await listUnrefinedJots(data.db)).toEqual([]));
+    expect(await screen.findByRole("button", { name: "Idea for the app" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "To be refined 1" })).toBeTruthy();
+    // The sentence says what the day holds, with the counts as links.
+    expect((await screen.findAllByRole("link", { name: /1 overdue/ })).length).toBeGreaterThan(0);
     expect(jot).toBeTruthy();
+  });
+
+  it("refines a jot into a note from the jot's details", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const jot = await createPage(data.db, space, "jot", "Idea for the app");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={jot} /> },
+      data,
+      `/entity/${jot}`,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Refine into New Note" }));
+    await waitFor(async () => expect(await listUnrefinedJots(data.db)).toEqual([]));
   });
 
   it("lists assignments that are due soon and decks with cards to study", async () => {
@@ -49,8 +59,8 @@ describe("the dashboard", () => {
     await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
     await createDeck(data.db, space, "Graph terms");
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
-    expect(await screen.findByRole("button", { name: /^Sheet 3, Due / })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "All Assignments" })).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("radio", { name: "Next 7 days 1" }));
+    expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
   });
 });
 

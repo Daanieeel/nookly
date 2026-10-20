@@ -110,7 +110,7 @@ describe("the Dashboard", () => {
     await createTask(data.db, space, "Due today", localDay());
     await createTask(data.db, space, "Some day");
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
-    expect(await screen.findByText("Due today")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Due today" })).toBeTruthy();
     expect(screen.queryByText("Some day")).toBeNull();
     expect(screen.getByText("Nothing on the calendar today.")).toBeTruthy();
   });

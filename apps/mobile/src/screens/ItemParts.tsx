@@ -1,4 +1,8 @@
 import type { EntityRecord } from "@nookly/shared/data";
+import { refineJot } from "@nookly/shared/data";
+import { useRouter } from "expo-router";
+import { useLocalWrite } from "../data/context.tsx";
+import { Button, statusOf } from "../ui/Button.tsx";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { BookmarkDetail } from "./BookmarkDetail.tsx";
 import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
@@ -19,11 +23,19 @@ export function ItemParts({ entity, readOnly }: { entity: EntityRecord; readOnly
     case "sub_task":
       return <TaskItem id={id} readOnly={readOnly} sub={entity.type === "sub_task"} />;
     case "note":
-    case "jot":
       return (
         <MainPart>
           <PageEditor entityId={id} readOnly={readOnly} />
         </MainPart>
+      );
+    case "jot":
+      return (
+        <>
+          <MainPart>
+            <PageEditor entityId={id} readOnly={readOnly} />
+          </MainPart>
+          <DetailsPart>{readOnly ? null : <RefineButton id={id} />}</DetailsPart>
+        </>
       );
     case "file":
       return <FileDetail id={id} />;
@@ -55,4 +67,21 @@ export function ItemParts({ entity, readOnly }: { entity: EntityRecord; readOnly
         </>
       );
   }
+}
+
+/// A jot is refined into a new note, linked to it; the jot stays as it is.
+function RefineButton({ id }: { id: string }) {
+  const router = useRouter();
+  const refine = useLocalWrite((db, _: undefined) => refineJot(db, id));
+  return (
+    <Button
+      label="Refine into New Note"
+      variant="secondary"
+      status={statusOf(refine)}
+      errorLabel="Couldn't refine it"
+      onPress={() =>
+        refine.mutate(undefined, { onSuccess: (note) => router.push(`/entity/${note}`) })
+      }
+    />
+  );
 }

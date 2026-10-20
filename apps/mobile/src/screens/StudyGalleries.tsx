@@ -303,7 +303,7 @@ function TimelineNode({
 
 /// A deck as a tile: its cards, its name, the figures that matter and a play button with
 /// what is waiting.
-function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: string }) {
+export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: string }) {
   const router = useRouter();
   const theme = useTheme();
   const waiting = deck.stats.due + deck.stats.learning + deck.stats.new;
