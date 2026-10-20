@@ -20,8 +20,9 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { Sidebar } from "../screens/Sidebar.tsx";
-import { SIDEBAR_WIDTH, SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
+import { TabletShell } from "../shell/TabletShell.tsx";
+
+import { SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { type AppData, AppDataProvider, useAppData } from "../data/context.tsx";
 import { openLocalDb } from "../data/database.ts";
@@ -314,20 +315,11 @@ export default function RootLayout() {
           <ThemeProvider value={navigation}>
             <StatusBar style="auto" />
             <FirstRun />
-            <SidebarBesideProvider value={beside}>
-              {beside ? (
-                <View className="flex-1 flex-row bg-background">
-                  <View style={{ width: SIDEBAR_WIDTH }}>
-                    <Sidebar close={() => {}} />
-                  </View>
-                  <View className="flex-1 overflow-hidden rounded-l-2xl border-l border-border">
-                    {stack}
-                  </View>
-                </View>
-              ) : (
-                stack
-              )}
-            </SidebarBesideProvider>
+            {beside ? (
+              <TabletShell>{stack}</TabletShell>
+            ) : (
+              <SidebarBesideProvider value={false}>{stack}</SidebarBesideProvider>
+            )}
           </ThemeProvider>
         </AppDataProvider>
       </QueryClientProvider>
