@@ -167,6 +167,8 @@ History of earlier sessions (compact): phases 1 to 6 done and verified as descri
 
 The user asked: "go for full implementation on mobile and make sure we are responsive for ipad. ipad should feel more like the desktop version". So every ⚠️ and ❌ left in the last column of `GAP_ANALYSIS.md` is now work, unless it is physically impossible on a phone (then say why in the gap file). The iPad layout moves toward the desktop: persistent sidebar (done), right inspector pane, back and forward, tabs or split view, command palette and shortcuts on a hardware keyboard, denser multi pane screens (dashboard with the week beside it, board view). Work list and progress are in section 8b; update it with every commit.
 
+`PAGES.md` (repository root) describes every desktop page, what is on it and where, with a mobile hint per page. It is the source of truth for what the phone and tablet show on each page; the user found the mobile pages did not resemble the desktop, so build and check screens against it.
+
 ## 8. What is left, in order
 
 See section 7 for the order and 8b for the list. In addition, from the first brief: the final `REPORT.md` refresh (untracked), the optional polish (unify the conflict count in the sidebar and Settings with the merge editor's list; mobile lint warnings; the report only checks `bun run coverage`, `unused`, `audit`, `lint:rust:strict`), and stopping what is running.
