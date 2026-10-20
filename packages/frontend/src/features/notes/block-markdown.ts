@@ -1,5 +1,6 @@
 import type { BlockAttrs, Block, BlockType } from "#/lib/api/types.ts";
 import { HIGHLIGHT_COLOR_PATTERN, parseHighlightColor } from "./highlight-colors";
+import { parseTextColor, TEXT_COLOR_PATTERN } from "./text-colors";
 import { ATOM_BLOCK_ATTRS, isAtomBlockType } from "./custom-block-rows";
 
 /// The only attribute value shapes this module ever reads or writes (`blockId`
@@ -66,6 +67,7 @@ export function asNumber(value: JSONAttrValue | undefined): number | undefined {
 /// formula that is clearly TeX (a `\`, `^`, `_` or brace in it) may have a digit right after,
 /// since "$5-$10" has none of those. `\$` inside a formula is a dollar sign. A
 /// highlight is `==text==` with no space just inside either pair, so "a == b" stays text.
+/// Coloured text is `{red}text{/}`, only for the colours in `text-colors.ts`.
 const MATH_BODY = String.raw`(?:\\\$|[^\s$])(?:(?:\\\$|[^$\n])*?(?:\\\$|[^\s$\\]))?`;
 
 const INLINE_PATTERN = new RegExp(
@@ -78,6 +80,7 @@ const INLINE_PATTERN = new RegExp(
     String.raw`\*\*(.+?)\*\*`,
     // A highlight, with an optional colour: `=={green}text==`.
     String.raw`==(?:\{(${HIGHLIGHT_COLOR_PATTERN})\})?(?!\s)(.+?)(?<!\s)==`,
+    String.raw`\{(${TEXT_COLOR_PATTERN})\}(.+?)\{\/\}`,
     "`([^`]+)`",
     String.raw`\*([^*]+)\*`,
   ].join("|"),
@@ -123,6 +126,8 @@ export function decodeInline(text: string): JSONNode[] {
       boldText,
       highlightColor,
       highlightText,
+      textColor,
+      coloredText,
       codeText,
       italicText,
     ] = match;
@@ -144,6 +149,13 @@ export function decodeInline(text: string): JSONNode[] {
           decodeInline(highlightText),
           color ? { type: "highlight", attrs: { color } } : { type: "highlight" },
         ),
+      );
+    } else if (coloredText !== undefined) {
+      nodes.push(
+        ...withMarks(decodeInline(coloredText), {
+          type: "textColor",
+          attrs: { color: parseTextColor(textColor) },
+        }),
       );
     } else if (codeText !== undefined) {
       nodes.push({ type: "text", text: codeText, marks: [{ type: "code" }] });
@@ -177,6 +189,21 @@ function encodeHighlight(run: JSONNode[]): string {
   return body ? `${before}==${color ? `{${color}}` : ""}${body}==${after}` : inner;
 }
 
+/// The colour a node's text has, null for none.
+function textColorOf(node: JSONNode | undefined): string | null {
+  const mark = node?.marks?.find((m) => m.type === "textColor");
+  return parseTextColor(asString(mark?.attrs?.color));
+}
+
+/// A run of nodes that all have one text colour, written once as `{red}…{/}`.
+function encodeTextColor(run: JSONNode[]): string {
+  const inner = encodeInline(
+    run.map((node) => ({ ...node, marks: node.marks?.filter((m) => m.type !== "textColor") })),
+  );
+  const color = textColorOf(run[0]);
+  return inner && color ? `{${color}}${inner}{/}` : inner;
+}
+
 /// A formula as `$…$`, written so reading it back gives the same formula: line breaks and
 /// the spaces around it go (a space just inside a dollar is not math), an empty one is
 /// dropped, and one that a digit follows and that would then read as text ends in `{}`,
@@ -195,6 +222,13 @@ export function encodeInline(nodes: JSONNode[] = []): string {
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
     if (!node) continue;
+    if (textColorOf(node)) {
+      let end = i;
+      while (textColorOf(nodes[end + 1]) === textColorOf(node)) end++;
+      parts.push(encodeTextColor(nodes.slice(i, end + 1)));
+      i = end;
+      continue;
+    }
     if (hasMark(node, "highlight")) {
       let end = i;
       while (

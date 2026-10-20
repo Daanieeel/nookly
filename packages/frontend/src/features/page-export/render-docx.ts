@@ -34,6 +34,7 @@ import {
   FONTS,
   HEADING_SCALE,
   HIGHLIGHT_FILLS,
+  TEXT_COLOR_FILLS,
   INLINE_MATH_EM_PX,
   PX_TO_PT,
   TITLE_SCALE,
@@ -102,6 +103,7 @@ export function docxDocument(doc: ExportDocument, options: PageExportOptions): D
         ...(run.highlight && {
           shading: { type: ShadingType.CLEAR, fill: HIGHLIGHT_FILLS[run.highlight], color: "auto" },
         }),
+        ...(run.color && { color: TEXT_COLOR_FILLS[run.color] }),
         ...(run.muted && { color: COLORS.muted }),
       };
       if (!run.link) return textRuns(run.text, style);

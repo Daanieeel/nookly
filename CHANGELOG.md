@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.40.0 (2026-10-20)
+
+### Added
+
+- **Colored text in Notes and Jots.** Select text and pick Red, Orange, Yellow, Green, Blue, Purple, Pink or Gray from the color bar that appears below it, or remove the color again. Colors work together with bold, italic, highlights and links, and come along into PDF, Word and OpenDocument exports. Markdown files leave them out.
+
 ## 0.39.3 (2026-10-20)
 
 ### Changed

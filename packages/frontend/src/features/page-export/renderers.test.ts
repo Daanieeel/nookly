@@ -27,6 +27,7 @@ const doc: ExportDocument = {
         { kind: "text", text: "chapter 4", bold: true },
         { kind: "text", text: " at ", italic: true },
         { kind: "text", text: "the site", link: "https://x.dev" },
+        { kind: "text", text: "in red", color: "red" },
       ],
     },
     {
@@ -75,6 +76,12 @@ describe("pdfDefinition", () => {
     expect(withTitle.info?.title).toBe("Physics & waves");
   });
 
+  it("colours text", () => {
+    expect(JSON.stringify(pdfDefinition(doc, options()).content)).toContain(
+      '"text":"in red","color":"#DC2626"',
+    );
+  });
+
   it("sizes and turns the page", () => {
     expect(pdfDefinition(doc, options({ pageSize: "a4" })).pageSize).toEqual({
       width: 595.28,
@@ -113,6 +120,10 @@ describe("docxDocument", () => {
     expect(xml).toContain("flowchart LR");
   });
 
+  it("colours text", async () => {
+    expect(await docxXml(doc, options())).toMatch(/<w:color w:val="DC2626"\/>.*in red/s);
+  });
+
   it("leaves the title out when asked", async () => {
     const xml = await docxXml(doc, options({ includeTitle: false }));
     expect(xml).not.toContain('w:val="Title"');
@@ -142,6 +153,10 @@ describe("odtFiles", () => {
     expect(content).toContain("<table:table-header-rows>");
     expect(content).toContain("Pictures/image1.png");
     expect(content).toContain("flowchart LR");
+  });
+
+  it("colours text", () => {
+    expect(odtFiles(doc, options()).content).toContain('fo:color="#DC2626"');
   });
 
   it("keeps code indentation and line breaks", () => {

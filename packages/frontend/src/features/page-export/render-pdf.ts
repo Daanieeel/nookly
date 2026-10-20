@@ -23,6 +23,7 @@ import {
   COLORS,
   HEADING_SCALE,
   HIGHLIGHT_FILLS,
+  TEXT_COLOR_FILLS,
   TITLE_SCALE,
   fitImage,
 } from "./print-style.ts";
@@ -106,6 +107,7 @@ export function pdfDefinition(
           background: hex(COLORS.codeFill),
         }),
         ...(run.highlight && { background: hex(HIGHLIGHT_FILLS[run.highlight]) }),
+        ...(run.color && { color: hex(TEXT_COLOR_FILLS[run.color]) }),
         ...(run.link && { link: run.link, color: hex(COLORS.link) }),
         ...(run.muted && { color: hex(COLORS.muted) }),
       };

@@ -36,6 +36,7 @@ import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
 import { openLink } from "./open-link";
 import { HighlightColorBar } from "./HighlightColorBar";
+import { TextColorBar } from "./TextColorBar";
 import { TableControls } from "./TableControls";
 import { VimIndicator } from "./VimIndicator";
 import { FindBar, selectedSearchText } from "./FindBar";
@@ -585,6 +586,7 @@ function HydratedBlockEditor({
       <TableColumnHandles editor={editor} />
       <BlockHandles editor={editor} />
       <HighlightColorBar editor={editor} />
+      <TextColorBar editor={editor} />
       {!compact && (
         <FindBar
           editor={editor}

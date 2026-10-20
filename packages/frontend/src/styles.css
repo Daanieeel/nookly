@@ -716,6 +716,56 @@
   :is(.dark) .tiptap-content mark[data-color="purple"] {
     --mark-bg: color-mix(in oklab, #a78bfa 40%, transparent);
   }
+  /* Text color (`{red}text{/}`): a darker shade on the light page, a lighter one in dark mode,
+     so each keeps its contrast. The bar swatches are the light shades (`text-colors.ts`). */
+  .tiptap-content span[data-text-color="red"] {
+    color: #dc2626;
+  }
+  .tiptap-content span[data-text-color="orange"] {
+    color: #ea580c;
+  }
+  .tiptap-content span[data-text-color="yellow"] {
+    color: #ca8a04;
+  }
+  .tiptap-content span[data-text-color="green"] {
+    color: #16a34a;
+  }
+  .tiptap-content span[data-text-color="blue"] {
+    color: #2563eb;
+  }
+  .tiptap-content span[data-text-color="purple"] {
+    color: #9333ea;
+  }
+  .tiptap-content span[data-text-color="pink"] {
+    color: #db2777;
+  }
+  .tiptap-content span[data-text-color="gray"] {
+    color: #6b7280;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="red"] {
+    color: #f87171;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="orange"] {
+    color: #fb923c;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="yellow"] {
+    color: #facc15;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="green"] {
+    color: #4ade80;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="blue"] {
+    color: #60a5fa;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="purple"] {
+    color: #a78bfa;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="pink"] {
+    color: #f472b6;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="gray"] {
+    color: #9ca3af;
+  }
   /* Where the caret is after stepping out of a highlight or inline code
      (`inline-mark-cleanup.ts`): a small gap with a caret of our own on its outer edge, while the
      real caret is hidden. */

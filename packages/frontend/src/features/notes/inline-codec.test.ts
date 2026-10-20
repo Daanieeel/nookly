@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeInline, encodeInline, type JSONNode } from "./block-markdown";
+import { TEXT_COLORS } from "./text-colors";
 
 const text = (value: string, ...marks: string[]): JSONNode => ({
   type: "text",
@@ -133,6 +134,65 @@ describe("highlight colours", () => {
 
   it("keeps the colour next to bold and inline math", () => {
     expect(roundTrip("=={blue}**b** and $x$==")).toBe("=={blue}**b** and $x$==");
+  });
+});
+
+// A text colour lives in the stored page only: `{red}text{/}`. Markdown export drops it (see
+// `block_to_markdown` in `notes.rs`).
+describe("text colours", () => {
+  const colored = (value: string, color: string, ...marks: string[]): JSONNode => ({
+    type: "text",
+    text: value,
+    marks: [...marks.map((type) => ({ type })), { type: "textColor", attrs: { color } }],
+  });
+
+  it("reads {color}text{/} as coloured text", () => {
+    expect(decodeInline("a {red}b{/} c")).toEqual([text("a "), colored("b", "red"), text(" c")]);
+  });
+
+  it("writes coloured text with its colour", () => {
+    expect(encodeInline([text("a "), colored("b", "green"), text(" c")])).toBe("a {green}b{/} c");
+  });
+
+  it("keeps every colour through a save and reload", () => {
+    for (const color of TEXT_COLORS.map((c) => c.id)) {
+      const markdown = `x {${color}}coloured text{/} y`;
+      expect(roundTrip(markdown)).toBe(markdown);
+    }
+  });
+
+  it("joins neighbours of one colour and starts a new run where the colour changes", () => {
+    const nodes = [colored("a", "red"), colored("b", "blue"), colored("c", "blue")];
+    expect(encodeInline(nodes)).toBe("{red}a{/}{blue}bc{/}");
+    expect(decodeInline("{red}a{/}{blue}bc{/}")).toEqual([
+      colored("a", "red"),
+      colored("bc", "blue"),
+    ]);
+  });
+
+  it("works with bold, italic, code, links, math and highlights", () => {
+    for (const markdown of [
+      "{red}**b** and *i*{/}",
+      "{red}a `c` b{/}",
+      "{red}[docs](https://x.dev){/}",
+      "{red}see $x^2$ now{/}",
+      "{red}==marked== text{/}",
+      "==marked {red}text{/} here==",
+      "{blue}=={green}both=={/}",
+    ]) {
+      expect(roundTrip(markdown)).toBe(markdown);
+    }
+    expect(decodeInline("{red}**b**{/}")).toEqual([colored("b", "red", "bold")]);
+  });
+
+  it("reads an unknown colour as plain text", () => {
+    expect(decodeInline("{chartreuse}b{/}")).toEqual([text("{chartreuse}b{/}")]);
+    expect(decodeInline("{red}b")).toEqual([text("{red}b")]);
+  });
+
+  it("leaves braces in code and math alone", () => {
+    expect(roundTrip("`{red}a{/}`")).toBe("`{red}a{/}`");
+    expect(decodeInline("$a{red}b{/}$")).toEqual([math("a{red}b{/}")]);
   });
 });
 

@@ -696,15 +696,21 @@ fn list_to_markdown(block: &Block, bullet: Option<&str>) -> String {
         .join("\n")
 }
 
-/// Block types whose content is not prose, so `=={green}` in it is just text.
+/// Block types whose content is not prose, so `=={green}` or `{red}x{/}` in it is just text.
 const LITERAL_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "circuit"];
 
-/// A highlight's colour (`=={green}text==`) is kept in the page only; a markdown export has
-/// the plain `==text==`.
-fn strip_highlight_colors(markdown: String) -> String {
-    static COLOR: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-    let color = COLOR.get_or_init(|| regex::Regex::new(r"==\{[a-z]+\}").unwrap());
-    color.replace_all(&markdown, "==").into_owned()
+/// A highlight's colour (`=={green}text==`) and a text colour (`{red}text{/}`) are kept in the
+/// page only; a markdown export has the plain `==text==` and the plain text.
+fn strip_inline_colors(markdown: String) -> String {
+    static HIGHLIGHT: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    static TEXT: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let highlight = HIGHLIGHT.get_or_init(|| regex::Regex::new(r"==\{[a-z]+\}").unwrap());
+    let text = TEXT.get_or_init(|| {
+        regex::Regex::new(r"\{(?:red|orange|yellow|green|blue|purple|pink|gray)\}(.+?)\{/\}")
+            .unwrap()
+    });
+    let markdown = highlight.replace_all(&markdown, "==");
+    text.replace_all(&markdown, "$1").into_owned()
 }
 
 pub fn block_to_markdown(block: &Block) -> String {
@@ -712,7 +718,7 @@ pub fn block_to_markdown(block: &Block) -> String {
     if LITERAL_BLOCK_TYPES.contains(&block.block_type.as_str()) {
         markdown
     } else {
-        strip_highlight_colors(markdown)
+        strip_inline_colors(markdown)
     }
 }
 
@@ -1134,6 +1140,36 @@ mod tests {
             block_to_markdown(&block("math", "a =={b}")),
             "$$\na =={b}\n$$"
         );
+    }
+
+    #[test]
+    fn a_text_colour_is_left_out_of_the_markdown_export() {
+        let block = |block_type: &str, content: &str| Block {
+            id: "b".into(),
+            entity_id: "e".into(),
+            position: 0,
+            block_type: block_type.into(),
+            content: content.into(),
+            language: None,
+            filename: None,
+            attrs: BlockAttrs::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        assert_eq!(
+            block_to_markdown(&block("paragraph", "a {red}b **c**{/} d {blue}e{/}")),
+            "a b **c** d e"
+        );
+        assert_eq!(
+            block_to_markdown(&block("bulleted_list", "{green}one{/}\ntwo")),
+            "- one\n- two"
+        );
+        // Not a colour this version knows, and code is text.
+        assert_eq!(
+            block_to_markdown(&block("paragraph", "{chartreuse}x{/}")),
+            "{chartreuse}x{/}"
+        );
+        assert!(block_to_markdown(&block("code", "{red}x{/}")).contains("{red}x{/}"));
     }
 
     #[test]

@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.40.0",
+      "date": "2026-10-20",
+      "highlights": [
+        {
+          "title": "Colored text",
+          "description": "Select text in a Note or Jot and pick a color from the bar below it.",
+          "icon": "palette",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.39.3",
       "date": "2026-10-20",
       "highlights": [],
