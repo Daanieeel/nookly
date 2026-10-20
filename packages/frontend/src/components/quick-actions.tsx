@@ -625,8 +625,8 @@ export function QuickActions({
     {
       id: "open-settings-file",
       category: "settings",
-      words: "Open Settings File settings json config edit",
-      node: simpleItem("open-settings-file", IconFileCode, "Open Settings File", () => {
+      words: "Show Settings File open settings json config edit",
+      node: simpleItem("open-settings-file", IconFileCode, "Show Settings File", () => {
         onDone();
         // The palette is gone by the time this can fail, so a toast is all that is left.
         openSettingsFile().catch(() =>

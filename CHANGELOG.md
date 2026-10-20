@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.39.1 (2026-10-20)
+
+### Changed
+
+- **Show settings file.** The button and command that open your settings file are now called Show settings file.
+
 ## 0.39.0 (2026-10-19)
 
 ### Added

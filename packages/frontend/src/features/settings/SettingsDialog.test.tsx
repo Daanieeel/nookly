@@ -368,7 +368,7 @@ describe("opening the settings file", () => {
   it("opens it from the button in the dialog", async () => {
     mockCommand("open_settings_file", null);
     const { user } = renderOpen();
-    await user.click(await screen.findByRole("button", { name: "Open settings file" }));
+    await user.click(await screen.findByRole("button", { name: "Show settings file" }));
     await waitFor(() => expect(callsOf("open_settings_file")).toHaveLength(1));
   });
 
@@ -377,7 +377,7 @@ describe("opening the settings file", () => {
       throw new Error("no app to open it");
     });
     const { user } = renderOpen();
-    await user.click(await screen.findByRole("button", { name: "Open settings file" }));
+    await user.click(await screen.findByRole("button", { name: "Show settings file" }));
     expect(await screen.findByRole("button", { name: /Couldn't open/ })).toBeInTheDocument();
   });
 
@@ -387,7 +387,7 @@ describe("opening the settings file", () => {
     const { user } = renderWithProviders(<CommandsPalette />);
     act(() => useNavStore.getState().setCommandsOpen(true));
     await user.type(await screen.findByPlaceholderText("Run a command…"), "settings json");
-    await user.click(await screen.findByText("Open Settings File"));
+    await user.click(await screen.findByText("Show Settings File"));
     await waitFor(() => expect(callsOf("open_settings_file")).toHaveLength(1));
   });
 });
