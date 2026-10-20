@@ -191,9 +191,16 @@ iPad, desktop like (width 768 and up, bigger at 1000 and up):
 - [x] I2 command palette and quick open (modal; also the target of Command K and Command P)
 - [x] I3 shortcuts (Settings list still to do): the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
 - [x] I4 right inspector beside a page: Attachments, Mentioned, Mentioned in, Relationships (desktop's right sidebar)
-- [ ] I5 dashboard as on the desktop: lists left, week calendar right; tasks board and calendar use the wide pane
+- [x] I5 dashboard as on the desktop: lists left, week calendar right; tasks board and calendar use the wide pane
 - [ ] I6 tabs, and split view of two pages
 - [ ] I7 Vim keys in the editor (per device setting, hardware keyboard)
+
+New asks from the user (2026-10-20), after the list above:
+
+- [x] C1 calendar: agenda kept; phone gets Day, 3 Days, Week as hour grids (`screens/TimeGrid.tsx`, model in `packages/shared/src/time-grid.ts`), iPad gets the desktop's Day, Work Week, Week, Month plus Agenda; blocks never overflow their column, narrow blocks show the title only. View choice is remembered (`calendar.view`). Desktop's `layoutLanes` now comes from the shared module.
+- [x] L1 Linear style item pages: `ui/Property.tsx` (PropertyList, Property rows with expandable choices), a More menu (`ui/menu.tsx`, native action sheet, injectable for tests via `MenuProvider`; tests use `test/menu.ts`), compact sub-tasks, labels as a property row. Done for tasks and pages. [ ] L2 the other detail screens (session, exam, assignment, course, bookmark, recipe, calendar entry, deck, file, semester, study block) still use card per field: move them to PropertyList.
+- [ ] L3 sidebar rows reported by the user as only reacting when the text is hit exactly: the rows measure full width (304 by 40) so this could not be reproduced without real touches; ask which device and where (phone drawer or iPad).
+- Dev bridge: `measure(label)` and `data` (the shared data functions) are available to simulator scripts; `tools/e2e/mobile.ts run phone "<script>"`. ada's phone data now has seeded calendar entries this week (throwaway).
 
 Parity gaps (phone and iPad):
 
