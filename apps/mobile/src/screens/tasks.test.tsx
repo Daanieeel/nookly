@@ -30,45 +30,53 @@ async function seeded() {
 }
 
 describe("the tasks list", () => {
-  it("groups by status at first, in status order", async () => {
-    const { data } = await seeded();
-    const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
-    expect(await screen.findByText("Backlog · 1")).toBeTruthy();
-    expect(screen.getByText("Todo · 1")).toBeTruthy();
-    expect(screen.getByText("Done · 1")).toBeTruthy();
+  it("groups a Space's tasks by status at first, in status order", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    expect((await screen.findAllByRole("button", { name: "Backlog" })).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Todo" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Done").length).toBeGreaterThan(0);
   });
 
-  it("regroups by due date, keeping finished work out of overdue", async () => {
+  it("groups the overview by due date, keeping finished work out of overdue", async () => {
     const { data } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
-    // Group by comes before Order by, and both offer the due date.
-    await fireEvent.press(screen.getAllByRole("radio", { name: "Due date" })[0]);
-    expect(await screen.findByText("Overdue · 1")).toBeTruthy();
-    expect(screen.getByText("Next 7 days · 1")).toBeTruthy();
-    expect(screen.getByText("Done · 1")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Overdue" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Next 7 days" })).toBeTruthy();
+    expect(screen.getAllByText("Done").length).toBeGreaterThan(0);
+    expect(screen.getByText("Tasks")).toBeTruthy();
   });
 
-  it("narrows to a status, and says when nothing matches", async () => {
+  it("shows when a task is due and for how long, with its Space", async () => {
     const { data } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    expect(await screen.findByText("3d overdue")).toBeTruthy();
+    expect(screen.getAllByText("Work").length).toBeGreaterThan(0);
+  });
+
+  it("narrows to a status, shows it as an active filter, and says when nothing matches", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
-    expect(await screen.findByText("Todo · 1")).toBeTruthy();
-    expect(screen.queryByText("Backlog · 1")).toBeNull();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Show finished" }));
+    expect((await screen.findAllByRole("button", { name: "Todo" })).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: "Backlog" })).toEqual([]);
+    expect(screen.getAllByRole("checkbox", { name: "Todo ×" }).length).toBe(1);
     await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Done" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Show finished" }));
     expect(await screen.findByText("Nothing matches these filters.")).toBeTruthy();
   });
 
-  it("lays the groups out as board columns", async () => {
-    const { data } = await seeded();
-    const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
+  it("lays the groups out as board columns, each with a way to add a task in it", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
     await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
     expect(await screen.findByLabelText("Todo column")).toBeTruthy();
     expect(screen.getByLabelText("Backlog column")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "New Task in Todo" })).toBeTruthy();
   });
 });
 
@@ -99,8 +107,9 @@ describe("saved views", () => {
   it("saves the display as a View, opens it again, and a View from the computer narrows the list", async () => {
     const { data, space } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
     await fireEvent.changeText(screen.getByLabelText("View name"), "Todo only");
     await fireEvent.press(screen.getByRole("button", { name: "Save View" }));
     await waitFor(async () => {
@@ -111,11 +120,11 @@ describe("saved views", () => {
       ]);
     });
     // Back to everything, then open the saved View.
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
-    expect(await screen.findByText("Backlog · 1")).toBeTruthy();
-    await fireEvent.press(await screen.findByRole("button", { name: "Todo only" }));
-    expect(await screen.findByText("Todo · 1")).toBeTruthy();
-    expect(screen.queryByText("Backlog · 1")).toBeNull();
+    await fireEvent.press(await screen.findByRole("radio", { name: "All" }));
+    expect((await screen.findAllByRole("button", { name: "Backlog" })).length).toBeGreaterThan(0);
+    await fireEvent.press(await screen.findByRole("radio", { name: "Todo only" }));
+    expect((await screen.findAllByRole("button", { name: "Todo" })).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: "Backlog" })).toEqual([]);
   });
 
   it("says what a View from the computer uses that the phone doesn't show", async () => {
@@ -129,8 +138,7 @@ describe("saved views", () => {
       }),
     });
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
-    await fireEvent.press(await screen.findByRole("button", { name: "Overdue board" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "Overdue board" }));
     expect(await screen.findByText(/also uses due/)).toBeTruthy();
     expect(await screen.findByLabelText("Backlog column")).toBeTruthy();
   });

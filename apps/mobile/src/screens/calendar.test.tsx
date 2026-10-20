@@ -205,6 +205,6 @@ describe("the dashboard", () => {
     // The hours: the same item as a block, the Today list gone.
     expect(await ipad.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
     expect(ipad.queryByText("Today")).toBeNull();
-    expect(ipad.getByText("Due")).toBeTruthy();
+    expect(ipad.getByRole("header", { name: "Tasks" })).toBeTruthy();
   });
 });

@@ -97,12 +97,18 @@ function LinkTarget({
 /// New Task: a title first, like the desktop's quick create, with the status, a day,
 /// labels of its Space and an item to link it to when they are wanted. More lands in
 /// its detail.
-export function NewTaskScreen({ spaceId }: { spaceId?: string }) {
+export function NewTaskScreen({
+  spaceId,
+  statusId: first,
+}: {
+  spaceId?: string;
+  statusId?: string;
+}) {
   const router = useRouter();
   const [space, setSpace] = useTargetSpace(spaceId);
   const { data: statuses = [] } = useStatuses();
   const { data: labels = [] } = useLabels(space ?? "");
-  const [statusId, setStatusId] = useState("backlog");
+  const [statusId, setStatusId] = useState(first ?? "backlog");
   const [due, setDue] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [link, setLink] = useState<EntityRecord | null>(null);

@@ -31,14 +31,16 @@ async function seeded() {
 }
 
 describe("the Tasks tab", () => {
-  it("groups every Space's tasks by status and finishes one from the row", async () => {
+  it("groups every Space's tasks by due date and finishes one from the row", async () => {
     const { data, space } = await seeded();
     const id = await createTask(data.db, space, "Write report");
     const done = await createTask(data.db, space, "Old one");
     await setTaskStatus(data.db, done, "done");
     const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
-    expect(await screen.findByText("Backlog · 1")).toBeTruthy();
-    expect(await screen.findByText("Done · 1")).toBeTruthy();
+    expect((await screen.findAllByRole("button", { name: "No due date" })).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByRole("button", { name: "Done" }).length).toBeGreaterThan(0);
     // The swipe action, as a screen reader offers it.
     // The row's swipe actions sit on the element that answers accessibility actions.
     let row = screen.getByLabelText("Write report, TSK-1").parent;
