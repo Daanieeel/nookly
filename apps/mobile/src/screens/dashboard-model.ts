@@ -69,12 +69,22 @@ export function tasksFor(
 }
 
 /// "3d overdue", "Today", "Tomorrow", "in 5 days" for a due day.
-export function dueText(day: string, today: string): { text: string; overdue: boolean } {
+export interface DueText {
+  text: string;
+  overdue: boolean;
+}
+
+export function dueText(day: string, today: string): DueText {
   const days = Math.round(
     (new Date(`${day}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86_400_000,
   );
-  if (days < 0) return { text: `${-days}d overdue`, overdue: true };
-  if (days === 0) return { text: "Today", overdue: false };
-  if (days === 1) return { text: "Tomorrow", overdue: false };
-  return { text: `in ${days} days`, overdue: false };
+  const overdue = days < 0;
+  const text = overdue
+    ? `${-days}d overdue`
+    : days === 0
+      ? "Today"
+      : days === 1
+        ? "Tomorrow"
+        : `in ${days} days`;
+  return { text, overdue };
 }

@@ -156,12 +156,12 @@ export function JotList({ spaceId }: { spaceId: string }) {
   const [preset, setPreset] = useState<JotPreset>("unrefined");
   const [query, setQuery] = useState("");
   const weekAgo = addDays(localDay(), -7);
-  const inPreset: Record<JotPreset, (j: PageSummary) => boolean> = {
+  const inPreset = {
     unrefined: (j) => j.refinedInto === null,
     refined: (j) => j.refinedInto !== null,
     week: (j) => j.entity.createdAt.slice(0, 10) >= weekAgo,
     all: () => true,
-  };
+  } satisfies Record<JotPreset, (j: PageSummary) => boolean>;
   const count = (id: JotPreset) => jots.filter(inPreset[id]).length;
   const shown = jots.filter((j) => inPreset[preset](j) && matches(j, query));
   return (

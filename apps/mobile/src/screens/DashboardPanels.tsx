@@ -119,10 +119,13 @@ function ListRow({
   entityKey,
   icon,
   title,
+  label,
   meta,
   onPress,
 }: {
   entityKey: string;
+  /// What a screen reader says for the row.
+  label: string;
   icon: React.ReactNode;
   title: React.ReactNode;
   meta: React.ReactNode;
@@ -131,7 +134,7 @@ function ListRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={typeof title === "string" ? title : undefined}
+      accessibilityLabel={label}
       onPress={onPress}
       className="min-h-11 gap-0.5 border-b border-border/60 px-3 py-2 active:bg-accent/40"
     >
@@ -184,6 +187,7 @@ export function TasksPanel({
           return (
             <ListRow
               key={task.entity.id}
+              label={task.entity.title || "Untitled"}
               entityKey={task.entity.key}
               icon={<StatusIcon status={statuses.find((s) => s.id === task.statusId)} size={16} />}
               title={<Text numberOfLines={1}>{task.entity.title || "Untitled"}</Text>}
@@ -245,6 +249,7 @@ export function AssignmentsPanel({
           return (
             <ListRow
               key={a.entity.id}
+              label={a.entity.title || "Untitled"}
               entityKey={a.entity.key}
               icon={
                 <StatusIcon status={ASSIGNMENT_STATUSES.find((s) => s.id === a.status)} size={16} />
@@ -338,6 +343,7 @@ export function JotsPanel({ jots, spaces }: { jots: JotSummary[]; spaces: Spaces
           return (
             <ListRow
               key={jot.entity.id}
+              label={first || "Empty Jot"}
               entityKey={jot.entity.key}
               icon={null}
               title={

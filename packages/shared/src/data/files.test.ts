@@ -77,7 +77,11 @@ describe("links to files", () => {
 
   it("adds a link as a file with no stored copy", async () => {
     const space = await createSpace(db, "S", "#000000");
-    const id = await addFileLink(db, space, "https://www.dropbox.com/s/abc/Report%20final.pdf?dl=0");
+    const id = await addFileLink(
+      db,
+      space,
+      "https://www.dropbox.com/s/abc/Report%20final.pdf?dl=0",
+    );
     const file = await getFile(db, id);
     expect(file).toMatchObject({
       provider: "dropbox",

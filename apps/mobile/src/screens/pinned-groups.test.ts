@@ -1,6 +1,7 @@
 import type { EntityRecord } from "@nookly/shared/data";
 import { groupPinned, typeLabel } from "./pinned-groups.ts";
 
+// SAFETY: a fixture with only the fields the function under test reads.
 const item = (id: string, spaceId: string, type: string): EntityRecord =>
   ({ id, spaceId, type, title: id }) as EntityRecord;
 

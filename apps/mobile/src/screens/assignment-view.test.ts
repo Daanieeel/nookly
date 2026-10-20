@@ -3,6 +3,7 @@ import { deadlineBucket, groupAssignments } from "./assignment-view.ts";
 
 // Wednesday 21 October 2026.
 const TODAY = "2026-10-21";
+// SAFETY: a fixture with only the fields the function under test reads.
 const a = (id: string, over: Partial<AssignmentRecord>) =>
   ({
     entity: { id, spaceId: "s1", createdAt: "2026-01-01" },
@@ -10,7 +11,7 @@ const a = (id: string, over: Partial<AssignmentRecord>) =>
     status: "not_started",
     dueDate: null,
     ...over,
-  }) as unknown as AssignmentRecord;
+  }) as AssignmentRecord;
 
 describe("the deadline of an assignment", () => {
   it.each([

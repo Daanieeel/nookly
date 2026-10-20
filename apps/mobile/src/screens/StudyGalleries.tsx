@@ -100,9 +100,9 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
   const { data: courses = [] } = useCourses(spaceId);
   const { data: semesters = [] } = useSemesters(spaceId);
   const { data: inSemester = new Map<string, string>() } = useCourseSemesters(spaceId);
-  const bands = semesters
+  const bands: { semester: SemesterRecord | null; courses: CourseRecord[] }[] = semesters
     .map((s) => ({
-      semester: s as SemesterRecord | null,
+      semester: s,
       courses: courses.filter((c) => inSemester.get(c.entity.id) === s.entity.id),
     }))
     .filter((b) => b.courses.length > 0);

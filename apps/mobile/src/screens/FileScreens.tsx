@@ -121,7 +121,7 @@ function FileTile({ file }: { file: FileRecord }) {
       onPress={() => router.push(`/entity/${file.entity.id}`)}
       className="gap-2 active:opacity-80"
     >
-      <View className="aspect-square items-center justify-center overflow-hidden rounded-xl bg-muted">
+      <View className="aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary">
         {image ? (
           <Image source={{ uri: path }} resizeMode="cover" className="size-full" />
         ) : (
@@ -194,8 +194,9 @@ function AddBar({ spaceId }: { spaceId: string }) {
 /// link or choose files.
 export function FileRows({ spaceId }: { spaceId: string }) {
   const { data: files = [] } = useFiles(spaceId);
-  const [kind, setKind] = useState<string>("all");
-  const kindOf = (f: FileRecord) => (isLinkOnly(f) ? "link" : fileKindOf(nameOf(f)));
+  const [kind, setKind] = useState<FileKindId | "link" | "all">("all");
+  const kindOf = (f: FileRecord): FileKindId | "link" =>
+    isLinkOnly(f) ? "link" : fileKindOf(nameOf(f));
   const kinds = [...new Set(files.map(kindOf))];
   const shown = files.filter((f) => kind === "all" || kindOf(f) === kind);
   return (
@@ -207,7 +208,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           {kinds.map((k) => (
             <Chip
               key={k}
-              label={k === "link" ? "Links" : KIND_LABELS[k as FileKindId]}
+              label={k === "link" ? "Links" : KIND_LABELS[k]}
               selected={kind === k}
               onPress={() => setKind(k)}
             />

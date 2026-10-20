@@ -234,13 +234,13 @@ function DayCard({ go }: { go: (href: Href) => void }) {
   const first = spaces[0]?.id;
   const lines: { text: string; href: Href }[] = [
     ...(due > 0
-      ? [{ text: `${due} ${due === 1 ? "task" : "tasks"} due or overdue`, href: "/tasks" as Href }]
+      ? [{ text: `${due} ${due === 1 ? "task" : "tasks"} due or overdue`, href: "/tasks" }]
       : []),
     ...(cards > 0 && first
       ? [
           {
             text: `${cards} ${cards === 1 ? "card" : "cards"} to study`,
-            href: `/module/${first}/decks` as Href,
+            href: `/module/${first}/decks`,
           },
         ]
       : []),
@@ -248,7 +248,7 @@ function DayCard({ go }: { go: (href: Href) => void }) {
       ? [
           {
             text: `${jots.length} ${jots.length === 1 ? "jot" : "jots"} to refine`,
-            href: `/module/${first}/jots` as Href,
+            href: `/module/${first}/jots`,
           },
         ]
       : []),

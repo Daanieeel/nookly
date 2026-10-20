@@ -6,12 +6,14 @@ const statuses: TaskStatus[] = [
   { id: "doing", name: "In Progress", color: "", doneness: 50, position: 2 },
   { id: "done", name: "Done", color: "", doneness: 100, position: 3 },
 ];
+// SAFETY: a fixture with only the fields the function under test reads.
 const task = (id: string, statusId: string, dueDate: string | null, created = "2026-01-01") =>
   ({
     entity: { id, type: "task", deletedAt: null, createdAt: created },
     statusId,
     dueDate,
-  }) as unknown as TaskRecord;
+  }) as TaskRecord;
+// SAFETY: a fixture with only the fields the function under test reads.
 const assignment = (id: string, over: Partial<AssignmentRecord>) =>
   ({
     entity: { id, deletedAt: null, createdAt: "2026-01-01" },
@@ -19,7 +21,7 @@ const assignment = (id: string, over: Partial<AssignmentRecord>) =>
     dueDate: null,
     dueSessionOffsetDays: null,
     ...over,
-  }) as unknown as AssignmentRecord;
+  }) as AssignmentRecord;
 const TODAY = "2026-10-21";
 
 describe("the Dashboard's task tabs", () => {

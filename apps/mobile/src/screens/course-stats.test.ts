@@ -1,6 +1,7 @@
 import type { AssignmentRecord, ExamRecord, SessionRecord } from "@nookly/shared/data";
 import { courseStats, inDays } from "./course-stats.ts";
 
+// SAFETY: a fixture with only the fields the function under test reads.
 const session = (over: Partial<SessionRecord>): SessionRecord =>
   ({
     courseId: "c1",
@@ -10,8 +11,10 @@ const session = (over: Partial<SessionRecord>): SessionRecord =>
     endTime: "11:00",
     ...over,
   }) as SessionRecord;
+// SAFETY: a fixture with only the fields the function under test reads.
 const exam = (over: Partial<ExamRecord>): ExamRecord =>
   ({ courseId: "c1", status: "upcoming", examDate: "2026-11-19", ...over }) as ExamRecord;
+// SAFETY: a fixture with only the fields the function under test reads.
 const assignment = (over: Partial<AssignmentRecord>): AssignmentRecord =>
   ({ courseId: "c1", status: "not_started", dueDate: "2026-10-26", ...over }) as AssignmentRecord;
 

@@ -328,12 +328,7 @@ export async function createSessionPage(
   const session = await getSession(db, sessionId);
   if (!session) throw new Error("This session isn't here anymore.");
   const name = session.courseTitle || session.entity.title || "Session";
-  const page = await createPage(
-    db,
-    session.entity.spaceId,
-    kind,
-    `${name}, ${session.date}`,
-  );
+  const page = await createPage(db, session.entity.spaceId, kind, `${name}, ${session.date}`);
   await write(db, [
     {
       sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, ?, ?)",
