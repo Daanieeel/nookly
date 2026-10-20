@@ -166,6 +166,10 @@ Session 2026-10-20 (resumed after `/clear`):
 - Everything I started is stopped (server, Metro, hub, desktop, simulators, `docker compose stop`). To resume: `open -a OrbStack`, `docker compose up -d`, `bun install --frozen-lockfile`, `bun run stack`.
 - `REPORT.md` and `report/screenshots/` are not in this checkout (they lived elsewhere); both are excluded from git. Screenshots must be retaken.
 
+## 7b. New brief (2026-10-20): full mobile parity and a desktop-like iPad
+
+The user asked: "go for full implementation on mobile and make sure we are responsive for ipad. ipad should feel more like the desktop version". So every ⚠️ and ❌ left in the last column of `GAP_ANALYSIS.md` is now work, unless it is physically impossible on a phone (then say why in the gap file). The iPad layout moves toward the desktop: persistent sidebar (done), right inspector pane, back and forward, tabs or split view, command palette and shortcuts on a hardware keyboard, denser multi pane screens (dashboard with the week beside it, board view). Work list and progress are in section 8b; update it with every commit.
+
 ## 8. What is left, in order
 
 1. DONE (see session notes above).
@@ -175,6 +179,32 @@ Session 2026-10-20 (resumed after `/clear`):
 5. (Done this session, nothing left running.) Cleanup that was needed: the server from `bun run stack` on 3100, Metro on 8093, the simulator hub on 4600, the debug desktop on 4568, maybe a stray one from the 4569 attempts. Then a final commit and `git push` (no PR), leaving `REPORT.md` untracked.
 
 Stub, skip and fragile list for the report: phone files are hashed in memory (fine for a few hundred megabytes); "keep both" in the merge editor is text only, dates and numbers offer the two choices (D7); external calendars, CLI, agent files, tabs and split view, keyboard shortcuts, Vim keys, folder backups, Office conversion and OCR are desktop only (D14, D15); series (repeating sessions and calendar entries) are created and edited on the desktop only, and the phone edits single occurrences (D19); the assignment due session selection, the full dashboard briefing text and semester setup are simpler on the phone; saved views exist for Tasks only; inline math shows its source in the phone editor; importing pages, tasks and assignments from Nookly files is desktop only; "copy link" is missing on the phone (needs the `expo-clipboard` native module); password reset uses the console mailer stub; OAuth providers are wired but untested without real keys; everything was verified in simulators and debug desktop builds, never on a real phone, and simulator runs are not in CI; system dialogs cannot be tapped by my tooling; the branch stash incident (section 1).
+
+## 8b. Mobile parity and iPad work list (new brief, 7b)
+
+Tick items with the commit hash. Tests first; verify on the iPad and phone simulators; keep `GAP_ANALYSIS.md` marks and copy in step. No hyphen or dash copy. No edits to `packages/ui`.
+
+iPad, desktop like (width 768 and up, bigger at 1000 and up):
+- [ ] N1 native batch: `expo-clipboard` and a local Swift module `modules/nookly-keys` (UIKeyCommand on `UIApplication`, event `onShortcut`; hold Command shows the system's shortcut sheet). One rebuild of the dev client from a clone at a path without spaces. Hardware keys cannot be sent by my tooling, so the module also has `emit(id)` for the automation bridge and the Swift part stays unverified on a real keyboard: say so in the report.
+- [ ] I1 titlebar strip above the page: collapse sidebar, back, quick open field, sync status, settings
+- [ ] I2 command palette and quick open (modal; also the target of Command K and Command P)
+- [ ] I3 shortcuts: the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
+- [ ] I4 right inspector beside a page: Attachments, Mentioned, Mentioned in, Relationships (desktop's right sidebar)
+- [ ] I5 dashboard as on the desktop: lists left, week calendar right; tasks board and calendar use the wide pane
+- [ ] I6 tabs, and split view of two pages
+- [ ] I7 Vim keys in the editor (per device setting, hardware keyboard)
+
+Parity gaps (phone and iPad):
+- [ ] P1 copy link (needs N1)
+- [ ] P2 import pages, tasks, assignments from Nookly files
+- [ ] P3 saved views for Assignments, and saved views listed under modules in the sidebar
+- [ ] P4 inline math rendered and editable in the editor
+- [ ] P5 series for sessions and calendar entries (create, edit scope, delete)
+- [ ] P6 assignment due session
+- [ ] P7 dashboard briefing with links, semester setup wizard, decks piles screen
+- [ ] P8 editor blocks: images, files, embeds, timelines, linked items, table column widths
+- [ ] P9 merge editor "keep both" for dates and numbers (copy of the item holding the other value, D7)
+- [ ] P10 impossible on a phone, document why: Office conversion and OCR, bookmark screenshots made by the desktop, CLI, agent files, folder backups, external calendars (D14)
 
 ## 9. Working agreements and cautions
 
