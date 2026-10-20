@@ -248,13 +248,116 @@ function toAssignment(r: Row): AssignmentRecord {
   };
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/// A session's course.
+const SESSION_FROM_COURSE = `FROM sessions s
+  JOIN entities e ON e.id = s.entity_id
+  JOIN relationships r ON r.from_entity_id = s.entity_id
+    AND r.relationship_type = 'session-course' AND r.to_entity_id = ?
+  WHERE e.deleted_at IS NULL`;
+
+/// The day an assignment due `offset` days before its course's next session is due: that
+/// session is the first one, not cancelled or trashed, that has not started yet. With none
+/// left, the course's last session that still exists, so cancelling the only one does not
+/// wipe the day (`assignments.rs`, `next_session_due`).
+async function nextSessionDue(
+  db: LocalDb,
+  courseId: string,
+  offset: number,
+  today: string,
+  now: string,
+): Promise<string | null> {
+  const shift = `-${offset} days`;
+  const upcoming = await first(
+    db,
+    `SELECT date(s.date, ?) AS day ${SESSION_FROM_COURSE} AND s.cancelled = 0
+       AND (s.date > ? OR (s.date = ? AND s.start_time > ?))
+       ORDER BY s.date ASC, s.start_time ASC LIMIT 1`,
+    shift,
+    courseId,
+    today,
+    today,
+    now,
+  );
+  if (upcoming) return optStr(upcoming.day);
+  const last = await first(
+    db,
+    `SELECT date(s.date, ?) AS day ${SESSION_FROM_COURSE} ORDER BY s.date DESC LIMIT 1`,
+    shift,
+    courseId,
+  );
+  return last ? optStr(last.day) : null;
+}
+
+/// The day of an assignment due before sessions, worked out when read so it follows sessions
+/// that move, get cancelled or trashed. A picked session wins over the next one; cancelled or
+/// trashed, the day moves on to the first live session after it, and with none stays on the
+/// pick's own day (`assignments.rs`, `resolve_due_date`).
+async function resolveDue(db: LocalDb, record: AssignmentRecord): Promise<AssignmentRecord> {
+  const offset = record.dueSessionOffsetDays;
+  if (offset === null) return record;
+  const clock = db.now();
+  const today = `${clock.getFullYear()}-${pad(clock.getMonth() + 1)}-${pad(clock.getDate())}`;
+  const now = `${pad(clock.getHours())}:${pad(clock.getMinutes())}`;
+  const shift = `-${offset} days`;
+  const picked = await first(
+    db,
+    `SELECT r.to_entity_id AS session FROM relationships r
+       WHERE r.from_entity_id = ? AND r.relationship_type = 'assignment-due-session'`,
+    record.entity.id,
+  );
+  const sessionId = picked ? str(picked.session) : null;
+  if (sessionId) {
+    const own = await first(
+      db,
+      `SELECT s.date, s.start_time, (s.cancelled = 0 AND e.deleted_at IS NULL) AS live
+         FROM sessions s JOIN entities e ON e.id = s.entity_id WHERE s.entity_id = ?`,
+      sessionId,
+    );
+    if (own) {
+      const date = str(own.date);
+      let day: string | null;
+      if (Number(own.live) === 1) {
+        day = optStr((await first(db, "SELECT date(?, ?) AS day", date, shift))?.day);
+      } else {
+        const after = await first(
+          db,
+          `SELECT date(s.date, ?) AS day FROM sessions s
+             JOIN entities e ON e.id = s.entity_id
+             JOIN relationships r ON r.from_entity_id = s.entity_id
+               AND r.relationship_type = 'session-course'
+               AND r.to_entity_id = (SELECT to_entity_id FROM relationships
+                 WHERE from_entity_id = ? AND relationship_type = 'session-course')
+             WHERE e.deleted_at IS NULL AND s.cancelled = 0
+               AND (s.date > ? OR (s.date = ? AND s.start_time > ?))
+             ORDER BY s.date ASC, s.start_time ASC LIMIT 1`,
+          shift,
+          sessionId,
+          date,
+          date,
+          str(own.start_time),
+        );
+        day = after
+          ? optStr(after.day)
+          : optStr((await first(db, "SELECT date(?, ?) AS day", date, shift))?.day);
+      }
+      return { ...record, dueDate: day };
+    }
+  }
+  const dueDate = record.courseId
+    ? await nextSessionDue(db, record.courseId, offset, today, now)
+    : null;
+  return { ...record, dueDate };
+}
+
 export async function listAssignments(
   db: LocalDb,
   query: { spaceId?: string; courseId?: string } = {},
 ): Promise<AssignmentRecord[]> {
   const filter = spaceFilter(query.spaceId);
   const byCourse = query.courseId ? ` AND ${linkedTo("assignment-course")} = ?` : "";
-  return (
+  const found = (
     await rows(
       db,
       `${ASSIGNMENT_SELECT} WHERE ${live}${filter.where}${byCourse} ORDER BY a.due_date IS NULL, a.due_date`,
@@ -262,11 +365,77 @@ export async function listAssignments(
       ...(query.courseId ? [query.courseId] : []),
     )
   ).map(toAssignment);
+  const resolved = await Promise.all(found.map((record) => resolveDue(db, record)));
+  // In due order, undated last, once the days that follow sessions are worked out.
+  return resolved.sort((a, b) =>
+    a.dueDate === b.dueDate
+      ? 0
+      : a.dueDate === null
+        ? 1
+        : b.dueDate === null
+          ? -1
+          : a.dueDate < b.dueDate
+            ? -1
+            : 1,
+  );
 }
 
 export async function getAssignment(db: LocalDb, id: string): Promise<AssignmentRecord | null> {
   const row = await first(db, `${ASSIGNMENT_SELECT} WHERE e.id = ?`, id);
-  return row ? toAssignment(row) : null;
+  return row ? resolveDue(db, toAssignment(row)) : null;
+}
+
+/// The session an assignment is due before, when one is picked (else the next one counts).
+export async function assignmentDueSession(db: LocalDb, id: string): Promise<string | null> {
+  const row = await first(
+    db,
+    "SELECT to_entity_id AS session FROM relationships WHERE from_entity_id = ? AND relationship_type = 'assignment-due-session'",
+    id,
+  );
+  return row ? str(row.session) : null;
+}
+
+/// `update_assignment_due_before_session`: due this many days before the course's next
+/// session, or, with `sessionId`, before that one session of its course; with no offset, back
+/// to the fixed day it has. The day itself is worked out when read.
+export async function setAssignmentDueBeforeSession(
+  db: LocalDb,
+  id: string,
+  offsetDays: number | null,
+  sessionId: string | null,
+): Promise<void> {
+  if (
+    offsetDays !== null &&
+    !(Number.isInteger(offsetDays) && offsetDays >= 0 && offsetDays <= 365)
+  ) {
+    throw new Error("The days must be between 0 and 365.");
+  }
+  if (offsetDays === null && sessionId !== null) {
+    throw new Error("A session needs the days before it.");
+  }
+  if (sessionId !== null) {
+    const course = await first(
+      db,
+      "SELECT to_entity_id AS course FROM relationships WHERE from_entity_id = ? AND relationship_type = 'assignment-course'",
+      id,
+    );
+    const sessionCourse = await first(
+      db,
+      "SELECT to_entity_id AS course FROM relationships WHERE from_entity_id = ? AND relationship_type = 'session-course'",
+      sessionId,
+    );
+    if (!course || !sessionCourse || str(course.course) !== str(sessionCourse.course)) {
+      throw new Error("The session must be one of the assignment's course.");
+    }
+  }
+  await write(db, [
+    {
+      sql: "UPDATE assignments SET due_session_offset_days = ? WHERE entity_id = ?",
+      params: [offsetDays, id],
+    },
+    ...relink(db, id, "assignment-due-session", sessionId),
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
 }
 
 /// `create_assignment`: not started, in its Course.

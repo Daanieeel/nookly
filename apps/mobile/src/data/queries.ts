@@ -1,6 +1,7 @@
 import {
   agenda,
   entityLabels,
+  assignmentDueSession,
   getAssignment,
   getCourse,
   getDeck,
@@ -175,6 +176,16 @@ export const useAssignments = (query: { spaceId?: string; courseId?: string }) =
 export const useAssignment = (id: string) => {
   const db = useDb();
   return useQuery({ queryKey: keys.assignment(id), queryFn: () => getAssignment(db, id) });
+};
+
+/// The session an assignment is due before, when one is picked.
+export const useAssignmentDueSession = (id: string) => {
+  const db = useDb();
+  const { data } = useQuery({
+    queryKey: [...keys.assignment(id), "due-session"],
+    queryFn: () => assignmentDueSession(db, id),
+  });
+  return data ?? null;
 };
 
 export const useDecks = (spaceId: string | null) => {

@@ -18,6 +18,9 @@ import {
   listCards,
   listExams,
   relatedItems,
+  createOneOffSession,
+  createAssignment,
+  getAssignment,
 } from "@nookly/shared/data";
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
@@ -255,6 +258,41 @@ describe("an item's links", () => {
       expect((await linkedItems(data.db, task)).map((l) => [l.type.name, l.entity.id])).toEqual([
         ["blocks", other],
       ]),
+    );
+  });
+});
+
+describe("an assignment's due date", () => {
+  it("can be a number of days before a session, which then moves the day with it", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 1", course, "2026-01-01");
+    await createOneOffSession(data.db, space, {
+      title: "Lecture",
+      courseId: course,
+      date: "2999-03-10",
+      startTime: "10:00",
+      endTime: "11:30",
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "Before a session" }));
+    await waitFor(async () =>
+      expect(await getAssignment(data.db, assignment)).toMatchObject({
+        dueSessionOffsetDays: 1,
+        dueDate: "2999-03-09",
+      }),
+    );
+    await fireEvent.press(await screen.findByRole("radio", { name: "3" }));
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-07"),
+    );
+    await fireEvent.press(screen.getByRole("radio", { name: "On a day" }));
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.dueSessionOffsetDays).toBeNull(),
     );
   });
 });

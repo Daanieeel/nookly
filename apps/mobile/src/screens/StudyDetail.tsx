@@ -1,9 +1,11 @@
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import {
+  type AssignmentRecord,
   type IndexCard,
   createCard,
   deleteCard,
   setAssignmentCourse,
+  setAssignmentDueBeforeSession,
   setAssignmentDueDate,
   setCourseProfessor,
   setCourseRoom,
@@ -41,15 +43,20 @@ import {
   useCourses,
   useDeck,
   useExam,
+  useAssignmentDueSession,
   useExams,
+  useSessions,
 } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { PropertyList } from "../ui/Property.tsx";
+import { Property, PropertyList, useOpenRow } from "../ui/Property.tsx";
+import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { DatePanel, shownValue } from "../ui/DateField.tsx";
 import { ChoiceProperty, DayProperty, NumberRow, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { dayLabel, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { AssignmentRows, ExamRows, deckSummary } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
@@ -203,13 +210,112 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   );
 }
 
+/// When an assignment is due: a fixed day, or so many days before a session of its course,
+/// the next one or one picked, which then moves with it.
+function AssignmentDueProperty({
+  assignment,
+  readOnly,
+}: {
+  assignment: AssignmentRecord;
+  readOnly: boolean;
+}) {
+  const theme = useTheme();
+  const id = assignment.entity.id;
+  const row = useOpenRow("due");
+  const { data: sessions = [] } = useSessions({ courseId: assignment.courseId ?? undefined });
+  const fixedDay = useLocalWrite((db, day: string | null) => setAssignmentDueDate(db, id, day));
+  const before = useLocalWrite((db, input: { days: number | null; session: string | null }) =>
+    setAssignmentDueBeforeSession(db, id, input.days, input.session),
+  );
+  const days = assignment.dueSessionOffsetDays;
+  const picked = useAssignmentDueSession(id);
+  const upcoming = sessions.filter((s) => !s.cancelled && s.date >= localDay());
+  const value = assignment.dueDate ? shownValue("date", assignment.dueDate) : "None";
+  return (
+    <Property
+      icon={<IconCalendarDue size={20} color={theme.colors.mutedForeground} />}
+      label="Due date"
+      value={value}
+      disabled={readOnly}
+      expanded={row.open}
+      onPress={row.toggle}
+    >
+      <ChipGroup label="Due">
+        <Chip
+          label="On a day"
+          selected={days === null}
+          onPress={() => days !== null && fixedDay.mutate(assignment.dueDate)}
+        />
+        <Chip
+          label="Before a session"
+          selected={days !== null}
+          disabled={!assignment.courseId}
+          onPress={() => days === null && before.mutate({ days: 1, session: null })}
+        />
+      </ChipGroup>
+      {days === null ? (
+        <>
+          <DatePanel
+            label="Due date"
+            mode="date"
+            value={assignment.dueDate}
+            onPick={(day) => fixedDay.mutate(day)}
+            onClose={row.close}
+          />
+          {assignment.dueDate ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Clear Due date"
+              onPress={() => fixedDay.mutate(null)}
+            />
+          ) : null}
+        </>
+      ) : (
+        <>
+          <Text variant="small" tone="muted">
+            Days before
+          </Text>
+          <ChipGroup label="Days before">
+            {[0, 1, 2, 3, 7].map((n) => (
+              <Chip
+                key={n}
+                label={String(n)}
+                selected={days === n}
+                onPress={() => before.mutate({ days: n, session: picked })}
+              />
+            ))}
+          </ChipGroup>
+          <Text variant="small" tone="muted">
+            Which session
+          </Text>
+          <ChipGroup label="Session" scroll>
+            <Chip
+              label="The next one"
+              selected={picked === null}
+              onPress={() => before.mutate({ days, session: null })}
+            />
+            {upcoming.map((s) => (
+              <Chip
+                key={s.entity.id}
+                label={`${dayLabel(s.date)} ${s.startTime}`}
+                selected={picked === s.entity.id}
+                onPress={() => before.mutate({ days, session: s.entity.id })}
+              />
+            ))}
+          </ChipGroup>
+        </>
+      )}
+    </Property>
+  );
+}
+
 export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
   const { data: assignment } = useAssignment(id);
   const update = useLocalWrite((db, patch: Parameters<typeof updateAssignment>[2]) =>
     updateAssignment(db, id, patch),
   );
-  const due = useLocalWrite((db, day: string | null) => setAssignmentDueDate(db, id, day));
   const course = useLocalWrite((db, courseId: string) => setAssignmentCourse(db, id, courseId));
   const courseName = useCourseName(assignment?.entity.spaceId ?? "");
   if (!assignment) return null;
@@ -234,14 +340,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
           readOnly={readOnly}
           onChange={(courseId) => course.mutate(courseId)}
         />
-        <DayProperty
-          name="due"
-          icon={<IconCalendarDue size={20} color={muted} />}
-          label="Due date"
-          value={assignment.dueDate}
-          readOnly={readOnly}
-          onChange={(day) => due.mutate(day)}
-        />
+        <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
         <NumberRow
           icon={<IconPercentage size={20} color={muted} />}
           label="Weight (%)"
@@ -262,8 +361,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
       {followsSession ? (
         <Text variant="small" tone="muted">
           Due {assignment.dueSessionOffsetDays} days before a session of{" "}
-          {courseName(assignment.courseId) ?? "its course"}, set on the desktop. Picking a day here
-          fixes it to that day.
+          {courseName(assignment.courseId) ?? "its course"}, so the day moves with the session.
         </Text>
       ) : null}
     </>
