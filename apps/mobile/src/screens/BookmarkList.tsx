@@ -81,18 +81,25 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
   const theme = useTheme();
   const { data: bookmarks = [] } = useBookmarks(spaceId);
   const [url, setUrl] = useState("");
+  // The page is read after the bookmark is saved; offline it is read when the bookmark is
+  // opened.
+  const read = useLocalWrite(async (db, input: { id: string; link: string }) =>
+    setBookmarkMetadata(db, input.id, await fetchPageMetadata(input.link)),
+  );
   const save = useLocalWrite(async (db, address: string) => {
     const link = /^[a-z]+:\/\//i.test(address.trim())
       ? address.trim()
       : `https://${address.trim()}`;
-    const id = await createBookmark(db, spaceId, link);
-    // The page is read in the background; offline it is read when the bookmark is opened.
-    void fetchPageMetadata(link)
-      .then((meta) => setBookmarkMetadata(db, id, meta))
-      .catch(() => {});
-    return id;
+    return { id: await createBookmark(db, spaceId, link), link };
   });
-  const submit = () => url.trim() && save.mutate(url, { onSuccess: () => setUrl("") });
+  const submit = () =>
+    url.trim() &&
+    save.mutate(url, {
+      onSuccess: (made) => {
+        setUrl("");
+        read.mutate(made);
+      },
+    });
   return (
     <View className="gap-4">
       <ListTitle title="Bookmarks" count={bookmarks.length} />
