@@ -3,6 +3,8 @@ import type { LocalDb } from "./db.ts";
 import { createSpace, trashEntity } from "./entities.ts";
 import {
   addFile,
+  addFileLink,
+  detectProvider,
   fileKindOf,
   getFile,
   isDownloading,
@@ -62,5 +64,35 @@ describe("files", () => {
     expect(fileKindOf(".hidden")).toBe("other");
     expect(isTextFile("log.txt")).toBe(true);
     expect(isTextFile("deck.pdf")).toBe(false);
+  });
+});
+
+describe("links to files", () => {
+  it("recognises the providers by name like the desktop", () => {
+    expect(detectProvider("https://drive.google.com/file/d/x")).toBe("google_drive");
+    expect(detectProvider("https://www.dropbox.com/s/x/a.pdf")).toBe("dropbox");
+    expect(detectProvider("https://www.icloud.com/iclouddrive/x")).toBe("icloud");
+    expect(detectProvider("https://example.com/a.pdf")).toBeNull();
+  });
+
+  it("adds a link as a file with no stored copy", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    const id = await addFileLink(db, space, "https://www.dropbox.com/s/abc/Report%20final.pdf?dl=0");
+    const file = await getFile(db, id);
+    expect(file).toMatchObject({
+      provider: "dropbox",
+      originalFilename: "Report final.pdf",
+      url: "https://www.dropbox.com/s/abc/Report%20final.pdf?dl=0",
+    });
+    expect(isLinkOnly(file!)).toBe(true);
+  });
+
+  it("sends a web page to the bookmarks and refuses what is no link", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    await expect(addFileLink(db, space, "https://example.com/blog/post")).rejects.toThrow(
+      /bookmark/,
+    );
+    await expect(addFileLink(db, space, "example.com/a.pdf")).rejects.toThrow(/http/);
+    expect(await listFiles(db, space)).toEqual([]);
   });
 });

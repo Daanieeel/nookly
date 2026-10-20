@@ -1,6 +1,7 @@
 import {
   RECIPE_KINDS,
   type RecipeItem,
+  type RecipeRecord,
   type RecipeStep,
   createIngredient,
   createRecipe,
@@ -16,21 +17,31 @@ import {
   updateIngredient,
   updateStep,
 } from "@nookly/shared/data";
-import { IconChevronDown, IconChevronUp, IconTrash } from "@tabler/icons-react-native";
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconClock,
+  IconToolsKitchen2,
+  IconTrash,
+} from "@tabler/icons-react-native";
+import { CARD_CLASSES } from "@nookly/ui/classes";
 import { File } from "expo-file-system";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Image, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useRecipe, useRecipeParts, useRecipeTags, useRecipes } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import { Badge } from "../ui/Badge.tsx";
+import { Grid } from "../ui/Grid.tsx";
+import { ListTitle } from "../ui/ListBar.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
-import { EntityIcon } from "../ui/icons.tsx";
+
 import { cn } from "../ui/classes.ts";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
-import { Empty, ROW_DIVIDER, Row, Section } from "../ui/Row.tsx";
+import { Empty, ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -49,28 +60,82 @@ const minutes = (total: number | null) =>
 
 /// A Space's recipes: their kind, how long they take, their tags.
 export function RecipeRows({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
+  const theme = useTheme();
   const { data: recipes = [] } = useRecipes(spaceId);
+  if (recipes.length === 0) {
+    return (
+      <View className="items-center gap-2 p-8">
+        <IconToolsKitchen2 size={28} color={theme.colors.mutedForeground} />
+        <Text tone="muted" className="text-center">
+          No recipes yet. Add a recipe to start tracking its ingredients and steps.
+        </Text>
+      </View>
+    );
+  }
   return (
-    <Section>
-      {recipes.length === 0 ? <Empty text="No recipes yet." /> : null}
-      {recipes.map((recipe) => (
-        <View key={recipe.entity.id}>
-          <Row
-            title={recipe.entity.title || "Untitled"}
-            subtitle={[
-              KIND_LABELS[RECIPE_KINDS.findIndex((k) => k === recipe.kind)] ?? "Other",
-              minutes(recipe.totalDurationMinutes),
-              ...recipe.tags.map((t) => t.name),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            icon={<EntityIcon type="recipe" icon={recipe.entity.icon} />}
-            onPress={() => router.push(`/entity/${recipe.entity.id}`)}
-          />
+    <View className="gap-4">
+      <ListTitle title="Recipes" count={recipes.length} />
+      <Grid min={240} max={4}>
+        {recipes.map((recipe) => (
+          <RecipeCard key={recipe.entity.id} recipe={recipe} />
+        ))}
+      </Grid>
+    </View>
+  );
+}
+
+/// A recipe as a card: its banner (a food icon when it has none), name and key, what kind of
+/// meal it is, how long it takes and its tags.
+function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
+  const router = useRouter();
+  const theme = useTheme();
+  const banner = recipe.bannerPath;
+  const shown = useBannerExists(banner);
+  const kind = KIND_LABELS[RECIPE_KINDS.findIndex((k) => k === recipe.kind)] ?? "Other";
+  const time = minutes(recipe.totalDurationMinutes);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={recipe.entity.title || "Untitled"}
+      onPress={() => router.push(`/entity/${recipe.entity.id}`)}
+      className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0 active:opacity-80")}
+    >
+      <View className="h-24 items-center justify-center bg-muted">
+        {banner && shown ? (
+          <Image source={{ uri: banner }} resizeMode="cover" className="size-full" />
+        ) : (
+          <IconToolsKitchen2 size={30} color={theme.colors.mutedForeground} />
+        )}
+      </View>
+      <View className="gap-2 p-3">
+        <View className="flex-row items-baseline gap-2">
+          <Text numberOfLines={1} className="flex-1 font-medium">
+            {recipe.entity.title || "Untitled"}
+          </Text>
+          <Text variant="small" tone="muted">
+            {recipe.entity.key}
+          </Text>
         </View>
-      ))}
-    </Section>
+        <View className="flex-row flex-wrap items-center gap-2">
+          <Badge label={kind} size="sm" />
+          {time ? (
+            <View className="flex-row items-center gap-1">
+              <IconClock size={12} color={theme.colors.mutedForeground} />
+              <Text variant="small" tone="muted">
+                {time}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {recipe.tags.length > 0 ? (
+          <View className="flex-row flex-wrap gap-1">
+            {recipe.tags.map((t) => (
+              <Badge key={t.id} label={t.name} size="sm" />
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }
 

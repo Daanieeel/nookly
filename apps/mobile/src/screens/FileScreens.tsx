@@ -2,6 +2,7 @@ import {
   type FileKindId,
   type FileRecord,
   addFile,
+  addFileLink,
   fileKindOf,
   isDownloading,
   isLinkOnly,
@@ -26,16 +27,22 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { Image, Linking, ScrollView, View } from "react-native";
+import { useState } from "react";
+import { Image, Linking, Pressable, ScrollView, TextInput, View } from "react-native";
+import { CARD_CLASSES } from "@nookly/ui/classes";
+import { IconArrowUp } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles } from "../data/queries.ts";
-import { Button } from "../ui/Button.tsx";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { cn } from "../ui/classes.ts";
+import { Grid } from "../ui/Grid.tsx";
+import { ListTitle } from "../ui/ListBar.tsx";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { dayLabel } from "./dates.ts";
-import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useRouter } from "expo-router";
@@ -68,16 +75,6 @@ const KIND_LABELS = {
 
 const nameOf = (file: FileRecord) => file.originalFilename ?? file.entity.title;
 
-function KindIcon({ file }: { file: FileRecord }) {
-  const theme = useTheme();
-  if (isLinkOnly(file)) {
-    const Glyph = file.provider === "dropbox" ? IconBrandDropbox : IconLink;
-    return <Glyph size={20} color={theme.colors.mutedForeground} />;
-  }
-  const Glyph = KIND_ICONS[fileKindOf(nameOf(file))];
-  return <Glyph size={20} color={theme.colors.mutedForeground} />;
-}
-
 function state(file: FileRecord): string {
   if (isDownloading(file)) return "Downloading from your account";
   if (isLinkOnly(file)) return "Link";
@@ -98,24 +95,138 @@ export function useAddFiles(spaceId: string) {
   });
 }
 
-/// A Space's files, newest first.
-export function FileRows({ spaceId }: { spaceId: string }) {
+/// "PDF", "TXT": the type badge on a tile.
+const extensionOf = (file: FileRecord) =>
+  isLinkOnly(file) ? "LINK" : (nameOf(file).split(".").pop() ?? "").slice(0, 4).toUpperCase();
+
+function FileTile({ file }: { file: FileRecord }) {
   const router = useRouter();
-  const { data: files = [] } = useFiles(spaceId);
+  const theme = useTheme();
+  const name = nameOf(file);
+  const path = file.localPath ?? file.sourcePath;
+  const image = !isLinkOnly(file) && fileKindOf(name) === "image" && path;
+  const Glyph = isLinkOnly(file)
+    ? file.provider === "dropbox"
+      ? IconBrandDropbox
+      : IconLink
+    : KIND_ICONS[fileKindOf(name)];
+  const added = new Date(file.entity.createdAt).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
   return (
-    <Section>
-      {files.length === 0 ? <Empty text="No files yet." /> : null}
-      {files.map((file) => (
-        <View key={file.entity.id}>
-          <Row
-            title={file.entity.title || "Untitled"}
-            subtitle={state(file)}
-            icon={<KindIcon file={file} />}
-            onPress={() => router.push(`/entity/${file.entity.id}`)}
-          />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={name}
+      onPress={() => router.push(`/entity/${file.entity.id}`)}
+      className="gap-2 active:opacity-80"
+    >
+      <View className="aspect-square items-center justify-center overflow-hidden rounded-xl bg-muted">
+        {image ? (
+          <Image source={{ uri: path }} resizeMode="cover" className="size-full" />
+        ) : (
+          <Glyph size={44} color={theme.colors.mutedForeground} strokeWidth={1.5} />
+        )}
+        <View className="absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5">
+          <Text variant="small" className="font-medium">
+            {extensionOf(file)}
+          </Text>
         </View>
-      ))}
-    </Section>
+      </View>
+      <View className="gap-0.5 px-0.5">
+        <Text numberOfLines={2} className="font-medium leading-tight">
+          {name}
+        </Text>
+        <Text variant="small" tone="muted" numberOfLines={1}>
+          {`${state(file)} · ${added}`}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+/// What stays under the grid: a link or a file, to add to the Space.
+function AddBar({ spaceId }: { spaceId: string }) {
+  const theme = useTheme();
+  const addFiles = useAddFiles(spaceId);
+  const [link, setLink] = useState("");
+  const addLink = useLocalWrite((db, url: string) => addFileLink(db, spaceId, url));
+  const submit = () => link.trim() && addLink.mutate(link, { onSuccess: () => setLink("") });
+  return (
+    <View className={cn(CARD_CLASSES, "gap-2 p-3")}>
+      <View className="flex-row items-center gap-2">
+        <IconLink size={18} color={theme.colors.mutedForeground} />
+        <TextInput
+          accessibilityLabel="Paste a link"
+          value={link}
+          onChangeText={setLink}
+          onSubmitEditing={submit}
+          placeholder="Paste a link"
+          placeholderTextColor={theme.colors.mutedForeground}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          returnKeyType="done"
+          className="h-10 flex-1 font-sans text-sm text-foreground"
+        />
+        {link.trim() ? (
+          <IconButton
+            label="Add Link"
+            icon={<IconArrowUp size={20} color={theme.colors.foreground} />}
+            onPress={submit}
+          />
+        ) : null}
+        <Text tone="muted">or</Text>
+        <Button
+          label="Choose Files"
+          variant="secondary"
+          size="sm"
+          status={statusOf(addFiles)}
+          onPress={() => addFiles.mutate(undefined)}
+        />
+      </View>
+      {addLink.error ? <Text tone="destructive">{addLink.error.message}</Text> : null}
+    </View>
+  );
+}
+
+/// A Space's files as tiles, newest first, filtered by kind, with a bar under them to add a
+/// link or choose files.
+export function FileRows({ spaceId }: { spaceId: string }) {
+  const { data: files = [] } = useFiles(spaceId);
+  const [kind, setKind] = useState<string>("all");
+  const kindOf = (f: FileRecord) => (isLinkOnly(f) ? "link" : fileKindOf(nameOf(f)));
+  const kinds = [...new Set(files.map(kindOf))];
+  const shown = files.filter((f) => kind === "all" || kindOf(f) === kind);
+  return (
+    <View className="gap-4">
+      <ListTitle title="Files" count={files.length} />
+      {kinds.length > 1 ? (
+        <ChipGroup label="Kind" scroll>
+          <Chip label="All" selected={kind === "all"} onPress={() => setKind("all")} />
+          {kinds.map((k) => (
+            <Chip
+              key={k}
+              label={k === "link" ? "Links" : KIND_LABELS[k as FileKindId]}
+              selected={kind === k}
+              onPress={() => setKind(k)}
+            />
+          ))}
+        </ChipGroup>
+      ) : null}
+      {files.length === 0 ? (
+        <Text tone="muted" className="p-4 text-center">
+          No files yet. Paste a link or choose files below.
+        </Text>
+      ) : (
+        <Grid min={140} max={6}>
+          {shown.map((file) => (
+            <FileTile key={file.entity.id} file={file} />
+          ))}
+        </Grid>
+      )}
+      <AddBar spaceId={spaceId} />
+    </View>
   );
 }
 

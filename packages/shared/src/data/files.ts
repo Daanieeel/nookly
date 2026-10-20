@@ -63,6 +63,36 @@ export async function addFile(
   return id;
 }
 
+/// Google Drive, Dropbox and iCloud links by name, as the desktop recognises them.
+export function detectProvider(url: string): string | null {
+  if (url.includes("drive.google.com") || url.includes("docs.google.com")) return "google_drive";
+  if (url.includes("dropbox.com")) return "dropbox";
+  if (url.includes("icloud.com")) return "icloud";
+  return null;
+}
+
+/// A File that is a link to one kept elsewhere: Drive, Dropbox, iCloud, or a direct link to a
+/// file. A link to a web page is refused; that is a bookmark.
+export async function addFileLink(db: LocalDb, spaceId: string, url: string): Promise<string> {
+  const link = url.trim();
+  if (!/^https?:\/\//i.test(link)) throw new Error("Paste a link that starts with http or https.");
+  const provider = detectProvider(link);
+  const name = decodeURIComponent(link.split(/[?#]/)[0].split("/").filter(Boolean).pop() ?? link);
+  const fileLike = /\.[a-z0-9]{2,5}$/i.test(name) && !/\.(html?|php|aspx?)$/i.test(name);
+  if (!provider && !fileLike) {
+    throw new Error("That is a web page. Save it as a bookmark instead.");
+  }
+  const { id, statements } = createEntityStatements(db, spaceId, "file", name);
+  await write(db, [
+    ...statements,
+    {
+      sql: "INSERT INTO files (entity_id, provider, url, original_filename) VALUES (?, ?, ?, ?)",
+      params: [id, provider, link, name],
+    },
+  ]);
+  return id;
+}
+
 /// In the account, not on this device yet: its contents are on their way.
 export const isDownloading = (file: FileRecord) =>
   !file.localPath && !file.sourcePath && Boolean(file.blob);

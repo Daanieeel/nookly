@@ -22,10 +22,24 @@ describe("files", () => {
       remote,
     );
     const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
-    expect(await screen.findByRole("button", { name: "notes.pdf, PDF" })).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "slides.pptx, Downloading from your account" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "notes.pdf" })).toBeTruthy();
+    expect(screen.getByText(/^PDF · /)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "slides.pptx" })).toBeTruthy();
+    expect(screen.getByText(/^Downloading from your account · /)).toBeTruthy();
+  });
+
+  it("adds a link to a file kept elsewhere, and sends a web page to the bookmarks", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    const field = await screen.findByLabelText("Paste a link");
+    await fireEvent.changeText(field, "https://example.com/blog/post");
+    await fireEvent(field, "submitEditing");
+    expect(await screen.findByText(/web page/)).toBeTruthy();
+    await fireEvent.changeText(field, "https://www.dropbox.com/s/abc/Report.pdf?dl=0");
+    await fireEvent(field, "submitEditing");
+    expect(await screen.findByRole("button", { name: "Report.pdf" })).toBeTruthy();
+    expect(screen.getByText(/^LINK$/)).toBeTruthy();
   });
 
   it("opens a file's own page with its state and a way to open it elsewhere", async () => {

@@ -6,6 +6,8 @@ export interface BookmarkRecord {
   url: string;
   description: string | null;
   faviconUrl: string | null;
+  /// The site's own picture for it, once its page was read.
+  previewImageUrl: string | null;
 }
 
 /// A bookmark's title starts as its address without the scheme, as on the desktop
@@ -19,7 +21,7 @@ export async function listBookmarks(db: LocalDb, spaceId?: string): Promise<Book
     await rows(
       db,
       `SELECT e.id, e.space_id, e.type, e.title, e.icon, e.pinned, e.created_at, e.updated_at, e.deleted_at, e.key_prefix, e.key_number, e.last_opened_at,
-         b.url, b.description, b.favicon_url
+         b.url, b.description, b.favicon_url, b.preview_image_url
        FROM entities e JOIN bookmarks b ON b.entity_id = e.id
        WHERE e.deleted_at IS NULL AND e.hidden_at IS NULL ${spaceId ? "AND e.space_id = ?" : ""}
        ORDER BY e.created_at DESC`,
@@ -30,6 +32,7 @@ export async function listBookmarks(db: LocalDb, spaceId?: string): Promise<Book
     url: str(r.url),
     description: optStr(r.description),
     faviconUrl: optStr(r.favicon_url),
+    previewImageUrl: optStr(r.preview_image_url),
   }));
 }
 
@@ -107,7 +110,6 @@ export async function setBookmarkMetadata(
 }
 
 export interface BookmarkDetails extends BookmarkRecord {
-  previewImageUrl: string | null;
   fetchedAt: string | null;
 }
 

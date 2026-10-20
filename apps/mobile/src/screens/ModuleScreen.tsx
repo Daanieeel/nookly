@@ -5,20 +5,14 @@ import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
-import {
-  useAssignments,
-  useBookmarks,
-  useCourses,
-  useDecks,
-  useEntities,
-  useExams,
-} from "../data/queries.ts";
+import { useAssignments, useCourses, useDecks, useEntities, useExams } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { BookmarkList } from "./BookmarkList.tsx";
 import { CalendarScreen } from "./CalendarScreen.tsx";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
 import { JotList, NoteList } from "./PageLists.tsx";
@@ -114,26 +108,6 @@ function EntityList({ spaceId, module }: { spaceId: string; module: ModuleKey })
             subtitle={entity.key}
             icon={<EntityIcon type={entity.type} icon={entity.icon} />}
             onPress={() => router.push(`/entity/${entity.id}`)}
-          />
-        </View>
-      ))}
-    </Section>
-  );
-}
-
-function BookmarkList({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
-  const { data: bookmarks = [] } = useBookmarks(spaceId);
-  return (
-    <Section>
-      {bookmarks.length === 0 ? <Empty text="No bookmarks yet." /> : null}
-      {bookmarks.map((b) => (
-        <View key={b.entity.id}>
-          <Row
-            title={b.entity.title}
-            subtitle={b.url}
-            icon={<EntityIcon type="bookmark" icon={b.entity.icon} />}
-            onPress={() => router.push(`/entity/${b.entity.id}`)}
           />
         </View>
       ))}

@@ -31,9 +31,9 @@ describe("a recipe", () => {
       recipe,
     );
     const screen = await renderScreens({ index: () => <RecipeRows spaceId={space} /> }, data);
-    expect(
-      await screen.findByRole("button", { name: "Pancakes, Breakfast · 25 min" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Pancakes" })).toBeTruthy();
+    expect(screen.getByText("Breakfast")).toBeTruthy();
+    expect(screen.getByText("25 min")).toBeTruthy();
   });
 
   it("changes its kind and its time", async () => {

@@ -1,6 +1,7 @@
 import { createBookmark, createSpace, getBookmarkDetails, getEntity } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
+import { BookmarkList } from "./BookmarkList.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 
 const PAGE = `<head><title>Kubernetes Deployments</title>
@@ -55,5 +56,23 @@ describe("a bookmark", () => {
       expect((await getBookmarkDetails(data.db, id))?.fetchedAt).not.toBeNull(),
     );
     expect((await getEntity(data.db, id))?.title).toBe("Mine");
+  });
+});
+
+describe("a Space's bookmarks", () => {
+  it("shows them as cards and saves a pasted URL, reading its page afterwards", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    await createBookmark(data.db, space, "https://example.com/a", "Example A");
+    const fake = serve(PAGE);
+    const screen = await renderScreens({ index: () => <BookmarkList spaceId={space} /> }, data);
+    expect(await screen.findByRole("link", { name: "Example A" })).toBeTruthy();
+    expect(screen.getByText(/^example\.com · /)).toBeTruthy();
+    const field = screen.getByLabelText("Paste a URL to save it");
+    await fireEvent.changeText(field, "kubernetes.io/docs/");
+    await fireEvent(field, "submitEditing");
+    await waitFor(() => expect(fake).toHaveBeenCalled());
+    expect(await screen.findByRole("link", { name: "Kubernetes Deployments" })).toBeTruthy();
+    fake.mockRestore();
   });
 });
