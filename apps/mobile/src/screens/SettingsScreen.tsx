@@ -3,6 +3,7 @@ import {
   IconCalendar,
   IconChevronRight,
   IconInfoCircle,
+  IconKeyboard,
   IconLayoutSidebar,
   IconSparkles,
   IconNotes,
@@ -89,6 +90,13 @@ export function SettingsScreen() {
           icon={<IconLayoutSidebar size={20} color={theme.colors.mutedForeground} />}
           trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
           onPress={() => router.push("/settings/sidebar")}
+        />
+        <Row
+          title="Keyboard Shortcuts"
+          subtitle="For an iPad with a keyboard"
+          icon={<IconKeyboard size={20} color={theme.colors.mutedForeground} />}
+          trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
+          onPress={() => router.push("/settings/shortcuts")}
         />
         <Row
           title="What's New"
