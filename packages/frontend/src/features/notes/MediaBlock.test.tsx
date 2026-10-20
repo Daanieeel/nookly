@@ -153,6 +153,20 @@ describe("a file block that opens on a page", () => {
     expect(pageOf()).toBe("3");
   });
 
+  // The "to" sits right after the first number, however many digits it has.
+  it("sizes each page field to its digits, so the to stays next to the first number", async () => {
+    const { user } = await open("file", "syllabus.pdf");
+    const first = await screen.findByRole("textbox", { name: "Open on page" });
+    const width = () => first.style.width;
+    const empty = width();
+    await user.type(first, "123");
+    await waitFor(() => expect(first).toHaveValue("123"));
+    expect(width()).toBe("3ch");
+    expect(empty).toBe("3ch");
+    await user.type(first, "45");
+    expect(width()).toBe("5ch");
+  });
+
   it("opens on the first page of an interval", async () => {
     useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
     await open("file", "syllabus.pdf", { page: "3", pageTo: "9" });

@@ -377,7 +377,9 @@ function PageNumberInput({
         const next = Number(event.target.value.replaceAll(/\D/g, "").slice(0, 5));
         onChange(next >= 1 ? next : null);
       }}
-      className="w-12 min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
+      // As wide as its digits (at least the placeholder), so the "to" stays next to the number.
+      style={{ width: `${Math.max(3, String(value ?? "").length)}ch` }}
+      className="min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
     />
   );
 }
