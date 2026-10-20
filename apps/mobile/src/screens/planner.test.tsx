@@ -119,7 +119,7 @@ describe("semesters", () => {
     const rows = await renderScreens({ index: () => <SemesterList spaceId={space} /> }, data);
     expect(await rows.findByText("Current")).toBeTruthy();
     expect(
-      rows.getByText(`1 course · ${dayLabel("2025-10-15")} to ${dayLabel("2026-02-15")}`),
+      await rows.findByText(`1 course · ${dayLabel("2025-10-15")} to ${dayLabel("2026-02-15")}`),
     ).toBeTruthy();
     await fireEvent.press(rows.getByRole("button", { name: "WS 25/26" }));
     expect(await rows.findByRole("button", { name: /^Algorithms, CRS-/ })).toBeTruthy();
