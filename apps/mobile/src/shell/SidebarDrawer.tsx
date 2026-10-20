@@ -13,6 +13,10 @@ export const useSidebarDrawer = () => useContext(SidebarHandle);
 /// can go back from.
 export const BACK_EDGE = 24;
 
+/// How far a finger may wander sideways before a touch is a swipe and no longer a tap: the
+/// rows of the sidebar answer a press that moves a little, wherever on the row it lands.
+const TAP_SLOP = 16;
+
 /// Like Claude's: the sidebar waits behind the whole app, and the page, whatever it is and
 /// with its own bar, slides aside to show it, its corners rounded. A swipe to the right
 /// anywhere opens it, except at the very edge of a page you can go back from, where the
@@ -42,7 +46,10 @@ export function SidebarDrawer({
         NonNullable<React.ComponentProps<typeof Drawer>["configureGestureHandler"]>
       >[0],
     ) =>
-      (open ? gesture : gesture.activeOffsetX([5, 10_000])).hitSlop({
+      (open
+        ? gesture.activeOffsetX([-TAP_SLOP, TAP_SLOP])
+        : gesture.activeOffsetX([TAP_SLOP, 10_000])
+      ).hitSlop({
         left: open ? 0 : inset,
         width: open ? undefined : width - inset,
       }),
