@@ -22,6 +22,7 @@ import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { AgendaRow } from "./CalendarScreen.tsx";
+import { ASSIGNMENT_DONE } from "./AssignmentsScreen.tsx";
 import { DashboardBriefing, useOpenTarget } from "./DashboardBriefing.tsx";
 import { AssignmentsPanel, DecksPanel, JotsPanel, TasksPanel } from "./DashboardPanels.tsx";
 import { buildBriefing } from "./briefing-runs.ts";
@@ -31,8 +32,6 @@ import { TimeGrid } from "./TimeGrid.tsx";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 import { useRouter } from "expo-router";
 
-/// Assignments that no longer wait on the student: handed in, or graded.
-export const ASSIGNMENT_DONE = new Set(["submitted", "graded"]);
 const AHEAD_DAYS = 14;
 /// From this pane width the dashboard has today's hours beside its lists.
 const WIDE_DASHBOARD = 900;

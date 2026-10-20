@@ -12,6 +12,7 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { BookmarkList } from "./BookmarkList.tsx";
 import { CalendarScreen } from "./CalendarScreen.tsx";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
@@ -132,6 +133,9 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
         <CalendarScreen spaceId={spaceId} create={module === "sessions" ? "session" : "entry"} />
       </>
     );
+  }
+  if (module === "assignments") {
+    return <AssignmentsScreen spaceId={spaceId} />;
   }
   if (module === "grades") {
     return (

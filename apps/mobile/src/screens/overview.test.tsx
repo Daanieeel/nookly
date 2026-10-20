@@ -6,6 +6,7 @@ import {
   createSpace,
   createTask,
   listUnrefinedJots,
+  getAssignment,
   updateAssignment,
 } from "@nookly/shared/data";
 import { router } from "expo-router";
@@ -81,10 +82,35 @@ describe("the assignments overview", () => {
     );
     await updateAssignment(data.db, handed, { status: "submitted" });
     const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
-    expect(await screen.findByText("Overdue · 1")).toBeTruthy();
-    expect(screen.getByText("Next 7 days · 1")).toBeTruthy();
-    expect(screen.getByText("No due date · 1")).toBeTruthy();
-    expect(screen.getByText("Done · 1")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Overdue" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "No Due Date" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
+    expect(screen.getByText("4d overdue")).toBeTruthy();
+  });
+
+  it("marks one done from its round checkbox, and brings it back", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const id = await createAssignment(data.db, space, "Sheet", course, addDays(localDay(), 2));
+    const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Mark done Sheet" }));
+    await waitFor(async () => expect((await getAssignment(data.db, id))?.status).toBe("submitted"));
+  });
+
+  it("regroups by course and lays out as a board by status", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createAssignment(data.db, space, "Sheet", course, addDays(localDay(), 2));
+    const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Course" }));
+    expect((await screen.findAllByRole("button", { name: "Algorithms" })).length).toBeGreaterThan(
+      0,
+    );
+    await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
+    expect(await screen.findByLabelText("Not started column")).toBeTruthy();
   });
 });
 
