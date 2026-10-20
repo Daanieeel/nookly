@@ -228,7 +228,8 @@ export function TimeGrid({
                         }}
                       >
                         <Text
-                          numberOfLines={roomy ? Math.min(lines, 2) : lines}
+                          // A sliver of a lane keeps to one line; wrapping it would break words apart.
+                          numberOfLines={w < 44 ? 1 : roomy ? Math.min(lines, 2) : lines}
                           style={{ fontSize: narrow ? 9 : 11, lineHeight: narrow ? 11 : 13 }}
                           className="font-medium"
                         >
