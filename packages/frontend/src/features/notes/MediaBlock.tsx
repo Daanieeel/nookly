@@ -17,7 +17,13 @@ import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { type ComponentType, type MouseEvent, useEffect, useState } from "react";
+import {
+  type ComponentType,
+  type CSSProperties,
+  type MouseEvent,
+  useEffect,
+  useState,
+} from "react";
 import { z } from "zod";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
@@ -378,8 +384,9 @@ function PageNumberInput({
         onChange(next >= 1 ? next : null);
       }}
       // As wide as its digits (at least the placeholder), so the "to" stays next to the number.
-      style={{ width: `${Math.max(3, String(value ?? "").length)}ch` }}
-      className="min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
+      // SAFETY: a length in characters, which `CSSProperties` can't name as a custom property.
+      style={{ "--digits": `${Math.max(3, String(value ?? "").length)}ch` } as CSSProperties}
+      className="w-(--digits) min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
     />
   );
 }
