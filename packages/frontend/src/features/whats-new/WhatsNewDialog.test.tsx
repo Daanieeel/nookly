@@ -135,26 +135,14 @@ describe("WhatsNewDialog", () => {
     for (const set of sets) expect(set.querySelectorAll("kbd").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("draws the descriptions with the note renderer, so formatting works", async () => {
+  it("draws the descriptions with their formatting", async () => {
     open("0.31.10");
-    const bold = await waitFor(() => {
-      const found = document.querySelector(".tiptap-content strong");
-      if (!found) throw new Error("not drawn yet");
-      return found;
-    });
-    expect(bold).toHaveTextContent("check it");
+    expect(await screen.findByText("check it", { selector: "strong" })).toBeTruthy();
   });
 
   it("shows a shortcut written in code the way this system writes it", async () => {
     open("0.31.10");
-    const code = await waitFor(() => {
-      const found = [...document.querySelectorAll(".tiptap-content code")].find((el) =>
-        el.textContent?.includes("V"),
-      );
-      if (!found) throw new Error("not drawn yet");
-      return found;
-    });
-    expect(code.textContent).toBe(displayText("Mod+Shift+V"));
+    expect(await screen.findByText(displayText("Mod+Shift+V"), { selector: "code" })).toBeTruthy();
   });
 
   it("lists the smaller changes under their headings", async () => {
@@ -221,17 +209,6 @@ describe("WhatsNewDialog", () => {
     if (!head) throw new Error("the title row is missing");
     expect(within(head).getByText("New")).toBeTruthy();
     expect(head.querySelectorAll("kbd").length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("draws the text without the gutter the note editor keeps for its handles", async () => {
-    open("0.31.10");
-    await screen.findByText("Import a page");
-    const content = await waitFor(() => {
-      const found = document.querySelector(".tiptap-content");
-      if (!found) throw new Error("not drawn yet");
-      return found;
-    });
-    expect(content).toHaveClass("pl-0");
   });
 
   it("closes with Escape", async () => {
@@ -327,6 +304,15 @@ describe("WhatsNewDialog", () => {
 });
 
 describe("WhatsNewDialog history", () => {
+  // Every line of notes used to mount a whole note editor, which made this dialog slow to open.
+  it("draws the notes without a note editor", async () => {
+    mockCommand("plugin:app|version", "0.31.10");
+    renderWithProviders(<WhatsNewDialog notes={NOTES} changelog={CHANGELOG} />);
+    act(() => useNavStore.getState().setWhatsNewOpen(true, true));
+    await screen.findByText("Pages travel now");
+    expect(document.querySelector(".ProseMirror")).toBeNull();
+  });
+
   it("lists every written up version when opened from Settings, whatever was last seen", async () => {
     preferences.set(STORAGE_KEYS.whatsNewSince, "0.31.9");
     mockCommand("plugin:app|version", "0.31.10");
