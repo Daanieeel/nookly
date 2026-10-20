@@ -16,7 +16,9 @@ import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
-import { NewSemesterScreen, NewSessionScreen, SemesterRows } from "./PlannerScreens.tsx";
+import { NewSemesterScreen, NewSessionScreen } from "./PlannerScreens.tsx";
+import { dayLabel } from "./dates.ts";
+import { SemesterList } from "./SemesterList.tsx";
 
 async function seeded() {
   const data = testData();
@@ -113,8 +115,14 @@ describe("semesters", () => {
       endDate: "2026-02-15",
     });
     await data.driver.query("UPDATE semesters SET is_current = 1 WHERE entity_id = ?", [ws]);
-    const rows = await renderScreens({ index: () => <SemesterRows spaceId={space} /> }, data);
+    await setCourseSemester(data.db, course, ws);
+    const rows = await renderScreens({ index: () => <SemesterList spaceId={space} /> }, data);
     expect(await rows.findByText("Current")).toBeTruthy();
+    expect(
+      rows.getByText(`1 course · ${dayLabel("2025-10-15")} to ${dayLabel("2026-02-15")}`),
+    ).toBeTruthy();
+    await fireEvent.press(rows.getByRole("button", { name: "WS 25/26" }));
+    expect(await rows.findByRole("button", { name: /^Algorithms, CRS-/ })).toBeTruthy();
     const screen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={course} /> },
       data,

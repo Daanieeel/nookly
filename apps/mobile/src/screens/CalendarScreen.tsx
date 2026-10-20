@@ -222,7 +222,16 @@ function MonthView({
 /// Every Space's Sessions, Calendar entries, Exams and Study blocks in their Space's
 /// color: an agenda, or the hours of a day, three days, a week; on an iPad the desktop's
 /// day, work week, week and month.
-export function CalendarScreen() {
+///
+/// With `spaceId` it is one Space's own page (its Sessions or its Calendar module): the same
+/// grids with only that Space's items, and "+" makes a `create` there.
+export function CalendarScreen({
+  spaceId,
+  create = "entry",
+}: {
+  spaceId?: string;
+  create?: "entry" | "session";
+} = {}) {
   const theme = useTheme();
   const router = useRouter();
   const today = localDay();
@@ -238,7 +247,8 @@ export function CalendarScreen() {
       : "agenda";
   const [anchor, setAnchor] = useState(today);
   const range = useRange(view, anchor);
-  const { data: items = [] } = useAgenda(range.from, range.to);
+  const { data: everything = [] } = useAgenda(range.from, range.to);
+  const items = spaceId ? everything.filter((i) => i.spaceId === spaceId) : everything;
   const { data: spaces = [] } = useSpaces();
   const { refreshing, onRefresh } = useSyncRefresh();
   const colorOf = (spaceId: string) => spaces.find((s) => s.id === spaceId)?.color;
@@ -291,9 +301,9 @@ export function CalendarScreen() {
       options={{
         headerRight: () => (
           <IconButton
-            label="New Calendar Entry"
+            label={create === "session" ? "New Session" : "New Calendar Entry"}
             icon={<IconPlus size={22} color={theme.colors.foreground} />}
-            onPress={() => router.push("/new/entry")}
+            onPress={() => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`)}
           />
         ),
       }}

@@ -1,0 +1,161 @@
+import { renameEntity, setCurrentSemester, trashEntity } from "@nookly/shared/data";
+import { CARD_CLASSES } from "@nookly/ui/classes";
+import {
+  IconCalendarStats,
+  IconChevronDown,
+  IconChevronRight,
+  IconDots,
+  IconSchool,
+} from "@tabler/icons-react-native";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, Platform, Pressable, View } from "react-native";
+import { useLocalWrite } from "../data/context.tsx";
+import type { SemesterRecord } from "@nookly/shared/data";
+import { useCourseSemesters, useCourses, useSemesters } from "../data/queries.ts";
+import { Badge } from "../ui/Badge.tsx";
+import { IconButton } from "../ui/Button.tsx";
+import { cn } from "../ui/classes.ts";
+import { useMenu } from "../ui/menu.tsx";
+import { Text } from "../ui/Text.tsx";
+import { useTheme } from "../ui/theme.ts";
+import { dayLabel } from "./dates.ts";
+
+const range = (s: SemesterRecord) =>
+  s.startDate && s.endDate ? `${dayLabel(s.startDate)} to ${dayLabel(s.endDate)}` : null;
+
+/// A name asked for with the system's own prompt (iOS), where there is one.
+function askName(title: string, current: string, done: (name: string) => void) {
+  if (Platform.OS === "ios") Alert.prompt(title, undefined, done, "plain-text", current);
+}
+
+function SemesterRow({ semester }: { semester: SemesterRecord }) {
+  const router = useRouter();
+  const theme = useTheme();
+  const present = useMenu();
+  const muted = theme.colors.mutedForeground;
+  const [open, setOpen] = useState(false);
+  const { data: courses = [] } = useCourses(semester.entity.spaceId);
+  const { data: inSemester = new Map<string, string>() } = useCourseSemesters(
+    semester.entity.spaceId,
+  );
+  const mine = courses.filter((c) => inSemester.get(c.entity.id) === semester.entity.id);
+  const rename = useLocalWrite((db, name: string) => renameEntity(db, semester.entity.id, name));
+  const current = useLocalWrite((db) =>
+    setCurrentSemester(db, semester.entity.spaceId, semester.entity.id),
+  );
+  const trash = useLocalWrite((db) => trashEntity(db, semester.entity.id));
+  const Chevron = open ? IconChevronDown : IconChevronRight;
+  const name = semester.entity.title || "Untitled";
+  return (
+    <View
+      className={cn(
+        CARD_CLASSES,
+        "gap-0 overflow-hidden py-0",
+        semester.isCurrent && "border-primary",
+      )}
+    >
+      <View className="min-h-14 flex-row items-center gap-2 pl-3 pr-1">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={name}
+          accessibilityState={{ expanded: open }}
+          onPress={() => setOpen((o) => !o)}
+          className="flex-1 flex-row items-center gap-2 py-2"
+        >
+          <Chevron size={16} color={muted} />
+          <IconCalendarStats size={16} color={muted} />
+          <View className="flex-1 gap-0.5">
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Text variant="small" tone="muted">
+                {semester.entity.key}
+              </Text>
+              <Text numberOfLines={1} className="font-semibold">
+                {name}
+              </Text>
+              {semester.isCurrent ? <Badge label="Current" variant="positive" size="sm" /> : null}
+            </View>
+            <Text variant="small" tone="muted">
+              {`${mine.length} ${mine.length === 1 ? "course" : "courses"} · ${range(semester) ?? "Set dates"}`}
+            </Text>
+          </View>
+        </Pressable>
+        <IconButton
+          label={`Options for ${name}`}
+          icon={<IconDots size={20} color={muted} />}
+          onPress={() =>
+            present.show(name, [
+              { label: "Open", onPress: () => router.push(`/entity/${semester.entity.id}`) },
+              ...(Platform.OS === "ios"
+                ? [
+                    {
+                      label: "Rename",
+                      onPress: () =>
+                        askName(
+                          "Rename Semester",
+                          name,
+                          (next) => next.trim() && rename.mutate(next.trim()),
+                        ),
+                    },
+                  ]
+                : []),
+              ...(semester.isCurrent
+                ? []
+                : [{ label: "Flag as Current", onPress: () => current.mutate(undefined) }]),
+              { label: "Move to Trash", destructive: true, onPress: () => trash.mutate(undefined) },
+            ])
+          }
+        />
+      </View>
+      {open ? (
+        <View className="border-t border-border/60">
+          {mine.length === 0 ? (
+            <Text tone="muted" className="p-4">
+              No courses in this semester.
+            </Text>
+          ) : null}
+          {mine.map((c) => (
+            <Pressable
+              key={c.entity.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${c.entity.title || "Untitled"}, ${c.entity.key}`}
+              onPress={() => router.push(`/entity/${c.entity.id}`)}
+              className="min-h-11 flex-row items-center gap-3 px-4 active:bg-accent/40"
+            >
+              <IconSchool size={16} color={muted} />
+              <Text numberOfLines={1} className="flex-1">
+                {c.entity.title || "Untitled"}
+              </Text>
+              <Text variant="small" tone="muted">
+                {c.entity.key}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/// A Space's Semesters, one expandable row each as on the desktop: its key, name, a Current
+/// badge, how many courses and its dates, with a menu to open it, rename it, flag it as the
+/// current one or trash it; open, it lists its courses.
+export function SemesterList({ spaceId }: { spaceId: string }) {
+  const { data: semesters = [] } = useSemesters(spaceId);
+  if (semesters.length === 0) {
+    return (
+      <View className="p-8">
+        <Text tone="muted" className="text-center">
+          No semesters yet. Tap + to add one.
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View className="gap-2">
+      {semesters.map((s) => (
+        <SemesterRow key={s.entity.id} semester={s} />
+      ))}
+    </View>
+  );
+}

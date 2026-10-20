@@ -7,7 +7,6 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import {
-  type SemesterRecord,
   createOneOffSession,
   createSemester,
   courseSemester,
@@ -31,13 +30,11 @@ import {
   useExam,
   useSemester,
   useSemesters,
-  useSessions,
   useSession,
   useSpaces,
   useStudyBlock,
   useStudyBlocks,
 } from "../data/queries.ts";
-import { Badge } from "../ui/Badge.tsx";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
@@ -63,40 +60,6 @@ const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).
 const span = (start: string, end: string) => `${start} to ${end}`;
 
 // --- sessions -------------------------------------------------------------------------
-
-/// A Space's sessions from today on, then the past ones, by day and time.
-export function SessionRows({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
-  const { data: sessions = [] } = useSessions({ spaceId });
-  const today = localDay();
-  const upcoming = sessions.filter((s) => s.date >= today);
-  const past = sessions.filter((s) => s.date < today).reverse();
-  const rows = (list: typeof sessions) =>
-    list.map((s) => (
-      <View key={s.entity.id}>
-        <Row
-          title={s.entity.title || s.courseTitle || "Session"}
-          subtitle={join(
-            dayLabel(s.date, today),
-            span(s.startTime, s.endTime),
-            s.location,
-            s.cancelled ? "Cancelled" : null,
-          )}
-          muted={s.cancelled}
-          icon={<EntityIcon type="session" icon={s.entity.icon} />}
-          onPress={() => router.push(`/entity/${s.entity.id}`)}
-        />
-      </View>
-    ));
-  return (
-    <>
-      <Section title="Coming up">
-        {upcoming.length === 0 ? <Empty text="No sessions coming up." /> : rows(upcoming)}
-      </Section>
-      {past.length > 0 ? <Section title="Earlier">{rows(past)}</Section> : null}
-    </>
-  );
-}
 
 /// A session's own day, time and place, changed for this one session. Whole series are
 /// edited on the computer.
@@ -453,38 +416,6 @@ export function NewStudyBlockScreen({ spaceId, examId }: { spaceId?: string; exa
 }
 
 // --- semesters ------------------------------------------------------------------------
-
-function semesterSubtitle(s: SemesterRecord): string {
-  const term =
-    s.termType && s.year !== null
-      ? `${s.termType[0].toUpperCase()}${s.termType.slice(1)} ${s.year}`
-      : null;
-  const dates =
-    s.startDate && s.endDate ? `${dayLabel(s.startDate)} to ${dayLabel(s.endDate)}` : null;
-  return join(term, dates);
-}
-
-/// A Space's semesters in the order the desktop shows them, the current one marked.
-export function SemesterRows({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
-  const { data: semesters = [] } = useSemesters(spaceId);
-  return (
-    <Section>
-      {semesters.length === 0 ? <Empty text="No semesters yet." /> : null}
-      {semesters.map((s) => (
-        <View key={s.entity.id}>
-          <Row
-            title={s.entity.title || "Untitled"}
-            subtitle={semesterSubtitle(s)}
-            icon={<EntityIcon type="semester" icon={s.entity.icon} />}
-            trailing={s.isCurrent ? <Badge label="Current" variant="positive" /> : null}
-            onPress={() => router.push(`/entity/${s.entity.id}`)}
-          />
-        </View>
-      ))}
-    </Section>
-  );
-}
 
 /// A semester: its dates, whether it is the current one, its notes and its courses.
 export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean }) {

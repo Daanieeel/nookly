@@ -19,11 +19,12 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { CalendarScreen } from "./CalendarScreen.tsx";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
 import { JotList, NoteList } from "./PageLists.tsx";
 import { CourseGallery, DeckGrid, ExamTimeline } from "./StudyGalleries.tsx";
 import { GradesScreen } from "./GradesScreen.tsx";
-import { SemesterRows, SessionRows } from "./PlannerScreens.tsx";
+import { SemesterList } from "./SemesterList.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
@@ -142,8 +143,6 @@ function BookmarkList({ spaceId }: { spaceId: string }) {
 
 /// One module of one Space.
 export function ModuleScreen({ spaceId, module }: { spaceId: string; module: ModuleKey }) {
-  const theme = useTheme();
-  const router = useRouter();
   if (module === "tasks") {
     return (
       <>
@@ -152,7 +151,14 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
       </>
     );
   }
-  const addFiles = useAddFiles(spaceId);
+  if (module === "sessions" || module === "calendar") {
+    return (
+      <>
+        <Stack.Screen options={{ title: MODULE_LABELS[module] }} />
+        <CalendarScreen spaceId={spaceId} create={module === "sessions" ? "session" : "entry"} />
+      </>
+    );
+  }
   if (module === "grades") {
     return (
       <>
@@ -161,6 +167,14 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
       </>
     );
   }
+  return <ListModule spaceId={spaceId} module={module} />;
+}
+
+/// The modules that are a list or a gallery of the Space's items.
+function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey }) {
+  const theme = useTheme();
+  const router = useRouter();
+  const addFiles = useAddFiles(spaceId);
   const create = CREATE.get(module);
   return (
     <>
@@ -207,10 +221,8 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
           <FileRows spaceId={spaceId} />
         ) : module === "recipes" ? (
           <RecipeRows spaceId={spaceId} />
-        ) : module === "sessions" ? (
-          <SessionRows spaceId={spaceId} />
         ) : module === "semesters" ? (
-          <SemesterRows spaceId={spaceId} />
+          <SemesterList spaceId={spaceId} />
         ) : STUDY.includes(module) ? (
           <>
             <StudyList spaceId={spaceId} module={module} />
