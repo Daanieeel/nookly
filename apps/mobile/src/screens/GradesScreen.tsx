@@ -7,6 +7,7 @@ import {
 } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconCalendarStats } from "@tabler/icons-react-native";
+import Svg, { Polyline } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
@@ -179,6 +180,32 @@ function Figure({ label, value, note }: { label: string; value: string; note?: s
   );
 }
 
+/// The average of each semester in order, as a small line: the desktop shows it beside the
+/// figures once there are two semesters with grades.
+function SemesterChart({ values }: { values: number[] }) {
+  const theme = useTheme();
+  const width = 160;
+  const height = 56;
+  const pad = 6;
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const span = hi - lo || 1;
+  const points = values
+    .map((v, i) => {
+      const x = pad + (i * (width - pad * 2)) / (values.length - 1);
+      const y = pad + ((hi - v) / span) * (height - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  return (
+    <View accessibilityLabel="Average by semester" className={cn(CARD_CLASSES, "items-center p-3")}>
+      <Svg width={width} height={height}>
+        <Polyline points={points} fill="none" stroke={theme.colors.primary} strokeWidth={2} />
+      </Svg>
+    </View>
+  );
+}
+
 const semesterName = (group: SemesterReport) =>
   group.semester ? group.semester.entity.title.trim() || "Untitled" : "No semester";
 
@@ -197,6 +224,7 @@ export function GradesScreen({ spaceId }: { spaceId: string }) {
     );
   }
   const current = report.semesters.find((g) => g.semester?.isCurrent);
+  const chart = report.semesters.flatMap((g) => (g.gpa === null ? [] : [g.gpa]));
   return (
     <Screen>
       <View className="flex-row gap-3">
@@ -211,6 +239,7 @@ export function GradesScreen({ spaceId }: { spaceId: string }) {
           }
         />
       </View>
+      {chart.length >= 2 ? <SemesterChart values={chart} /> : null}
       {report.semesters.map((group) => (
         <Band
           key={group.semester?.entity.id ?? "none"}

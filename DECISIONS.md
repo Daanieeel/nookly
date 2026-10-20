@@ -187,7 +187,8 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 - **Decision:** pages follow `PAGES.md` (written from desktop 0.38.3). New pure helpers keep the rules testable: `dashboard-model.ts`, `briefing-runs.ts` (the desktop's sentence), `assignment-view.ts`, `course-stats.ts`, `pinned-groups.ts`. Shared data got `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
 - **Decided on the way:** a Space's Tasks open as a board on an iPad and a list by status on a phone, the overview as a list by due date; Assignments group by deadline with a round checkbox; the Dashboard's "Show N more" expands in place (no filtered overview to jump to); a link pasted in Files is kept only if it is a Drive, Dropbox or iCloud link or a direct file link, a web page is refused (as on the desktop); a bookmark's page is read after it is saved; a jot's "Refine into New Note" is on its details.
-- **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Vim keys, Office conversion and OCR, the PDF paged viewer, the five step semester wizard, series (D19).
+- **Also built:** the five step semester setup (`SetupSemestersScreen.tsx`, `semester-setup.ts`) and the line of semester averages on Grades.
+- **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Vim keys, Office conversion and OCR, the PDF paged viewer, series (D19).
 
 ## D34. A page made on the phone asks for its document again a few times
 

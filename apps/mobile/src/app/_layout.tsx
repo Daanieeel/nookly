@@ -226,6 +226,14 @@ export default function RootLayout() {
         }}
       />
       <Stack.Screen
+        name="new/semester-setup"
+        options={{
+          title: "Set Up Semesters",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.7, 1],
+        }}
+      />
+      <Stack.Screen
         name="new/jot"
         options={{
           title: "Quick Jot",

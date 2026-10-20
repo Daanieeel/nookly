@@ -14,7 +14,7 @@ import { useLocalWrite } from "../data/context.tsx";
 import type { SemesterRecord } from "@nookly/shared/data";
 import { useCourseSemesters, useCourses, useSemesters } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
-import { IconButton } from "../ui/Button.tsx";
+import { Button, IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { useMenu } from "../ui/menu.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -141,18 +141,30 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
 /// badge, how many courses and its dates, with a menu to open it, rename it, flag it as the
 /// current one or trash it; open, it lists its courses.
 export function SemesterList({ spaceId }: { spaceId: string }) {
+  const router = useRouter();
   const { data: semesters = [] } = useSemesters(spaceId);
+  const setup = (
+    <View className="items-start">
+      <Button
+        label="Set Up Semesters"
+        variant="secondary"
+        onPress={() => router.push(`/new/semester-setup?spaceId=${spaceId}`)}
+      />
+    </View>
+  );
   if (semesters.length === 0) {
     return (
       <View className="p-8">
         <Text tone="muted" className="text-center">
           No semesters yet. Tap + to add one.
         </Text>
+        <View className="items-center pt-3">{setup}</View>
       </View>
     );
   }
   return (
     <View className="gap-2">
+      {setup}
       {semesters.map((s) => (
         <SemesterRow key={s.entity.id} semester={s} />
       ))}
