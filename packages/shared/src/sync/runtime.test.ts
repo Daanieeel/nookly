@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import type { DeviceInfo, SignUp, User } from "../api/index.ts";
+import type { BlobPlatform } from "./blobs.ts";
 import { NetworkError, type SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
@@ -57,6 +59,7 @@ class FakeAccount implements AccountApi {
   /// Pushes fail from this many on, like a connection that drops mid sync.
   failPushesAfter = Number.POSITIVE_INFINITY;
   pushes = 0;
+  pulls = 0;
   syncTransport(): SyncTransport {
     return {
       push: async (r) => {
@@ -65,7 +68,10 @@ class FakeAccount implements AccountApi {
         this.calls.push("push");
         return this.server.push(r);
       },
-      pull: async (r) => this.server.pull(r),
+      pull: async (r) => {
+        this.pulls += 1;
+        return this.server.pull(r);
+      },
     };
   }
   async missing(table: string, pks: string[]) {
@@ -77,6 +83,7 @@ function runtime(
   server = new MemoryServer(),
   driver = new NodeSqliteDriver(),
   backup?: () => Promise<{ path: string }>,
+  blobs?: BlobPlatform,
 ) {
   const account = new FakeAccount(server);
   const reindex = vi.fn(async (_ids: string[]) => {});
@@ -88,6 +95,7 @@ function runtime(
     reindex,
     onApplied,
     backup,
+    blobs: blobs && (() => blobs),
   });
   return { sync, account, driver, server, reindex, onApplied };
 }
@@ -403,5 +411,43 @@ describe("conflicts the person decides on", () => {
     ).toEqual([{ losing_value: '"Buy oat milk"' }]);
     mac.sync.stop();
     phone.sync.stop();
+  });
+});
+
+/// A disk and storage that always work, for the one file this test sends.
+class QuietFiles implements BlobPlatform {
+  async hash(_path: string) {
+    return { sha256: createHash("sha256").update("lecture").digest("hex"), size: 7 };
+  }
+  async upload() {}
+  async download(): Promise<string> {
+    throw new Error("nothing to download");
+  }
+}
+
+describe("syncing files", () => {
+  it("goes quiet once the files are sent instead of syncing again and again", async () => {
+    const { sync, account, driver } = runtime(undefined, undefined, undefined, new QuietFiles());
+    driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES ('f1', 's1', 'file', 'Lecture', ?, ?, 'FIL', 1)",
+      now(),
+      now(),
+    );
+    driver.exec(
+      "INSERT INTO files (entity_id, local_path, original_filename) VALUES ('f1', '/files/a.pdf', 'a.pdf')",
+    );
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.syncNow();
+    // The file goes out and its hash is one more change to send; let that settle.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const settled = account.pulls;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(account.pulls).toBe(settled);
+    sync.stop();
   });
 });

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.2 (2026-10-20)
+
+### Fixed
+
+- **Sync status stays calm.** Once your files were sent, Nookly kept syncing again and again, so "Synced just now" flashed to "Syncing" every second. It now syncs once and rests until something changes.
+
 ## 0.38.1 (2026-10-15)
 
 ### Changed

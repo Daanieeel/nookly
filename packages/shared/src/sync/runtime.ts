@@ -120,6 +120,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private readonly settings: AccountSettingsSync | null;
   private stopSettings: (() => void) | null = null;
   private filesRunning: Promise<void> | null = null;
+  private filesCounted = { uploaded: 0, downloaded: 0 };
   private docs: PageDocs | null = null;
   private flushing = false;
   private filesTimer: ReturnType<typeof setTimeout> | null = null;
@@ -411,9 +412,13 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       try {
         const progress = await blobs.runOnce();
         this.store.setState({ files: progress });
-        if (progress.downloaded > 0) this.deps.onApplied();
+        // The counts run for the whole session; only what this pass did is news.
+        // Acting on the total would start another sync after every sync.
+        const { uploaded, downloaded } = this.filesCounted;
+        this.filesCounted = { uploaded: progress.uploaded, downloaded: progress.downloaded };
+        if (progress.downloaded > downloaded) this.deps.onApplied();
         // A file that got its hash is a row change to send.
-        if (progress.uploaded > 0) this.client?.notifyLocalChange();
+        if (progress.uploaded > uploaded) this.client?.notifyLocalChange();
         await this.updateMigration();
         if ((progress.waiting > 0 || progress.toDownload > 0) && this.client && !this.filesTimer) {
           this.filesTimer = setTimeout(() => {
@@ -520,6 +525,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     if (this.filesTimer) clearTimeout(this.filesTimer);
     this.filesTimer = null;
     this.blobs = null;
+    this.filesCounted = { uploaded: 0, downloaded: 0 };
     void this.docs?.close(false);
     this.docs = null;
   }

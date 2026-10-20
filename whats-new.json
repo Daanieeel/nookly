@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.38.2",
+      "date": "2026-10-20",
+      "title": "A calmer sync status",
+      "summary": "The sync status no longer flashes.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "After your files were sent, \"Synced\" no longer flashes to \"Syncing\" every second."
+        ]
+      }
+    },
+    {
       "version": "0.38.1",
       "date": "2026-10-15",
       "title": "Sync, quicker and steadier",

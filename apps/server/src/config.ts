@@ -1,3 +1,4 @@
+import pkg from "../package.json" with { type: "json" };
 import { z } from "zod";
 
 /// Everything the server is configured with, from the environment. See `.env.example`.
@@ -69,6 +70,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     corsOrigins: parsed.CORS_ORIGINS.split(",")
       .map((o) => o.trim())
       .filter(Boolean),
-    version: process.env.npm_package_version ?? "0.1.0",
+    version: pkg.version,
   };
 }
