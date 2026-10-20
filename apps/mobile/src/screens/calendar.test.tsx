@@ -13,6 +13,7 @@ import * as ReactNative from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { CalendarScreen } from "./CalendarScreen.tsx";
+import { DashboardScreen } from "./DashboardScreen.tsx";
 
 /// Everything the calendar draws, over the next days from today.
 async function planned() {
@@ -165,5 +166,24 @@ describe("the calendar on a phone", () => {
     const text = long.findAllByType(ReactNative.Text)[0];
     expect(text.props.numberOfLines).toBeGreaterThanOrEqual(1);
     expect(long.findAllByType(ReactNative.Text)).toHaveLength(1);
+  });
+});
+
+describe("the dashboard", () => {
+  it("lists today's items on a phone and lays out today's hours beside its lists on an iPad", async () => {
+    const { data } = await planned();
+    const phone = await renderScreens({ index: () => <DashboardScreen /> }, data, "/", {
+      width: PHONE,
+    });
+    expect(await phone.findByText("Today")).toBeTruthy();
+    expect(await phone.findByRole("button", { name: /^Dentist, 09:00 to 10:00/ })).toBeTruthy();
+    phone.unmount();
+    const ipad = await renderScreens({ index: () => <DashboardScreen /> }, data, "/", {
+      width: 1100,
+    });
+    // The hours: the same item as a block, the Today list gone.
+    expect(await ipad.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
+    expect(ipad.queryByText("Today")).toBeNull();
+    expect(ipad.getByText("Due")).toBeTruthy();
   });
 });

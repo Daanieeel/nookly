@@ -20,17 +20,22 @@ import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
+import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { AgendaRow } from "./CalendarScreen.tsx";
 import { briefing } from "./briefing.ts";
 import { addDays, dayLabel, localDay } from "./dates.ts";
 import { deckSummary } from "./StudyLists.tsx";
 import { TaskRow } from "./TaskRow.tsx";
+import { TimeGrid } from "./TimeGrid.tsx";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 
 /// Assignments that no longer wait on the student: handed in, or graded.
 export const ASSIGNMENT_DONE = new Set(["submitted", "graded"]);
 const AHEAD_DAYS = 14;
+/// From this pane width the dashboard has today's hours beside its lists.
+const WIDE_DASHBOARD = 900;
+const TODAY_WIDTH = 360;
 
 /// The day at a glance, like the desktop's Dashboard: a sentence about the day, what is on
 /// today, what is due, assignments and decks, jots waiting to be refined, and what is
@@ -87,7 +92,8 @@ export function DashboardScreen() {
     jotsToRefine: jots.length,
   });
 
-  return (
+  const wide = usePaneWidth() >= WIDE_DASHBOARD;
+  const page = (
     <>
       <Stack.Screen
         options={{
@@ -111,17 +117,19 @@ export function DashboardScreen() {
           </Text>
           <Text className="pt-2 text-base">{summary.text}</Text>
         </View>
-        <Section title="Today">
-          {items.length === 0 ? (
-            <Empty text="Nothing on the calendar today." />
-          ) : (
-            items.map((item) => (
-              <View key={item.id}>
-                <AgendaRow item={item} color={colorOf(item.spaceId)} />
-              </View>
-            ))
-          )}
-        </Section>
+        {wide ? null : (
+          <Section title="Today">
+            {items.length === 0 ? (
+              <Empty text="Nothing on the calendar today." />
+            ) : (
+              items.map((item) => (
+                <View key={item.id}>
+                  <AgendaRow item={item} color={colorOf(item.spaceId)} />
+                </View>
+              ))
+            )}
+          </Section>
+        )}
         <Section title="Due">
           {due.length === 0 ? (
             <Empty text="No tasks due." />
@@ -227,5 +235,15 @@ export function DashboardScreen() {
         ) : null}
       </Screen>
     </>
+  );
+  if (!wide) return page;
+  // The desktop's Dashboard on an iPad: the lists on the left, today's hours on the right.
+  return (
+    <View className="flex-1 flex-row">
+      <View className="flex-1">{page}</View>
+      <View className="border-l border-border" style={{ width: TODAY_WIDTH }}>
+        <TimeGrid days={[today]} items={items} width={TODAY_WIDTH} colorOf={colorOf} />
+      </View>
+    </View>
   );
 }
