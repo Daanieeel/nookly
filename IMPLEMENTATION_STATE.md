@@ -185,16 +185,18 @@ Stub, skip and fragile list for the report: phone files are hashed in memory (fi
 Tick items with the commit hash. Tests first; verify on the iPad and phone simulators; keep `GAP_ANALYSIS.md` marks and copy in step. No hyphen or dash copy. No edits to `packages/ui`.
 
 iPad, desktop like (width 768 and up, bigger at 1000 and up):
-- [ ] N1 native batch: `expo-clipboard` and a local Swift module `modules/nookly-keys` (UIKeyCommand on `UIApplication`, event `onShortcut`; hold Command shows the system's shortcut sheet). One rebuild of the dev client from a clone at a path without spaces. Hardware keys cannot be sent by my tooling, so the module also has `emit(id)` for the automation bridge and the Swift part stays unverified on a real keyboard: say so in the report.
-- [ ] I1 titlebar strip above the page: collapse sidebar, back, quick open field, sync status, settings
-- [ ] I2 command palette and quick open (modal; also the target of Command K and Command P)
-- [ ] I3 shortcuts: the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
-- [ ] I4 right inspector beside a page: Attachments, Mentioned, Mentioned in, Relationships (desktop's right sidebar)
+
+- [x] N1 (built and running in the iPad simulator; key commands not verifiable without a hardware keyboard) native batch: `expo-clipboard` and a local Swift module `modules/nookly-keys` (UIKeyCommand on `UIApplication`, event `onShortcut`; hold Command shows the system's shortcut sheet). One rebuild of the dev client from a clone at a path without spaces. Hardware keys cannot be sent by my tooling, so the module also has `emit(id)` for the automation bridge and the Swift part stays unverified on a real keyboard: say so in the report.
+- [x] I1 titlebar strip above the page: collapse sidebar, back, quick open field, sync status, settings
+- [x] I2 command palette and quick open (modal; also the target of Command K and Command P)
+- [x] I3 shortcuts (Settings list still to do): the desktop's list where it makes sense (new, search, sidebar, back, tabs), listed in Settings, Shortcuts
+- [x] I4 right inspector beside a page: Attachments, Mentioned, Mentioned in, Relationships (desktop's right sidebar)
 - [ ] I5 dashboard as on the desktop: lists left, week calendar right; tasks board and calendar use the wide pane
 - [ ] I6 tabs, and split view of two pages
 - [ ] I7 Vim keys in the editor (per device setting, hardware keyboard)
 
 Parity gaps (phone and iPad):
+
 - [ ] P1 copy link (needs N1)
 - [ ] P2 import pages, tasks, assignments from Nookly files
 - [ ] P3 saved views for Assignments, and saved views listed under modules in the sidebar
@@ -205,6 +207,12 @@ Parity gaps (phone and iPad):
 - [ ] P8 editor blocks: images, files, embeds, timelines, linked items, table column widths
 - [ ] P9 merge editor "keep both" for dates and numbers (copy of the item holding the other value, D7)
 - [ ] P10 impossible on a phone, document why: Office conversion and OCR, bookmark screenshots made by the desktop, CLI, agent files, folder backups, external calendars (D14)
+
+Notes from the iPad work:
+
+- The dev client on the iPad was built from a clone at `<scratchpad>/native/nookly` (path without spaces) and points at Metro on **8092**; run `EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 bunx expo start --port 8092 --lan --dev-client --clear` in `apps/mobile` (not 8093). Without it the app falls back to some other Metro and the automation hub hears nothing. After any hub restart, terminate and launch the app.
+- A React Native `Modal` that closed while the page behind it changed crashed the app (`RCTViewComponentView unmountChildComponentView` assertion), so the palette is an in window overlay. Avoid `Modal` for things that close on navigation.
+- The iPad Pro 13 simulator rotated to landscape by itself after the build (all orientations are allowed on iPad now). Landscape is 1376 wide, so the details pane shows; portrait (1032) keeps it hidden unless the sidebar is collapsed.
 
 ## 9. Working agreements and cautions
 

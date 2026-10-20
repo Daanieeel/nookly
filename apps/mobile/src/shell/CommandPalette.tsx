@@ -3,7 +3,7 @@ import { INPUT_CLASSES } from "@nookly/ui/classes";
 import { IconSearch } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
 import { useRecents, useSearch } from "../data/queries.ts";
 import { cn, splitText, row } from "../ui/classes.ts";
 import { EntityIcon } from "../ui/icons.tsx";
@@ -66,7 +66,9 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
   const { box, text } = splitText(row(INPUT_CLASSES));
   const empty = trimmed ? "Nothing matches." : "Nothing opened yet.";
   return (
-    <Modal transparent animationType="fade" visible onRequestClose={close}>
+    // Over the window, not a system modal: a modal that closes while the page behind it
+    // changes brought the whole app down.
+    <View className="absolute inset-0 z-50" pointerEvents="box-none">
       <Pressable
         accessibilityLabel="Close"
         onPress={close}
@@ -78,7 +80,7 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
           onPress={() => {}}
           accessibilityViewIsModal
           className="overflow-hidden rounded-xl border border-border bg-popover"
-          style={{ width: Math.min(640, width - 48), maxHeight: height * 0.7 }}
+          style={{ width: Math.min(640, width - 48), maxHeight: height * 0.45 }}
         >
           <View className={cn(box, "h-12 items-center gap-2 rounded-none border-0 border-b px-4")}>
             <IconSearch size={18} color={theme.colors.mutedForeground} />
@@ -131,6 +133,6 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
           </ScrollView>
         </Pressable>
       </Pressable>
-    </Modal>
+    </View>
   );
 }
