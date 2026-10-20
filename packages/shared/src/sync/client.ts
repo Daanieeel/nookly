@@ -140,13 +140,18 @@ export class SyncClient {
     await this.running?.catch(() => {});
   }
 
-  /// Something changed locally; it goes out shortly.
+  /// Something changed locally; what is waiting goes out shortly. A change with nothing
+  /// to send (text typed in a live page is kept as rows that are not edits) starts no
+  /// round trip: what others change reaches this device over the live channel.
   notifyLocalChange() {
     if (!this.started) return;
     if (this.debounce) clearTimeout(this.debounce);
     this.debounce = setTimeout(() => {
       this.debounce = null;
-      void this.syncNow();
+      void this.engine
+        .pendingCount()
+        .catch(() => 1)
+        .then((pending) => (pending > 0 ? this.syncNow() : undefined));
     }, this.debounceMs);
   }
 

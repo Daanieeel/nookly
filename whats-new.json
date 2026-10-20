@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.38.3",
+      "date": "2026-10-20",
+      "title": "Quieter sync",
+      "summary": "Typing in a page no longer keeps the server busy.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Nookly only reaches out when it has something to send, and hears about changes from other devices as they happen."
+        ]
+      }
+    },
+    {
       "version": "0.38.2",
       "date": "2026-10-20",
       "title": "A calmer sync status",

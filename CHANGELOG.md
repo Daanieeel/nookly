@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.3 (2026-10-20)
+
+### Fixed
+
+- **Typing no longer keeps the server busy.** Editing a page used to ask the server for news after every pause in typing. Nookly now only reaches out when it has something to send, and hears about changes from other devices as they happen.
+
 ## 0.38.2 (2026-10-20)
 
 ### Fixed

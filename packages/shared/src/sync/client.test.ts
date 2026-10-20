@@ -11,6 +11,7 @@ class FakeNetwork {
   online = true;
   private readonly listeners = new Set<LiveHandlers>();
   pushes = 0;
+  pulls = 0;
 
   transport(): SyncTransport {
     return {
@@ -23,6 +24,7 @@ class FakeNetwork {
       },
       pull: async (request) => {
         this.check();
+        this.pulls++;
         return this.server.pull(request);
       },
       live: (handlers) => {
@@ -93,6 +95,22 @@ afterEach(() => {
 });
 
 describe("the sync client", () => {
+  it("stays quiet when something changed here that has nothing to send", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const before = network.pulls;
+    // Text typed in a live page is saved as rows that are not edits to send: the
+    // changes come and go over the live channel, not by asking the server again.
+    for (let i = 0; i < 5; i++) {
+      a.client.notifyLocalChange();
+      await vi.advanceTimersByTimeAsync(1_000);
+    }
+    expect(network.pulls).toBe(before);
+    a.client.stop();
+  });
+
   it("sends a local change and the other device gets it live", async () => {
     const network = new FakeNetwork();
     const a = deviceOn(network);
