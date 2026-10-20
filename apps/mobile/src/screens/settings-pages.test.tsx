@@ -39,9 +39,9 @@ describe("Settings", () => {
     await fireEvent.changeText(await screen.findByLabelText("Command"), "\\pair");
     await fireEvent.changeText(screen.getByLabelText("Definition"), "(#1, #2)");
     await fireEvent.press(screen.getByRole("button", { name: "Add Macro" }));
-    expect(await screen.findByText("2 arguments")).toBeTruthy();
+    expect(await screen.findByText("\\pair")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Remove \\pair" }));
-    await waitFor(() => expect(screen.queryByText("2 arguments")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("\\pair")).toBeNull());
     phoneSettings.reset("notes.latexMacros");
   });
 
