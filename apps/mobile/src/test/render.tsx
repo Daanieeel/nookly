@@ -9,6 +9,7 @@ import { AppDataProvider, type Preference } from "../data/context.tsx";
 import { phoneSettings } from "../data/settings.ts";
 import type { MobileSync } from "../data/sync.ts";
 import { MenuProvider, type MenuPresenter, nativeMenu } from "../ui/menu.tsx";
+import { ClipboardProvider, type ClipboardWriter, systemClipboard } from "../ui/clipboard.tsx";
 import { WindowWidthProvider } from "../ui/pane.tsx";
 
 let ids = 0;
@@ -63,6 +64,8 @@ export async function renderScreens(
     width?: number;
     /// Where the "more" menus of items go.
     menu?: MenuPresenter;
+    /// Where copied text goes.
+    clipboard?: ClipboardWriter;
   } = {},
 ) {
   const queryClient = new QueryClient({
@@ -80,7 +83,11 @@ export async function renderScreens(
         }}
       >
         <WindowWidthProvider value={options.width ?? null}>
-          <MenuProvider value={options.menu ?? nativeMenu}>{children}</MenuProvider>
+          <MenuProvider value={options.menu ?? nativeMenu}>
+            <ClipboardProvider value={options.clipboard ?? systemClipboard}>
+              {children}
+            </ClipboardProvider>
+          </MenuProvider>
         </WindowWidthProvider>
       </AppDataProvider>
     </QueryClientProvider>

@@ -21,3 +21,12 @@ export class RecordingMenu implements MenuPresenter {
     item.onPress();
   }
 }
+
+/// A clipboard that keeps what was copied.
+export class RecordingClipboard {
+  copied: string[] = [];
+
+  async copy(text: string) {
+    this.copied.push(text);
+  }
+}

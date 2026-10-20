@@ -67,6 +67,7 @@ import { PageEditor } from "./PageEditor.tsx";
 import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
 import { RecipeDetail } from "./RecipeScreens.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
+import { useClipboard } from "../ui/clipboard.tsx";
 import { type MenuItem, useMenu } from "../ui/menu.tsx";
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
@@ -92,6 +93,7 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
 function useEntityMenu(entity: EntityRecord): MenuItem[] {
   const router = useRouter();
   const details = useDetails();
+  const clipboard = useClipboard();
   const signedIn = useSyncState((s) => s.user !== null);
   const shareable =
     SHAREABLE_TYPES.some((t) => t === entity.type) && !isSharedSpace(entity.spaceId);
@@ -117,6 +119,11 @@ function useEntityMenu(entity: EntityRecord): MenuItem[] {
   if (signedIn && shareable) {
     items.push({ label: "Share", onPress: () => router.push(`/new/share?entityId=${entity.id}`) });
   }
+  // As the desktop copies it: pasted into a page, it becomes a mention of this item.
+  items.push({
+    label: "Copy Link",
+    onPress: () => void clipboard.copy(`[${entity.title || entity.key}](mention:${entity.id})`),
+  });
   items.push({ label: entity.pinned ? "Unpin" : "Pin", onPress: () => pin.mutate(!entity.pinned) });
   items.push({
     label: "Change Icon",

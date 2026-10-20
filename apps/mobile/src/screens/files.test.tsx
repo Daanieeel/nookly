@@ -1,6 +1,6 @@
 import { addFile, createCourse, createDeck, createSpace, listFiles } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
-import { RecordingMenu } from "../test/menu.ts";
+import { RecordingClipboard, RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { FileRows } from "./FileScreens.tsx";
@@ -67,5 +67,24 @@ describe("saving as a Nookly file", () => {
     await fireEvent.press(await courseScreen.findByRole("button", { name: "More" }));
     expect(courseMenu.labels()).toContain("Pin");
     expect(courseMenu.labels().some((l) => l.startsWith("Save as Nookly"))).toBe(false);
+  });
+});
+
+describe("copying a link", () => {
+  it("puts a mention of the item on the clipboard, as the desktop does", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const deck = await createDeck(data.db, space, "Sorting");
+    const menu = new RecordingMenu();
+    const clipboard = new RecordingClipboard();
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={deck} /> },
+      data,
+      `/entity/${deck}`,
+      { menu, clipboard },
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "More" }));
+    menu.choose("Copy Link");
+    expect(clipboard.copied).toEqual([`[Sorting](mention:${deck})`]);
   });
 });
