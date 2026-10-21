@@ -12,13 +12,12 @@ import {
   trashEntity,
 } from "@nookly/shared/data";
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
-import { IconChevronLeft, IconDots, IconInfoCircle } from "@tabler/icons-react-native";
+import { IconDots } from "@tabler/icons-react-native";
 import { File, Paths } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
 import { useEntity, useSpaces } from "../data/queries.ts";
@@ -28,7 +27,7 @@ import { IconButton } from "../ui/Button.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
-import { DetailsDrawer, useDetails } from "../shell/DetailsDrawer.tsx";
+import { useDetails, useDetailsFor } from "../shell/DetailsDrawer.tsx";
 import { useSplit } from "../shell/split-context.ts";
 import { useInspectorShown, useIsTablet } from "../ui/pane.tsx";
 import { PartProvider } from "../ui/parts.tsx";
@@ -143,91 +142,84 @@ export function EntityScreen({ id, embedded = false }: { id: string; embedded?: 
       </Screen>
     );
   }
-  return inspector ? (
-    <OpenEntity entity={entity} embedded={embedded} />
-  ) : (
-    <DetailsDrawer id={entity.id}>
-      <OpenEntity entity={entity} embedded={embedded} />
-    </DetailsDrawer>
-  );
+  return <OpenEntity entity={entity} embedded={embedded} details={!inspector} />;
 }
 
-/// The bar over an item on a phone, drawn inside the page so the whole page, bar included,
-/// slides aside and is rounded with the details drawer: back, the item's key, and its
-/// conflict badge, details and more.
-function TopBar({ entity, menu }: { entity: EntityRecord; menu: MenuItem[] }) {
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+/// What the native bar over an item on a phone carries on its right: the details and
+/// the more menu. Back is the system's own button.
+function BarActions({ entity, menu }: { entity: EntityRecord; menu: MenuItem[] }) {
   const present = useMenu();
   const details = useDetails();
-  const muted = theme.colors.mutedForeground;
   return (
-    <View className="flex-row items-center gap-1 px-2 pb-1" style={{ paddingTop: insets.top + 4 }}>
-      <IconButton
-        label="Back"
-        icon={<IconChevronLeft size={24} color={theme.colors.foreground} />}
-        onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-      />
-      <Text variant="small" tone="muted" className="flex-1">
-        {entity.key}
-      </Text>
-      {entity.type === "task" ? <TaskStepper id={entity.id} spaceId={entity.spaceId} /> : null}
-      <ConflictBadge entityId={entity.id} />
+    <Stack.Toolbar placement="right">
       {details ? (
-        <IconButton
-          label="Show Details"
-          icon={<IconInfoCircle size={22} color={muted} />}
-          onPress={() => details.show()}
+        <Stack.Toolbar.Button
+          icon="info.circle"
+          accessibilityLabel={details.open ? "Hide Details" : "Show Details"}
+          onPress={() => (details.open ? details.hide() : details.show())}
         />
       ) : null}
       {menu.length > 0 ? (
-        <IconButton
-          label="More"
-          icon={<IconDots size={22} color={muted} />}
+        <Stack.Toolbar.Button
+          icon="ellipsis"
+          accessibilityLabel="More"
           onPress={() => present.show(entity.title || entity.key, menu)}
         />
       ) : null}
-    </View>
+    </Stack.Toolbar>
   );
 }
 
-function OpenEntity({ entity, embedded }: { entity: EntityRecord; embedded: boolean }) {
+function OpenEntity({
+  entity,
+  embedded,
+  details,
+}: {
+  entity: EntityRecord;
+  embedded: boolean;
+  /// Whether its details wait behind the app (a phone), not beside the page.
+  details: boolean;
+}) {
   const { data: spaces = [] } = useSpaces();
   const readOnly = useReadOnly(entity);
   const theme = useTheme();
   const present = useMenu();
   const menu = useEntityMenu(entity);
+  // The details' own more button opens the menu as it is now, without registering the
+  // item again on every render.
+  const latestMore = useRef(() => {});
+  useEffect(() => {
+    latestMore.current = () => present.show(entity.title || entity.key, menu);
+  });
+  const more = useCallback(() => latestMore.current(), []);
+  useDetailsFor(details ? { id: entity.id, more: menu.length > 0 ? more : undefined } : null);
   const tablet = useIsTablet();
   const space = spaces.find((s) => s.id === entity.spaceId);
-  // On a phone the bar above the page carries the key and the actions; beside the
-  // details pane (tablet, split view) they sit in the page's first row.
+  // On a phone the system's bar over the page carries back, the details and the more
+  // menu; beside the details pane (tablet, split view) they sit in the page's first row.
   const bar = !embedded && !tablet;
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1"
     >
-      {embedded ? null : <Stack.Screen options={{ headerShown: false }} />}
-      {bar ? <TopBar entity={entity} menu={menu} /> : null}
+      {bar ? <BarActions entity={entity} menu={menu} /> : null}
       <Screen>
         <View className="gap-2">
           <View className="flex-row flex-wrap items-center gap-2">
-            {bar ? null : (
-              <Text variant="small" tone="muted">
-                {entity.key}
-              </Text>
-            )}
+            <Text variant="small" tone="muted">
+              {entity.key}
+            </Text>
             {space ? <SpaceDot color={space.color} /> : null}
             <Text variant="small" tone="muted">
               {space?.name ?? ""}
             </Text>
             {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
             {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
-            {!bar && entity.type === "task" ? (
+            {entity.type === "task" ? (
               <TaskStepper id={entity.id} spaceId={entity.spaceId} />
             ) : null}
-            {bar ? null : <ConflictBadge entityId={entity.id} />}
+            <ConflictBadge entityId={entity.id} />
             <View className="flex-1" />
             {!bar && menu.length > 0 ? (
               <IconButton

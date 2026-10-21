@@ -8,9 +8,13 @@ import {
   segmentsForDay,
 } from "@nookly/shared/time-grid";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import Animated, { type AnimatedStyle } from "react-native-reanimated";
+import type { StyleProp, ViewStyle } from "react-native";
 import { useSetting } from "../data/settings.ts";
+import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
 import { useCalendarColors } from "./calendar-colors.ts";
 import { localDay } from "./dates.ts";
@@ -53,17 +57,30 @@ function hourLabel(hour: number, twelve: boolean): string {
   return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
 }
 
+/// The width of the column of hour labels for a grid this wide.
+export const gutterFor = (width: number) => (width >= 600 ? 52 : 40);
+
+/// The pages either side of the one shown, drawn already so a swipe carries them in, and
+/// the style that slides all three together.
+export interface Neighbours {
+  before: string[];
+  after: string[];
+  slide: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+}
+
 /// A calendar's hours with each day as a column, as on the desktop: the day names and the
 /// all day items on top, the hours below, every item a block where it belongs. Blocks keep
 /// to their column: a title that does not fit is cut, and room numbers and the like appear
 /// only when the block is wide and tall enough to hold them.
 export function TimeGrid({
   days,
+  neighbours,
   items,
   width,
   colorOf,
 }: {
   days: string[];
+  neighbours?: Neighbours;
   items: AgendaItem[];
   /// The grid's own width, gutter included.
   width: number;
@@ -76,33 +93,51 @@ export function TimeGrid({
   const now = useNowMinutes();
   const today = localDay();
   const scroll = useRef<ScrollView>(null);
-  const gutter = width >= 600 ? 52 : 40;
-  const column = (width - gutter) / days.length;
+  const insets = useSafeAreaInsets();
+  const gutter = gutterFor(width);
+  const area = width - gutter;
+  const column = area / days.length;
   const narrow = column < 60;
   // "timezone" leaves it to the phone's own clock.
   const twelve =
     timeFormat === "american" ||
     (timeFormat === "timezone" && /AM|PM/i.test(new Date(2026, 0, 1, 15).toLocaleTimeString()));
-  const content = days.map((day) => ({ day, ...segmentsForDay(items, day) }));
-  const foldedRows = Math.min(MAX_ALL_DAY, Math.max(...content.map((c) => c.allDay.length), 0));
+  const pages = neighbours ? [neighbours.before, days, neighbours.after] : [days];
+  const strip = [
+    {
+      flexDirection: "row" as const,
+      width: area * pages.length,
+      left: neighbours ? -area : 0,
+    },
+    neighbours?.slide,
+  ];
+  // The hours open at the hour the day starts: set as the starting offset, and again
+  // when the setting or the number of days changes (the content is laid out by then).
+  const startY = Math.max(0, startHour * HOUR_PX - 4);
   useEffect(() => {
-    scroll.current?.scrollTo({ y: Math.max(0, startHour * HOUR_PX - 4), animated: false });
-  }, [startHour, days.length]);
+    scroll.current?.scrollTo({ y: startY, animated: false });
+  }, [startY, days.length]);
 
   const open = (id: string) => router.push(`/entity/${id}`);
 
-  return (
-    <View className="flex-1" style={{ width }}>
-      <View className="border-b border-border" style={{ paddingLeft: gutter }}>
+  /// The day names of a page, and its all day items under them.
+  const renderHeader = (pageDays: string[]) => {
+    const content = pageDays.map((day) => ({ day, ...segmentsForDay(items, day) }));
+    const rows = Math.min(MAX_ALL_DAY, Math.max(...content.map((c) => c.allDay.length), 0));
+    return (
+      <View key={pageDays[0]} style={{ width: area }}>
         <View className="flex-row">
-          {days.map((day) => {
+          {pageDays.map((day, index) => {
             const { weekday, number, date } = dayParts(day);
             const isToday = day === today;
             return (
               <View
                 key={day}
-                className="items-center gap-0.5 py-1.5"
-                style={{ width: column }}
+                className={cn(
+                  "items-center gap-0.5 border-l py-1.5",
+                  index === pageDays.length - 1 && "border-r",
+                )}
+                style={{ width: column, borderColor: colors.gridline }}
                 accessibilityLabel={date.toLocaleDateString(undefined, {
                   weekday: "long",
                   day: "numeric",
@@ -136,10 +171,18 @@ export function TimeGrid({
             );
           })}
         </View>
-        {foldedRows > 0 ? (
-          <View className="flex-row pb-1">
-            {content.map(({ day, allDay }) => (
-              <View key={day} style={{ width: column }} className="gap-0.5 px-px">
+        {rows > 0 ? (
+          <View className="flex-row">
+            {content.map(({ day, allDay }, index) => (
+              <View
+                key={day}
+                testID="all-day-day"
+                style={{ width: column, borderColor: colors.gridline }}
+                className={cn(
+                  "gap-0.5 border-l px-px pb-1",
+                  index === content.length - 1 && "border-r",
+                )}
+              >
                 {allDay.slice(0, MAX_ALL_DAY).map((item) => {
                   const look = allDayChipLook(item.kind);
                   const color = colors.accent(item.kind, colorOf(item.spaceId));
@@ -175,7 +218,127 @@ export function TimeGrid({
           </View>
         ) : null}
       </View>
-      <ScrollView ref={scroll} className="flex-1" showsVerticalScrollIndicator={false}>
+    );
+  };
+
+  /// The hours of a page: a line for each, a column for each day with its blocks.
+  const renderColumns = (pageDays: string[]) => {
+    const content = pageDays.map((day) => ({ day, ...segmentsForDay(items, day) }));
+    return (
+      <View key={pageDays[0]} style={{ width: area, height: 24 * HOUR_PX }}>
+        {HOURS.map((hour) => (
+          <View
+            key={hour}
+            testID="gridline"
+            className="absolute inset-x-0 border-t"
+            style={{ top: hour * HOUR_PX, borderColor: colors.gridline }}
+          />
+        ))}
+        {content.map(({ day, timed }, index) => {
+          const lanes = layoutLanes(timed, (MIN_BLOCK_PX / HOUR_PX) * 60);
+          return (
+            <View
+              key={day}
+              testID="gridline"
+              className={cn(
+                "absolute inset-y-0 border-l",
+                index === pageDays.length - 1 && "border-r",
+              )}
+              style={{
+                borderColor: colors.gridline,
+                left: index * column,
+                width: column,
+                backgroundColor:
+                  day === today
+                    ? withAlpha(colors.today.column.base, colors.today.column.alpha)
+                    : undefined,
+              }}
+            >
+              {timed.map((segment: Segment<AgendaItem>) => {
+                const { item } = segment;
+                const lane = lanes.get(segment);
+                if (!lane) return null;
+                const g = blockGeometry(segment, lane, HOUR_PX, MIN_BLOCK_PX);
+                const w = g.width * column - 2;
+                const look = blockLook(item.kind);
+                const color = colors.accent(item.kind, colorOf(item.spaceId));
+                const lines = Math.max(1, Math.floor((g.height - 6) / 13));
+                const roomy = w >= 90 && g.height >= 44;
+                const time = [item.startTime, item.endTime].filter(Boolean).join(" to ");
+                return (
+                  <Pressable
+                    key={`${item.id}-${day}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.title || "Untitled"}, ${time}`}
+                    onPress={() => open(item.id)}
+                    className="absolute overflow-hidden rounded-md active:opacity-70"
+                    style={{
+                      left: g.left * column + 1,
+                      top: g.top + 1,
+                      width: w,
+                      height: g.height - 2,
+                      backgroundColor: withAlpha(color, look.fillAlpha),
+                      borderWidth: look.borderWidth,
+                      borderColor: withAlpha(color, look.borderAlpha),
+                      borderLeftWidth: look.leftBar || look.borderWidth,
+                      borderLeftColor: color,
+                      paddingHorizontal: narrow ? 2 : 5,
+                      paddingVertical: 2,
+                    }}
+                  >
+                    <Text
+                      // A sliver of a lane keeps to one line; wrapping it would break words apart.
+                      numberOfLines={w < 44 ? 1 : roomy ? Math.min(lines, 2) : lines}
+                      style={{ fontSize: narrow ? 9 : 11, lineHeight: narrow ? 11 : 13 }}
+                      className="font-medium"
+                    >
+                      {item.title || "Untitled"}
+                    </Text>
+                    {roomy ? (
+                      <Text numberOfLines={1} tone="muted" style={{ fontSize: 10, lineHeight: 12 }}>
+                        {[time, item.location].filter(Boolean).join(" · ")}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+              {day === today ? (
+                <View
+                  pointerEvents="none"
+                  className="absolute inset-x-0 h-0.5 bg-destructive"
+                  style={{ top: (now / DAY_MINUTES) * 24 * HOUR_PX - 1 }}
+                />
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  return (
+    <View className="flex-1" style={{ width }}>
+      <View
+        testID="gridline"
+        className="border-b"
+        style={{ paddingLeft: gutter, borderColor: colors.gridline }}
+      >
+        <View style={{ width: area, overflow: "hidden" }}>
+          <Animated.View testID="page-strip" style={strip}>
+            {pages.map(renderHeader)}
+          </Animated.View>
+        </View>
+      </View>
+      <ScrollView
+        ref={scroll}
+        testID="hours"
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentOffset={{ x: 0, y: startY }}
+        // The last hour clears the home bar instead of sitting under it.
+        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+        directionalLockEnabled
+      >
         <View style={{ height: 24 * HOUR_PX }} className="flex-row">
           <View style={{ width: gutter }}>
             {HOURS.map((hour) => (
@@ -191,91 +354,10 @@ export function TimeGrid({
               </Text>
             ))}
           </View>
-          <View style={{ width: column * days.length }}>
-            {HOURS.map((hour) => (
-              <View
-                key={hour}
-                className="absolute inset-x-0 border-t border-border/60"
-                style={{ top: hour * HOUR_PX }}
-              />
-            ))}
-            {content.map(({ day, timed }, index) => {
-              const lanes = layoutLanes(timed, (MIN_BLOCK_PX / HOUR_PX) * 60);
-              return (
-                <View
-                  key={day}
-                  className="absolute inset-y-0 border-l border-border/60"
-                  style={{
-                    left: index * column,
-                    width: column,
-                    backgroundColor:
-                      day === today
-                        ? withAlpha(colors.today.column.base, colors.today.column.alpha)
-                        : undefined,
-                  }}
-                >
-                  {timed.map((segment: Segment<AgendaItem>) => {
-                    const { item } = segment;
-                    const lane = lanes.get(segment);
-                    if (!lane) return null;
-                    const g = blockGeometry(segment, lane, HOUR_PX, MIN_BLOCK_PX);
-                    const w = g.width * column - 2;
-                    const look = blockLook(item.kind);
-                    const color = colors.accent(item.kind, colorOf(item.spaceId));
-                    const lines = Math.max(1, Math.floor((g.height - 6) / 13));
-                    const roomy = w >= 90 && g.height >= 44;
-                    const time = [item.startTime, item.endTime].filter(Boolean).join(" to ");
-                    return (
-                      <Pressable
-                        key={`${item.id}-${day}`}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${item.title || "Untitled"}, ${time}`}
-                        onPress={() => open(item.id)}
-                        className="absolute overflow-hidden rounded-md active:opacity-70"
-                        style={{
-                          left: g.left * column + 1,
-                          top: g.top + 1,
-                          width: w,
-                          height: g.height - 2,
-                          backgroundColor: withAlpha(color, look.fillAlpha),
-                          borderWidth: look.borderWidth,
-                          borderColor: withAlpha(color, look.borderAlpha),
-                          borderLeftWidth: look.leftBar || look.borderWidth,
-                          borderLeftColor: color,
-                          paddingHorizontal: narrow ? 2 : 5,
-                          paddingVertical: 2,
-                        }}
-                      >
-                        <Text
-                          // A sliver of a lane keeps to one line; wrapping it would break words apart.
-                          numberOfLines={w < 44 ? 1 : roomy ? Math.min(lines, 2) : lines}
-                          style={{ fontSize: narrow ? 9 : 11, lineHeight: narrow ? 11 : 13 }}
-                          className="font-medium"
-                        >
-                          {item.title || "Untitled"}
-                        </Text>
-                        {roomy ? (
-                          <Text
-                            numberOfLines={1}
-                            tone="muted"
-                            style={{ fontSize: 10, lineHeight: 12 }}
-                          >
-                            {[time, item.location].filter(Boolean).join(" · ")}
-                          </Text>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                  {day === today ? (
-                    <View
-                      pointerEvents="none"
-                      className="absolute inset-x-0 h-0.5 bg-destructive"
-                      style={{ top: (now / DAY_MINUTES) * 24 * HOUR_PX - 1 }}
-                    />
-                  ) : null}
-                </View>
-              );
-            })}
+          <View style={{ width: area, overflow: "hidden" }}>
+            <Animated.View testID="page-strip" style={strip}>
+              {pages.map(renderColumns)}
+            </Animated.View>
           </View>
         </View>
       </ScrollView>

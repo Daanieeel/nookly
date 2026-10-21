@@ -11,6 +11,9 @@ export function useCalendarColors() {
   const today = todayLook(todayColor, todayIntensity);
   const base = today.base === "primary" ? theme.colors.primary : theme.colors.foreground;
   return {
+    /// The hour and day lines of the hours: a solid color, lighter than `border` in dark
+    /// (a faded `border` goes black there).
+    gridline: theme.colors.input,
     /// The color of an item of `kind` in a Space of `spaceColor`.
     accent(kind: CalendarKind, spaceColor: string | undefined): string {
       const accent = itemAccent(kind, spaceColor);

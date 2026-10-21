@@ -1,4 +1,3 @@
-import { IconPlus } from "@tabler/icons-react-native";
 import { Stack } from "expo-router";
 import { View } from "react-native";
 import { useSyncState } from "../data/context.tsx";
@@ -15,12 +14,10 @@ import {
   useUnrefinedJots,
 } from "../data/queries.ts";
 import { useSetting } from "../data/settings.ts";
-import { IconButton } from "../ui/Button.tsx";
 import { Section, Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { AgendaRow } from "./CalendarScreen.tsx";
 import { ASSIGNMENT_DONE } from "./AssignmentsScreen.tsx";
 import { DashboardBriefing, useOpenTarget } from "./DashboardBriefing.tsx";
@@ -41,7 +38,6 @@ const TODAY_WIDTH = 360;
 /// and names open the matching list, then panels for assignments, tasks, decks and jots, and
 /// today's hours (beside the panels on an iPad, under them on a phone).
 export function DashboardScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const today = localDay();
   const horizon = addDays(today, AHEAD_DAYS);
@@ -136,17 +132,13 @@ export function DashboardScreen() {
   const wide = usePaneWidth() >= WIDE_DASHBOARD;
   const page = (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <IconButton
-              label="New Task"
-              icon={<IconPlus size={22} color={theme.colors.foreground} />}
-              onPress={() => router.push("/new/task")}
-            />
-          ),
-        }}
-      />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="plus"
+          accessibilityLabel="New Task"
+          onPress={() => router.push("/new/task")}
+        />
+      </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={wide}>
         <View className="gap-2">
           <Text variant="small" tone="muted">

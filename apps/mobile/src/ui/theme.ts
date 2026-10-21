@@ -22,6 +22,8 @@ export interface Theme {
     page: string;
     foreground: string;
     border: string;
+    /// A stronger line than `border`: an input's edge, and the calendar's gridlines.
+    input: string;
     primary: string;
     primaryForeground: string;
     mutedForeground: string;
@@ -42,6 +44,7 @@ export function useTheme(): Theme {
       page: useToken(PAGE_BACKGROUND.replace(/^bg-/, "")),
       foreground: useToken("foreground"),
       border: useToken("border"),
+      input: useToken("input"),
       primary: useToken("primary"),
       primaryForeground: useToken("primary-foreground"),
       mutedForeground: useToken("muted-foreground"),

@@ -1,6 +1,6 @@
 import { createView } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconAdjustmentsHorizontal, IconFilter, IconPlus } from "@tabler/icons-react-native";
+import { IconAdjustmentsHorizontal, IconFilter } from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -15,7 +15,7 @@ import {
   useViews,
 } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import { Button, statusOf } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { ListTitle, Presets } from "../ui/ListBar.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
@@ -286,17 +286,9 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   };
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <IconButton
-              label="New Task"
-              icon={<IconPlus size={22} color={theme.colors.foreground} />}
-              onPress={() => newTask()}
-            />
-          ),
-        }}
-      />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New Task" onPress={() => newTask()} />
+      </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={board}>
         <ListTitle title="Tasks" count={tasks.length} />
         {views.length > 0 ? (

@@ -1,17 +1,15 @@
 import { MODULE_ENTITY_TYPES, MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
 import { importDeckFile } from "@nookly/shared/data";
-import { IconPlus } from "@tabler/icons-react-native";
 import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useAssignments, useCourses, useDecks, useEntities, useExams } from "../data/queries.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import { Button, statusOf } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { BookmarkList } from "./BookmarkList.tsx";
 import { CalendarScreen } from "./CalendarScreen.tsx";
@@ -150,35 +148,29 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
 
 /// The modules that are a list or a gallery of the Space's items.
 function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey }) {
-  const theme = useTheme();
   const router = useRouter();
   const addFiles = useAddFiles(spaceId);
   const create = CREATE.get(module);
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: MODULE_LABELS[module],
-          headerRight:
-            module === "files"
-              ? () => (
-                  <IconButton
-                    label="Add Files"
-                    icon={<IconPlus size={22} color={theme.colors.foreground} />}
-                    onPress={() => addFiles.mutate(undefined)}
-                  />
-                )
-              : create
-                ? () => (
-                    <IconButton
-                      label={`New in ${MODULE_LABELS[module]}`}
-                      icon={<IconPlus size={22} color={theme.colors.foreground} />}
-                      onPress={() => router.push(create(spaceId))}
-                    />
-                  )
-                : undefined,
-        }}
-      />
+      <Stack.Screen options={{ title: MODULE_LABELS[module] }} />
+      {module === "files" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            icon="plus"
+            accessibilityLabel="Add Files"
+            onPress={() => addFiles.mutate(undefined)}
+          />
+        </Stack.Toolbar>
+      ) : create ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            icon="plus"
+            accessibilityLabel={`New in ${MODULE_LABELS[module]}`}
+            onPress={() => router.push(create(spaceId))}
+          />
+        </Stack.Toolbar>
+      ) : null}
       <Screen wide={GALLERIES.includes(module)}>
         {module === "courses" ? (
           <CourseGallery spaceId={spaceId} />

@@ -1,10 +1,14 @@
+import { DetailsDrawer } from "../shell/DetailsDrawer.tsx";
 import { ApiClient } from "@nookly/shared/api";
 import type { LocalDb } from "@nookly/shared/data";
 import { SyncRuntime } from "@nookly/shared/sync";
 import { NodeSqliteDriver } from "@nookly/shared/testing";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack } from "expo-router";
 import { renderRouter } from "expo-router/testing-library";
+import { act, waitFor } from "@testing-library/react-native";
 import type { ComponentType, ReactNode } from "react";
+import type { ReactTestRendererJSON } from "react-test-renderer";
 import { AppDataProvider, type Preference } from "../data/context.tsx";
 import { phoneSettings } from "../data/settings.ts";
 import type { MobileSync } from "../data/sync.ts";
@@ -97,6 +101,54 @@ export async function renderScreens(
       </AppDataProvider>
     </QueryClientProvider>
   );
-  const result = await renderRouter(routes, { initialUrl, wrapper });
+  // A page's native bar buttons (`Stack.Toolbar`) need a stack around the page, and on a
+  // phone an item's details wait behind the whole stack, as in the app's frame.
+  const withStack =
+    "_layout" in routes
+      ? routes
+      : {
+          _layout: () => (
+            <DetailsDrawer>
+              <Stack />
+            </DetailsDrawer>
+          ),
+          ...routes,
+        };
+  const result = await renderRouter(withStack, { initialUrl, wrapper });
   return { ...result, ...data };
+}
+
+type BarItem = { accessibilityLabel?: string; onPress?: () => void };
+type Tree = ReactTestRendererJSON | ReactTestRendererJSON[] | null;
+
+/// Presses a button of a page's native bar (`Stack.Toolbar`), which the system draws and
+/// the test tree only holds as the bar's items.
+export async function pressBarButton(screen: { toJSON(): Tree }, label: string) {
+  const find = () => barItems(screen.toJSON()).find((i) => i.accessibilityLabel === label);
+  await waitFor(() => expect(find()).toBeDefined());
+  await act(async () => find()?.onPress?.());
+}
+
+function barItems(tree: Tree): BarItem[] {
+  if (!tree) return [];
+  if (Array.isArray(tree)) return tree.flatMap((node) => barItems(node));
+  const own: BarItem[] = [
+    ...(tree.props.headerRightBarButtonItems ?? []),
+    ...(tree.props.headerLeftBarButtonItems ?? []),
+  ];
+  const below = (tree.children ?? []).flatMap((c) => (c instanceof Object ? [c] : []));
+  return [...own, ...below.flatMap((node) => barItems(node))];
+}
+
+/// The title the page's native bar shows.
+export function headerTitle(screen: { toJSON(): Tree }): string | undefined {
+  const find = (tree: Tree): string | undefined => {
+    if (!tree) return undefined;
+    if (Array.isArray(tree)) return tree.map(find).find((t) => t !== undefined);
+    if (tree.type === "RNSScreenStackHeaderConfig") return tree.props.title;
+    return (tree.children ?? [])
+      .flatMap((c) => (c instanceof Object ? [find(c)] : []))
+      .find((t) => t !== undefined);
+  };
+  return find(screen.toJSON());
 }

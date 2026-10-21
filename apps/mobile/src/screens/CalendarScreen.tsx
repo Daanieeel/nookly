@@ -8,11 +8,12 @@ import {
 } from "@nookly/shared/calendar-grid";
 import type { AgendaItem } from "@nookly/shared/data";
 import { type GridView, daysOfView } from "@nookly/shared/time-grid";
-import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react-native";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { z } from "zod";
 import { Pressable, View } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
 import { useSetting } from "../data/settings.ts";
 import { usePreference } from "../data/preferences.ts";
 import { useAgenda, useSpaces } from "../data/queries.ts";
@@ -24,10 +25,12 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
+import { useSidebarEdgeOnly } from "../shell/panes.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { addDays, dayLabel, localDay } from "./dates.ts";
+import { addDays, dayLabel, localDay, periodHeader } from "./dates.ts";
 import { useCalendarColors } from "./calendar-colors.ts";
-import { TimeGrid } from "./TimeGrid.tsx";
+import { TimeGrid, gutterFor } from "./TimeGrid.tsx";
+import { usePeriodSwipe } from "./period-swipe.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 
 const AGENDA_DAYS = 14;
@@ -247,7 +250,20 @@ export function CalendarScreen({
       : "agenda";
   const [anchor, setAnchor] = useState(today);
   const range = useRange(view, anchor);
-  const { data: everything = [] } = useAgenda(range.from, range.to);
+  // On a phone there is no bar of arrows: a swipe over the hours moves on, with the pages
+  // either side already drawn, and the page's bar says which dates and which week.
+  const grid = view === "agenda" || view === "month" ? null : view;
+  const phoneHours = !wide && grid !== null;
+  const around = (direction: 1 | -1) =>
+    grid && phoneHours
+      ? daysOfView(grid, addDays(anchor, direction * STEP_DAYS[grid]), range.weekStart)
+      : NO_DAYS;
+  const before = around(-1);
+  const after = around(1);
+  const { data: everything = [] } = useAgenda(
+    phoneHours ? before[0] : range.from,
+    phoneHours ? after[after.length - 1] : range.to,
+  );
   const items = spaceId ? everything.filter((i) => i.spaceId === spaceId) : everything;
   const { data: spaces = [] } = useSpaces();
   const { refreshing, onRefresh } = useSyncRefresh();
@@ -260,10 +276,12 @@ export function CalendarScreen({
           ? day
           : addDaysTo(day, direction * STEP_DAYS[view]),
     );
+  useSidebarEdgeOnly(phoneHours);
+  const swipe = usePeriodSwipe(step, range.from, width - gutterFor(width));
   const agendaDays = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
   const controls = (
     <>
-      <ChipGroup label="View">
+      <ChipGroup label="View" stretch>
         {available.map((v) => (
           <Chip
             key={v.id}
@@ -276,7 +294,7 @@ export function CalendarScreen({
           />
         ))}
       </ChipGroup>
-      {view !== "agenda" ? (
+      {wide && view !== "agenda" ? (
         <View className="flex-row items-center gap-1">
           <IconButton
             label="Previous"
@@ -297,27 +315,37 @@ export function CalendarScreen({
     </>
   );
   const header = (
-    <Stack.Screen
-      options={{
-        headerRight: () => (
-          <IconButton
-            label={create === "session" ? "New Session" : "New Calendar Entry"}
-            icon={<IconPlus size={22} color={theme.colors.foreground} />}
-            onPress={() => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`)}
-          />
-        ),
-      }}
-    />
+    <>
+      {wide ? null : (
+        <Stack.Screen options={{ title: periodHeader(view === "agenda" ? [today] : range.days) }} />
+      )}
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="plus"
+          accessibilityLabel={create === "session" ? "New Session" : "New Calendar Entry"}
+          onPress={() => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`)}
+        />
+      </Stack.Toolbar>
+    </>
   );
   if (view !== "agenda" && view !== "month") {
     // The hours fill the screen and scroll on their own; only the controls sit above them.
+    const page = (
+      <View className={cn("flex-1 gap-2 pt-3", PAGE_BACKGROUND)}>
+        <View className="gap-2 px-3">{controls}</View>
+        <TimeGrid
+          days={range.days}
+          neighbours={phoneHours ? { before, after, slide: swipe.style } : undefined}
+          items={items}
+          width={width}
+          colorOf={colorOf}
+        />
+      </View>
+    );
     return (
       <>
         {header}
-        <View className={cn("flex-1 gap-2 pt-3", PAGE_BACKGROUND)}>
-          <View className="gap-2 px-3">{controls}</View>
-          <TimeGrid days={range.days} items={items} width={width} colorOf={colorOf} />
-        </View>
+        {phoneHours ? <GestureDetector gesture={swipe.gesture}>{page}</GestureDetector> : page}
       </>
     );
   }

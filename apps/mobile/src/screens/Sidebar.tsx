@@ -40,7 +40,7 @@ import {
   useViews,
 } from "../data/queries.ts";
 import { tasksFor } from "./dashboard-model.ts";
-import { localDay } from "./dates.ts";
+import { isoWeek, localDay } from "./dates.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
 import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
@@ -94,7 +94,7 @@ function NavRow({
       className={cn(box, "h-auto min-h-10 gap-3 py-2", indent > 0 && "pl-8")}
     >
       {icon}
-      <View className="flex-1">
+      <View className="flex-1" pointerEvents="none">
         <Text
           numberOfLines={1}
           className={text}
@@ -205,15 +205,6 @@ function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
   ) : null;
 }
 
-/// The week number of a day, ISO style (the week with its Thursday in the year).
-export function isoWeek(date: Date): number {
-  const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const weekday = day.getUTCDay() || 7;
-  day.setUTCDate(day.getUTCDate() + 4 - weekday);
-  const yearStart = Date.UTC(day.getUTCFullYear(), 0, 1);
-  return Math.ceil(((day.getTime() - yearStart) / 86_400_000 + 1) / 7);
-}
-
 /// The card at the top of the sidebar, like the desktop's: today's date and week, and one
 /// line about what waits, changing every few seconds; tapping it opens the matching list.
 function DayCard({ go }: { go: (href: Href) => void }) {
@@ -263,12 +254,14 @@ function DayCard({ go }: { go: (href: Href) => void }) {
       onPress={() => line && go(line.href)}
       className="mx-1 mb-2 gap-0.5 rounded-lg border border-sidebar-border p-3 active:opacity-80"
     >
-      <Text variant="small" tone="muted">
-        {`${now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })} · Week ${isoWeek(now)}`}
-      </Text>
-      <Text style={{ color: theme.colors.foreground }}>
-        {line?.text ?? "Nothing waiting. Enjoy the calm."}
-      </Text>
+      <View className="gap-0.5" pointerEvents="none">
+        <Text variant="small" tone="muted">
+          {`${now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })} · Week ${isoWeek(now)}`}
+        </Text>
+        <Text style={{ color: theme.colors.foreground }}>
+          {line?.text ?? "Nothing waiting. Enjoy the calm."}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -382,7 +375,9 @@ export function Sidebar({ close }: { close: () => void }) {
           )}
         >
           <IconSearch size={18} color={muted} />
-          <Text className={cn(searchText, "text-muted-foreground")}>Search</Text>
+          <View pointerEvents="none">
+            <Text className={cn(searchText, "text-muted-foreground")}>Search</Text>
+          </View>
         </Pressable>
       </View>
       <ScrollView className="flex-1" contentContainerClassName="p-2 pt-3">

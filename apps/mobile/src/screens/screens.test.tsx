@@ -11,7 +11,7 @@ import {
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { ApiClient } from "@nookly/shared/api";
 import { RecordingMenu } from "../test/menu.ts";
-import { renderScreens, testData } from "../test/render.tsx";
+import { pressBarButton, renderScreens, testData } from "../test/render.tsx";
 import { ShareScreen } from "./ShareScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
@@ -83,10 +83,10 @@ describe("a page", () => {
     await waitFor(async () =>
       expect((await listBlocks(data.db, page))[0].content).toBe("Waves move energy"),
     );
-    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    await pressBarButton(screen, "More");
     menu.choose("Move to Trash");
     expect(await screen.findByText("In Trash")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    await pressBarButton(screen, "More");
     expect(menu.labels()).toEqual(["Restore"]);
   });
 });

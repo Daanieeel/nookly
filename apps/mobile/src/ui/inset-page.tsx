@@ -25,27 +25,39 @@ export function pageShadow(dark: boolean): string {
 /// them itself: the screen container around it clips everything outside its edge. So
 /// a shape one outline wider than the page sits under it in the sidebar and follows
 /// its slide: its border shows as a thin ring around the page's edge, and it casts the
-/// shadow onto the sidebar. With the sidebar hidden, neither shows.
-export function PageEdge({ drawerWidth, dark }: { drawerWidth: number; dark: boolean }) {
+/// shadow onto the sidebar. With the sidebar hidden, neither shows. The details on the
+/// right (`side="right"`) draw it the same way, the page sliding to the left.
+export function PageEdge({
+  drawerWidth,
+  dark,
+  side = "left",
+}: {
+  drawerWidth: number;
+  dark: boolean;
+  side?: "left" | "right";
+}) {
   const progress = useDrawerProgress();
   const { width, height } = useWindowDimensions();
+  const right = side === "right";
   const slide = useAnimatedStyle(() => ({
-    transform: [{ translateX: progress.value * drawerWidth }],
+    transform: [{ translateX: (right ? -1 : 1) * progress.value * drawerWidth }],
     opacity: progress.value > 0 ? 1 : 0,
   }));
   return (
     <Animated.View
+      testID="page-edge"
       pointerEvents="none"
       style={[
         {
           position: "absolute",
           top: -OUTLINE,
-          left: -OUTLINE,
+          // A drawer on the right starts where the page leaves room for it.
+          left: -OUTLINE - (right ? width - drawerWidth : 0),
           width: width + OUTLINE * 2,
           height: height + OUTLINE * 2,
           borderRadius: PAGE_RADIUS + OUTLINE,
           borderCurve: "continuous",
-          boxShadow: pageShadow(dark),
+          boxShadow: right ? pageShadow(dark).replace("-8px", "8px") : pageShadow(dark),
         },
         slide,
       ]}

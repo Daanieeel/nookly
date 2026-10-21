@@ -26,7 +26,8 @@ describe("the details pane", () => {
   it("takes labels and links off the page while it is beside it", async () => {
     const { data, task } = await setup();
     const alone = await renderScreens({ index: () => <EntityScreen id={task} /> }, data);
-    expect(await alone.findByText("Related")).toBeTruthy();
+    // In the details behind the page, which hide them from screen readers while closed.
+    expect(await alone.findByText("Related", { includeHiddenElements: true })).toBeTruthy();
     alone.unmount();
     const beside = await renderScreens(
       {

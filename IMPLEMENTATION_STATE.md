@@ -166,7 +166,7 @@ Stub, skip and fragile list for the report (current): phone files are hashed in 
 
 Brief 7b (full parity, desktop like iPad): N1, I1 to I6, C1, L1, L2, D1, K1, P1, P2, P6, P9 done earlier. This session:
 
-- [x] F1 own top bar inside the page on item pages (`EntityScreen.tsx` `TopBar`); the native header is hidden there.
+- [x] F1 item pages: native back, with details and more as native bar buttons (`EntityScreen.tsx` `BarActions`). Header `+` buttons are native too. Sidebar and details swipe back to the page first (`shell/panes.tsx`). Words in sidebar rows and buttons never take the touch (0.7.1). Not run on a device yet: check the native bar buttons and both swipes there.
 - [x] F2 page and details for every type (`ItemParts.tsx`, `ui/parts.tsx`, `DetailsBody` in `shell/inspector.tsx`); tests in `item-parts.test.tsx`.
 - [x] F3 the sidebar is the root drawer (`shell/SidebarDrawer.tsx`); `app/(drawer)/_layout.tsx` is a plain stack with a menu button. Swipe unverified.
 - [x] L3 guess fixed (D29); still ask the user.

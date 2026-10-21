@@ -90,9 +90,14 @@ export function Button({
       ) : (
         icon
       )}
-      <Text className={cn(text, status === "error" && variant !== "default" && "text-destructive")}>
-        {shown}
-      </Text>
+      {/* The words never take the touch, so a press on them reaches the button. */}
+      <View pointerEvents="none">
+        <Text
+          className={cn(text, status === "error" && variant !== "default" && "text-destructive")}
+        >
+          {shown}
+        </Text>
+      </View>
     </Pressable>
   );
 }

@@ -1,7 +1,7 @@
 import { addFile, createCourse, createDeck, createSpace, listFiles } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { RecordingClipboard, RecordingMenu } from "../test/menu.ts";
-import { renderScreens, testData } from "../test/render.tsx";
+import { pressBarButton, renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { FileRows } from "./FileScreens.tsx";
 
@@ -69,7 +69,7 @@ describe("saving as a Nookly file", () => {
       `/entity/${deck}`,
       { menu: deckMenu },
     );
-    await fireEvent.press(await deckScreen.findByRole("button", { name: "More" }));
+    await pressBarButton(deckScreen, "More");
     expect(deckMenu.labels()).toContain("Save as Nookly Deck");
     const courseMenu = new RecordingMenu();
     const courseScreen = await renderScreens(
@@ -78,7 +78,7 @@ describe("saving as a Nookly file", () => {
       `/entity/${course}`,
       { menu: courseMenu },
     );
-    await fireEvent.press(await courseScreen.findByRole("button", { name: "More" }));
+    await pressBarButton(courseScreen, "More");
     expect(courseMenu.labels()).toContain("Pin");
     expect(courseMenu.labels().some((l) => l.startsWith("Save as Nookly"))).toBe(false);
   });
@@ -97,7 +97,7 @@ describe("copying a link", () => {
       `/entity/${deck}`,
       { menu, clipboard },
     );
-    await fireEvent.press(await screen.findByRole("button", { name: "More" }));
+    await pressBarButton(screen, "More");
     menu.choose("Copy Link");
     expect(clipboard.copied).toEqual([`[Sorting](mention:${deck})`]);
   });

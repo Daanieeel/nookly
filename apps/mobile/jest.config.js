@@ -13,6 +13,9 @@ module.exports = {
       "src/mock.ts",
     ),
   },
+  // Reanimated's animation loop (driven by the calendar's swipe test) outlives a test and
+  // keeps the process from ending on its own, though every test has passed.
+  forceExit: true,
   testMatch: ["<rootDir>/src/**/*.test.{ts,tsx}"],
   transformIgnorePatterns: [
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@tabler/.*|react-native-svg|@nookly/.*|standard-navigation))",

@@ -2,6 +2,7 @@ import { createSpace, createTask, createView, setPinned } from "@nookly/shared/d
 import { fireEvent } from "expo-router/testing-library";
 import { Slot } from "expo-router";
 import { Text } from "react-native";
+import type { ReactTestInstance } from "react-test-renderer";
 import DrawerLayout from "../app/(drawer)/_layout.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
@@ -30,6 +31,29 @@ describe("the sidebar", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Tasks in Work" }));
     expect(close).toHaveBeenCalled();
     expect(screen.getPathname()).toBe(`/module/${work}/tasks`);
+  });
+});
+
+/// The nearest ancestor of an element that says how it takes touches.
+function touchesOf(element: ReactTestInstance | null): string | undefined {
+  for (let node = element; node; node = node.parent) {
+    const touches: string | undefined = node.props.pointerEvents;
+    if (touches) return touches;
+  }
+  return undefined;
+}
+
+describe("the text of the sidebar's buttons", () => {
+  // A press that lands on the words themselves must reach the row (as the icon buttons
+  // already do), so the words never take the touch.
+  it("lets a press through to the row", async () => {
+    const data = testData();
+    await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await renderScreens({ index: () => <Sidebar close={() => {}} /> }, data);
+    for (const words of [await screen.findByText("Work"), screen.getByText("Search")]) {
+      expect(touchesOf(words)).toBe("none");
+    }
+    expect(touchesOf(screen.getByText(/Week \d+/))).toBe("none");
   });
 });
 
