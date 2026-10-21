@@ -1,8 +1,10 @@
-import { IconCpu, IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
+import { IconChartLine, IconCpu, IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
 import { CircuitLegend } from "./circuit/CircuitLegend";
 import { CircuitCanvas } from "./circuit/CircuitCanvas";
 import { renderCircuit } from "./circuit/render";
 import { renderDiagram } from "./diagram";
+import { PlotLegend } from "./plot/PlotLegend";
+import { renderPlot } from "./plot/render";
 import type { Node as ProseNode } from "@tiptap/pm/model";
 import { NodeSelection, Selection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
@@ -195,4 +197,16 @@ export const CircuitBlock = sourceBlock("circuit", {
   legend: CircuitLegend,
   interactive: CircuitCanvas,
   interactiveDisabled: "Interactive mode is not available yet.",
+});
+
+/// Functions, points and lines in a coordinate system, drawn from one line of code each.
+export const PlotBlock = sourceBlock("plot", {
+  label: "Plot",
+  icon: IconChartLine,
+  sourceLabel: "Code",
+  emptyLabel: "Empty plot",
+  render: renderPlot,
+  centered: true,
+  copyLabel: "Copy code",
+  legend: PlotLegend,
 });

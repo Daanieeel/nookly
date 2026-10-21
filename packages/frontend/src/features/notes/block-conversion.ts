@@ -87,7 +87,7 @@ const ROW_READERS = {
 type RowBlock = keyof typeof ROW_READERS;
 
 const LINK_TYPES = new Set(["image", "video", "audio", "file", "embed", "bookmark"]);
-const SOURCE_TYPES = new Set(["equation", "math", "diagram", "circuit"]);
+const SOURCE_TYPES = new Set(["equation", "math", "diagram", "circuit", "plot"]);
 
 /// The block read as a shape, or `null` when it isn't something to convert
 /// (tables, dividers, linked items).
@@ -367,6 +367,7 @@ export const BLOCK_KINDS: BlockKind[] = [
   sourceKind("Math block", "math"),
   sourceKind("Diagram", "diagram"),
   sourceKind("Circuit", "circuit"),
+  sourceKind("Plot", "plot"),
   linkKind("Image", "image"),
   linkKind("Video", "video"),
   linkKind("Audio", "audio"),

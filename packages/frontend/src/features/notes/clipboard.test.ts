@@ -60,6 +60,7 @@ const SAMPLES = {
     attrs: { view: "interactive", drawing: '{"v":1,"parts":[],"wires":[]}' },
     content: [text("Y = A & B")],
   },
+  plot: { type: "plot", attrs: { view: "rendered" }, content: [text("f(x) = x^2")] },
   divider: { type: "divider" },
   timeline: atom("timeline", "2026\tStart\tnow", { title: "Plan" }),
   progress: atom("progress", "Reading\t3\t10", { title: "Goals" }),

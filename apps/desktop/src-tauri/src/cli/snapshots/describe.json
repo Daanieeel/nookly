@@ -199,6 +199,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -295,6 +306,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -331,6 +343,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -992,6 +1005,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -1088,6 +1112,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -1124,6 +1149,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -1377,6 +1403,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -1473,6 +1510,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -1509,6 +1547,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -2145,6 +2184,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -2241,6 +2291,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -2277,6 +2328,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -2521,6 +2573,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -2617,6 +2680,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -2653,6 +2717,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -3537,6 +3602,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -3633,6 +3709,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -3669,6 +3746,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -3952,6 +4030,17 @@
               "name": "start"
             }
           ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
           "progress": [
             {
               "description": "Optional heading shown above the block, and as the frame title in markdown.",
@@ -4048,6 +4137,7 @@
         "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, each optional; without them it shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -4084,6 +4174,7 @@
         "math",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",

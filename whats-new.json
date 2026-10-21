@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.42.0",
+      "date": "2026-10-21",
+      "title": "Plots",
+      "summary": "Draw functions and points in a coordinate system, right in your notes.",
+      "highlights": [
+        {
+          "title": "Plots",
+          "description": "Type **/plot** and write `f(x) = x^2 - 2` or `A = (1, 2)`, one per line, to see them in a coordinate system.",
+          "icon": "chart-line",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.41.0",
       "date": "2026-10-21",
       "title": "New task from anywhere",

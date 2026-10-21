@@ -13,6 +13,7 @@ import {
   IconLink,
   IconMathFunction,
   IconMathXDivideY2,
+  IconChartLine,
   IconCpu,
   IconSchema,
   IconSum,
@@ -318,6 +319,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Logic gates from a boolean expression, or drawn by hand",
     icon: <IconCpu size={15} />,
     run: (editor, range) => setSourceBlock(editor, range, "circuit"),
+  },
+  {
+    title: "Plot",
+    group: "Math and diagrams",
+    description: "Functions and points in a coordinate system",
+    icon: <IconChartLine size={15} />,
+    run: (editor, range) => setSourceBlock(editor, range, "plot"),
   },
   {
     title: "Image",

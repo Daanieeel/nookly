@@ -133,6 +133,10 @@ describe("turn into kinds", () => {
     expect(offered).toContain("Math block");
     expect(offered).toContain("Text");
     expect(offered).not.toContain("Equation");
+    expect(offered).toContain("Plot");
+    expect(convert(node(paragraph("y = 2x")), "Plot")).toEqual(
+      blocks({ type: "plot", attrs: { view: "source" }, content: [text("y = 2x")] }),
+    );
   });
 });
 

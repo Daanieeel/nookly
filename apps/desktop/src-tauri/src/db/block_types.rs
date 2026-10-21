@@ -1030,6 +1030,25 @@ inventory::submit! {
     }
 }
 
+// --- plot ------------------------------------------------------------------
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "plot",
+        content_format: "Functions, points and lines in a coordinate system, one per line \
+                         (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression \
+                         in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" \
+                         a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, \
+                         each optional; without them it shows -10 to 10 across at one scale for both axes. \
+                         + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, \
+                         atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
+        attrs: &[VIEW_ATTR],
+        validate: accept_anything,
+        // The code in a fence: no markdown viewer draws it, but every line stays readable.
+        to_markdown: |block| format!("```plot\n{}\n```", block.content.trim_end()),
+    }
+}
+
 // --- entity card -----------------------------------------------------------
 
 /// The one `[title](mention:<id>)` link a card is, or nothing yet.
@@ -1384,6 +1403,17 @@ mod tests {
         assert!(validate_attrs("equation", &attr("view", "interactive")).is_err());
         assert!(validate_attrs("diagram", &attr("drawing", "{}")).is_err());
         assert!(validate_content("circuit", "anything the editor shows an error for").is_ok());
+    }
+
+    #[test]
+    fn plot_exports_its_code_and_has_a_preview() {
+        let md = (lookup("plot").unwrap().to_markdown)(&block("plot", "f(x) = x^2\n", &[]));
+        assert_eq!(md, "```plot\nf(x) = x^2\n```");
+        let attr =
+            |key: &str, value: &str| BlockAttrs::from([(key.to_string(), value.to_string())]);
+        assert!(validate_attrs("plot", &attr("view", "rendered")).is_ok());
+        assert!(validate_attrs("plot", &attr("view", "interactive")).is_err());
+        assert!(validate_content("plot", "anything the editor shows an error for").is_ok());
     }
 
     #[test]

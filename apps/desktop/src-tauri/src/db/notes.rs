@@ -697,7 +697,7 @@ fn list_to_markdown(block: &Block, bullet: Option<&str>) -> String {
 }
 
 /// Block types whose content is not prose, so `=={green}` or `{red}x{/}` in it is just text.
-const LITERAL_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "circuit"];
+const LITERAL_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "circuit", "plot"];
 
 /// A highlight's colour (`=={green}text==`) and a text colour (`{red}text{/}`) are kept in the
 /// page only; a markdown export has the plain `==text==` and the plain text.

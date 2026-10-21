@@ -289,6 +289,7 @@ export function blockToNode(block: Block): JSONNode {
     case "math":
     case "diagram":
     case "circuit":
+    case "plot":
       return {
         type: block.blockType,
         attrs: {
@@ -506,6 +507,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     case "math":
     case "diagram":
     case "circuit":
+    case "plot":
       return {
         blockId,
         blockType: node.type,

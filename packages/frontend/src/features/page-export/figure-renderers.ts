@@ -3,6 +3,8 @@ import { renderDiagram } from "#/features/notes/diagram.ts";
 import { drawCircuit } from "#/features/notes/circuit/draw.ts";
 import { layoutCircuit } from "#/features/notes/circuit/layout.ts";
 import { parseCircuit } from "#/features/notes/circuit/parse.ts";
+import { drawPlot } from "#/features/notes/plot/draw.ts";
+import { parsePlot } from "#/features/notes/plot/parse.ts";
 import { latexMacros } from "#/features/notes/math.ts";
 import { getBookmark } from "#/lib/api/bookmarks.ts";
 import { getFile } from "#/lib/api/files.ts";
@@ -128,6 +130,7 @@ export const appFigureRenderers: FigureRenderers = {
     return error ? null : svgToPng(element.innerHTML);
   },
   circuit: async (source) => svgToPng(drawCircuit(layoutCircuit(parseCircuit(source)))),
+  plot: async (source) => svgToPng(drawPlot(parsePlot(source), false)),
   image: async ({ fileId, url }) => {
     if (fileId) {
       const file = await getFile(fileId);

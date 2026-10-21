@@ -116,6 +116,10 @@ describe("pageDocument", () => {
     expect(one(block("diagram", "flowchart LR\n A-->B"))[0]).toMatchObject({
       source: { type: "diagram" },
     });
+    expect(one(block("plot", "f(x) = x^2"))[0]).toMatchObject({
+      source: { type: "plot", source: "f(x) = x^2" },
+      fallback: "f(x) = x^2",
+    });
     expect(one(block("equation", " "))).toEqual([]);
   });
 
