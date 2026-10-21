@@ -38,6 +38,8 @@ import {
 
 /// What a new task starts with, e.g. the status of the column its "+" sits in.
 export interface TaskDraft {
+  /// What the title field starts with, e.g. the words typed after "new task" in the palette.
+  title?: string;
   statusId?: string;
   labelIds?: string[];
   /// What the task starts out related to, e.g. the Course the list is filtered to.
@@ -102,7 +104,7 @@ export function QuickCreateTask({
   useEffect(() => {
     if (!open) return;
     form.reset({
-      title: "",
+      title: draft.title ?? "",
       // Backlog unless whatever opened it says otherwise; without one, the first status.
       statusId:
         draft.statusId ??

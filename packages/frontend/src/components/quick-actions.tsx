@@ -357,6 +357,21 @@ export function QuickActions({
 
   function createItem(m: QuickCreateMatch) {
     const id = `create-${m.type}`;
+    const label = `New ${m.label}${m.title ? `: ${m.title}` : "…"}`;
+    // A task opens the New task dialog the Tasks page uses, title focused, with its Space
+    // chip in place of the Space picker. Opening it closes the palette.
+    if (m.type === "task") {
+      const spaceId = spaces.find((s) => s.id === activeSpaceId)?.id ?? spaces[0]?.id;
+      return simpleItem(
+        id,
+        null,
+        label,
+        () => {
+          if (spaceId) useNavStore.getState().setNewTask({ spaceId, title: m.title });
+        },
+        <ShortcutKbd name="newTask" />,
+      );
+    }
     return (
       <SpacePickerItem
         key={id}
@@ -379,10 +394,7 @@ export function QuickActions({
         onRefocus={onRefocus}
       >
         <ActionGlyph />
-        <span className="min-w-0 flex-1 truncate">
-          New {m.label}
-          {m.title ? `: ${m.title}` : "…"}
-        </span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
       </SpacePickerItem>
     );
   }

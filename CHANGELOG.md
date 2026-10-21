@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.41.0 (2026-10-21)
+
+### Added
+
+- **New task from anywhere.** Press Cmd+Shift+T, or Ctrl+Shift+T on Windows and Linux, to open the New task dialog wherever you are. You can change the shortcut in Settings.
+
+### Changed
+
+- **New Task in the command menu opens the task dialog.** Choosing New Task after Cmd+K now opens the same dialog as the Tasks page, with the title field ready for typing, instead of creating an untitled task.
+
 ## 0.40.1 (2026-10-21)
 
 ### Fixed

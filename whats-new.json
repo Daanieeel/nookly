@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "0.41.0",
+      "date": "2026-10-21",
+      "title": "New task from anywhere",
+      "summary": "Open the New task dialog from any page, with the title ready for typing.",
+      "highlights": [
+        {
+          "title": "New task from anywhere",
+          "description": "Open the New task dialog wherever you are and start typing the title right away. **New Task** in the command menu opens it too.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+T"]
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.40.1",
       "date": "2026-10-21",
       "title": "Formulas in exports",
