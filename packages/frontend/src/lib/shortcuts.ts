@@ -234,6 +234,13 @@ export const SHORTCUT_META = {
     section: "Create",
     scopes: GLOBAL,
   },
+  newTask: {
+    title: "New task",
+    description: "Open the New task dialog from anywhere, in the Space you are working in.",
+    synonyms: ["create task", "add task", "todo", "to do"],
+    section: "Create",
+    scopes: GLOBAL,
+  },
   import: {
     title: "Import",
     description:

@@ -7,7 +7,7 @@ import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { tabGroups, useNavStore } from "#/lib/store/nav.ts";
 import { makeSpace } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { mockCommand } from "#/test/tauri.ts";
+import { callsOf, mockCommand } from "#/test/tauri.ts";
 import { CommandsPalette } from "./commands-palette.tsx";
 
 describe("Import from File in the commands palette", () => {
@@ -25,6 +25,33 @@ describe("Import from File in the commands palette", () => {
     await user.click(await screen.findByText("Import from File"));
     expect(useNavStore.getState().importOpen).toBe(true);
     expect(useNavStore.getState().commandsOpen).toBe(false);
+  });
+});
+
+describe("New Task in the commands palette", () => {
+  beforeEach(() => {
+    useNavStore.setState({ newTask: null });
+    mockCommand("list_spaces", [makeSpace({ id: "space-1", name: "Uni" })]);
+    mockCommand("list_space_modules", ["tasks"]);
+    act(() => useNavStore.getState().setActiveSpace("space-1"));
+  });
+
+  it("opens the task dialog in the active Space instead of creating a task", async () => {
+    const { user } = renderWithProviders(<CommandsPalette />);
+    act(() => useNavStore.getState().setCommandsOpen(true));
+    await user.type(await screen.findByPlaceholderText("Run a command…"), "new task");
+    await user.click(await screen.findByText("New Task…"));
+    expect(useNavStore.getState().newTask).toEqual({ spaceId: "space-1", title: "" });
+    expect(useNavStore.getState().commandsOpen).toBe(false);
+    expect(callsOf("create_task")).toEqual([]);
+  });
+
+  it("carries a typed title into the dialog", async () => {
+    const { user } = renderWithProviders(<CommandsPalette />);
+    act(() => useNavStore.getState().setCommandsOpen(true));
+    await user.type(await screen.findByPlaceholderText("Run a command…"), "new task buy milk");
+    await user.click(await screen.findByText("New Task: buy milk"));
+    expect(useNavStore.getState().newTask).toEqual({ spaceId: "space-1", title: "buy milk" });
   });
 });
 

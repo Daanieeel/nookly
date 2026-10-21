@@ -13,6 +13,7 @@ export const HOTKEYS = {
   settings: "Mod+,",
   quickJot: "Mod+J",
   quickJotSession: "Mod+Shift+J",
+  newTask: "Mod+Shift+T",
   import: "Mod+I",
   filter: "Mod+Shift+F",
   findInPage: "Mod+F",

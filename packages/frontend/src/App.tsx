@@ -22,6 +22,7 @@ import { PinnedView } from "#/features/dashboard/PinnedView.tsx";
 import { QuickJotDialog } from "#/features/notes/QuickJot.tsx";
 import { WhatsNewDialog } from "#/features/whats-new/WhatsNewDialog.tsx";
 import { ImportDialog } from "#/features/notes/ImportDialog.tsx";
+import { NewTaskDialog } from "#/features/tasks/NewTaskDialog.tsx";
 import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
@@ -119,6 +120,7 @@ function Shell() {
       <QuickJotDialog />
       <SettingsDialog />
       <ImportDialog />
+      <NewTaskDialog />
       <WhatsNewDialog />
       <BookmarkSheet />
       <ContextMenuHost />

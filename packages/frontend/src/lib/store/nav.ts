@@ -178,6 +178,8 @@ interface NavState {
   /// The open What's new dialog lists every version, not just what changed since the last one seen.
   whatsNewHistory: boolean;
   quickJotOpen: boolean;
+  /// The open New task dialog: the Space it creates in and the title it starts with.
+  newTask: { spaceId: string; title: string } | null;
   /// The session the open Quick Jot writes into; null for a plain Jot.
   focusBlock: FocusBlock | null;
   /// The group `focusBlock` was opened in, so the same page open in the other group
@@ -221,6 +223,7 @@ interface NavState {
   setImportOpen: (open: boolean) => void;
   setWhatsNewOpen: (open: boolean, history?: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
+  setNewTask: (draft: { spaceId: string; title: string } | null) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   /// Collapses the details sidebar of one group, the focused one by default.
@@ -533,6 +536,7 @@ const NO_OVERLAY = {
   settingsOpen: false,
   importOpen: false,
   whatsNewOpen: false,
+  newTask: null,
   bookmarkSheetId: null,
 };
 
@@ -550,6 +554,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   whatsNewOpen: false,
   whatsNewHistory: false,
   quickJotOpen: false,
+  newTask: null,
   focusBlock: null,
   focusBlockGroupId: null,
   sidebarCollapsed: readStoredCollapsed(),
@@ -765,6 +770,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
+  setNewTask: (newTask) => set(newTask ? { ...NO_OVERLAY, newTask } : { newTask }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     preferences.set(STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed ? "1" : "0");
