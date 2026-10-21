@@ -2,9 +2,9 @@ import {
   formatForDisplay,
   isModifierKey,
   normalizeHotkey,
-  normalizeHotkeyFromEvent,
   normalizeKeyName,
   parseHotkey,
+  parseKeyboardEvent,
   validateHotkey,
 } from "@tanstack/hotkeys";
 import { HOTKEYS } from "./hotkeys.ts";
@@ -523,7 +523,7 @@ export function checkBinding(name: ShortcutName, hotkey: string): BindingCheck {
 export function hotkeyFromEvent(event: KeyboardEvent, mac = IS_MAC): string | null {
   if (isModifierKey(normalizeKeyName(event.key))) return null;
   try {
-    const hotkey = normalizeHotkeyFromEvent(event, platformOf(mac));
+    const hotkey = normalizeHotkey(parseKeyboardEvent(event, platformOf(mac)), platformOf(mac));
     return isKnownHotkey(hotkey) ? hotkey : null;
   } catch {
     return null;
