@@ -2,6 +2,12 @@
 /// a line of text in the PDF. `E = mc^2` reads `E = mc²`, `\ce{H2O}` reads `H₂O`. Anything
 /// this can't spell out exactly returns null, and the TeX itself is shown instead.
 
+import { GATE_MACROS } from "#/features/notes/gate-macros.ts";
+import { KATEX_ALIASES } from "./katex-aliases.ts";
+
+/// Commands that stand for other commands, spelled out through what they stand for.
+const ALIASES = new Map(Object.entries({ ...KATEX_ALIASES, ...GATE_MACROS }));
+
 const SYMBOLS = new Map(
   Object.entries({
     alpha: "α",
@@ -63,6 +69,54 @@ const SYMBOLS = new Map(
     Leftarrow: "⇐",
     iff: "⇔",
     leftrightarrow: "↔",
+    Leftrightarrow: "⇔",
+    uparrow: "↑",
+    downarrow: "↓",
+    Uparrow: "⇑",
+    Downarrow: "⇓",
+    mapsto: "↦",
+    implies: "⟹",
+    impliedby: "⟸",
+    gt: ">",
+    lt: "<",
+    ll: "≪",
+    gg: "≫",
+    supset: "⊃",
+    supseteq: "⊇",
+    setminus: "∖",
+    mid: "∣",
+    "|": "‖",
+    parallel: "∥",
+    perp: "⊥",
+    top: "⊤",
+    bot: "⊥",
+    langle: "⟨",
+    rangle: "⟩",
+    lfloor: "⌊",
+    rfloor: "⌋",
+    lceil: "⌈",
+    rceil: "⌉",
+    varnothing: "∅",
+    nexists: "∄",
+    lnot: "¬",
+    veebar: "⊻",
+    otimes: "⊗",
+    ominus: "⊖",
+    odot: "⊙",
+    bullet: "•",
+    ast: "∗",
+    star: "⋆",
+    therefore: "∴",
+    because: "∵",
+    angle: "∠",
+    aleph: "ℵ",
+    hbar: "ℏ",
+    ell: "ℓ",
+    wp: "℘",
+    Re: "ℜ",
+    Im: "ℑ",
+    colon: ":",
+    vdots: "⋮",
     in: "∈",
     notin: "∉",
     subset: "⊂",
@@ -91,7 +145,10 @@ const SYMBOLS = new Map(
     prime: "′",
     ",": " ",
     ";": " ",
+    ":": " ",
+    "!": "",
     quad: " ",
+    qquad: "  ",
     " ": " ",
     "{": "{",
     "}": "}",
@@ -123,7 +180,6 @@ const SUPERSCRIPT = new Map(
     n: "ⁿ",
     i: "ⁱ",
     x: "ˣ",
-    T: "ᵀ",
   }),
 );
 
@@ -154,6 +210,48 @@ const SUBSCRIPT = new Map(
     x: "ₓ",
   }),
 );
+
+/// `\mathbb` letters. Most live in the math alphabets, the common sets in their own block.
+const DOUBLE_STRUCK = new Map(
+  Object.entries({ C: "ℂ", H: "ℍ", N: "ℕ", P: "ℙ", Q: "ℚ", R: "ℝ", Z: "ℤ" }),
+);
+
+function doubleStruck(c: string): string {
+  const known = DOUBLE_STRUCK.get(c);
+  if (known) return known;
+  const offset = (start: string, base: number) =>
+    String.fromCodePoint(base + c.charCodeAt(0) - start.charCodeAt(0));
+  if (/[A-Z]/.test(c)) return offset("A", 0x1d538);
+  if (/[a-z]/.test(c)) return offset("a", 0x1d552);
+  if (/[0-9]/.test(c)) return offset("0", 0x1d7d8);
+  throw new Unspeakable();
+}
+
+/// Accents drawn over each character: `\overline{AB}` reads `ĀB̄`. A macron rather than
+/// the combining overline, which the PDF writer places beside the letter, not over it.
+const ACCENTS = new Map(
+  Object.entries({
+    overline: "\u0304",
+    bar: "\u0304",
+    vec: "\u20d7",
+    hat: "\u0302",
+    dot: "\u0307",
+  }),
+);
+
+/// Commands that only shape what follows, which plain text reads straight through.
+const PASS_THROUGH = new Set([
+  "text",
+  "mathrm",
+  "mathit",
+  "mathbf",
+  "mathsf",
+  "operatorname",
+  "mathbin",
+  "mathrel",
+  "mathop",
+  "mathord",
+]);
 
 /// Thrown when the formula needs more than plain text can show.
 class Unspeakable extends Error {}
@@ -206,11 +304,23 @@ class Reader {
     }
     if (name === "sqrt") return `√${wrap(this.argument())}`;
     if (name === "ce") return chemistry(this.argument());
-    if (["text", "mathrm", "mathit", "mathbf", "operatorname"].includes(name))
-      return this.argument();
+    if (PASS_THROUGH.has(name)) return this.argument();
+    if (name === "mathbb") return [...this.argument()].map(doubleStruck).join("");
+    const accent = ACCENTS.get(name);
+    if (accent) {
+      return [...this.argument()].map((c) => (c === " " ? c : c + accent)).join("");
+    }
+    // A sized delimiter is the delimiter itself; `.` is none.
+    if (name === "left" || name === "right" || name === "middle") {
+      const delimiter = this.argument();
+      return delimiter === "." ? "" : delimiter;
+    }
+    if (name === "phantom") return " ".repeat([...this.argument()].length);
     const symbol = SYMBOLS.get(name);
-    if (symbol === undefined) throw new Unspeakable();
-    return symbol;
+    if (symbol !== undefined) return symbol;
+    const alias = ALIASES.get(`\\${name}`);
+    if (alias === undefined || alias.includes("#")) throw new Unspeakable();
+    return convert(alias);
   }
 
   skipSpace() {

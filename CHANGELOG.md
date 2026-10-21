@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.40.1 (2026-10-21)
+
+### Fixed
+
+- **Inline math in exports.** Formulas inside text now show as formulas in Word and OpenDocument files. In PDFs they are written out with real symbols such as ℕ, ∧ and ⇒ instead of raw LaTeX.
+
 ## 0.40.0 (2026-10-20)
 
 ### Added

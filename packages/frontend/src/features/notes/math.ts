@@ -2,16 +2,8 @@ import katex from "katex";
 import "katex/contrib/mhchem";
 import "katex/dist/katex.min.css";
 import { settings } from "#/lib/settings/settings.ts";
+import { GATE_MACROS } from "./gate-macros.ts";
 import { parseLatexMacros } from "#/lib/latex-macros.ts";
-
-/// Logic gate operators, which LaTeX has no commands for: `A \nand B`. The negated
-/// gates are the plain symbol with a bar over it.
-const GATE_MACROS = {
-  "\\xor": "\\mathbin{\\oplus}",
-  "\\nand": "\\mathbin{\\overline{\\wedge}}",
-  "\\nor": "\\mathbin{\\overline{\\vee}}",
-  "\\xnor": "\\mathbin{\\overline{\\oplus}}",
-};
 
 let parsed: { text: string; macros: Record<string, string> } | null = null;
 

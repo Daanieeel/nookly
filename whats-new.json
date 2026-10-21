@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.40.1",
+      "date": "2026-10-21",
+      "title": "Formulas in exports",
+      "summary": "Inline math shows as math in your exported documents.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Inline math in PDF, Word and OpenDocument exports shows as formulas instead of raw LaTeX."
+        ]
+      }
+    },
+    {
       "version": "0.40.0",
       "date": "2026-10-20",
       "highlights": [

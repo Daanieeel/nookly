@@ -24,6 +24,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@expo-google-fonts/inter": "0.4.2",
+    "@expo-google-fonts/noto-sans-math": "0.4.2",
     "@expo-google-fonts/source-code-pro": "0.4.2",
     "@nookly/ui": "workspace:*",
     "@radix-ui/react-dialog": "^1.2.0",
