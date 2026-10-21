@@ -4,6 +4,7 @@ import { Pressable, View } from "react-native";
 import { Badge } from "./Badge.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
+import { TOUCH_ROW } from "./touch.ts";
 
 /// A band of the page that folds away: a semester with its courses under it.
 export function Band({
@@ -31,6 +32,7 @@ export function Band({
         accessibilityLabel={title}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((o) => !o)}
+        style={TOUCH_ROW}
         className="min-h-9 flex-row items-center gap-2"
       >
         <Chevron size={16} color={theme.colors.mutedForeground} />

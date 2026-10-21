@@ -1,30 +1,27 @@
-import { type PageSummary, setPinned, trashEntity } from "@nookly/shared/data";
+import type { PageSummary } from "@nookly/shared/data";
 import { IconFeather, IconLink } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import { useLocalWrite } from "../data/context.tsx";
 import { usePageSummaries } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { FilterField, ListTitle, Presets } from "../ui/ListBar.tsx";
-import { useMenu } from "../ui/menu.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { cn } from "../ui/classes.ts";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ago, localDay, addDays } from "./dates.ts";
+import { useEntityMenu } from "./entity-actions.tsx";
 
 /// A page's row in a list, as the desktop's table gives it: the key, the title, the start of
-/// its text and its labels, with when it was last edited at the right. Long press for pin
-/// and trash.
+/// its text and its labels, with when it was last edited at the right. A long press opens
+/// the item's menu, the desktop's right click.
 function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
-  const present = useMenu();
   const { entity } = page;
-  const pin = useLocalWrite((db, next: boolean) => setPinned(db, entity.id, next));
-  const trash = useLocalWrite((db) => trashEntity(db, entity.id));
   const title = entity.title.trim();
   const empty = jot && !title && !page.preview;
   return (
@@ -32,12 +29,7 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
       accessibilityRole="button"
       accessibilityLabel={title || page.preview || (jot ? "Nothing written yet" : "Untitled")}
       onPress={() => router.push(`/entity/${entity.id}`)}
-      onLongPress={() =>
-        present.show(title || entity.key, [
-          { label: entity.pinned ? "Unpin" : "Pin", onPress: () => pin.mutate(!entity.pinned) },
-          { label: "Move to Trash", destructive: true, onPress: () => trash.mutate(undefined) },
-        ])
-      }
+      onLongPress={() => entityMenu(entity)}
       className={cn("gap-1 px-4 py-3 active:bg-accent/40", ROW_DIVIDER)}
     >
       <View className="flex-row items-center gap-3">

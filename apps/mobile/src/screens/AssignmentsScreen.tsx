@@ -1,7 +1,8 @@
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconCheck, IconPlus } from "@tabler/icons-react-native";
+import { IconCheck, IconLayoutKanban, IconList, IconPlus } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -12,11 +13,12 @@ import { useAssignments, useCourses, useSpaces } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { Button, IconButton } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { cn } from "../ui/classes.ts";
 import { ListTitle } from "../ui/ListBar.tsx";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import {
@@ -28,6 +30,7 @@ import {
 import { dueText } from "./dashboard-model.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import { StatusIcon } from "./TaskRow.tsx";
+import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 
 /// Assignments that no longer wait on the student: handed in, or graded.
 export const ASSIGNMENT_DONE = new Set(["submitted", "graded"]);
@@ -55,6 +58,7 @@ function Row({
   spaceColor?: string;
   today: string;
 }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const done = isHandedIn(assignment);
@@ -70,7 +74,7 @@ function Row({
         accessibilityRole="checkbox"
         accessibilityState={{ checked: done }}
         accessibilityLabel={`${done ? "Reopen" : "Mark done"} ${assignment.entity.title || "assignment"}`}
-        hitSlop={8}
+        hitSlop={touchSlop(CONTROL_SIZE.check)}
         onPress={() => mark.mutate(done ? "not_started" : "submitted")}
         className={cn(
           "size-6 items-center justify-center rounded-full border",
@@ -83,6 +87,7 @@ function Row({
         accessibilityRole="button"
         accessibilityLabel={`${assignment.entity.title || "Untitled"}, ${assignment.entity.key}`}
         onPress={() => router.push(`/entity/${assignment.entity.id}`)}
+        onLongPress={() => entityMenu(assignment.entity)}
         className="min-h-11 flex-1 justify-center gap-1 active:opacity-70"
       >
         <Text numberOfLines={1}>{assignment.entity.title || "Untitled"}</Text>
@@ -151,8 +156,6 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
     courseName,
     spaceName: (id) => spaceOf(id)?.name,
   });
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
   const newOne = () =>
     router.push(spaceId ? `/new/assignment?spaceId=${spaceId}` : "/new/assignment");
   const row = (a: AssignmentRecord) => (
@@ -194,75 +197,57 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
             onPress={() => setPanel((p) => (p === "display" ? null : "display"))}
           />
         </View>
-        {panel === "filter" ? (
-          <View className="gap-3 rounded-lg border border-border p-3">
-            <Text variant="small" tone="muted">
-              Course
-            </Text>
-            <ChipGroup label="Courses" multiple scroll>
-              {courses.map((c) => (
-                <Chip
-                  key={c.entity.id}
-                  label={c.entity.title || "Untitled"}
-                  multiple
-                  selected={display.courses.includes(c.entity.id)}
-                  onPress={() =>
-                    setDisplay({ ...display, courses: toggle(display.courses, c.entity.id) })
-                  }
-                />
-              ))}
-            </ChipGroup>
-            <Text variant="small" tone="muted">
-              Status
-            </Text>
-            <ChipGroup label="Statuses" multiple scroll>
-              {ASSIGNMENT_STATUSES.map((s) => (
-                <Chip
-                  key={s.id}
-                  label={s.name}
-                  multiple
-                  selected={display.statuses.includes(s.id)}
-                  onPress={() =>
-                    setDisplay({ ...display, statuses: toggle(display.statuses, s.id) })
-                  }
-                />
-              ))}
-            </ChipGroup>
+        <Sheet
+          open={panel === "filter"}
+          onOpenChange={(open) => !open && setPanel(null)}
+          title="Filter"
+        >
+          <View>
+            <FilterField
+              label="Course"
+              values={display.courses}
+              options={courses.map((c) => ({
+                id: c.entity.id,
+                label: c.entity.title || "Untitled",
+              }))}
+              onChange={(next) => setDisplay({ ...display, courses: next })}
+            />
+            <FilterField
+              label="Status"
+              values={display.statuses}
+              options={ASSIGNMENT_STATUSES.map((s) => ({
+                id: s.id,
+                label: s.name,
+                icon: <StatusIcon status={s} size={16} />,
+              }))}
+              onChange={(next) => setDisplay({ ...display, statuses: next })}
+            />
           </View>
-        ) : null}
-        {panel === "display" ? (
-          <View className="gap-3 rounded-lg border border-border p-3">
-            <ChipGroup label="Layout">
-              <Chip
-                label="List"
-                selected={display.layout === "list"}
-                onPress={() => setDisplay({ ...display, layout: "list" })}
-              />
-              <Chip
-                label="Board"
-                selected={display.layout === "board"}
-                onPress={() => setDisplay({ ...display, layout: "board" })}
-              />
-            </ChipGroup>
+        </Sheet>
+        <Sheet
+          open={panel === "display"}
+          onOpenChange={(open) => !open && setPanel(null)}
+          title="Display"
+        >
+          <View className="gap-3">
+            <LayoutTiles
+              tiles={[
+                { id: "list", label: "List", icon: IconList },
+                { id: "board", label: "Board", icon: IconLayoutKanban },
+              ]}
+              value={display.layout}
+              onSelect={(layout) => setDisplay({ ...display, layout })}
+            />
             {display.layout === "list" ? (
-              <>
-                <Text variant="small" tone="muted">
-                  Group by
-                </Text>
-                <ChipGroup label="Group by" scroll>
-                  {ASSIGNMENT_GROUPINGS.map((g) => (
-                    <Chip
-                      key={g.id}
-                      label={g.label}
-                      selected={display.grouping === g.id}
-                      onPress={() => setDisplay({ ...display, grouping: g.id })}
-                    />
-                  ))}
-                </ChipGroup>
-              </>
+              <SelectRow
+                label="Grouping"
+                value={display.grouping}
+                options={[...ASSIGNMENT_GROUPINGS]}
+                onChange={(grouping) => setDisplay({ ...display, grouping })}
+              />
             ) : null}
           </View>
-        ) : null}
+        </Sheet>
         {all.length === 0 ? (
           <Text tone="muted">No assignments yet. Add them to a course.</Text>
         ) : null}

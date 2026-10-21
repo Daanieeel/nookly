@@ -17,6 +17,7 @@ import {
   updateIngredient,
   updateStep,
 } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import {
   IconChevronDown,
   IconChevronUp,
@@ -36,13 +37,14 @@ import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Badge } from "../ui/Badge.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListTitle } from "../ui/ListBar.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 
 import { cn } from "../ui/classes.ts";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { Empty, ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
+import { MultiSelectField, SelectField } from "../ui/SelectField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
@@ -87,6 +89,7 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
 /// A recipe as a card: its banner (a food icon when it has none), name and key, what kind of
 /// meal it is, how long it takes and its tags.
 function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const banner = recipe.bannerPath;
@@ -98,6 +101,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
       accessibilityRole="button"
       accessibilityLabel={recipe.entity.title || "Untitled"}
       onPress={() => router.push(`/entity/${recipe.entity.id}`)}
+      onLongPress={() => entityMenu(recipe.entity)}
       className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0 active:opacity-80")}
     >
       <View className="h-24 items-center justify-center bg-muted">
@@ -142,6 +146,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
 /// New Recipe: a title first; the rest is on its page.
 export function NewRecipeScreen({ spaceId }: { spaceId?: string }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
   const [chosen, setChosen] = useState<string | null>(spaceId ?? null);
   const space = chosen ?? spaces[0]?.id ?? null;
@@ -151,7 +156,7 @@ export function NewRecipeScreen({ spaceId }: { spaceId?: string }) {
     return createRecipe(db, space, name);
   });
   const submit = () =>
-    create.mutate(title.trim(), { onSuccess: (id) => router.replace(`/entity/${id}`) });
+    create.mutate(title.trim(), { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
       <SpacePicker value={space} onChange={setChosen} />
@@ -393,17 +398,17 @@ export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }
       <DetailsPart>
         <Section title="Kind">
           <View className="p-3">
-            <ChipGroup label="Kind">
-              {RECIPE_KINDS.map((value, index) => (
-                <Chip
-                  key={value}
-                  label={KIND_LABELS[index]}
-                  selected={recipe.kind === value}
-                  disabled={readOnly}
-                  onPress={() => kind.mutate(value)}
-                />
-              ))}
-            </ChipGroup>
+            <SelectField
+              label="Kind"
+              showLabel={false}
+              disabled={readOnly}
+              value={recipe.kind}
+              options={RECIPE_KINDS.map((value, index) => ({
+                id: value,
+                label: KIND_LABELS[index],
+              }))}
+              onChange={(value) => kind.mutate(value)}
+            />
           </View>
         </Section>
         <Section
@@ -430,24 +435,13 @@ export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }
         </Section>
         <Section title="Tags">
           <View className="p-3">
-            <ChipGroup label="Tags" multiple>
-              {catalog.map((tag) => (
-                <Chip
-                  key={tag.id}
-                  label={tag.name}
-                  multiple
-                  selected={chosen.includes(tag.id)}
-                  disabled={readOnly}
-                  onPress={() =>
-                    tags.mutate(
-                      chosen.includes(tag.id)
-                        ? chosen.filter((c) => c !== tag.id)
-                        : [...chosen, tag.id],
-                    )
-                  }
-                />
-              ))}
-            </ChipGroup>
+            <MultiSelectField
+              label="Tags"
+              disabled={readOnly}
+              values={chosen}
+              options={catalog.map((tag) => ({ id: tag.id, label: tag.name }))}
+              onChange={(ids) => tags.mutate(ids)}
+            />
           </View>
         </Section>
       </DetailsPart>

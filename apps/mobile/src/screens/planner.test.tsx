@@ -16,6 +16,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewSemesterScreen, NewSessionScreen } from "./PlannerScreens.tsx";
 import { dayLabel } from "./dates.ts";
@@ -68,7 +69,7 @@ describe("a session", () => {
     await act(() => router.push("/new/session"));
     await fireEvent.press(await screen.findByRole("button", { name: "New Session" }));
     expect(await screen.findByText("Pick a course for the session.")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("radio", { name: "Algorithms" }));
+    await choose(screen, "Course", "Algorithms");
     await fireEvent.changeText(screen.getByLabelText("Title"), "Tutorial");
     await fireEvent.press(screen.getByRole("button", { name: "Couldn't create" }));
     await waitFor(async () => {
@@ -196,8 +197,8 @@ describe("semesters", () => {
       data,
     );
     await act(() => router.push("/new/semester"));
-    await fireEvent.press(await screen.findByRole("radio", { name: "Germany" }));
-    await fireEvent.press(screen.getByRole("radio", { name: "Summer" }));
+    await choose(screen, "Typical dates for", "Germany");
+    await choose(screen, "Term", "Summer");
     await fireEvent.press(screen.getByRole("radio", { name: "2027" }));
     await fireEvent.press(screen.getByRole("button", { name: "New Semester" }));
     await waitFor(async () => {

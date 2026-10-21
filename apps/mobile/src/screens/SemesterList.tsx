@@ -1,22 +1,29 @@
 import { renameEntity, setCurrentSemester, trashEntity } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
+  IconArrowUpRight,
   IconCalendarStats,
   IconChevronDown,
   IconChevronRight,
   IconDots,
+  IconFlag,
+  IconPencil,
   IconSchool,
+  IconTrash,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Platform, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import type { SemesterRecord } from "@nookly/shared/data";
 import { useCourseSemesters, useCourses, useSemesters } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
+import { Field } from "../ui/Field.tsx";
 import { useMenu } from "../ui/menu.tsx";
+import { useSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
@@ -24,12 +31,32 @@ import { dayLabel } from "./dates.ts";
 const range = (s: SemesterRecord) =>
   s.startDate && s.endDate ? `${dayLabel(s.startDate)} to ${dayLabel(s.endDate)}` : null;
 
-/// A name asked for with the system's own prompt (iOS), where there is one.
-function askName(title: string, current: string, done: (name: string) => void) {
-  if (Platform.OS === "ios") Alert.prompt(title, undefined, done, "plain-text", current);
+/// A new name typed in the menu's sheet, as the desktop renames a semester in place.
+function RenameForm({ current, onSave }: { current: string; onSave: (name: string) => void }) {
+  const sheet = useSheet();
+  const [name, setName] = useState(current);
+  const save = () => {
+    if (name.trim() && name.trim() !== current) onSave(name.trim());
+    sheet?.close();
+  };
+  return (
+    <View className="gap-3">
+      <Field
+        label="Name"
+        autoFocus
+        selectTextOnFocus
+        value={name}
+        onChangeText={setName}
+        returnKeyType="done"
+        onSubmitEditing={save}
+      />
+      <Button label="Rename" onPress={save} />
+    </View>
+  );
 }
 
 function SemesterRow({ semester }: { semester: SemesterRecord }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const present = useMenu();
@@ -85,24 +112,29 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           icon={<IconDots size={20} color={muted} />}
           onPress={() =>
             present.show(name, [
-              { label: "Open", onPress: () => router.push(`/entity/${semester.entity.id}`) },
-              ...(Platform.OS === "ios"
-                ? [
-                    {
-                      label: "Rename",
-                      onPress: () =>
-                        askName(
-                          "Rename Semester",
-                          name,
-                          (next) => next.trim() && rename.mutate(next.trim()),
-                        ),
-                    },
-                  ]
-                : []),
-              ...(semester.isCurrent
-                ? []
-                : [{ label: "Flag as Current", onPress: () => current.mutate(undefined) }]),
-              { label: "Move to Trash", destructive: true, onPress: () => trash.mutate(undefined) },
+              semester.isCurrent
+                ? { label: "Current Semester", icon: IconFlag, disabled: true }
+                : {
+                    label: "Flag as Current",
+                    icon: IconFlag,
+                    onPress: () => current.mutate(undefined),
+                  },
+              {
+                label: "Open",
+                icon: IconArrowUpRight,
+                onPress: () => router.push(`/entity/${semester.entity.id}`),
+              },
+              {
+                label: "Rename",
+                icon: IconPencil,
+                page: () => <RenameForm current={name} onSave={(next) => rename.mutate(next)} />,
+              },
+              {
+                label: "Move to Trash",
+                icon: IconTrash,
+                destructive: true,
+                onPress: () => trash.mutate(undefined),
+              },
             ])
           }
         />
@@ -120,6 +152,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
               accessibilityRole="button"
               accessibilityLabel={`${c.entity.title || "Untitled"}, ${c.entity.key}`}
               onPress={() => router.push(`/entity/${c.entity.id}`)}
+              onLongPress={() => entityMenu(c.entity)}
               className="min-h-11 flex-row items-center gap-3 px-4 active:bg-accent/40"
             >
               <IconSchool size={16} color={muted} />

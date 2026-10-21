@@ -3,6 +3,7 @@ import { CARD_CLASSES, SEPARATOR_CLASSES } from "@nookly/ui/classes";
 import { Pressable, View } from "react-native";
 import { cn, row, withState } from "./classes.ts";
 import { Text } from "./Text.tsx";
+import { TOUCH_ROW } from "./touch.ts";
 
 /// A list row, the desktop's (`LIST_ROW_CLASSES`): an icon, a title with an optional
 /// line below, and something trailing. Taller with a second line, so it stays easy to hit.
@@ -12,6 +13,7 @@ export function Row({
   icon,
   trailing,
   onPress,
+  onLongPress,
   muted,
   accessibilityHint,
 }: {
@@ -20,6 +22,8 @@ export function Row({
   icon?: React.ReactNode;
   trailing?: React.ReactNode;
   onPress?: () => void;
+  /// The item's menu, the desktop's right click.
+  onLongPress?: () => void;
   /// A deleted item still shows, dimmed, like on the desktop.
   muted?: boolean;
   accessibilityHint?: string;
@@ -30,6 +34,8 @@ export function Row({
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
+      onLongPress={onLongPress}
+      style={TOUCH_ROW}
       className={cn(
         row(LIST_ROW_CLASSES),
         "gap-3 px-4 active:bg-accent/40",

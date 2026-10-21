@@ -40,6 +40,7 @@ import { addDays, localDay } from "./dates.ts";
 import { orderTasks } from "./task-view.ts";
 import { PageEditor } from "./PageEditor.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
+import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
 
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
   { label: "Never", rule: null },
@@ -127,7 +128,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   return (
     <PropertyList>
       <ChoiceProperty
-        name="status"
         icon={<IconCircleDot size={20} color={muted} />}
         label="Status"
         value={task.statusId}
@@ -140,7 +140,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(statusId) => status.mutate(statusId)}
       />
       <ChoiceProperty
-        name="effort"
         icon={<IconGauge size={20} color={muted} />}
         label="Effort"
         value={task.effort === null ? "none" : String(task.effort)}
@@ -155,7 +154,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
       />
       <DayProperty
-        name="start"
         icon={<IconCalendarPlus size={20} color={muted} />}
         label="Start date"
         value={task.startDate}
@@ -163,7 +161,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(day) => start.mutate(day)}
       />
       <DayProperty
-        name="due"
         icon={<IconCalendarDue size={20} color={muted} />}
         label="Due date"
         value={task.dueDate}
@@ -175,7 +172,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(day) => dates.mutate(day)}
       />
       <ChoiceProperty
-        name="repeat"
         icon={<IconRepeat size={20} color={muted} />}
         label="Repeat"
         value={repeatId}
@@ -223,7 +219,7 @@ export function TaskStepper({ id, spaceId }: { id: string; spaceId: string }) {
   if (index < 0 || order.length < 2) return null;
   const go = (to: number) => router.replace(`/entity/${order[to].entity.id}`);
   return (
-    <View className="flex-row items-center">
+    <View className="flex-row items-center" style={{ gap: gapBetween(CONTROL_SIZE.iconSm) }}>
       <Text variant="small" tone="muted">
         {`${index + 1} / ${order.length}`}
       </Text>

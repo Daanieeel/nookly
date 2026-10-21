@@ -8,6 +8,7 @@ import {
   isLinkOnly,
   isTextFile,
 } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import {
   IconBrandDropbox,
   IconCalendarEvent,
@@ -35,7 +36,6 @@ import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListTitle } from "../ui/ListBar.tsx";
@@ -43,6 +43,7 @@ import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { dayLabel } from "./dates.ts";
+import { SelectField } from "../ui/SelectField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useRouter } from "expo-router";
@@ -100,6 +101,7 @@ const extensionOf = (file: FileRecord) =>
   isLinkOnly(file) ? "LINK" : (nameOf(file).split(".").pop() ?? "").slice(0, 4).toUpperCase();
 
 function FileTile({ file }: { file: FileRecord }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const name = nameOf(file);
@@ -119,6 +121,7 @@ function FileTile({ file }: { file: FileRecord }) {
       accessibilityRole="button"
       accessibilityLabel={name}
       onPress={() => router.push(`/entity/${file.entity.id}`)}
+      onLongPress={() => entityMenu(file.entity)}
       className="gap-2 active:opacity-80"
     >
       <View className="aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary">
@@ -203,17 +206,15 @@ export function FileRows({ spaceId }: { spaceId: string }) {
     <View className="gap-4">
       <ListTitle title="Files" count={files.length} />
       {kinds.length > 1 ? (
-        <ChipGroup label="Kind" scroll>
-          <Chip label="All" selected={kind === "all"} onPress={() => setKind("all")} />
-          {kinds.map((k) => (
-            <Chip
-              key={k}
-              label={k === "link" ? "Links" : KIND_LABELS[k]}
-              selected={kind === k}
-              onPress={() => setKind(k)}
-            />
-          ))}
-        </ChipGroup>
+        <SelectField
+          label="Kind"
+          value={kind}
+          options={[
+            { id: "all", label: "All" },
+            ...kinds.map((k) => ({ id: k, label: k === "link" ? "Links" : KIND_LABELS[k] })),
+          ]}
+          onChange={setKind}
+        />
       ) : null}
       {files.length === 0 ? (
         <Text tone="muted" className="p-4 text-center">

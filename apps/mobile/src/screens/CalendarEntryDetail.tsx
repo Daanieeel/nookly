@@ -75,7 +75,6 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         <View className="gap-3">
           <PropertyList>
             <DayProperty
-              name="date"
               icon={<IconCalendarEvent size={20} color={muted} />}
               label="Date"
               clearable={false}
@@ -84,7 +83,6 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
               onChange={(date) => date && change({ date })}
             />
             <DayProperty
-              name="last"
               icon={<IconCalendarEvent size={20} color={muted} />}
               label="Last day"
               placeholder="Only this day"
@@ -93,7 +91,6 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
               onChange={(endDate) => change({ endDate })}
             />
             <ChoiceProperty
-              name="allDay"
               icon={<IconSun size={20} color={muted} />}
               label="All day"
               value={item.allDay ? "yes" : "no"}
@@ -108,7 +105,6 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
               <InfoRow icon={<IconClock size={20} color={muted} />} label="Time" value="All day" />
             ) : (
               <DayProperty
-                name="starts"
                 icon={<IconClock size={20} color={muted} />}
                 label="Starts"
                 mode="time"
@@ -119,7 +115,6 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
             )}
             {item.allDay ? null : (
               <DayProperty
-                name="ends"
                 icon={<IconClock size={20} color={muted} />}
                 label="Ends"
                 mode="time"

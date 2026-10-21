@@ -1,4 +1,5 @@
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
+import { useEntityMenu } from "./entity-actions.tsx";
 import {
   type AssignmentRecord,
   createDeck,
@@ -18,6 +19,7 @@ import {
   IconAward,
   IconCalendarDue,
   IconCalendarEvent,
+  IconCalendarTime,
   IconCircleDot,
   IconClock,
   IconDoor,
@@ -25,10 +27,11 @@ import {
   IconPlus,
   IconSchool,
   IconUser,
+  IconX,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import {
@@ -45,11 +48,21 @@ import {
 } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { Property, PropertyList, useOpenRow } from "../ui/Property.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { DatePanel, shownValue } from "../ui/DateField.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { shownValue } from "../ui/DateField.tsx";
+import type { MenuIcon } from "../ui/menu.tsx";
+import { DayPicker } from "../ui/sheet/DayPicker.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
+import { useSheet } from "../ui/sheet/Sheet.tsx";
+import { TOUCH_ROW } from "../ui/touch.ts";
 import { DetailsPart, MainPart } from "../ui/parts.tsx";
-import { ChoiceProperty, DayProperty, NumberRow, TextRow } from "../ui/property-rows.tsx";
+import {
+  ChoiceProperty,
+  DayProperty,
+  NumberRow,
+  SheetProperty,
+  TextRow,
+} from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { cn } from "../ui/classes.ts";
@@ -200,7 +213,6 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
       <DetailsPart>
         <PropertyList>
           <ChoiceProperty
-            name="status"
             icon={<IconCircleDot size={20} color={muted} />}
             label="Status"
             value={exam.status}
@@ -216,7 +228,6 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
             onChange={(courseId) => course.mutate(courseId)}
           />
           <DayProperty
-            name="day"
             icon={<IconCalendarEvent size={20} color={muted} />}
             label="Day"
             value={exam.examDate}
@@ -224,7 +235,6 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
             onChange={(examDate) => update.mutate({ examDate })}
           />
           <DayProperty
-            name="time"
             icon={<IconClock size={20} color={muted} />}
             label="Time"
             mode="time"
@@ -263,8 +273,59 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   );
 }
 
-/// When an assignment is due: a fixed day, or so many days before a session of its course,
-/// the next one or one picked, which then moves with it.
+/// The first step of the due date sheet, as the desktop's cards: a day, before the next
+/// session, or before one session picked.
+function DueChoice({
+  icon: Icon,
+  title,
+  description,
+  selected,
+  disabled,
+  onPress,
+}: {
+  icon: MenuIcon;
+  title: string;
+  description: string;
+  selected: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={description}
+      accessibilityState={{ selected, disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={TOUCH_ROW}
+      className={cn(
+        "flex-row items-center gap-3 rounded-lg border border-border px-3 py-2 active:bg-accent",
+        selected && "border-primary bg-primary/10",
+        disabled && "opacity-50",
+      )}
+    >
+      <Icon size={18} color={selected ? theme.colors.primary : theme.colors.mutedForeground} />
+      <View className="flex-1 gap-0.5">
+        <Text className="font-medium">{title}</Text>
+        <Text variant="small" tone="muted">
+          {description}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+const DUE_PRESETS = [
+  { label: "Day of", days: 0 },
+  { label: "1 day", days: 1 },
+  { label: "2 days", days: 2 },
+  { label: "1 week", days: 7 },
+];
+
+/// When an assignment is due, in the desktop's steps: a specific day, so many days before
+/// the course's next session, or before one session picked (which then moves with it).
 function AssignmentDueProperty({
   assignment,
   readOnly,
@@ -274,92 +335,114 @@ function AssignmentDueProperty({
 }) {
   const theme = useTheme();
   const id = assignment.entity.id;
-  const row = useOpenRow("due");
-  const { data: sessions = [] } = useSessions({ courseId: assignment.courseId ?? undefined });
   const fixedDay = useLocalWrite((db, day: string | null) => setAssignmentDueDate(db, id, day));
   const before = useLocalWrite((db, input: { days: number | null; session: string | null }) =>
     setAssignmentDueBeforeSession(db, id, input.days, input.session),
   );
-  const days = assignment.dueSessionOffsetDays;
-  const picked = useAssignmentDueSession(id);
-  const upcoming = sessions.filter((s) => !s.cancelled && s.date >= localDay());
   const value = assignment.dueDate ? shownValue("date", assignment.dueDate) : "None";
   return (
-    <Property
+    <SheetProperty
       icon={<IconCalendarDue size={20} color={theme.colors.mutedForeground} />}
       label="Due date"
       value={value}
-      disabled={readOnly}
-      expanded={row.open}
-      onPress={row.toggle}
+      readOnly={readOnly}
     >
-      <ChipGroup label="Due">
-        <Chip
-          label="On a day"
-          selected={days === null}
-          onPress={() => days !== null && fixedDay.mutate(assignment.dueDate)}
-        />
-        <Chip
-          label="Before a session"
-          selected={days !== null}
-          disabled={!assignment.courseId}
-          onPress={() => days === null && before.mutate({ days: 1, session: null })}
-        />
-      </ChipGroup>
-      {days === null ? (
-        <>
-          <DatePanel
-            label="Due date"
-            mode="date"
-            value={assignment.dueDate}
-            onPick={(day) => fixedDay.mutate(day)}
-            onClose={row.close}
-          />
-          {assignment.dueDate ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              label="Clear Due date"
-              onPress={() => fixedDay.mutate(null)}
-            />
-          ) : null}
-        </>
-      ) : (
-        <>
-          <Text variant="small" tone="muted">
-            Days before
-          </Text>
-          <ChipGroup label="Days before">
-            {[0, 1, 2, 3, 7].map((n) => (
-              <Chip
-                key={n}
-                label={String(n)}
-                selected={days === n}
-                onPress={() => before.mutate({ days: n, session: picked })}
+      <AssignmentDueSteps
+        assignment={assignment}
+        onDay={(day) => fixedDay.mutate(day)}
+        onBefore={(days, session) => before.mutate({ days, session })}
+      />
+    </SheetProperty>
+  );
+}
+
+function AssignmentDueSteps({
+  assignment,
+  onDay,
+  onBefore,
+}: {
+  assignment: AssignmentRecord;
+  onDay: (day: string | null) => void;
+  onBefore: (days: number, session: string | null) => void;
+}) {
+  const sheet = useSheet();
+  const { data: sessions = [] } = useSessions({ courseId: assignment.courseId ?? undefined });
+  const days = assignment.dueSessionOffsetDays;
+  const picked = useAssignmentDueSession(assignment.entity.id);
+  const upcoming = sessions.filter((s) => !s.cancelled && s.date >= localDay());
+  const noCourse = !assignment.courseId;
+  const presets = (session: string | null) => (
+    <OptionList
+      label="Days before"
+      options={DUE_PRESETS.map((p) => ({ id: String(p.days), label: p.label }))}
+      value={days === null ? null : String(days)}
+      onChange={(n) => onBefore(Number(n), session)}
+    />
+  );
+  return (
+    <View className="gap-2">
+      <DueChoice
+        icon={IconCalendarEvent}
+        title="Specific date"
+        description="Pick a day on the calendar."
+        selected={assignment.dueDate !== null && days === null}
+        onPress={() =>
+          sheet?.push({
+            title: "Specific date",
+            content: (
+              <DayPicker
+                label="Due date"
+                value={days === null ? assignment.dueDate : null}
+                onChange={onDay}
               />
-            ))}
-          </ChipGroup>
-          <Text variant="small" tone="muted">
-            Which session
-          </Text>
-          <ChipGroup label="Session" scroll>
-            <Chip
-              label="The next one"
-              selected={picked === null}
-              onPress={() => before.mutate({ days, session: null })}
-            />
-            {upcoming.map((s) => (
-              <Chip
-                key={s.entity.id}
-                label={`${dayLabel(s.date)} ${s.startTime}`}
-                selected={picked === s.entity.id}
-                onPress={() => before.mutate({ days, session: s.entity.id })}
+            ),
+          })
+        }
+      />
+      <DueChoice
+        icon={IconSchool}
+        title="Before session"
+        description="Follows the course's next session."
+        selected={days !== null && picked === null}
+        disabled={noCourse}
+        onPress={() => sheet?.push({ title: "Before session", content: presets(null) })}
+      />
+      <DueChoice
+        icon={IconCalendarTime}
+        title="Specific session"
+        description="Follows one of the course's upcoming sessions."
+        selected={picked !== null}
+        disabled={noCourse || upcoming.length === 0}
+        onPress={() =>
+          sheet?.push({
+            title: "Specific session",
+            content: (
+              <OptionList
+                label="Upcoming sessions"
+                options={upcoming.map((s) => ({
+                  id: s.entity.id,
+                  label: `${dayLabel(s.date)} ${s.startTime}`,
+                }))}
+                value={picked}
+                onChange={(session) => onBefore(days ?? 0, session)}
               />
-            ))}
-          </ChipGroup>
-        </>
-      )}
-    </Property>
+            ),
+          })
+        }
+      />
+      {assignment.dueDate || days !== null ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          label="Clear due date"
+          icon={<IconX size={16} />}
+          onPress={() => {
+            onDay(null);
+            sheet?.close();
+          }}
+        />
+      ) : null}
+    </View>
   );
 }
 
@@ -382,7 +465,6 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
       <DetailsPart>
         <PropertyList>
           <ChoiceProperty
-            name="status"
             icon={<IconCircleDot size={20} color={muted} />}
             label="Status"
             value={assignment.status}
@@ -495,6 +577,7 @@ export function CardForm({
 
 /// A course's next three sessions, from today on.
 function SessionList({ courseId }: { courseId: string }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const { data: sessions = [] } = useSessions({ courseId });
   const today = localDay();
@@ -510,6 +593,7 @@ function SessionList({ courseId }: { courseId: string }) {
         subtitle={`${dayLabel(s.date)} · ${s.startTime} to ${s.endTime}${s.location ? ` · ${s.location}` : ""}`}
         icon={<EntityIcon type="session" icon={s.entity.icon} />}
         onPress={() => router.push(`/entity/${s.entity.id}`)}
+        onLongPress={() => entityMenu(s.entity)}
       />
     </View>
   ));
@@ -600,6 +684,7 @@ function ExamDecks({
   spaceId: string;
   readOnly: boolean;
 }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
   const { data: decks = [] } = useDecks(spaceId);
@@ -626,6 +711,7 @@ function ExamDecks({
               subtitle={`${waiting} to study of ${d.stats.total}`}
               icon={<EntityIcon type="index_card_deck" icon={d.entity.icon} />}
               onPress={() => router.push(`/entity/${d.entity.id}`)}
+              onLongPress={() => entityMenu(d.entity)}
             />
           </View>
         );

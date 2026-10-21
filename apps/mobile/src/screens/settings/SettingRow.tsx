@@ -6,6 +6,7 @@ import { Button } from "../../ui/Button.tsx";
 import { Chip, ChipGroup } from "../../ui/Chips.tsx";
 import { Field } from "../../ui/Field.tsx";
 import { ROW_DIVIDER } from "../../ui/Row.tsx";
+import { SelectField } from "../../ui/SelectField.tsx";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { cn } from "../../ui/classes.ts";
@@ -111,8 +112,9 @@ export function SettingRow({ id }: { id: SharedSettingId }) {
       <Text variant="small" tone="muted">
         {def.description}
       </Text>
-      {control.kind === "choice" && (
-        <ChipGroup label={def.title}>
+      {/* As on the desktop: two or three choices side by side, more in a select. */}
+      {control.kind === "choice" && control.options.length <= 3 && (
+        <ChipGroup label={def.title} stretch>
           {control.options.map((option) => (
             <Chip
               key={String(option.value)}
@@ -122,6 +124,20 @@ export function SettingRow({ id }: { id: SharedSettingId }) {
             />
           ))}
         </ChipGroup>
+      )}
+      {control.kind === "choice" && control.options.length > 3 && (
+        <SelectField
+          label={def.title}
+          showLabel={false}
+          value={String(value)}
+          options={control.options.map((o) => ({ id: String(o.value), label: o.label }))}
+          onChange={(next) =>
+            phoneSettings.setJson(
+              id,
+              control.options.find((o) => String(o.value) === next)?.value ?? next,
+            )
+          }
+        />
       )}
       {control.kind === "stepper" && <Stepper id={id} control={control} />}
       {control.kind === "text" && <TextControl id={id} control={control} />}

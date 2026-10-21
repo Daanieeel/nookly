@@ -1,25 +1,10 @@
-import {
-  DUPLICATE_TYPES,
-  PORTABLE_TYPES,
-  type EntityRecord,
-  exportNooklyFile,
-  nooklyFileNoun,
-  duplicateEntity,
-  markOpened,
-  renameEntity,
-  restoreEntity,
-  setPinned,
-  trashEntity,
-} from "@nookly/shared/data";
-import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
+import { type EntityRecord, markOpened, renameEntity } from "@nookly/shared/data";
 import { IconDots } from "@tabler/icons-react-native";
-import { File, Paths } from "expo-file-system";
-import { Stack, useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
+import { Stack } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
-import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
+import { useAppData, useLocalWrite } from "../data/context.tsx";
 import { useEntity, useSpaces } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -28,14 +13,14 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { useDetails, useDetailsFor } from "../shell/DetailsDrawer.tsx";
-import { useSplit } from "../shell/split-context.ts";
 import { useInspectorShown, useIsTablet } from "../ui/pane.tsx";
 import { PartProvider } from "../ui/parts.tsx";
 import { ItemParts } from "./ItemParts.tsx";
 import { TaskStepper } from "./TaskDetail.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
-import { useClipboard } from "../ui/clipboard.tsx";
-import { type MenuItem, useMenu } from "../ui/menu.tsx";
+import { type MenuEntry, useMenu } from "../ui/menu.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
+import { useEntityActions } from "./entity-actions.tsx";
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
   const [title, setTitle] = useState(entity.title);
@@ -53,74 +38,6 @@ function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: bool
       className="p-0 font-heading text-xl text-foreground placeholder:text-muted-foreground"
     />
   );
-}
-
-/// What the "more" button of an open item offers: pin, share, move, duplicate, save, trash;
-/// or restore for an item in the Trash.
-function useEntityMenu(entity: EntityRecord): MenuItem[] {
-  const router = useRouter();
-  const details = useDetails();
-  const split = useSplit();
-  const clipboard = useClipboard();
-  const signedIn = useSyncState((s) => s.user !== null);
-  const shareable =
-    SHAREABLE_TYPES.some((t) => t === entity.type) && !isSharedSpace(entity.spaceId);
-  const pin = useLocalWrite((db, next: boolean) => setPinned(db, entity.id, next));
-  const trash = useLocalWrite((db) => trashEntity(db, entity.id));
-  const restore = useLocalWrite((db) => restoreEntity(db, entity.id));
-  const copy = useLocalWrite((db) => duplicateEntity(db, entity.id));
-  const saveFile = useLocalWrite(async (db, _: undefined) => {
-    const { filename, text } = await exportNooklyFile(db, entity.id);
-    const file = new File(Paths.cache, filename);
-    if (file.exists) file.delete();
-    file.create();
-    file.write(text);
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(file.uri, { mimeType: "application/json", dialogTitle: filename });
-    }
-  });
-  if (entity.deletedAt) {
-    return [{ label: "Restore", onPress: () => restore.mutate(undefined) }];
-  }
-  const items: MenuItem[] = [];
-  if (details) items.push({ label: "Show Details", onPress: () => details.show() });
-  if (split) {
-    items.push({ label: "Open Beside", onPress: () => split.show(`/entity/${entity.id}`) });
-  }
-  if (signedIn && shareable) {
-    items.push({ label: "Share", onPress: () => router.push(`/new/share?entityId=${entity.id}`) });
-  }
-  // As the desktop copies it: pasted into a page, it becomes a mention of this item.
-  items.push({
-    label: "Copy Link",
-    onPress: () => void clipboard.copy(`[${entity.title || entity.key}](mention:${entity.id})`),
-  });
-  items.push({ label: entity.pinned ? "Unpin" : "Pin", onPress: () => pin.mutate(!entity.pinned) });
-  items.push({
-    label: "Change Icon",
-    onPress: () =>
-      router.push({ pathname: "/pick/icon", params: { kind: "entity", id: entity.id } }),
-  });
-  if (entity.type !== "sub_task" && !isSharedSpace(entity.spaceId)) {
-    items.push({
-      label: "Move to Space",
-      onPress: () => router.push(`/new/move?entityId=${entity.id}`),
-    });
-  }
-  if (DUPLICATE_TYPES.includes(entity.type) && !isSharedSpace(entity.spaceId)) {
-    items.push({
-      label: "Duplicate",
-      onPress: () => copy.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) }),
-    });
-  }
-  if (PORTABLE_TYPES.includes(entity.type)) {
-    items.push({
-      label: `Save as Nookly ${nooklyFileNoun(entity.type)}`,
-      onPress: () => saveFile.mutate(undefined),
-    });
-  }
-  items.push({ label: "Move to Trash", destructive: true, onPress: () => trash.mutate(undefined) });
-  return items;
 }
 
 /// One entity, as its own type shows it: a top bar (back, key, more), the title, and the
@@ -147,21 +64,23 @@ export function EntityScreen({ id, embedded = false }: { id: string; embedded?: 
 
 /// What the native bar over an item on a phone carries on its right: the details and
 /// the more menu. Back is the system's own button.
-function BarActions({ entity, menu }: { entity: EntityRecord; menu: MenuItem[] }) {
+function BarActions({ entity, menu }: { entity: EntityRecord; menu: MenuEntry[] }) {
   const present = useMenu();
   const details = useDetails();
   return (
     <Stack.Toolbar placement="right">
       {details ? (
         <Stack.Toolbar.Button
-          icon="info.circle"
+          icon={details.open ? TOOLBAR_ICONS.hideDetails : TOOLBAR_ICONS.showDetails}
+          iconRenderingMode="template"
           accessibilityLabel={details.open ? "Hide Details" : "Show Details"}
           onPress={() => (details.open ? details.hide() : details.show())}
         />
       ) : null}
       {menu.length > 0 ? (
         <Stack.Toolbar.Button
-          icon="ellipsis"
+          icon={TOOLBAR_ICONS.more}
+          iconRenderingMode="template"
           accessibilityLabel="More"
           onPress={() => present.show(entity.title || entity.key, menu)}
         />
@@ -184,7 +103,7 @@ function OpenEntity({
   const readOnly = useReadOnly(entity);
   const theme = useTheme();
   const present = useMenu();
-  const menu = useEntityMenu(entity);
+  const menu = useEntityActions()(entity, "more");
   // The details' own more button opens the menu as it is now, without registering the
   // item again on every render.
   const latestMore = useRef(() => {});

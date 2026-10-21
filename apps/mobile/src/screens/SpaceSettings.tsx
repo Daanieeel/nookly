@@ -1,4 +1,3 @@
-import { COLOR_SWATCH_CLASSES, COLOR_SWATCH_SELECTED_CLASSES } from "@nookly/frontend/classes";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   addSpaceModule,
@@ -17,21 +16,22 @@ import {
   isModuleKey,
   removalGroup,
 } from "@nookly/shared/modules";
-import { IconChevronDown, IconChevronUp, IconTrash } from "@tabler/icons-react-native";
+import { IconChevronDown, IconChevronUp, IconPlus, IconTrash } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useLabels, useSpaceModules, useSpaces } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { IconValue, MODULE_ICONS } from "../ui/icons.tsx";
 import { cn } from "../ui/classes.ts";
 import { Empty, ROW_DIVIDER, Row, Section } from "../ui/Row.tsx";
+import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { Swatch } from "../ui/Swatch.tsx";
 
 /// Modules offered under Add Module: all of them but the passenger that comes with Courses.
 const ADDABLE = MODULE_KEYS.filter((key) => key !== "semesters");
@@ -49,18 +49,15 @@ function Swatches({
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      className="flex-row flex-wrap gap-3"
+      className="-mx-2.5 flex-row flex-wrap"
     >
       {ACCENT_COLORS.map((c) => (
-        <Pressable
+        <Swatch
           key={c}
-          accessibilityRole="radio"
-          accessibilityLabel={`${label} ${c}`}
-          accessibilityState={{ checked: c === value }}
+          label={`${label} ${c}`}
+          color={c}
+          selected={c === value}
           onPress={() => onPick(c)}
-          hitSlop={8}
-          className={cn(COLOR_SWATCH_CLASSES, c === value && COLOR_SWATCH_SELECTED_CLASSES)}
-          style={{ backgroundColor: c }}
         />
       ))}
     </View>
@@ -69,6 +66,7 @@ function Swatches({
 
 /// One label of the Space: its name, its color, and deleting it.
 function LabelRow({ id, name, color }: { id: string; name: string; color: string }) {
+  const menu = useMenu();
   const [text, setText] = useState(name);
   useEffect(() => setText(name), [name]);
   const update = useLocalWrite((db, patch: { name?: string; color?: string }) =>
@@ -95,10 +93,13 @@ function LabelRow({ id, name, color }: { id: string; name: string; color: string
         label="Delete Label"
         variant="ghost"
         onPress={() =>
-          Alert.alert("Delete this label?", `"${name}" comes off every item that has it.`, [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: () => remove.mutate(undefined) },
-          ])
+          menu.confirm({
+            title: "Delete this label?",
+            description: `"${name}" comes off every item that has it.`,
+            actions: [
+              { label: "Delete", destructive: true, onPress: () => remove.mutate(undefined) },
+            ],
+          })
         }
       />
     </View>
@@ -108,6 +109,7 @@ function LabelRow({ id, name, color }: { id: string; name: string; color: string
 /// A Space's settings: name, icon and color, its place among the Spaces, which
 /// modules it has and in what order, its labels, and deleting it.
 export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
+  const menu = useMenu();
   const theme = useTheme();
   const router = useRouter();
   const { data: spaces = [] } = useSpaces();
@@ -137,19 +139,19 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
     return next;
   };
   const askRemove = (key: ModuleKey) =>
-    Alert.alert(
-      `Remove ${MODULE_LABELS[key]}?`,
-      "Hide keeps everything, and brings it back when you add the module again. Trash moves it to Trash.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Hide", onPress: () => remove.mutate({ key, trash: false }) },
+    menu.confirm({
+      title: `Remove ${MODULE_LABELS[key]}?`,
+      description:
+        "Hide keeps everything, and brings it back when you add the module again. Trash moves it to Trash.",
+      actions: [
+        { label: "Hide", onPress: () => remove.mutate({ key, trash: false }) },
         {
-          text: "Move to Trash",
-          style: "destructive",
+          label: "Move to Trash",
+          destructive: true,
           onPress: () => remove.mutate({ key, trash: true }),
         },
       ],
-    );
+    });
   return (
     <>
       <Stack.Screen options={{ title: "Space Settings" }} />
@@ -244,20 +246,22 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
           })}
         </Section>
         {more.length > 0 ? (
-          <View className="gap-2">
-            <Text variant="small" tone="muted" className="px-1">
-              Add Module
-            </Text>
-            <ChipGroup label="Add Module">
-              {more.map((key) => (
-                <Chip
-                  key={key}
-                  label={MODULE_LABELS[key]}
-                  selected={false}
-                  onPress={() => add.mutate(key)}
-                />
-              ))}
-            </ChipGroup>
+          <View className="items-start">
+            <Button
+              label="Add Module"
+              variant="secondary"
+              icon={<IconPlus size={16} color={theme.colors.foreground} />}
+              onPress={() =>
+                menu.show(
+                  "Add Module",
+                  more.map((key) => ({
+                    label: MODULE_LABELS[key],
+                    icon: MODULE_ICONS[key],
+                    onPress: () => add.mutate(key),
+                  })),
+                )
+              }
+            />
           </View>
         ) : null}
         <Section title="Labels">
@@ -279,19 +283,18 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
               status={statusOf(destroy)}
               errorLabel="Couldn't delete"
               onPress={() =>
-                Alert.alert(
-                  `Delete "${space.name}" forever?`,
-                  "Everything in it goes, on every device. This can't be undone.",
-                  [
-                    { text: "Cancel", style: "cancel" },
+                menu.confirm({
+                  title: `Delete "${space.name}" forever?`,
+                  description: "Everything in it goes, on every device. This can't be undone.",
+                  actions: [
                     {
-                      text: "Delete Forever",
-                      style: "destructive",
+                      label: "Delete Forever",
+                      destructive: true,
                       onPress: () =>
                         destroy.mutate(undefined, { onSuccess: () => router.dismissAll() }),
                     },
                   ],
-                )
+                })
               }
             />
           </View>

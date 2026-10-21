@@ -1,8 +1,5 @@
 import {
   type EntityRecord,
-  attachLabel,
-  createLabel,
-  detachLabel,
   type LinkedItem,
   RELATIONSHIP_TYPES,
   createRelationship,
@@ -15,22 +12,24 @@ import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import {
   useEntityLabels,
-  useLabels,
   useLinks,
   useMentions,
   useRecents,
   useRelated,
   useSearch,
 } from "../data/queries.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { IconButton } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { Property, PropertyList, useOpenRow } from "../ui/Property.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { SheetProperty } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
-import { Screen } from "../ui/Screen.tsx";
+import { SelectField } from "../ui/SelectField.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { LabelPicker } from "./EntityPickers.tsx";
 
 /// How an item is tied to others, as the desktop's right sidebar shows it: its links in both
 /// directions, each read as "Blocks" or "blocked by", the files attached to it, and the
@@ -44,6 +43,7 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
   const attached = links.filter((l) => l.type.name === "attached-file" && l.outgoing);
   const others = links.filter((l) => !attached.includes(l));
   const open = (id: string) => router.push(`/entity/${id}`);
+  const [linking, setLinking] = useState(false);
   const unlink = (item: LinkedItem) =>
     readOnly || !item.type.creatable ? undefined : (
       <IconButton
@@ -82,13 +82,16 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
             <IconButton
               label="Add Related Item"
               icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
-              onPress={() => router.push(`/new/link?entityId=${entity.id}`)}
+              onPress={() => setLinking(true)}
             />
           )
         }
       >
         {others.length === 0 ? <Empty text="Nothing linked yet." /> : others.map(linkRow)}
       </Section>
+      <Sheet open={linking} onOpenChange={setLinking} title="Relate to…" size="large">
+        <LinkPicker entityId={entity.id} />
+      </Sheet>
       {attached.length > 0 ? <Section title="Attachments">{attached.map(linkRow)}</Section> : null}
       {mentioned && mentioned.mentions.length > 0 ? (
         <Section title="Mentioned">{mentioned.mentions.map(plainRow)}</Section>
@@ -100,71 +103,20 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
   );
 }
 
-/// The Space's labels as a property row: its value is the labels on the item; opened, the
-/// Space's labels as chips (tap to put one on or take it off) and a field to name a new one.
+/// The Space's labels as a property row: its value is the labels on the item; tapped, the
+/// Space's labels in a sheet (tap to put one on or take it off, or type a new one).
 export function LabelsProperty({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
   const theme = useTheme();
-  const { data: labels = [] } = useLabels(entity.spaceId);
   const { data: attached = [] } = useEntityLabels(entity.id);
-  const row = useOpenRow("labels");
-  const [name, setName] = useState("");
-  const toggle = useLocalWrite((db, input: { labelId: string; on: boolean }) =>
-    input.on
-      ? attachLabel(db, entity.id, input.labelId)
-      : detachLabel(db, entity.id, input.labelId),
-  );
-  const add = useLocalWrite(async (db, label: string) => {
-    const id = await createLabel(db, entity.spaceId, label);
-    await attachLabel(db, entity.id, id);
-  });
-  const on = new Set(attached.map((l) => l.id));
-  const submit = () => name.trim() && add.mutate(name, { onSuccess: () => setName("") });
   return (
-    <Property
+    <SheetProperty
       icon={<IconTag size={20} color={theme.colors.mutedForeground} />}
       label="Labels"
       value={attached.length === 0 ? "None" : attached.map((l) => l.name).join(", ")}
-      disabled={readOnly}
-      expanded={row.open}
-      onPress={row.toggle}
+      readOnly={readOnly}
     >
-      {labels.length > 0 ? (
-        <ChipGroup label="Labels" multiple>
-          {labels.map((label) => (
-            <Chip
-              key={label.id}
-              multiple
-              label={label.name}
-              selected={on.has(label.id)}
-              icon={
-                <View className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
-              }
-              onPress={() => toggle.mutate({ labelId: label.id, on: !on.has(label.id) })}
-            />
-          ))}
-        </ChipGroup>
-      ) : null}
-      <View className="flex-row items-end gap-2">
-        <View className="flex-1">
-          <Field
-            label="New label"
-            placeholder="Urgent"
-            value={name}
-            onChangeText={setName}
-            returnKeyType="done"
-            onSubmitEditing={submit}
-          />
-        </View>
-        <Button
-          variant="secondary"
-          label="Add"
-          status={statusOf(add)}
-          disabled={!name.trim()}
-          errorLabel="Couldn't add"
-          onPress={submit}
-        />
-      </View>
-    </Property>
+      <LabelPicker entityId={entity.id} spaceId={entity.spaceId} />
+    </SheetProperty>
   );
 }
 
@@ -180,9 +132,9 @@ export function LabelsSection({ entity, readOnly }: { entity: EntityRecord; read
 }
 
 /// Picks an item to link to, from search or Recents.
-export function LinkPickerScreen({ entityId }: { entityId: string }) {
+export function LinkPicker({ entityId }: { entityId: string }) {
   const [typeName, setTypeName] = useState("relates-to");
-  const router = useRouter();
+  const close = useCloseSheet();
   const [query, setQuery] = useState("");
   const { data: results = [] } = useSearch(query);
   const { data: recent = [] } = useRecents();
@@ -197,7 +149,7 @@ export function LinkPickerScreen({ entityId }: { entityId: string }) {
   const searching = query.trim().length > 0;
   const shown = (searching ? results : recent).filter((e) => !linked.has(e.id));
   return (
-    <Screen>
+    <View className="gap-4">
       <Field
         label="Find an item"
         autoFocus
@@ -207,16 +159,15 @@ export function LinkPickerScreen({ entityId }: { entityId: string }) {
         autoCorrect={false}
         clearButtonMode="while-editing"
       />
-      <ChipGroup label="Kind of link" scroll>
-        {RELATIONSHIP_TYPES.filter((t) => t.creatable).map((t) => (
-          <Chip
-            key={t.name}
-            label={t.label}
-            selected={t.name === typeName}
-            onPress={() => setTypeName(t.name)}
-          />
-        ))}
-      </ChipGroup>
+      <SelectField
+        label="Kind of link"
+        value={typeName}
+        options={RELATIONSHIP_TYPES.filter((t) => t.creatable).map((t) => ({
+          id: t.name,
+          label: t.label,
+        }))}
+        onChange={setTypeName}
+      />
       {link.error ? <Text tone="destructive">{link.error.message}</Text> : null}
       <Section title={searching ? "Results" : "Recents"}>
         {shown.length === 0 ? (
@@ -229,11 +180,11 @@ export function LinkPickerScreen({ entityId }: { entityId: string }) {
               subtitle={entity.key}
               icon={<EntityIcon type={entity.type} icon={entity.icon} />}
               accessibilityHint="Links it"
-              onPress={() => link.mutate(entity.id, { onSuccess: () => router.back() })}
+              onPress={() => link.mutate(entity.id, { onSuccess: () => close() })}
             />
           </View>
         ))}
       </Section>
-    </Screen>
+    </View>
   );
 }

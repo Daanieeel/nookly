@@ -9,6 +9,7 @@ import { SidebarDrawer } from "./SidebarDrawer.tsx";
 import { EntityScreen } from "../screens/EntityScreen.tsx";
 import { RecordingMenu } from "../test/menu.ts";
 import { pressBarButton, renderScreens, testData } from "../test/render.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 
 async function setup() {
   const data = testData();
@@ -116,8 +117,15 @@ describe("the details of an item on a phone", () => {
         .flatMap((node) => node.props.headerRightBarButtonItems);
       return items.find((item) => item.accessibilityLabel === label);
     };
-    expect(own("Hide Details")?.icon).toEqual({ type: "sfSymbol", name: "info.circle" });
-    expect(own("More")?.icon).toEqual({ type: "sfSymbol", name: "ellipsis" });
+    // The desktop's Tabler icons, tinted by the bar like its own.
+    expect(own("Hide Details")?.icon).toEqual({
+      type: "templateSource",
+      templateSource: TOOLBAR_ICONS.hideDetails,
+    });
+    expect(own("More")?.icon).toEqual({
+      type: "templateSource",
+      templateSource: TOOLBAR_ICONS.more,
+    });
     await act(async () => own("More")?.onPress());
     expect(menu.labels()).toContain("Copy Link");
     await act(async () => own("Hide Details")?.onPress());

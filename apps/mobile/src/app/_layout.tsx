@@ -34,6 +34,8 @@ import { createSync, onboardedStore, serverUrlStore, themeStore } from "../data/
 
 // Before the first frame, so a picked theme never flashes the system's.
 restoreTheme(themeStore);
+import { SheetHost } from "../ui/sheet/SheetHost.tsx";
+import { SHEET_ROUTE } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 
@@ -177,162 +179,28 @@ export default function RootLayout() {
       <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
       <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
       <Stack.Screen name="settings/[page]" options={{ title: "Settings" }} />
-      <Stack.Screen
-        name="pick/icon"
-        options={{
-          title: "Choose an Icon",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.75, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/move"
-        options={{
-          title: "Move to Space",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.5, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/recipe"
-        options={{
-          title: "New Recipe",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.5],
-        }}
-      />
-      <Stack.Screen
-        name="new/session"
-        options={{
-          title: "New Session",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.85, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/study-block"
-        options={{
-          title: "New Study Block",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.7, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/semester"
-        options={{
-          title: "New Semester",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.85, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/semester-setup"
-        options={{
-          title: "Set Up Semesters",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.7, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/jot"
-        options={{
-          title: "Quick Jot",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.5, 1],
-        }}
-      />
+      <Stack.Screen name="pick/icon" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/recipe" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/session" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/study-block" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/semester" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/semester-setup" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/jot" options={SHEET_ROUTE} />
       <Stack.Screen name="assignments" options={{ title: "Assignments" }} />
       <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
       <Stack.Screen name="settings/shortcuts" options={{ title: "Keyboard Shortcuts" }} />
       <Stack.Screen name="settings/whats-new" options={{ title: "What's New" }} />
-      <Stack.Screen
-        name="new/task"
-        options={{
-          title: "New Task",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.6, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/page"
-        options={{
-          title: "New Page",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.5],
-        }}
-      />
-      <Stack.Screen
-        name="new/entry"
-        options={{
-          title: "New Calendar Entry",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.75, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/bookmark"
-        options={{
-          title: "New Bookmark",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.5],
-        }}
-      />
-      <Stack.Screen
-        name="new/space"
-        options={{
-          title: "New Space",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.6],
-        }}
-      />
-      <Stack.Screen
-        name="new/course"
-        options={{
-          title: "New Course",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.5],
-        }}
-      />
-      <Stack.Screen
-        name="new/exam"
-        options={{
-          title: "New Exam",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.75, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/assignment"
-        options={{
-          title: "New Assignment",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.75, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/import"
-        options={{
-          title: "Import a File",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.7, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/deck"
-        options={{
-          title: "New Deck",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.6, 1],
-        }}
-      />
-      <Stack.Screen
-        name="new/link"
-        options={{
-          title: "Link an Item",
-          presentation: "formSheet",
-          sheetAllowedDetents: [0.75, 1],
-        }}
-      />
+      <Stack.Screen name="new/task" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/page" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/entry" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/bookmark" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/space" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/course" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/exam" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/assignment" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/import" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/deck" options={SHEET_ROUTE} />
+      <Stack.Screen name="new/share" options={SHEET_ROUTE} />
       <Stack.Screen name="conflicts" options={{ title: "Review Changes" }} />
       <Stack.Screen
         name="study/[deckId]"
@@ -345,20 +213,22 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AppDataProvider value={data}>
           <ThemeProvider value={navigation}>
-            <StatusBar style="auto" />
-            <FirstRun />
-            {beside ? (
-              <TabletShell>{stack}</TabletShell>
-            ) : (
-              <SidebarBesideProvider value={false}>
-                <SidebarDrawer
-                  enabled={!/^\/(welcome|account)/.test(pathname)}
-                  edgeBack={!TOP_LEVEL.test(pathname)}
-                >
-                  {stack}
-                </SidebarDrawer>
-              </SidebarBesideProvider>
-            )}
+            <SheetHost>
+              <StatusBar style="auto" />
+              <FirstRun />
+              {beside ? (
+                <TabletShell>{stack}</TabletShell>
+              ) : (
+                <SidebarBesideProvider value={false}>
+                  <SidebarDrawer
+                    enabled={!/^\/(welcome|account)/.test(pathname)}
+                    edgeBack={!TOP_LEVEL.test(pathname)}
+                  >
+                    {stack}
+                  </SidebarDrawer>
+                </SidebarBesideProvider>
+              )}
+            </SheetHost>
           </ThemeProvider>
         </AppDataProvider>
       </QueryClientProvider>

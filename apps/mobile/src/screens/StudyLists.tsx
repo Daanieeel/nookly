@@ -1,4 +1,5 @@
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES } from "@nookly/shared/colors";
+import { useEntityMenu } from "./entity-actions.tsx";
 import type { AssignmentRecord, CourseRecord, DeckRecord, ExamRecord } from "@nookly/shared/data";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
@@ -25,6 +26,7 @@ function Rows<T extends { entity: { id: string } }>({
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
 
 export function CourseRows({ courses }: { courses: CourseRecord[] }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   return (
     <Rows
@@ -36,6 +38,7 @@ export function CourseRows({ courses }: { courses: CourseRecord[] }) {
           subtitle={c.professor ?? c.entity.key}
           icon={<EntityIcon type="course" icon={c.entity.icon} />}
           onPress={() => router.push(`/entity/${c.entity.id}`)}
+          onLongPress={() => entityMenu(c.entity)}
         />
       )}
     />
@@ -49,6 +52,7 @@ export function ExamRows({
   exams: ExamRecord[];
   courseName?: (id: string | null) => string | undefined;
 }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   return (
     <Rows
@@ -64,6 +68,7 @@ export function ExamRows({
           )}
           icon={<StatusIcon status={EXAM_STATUSES.find((s) => s.id === e.status)} size={18} />}
           onPress={() => router.push(`/entity/${e.entity.id}`)}
+          onLongPress={() => entityMenu(e.entity)}
         />
       )}
     />
@@ -77,6 +82,7 @@ export function AssignmentRows({
   assignments: AssignmentRecord[];
   courseName?: (id: string | null) => string | undefined;
 }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   return (
     <Rows
@@ -97,6 +103,7 @@ export function AssignmentRows({
             <StatusIcon status={ASSIGNMENT_STATUSES.find((s) => s.id === a.status)} size={18} />
           }
           onPress={() => router.push(`/entity/${a.entity.id}`)}
+          onLongPress={() => entityMenu(a.entity)}
         />
       )}
     />
@@ -112,6 +119,7 @@ export function deckSummary(stats: DeckRecord["stats"]): string {
 }
 
 export function DeckRows({ decks }: { decks: DeckRecord[] }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   return (
     <Rows
@@ -123,6 +131,7 @@ export function DeckRows({ decks }: { decks: DeckRecord[] }) {
           subtitle={deckSummary(d.stats)}
           icon={<EntityIcon type="index_card_deck" icon={d.entity.icon} />}
           onPress={() => router.push(`/entity/${d.entity.id}`)}
+          onLongPress={() => entityMenu(d.entity)}
         />
       )}
     />

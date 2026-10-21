@@ -7,7 +7,6 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import { createSemester, listSemesters, setCurrentSemester } from "@nookly/shared/data";
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
@@ -15,6 +14,8 @@ import { useSpaces } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
+import { SelectField } from "../ui/SelectField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { dayLabel } from "./dates.ts";
 import { termsUpTo } from "./semester-setup.ts";
@@ -26,7 +27,7 @@ const STEPS = ["Grading system", "Region", "Current term", "How many", "Review"]
 /// whose typical dates seed them, the current term, how many semesters to make counting back
 /// from it, and a review. A term the Space already has is left as it is.
 export function SetupSemestersScreen({ spaceId }: { spaceId?: string }) {
-  const router = useRouter();
+  const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
   const [picked, setPicked] = useState<string | null>(spaceId ?? null);
   const space = picked ?? spaces[0]?.id ?? null;
@@ -105,16 +106,12 @@ export function SetupSemestersScreen({ spaceId }: { spaceId?: string }) {
       ) : null}
       {step === 2 ? (
         <View className="gap-3">
-          <ChipGroup label="Current term">
-            {def.terms.map((t) => (
-              <Chip
-                key={t.key}
-                label={t.label}
-                selected={t.key === term.key}
-                onPress={() => setTermKey(t.key)}
-              />
-            ))}
-          </ChipGroup>
+          <SelectField
+            label="Current term"
+            value={term.key}
+            options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
+            onChange={setTermKey}
+          />
           <ChipGroup label="Year">
             {[theYear - 1, theYear, theYear + 1].map((y) => (
               <Chip key={y} label={String(y)} selected={y === theYear} onPress={() => setYear(y)} />
@@ -158,7 +155,7 @@ export function SetupSemestersScreen({ spaceId }: { spaceId?: string }) {
             errorLabel="Couldn't create"
             onPress={() =>
               create.mutate(undefined, {
-                onSuccess: () => (router.canGoBack() ? router.back() : router.replace("/")),
+                onSuccess: () => close(),
               })
             }
           />

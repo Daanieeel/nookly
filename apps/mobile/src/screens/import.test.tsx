@@ -7,6 +7,7 @@ import {
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose } from "../test/sheet.ts";
 import { FixedFilePicker } from "../test/menu.ts";
 import { ImportScreen } from "./ImportScreen.tsx";
 
@@ -67,7 +68,7 @@ describe("importing a Nookly file", () => {
     expect(await screen.findByText("From the course Some course")).toBeTruthy();
     const button = screen.getByRole("button", { name: "Import" });
     expect(button.props.accessibilityState.disabled).toBe(true);
-    await fireEvent.press(await screen.findByRole("radio", { name: "Algorithms" }));
+    await choose(screen, "Course", "Algorithms");
     expect(screen.getByRole("button", { name: "Import" }).props.accessibilityState.disabled).toBe(
       false,
     );

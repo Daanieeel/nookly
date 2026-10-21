@@ -1,4 +1,5 @@
 import type { TaskRecord, TaskStatus } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { setTaskStatus, trashEntity } from "@nookly/shared/data";
 import {
   IconCircle,
@@ -60,6 +61,7 @@ export function TaskRow({
   spaceName?: string;
   labels?: { id: string; name: string; color: string }[];
 }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const [scale] = useSetting("general.effortScale");
   const status = statuses.find((s) => s.id === task.statusId);
@@ -87,6 +89,7 @@ export function TaskRow({
         accessibilityRole="button"
         accessibilityLabel={`${task.entity.title || "Untitled"}, ${task.entity.key}`}
         onPress={() => router.push(`/entity/${task.entity.id}`)}
+        onLongPress={() => entityMenu(task.entity)}
         className={cn(
           "min-h-14 justify-center gap-1 px-4 py-2 active:bg-accent/40",
           ROW_DIVIDER,

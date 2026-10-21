@@ -1,4 +1,5 @@
 import { isSharedSpace } from "@nookly/shared/api";
+import { useEntityMenu } from "./entity-actions.tsx";
 import {
   INPUT_CLASSES,
   SIDEBAR_GROUP_LABEL_CLASSES,
@@ -44,6 +45,7 @@ import { isoWeek, localDay } from "./dates.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
 import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
+import { FIELD_HEIGHT, TOUCH_ROW } from "../ui/touch.ts";
 import { Text } from "../ui/Text.tsx";
 import { cn, row, splitText, withState } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
@@ -66,6 +68,7 @@ function NavRow({
   icon,
   active = false,
   onPress,
+  onLongPress,
   trailing,
   indent = 0,
   subtitle,
@@ -77,6 +80,8 @@ function NavRow({
   icon: React.ReactNode;
   active?: boolean;
   onPress: () => void;
+  /// The item's menu, the desktop's right click.
+  onLongPress?: () => void;
   trailing?: React.ReactNode;
   indent?: number;
   subtitle?: string;
@@ -91,6 +96,8 @@ function NavRow({
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${label}, ${subtitle}` : label)}
       accessibilityState={{ selected: active }}
       onPress={onPress}
+      onLongPress={onLongPress}
+      style={TOUCH_ROW}
       className={cn(box, "h-auto min-h-10 gap-3 py-2", indent > 0 && "pl-8")}
     >
       {icon}
@@ -334,6 +341,7 @@ function SpaceRows({
 /// overviews across every Space, Pinned, each Space with its modules, Recents, and
 /// Trash and Settings at the bottom. Mirrors the desktop's sidebar.
 export function Sidebar({ close }: { close: () => void }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -368,11 +376,8 @@ export function Sidebar({ close }: { close: () => void }) {
           accessibilityLabel="Search"
           accessibilityHint="Titles, keys and page text across every Space"
           onPress={() => go("/search")}
-          className={cn(
-            searchBox,
-            "h-10 items-center gap-2",
-            pathname === "/search" && "border-ring",
-          )}
+          style={FIELD_HEIGHT}
+          className={cn(searchBox, "items-center gap-2", pathname === "/search" && "border-ring")}
         >
           <IconSearch size={18} color={muted} />
           <View pointerEvents="none">
@@ -410,6 +415,7 @@ export function Sidebar({ close }: { close: () => void }) {
                 label={entity.title || "Untitled"}
                 icon={<EntityIcon type={entity.type} icon={entity.icon} />}
                 onPress={() => push(`/entity/${entity.id}`)}
+                onLongPress={() => entityMenu(entity)}
               />
             ))}
           </>
@@ -441,6 +447,7 @@ export function Sidebar({ close }: { close: () => void }) {
                 label={entity.title || "Untitled"}
                 icon={<EntityIcon type={entity.type} icon={entity.icon} />}
                 onPress={() => push(`/entity/${entity.id}`)}
+                onLongPress={() => entityMenu(entity)}
               />
             ))}
           </>

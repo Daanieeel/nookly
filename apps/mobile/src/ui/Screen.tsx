@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { PAGE_BACKGROUND, cn } from "./classes.ts";
+import { useInSheet } from "./sheet/Sheet.tsx";
 
 /// Lets what sits in a screen's scrolling page ask for a point of its own to be in
 /// view: the editor, for the line being typed in.
@@ -15,8 +16,20 @@ const RevealContext = createContext<((anchor: View, y: number) => void) | null>(
 
 export const useReveal = () => useContext(RevealContext);
 
-/// A screen's scrolling page on the app's background, with pull to sync.
-export function Screen({
+/// A screen's scrolling page on the app's background, with pull to sync. In a sheet (a
+/// create form) the sheet scrolls, so the page is only its column.
+export function Screen(props: {
+  wide?: boolean;
+  children: React.ReactNode;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}) {
+  const inSheet = useInSheet();
+  if (inSheet) return <View className="gap-5">{props.children}</View>;
+  return <ScrollingScreen {...props} />;
+}
+
+function ScrollingScreen({
   children,
   onRefresh,
   refreshing = false,

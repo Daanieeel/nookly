@@ -1,12 +1,20 @@
-import type { MenuItem, MenuPresenter } from "../ui/menu.tsx";
+import type { Confirmation, MenuEntry, MenuItem, MenuPresenter } from "../ui/menu.tsx";
 
-/// A menu that shows nothing and remembers what it was asked to show, so a test can read
-/// the actions an item offers and choose one.
+/// A menu that shows nothing and remembers what it was asked to show (a menu or a
+/// confirmation), so a test can read the actions offered and choose one.
 export class RecordingMenu implements MenuPresenter {
   private shown: MenuItem[] = [];
+  /// The title of the confirmation asked last.
+  asked: string | null = null;
 
-  show(_title: string | undefined, items: MenuItem[]) {
-    this.shown = items;
+  show(_title: string | undefined, entries: MenuEntry[]) {
+    this.asked = null;
+    this.shown = entries.flatMap((entry) => (entry === "separator" ? [] : [entry]));
+  }
+
+  confirm(confirmation: Confirmation) {
+    this.asked = confirmation.title;
+    this.shown = confirmation.actions;
   }
 
   /// The labels of the menu shown last.
@@ -18,7 +26,7 @@ export class RecordingMenu implements MenuPresenter {
   choose(label: string) {
     const item = this.shown.find((i) => i.label === label);
     if (!item) throw new Error(`The menu has no "${label}": ${this.labels().join(", ")}`);
-    item.onPress();
+    item.onPress?.();
   }
 }
 

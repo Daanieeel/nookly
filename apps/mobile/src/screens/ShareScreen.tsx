@@ -20,6 +20,7 @@ import { Empty, Section, ROW_DIVIDER } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { fieldError } from "./forms.ts";
+import { FIELD_HEIGHT } from "../ui/touch.ts";
 
 const ROLES: { role: ShareRole; label: string }[] = [
   { role: "viewer", label: "Can view" },
@@ -39,7 +40,8 @@ function RolePicker({
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      className={cn(row(SEGMENTED_CLASSES), "h-10 self-start")}
+      style={FIELD_HEIGHT}
+      className={cn(row(SEGMENTED_CLASSES), "self-start")}
     >
       {ROLES.map((r) => (
         <Pressable

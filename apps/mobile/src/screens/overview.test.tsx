@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose } from "../test/sheet.ts";
 import { readPreference } from "../data/preferences.ts";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
@@ -105,7 +106,7 @@ describe("the assignments overview", () => {
     await createAssignment(data.db, space, "Sheet", course, addDays(localDay(), 2));
     const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
-    await fireEvent.press(screen.getByRole("radio", { name: "Course" }));
+    await choose(screen, "Grouping", "Course");
     expect((await screen.findAllByRole("button", { name: "Algorithms" })).length).toBeGreaterThan(
       0,
     );
@@ -145,7 +146,7 @@ describe("quick jot", () => {
     );
     await act(() => router.push("/new/jot"));
     // The Spaces have to be there before there is a place to save to.
-    await screen.findByRole("radio", { name: "Home" });
+    await screen.findByRole("button", { name: "Space, Home" });
     await fireEvent.press(await screen.findByRole("button", { name: "Save Jot" }));
     expect(await screen.findByText("Write something first.")).toBeTruthy();
   });

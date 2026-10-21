@@ -1,6 +1,7 @@
 import { deleteForever, emptyTrash, restoreEntity } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { useRouter } from "expo-router";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useLocalWrite } from "../data/context.tsx";
@@ -8,6 +9,7 @@ import { useEntities, useSpaces } from "../data/queries.ts";
 import { EntityIcon } from "../ui/icons.tsx";
 import { FilterField, ListTitle } from "../ui/ListBar.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
+import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
 import { useState } from "react";
@@ -17,6 +19,8 @@ import { typeLabel } from "./pinned-groups.ts";
 /// What was moved to Trash. Swipe right to restore, left to delete forever; Empty Trash
 /// deletes it all. Both ask first, since neither can be undone.
 export function TrashScreen() {
+  const entityMenu = useEntityMenu();
+  const menu = useMenu();
   const router = useRouter();
   const { data: trashed = [] } = useEntities(null, [], true);
   const { data: spaces = [] } = useSpaces();
@@ -31,14 +35,11 @@ export function TrashScreen() {
   const forever = useLocalWrite((db, id: string) => deleteForever(db, id));
   const empty = useLocalWrite((db) => emptyTrash(db));
   const askForever = (id: string, title: string) =>
-    Alert.alert(
-      `Delete "${title || "Untitled"}" forever?`,
-      "This can't be undone, on any device.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete Forever", style: "destructive", onPress: () => forever.mutate(id) },
-      ],
-    );
+    menu.confirm({
+      title: `Delete "${title || "Untitled"}" forever?`,
+      description: "This can't be undone, on any device.",
+      actions: [{ label: "Delete Forever", destructive: true, onPress: () => forever.mutate(id) }],
+    });
   return (
     <Screen>
       <ListTitle title="Trash" count={trashed.length} />
@@ -57,18 +58,17 @@ export function TrashScreen() {
             successLabel="Emptied"
             errorLabel="Couldn't empty it"
             onPress={() =>
-              Alert.alert(
-                "Empty Trash?",
-                `${trashed.length} ${trashed.length === 1 ? "item goes" : "items go"} forever, on every device. This can't be undone.`,
-                [
-                  { text: "Cancel", style: "cancel" },
+              menu.confirm({
+                title: "Empty Trash?",
+                description: `${trashed.length} ${trashed.length === 1 ? "item goes" : "items go"} forever, on every device. This can't be undone.`,
+                actions: [
                   {
-                    text: "Empty Trash",
-                    style: "destructive",
+                    label: "Empty Trash",
+                    destructive: true,
                     onPress: () => empty.mutate(undefined),
                   },
                 ],
-              )
+              })
             }
           />
           {forever.error ? <Text tone="destructive">{forever.error.message}</Text> : null}
@@ -97,6 +97,7 @@ export function TrashScreen() {
                 muted
                 icon={<EntityIcon type={entity.type} icon={entity.icon} />}
                 onPress={() => router.push(`/entity/${entity.id}`)}
+                onLongPress={() => entityMenu(entity)}
               />
             </SwipeRow>
           </View>

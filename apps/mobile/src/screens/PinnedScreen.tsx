@@ -1,4 +1,5 @@
 import { IconPin } from "@tabler/icons-react-native";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { usePinned, useSpaces } from "../data/queries.ts";
@@ -15,6 +16,7 @@ import { groupPinned } from "./pinned-groups.ts";
 /// Everything pinned, across every Space: a section per Space, and in it a small heading per
 /// module with its items as compact rows.
 export function PinnedScreen() {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const { data: pinned = [] } = usePinned();
@@ -68,6 +70,7 @@ export function PinnedScreen() {
                           subtitle={entity.key}
                           icon={<EntityIcon type={entity.type} icon={entity.icon} />}
                           onPress={() => router.push(`/entity/${entity.id}`)}
+                          onLongPress={() => entityMenu(entity)}
                         />
                       </View>
                     ))}

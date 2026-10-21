@@ -158,7 +158,7 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .pm .card { margin: 0 0 .6em; padding: .7em .8em; border-radius: 8px; border: 1px solid var(--border); color: var(--muted); font-size: .9em; user-select: none; }
 .pm .math { font-family: ui-monospace, Menlo, monospace; color: var(--muted); }
 .menu { position: absolute; z-index: 5; width: 232px; max-height: 240px; overflow-y: auto; padding: 4px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
-.menu button { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--fg); font: 15px/1.2 -apple-system, system-ui, sans-serif; text-align: left; }
+.menu button { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--fg); font: 15px/1.2 -apple-system, system-ui, sans-serif; text-align: left; }
 .menu button:active { background: color-mix(in srgb, var(--primary) 15%, transparent); }
 .menu small { color: var(--muted); font-size: 12px; }
 .menu p { margin: 0; padding: 9px 10px; color: var(--muted); font: 14px/1.3 -apple-system, system-ui, sans-serif; }

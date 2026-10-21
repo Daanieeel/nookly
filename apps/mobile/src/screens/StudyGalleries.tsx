@@ -1,4 +1,5 @@
 import type { CourseRecord, DeckRecord, ExamRecord, SemesterRecord } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconCalendarStats, IconPlayerPlayFilled, IconSchool } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -22,6 +23,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { courseStats, inDays } from "./course-stats.ts";
 import { dayLabel, localDay } from "./dates.ts";
+import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
 
 /// A soft, light color for a name, steered around the yellows, as the desktop's course
 /// banners are: the same name always gets the same one, a rename a new one.
@@ -38,6 +40,7 @@ const shortDay = (day: string) =>
   new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 function CourseCard({ course }: { course: CourseRecord }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const { data: sessions = [] } = useSessions({ spaceId: course.entity.spaceId });
   const { data: exams = [] } = useExams({ courseId: course.entity.id });
@@ -52,6 +55,7 @@ function CourseCard({ course }: { course: CourseRecord }) {
       accessibilityRole="button"
       accessibilityLabel={name}
       onPress={() => router.push(`/entity/${course.entity.id}`)}
+      onLongPress={() => entityMenu(course.entity)}
       className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0 active:opacity-80")}
     >
       <View
@@ -304,6 +308,7 @@ function TimelineNode({
 /// A deck as a tile: its cards, its name, the figures that matter and a play button with
 /// what is waiting.
 export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: string }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const waiting = deck.stats.due + deck.stats.learning + deck.stats.new;
@@ -312,6 +317,7 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
       accessibilityRole="button"
       accessibilityLabel={deck.entity.title || "Deck"}
       onPress={() => router.push(`/entity/${deck.entity.id}`)}
+      onLongPress={() => entityMenu(deck.entity)}
       className={cn(CARD_CLASSES, "gap-3 p-3 active:opacity-80")}
     >
       <View className="flex-row items-start gap-3">
@@ -344,6 +350,7 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
             accessibilityRole="button"
             accessibilityLabel={`Study ${deck.entity.title || "deck"}, ${waiting} ${waiting === 1 ? "card" : "cards"}`}
             onPress={() => router.push(`/study/${deck.entity.id}`)}
+            hitSlop={touchSlop(CONTROL_SIZE.sm, MIN_TOUCH)}
             className="h-8 flex-row items-center gap-1 rounded-full bg-primary px-3 active:opacity-80"
           >
             <IconPlayerPlayFilled size={12} color={theme.colors.primaryForeground} />

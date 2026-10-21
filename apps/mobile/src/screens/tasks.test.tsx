@@ -13,6 +13,7 @@ import {
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose, openRow } from "../test/sheet.ts";
 import { addDays, localDay } from "./dates.ts";
 import { NewTaskScreen } from "./NewScreens.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
@@ -58,14 +59,15 @@ describe("the tasks list", () => {
     const { data, space } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
+    await openRow(screen, "Status");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
     expect((await screen.findAllByRole("button", { name: "Todo" })).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: "Backlog" })).toEqual([]);
     expect(screen.getAllByRole("checkbox", { name: "Todo ×" }).length).toBe(1);
     await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Done" }));
     await fireEvent.press(screen.getByRole("button", { name: "Display" }));
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Show finished" }));
+    await fireEvent(await screen.findByLabelText("Show finished"), "valueChange", false);
     expect(await screen.findByText("Nothing matches these filters.")).toBeTruthy();
   });
 
@@ -88,9 +90,11 @@ describe("a new task", () => {
     const page = await createPage(data.db, space, "note", "Meeting notes");
     const screen = await renderScreens({ index: () => <NewTaskScreen spaceId={space} /> }, data);
     await fireEvent.changeText(await screen.findByLabelText("Title"), "Prepare agenda");
-    await fireEvent.press(await screen.findByRole("radio", { name: "In Progress" }));
+    await choose(screen, "Status", "In Progress");
+    await openRow(screen, "Labels");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Urgent" }));
-    await fireEvent.changeText(screen.getByLabelText("Link to"), "Meeting");
+    await openRow(screen, "Link to");
+    await fireEvent.changeText(await screen.findByLabelText("Find an item"), "Meeting");
     await fireEvent.press(await screen.findByRole("radio", { name: "Meeting notes" }));
     await fireEvent.press(screen.getByRole("button", { name: "Create" }));
     await waitFor(async () => {
@@ -108,6 +112,7 @@ describe("saved views", () => {
     const { data, space } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
+    await openRow(screen, "Status");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
     await fireEvent.press(screen.getByRole("button", { name: "Display" }));
     await fireEvent.changeText(screen.getByLabelText("View name"), "Todo only");

@@ -1,5 +1,4 @@
 import { createJotFromText } from "@nookly/shared/data";
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
@@ -7,13 +6,14 @@ import { useSpaces } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { z } from "zod";
 
 /// Quick Jot: a thought, saved at once as a jot in the Space last used. Refine it into a
 /// note later, from the Dashboard.
 export function QuickJotScreen() {
-  const router = useRouter();
+  const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
   const [last, setLast] = usePreference<string | null>(
     "quick-jot.space",
@@ -30,7 +30,7 @@ export function QuickJotScreen() {
     save.mutate(text, {
       onSuccess: () => {
         if (space) setLast(space);
-        router.back();
+        close();
       },
     });
   return (

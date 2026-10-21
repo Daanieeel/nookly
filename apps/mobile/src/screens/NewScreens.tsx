@@ -1,4 +1,4 @@
-import { COLOR_SWATCH_CLASSES, COLOR_SWATCH_SELECTED_CLASSES } from "@nookly/frontend/classes";
+import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   createAssignment,
@@ -14,18 +14,23 @@ import {
   type EntityRecord,
 } from "@nookly/shared/data";
 import type { LocalDb } from "@nookly/shared/data";
+import { IconTag, IconX } from "@tabler/icons-react-native";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
-import { useLabels, useSearch, useSpaces, useStatuses } from "../data/queries.ts";
-import { Button, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { cn } from "../ui/classes.ts";
+import { useLabels, useRecents, useSearch, useSpaces, useStatuses } from "../data/queries.ts";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Field, FieldLabel } from "../ui/Field.tsx";
+import { EntityIcon } from "../ui/icons.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { SelectField, SheetTrigger } from "../ui/SelectField.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
+import { useTheme } from "../ui/theme.ts";
 import { Text } from "../ui/Text.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
@@ -33,6 +38,8 @@ import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
 import { localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
+import { StatusIcon } from "./TaskRow.tsx";
+import { Swatch } from "../ui/Swatch.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
 export function useTargetSpace(asked?: string) {
@@ -43,7 +50,8 @@ export function useTargetSpace(asked?: string) {
 
 const titled = z.object({ title: z.string().trim().min(1, "Give it a title") });
 
-/// The item a new task links to: found by searching, one at most.
+/// The item a new task links to, one at most: the field shows it; tapped, a search in a
+/// sheet, as the desktop's entity picker.
 function LinkTarget({
   value,
   onChange,
@@ -51,45 +59,109 @@ function LinkTarget({
   value: EntityRecord | null;
   onChange: (e: EntityRecord | null) => void;
 }) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <View className={FORM_FIELD_CLASSES}>
+      <FieldLabel label="Link to" />
+      <View className="flex-row items-center gap-1">
+        <SheetTrigger
+          label="Link to"
+          text={value ? value.title || "Untitled" : null}
+          icon={value ? <EntityIcon type={value.type} icon={value.icon} /> : null}
+          placeholder="Search for an item"
+          onPress={() => setOpen(true)}
+        />
+        {value ? (
+          <IconButton
+            label="Remove Link"
+            icon={<IconX size={18} color={theme.colors.mutedForeground} />}
+            onPress={() => onChange(null)}
+          />
+        ) : null}
+      </View>
+      <Sheet open={open} onOpenChange={setOpen} title="Link to" size="large">
+        <EntitySearch onPick={onChange} />
+      </Sheet>
+    </View>
+  );
+}
+
+/// Finds an item by its title, key or text, Recents first: the desktop's entity picker.
+function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) {
   const [query, setQuery] = useState("");
   const { data: results = [] } = useSearch(query);
-  if (value) {
-    return (
-      <View className="gap-2">
-        <FieldLabel label="Link to" />
-        <ChipGroup label="Linked item">
-          <Chip label={value.title || "Untitled"} selected onPress={() => onChange(null)} />
-        </ChipGroup>
-        <Text variant="small" tone="muted">
-          Tap to remove the link.
-        </Text>
-      </View>
-    );
-  }
+  const { data: recent = [] } = useRecents();
+  const shown = query.trim() ? results.slice(0, 30) : recent;
   return (
     <View className="gap-2">
       <Field
-        label="Link to"
-        placeholder="Search for an item"
+        label="Find an item"
+        autoFocus
+        placeholder="Titles, keys like TSK-14, page text"
         value={query}
         onChangeText={setQuery}
         autoCapitalize="none"
+        autoCorrect={false}
       />
-      {query.trim() ? (
-        <ChipGroup label="Matches" scroll>
-          {results.slice(0, 8).map((e) => (
-            <Chip
-              key={e.id}
-              label={e.title || "Untitled"}
-              selected={false}
-              onPress={() => {
-                onChange(e);
-                setQuery("");
-              }}
-            />
-          ))}
-        </ChipGroup>
-      ) : null}
+      <OptionList
+        label="Items"
+        options={shown.map((e) => ({
+          id: e.id,
+          label: e.title || "Untitled",
+          icon: <EntityIcon type={e.type} icon={e.icon} />,
+        }))}
+        value={null}
+        onChange={(id) => {
+          const e = shown.find((x) => x.id === id);
+          if (e) onPick(e);
+        }}
+      />
+    </View>
+  );
+}
+
+/// Labels of a Space picked for something new: the field lists them; tapped, the labels in
+/// a sheet to tick.
+function LabelsField({
+  spaceId,
+  value,
+  onChange,
+}: {
+  spaceId: string;
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const theme = useTheme();
+  const { data: labels = [] } = useLabels(spaceId);
+  const [open, setOpen] = useState(false);
+  const names = labels.filter((l) => value.includes(l.id)).map((l) => l.name);
+  if (labels.length === 0) return null;
+  return (
+    <View className={FORM_FIELD_CLASSES}>
+      <FieldLabel label="Labels" />
+      <View className="flex-row">
+        <SheetTrigger
+          label="Labels"
+          text={names.length > 0 ? names.join(", ") : null}
+          icon={<IconTag size={16} color={theme.colors.mutedForeground} />}
+          placeholder="No labels"
+          onPress={() => setOpen(true)}
+        />
+      </View>
+      <Sheet open={open} onOpenChange={setOpen} title="Labels">
+        <OptionList
+          label="Labels"
+          multiple
+          values={value}
+          options={labels.map((l) => ({
+            id: l.id,
+            label: l.name,
+            icon: <View className="size-2 rounded-full" style={{ backgroundColor: l.color }} />,
+          }))}
+          onToggle={(id, on) => onChange(on ? [...value, id] : value.filter((x) => x !== id))}
+        />
+      </Sheet>
     </View>
   );
 }
@@ -104,10 +176,9 @@ export function NewTaskScreen({
   spaceId?: string;
   statusId?: string;
 }) {
-  const router = useRouter();
+  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const { data: statuses = [] } = useStatuses();
-  const { data: labels = [] } = useLabels(space ?? "");
   const [statusId, setStatusId] = useState(first ?? "backlog");
   const [due, setDue] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
@@ -153,32 +224,18 @@ export function NewTaskScreen({
           />
         )}
       </form.Field>
-      <ChipGroup label="Status" scroll>
-        {statuses.map((s) => (
-          <Chip
-            key={s.id}
-            label={s.name}
-            selected={s.id === statusId}
-            onPress={() => setStatusId(s.id)}
-          />
-        ))}
-      </ChipGroup>
+      <SelectField
+        label="Status"
+        value={statusId}
+        onChange={setStatusId}
+        options={statuses.map((s) => ({
+          id: s.id,
+          label: s.name,
+          icon: <StatusIcon status={s} size={16} />,
+        }))}
+      />
       <DateField label="Due date" value={due} onChange={setDue} />
-      {labels.length > 0 ? (
-        <ChipGroup label="Labels" multiple scroll>
-          {labels.map((l) => (
-            <Chip
-              key={l.id}
-              label={l.name}
-              multiple
-              selected={chosen.includes(l.id)}
-              onPress={() =>
-                setChosen((c) => (c.includes(l.id) ? c.filter((x) => x !== l.id) : [...c, l.id]))
-              }
-            />
-          ))}
-        </ChipGroup>
-      ) : null}
+      {space ? <LabelsField spaceId={space} value={chosen} onChange={setChosen} /> : null}
       <LinkTarget value={link} onChange={setLink} />
       <View className="flex-row gap-2">
         <Button
@@ -188,7 +245,7 @@ export function NewTaskScreen({
           errorLabel="Couldn't create"
           onPress={() => void form.handleSubmit()}
         />
-        <Button label="Done" variant="ghost" onPress={() => router.back()} />
+        <Button label="Done" variant="ghost" onPress={() => close()} />
       </View>
       <Text variant="small" tone="muted">
         Make one after another; the sheet stays open.
@@ -200,6 +257,7 @@ export function NewTaskScreen({
 /// New page or jot: straight into its page, title first.
 export function NewPageScreen({ spaceId, type }: { spaceId?: string; type: "note" | "jot" }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const create = useLocalWrite((db, title: string) => {
     if (!space) throw new Error("Pick a Space");
@@ -209,7 +267,7 @@ export function NewPageScreen({ spaceId, type }: { spaceId?: string; type: "note
     defaultValues: { title: "" },
     onSubmit: async ({ value }) => {
       const id = await create.mutateAsync(value.title.trim());
-      router.replace(`/entity/${id}`);
+      close(() => router.push(`/entity/${id}`));
     },
   });
   return (
@@ -241,7 +299,7 @@ const bookmarkSchema = z.object({ url: z.url("Paste a web address"), title: z.st
 
 /// New Bookmark: it starts from an address.
 export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
-  const router = useRouter();
+  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const create = useLocalWrite((db, input: z.infer<typeof bookmarkSchema>) => {
     if (!space) throw new Error("Pick a Space");
@@ -252,7 +310,7 @@ export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
     validators: { onChange: bookmarkSchema, onSubmit: bookmarkSchema },
     onSubmit: async ({ value }) => {
       await create.mutateAsync(value);
-      router.back();
+      close();
     },
   });
   return (
@@ -296,7 +354,7 @@ export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
 
 /// New Calendar entry: the day comes first, today by default.
 export function NewEntryScreen({ spaceId }: { spaceId?: string }) {
-  const router = useRouter();
+  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const create = useLocalWrite((db, input: Parameters<typeof createCalendarEntry>[2]) => {
     if (!space) throw new Error("Pick a Space");
@@ -317,7 +375,7 @@ export function NewEntryScreen({ spaceId }: { spaceId?: string }) {
         showTitle
         submitLabel="Add to Calendar"
         status={create}
-        onSubmit={(input) => void create.mutateAsync(input).then(() => router.back())}
+        onSubmit={(input) => void create.mutateAsync(input).then(() => close())}
       />
     </Screen>
   );
@@ -328,6 +386,7 @@ const spaceSchema = z.object({ name: z.string().trim().min(1, "Name it").max(60)
 /// New Space: a name and its color.
 export function NewSpaceScreen() {
   const router = useRouter();
+  const close = useCloseSheet();
   const [color, setColor] = useState(ACCENT_COLORS[9]);
   const create = useLocalWrite((db, name: string) => createSpace(db, name, color));
   const form = useForm({
@@ -335,7 +394,7 @@ export function NewSpaceScreen() {
     validators: { onChange: spaceSchema, onSubmit: spaceSchema },
     onSubmit: async ({ value }) => {
       const id = await create.mutateAsync(value.name.trim());
-      router.replace(`/space/${id}`);
+      close(() => router.push(`/space/${id}`));
     },
   });
   return (
@@ -357,18 +416,15 @@ export function NewSpaceScreen() {
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel="Color"
-        className="flex-row flex-wrap gap-3"
+        className="-mx-2.5 flex-row flex-wrap"
       >
         {ACCENT_COLORS.map((c) => (
-          <Pressable
+          <Swatch
             key={c}
-            accessibilityRole="radio"
-            accessibilityLabel={`Color ${c}`}
-            accessibilityState={{ checked: c === color }}
+            label={`Color ${c}`}
+            color={c}
+            selected={c === color}
             onPress={() => setColor(c)}
-            hitSlop={8}
-            className={cn(COLOR_SWATCH_CLASSES, c === color && COLOR_SWATCH_SELECTED_CLASSES)}
-            style={{ backgroundColor: c }}
           />
         ))}
       </View>
@@ -397,6 +453,7 @@ function NewStudyItem({
   children?: (space: string) => React.ReactNode;
 }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const write = useLocalWrite((db, title: string) => {
     if (!space) throw new Error("Pick a Space");
@@ -406,7 +463,9 @@ function NewStudyItem({
     defaultValues: { title: "" },
     validators: { onChange: titled, onSubmit: titled },
     onSubmit: ({ value }) =>
-      write.mutate(value.title.trim(), { onSuccess: (id) => router.replace(`/entity/${id}`) }),
+      write.mutate(value.title.trim(), {
+        onSuccess: (id) => close(() => router.push(`/entity/${id}`)),
+      }),
   });
   return (
     <Screen>

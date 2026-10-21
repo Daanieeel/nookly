@@ -6,6 +6,7 @@ import {
   guessCurrentTerm,
   resolveTermDates,
 } from "@nookly/shared/academic";
+import { useEntityMenu } from "./entity-actions.tsx";
 import {
   createCourse,
   createOneOffSession,
@@ -51,6 +52,10 @@ import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
+import { SelectField } from "../ui/SelectField.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { CoursePicker } from "./StudyPickers.tsx";
@@ -110,7 +115,6 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
           {session.cancelled ? <Text tone="caution">Cancelled</Text> : null}
           <PropertyList>
             <DayProperty
-              name="day"
               icon={<IconCalendarEvent size={20} color={muted} />}
               label="Day"
               clearable={false}
@@ -119,7 +123,6 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
               onChange={(date) => date && patch.mutate({ date })}
             />
             <DayProperty
-              name="starts"
               icon={<IconClock size={20} color={muted} />}
               label="Starts"
               mode="time"
@@ -129,7 +132,6 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
               onChange={(startTime) => startTime && patch.mutate({ startTime })}
             />
             <DayProperty
-              name="ends"
               icon={<IconClock size={20} color={muted} />}
               label="Ends"
               mode="time"
@@ -193,6 +195,7 @@ function SessionNotes({
 /// New Session: one session of a course. A weekly series is made on the computer.
 export function NewSessionScreen({ spaceId, courseId }: { spaceId?: string; courseId?: string }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
   const [chosen, setChosen] = useState<string | null>(spaceId ?? null);
   const space = chosen ?? spaces[0]?.id ?? null;
@@ -215,7 +218,7 @@ export function NewSessionScreen({ spaceId, courseId }: { spaceId?: string; cour
     });
   });
   const submit = () =>
-    create.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) });
+    create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
       <SpacePicker
@@ -272,6 +275,7 @@ export function ExamStudyBlocks({
   spaceId: string;
   readOnly: boolean;
 }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
   const { data: blocks = [] } = useStudyBlocks({ examId });
@@ -296,6 +300,7 @@ export function ExamStudyBlocks({
             subtitle={join(dayLabel(b.date), span(b.startTime, b.endTime))}
             icon={<EntityIcon type="study_block" icon={b.entity.icon} />}
             onPress={() => router.push(`/entity/${b.entity.id}`)}
+            onLongPress={() => entityMenu(b.entity)}
           />
         </View>
       ))}
@@ -304,6 +309,7 @@ export function ExamStudyBlocks({
 }
 
 export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const muted = theme.colors.mutedForeground;
   const router = useRouter();
@@ -324,6 +330,7 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
               subtitle="Exam"
               icon={<EntityIcon type="exam" />}
               onPress={() => router.push(`/entity/${exam.entity.id}`)}
+              onLongPress={() => entityMenu(exam.entity)}
             />
           </Section>
         ) : null}
@@ -331,7 +338,6 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
       <DetailsPart>
         <PropertyList>
           <DayProperty
-            name="day"
             icon={<IconCalendarEvent size={20} color={muted} />}
             label="Day"
             clearable={false}
@@ -340,7 +346,6 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
             onChange={(date) => date && patch.mutate({ date })}
           />
           <DayProperty
-            name="starts"
             icon={<IconClock size={20} color={muted} />}
             label="Starts"
             mode="time"
@@ -350,7 +355,6 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
             onChange={(startTime) => startTime && patch.mutate({ startTime })}
           />
           <DayProperty
-            name="ends"
             icon={<IconClock size={20} color={muted} />}
             label="Ends"
             mode="time"
@@ -368,6 +372,7 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
 
 export function NewStudyBlockScreen({ spaceId, examId }: { spaceId?: string; examId?: string }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const { data: exam } = useExam(examId ?? "");
   const space = spaceId ?? exam?.entity.spaceId;
   const [title, setTitle] = useState("");
@@ -385,7 +390,7 @@ export function NewStudyBlockScreen({ spaceId, examId }: { spaceId?: string; exa
     });
   });
   const submit = () =>
-    create.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) });
+    create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
       {exam ? <Text tone="muted">For {exam.entity.title || "the exam"}</Text> : null}
@@ -426,6 +431,7 @@ export function NewStudyBlockScreen({ spaceId, examId }: { spaceId?: string; exa
 
 /// A semester: its dates, whether it is the current one, its notes and its courses.
 export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const muted = theme.colors.mutedForeground;
   const router = useRouter();
@@ -459,6 +465,7 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
                   subtitle={c.professor ?? c.entity.key}
                   icon={<EntityIcon type="course" icon={c.entity.icon} />}
                   onPress={() => router.push(`/entity/${c.entity.id}`)}
+                  onLongPress={() => entityMenu(c.entity)}
                 />
               </View>
             ))}
@@ -474,7 +481,6 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
       <DetailsPart>
         <PropertyList>
           <DayProperty
-            name="starts"
             icon={<IconCalendarEvent size={20} color={muted} />}
             label="Starts"
             clearable={false}
@@ -483,7 +489,6 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
             onChange={(startDate) => startDate && update.mutate({ startDate })}
           />
           <DayProperty
-            name="ends"
             icon={<IconCalendarEvent size={20} color={muted} />}
             label="Ends"
             clearable={false}
@@ -550,7 +555,6 @@ export function CourseSemesterPicker({
   if (semesters.length === 0) return null;
   return (
     <ChoiceProperty
-      name="semester"
       icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
       label="Semester"
       value={current ?? "none"}
@@ -567,6 +571,7 @@ export function CourseSemesterPicker({
 /// New Semester: a term system and region give the title and dates, which can be changed.
 export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
   const [chosen, setChosen] = useState<string | null>(spaceId ?? null);
   const space = chosen ?? spaces[0]?.id ?? null;
@@ -592,50 +597,43 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
     });
   });
   const submit = () =>
-    create.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) });
+    create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
       <SpacePicker value={space} onChange={setChosen} />
-      <ChipGroup label="Term system">
-        {ACADEMIC_SYSTEM_KEYS.map((key) => (
-          <Chip
-            key={key}
-            label={ACADEMIC_SYSTEMS[key].label}
-            selected={system === key}
-            onPress={() => {
-              setSystem(key);
-              setTermKey(null);
-              setRegion(null);
-            }}
-          />
-        ))}
-      </ChipGroup>
-      <ChipGroup label="Term">
-        {def.terms.map((t) => (
-          <Chip
-            key={t.key}
-            label={t.label}
-            selected={t.key === term.key}
-            onPress={() => setTermKey(t.key)}
-          />
-        ))}
-      </ChipGroup>
+      <SelectField
+        label="Term system"
+        value={system}
+        options={ACADEMIC_SYSTEM_KEYS.map((key) => ({
+          id: key,
+          label: ACADEMIC_SYSTEMS[key].label,
+        }))}
+        onChange={(key) => {
+          setSystem(key);
+          setTermKey(null);
+          setRegion(null);
+        }}
+      />
+      <SelectField
+        label="Term"
+        value={term.key}
+        options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
+        onChange={setTermKey}
+      />
       <ChipGroup label="Year">
         {[theYear - 1, theYear, theYear + 1].map((y) => (
           <Chip key={y} label={String(y)} selected={y === theYear} onPress={() => setYear(y)} />
         ))}
       </ChipGroup>
-      <ChipGroup label="Typical dates for">
-        <Chip label="No dates" selected={region === null} onPress={() => setRegion(null)} />
-        {regions.map((r) => (
-          <Chip
-            key={r.key}
-            label={r.label}
-            selected={r.key === region}
-            onPress={() => setRegion(r.key)}
-          />
-        ))}
-      </ChipGroup>
+      <SelectField
+        label="Typical dates for"
+        value={region ?? "none"}
+        options={[
+          { id: "none", label: "No dates" },
+          ...regions.map((r) => ({ id: r.key, label: r.label })),
+        ]}
+        onChange={(key) => setRegion(key === "none" ? null : key)}
+      />
       <Text tone="muted">
         {def.formatTitle(term, theYear)}
         {dates ? `, ${dayLabel(dates.startDate)} to ${dayLabel(dates.endDate)}` : ""}
@@ -704,47 +702,36 @@ function AddCourse({
   spaceId: string;
   unassigned: { entity: { id: string; title: string } }[];
 }) {
-  const [name, setName] = useState("");
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
   const link = useLocalWrite((db, courseId: string) => setCourseSemester(db, courseId, semesterId));
   const create = useLocalWrite(async (db, title: string) => {
     const course = await createCourse(db, spaceId, title);
     await setCourseSemester(db, course, semesterId);
   });
   return (
-    <Section title="Add course">
-      <View className="gap-3 p-3">
-        {unassigned.length > 0 ? (
-          <ChipGroup label="Courses without a semester" scroll>
-            {unassigned.map((c) => (
-              <Chip
-                key={c.entity.id}
-                label={c.entity.title || "Untitled"}
-                selected={false}
-                onPress={() => link.mutate(c.entity.id)}
-              />
-            ))}
-          </ChipGroup>
-        ) : null}
-        <View className="flex-row items-end gap-2">
-          <View className="flex-1">
-            <Field
-              label="New course"
-              placeholder="Algorithms I"
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
-          <Button
-            label="Create & Link"
-            variant="secondary"
-            status={statusOf(create)}
-            disabled={!name.trim()}
-            errorLabel="Couldn't add"
-            onPress={() => create.mutate(name.trim(), { onSuccess: () => setName("") })}
-          />
-        </View>
-      </View>
-    </Section>
+    <View className="items-start">
+      <Button
+        label="Add Course"
+        variant="secondary"
+        icon={<IconPlus size={16} color={theme.colors.foreground} />}
+        onPress={() => setOpen(true)}
+      />
+      <Sheet open={open} onOpenChange={setOpen} title="Add Course">
+        <OptionList
+          label="Courses without a semester"
+          search
+          searchPlaceholder="Find a course or name a new one"
+          options={unassigned.map((c) => ({
+            id: c.entity.id,
+            label: c.entity.title || "Untitled",
+          }))}
+          value={null}
+          onChange={(id) => link.mutate(id)}
+          onCreate={(title) => create.mutate(title, { onSuccess: () => setOpen(false) })}
+        />
+      </Sheet>
+    </View>
   );
 }
 

@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
+import { CONTROL_SIZE, MIN_TOUCH, TOUCH_GAP, touchSlop } from "./touch.ts";
 
 /// Whether the chips of a group share its width equally.
 const Stretch = createContext(false);
@@ -36,6 +37,7 @@ export function Chip({
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
+      hitSlop={touchSlop(CONTROL_SIZE.chip, MIN_TOUCH)}
       className={cn(box, stretch && "flex-1", "active:opacity-80")}
     >
       {icon}
@@ -79,6 +81,8 @@ export function ChipGroup({
       <View
         accessibilityRole={role}
         accessibilityLabel={label}
+        // Wrapped lines keep their hit areas apart.
+        style={{ rowGap: TOUCH_GAP }}
         className={cn("flex-row gap-2", !stretch && "flex-wrap")}
       >
         {children}

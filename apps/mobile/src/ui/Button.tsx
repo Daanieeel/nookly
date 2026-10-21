@@ -6,10 +6,17 @@ import { ActivityIndicator, Pressable, type PressableProps, View } from "react-n
 import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
+import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
 type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>;
+
+/// A size's hit area: tall enough for a finger, and wide enough too for an icon button.
+const slopFor = (size: ButtonSize) =>
+  size === "icon" || size === "iconSm"
+    ? touchSlop(CONTROL_SIZE[size])
+    : touchSlop(CONTROL_SIZE[size], MIN_TOUCH);
 
 /// A mutation's state as a button shows it, like the desktop's `statusOf`.
 export function statusOf(mutation: {
@@ -77,7 +84,7 @@ export function Button({
       accessibilityLabel={shown}
       accessibilityState={{ disabled: !!disabled, busy: status === "pending" }}
       disabled={disabled || status === "pending"}
-      hitSlop={4}
+      hitSlop={slopFor(size)}
       {...props}
       className={cn(box, "active:opacity-80")}
     >
@@ -119,7 +126,7 @@ export function IconButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      hitSlop={8}
+      hitSlop={slopFor(size)}
       onPress={onPress}
       className={cn(row(buttonVariants({ variant: "ghost", size })), "active:bg-accent")}
     >

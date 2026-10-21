@@ -9,6 +9,7 @@ import { TextInput, type TextInputProps, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
+import { FIELD_HEIGHT } from "./touch.ts";
 
 /// The desktop's `FieldError`: a warning icon and what is wrong.
 function FieldError({ message }: { message: string | null | undefined }) {
@@ -58,10 +59,11 @@ export function Field({
         className={cn(
           multiline ? TEXTAREA_CLASSES : INPUT_CLASSES,
           "font-sans text-foreground",
-          multiline ? "min-h-24" : "h-10",
+          multiline && "min-h-24",
           error && "border-destructive",
           className,
         )}
+        style={multiline ? undefined : FIELD_HEIGHT}
         textAlignVertical={multiline ? "top" : "center"}
       />
       <FieldError message={error} />

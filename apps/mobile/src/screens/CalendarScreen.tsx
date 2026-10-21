@@ -23,6 +23,7 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { useSidebarEdgeOnly } from "../shell/panes.tsx";
@@ -321,7 +322,8 @@ export function CalendarScreen({
       )}
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
-          icon="plus"
+          icon={TOOLBAR_ICONS.plus}
+          iconRenderingMode="template"
           accessibilityLabel={create === "session" ? "New Session" : "New Calendar Entry"}
           onPress={() => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`)}
         />

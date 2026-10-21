@@ -1,6 +1,11 @@
 import { createView } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconAdjustmentsHorizontal, IconFilter } from "@tabler/icons-react-native";
+import {
+  IconAdjustmentsHorizontal,
+  IconFilter,
+  IconLayoutKanban,
+  IconList,
+} from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -23,9 +28,12 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { FilterField, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { TaskRow } from "./TaskRow.tsx";
+import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 import {
   DEFAULT_DISPLAY,
   GROUPINGS,
@@ -41,8 +49,8 @@ import { useSyncRefresh } from "./useSyncRefresh.ts";
 /// How many finished tasks a group shows at first; the rest are a tap away in their Space.
 const FINISHED_SHOWN = 10;
 
-/// Layout, grouping, ordering and filters, remembered on this phone like the desktop
-/// remembers them per page.
+/// Layout, grouping and ordering, remembered on this phone like the desktop remembers
+/// them per page: the desktop's Display popover as a sheet.
 function DisplayPanel({
   display,
   onChange,
@@ -61,49 +69,35 @@ function DisplayPanel({
     return createView(db, space, { title, module, config: viewConfigFromDisplay(display) });
   });
   return (
-    <View
-      className="gap-3 rounded-lg border border-border p-3"
-      accessibilityLabel="Display options"
-    >
-      <ChipGroup label="Layout">
-        <Chip
-          label="List"
-          selected={display.layout === "list"}
-          onPress={() => onChange({ ...display, layout: "list" })}
+    <View className="gap-3">
+      <LayoutTiles
+        tiles={[
+          { id: "list", label: "List", icon: IconList },
+          { id: "board", label: "Board", icon: IconLayoutKanban },
+        ]}
+        value={display.layout}
+        onSelect={(layout) => onChange({ ...display, layout })}
+      />
+      <View>
+        <SelectRow
+          label="Grouping"
+          value={display.grouping}
+          options={[...GROUPINGS]}
+          onChange={(grouping) => onChange({ ...display, grouping })}
         />
-        <Chip
-          label="Board"
-          selected={display.layout === "board"}
-          onPress={() => onChange({ ...display, layout: "board" })}
+        <SelectRow
+          label="Ordering"
+          value={display.ordering}
+          options={[...ORDERINGS]}
+          onChange={(ordering) => onChange({ ...display, ordering })}
         />
-      </ChipGroup>
-      <Text variant="small" tone="muted">
-        Group by
-      </Text>
-      <ChipGroup label="Group by" scroll>
-        {GROUPINGS.map((g) => (
-          <Chip
-            key={g.id}
-            label={g.label}
-            selected={display.grouping === g.id}
-            onPress={() => onChange({ ...display, grouping: g.id })}
-          />
-        ))}
-      </ChipGroup>
-      <Text variant="small" tone="muted">
-        Order by
-      </Text>
-      <ChipGroup label="Order by" scroll>
-        {ORDERINGS.map((o) => (
-          <Chip
-            key={o.id}
-            label={o.label}
-            selected={display.ordering === o.id}
-            onPress={() => onChange({ ...display, ordering: o.id })}
-          />
-        ))}
-      </ChipGroup>
-      <View className="flex-row items-end gap-2">
+        <SwitchRow
+          label="Show finished"
+          value={display.showFinished}
+          onChange={(showFinished) => onChange({ ...display, showFinished })}
+        />
+      </View>
+      <View className="flex-row items-end gap-2 border-t border-border pt-3">
         <View className="flex-1">
           <Field label="View name" placeholder="Open work" value={name} onChangeText={setName} />
         </View>
@@ -115,19 +109,11 @@ function DisplayPanel({
           onPress={() => name.trim() && save.mutate(name.trim(), { onSuccess: () => setName("") })}
         />
       </View>
-      <ChipGroup label="Finished tasks" multiple>
-        <Chip
-          label="Show finished"
-          multiple
-          selected={display.showFinished}
-          onPress={() => onChange({ ...display, showFinished: !display.showFinished })}
-        />
-      </ChipGroup>
     </View>
   );
 }
 
-/// What to narrow the list to: statuses and labels.
+/// What to narrow the list to, statuses and labels: the desktop's Filter menu as a sheet.
 function FilterPanel({
   display,
   onChange,
@@ -140,41 +126,29 @@ function FilterPanel({
   const { data: statuses = [] } = useStatuses();
   const { data: labels = [] } = useAllLabels();
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
   return (
-    <View className="gap-3 rounded-lg border border-border p-3" accessibilityLabel="Filter options">
-      <Text variant="small" tone="muted">
-        Show only these statuses
-      </Text>
-      <ChipGroup label="Statuses" multiple scroll>
-        {statuses.map((s) => (
-          <Chip
-            key={s.id}
-            label={s.name}
-            multiple
-            selected={display.statuses.includes(s.id)}
-            onPress={() => onChange({ ...display, statuses: toggle(display.statuses, s.id) })}
-          />
-        ))}
-      </ChipGroup>
+    <View>
+      <FilterField
+        label="Status"
+        values={display.statuses}
+        options={statuses.map((s) => ({
+          id: s.id,
+          label: s.name,
+          icon: <StatusIcon status={s} size={16} />,
+        }))}
+        onChange={(next) => onChange({ ...display, statuses: next })}
+      />
       {shownLabels.length > 0 ? (
-        <>
-          <Text variant="small" tone="muted">
-            Show only these labels
-          </Text>
-          <ChipGroup label="Labels" multiple scroll>
-            {shownLabels.map((l) => (
-              <Chip
-                key={l.id}
-                label={l.name}
-                multiple
-                selected={display.labels.includes(l.id)}
-                onPress={() => onChange({ ...display, labels: toggle(display.labels, l.id) })}
-              />
-            ))}
-          </ChipGroup>
-        </>
+        <FilterField
+          label="Labels"
+          values={display.labels}
+          options={shownLabels.map((l) => ({
+            id: l.id,
+            label: l.name,
+            icon: <View className="size-2 rounded-full" style={{ backgroundColor: l.color }} />,
+          }))}
+          onChange={(next) => onChange({ ...display, labels: next })}
+        />
       ) : null}
     </View>
   );
@@ -287,7 +261,12 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   return (
     <>
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New Task" onPress={() => newTask()} />
+        <Stack.Toolbar.Button
+          icon={TOOLBAR_ICONS.plus}
+          iconRenderingMode="template"
+          accessibilityLabel="New Task"
+          onPress={() => newTask()}
+        />
       </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={board}>
         <ListTitle title="Tasks" count={tasks.length} />
@@ -325,12 +304,20 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
             ))}
           </ChipGroup>
         ) : null}
-        {panel === "filter" ? (
+        <Sheet
+          open={panel === "filter"}
+          onOpenChange={(open) => !open && setPanel(null)}
+          title="Filter"
+        >
           <FilterPanel display={display} onChange={setDisplay} spaceId={spaceId} />
-        ) : null}
-        {panel === "display" ? (
+        </Sheet>
+        <Sheet
+          open={panel === "display"}
+          onOpenChange={(open) => !open && setPanel(null)}
+          title="Display"
+        >
           <DisplayPanel display={display} onChange={setDisplay} spaceId={spaceId} />
-        ) : null}
+        </Sheet>
         {note ? (
           <Text variant="small" tone="muted">
             {note}

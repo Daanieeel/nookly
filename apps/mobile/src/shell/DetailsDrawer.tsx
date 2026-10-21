@@ -19,6 +19,8 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { DetailsBody } from "./inspector.tsx";
 import { NEVER, TAP_SLOP, useReportDetailsOpen, useSwipeOpens } from "./panes.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
+import { DetailsHandleProvider } from "./details-context.ts";
 
 /// The item whose details wait behind the page, and what its "more" button opens.
 export interface DetailsItem {
@@ -26,10 +28,7 @@ export interface DetailsItem {
   more?: () => void;
 }
 
-/// Lets the page open and close the details behind it (the bar's info button, the "more"
-/// menu); the page slides aside with the drawer's own animation.
-const DetailsHandle = createContext<{ open: boolean; show(): void; hide(): void } | null>(null);
-export const useDetails = () => useContext(DetailsHandle);
+export { useDetails } from "./details-context.ts";
 
 const DetailsRegister = createContext<Dispatch<SetStateAction<DetailsItem | null>> | null>(null);
 
@@ -118,7 +117,7 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
                 headerRightBarButtonItems: [
                   {
                     type: "button",
-                    icon: { type: "sfSymbol", name: "info.circle" },
+                    icon: { type: "templateSource", templateSource: TOOLBAR_ICONS.hideDetails },
                     accessibilityLabel: "Hide Details",
                     onPress: handle.hide,
                   },
@@ -126,7 +125,10 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
                     ? [
                         {
                           type: "button" as const,
-                          icon: { type: "sfSymbol" as const, name: "ellipsis" },
+                          icon: {
+                            type: "templateSource" as const,
+                            templateSource: TOOLBAR_ICONS.more,
+                          },
                           accessibilityLabel: "More",
                           onPress: item.more,
                         },
@@ -152,11 +154,11 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
       )}
     >
       <DetailsRegister.Provider value={setItem}>
-        <DetailsHandle.Provider value={item ? handle : null}>
+        <DetailsHandleProvider value={item ? handle : null}>
           <View testID="details-page" className="flex-1" style={insetPageStyle(theme.colors.page)}>
             {children}
           </View>
-        </DetailsHandle.Provider>
+        </DetailsHandleProvider>
       </DetailsRegister.Provider>
     </Drawer>
   );

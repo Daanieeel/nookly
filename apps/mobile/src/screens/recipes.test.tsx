@@ -8,6 +8,7 @@ import {
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 
@@ -38,7 +39,7 @@ describe("a recipe", () => {
 
   it("changes its kind and its time", async () => {
     const { data, recipe, screen } = await open();
-    await fireEvent.press(await screen.findByRole("radio", { name: "Dessert" }));
+    await choose(screen, "Kind", "Dessert");
     await waitFor(async () => expect((await getRecipe(data.db, recipe))?.kind).toBe("dessert"));
     const minutes = screen.getAllByLabelText("Minutes")[0];
     await fireEvent.changeText(minutes, "40");

@@ -26,11 +26,12 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose, pickDay, pickDayInSheet, pickTime } from "../test/sheet.ts";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { MergeEditor } from "./MergeEditor.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewExamScreen } from "./NewScreens.tsx";
-import { LinkPickerScreen } from "./RelatedSection.tsx";
+import { LinkPicker } from "./RelatedSection.tsx";
 import { StudyScreen } from "./StudyScreen.tsx";
 
 async function seeded() {
@@ -38,13 +39,6 @@ async function seeded() {
   const space = await createSpace(data.db, "Uni", "#3b82f6");
   const course = await createCourse(data.db, space, "Algorithms");
   return { data, space, course };
-}
-
-/// Picks a value in the system picker a field opened.
-async function pick(screen: Awaited<ReturnType<typeof renderScreens>>, label: string, date: Date) {
-  await fireEvent.press(screen.getByRole("button", { name: new RegExp(`^${label},`) }));
-  const picker = await screen.findByTestId(`${label} picker`);
-  await fireEvent(picker, "change", { nativeEvent: { timestamp: date.getTime(), utcOffset: 0 } });
 }
 
 describe("an exam", () => {
@@ -56,10 +50,9 @@ describe("an exam", () => {
       data,
       `/entity/${exam}`,
     );
-    await fireEvent.press(await screen.findByRole("button", { name: /^Status, / }));
-    await fireEvent.press(await screen.findByRole("radio", { name: "Studying" }));
-    await pick(screen, "Day", new Date(2027, 1, 10));
-    await pick(screen, "Time", new Date(2027, 1, 10, 9, 30));
+    await choose(screen, "Status", "Studying");
+    await pickDay(screen, "Day", "2027-02-10");
+    await pickTime(screen, "Time", "09:30");
     await fireEvent.changeText(screen.getByLabelText("Grade"), "1,7");
     await fireEvent(screen.getByLabelText("Grade"), "endEditing");
     await waitFor(async () =>
@@ -84,7 +77,7 @@ describe("an exam", () => {
     await fireEvent.changeText(await screen.findByLabelText("Title"), "Midterm");
     await fireEvent.press(screen.getByRole("button", { name: "Create Exam" }));
     expect(await screen.findByText("Pick its Course.")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("radio", { name: "Algorithms" }));
+    await choose(screen, "Course", "Algorithms");
     await fireEvent.press(screen.getByRole("button", { name: /Create Exam|Couldn't create/ }));
     await waitFor(async () =>
       expect((await listExams(data.db, { courseId: course })).map((e) => e.entity.title)).toEqual([
@@ -138,11 +131,11 @@ describe("a task's due date, labels and links", () => {
       `/entity/${task}`,
     );
     await screen.findByText("Status");
-    await pick(screen, "Due date", new Date(2026, 9, 31));
+    await pickDay(screen, "Due date", "2026-10-31");
     await waitFor(async () => expect((await getTask(data.db, task))?.dueDate).toBe("2026-10-31"));
-    await fireEvent.press(screen.getByRole("button", { name: "Labels, None" }));
-    await fireEvent.changeText(screen.getByLabelText("New label"), "Urgent");
-    await fireEvent.press(screen.getByRole("button", { name: "Add" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Labels, None" }));
+    await fireEvent.changeText(await screen.findByLabelText("Search Labels"), "Urgent");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Urgent" }));
     await waitFor(async () =>
       expect((await entityLabels(data.db, task)).map((l) => l.name)).toEqual(["Urgent"]),
     );
@@ -154,7 +147,7 @@ describe("a task's due date, labels and links", () => {
     const task = await createTask(data.db, space, "Report");
     const other = await createTask(data.db, space, "Slides");
     const screen = await renderScreens(
-      { index: () => <Text>Report page</Text>, link: () => <LinkPickerScreen entityId={task} /> },
+      { index: () => <Text>Report page</Text>, link: () => <LinkPicker entityId={task} /> },
       data,
     );
     await act(() => router.push("/link"));
@@ -247,11 +240,11 @@ describe("an item's links", () => {
     const task = await createTask(data.db, space, "Write");
     const other = await createTask(data.db, space, "Review");
     const screen = await renderScreens(
-      { index: () => <Text>Task page</Text>, link: () => <LinkPickerScreen entityId={task} /> },
+      { index: () => <Text>Task page</Text>, link: () => <LinkPicker entityId={task} /> },
       data,
     );
     await act(() => router.push("/link"));
-    await fireEvent.press(await screen.findByRole("radio", { name: "Blocks" }));
+    await choose(screen, "Kind of link", "Blocks");
     await fireEvent.changeText(screen.getByLabelText("Find an item"), "Review");
     await fireEvent.press(await screen.findByRole("button", { name: /^Review, / }));
     await waitFor(async () =>
@@ -279,20 +272,31 @@ describe("an assignment's due date", () => {
       `/entity/${assignment}`,
     );
     await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
-    await fireEvent.press(await screen.findByRole("radio", { name: "Before a session" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Before session" }));
+    // A step of the same sheet, with a way back.
+    expect(await screen.findByRole("button", { name: "Back" })).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("radio", { name: "1 day" }));
     await waitFor(async () =>
       expect(await getAssignment(data.db, assignment)).toMatchObject({
         dueSessionOffsetDays: 1,
         dueDate: "2999-03-09",
       }),
     );
-    await fireEvent.press(await screen.findByRole("radio", { name: "3" }));
+    await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Before session" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "1 week" }));
     await waitFor(async () =>
-      expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-07"),
+      expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-03"),
     );
-    await fireEvent.press(screen.getByRole("radio", { name: "On a day" }));
+    await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Specific date" }));
+    const day = `${new Date().toISOString().slice(0, 7)}-15`;
+    await pickDayInSheet(screen, day);
     await waitFor(async () =>
-      expect((await getAssignment(data.db, assignment))?.dueSessionOffsetDays).toBeNull(),
+      expect(await getAssignment(data.db, assignment)).toMatchObject({
+        dueSessionOffsetDays: null,
+        dueDate: day,
+      }),
     );
   });
 });

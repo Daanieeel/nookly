@@ -10,14 +10,13 @@ import {
   spaceModules,
   trashEntity,
 } from "@nookly/shared/data";
-import { Alert } from "react-native";
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { IconPickerScreen } from "./IconPicker.tsx";
-import { MoveScreen } from "./MoveScreen.tsx";
+import { MovePicker } from "./EntityPickers.tsx";
 import { SpaceSettingsScreen } from "./SpaceSettings.tsx";
 import { TrashScreen } from "./TrashScreen.tsx";
 
@@ -32,12 +31,15 @@ async function openOver(
   return screen;
 }
 
-/// Presses the button of an alert with the given text, as a person would.
-function answerAlert(spy: jest.SpyInstance, text: string) {
-  const buttons = spy.mock.calls.at(-1)?.[2] ?? [];
-  const button = buttons.find((b: { text?: string }) => b.text === text);
-  if (!button?.onPress) throw new Error(`no ${text} in the alert`);
-  button.onPress();
+/// Answers the confirmation sheet titled `title` with its button `action`.
+async function answer(
+  screen: Awaited<ReturnType<typeof renderScreens>>,
+  title: string,
+  action: string,
+) {
+  expect(await screen.findByText(title)).toBeTruthy();
+  // The sheet's button comes after the page's own, which may read the same.
+  await fireEvent.press(screen.getAllByRole("button", { name: action }).at(-1)!);
 }
 
 describe("a task's effort and sub-tasks", () => {
@@ -86,7 +88,6 @@ describe("Space settings", () => {
     const space = await createSpace(data.db, "Work", "#3b82f6");
     await createTask(data.db, space, "Task");
     await createPage(data.db, space, "note", "Note");
-    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     const screen = await openOver(
       { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
       data,
@@ -97,16 +98,18 @@ describe("Space settings", () => {
     await fireEvent(name, "endEditing");
     await waitFor(async () => expect((await listSpaces(data.db))[0].name).toBe("Office"));
     await fireEvent.press(screen.getByRole("button", { name: "Remove Tasks" }));
-    answerAlert(alert, "Hide");
+    await answer(screen, "Remove Tasks?", "Hide");
     await waitFor(async () => expect(await spaceModules(data.db, space)).toEqual(["notes"]));
-    await fireEvent.press(await screen.findByRole("radio", { name: "Tasks" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Tasks" })).toBeNull());
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Module" }));
+    await fireEvent.press(await screen.findByRole("menuitem", { name: "Tasks" }));
     await waitFor(async () => expect(await spaceModules(data.db, space)).toContain("tasks"));
     await fireEvent.press(screen.getByRole("button", { name: "Delete Space" }));
     expect((await listSpaces(data.db)).length).toBe(1);
-    answerAlert(alert, "Delete Forever");
+    await answer(screen, 'Delete "Office" forever?', "Delete Forever");
     await waitFor(async () => expect(await listSpaces(data.db)).toEqual([]));
-    alert.mockRestore();
-  });
+    // Three sheets come up and go down on the way.
+  }, 15_000);
 });
 
 describe("the icon picker", () => {
@@ -159,13 +162,12 @@ describe("moving an item", () => {
     const to = await createSpace(data.db, "To", "#22c55e");
     const task = await createTask(data.db, from, "Task");
     const sub = await createSubtask(data.db, task, "Sub");
-    const screen = await openOver(
-      { "new/move": () => <MoveScreen /> },
-      data,
-      `/new/move?entityId=${task}`,
-    );
-    expect(screen.queryByRole("button", { name: "From" })).toBeNull();
-    await fireEvent.press(await screen.findByRole("button", { name: "To" }));
+    const entity = await getEntity(data.db, task);
+    if (!entity) throw new Error("no task");
+    const screen = await renderScreens({ index: () => <MovePicker entity={entity} /> }, data);
+    expect(await screen.findByRole("radio", { name: "To" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "From" })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: "To" }));
     await waitFor(async () => expect((await getEntity(data.db, sub))?.spaceId).toBe(to));
   });
 });
@@ -176,12 +178,10 @@ describe("Trash", () => {
     const space = await createSpace(data.db, "Work", "#3b82f6");
     const task = await createTask(data.db, space, "Old");
     await trashEntity(data.db, task);
-    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     const screen = await renderScreens({ index: () => <TrashScreen /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Empty Trash" }));
     expect(await getEntity(data.db, task)).not.toBeNull();
-    answerAlert(alert, "Empty Trash");
+    await answer(screen, "Empty Trash?", "Empty Trash");
     await waitFor(async () => expect(await getEntity(data.db, task)).toBeNull());
-    alert.mockRestore();
   });
 });

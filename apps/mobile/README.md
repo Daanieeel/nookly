@@ -35,6 +35,10 @@ NativeWind 5 with Tailwind 4, on the desktop's classes: the tokens are `@nookly/
 
 Inter comes from `@expo-google-fonts`, one family per weight, so `font-medium` and the like pick the right face.
 
+## Sheets and touch
+
+Every desktop popover, select, picker, menu and confirmation opens in the app's one bottom sheet (`src/ui/sheet/`): content sized, a handle, swipe down or tap outside to close, steps pushed with a back button, never a system alert or picker. Controls keep the desktop's look and reach 44 points on iOS and 48 on Android through `src/ui/touch.ts`. The native bar buttons draw Tabler icons from `assets/toolbar/`.
+
 ## Navigation
 
 A sidebar like the desktop's (and Claude's app): Search, Dashboard, Calendar and Tasks, Pinned, each Space with its modules, Recents, then Trash and Settings. The sidebar waits behind the page, which slides aside with rounded corners and an outline (`drawerType: "back"`, `ui/inset-page.tsx`); open it with the menu button or a swipe to the right anywhere (a row with swipe actions keeps its swipe). Details open on top with a back button. `expo-router/drawer` (Reanimated) runs it.

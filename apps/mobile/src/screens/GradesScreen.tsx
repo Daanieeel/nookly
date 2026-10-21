@@ -5,6 +5,7 @@ import {
   updateAssignment,
   updateExam,
 } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconCalendarStats } from "@tabler/icons-react-native";
 import Svg, { Polyline } from "react-native-svg";
@@ -20,6 +21,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
+import { FIELD_HEIGHT } from "../ui/touch.ts";
 
 /// Up to two decimals, so a 1.7 stays 1.7 and a 1.5333 becomes 1.53.
 export const formatGrade = (grade: number | null) =>
@@ -62,7 +64,8 @@ function Cell({
         if (next === undefined) setText(shown);
         else if (next !== value) onSave(next);
       }}
-      className="h-9 w-16 rounded-md border border-border px-2 text-right font-sans text-sm text-foreground"
+      style={FIELD_HEIGHT}
+      className="w-16 rounded-md border border-border px-2 text-right font-sans text-sm text-foreground"
     />
   );
 }
@@ -70,6 +73,7 @@ function Cell({
 /// An exam or assignment of a course in the table: its day, its weight (blank is "auto":
 /// an even share of what is left) and its grade, both edited in place.
 function ItemRow({ item }: { item: GradeItem }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const title = item.entity.title || (item.kind === "exam" ? "Exam" : "Assignment");
   const save = useLocalWrite((db, patch: { weight?: number | null; grade?: number | null }) =>
@@ -83,6 +87,7 @@ function ItemRow({ item }: { item: GradeItem }) {
         accessibilityRole="button"
         accessibilityLabel={`${title}, ${item.kind === "exam" ? "Exam" : "Assignment"}`}
         onPress={() => router.push(`/entity/${item.entity.id}`)}
+        onLongPress={() => entityMenu(item.entity)}
         className="flex-row items-baseline gap-2"
       >
         <Text numberOfLines={1} className="flex-1">

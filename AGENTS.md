@@ -49,6 +49,11 @@ Changing persisted state also means:
 
 UI work: dialogs and menus get an axe test (`vitest-axe`, see `src/test/axe.ts`), and every permanent action uses `ConfirmPermanentDialog`.
 
+Mobile UI (`apps/mobile`):
+
+- Every desktop input gets a proper mobile translation, styled like the desktop app: popovers, dropdowns and selects, comboboxes, date and time pickers, color and icon pickers, context menus and overflow menus. The default is the shared bottom sheet, with content that mirrors the desktop input's own UI (the desktop calendar, not the system date wheel). Never translate to native OS dialogs, alerts, action sheets or pickers, to inline accordions or expanding sections, or to plain unstyled dropdown lists. Confirmations, destructive ones included, are bottom sheets too, never dialogs. The system keyboard for text entry and the system `Switch` are fine. There is exactly one sheet implementation (`apps/mobile/src/ui/sheet/`); never add another.
+- Copy the desktop styling exactly (colors, typography, radii, icons, visual hierarchy) but size for touch: every tappable element has a touch target of at least 44pt on iOS and 48dp on Android, even when its visible size stays smaller, and adjacent controls are spaced so they can't be mis-tapped. Do this through shared size and spacing tokens and components, never per screen tweaks.
+
 Report only checks, read them and do not silence them: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
 
 When adding new features or tests and you want confirm everything works as intended, make sure to run those tests in isolation from the others. This way we are saving time when implementing that would have otherwise been wasted by waiting on tests that are not needed for the feature. CI will catch bugs or unwanted behavior that have cross-contaminated other features.

@@ -12,7 +12,8 @@ import type { ReactTestRendererJSON } from "react-test-renderer";
 import { AppDataProvider, type Preference } from "../data/context.tsx";
 import { phoneSettings } from "../data/settings.ts";
 import type { MobileSync } from "../data/sync.ts";
-import { MenuProvider, type MenuPresenter, nativeMenu } from "../ui/menu.tsx";
+import { MenuProvider, type MenuPresenter } from "../ui/menu.tsx";
+import { SheetHost } from "../ui/sheet/SheetHost.tsx";
 import { ClipboardProvider, type ClipboardWriter, systemClipboard } from "../ui/clipboard.tsx";
 import { FilePickerProvider, type TextFilePicker, systemFilePicker } from "../ui/file-picker.tsx";
 import { WindowWidthProvider } from "../ui/pane.tsx";
@@ -90,13 +91,15 @@ export async function renderScreens(
         }}
       >
         <WindowWidthProvider value={options.width ?? null}>
-          <MenuProvider value={options.menu ?? nativeMenu}>
-            <ClipboardProvider value={options.clipboard ?? systemClipboard}>
-              <FilePickerProvider value={options.filePicker ?? systemFilePicker}>
-                {children}
-              </FilePickerProvider>
-            </ClipboardProvider>
-          </MenuProvider>
+          <SheetHost>
+            <MenuProvider value={options.menu ?? null}>
+              <ClipboardProvider value={options.clipboard ?? systemClipboard}>
+                <FilePickerProvider value={options.filePicker ?? systemFilePicker}>
+                  {children}
+                </FilePickerProvider>
+              </ClipboardProvider>
+            </MenuProvider>
+          </SheetHost>
         </WindowWidthProvider>
       </AppDataProvider>
     </QueryClientProvider>

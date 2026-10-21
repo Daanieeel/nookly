@@ -16,6 +16,7 @@ import {
 import { useSetting } from "../data/settings.ts";
 import { Section, Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { AgendaRow } from "./CalendarScreen.tsx";
@@ -134,7 +135,8 @@ export function DashboardScreen() {
     <>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
-          icon="plus"
+          icon={TOOLBAR_ICONS.plus}
+          iconRenderingMode="template"
           accessibilityLabel="New Task"
           onPress={() => router.push("/new/task")}
         />

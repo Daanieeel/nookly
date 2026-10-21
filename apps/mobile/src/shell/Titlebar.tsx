@@ -23,6 +23,7 @@ import type { PaletteCommand } from "./commands.ts";
 import { history } from "./history.ts";
 import { SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
+import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
@@ -95,6 +96,7 @@ export function Titlebar({
           accessibilityLabel="Search"
           accessibilityHint="Opens search and commands"
           onPress={() => open("search")}
+          hitSlop={touchSlop(CONTROL_SIZE.sm, MIN_TOUCH)}
           className="h-8 w-full max-w-md flex-row items-center gap-2 rounded-md border border-input bg-background px-3 active:bg-accent"
         >
           <IconSearch size={16} color={muted} />

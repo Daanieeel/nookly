@@ -1,4 +1,5 @@
 import { MODULE_ENTITY_TYPES, MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { importDeckFile } from "@nookly/shared/data";
 import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
@@ -9,6 +10,7 @@ import { Button, statusOf } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { BookmarkList } from "./BookmarkList.tsx";
@@ -87,6 +89,7 @@ const GALLERIES: ModuleKey[] = ["courses", "decks", "files", "recipes", "bookmar
 const STUDY: ModuleKey[] = ["courses", "exams", "assignments", "decks"];
 
 function EntityList({ spaceId, module }: { spaceId: string; module: ModuleKey }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const { data: entities = [] } = useEntities(spaceId, [...MODULE_ENTITY_TYPES[module]]);
   const shown = entities.filter(
@@ -107,6 +110,7 @@ function EntityList({ spaceId, module }: { spaceId: string; module: ModuleKey })
             subtitle={entity.key}
             icon={<EntityIcon type={entity.type} icon={entity.icon} />}
             onPress={() => router.push(`/entity/${entity.id}`)}
+            onLongPress={() => entityMenu(entity)}
           />
         </View>
       ))}
@@ -157,7 +161,8 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
       {module === "files" ? (
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button
-            icon="plus"
+            icon={TOOLBAR_ICONS.plus}
+            iconRenderingMode="template"
             accessibilityLabel="Add Files"
             onPress={() => addFiles.mutate(undefined)}
           />
@@ -165,7 +170,8 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
       ) : create ? (
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button
-            icon="plus"
+            icon={TOOLBAR_ICONS.plus}
+            iconRenderingMode="template"
             accessibilityLabel={`New in ${MODULE_LABELS[module]}`}
             onPress={() => router.push(create(spaceId))}
           />

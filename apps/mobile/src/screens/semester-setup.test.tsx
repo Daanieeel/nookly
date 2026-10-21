@@ -1,6 +1,7 @@
 import { createSpace, listSemesters } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
+import { choose } from "../test/sheet.ts";
 import { SetupSemestersScreen } from "./SetupSemestersScreen.tsx";
 
 describe("the semester setup", () => {
@@ -16,7 +17,7 @@ describe("the semester setup", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Step 2 of 5: Region")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Next" }));
-    await fireEvent.press(screen.getByRole("radio", { name: "Fall" }));
+    await choose(screen, "Current term", "Fall");
     await fireEvent.press(screen.getByRole("radio", { name: "2026" }));
     await fireEvent.press(screen.getByRole("button", { name: "Next" }));
     await fireEvent.press(screen.getByRole("radio", { name: "3" }));

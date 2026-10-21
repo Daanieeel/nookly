@@ -1,4 +1,5 @@
 import { type BookmarkRecord, createBookmark, setBookmarkMetadata } from "@nookly/shared/data";
+import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconArrowUp, IconBookmark, IconInfoCircle, IconLink } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -20,6 +21,7 @@ const hostOf = (url: string) => url.replace(/^https?:\/\//, "").split("/")[0];
 /// host and when it was added. Tapping it opens the link; the button in the corner opens its
 /// details.
 function BookmarkCard({ bookmark }: { bookmark: BookmarkRecord }) {
+  const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const added = new Date(bookmark.entity.createdAt).toLocaleDateString(undefined, {
@@ -32,6 +34,7 @@ function BookmarkCard({ bookmark }: { bookmark: BookmarkRecord }) {
         accessibilityRole="link"
         accessibilityLabel={bookmark.entity.title}
         onPress={() => void Linking.openURL(bookmark.url)}
+        onLongPress={() => entityMenu(bookmark.entity)}
         className="active:opacity-80"
       >
         <View className="aspect-[1.91] items-center justify-center bg-muted">

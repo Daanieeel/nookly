@@ -92,8 +92,12 @@ describe("an item's page and its details", () => {
     expect(await screen.findByText("sessions this week")).toBeTruthy();
     expect(screen.getByText("upcoming exams")).toBeTruthy();
     expect(screen.getByText("open assignments")).toBeTruthy();
-    await fireEvent.changeText(screen.getByLabelText("New course"), "Logic");
-    await fireEvent.press(screen.getByRole("button", { name: "Create & Link" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Add Course" }));
+    await fireEvent.changeText(
+      await screen.findByLabelText("Search Courses without a semester"),
+      "Logic",
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Create Logic" }));
     expect(await screen.findByRole("button", { name: /^Logic, CRS-/ })).toBeTruthy();
   });
 });

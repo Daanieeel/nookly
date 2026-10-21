@@ -26,7 +26,7 @@ describe("a Space's Notes", () => {
     expect(screen.getByRole("button", { name: "Groceries" })).toBeTruthy();
   });
 
-  it("offers pin and trash on a long press", async () => {
+  it("offers the item's menu, the desktop's right click, on a long press", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Work", "#3b82f6");
     const id = await createPage(data.db, space, "note", "Plan");
@@ -35,7 +35,19 @@ describe("a Space's Notes", () => {
       menu,
     });
     await fireEvent(await screen.findByRole("button", { name: "Plan" }), "longPress");
-    expect(menu.labels()).toEqual(["Pin", "Move to Trash"]);
+    expect(menu.labels()).toEqual([
+      "Open",
+      "Duplicate",
+      "Pin",
+      "Relate to…",
+      "Move to Space",
+      "Change Icon",
+      "Labels",
+      "Copy Link",
+      "Copy ID",
+      "Save as Nookly Page",
+      "Move to Trash",
+    ]);
     menu.choose("Pin");
     await waitFor(async () => expect((await getEntity(data.db, id))?.pinned).toBe(true));
   });

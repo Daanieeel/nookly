@@ -23,6 +23,7 @@ import { cn } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
 import { TOOLBAR, type ToolbarId } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
+import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
 
 const ICONS = {
   bold: IconBold,
@@ -56,7 +57,7 @@ export function EditorToolbar() {
         keyboardShouldPersistTaps="always"
         showsHorizontalScrollIndicator={false}
       >
-        <View className="flex-row gap-0.5 px-2 py-1.5">
+        <View className="flex-row px-2 py-1.5" style={{ gap: gapBetween(CONTROL_SIZE.icon) }}>
           {TOOLBAR.map(({ id, label }) => {
             const Icon = ICONS[id];
             return (

@@ -2,7 +2,7 @@ import type { Share } from "@nookly/shared/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { useAppData, useSyncState } from "../../data/context.tsx";
 import { keys } from "../../data/keys.ts";
 import { Badge } from "../../ui/Badge.tsx";
@@ -10,6 +10,7 @@ import { Button, statusOf } from "../../ui/Button.tsx";
 import { Field } from "../../ui/Field.tsx";
 import { Empty, ROW_DIVIDER, Row, Section } from "../../ui/Row.tsx";
 import { Screen } from "../../ui/Screen.tsx";
+import { useMenu } from "../../ui/menu.tsx";
 import { Text } from "../../ui/Text.tsx";
 import { cn } from "../../ui/classes.ts";
 import { statusText } from "../sync-status.ts";
@@ -90,6 +91,7 @@ function SignedOut() {
 }
 
 function Account() {
+  const menu = useMenu();
   const router = useRouter();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
@@ -118,14 +120,12 @@ function Account() {
     },
   });
   const confirmDelete = () =>
-    Alert.alert(
-      "Delete your sync account forever?",
-      "The account, its synced data, its devices and its shares are removed from the server. This can't be undone. Everything on this phone stays.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete Account", style: "destructive", onPress: () => remove.mutate() },
-      ],
-    );
+    menu.confirm({
+      title: "Delete your sync account forever?",
+      description:
+        "The account, its synced data, its devices and its shares are removed from the server. This can't be undone. Everything on this phone stays.",
+      actions: [{ label: "Delete Account", destructive: true, onPress: () => remove.mutate() }],
+    });
   if (!user) return <SignedOut />;
   const tone =
     status.state === "error"

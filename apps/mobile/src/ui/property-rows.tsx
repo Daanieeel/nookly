@@ -1,20 +1,59 @@
 import { IconX } from "@tabler/icons-react-native";
 import { useEffect, useState } from "react";
-import { Platform, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import { z } from "zod";
 import { Button } from "./Button.tsx";
-import { Chip, ChipGroup } from "./Chips.tsx";
-import { DatePanel, openAndroidPicker, shownValue } from "./DateField.tsx";
-import { Property, useOpenRow } from "./Property.tsx";
+import { shownValue } from "./DateField.tsx";
+import { Property } from "./Property.tsx";
+import { DayPicker } from "./sheet/DayPicker.tsx";
+import { type Option, OptionList } from "./sheet/OptionList.tsx";
+import { Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
+import { TimeInput } from "./TimeInput.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
 /// The rows of a `PropertyList`, by what they hold: a choice among a few, a day or a time, a
-/// line of text, a number, or anything else (`Property` with its own choices inside).
+/// line of text, a number, or anything else (`SheetProperty` with its own picker).
 
-/// One of a few choices: the row says the one picked; open, the choices as chips.
-export function ChoiceProperty({
-  name,
+/// A property row that opens its picker in the app's sheet, titled with its name.
+export function SheetProperty({
+  icon,
+  label,
+  value,
+  valueIcon,
+  readOnly = false,
+  size,
+  children,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  valueIcon?: React.ReactNode;
+  readOnly?: boolean;
+  size?: SheetSize;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Property
+        icon={icon}
+        label={label}
+        value={value}
+        valueIcon={valueIcon}
+        disabled={readOnly}
+        onPress={() => setOpen(true)}
+      />
+      <Sheet open={open} onOpenChange={setOpen} title={label} size={size}>
+        {children}
+      </Sheet>
+    </>
+  );
+}
+
+/// One of a few choices: the row says the one picked; tapped, the choices in a sheet, as
+/// the desktop's property popover lists them.
+export function ChoiceProperty<Id extends string>({
   icon,
   label,
   value,
@@ -22,48 +61,65 @@ export function ChoiceProperty({
   onChange,
   readOnly = false,
 }: {
-  name: string;
   icon?: React.ReactNode;
   label: string;
-  value: string;
-  options: { id: string; label: string; icon?: React.ReactNode }[];
-  onChange: (id: string) => void;
+  value: Id;
+  options: Option<Id>[];
+  onChange: (id: Id) => void;
   readOnly?: boolean;
 }) {
-  const row = useOpenRow(name);
   const current = options.find((option) => option.id === value);
   return (
-    <Property
+    <SheetProperty
       icon={icon}
       label={label}
       value={current?.label ?? ""}
       valueIcon={current?.icon}
-      disabled={readOnly}
-      expanded={row.open}
-      onPress={row.toggle}
+      readOnly={readOnly}
     >
-      <ChipGroup label={label}>
-        {options.map((option) => (
-          <Chip
-            key={option.id}
-            label={option.label}
-            selected={option.id === value}
-            icon={option.icon}
-            onPress={() => {
-              if (option.id !== value) onChange(option.id);
-              row.close();
-            }}
-          />
-        ))}
-      </ChipGroup>
-    </Property>
+      <OptionList label={label} options={options} value={value} onChange={onChange} />
+    </SheetProperty>
   );
 }
 
-/// A day or a time of day, picked from the system's own picker (below the row on an iPhone
-/// or iPad, a dialog on Android), with Clear and, for a day, the quick picks.
+/// A time of day typed in a sheet, as the desktop's time field, with Clear and Done.
+function TimePicker({
+  label,
+  value,
+  onChange,
+  clearable = true,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (value: string | null) => void;
+  clearable?: boolean;
+}) {
+  const sheet = useSheet();
+  return (
+    <View className="gap-3">
+      <TimeInput label={label} value={value} onChange={onChange} autoFocus />
+      <View className="flex-row items-center gap-2 border-t border-border pt-2">
+        {clearable && value ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            label={`Clear ${label}`}
+            onPress={() => {
+              onChange(null);
+              sheet?.close();
+            }}
+          />
+        ) : null}
+        <View className="flex-1" />
+        <Button variant="secondary" size="sm" label="Done" onPress={() => sheet?.close()} />
+      </View>
+    </View>
+  );
+}
+
+/// A day or a time of day: the row says it; tapped, the desktop's calendar (or time field)
+/// in a sheet, with the quick picks and Clear.
 export function DayProperty({
-  name,
   icon,
   label,
   mode = "date",
@@ -74,7 +130,6 @@ export function DayProperty({
   quick,
   clearable = true,
 }: {
-  name: string;
   icon?: React.ReactNode;
   label: string;
   mode?: "date" | "time";
@@ -87,41 +142,25 @@ export function DayProperty({
   /// Whether the value can be taken away (a session always has a day).
   clearable?: boolean;
 }) {
-  const row = useOpenRow(name);
-  const press = () => {
-    if (Platform.OS === "android") openAndroidPicker(mode, value, onChange);
-    else row.toggle();
-  };
   return (
-    <Property
+    <SheetProperty
       icon={icon}
       label={label}
       value={value ? shownValue(mode, value) : (placeholder ?? "None")}
-      disabled={readOnly}
-      expanded={row.open}
-      onPress={press}
+      readOnly={readOnly}
     >
-      <DatePanel label={label} mode={mode} value={value} onPick={onChange} onClose={row.close} />
-      <View className="flex-row flex-wrap gap-2">
-        {(quick ?? []).map((q) => (
-          <Button
-            key={q.label}
-            variant="secondary"
-            size="sm"
-            label={q.label}
-            onPress={() => onChange(q.value)}
-          />
-        ))}
-        {value && clearable ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            label={`Clear ${label}`}
-            onPress={() => onChange(null)}
-          />
-        ) : null}
-      </View>
-    </Property>
+      {mode === "date" ? (
+        <DayPicker
+          label={label}
+          value={value}
+          onChange={onChange}
+          quick={quick}
+          clearable={clearable}
+        />
+      ) : (
+        <TimePicker label={label} value={value} onChange={onChange} clearable={clearable} />
+      )}
+    </SheetProperty>
   );
 }
 

@@ -8,6 +8,7 @@ import { Button, statusOf } from "../ui/Button.tsx";
 import { useFilePicker } from "../ui/file-picker.tsx";
 import { Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTargetSpace } from "./NewScreens.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
@@ -56,6 +57,7 @@ function PreviewCard({ preview }: { preview: ImportPreview }) {
 /// item in a Space.
 export function ImportScreen({ spaceId }: { spaceId?: string }) {
   const router = useRouter();
+  const close = useCloseSheet();
   const picker = useFilePicker();
   const [space, setSpace] = useTargetSpace(spaceId);
   const [text, setText] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function ImportScreen({ spaceId }: { spaceId?: string }) {
           status={statusOf(make)}
           errorLabel="Couldn't import it"
           onPress={() =>
-            make.mutate(undefined, { onSuccess: (id) => router.replace(`/entity/${id}`) })
+            make.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) })
           }
         />
       ) : null}

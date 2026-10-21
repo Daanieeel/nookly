@@ -1,7 +1,10 @@
+import { sheetRoute } from "../../ui/sheet/route.tsx";
 import { useLocalSearchParams } from "expo-router";
 import { NewSemesterScreen } from "../../screens/PlannerScreens.tsx";
 
-export default function Route() {
+function Route() {
   const { spaceId } = useLocalSearchParams<{ spaceId?: string }>();
   return <NewSemesterScreen spaceId={spaceId} />;
 }
+
+export default sheetRoute("New Semester", Route);

@@ -1,4 +1,5 @@
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
+import { useEntityMenu } from "./entity-actions.tsx";
 import type {
   AssignmentRecord,
   DeckRecord,
@@ -122,6 +123,7 @@ function ListRow({
   label,
   meta,
   onPress,
+  onLongPress,
 }: {
   entityKey: string;
   /// What a screen reader says for the row.
@@ -130,12 +132,15 @@ function ListRow({
   title: React.ReactNode;
   meta: React.ReactNode;
   onPress: () => void;
+  /// The item's menu, the desktop's right click.
+  onLongPress?: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
+      onLongPress={onLongPress}
       className="min-h-11 gap-0.5 border-b border-border/60 px-3 py-2 active:bg-accent/40"
     >
       <View className="flex-row items-center gap-2">
@@ -169,6 +174,7 @@ export function TasksPanel({
   spaces: Spaces;
   today: string;
 }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
   const [tab, setTab] = useState<TaskTab>("today");
@@ -202,6 +208,7 @@ export function TasksPanel({
                 </>
               }
               onPress={() => router.push(`/entity/${task.entity.id}`)}
+              onLongPress={() => entityMenu(task.entity)}
             />
           );
         })}
@@ -228,6 +235,7 @@ export function AssignmentsPanel({
   courseName: (id: string | null) => string | undefined;
   today: string;
 }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
   const [tab, setTab] = useState<AssignmentTab>("dueToday");
@@ -271,6 +279,7 @@ export function AssignmentsPanel({
                 </>
               }
               onPress={() => router.push(`/entity/${a.entity.id}`)}
+              onLongPress={() => entityMenu(a.entity)}
             />
           );
         })}
@@ -327,6 +336,7 @@ export function DecksPanel({
 
 /// Jots waiting to be refined into notes: the key, the first line and the Space.
 export function JotsPanel({ jots, spaces }: { jots: JotSummary[]; spaces: Spaces }) {
+  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
   return (
@@ -357,6 +367,7 @@ export function JotsPanel({ jots, spaces }: { jots: JotSummary[]; spaces: Spaces
               }
               meta={<SpaceChip spaces={spaces} id={jot.entity.spaceId} />}
               onPress={() => router.push(`/entity/${jot.entity.id}`)}
+              onLongPress={() => entityMenu(jot.entity)}
             />
           );
         })}

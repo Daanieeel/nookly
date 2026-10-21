@@ -8,6 +8,7 @@ import { useTheme } from "../ui/theme.ts";
 import { type Tab, titleOfPath } from "./tabs.ts";
 import { useTabs } from "./tabs-store.ts";
 import { useTabCommands } from "./useTabCommands.ts";
+import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 
 /// A page's name for its tab: the item's own title, or the page's.
 export function usePathTitle(path: string): string {
@@ -43,6 +44,7 @@ function TabLabel({
         accessibilityLabel={title}
         accessibilityState={{ selected: active }}
         onPress={onSelect}
+        hitSlop={{ top: touchSlop(CONTROL_SIZE.sm).top, bottom: touchSlop(CONTROL_SIZE.sm).bottom }}
         className="min-w-0 flex-shrink"
       >
         <Text numberOfLines={1} className={cn(!active && "text-muted-foreground")}>

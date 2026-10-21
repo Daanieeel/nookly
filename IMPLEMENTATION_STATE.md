@@ -53,9 +53,9 @@ Later instructions from the user:
 ## 3. Project rules from `AGENTS.md` that bite here
 
 - Nookly is released: user data must be preserved at all costs. Persisted state changes need a new migration in `apps/desktop/src-tauri/src/db/migrations.rs` (append only, never edit an old one), its hash in `EXPECTED_HASHES`, a declaration in `db/upgrade.rs` (`DECLARED`) for any changed existing column, and `cargo test db::upgrade_tests`. Snapshots: `NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib sync::` and `cli::snapshot_tests`. Migrations 43 and 44 are this work's.
-- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.3, mobile 0.7.0 (`apps/mobile/package.json` and `app.json`), server 0.2.2 (the bump tool only touches the desktop).
+- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.4, mobile 0.8.0 (`apps/mobile/package.json` and `app.json`), server 0.2.2 (the bump tool only touches the desktop).
 - User facing copy: no em or en dashes and no hyphenated sentence structure.
-- Never modify existing primitives or tokens in `packages/ui` (add only). `outline` variants of Button and Badge are rare. Icon only buttons need a tooltip or label. Dialogs and menus get an axe test (`vitest-axe`). Permanent actions use `ConfirmPermanentDialog` (phone: system alert, D18).
+- Never modify existing primitives or tokens in `packages/ui` (add only). `outline` variants of Button and Badge are rare. Icon only buttons need a tooltip or label. Dialogs and menus get an axe test (`vitest-axe`). Permanent actions use `ConfirmPermanentDialog` (phone: a confirmation in the app's sheet, D35; D18's system alert is gone).
 - Every new entity, field or relationship must be exposed through the schema layer the CLI generates from; no one off CLI commands.
 - Tests first for every bug fix and behaviour change; a test that pins a known bug says so.
 - Before finishing run and fix: `bun run lint`, `bun run format:check` (`bunx oxfmt <paths>` formats), `bun run typecheck`, `bun run test` (needs `TEST_DATABASE_URL=postgres://nookly:nookly@127.0.0.1:5433/nookly_test`), `cd apps/desktop/src-tauri && cargo test`, `bun run duplication` (under 1%, currently 0.23%). Report only checks (read, do not silence): `bun run coverage`, `unused`, `audit`, `lint:rust:strict`. While iterating run only the tests of the feature.
@@ -152,7 +152,7 @@ Open problems and loose ends:
 - The red "finalizeAsync / database is locked" LogBox error in the dev client after Metro hot reloads `_layout.tsx` is a development artifact (the database is opened again while the old connection has statements).
 - Not on the phone, listed in `GAP_ANALYSIS.md` and D33: restoring a backup, external calendars, Vim keys (I7), saved views for Assignments, the semester wizard, the PDF paged viewer, series (D19), editor blocks beyond text, tables and formulas (P8), the mascot art.
 - `REPORT.md` (untracked) still needs a refresh for the later work; its screenshots in `report/screenshots/` are older.
-- `apps/mobile` is 0.7.0 (`package.json`, `app.json`); desktop 0.38.3, server 0.2.2.
+- `apps/mobile` is 0.8.0 (`package.json`, `app.json`); desktop 0.38.4, server 0.2.2.
 
 History of earlier sessions (compact): phases 1 to 6 done and verified as described in section 5; a migration regression check with the rebuilt desktop passed; two sync loops fixed; the server reports its real version; a fresh clone brings the stack up.
 
@@ -180,6 +180,23 @@ Brief 7b (full parity, desktop like iPad): N1, I1 to I6, C1, L1, L2, D1, K1, P1,
 
 Pages, each with tests: Notes and Jots (`PageLists.tsx`), Courses gallery, Exams timeline, Decks grid (`StudyGalleries.tsx`), Semesters (`SemesterList.tsx`), Sessions and Calendar module (`CalendarScreen` with `spaceId`), Files, Bookmarks (`BookmarkList.tsx`), Recipes, Grades (`GradesScreen.tsx`), Pinned (`PinnedScreen.tsx`), Trash, Dashboard (`DashboardScreen.tsx`, `DashboardPanels.tsx`, `DashboardBriefing.tsx`, `briefing-runs.ts`, `dashboard-model.ts`), Tasks overview, Assignments overview (`AssignmentsScreen.tsx`, `assignment-view.ts`), Deck page (`DeckPage.tsx`), course tiles, exam decks, semester stats (`StudyDetail.tsx`, `PlannerScreens.tsx`), session Jot and Note, task stepper (`TaskDetail.tsx`), Settings sections, search, LaTeX and Backup (`screens/settings/`). New shared data functions with tests: `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
 
+## 8d. Mobile inputs as one bottom sheet, touch sizes (2026-10-21, user brief)
+
+The user asked (with an inventory step they approved): every desktop input on the phone becomes the app's own bottom sheet styled like the desktop, menus get icons and the desktop's items, confirmations become sheets too, every control is at least 44pt or 48dp, verified in light and dark with before and after screenshots. Answers they gave: one in app sheet (not the native form sheet), menus as on the desktop (More keeps Show Details and Open Beside), long press menus on every row, confirmations as sheets, Tabler icons on the native bar buttons where possible, keep the system `Switch`, leave `PageEditor.tsx` (the old rows editor and its block menu) out.
+
+Built (D35):
+
+- `ui/sheet/Sheet.tsx`: `SheetFrame` (backdrop, handle, title, back, steps, swipe down, keyboard lift), `Sheet` (in a `Modal`, or a pushed step when opened inside another sheet), `RouteSheet`; `route.tsx` (`sheetRoute`, `SHEET_ROUTE`, `useCloseSheet`); `SheetHost.tsx` (menus and confirmations from code, `useMenu()` uses it); contents `OptionList`, `DayPicker` and `CalendarPanel`, `MenuList` (icons, separators, destructive last, `submenu` and `page` steps), `Confirm`, `DisplayParts` (layout tiles, select rows, switch rows, filter fields).
+- `ui/touch.ts` (`MIN_TOUCH`, `touchSlop`, `gapBetween`, `FIELD_HEIGHT`, `TOUCH_ROW`), applied in `Button`, `IconButton`, `Chip`, `Field`, `Row`, `Property`, `Band`, `Swatch` (new), the sidebar, the editor toolbar and its slash menu rows, and single cases (assignment checkbox, task stepper, gallery pill, grades input, share segments, iPad titlebar and tabs).
+- Migrated: property rows (`ChoiceProperty`, `DayProperty`, `SheetProperty`, `TimePicker`), `DateField`, `SelectField` and `MultiSelectField` (new), Space, Course and Exam pickers, the assignment due steps, labels, link picker (`LinkPicker`, now a sheet from Related and a step of the item menu), move (`MovePicker`, `/new/move` removed), Tasks and Assignments Filter and Display, New Task, New Semester, semester setup's term, recipe kind and tags, file kind, settings with more than three choices, Add Module, Add Course, semester menu and rename, every system alert (Trash, Space settings, account deletion), all 18 create routes and the icon picker.
+- Item menus: `screens/entity-actions.tsx` (`useEntityActions`, `useEntityMenu`) for the More menu and long presses on every item row; `EntityPickers.tsx` holds `LabelPicker` and `MovePicker`.
+- Native bar buttons draw Tabler PNGs (`assets/toolbar/`, rendered from `@tabler/icons` outline SVGs with a small AppKit script, 22pt at 1x to 3x; `ui/toolbar-icons.ts`).
+- `@react-native-community/datetimepicker` is removed (package and app.json plugin); the dev client still carries it until the next native rebuild, which is harmless.
+- Tests: `ui/sheet/sheet.test.tsx`, helpers in `test/sheet.ts` (`openRow`, `choose`, `pickDay`, `pickTime`); `RecordingMenu` records confirmations too. Mobile jest: 262 pass.
+- Screenshots (scratchpad, temporary): before and after, light and dark, in `<scratchpad>/shots/`.
+
+Open: the swipe down, the keyboard lift and the long press were not done with a finger (the tooling drives props, not touches); CHANGELOG and whats-new are numbered by the desktop, so the mobile bump to 0.8.0 has no entry there, as with every earlier mobile bump (ask the user).
+
 ## 8c. Decisions written
 
 D26 to D34 are in `DECISIONS.md`, and D7 is corrected.
@@ -188,7 +205,8 @@ D26 to D34 are in `DECISIONS.md`, and D7 is corrected.
 
 - Never touch the user's real data: `/Applications/Nookly.app`, `~/Library/Application Support/com.nookly.app`, and anything of theirs listed in 6.3. Debug builds use `apps/desktop/src-tauri/.dev-data` or `NOOKLY_DATA_DIR` and their own settings and token files.
 - Do not stash, rebase or switch branches in a checkout of this branch; do not open PRs; do not commit `REPORT.md`, `.env` or `report/`.
-- Mobile UI: copy the desktop's look through the shared class lists, no edits to `packages/ui`, system dark mode in the simulators.
+- Mobile UI: copy the desktop's look through the shared class lists, no edits to `packages/ui`, system dark mode in the simulators (light mode too when verifying a UI change).
+- Mobile inputs (AGENTS.md, Mobile UI): every desktop popover, select, picker, menu and confirmation is the one shared bottom sheet (`apps/mobile/src/ui/sheet/`), never a system alert, action sheet or picker, never an accordion. Every tappable thing is at least 44 points (iOS) or 48 (Android) through `ui/touch.ts`. See D35.
 - Lint forbids module mocking (`jest.mock`) and `typeof`: use the seams in `apps/mobile/src/test/` (`renderScreens(routes, data, url, { width, menu, clipboard, filePicker })`, `RecordingMenu`, `RecordingClipboard`, `FixedFilePicker`, `ShortcutHost keys=`).
 - The user's rules this session: always use the same colors, shared between desktop and phone (`packages/shared/src/calendar-style.ts` and friends); never use em or en dashes in copy; update this file whenever the state changes.
 - Update this file, `DECISIONS.md` (new decisions, ⚑ for doubtful ones) and `GAP_ANALYSIS.md` (marks) whenever the state changes.

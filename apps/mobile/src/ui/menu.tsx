@@ -1,43 +1,25 @@
-import { ActionSheetIOS, Alert, Platform } from "react-native";
 import { createContext, useContext } from "react";
+import type { Confirmation } from "./sheet/Confirm.tsx";
+import type { MenuEntry } from "./sheet/MenuList.tsx";
+import { useOptionalSheetHost } from "./sheet/SheetHost.tsx";
 
-export interface MenuItem {
-  label: string;
-  destructive?: boolean;
-  onPress: () => void;
-}
+export { SEPARATOR, type MenuEntry, type MenuIcon, type MenuItem } from "./sheet/MenuList.tsx";
+export type { Confirmation } from "./sheet/Confirm.tsx";
 
-/// How a list of actions is shown. The phone's own: an action sheet on iOS, an alert on
-/// Android. A test supplies its own to choose an action without a screen.
+/// How a menu of actions and a confirmation are shown: in the app's sheet (`SheetHost`). A
+/// test supplies its own to read and choose actions without a screen.
 export interface MenuPresenter {
-  show(title: string | undefined, items: MenuItem[]): void;
+  show(title: string | undefined, entries: MenuEntry[]): void;
+  confirm(confirmation: Confirmation): void;
 }
 
-export const nativeMenu: MenuPresenter = {
-  show(title, items) {
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title,
-          options: [...items.map((item) => item.label), "Cancel"],
-          cancelButtonIndex: items.length,
-          destructiveButtonIndex: items.findIndex((item) => item.destructive),
-        },
-        (index) => items[index]?.onPress(),
-      );
-      return;
-    }
-    Alert.alert(title ?? "", undefined, [
-      ...items.map((item) => ({
-        text: item.label,
-        style: item.destructive ? ("destructive" as const) : ("default" as const),
-        onPress: item.onPress,
-      })),
-      { text: "Cancel", style: "cancel" as const },
-    ]);
-  },
-};
-
-const MenuContext = createContext<MenuPresenter>(nativeMenu);
+const MenuContext = createContext<MenuPresenter | null>(null);
 export const MenuProvider = MenuContext.Provider;
-export const useMenu = () => useContext(MenuContext);
+
+export function useMenu(): MenuPresenter {
+  const own = useContext(MenuContext);
+  const host = useOptionalSheetHost();
+  if (own) return own;
+  if (!host) throw new Error("useMenu needs a SheetHost or a MenuProvider around the app");
+  return { show: host.menu, confirm: host.confirm };
+}

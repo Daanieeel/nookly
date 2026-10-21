@@ -1,7 +1,7 @@
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import { setEntityIcon, updateSpace } from "@nookly/shared/data";
 import { ICON_LIBRARY_NAMES, iconLibraryValue, isIconLibraryValue } from "@nookly/shared/icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, View } from "react-native";
 import emojiGroups from "unicode-emoji-json/data-by-group.json";
@@ -12,8 +12,10 @@ import { Field } from "../ui/Field.tsx";
 import { ICON_LIBRARY } from "../ui/icons.tsx";
 import { cn } from "../ui/classes.ts";
 import { Screen } from "../ui/Screen.tsx";
+import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { Swatch } from "../ui/Swatch.tsx";
 
 const EMOJI = emojiGroups.flatMap((group) => group.emojis);
 const COLUMNS = 7;
@@ -49,7 +51,7 @@ function Cell({
 /// Chooses the icon of an item or a Space: one from the icon library (tinted if wanted)
 /// or an emoji, as on the desktop. Opens as a sheet from the item's or Space's screen.
 export function IconPickerScreen() {
-  const router = useRouter();
+  const close = useCloseSheet();
   const theme = useTheme();
   const { kind, id } = useLocalSearchParams<{ kind: "entity" | "space"; id: string }>();
   const { data: entity } = useEntity(kind === "entity" ? id : "");
@@ -64,7 +66,7 @@ export function IconPickerScreen() {
     if (kind === "space") await updateSpace(db, id, { icon });
     else await setEntityIcon(db, id, icon);
   });
-  const pick = (icon: string) => save.mutate(icon, { onSuccess: () => router.back() });
+  const pick = (icon: string) => save.mutate(icon, { onSuccess: () => close() });
   const emoji = useMemo(() => {
     const words = query.trim().toLowerCase();
     return words ? EMOJI.filter((e) => e.name.toLowerCase().includes(words)) : EMOJI;
@@ -80,29 +82,25 @@ export function IconPickerScreen() {
           <View
             accessibilityRole="radiogroup"
             accessibilityLabel="Tint"
-            className="flex-row flex-wrap gap-3"
+            className="-mx-2 flex-row flex-wrap"
           >
-            <Pressable
-              accessibilityRole="radio"
-              accessibilityLabel="No tint"
-              accessibilityState={{ checked: color === null }}
+            <Swatch
+              label="No tint"
+              color={null}
+              selected={color === null}
               onPress={() => setColor(null)}
-              hitSlop={8}
-              className={cn(
-                "size-7 rounded-full border border-border",
-                color === null && "ring-2 ring-ring",
-              )}
+              className="size-7 rounded-full"
+              selectedClassName="ring-2 ring-ring"
             />
             {ACCENT_COLORS.map((c) => (
-              <Pressable
+              <Swatch
                 key={c}
-                accessibilityRole="radio"
-                accessibilityLabel={`Tint ${c}`}
-                accessibilityState={{ checked: c === color }}
+                label={`Tint ${c}`}
+                color={c}
+                selected={c === color}
                 onPress={() => setColor(c)}
-                hitSlop={8}
-                className={cn("size-7 rounded-full", c === color && "ring-2 ring-ring")}
-                style={{ backgroundColor: c }}
+                className="size-7 rounded-full"
+                selectedClassName="ring-2 ring-ring"
               />
             ))}
           </View>

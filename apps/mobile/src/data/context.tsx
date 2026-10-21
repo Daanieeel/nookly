@@ -52,6 +52,15 @@ function afterLocalWrite(queryClient: QueryClient, sync: MobileSync) {
   sync.notifyLocalChange();
 }
 
+/// Runs a write to the phone's data from an action (a menu item): views refresh and sync
+/// is told, as with `useLocalWrite`.
+export function useWrite() {
+  const { db, sync } = useAppData();
+  const queryClient = useQueryClient();
+  return <T,>(write: (db: LocalDb) => Promise<T>) =>
+    void write(db).then(() => afterLocalWrite(queryClient, sync));
+}
+
 /// A write to the phone's data, as a mutation: views refresh and sync is told.
 export function useLocalWrite<TInput, TResult>(
   write: (db: LocalDb, input: TInput) => Promise<TResult>,
