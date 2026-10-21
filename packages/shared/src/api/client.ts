@@ -166,7 +166,7 @@ export class ApiClient {
         credentials: "omit",
       });
     } catch (error) {
-      throw new NetworkError(error instanceof Error ? error.message : "Network error");
+      throw NetworkError.unreachable(error);
     }
     if (authed && response.status === 401) {
       await this.forget();
@@ -383,7 +383,7 @@ export class ApiClient {
         credentials: "omit",
       });
     } catch (error) {
-      throw new NetworkError(error instanceof Error ? error.message : "Network error");
+      throw NetworkError.unreachable(error);
     }
     if (response.status === 401) {
       await this.forget();

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.4 (2026-10-21)
+
+### Fixed
+
+- **A clearer message when the server can't be reached.** Signing in or syncing without a connection to the server now says so in plain words, instead of showing a technical error.
+
 ## 0.38.3 (2026-10-20)
 
 ### Fixed

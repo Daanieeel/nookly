@@ -23,6 +23,14 @@ export interface SyncTransport {
 /// The server can't be reached at all (offline, wrong address).
 export class NetworkError extends Error {
   override readonly name = "NetworkError";
+
+  /// What to say when a request never got an answer: the system's own error ("fetch
+  /// failed", a stack location) stays as the cause, out of sight.
+  static unreachable(cause: unknown): NetworkError {
+    return new NetworkError("Can't reach the server. Check your connection and try again.", {
+      cause,
+    });
+  }
 }
 
 export type SyncState = "off" | "idle" | "syncing" | "offline" | "error";

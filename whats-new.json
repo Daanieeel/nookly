@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.38.4",
+      "date": "2026-10-21",
+      "title": "Clearer connection errors",
+      "summary": "A server that can't be reached now says so plainly.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Signing in or syncing without a connection to the server now explains what is wrong instead of showing a technical error."
+        ]
+      }
+    },
+    {
       "version": "0.38.3",
       "date": "2026-10-20",
       "title": "Quieter sync",
