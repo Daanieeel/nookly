@@ -51,10 +51,10 @@
   "devDependencies": {
     "@nookly/config": "workspace:*",
     "jscpd": "^5.4.1",
-    "knip": "^6.41.0",
-    "oxfmt": "0.72.0",
-    "oxlint": "1.87.0",
-    "turbo": "^2.11.7",
+    "knip": "^6.42.0",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "turbo": "^2.11.9",
     "typescript": "^7.0.2"
   },
   "overrides": {
