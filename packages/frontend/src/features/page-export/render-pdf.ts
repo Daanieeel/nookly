@@ -29,7 +29,23 @@ import {
 } from "./print-style.ts";
 
 /// pdfmake's font family names, registered with the font files in `pdf-file.ts`.
-export const PDF_FONTS = { body: "Inter", mono: "Mono" } as const;
+export const PDF_FONTS = { body: "Inter", mono: "Mono", math: "Math" } as const;
+
+/// Raised and lowered digits and letters, which the math font lacks and the body font has.
+const SCRIPT_CHARACTERS = /([\u00b2\u00b3\u00b9\u1d2c-\u1d6a\u2070-\u209f\u2c7c]+)/u;
+
+/// Inline math as text runs: in the math font, which has the symbols the body font lacks,
+/// except for the raised and lowered characters only the body font has.
+function mathRuns(text: string): ContentText[] {
+  return text
+    .split(SCRIPT_CHARACTERS)
+    .filter(Boolean)
+    .map((part) => ({
+      text: part,
+      italics: true,
+      ...(!SCRIPT_CHARACTERS.test(part) && { font: PDF_FONTS.math }),
+    }));
+}
 
 const hex = (color: string) => `#${color}`;
 
@@ -93,24 +109,26 @@ export function pdfDefinition(
   const contentHeight = page.height - margin * 2;
 
   const runs = (items: Run[]): ContentText[] =>
-    items.map((run): ContentText => {
+    items.flatMap((run): ContentText[] => {
       // pdfmake can't place a picture inside a line of text: inline math is spelled out in
       // text where it can be, and shown as TeX where it can't.
-      if (run.kind === "math") return { text: latexToText(run.latex) ?? run.latex, italics: true };
-      return {
-        text: run.text,
-        bold: run.bold,
-        italics: run.italic,
-        ...(run.code && {
-          font: PDF_FONTS.mono,
-          fontSize: size * CODE_SCALE,
-          background: hex(COLORS.codeFill),
-        }),
-        ...(run.highlight && { background: hex(HIGHLIGHT_FILLS[run.highlight]) }),
-        ...(run.color && { color: hex(TEXT_COLOR_FILLS[run.color]) }),
-        ...(run.link && { link: run.link, color: hex(COLORS.link) }),
-        ...(run.muted && { color: hex(COLORS.muted) }),
-      };
+      if (run.kind === "math") return mathRuns(latexToText(run.latex) ?? run.latex);
+      return [
+        {
+          text: run.text,
+          bold: run.bold,
+          italics: run.italic,
+          ...(run.code && {
+            font: PDF_FONTS.mono,
+            fontSize: size * CODE_SCALE,
+            background: hex(COLORS.codeFill),
+          }),
+          ...(run.highlight && { background: hex(HIGHLIGHT_FILLS[run.highlight]) }),
+          ...(run.color && { color: hex(TEXT_COLOR_FILLS[run.color]) }),
+          ...(run.link && { link: run.link, color: hex(COLORS.link) }),
+          ...(run.muted && { color: hex(COLORS.muted) }),
+        },
+      ];
     });
 
   /// Keeps an empty paragraph one line tall, the way the editor shows it.

@@ -53,6 +53,7 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@expo-google-fonts/inter": "0.4.2",
+        "@expo-google-fonts/noto-sans-math": "0.4.2",
         "@expo-google-fonts/source-code-pro": "0.4.2",
         "@nookly/ui": "workspace:*",
         "@radix-ui/react-dialog": "^1.2.0",
@@ -269,6 +270,8 @@
     "@exodus/bytes": ["@exodus/bytes@1.16.0", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA=="],
 
     "@expo-google-fonts/inter": ["@expo-google-fonts/inter@0.4.2", "", {}, "sha512-syfiImMaDmq7cFi0of+waE2M4uSCyd16zgyWxdPOY7fN2VBmSLKEzkfbZgeOjJq61kSqPBNNtXjggiQiSD6gMQ=="],
+
+    "@expo-google-fonts/noto-sans-math": ["@expo-google-fonts/noto-sans-math@0.4.2", "", {}, "sha512-Kgj0kKibznTLYcbpR8Tk2ybr76uMOyrlyoP5F9G+0UiJzAMA4zG/XIlrgXKzfFGERhA0Rc3vbwDeeTxwXPlaYg=="],
 
     "@expo-google-fonts/source-code-pro": ["@expo-google-fonts/source-code-pro@0.4.2", "", {}, "sha512-iFhZYa7qb+RxORdDz33lCHkbJMnri81g+5alghq+KnUrsP2ExM5PadwqmruavkLYsYQLSjxXBdus1gO4+fROJw=="],
 

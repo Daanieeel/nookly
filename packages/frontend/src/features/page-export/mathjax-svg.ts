@@ -5,6 +5,7 @@ import { liteAdaptor } from "mathjax-full/js/adaptors/liteAdaptor.js";
 import { RegisterHTMLHandler } from "mathjax-full/js/handlers/html.js";
 import { AllPackages } from "mathjax-full/js/input/tex/AllPackages.js";
 import { macroArgumentCount } from "#/lib/latex-macros.ts";
+import { KATEX_ALIASES } from "./katex-aliases.ts";
 
 /// LaTeX drawn as self contained SVG paths for an export. The editor draws with KaTeX, whose
 /// HTML and fonts can't become a picture; MathJax's SVG can, and reads the same TeX,
@@ -36,7 +37,7 @@ function converter(macros: Record<string, string>) {
   if (cached?.key === key) return cached.convert;
   const tex = new TeX({
     packages: AllPackages.filter((name) => !QUIET_PACKAGES.has(name)),
-    macros: mathJaxMacros(macros),
+    macros: mathJaxMacros({ ...KATEX_ALIASES, ...macros }),
   });
   const svg = new SVG({ fontCache: "none" });
   const html = mathjax.document("", { InputJax: tex, OutputJax: svg });

@@ -14,6 +14,12 @@ describe("latexToText", () => {
     ["a \\cdot b \\to \\infty", "a · b → ∞"],
     ["\\text{rate} = 5", "rate = 5"],
     ["\\$5", "$5"],
+    ["A \\land B \\Rarr \\overline{C}", "A ∧ B ⇒ C\u0304"],
+    ["n \\in \\mathbb{N}, \\mathbb{B} = \\{0;1\\}", "n ∈ ℕ, 𝔹 = {0;1}"],
+    ["\\vec{A}", "A\u20d7"],
+    ["x \\gt 3 \\lrarr \\R", "x > 3 ↔ ℝ"],
+    ["\\left\\{ x \\;\\middle|\\; x \\gt 0 \\right\\}", "{ x  |  x > 0 }"],
+    ["A \\xor B", "A ⊕ B"],
   ])("spells %s as %s", (latex, text) => {
     expect(latexToText(latex)).toBe(text);
   });
@@ -24,6 +30,7 @@ describe("latexToText", () => {
     "\\unknown",
     "\\frac{a",
     "e^{i\\pi}",
+    "A^T",
   ])("leaves %s to the TeX itself", (latex) => {
     expect(latexToText(latex)).toBeNull();
   });

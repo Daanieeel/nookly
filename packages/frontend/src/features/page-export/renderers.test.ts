@@ -94,6 +94,16 @@ describe("pdfDefinition", () => {
     expect(pdfDefinition(doc, options({ margins: "none" })).pageMargins).toBe(0);
   });
 
+  it("prints inline math in a font that has the symbols", () => {
+    const math: ExportDocument = {
+      title: "",
+      blocks: [{ kind: "paragraph", runs: [{ kind: "math", latex: "A \\land \\mathbb{B}" }] }],
+    };
+    expect(JSON.stringify(pdfDefinition(math, options()).content)).toContain(
+      '"text":"A ∧ 𝔹","italics":true,"font":"Math"',
+    );
+  });
+
   it("embeds drawn figures and shows the source of one that could not be drawn", () => {
     const content = JSON.stringify(pdfDefinition(doc, options()).content);
     expect(content).toContain("data:image/png;base64,");

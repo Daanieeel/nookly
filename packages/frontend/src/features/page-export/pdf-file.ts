@@ -6,6 +6,7 @@ import monoRegular from "@expo-google-fonts/source-code-pro/400Regular/SourceCod
 import monoBold from "@expo-google-fonts/source-code-pro/700Bold/SourceCodePro_700Bold.ttf?url";
 import monoItalic from "@expo-google-fonts/source-code-pro/400Regular_Italic/SourceCodePro_400Regular_Italic.ttf?url";
 import monoBoldItalic from "@expo-google-fonts/source-code-pro/700Bold_Italic/SourceCodePro_700Bold_Italic.ttf?url";
+import mathRegular from "@expo-google-fonts/noto-sans-math/400Regular/NotoSansMath_400Regular.ttf?url";
 import type { ExportDocument } from "./document-model.ts";
 import type { PageExportOptions } from "./export-options.ts";
 import { PDF_FONTS, bytesToBase64, pdfDefinition } from "./render-pdf.ts";
@@ -25,6 +26,13 @@ const FONT_FILES = {
     bold: monoBold,
     italics: monoItalic,
     bolditalics: monoBoldItalic,
+  },
+  // Inline math: one upright face, the symbols Inter lacks (∧, ∈, ℝ, 𝔹) included.
+  [PDF_FONTS.math]: {
+    normal: mathRegular,
+    bold: mathRegular,
+    italics: mathRegular,
+    bolditalics: mathRegular,
   },
 };
 

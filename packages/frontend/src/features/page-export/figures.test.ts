@@ -22,6 +22,10 @@ describe("texToSvg", () => {
     ).not.toThrow();
   });
 
+  it("knows the commands KaTeX adds, as the editor draws them", () => {
+    expect(() => texToSvg("A \\Rarr B \\lrarr \\N \\isin \\reals", false, {})).not.toThrow();
+  });
+
   it("throws on a formula that does not parse, so the export shows its source", () => {
     expect(() => texToSvg("\\frac{a", false, {})).toThrow();
     expect(() => texToSvg("\\nosuchcommand", false, {})).toThrow();
