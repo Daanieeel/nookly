@@ -90,6 +90,7 @@ export type FigureSource =
   | { type: "math"; latex: string }
   | { type: "diagram"; source: string }
   | { type: "circuit"; source: string }
+  | { type: "plot"; source: string }
   /// An image file the page shows, by File id or URL.
   | { type: "image"; fileId?: string; url?: string };
 

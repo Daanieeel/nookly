@@ -9,6 +9,7 @@ function renderers(patch: Partial<FigureRenderers> = {}): FigureRenderers {
     math: vi.fn(async () => drawn),
     diagram: vi.fn(async () => drawn),
     circuit: vi.fn(async () => drawn),
+    plot: vi.fn(async () => drawn),
     image: vi.fn(async () => drawn),
     mentionUrl: vi.fn(async (id: string) => (id === "b1" ? "https://mdn.dev" : null)),
     ...patch,
@@ -27,6 +28,7 @@ const doc: ExportDocument = {
       ],
     },
     { kind: "figure", source: { type: "diagram", source: "graph" }, fallback: "graph" },
+    { kind: "figure", source: { type: "plot", source: "y = x" }, fallback: "y = x" },
     {
       kind: "list",
       items: [
@@ -50,6 +52,7 @@ describe("resolveDocument", () => {
     });
     expect(resolved.blocks[1]).toMatchObject({ image: drawn });
     expect(r.math).toHaveBeenCalledWith("x^2", true);
+    expect(r.plot).toHaveBeenCalledWith("y = x");
     // One lookup per entity, however often the page links it.
     expect(r.mentionUrl).toHaveBeenCalledTimes(2);
   });

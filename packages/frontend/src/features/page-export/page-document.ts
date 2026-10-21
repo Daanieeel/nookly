@@ -116,7 +116,7 @@ function heading(level: 1 | 2 | 3 | 4 | 5 | 6): BlockExporter {
   return (block) => [{ kind: "heading", level, runs: runsOf(block.content) }];
 }
 
-function figure(type: "math" | "diagram" | "circuit", latex = false): BlockExporter {
+function figure(type: "math" | "diagram" | "circuit" | "plot", latex = false): BlockExporter {
   return (block) => {
     if (!block.content.trim()) return [];
     const source = latex ? mathBlockLatex(block.content) : block.content;
@@ -325,6 +325,7 @@ export const BLOCK_EXPORTERS = {
   math: figure("math", true),
   diagram: figure("diagram"),
   circuit: figure("circuit"),
+  plot: figure("plot"),
   entity_card: mentionCard,
   bookmark: mentionCard,
   embed: (block) => {

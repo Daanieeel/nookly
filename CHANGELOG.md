@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.42.0 (2026-10-21)
+
+### Added
+
+- **Plots.** Type /plot in a page to draw functions, points and lines in a coordinate system. Write one per line, like `f(x) = x^2 - 2` or `A = (1, 2)`, and the preview shows the grid, the axes, every curve in its own color and a legend. Plots come along into PDF, Word and OpenDocument exports.
+
 ## 0.41.0 (2026-10-21)
 
 ### Added

@@ -3304,7 +3304,7 @@ fn stored_view(fx: &Fx, note: &str) -> Option<String> {
 
 #[test]
 fn source_blocks_made_through_the_cli_start_on_the_preview() {
-    for block_type in ["equation", "math", "diagram", "circuit"] {
+    for block_type in ["equation", "math", "diagram", "circuit", "plot"] {
         let fx = fx();
         let (note, _) = new_note(&fx, "Preview");
         cli(
