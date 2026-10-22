@@ -497,6 +497,77 @@ fn cancelling_a_session_moves_the_due_day_to_the_next_one_that_is_on() {
     );
 }
 
+fn after(conn: &Connection, id: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT due_session_after FROM assignments WHERE entity_id = ?1",
+        params![id],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
+fn set_after(conn: &Connection, id: &str, moment: &str) {
+    conn.execute(
+        "UPDATE assignments SET due_session_after = ?1 WHERE entity_id = ?2",
+        params![moment, id],
+    )
+    .unwrap();
+}
+
+fn due_day(conn: &Connection, id: &str) -> Option<String> {
+    get_assignment(conn, id).unwrap().due_date
+}
+
+// A bug found by hand: "before the next session" meant the next one at any moment, so
+// once that session started the due day jumped on to the session after it. It now
+// follows the session that was next when the due date was set.
+#[test]
+fn due_before_the_next_session_stays_on_it_once_it_has_started_or_ended() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let first = session(&conn, &space.id, &course.id, "2026-04-02");
+    session(&conn, &space.id, &course.id, "2026-04-09");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(1), None).unwrap();
+    // Set the week before, both sessions long over by now.
+    set_after(&conn, &a.entity.id, "2026-03-30 18:00");
+    assert_eq!(due_day(&conn, &a.entity.id).as_deref(), Some("2026-04-01"));
+    // Set while the first one was running: the next one was the second.
+    set_after(&conn, &a.entity.id, "2026-04-02 10:30");
+    assert_eq!(due_day(&conn, &a.entity.id).as_deref(), Some("2026-04-08"));
+    // Cancelled, the next one after it takes over.
+    set_after(&conn, &a.entity.id, "2026-03-30 18:00");
+    cancel(&conn, &first);
+    assert_eq!(due_day(&conn, &a.entity.id).as_deref(), Some("2026-04-08"));
+}
+
+#[test]
+fn following_the_next_session_remembers_when_it_was_set() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let picked = session(&conn, &space.id, &course.id, "2099-01-05");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    let id = a.entity.id.as_str();
+    let before = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+    update_assignment_due_before_session(&conn, id, Some(1), None).unwrap();
+    let set = after(&conn, id).expect("the moment it was set");
+    assert!(set >= before && set.len() == 16, "{set}");
+    // Changing only the days keeps the session it follows.
+    set_after(&conn, id, "2026-03-30 18:00");
+    update_assignment_due_before_session(&conn, id, Some(3), None).unwrap();
+    assert_eq!(after(&conn, id).as_deref(), Some("2026-03-30 18:00"));
+    // Following a picked session, a fixed date or nothing forgets it.
+    update_assignment_due_before_session(&conn, id, Some(0), Some(picked)).unwrap();
+    assert_eq!(after(&conn, id), None);
+    update_assignment_due_before_session(&conn, id, Some(0), None).unwrap();
+    assert!(after(&conn, id).is_some());
+    update_assignment_due_date(&conn, id, Some("2026-05-01".into())).unwrap();
+    assert_eq!(after(&conn, id), None);
+    update_assignment_due_before_session(&conn, id, Some(0), None).unwrap();
+    update_assignment_due_before_session(&conn, id, None, None).unwrap();
+    assert_eq!(after(&conn, id), None);
+}
+
 #[test]
 fn picking_a_date_again_stops_following_sessions() {
     let conn = test_conn();

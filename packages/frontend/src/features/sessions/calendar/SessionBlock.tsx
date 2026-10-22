@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { parseISO } from "date-fns";
 import type { CSSProperties } from "react";
 import { StatusAnnouncer, statusOf } from "#/components/action-feedback.tsx";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { overrideOccurrence } from "#/lib/api/sessions.ts";
 import type { OccurrenceOverride, SessionOccurrence } from "#/lib/api/types.ts";
-import { formatClock } from "#/lib/datetime.ts";
+import { formatClock, formatDate, formatWeekday } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import type { BlockPosition } from "../external-calendars/overlay-layout";
@@ -168,6 +169,51 @@ export function SessionBlock({
   );
 }
 
+/// A Session occurrence on a time grid that picks one: a single button, no editing.
+export function SessionPickBlock({
+  occurrence,
+  position,
+  picked,
+  onPick,
+}: {
+  occurrence: SessionOccurrence;
+  position: BlockPosition;
+  picked: boolean;
+  onPick: () => void;
+}) {
+  const day = parseISO(occurrence.date);
+  return (
+    <button
+      type="button"
+      data-calendar-item
+      aria-pressed={picked}
+      aria-label={`${displayTitle(occurrence.entity)}, ${formatWeekday(day)} ${formatDate(day)}, ${formatClock(occurrence.startTime)} to ${formatClock(occurrence.endTime)}`}
+      title={sessionTooltip(occurrence)}
+      onClick={onPick}
+      className={cn(
+        "absolute top-(--occ-top) left-(--occ-left) z-10 flex h-(--occ-height) w-(--occ-width) cursor-pointer flex-col items-stretch overflow-hidden rounded-md border-2 border-primary px-1.5 py-0.5 text-left text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        picked
+          ? "bg-primary font-medium text-primary-foreground"
+          : "bg-primary/6 text-foreground hover:bg-primary/14",
+      )}
+      // SAFETY: plain pixel or `calc()` lengths from this occurrence's own time and column.
+      style={
+        {
+          "--occ-top": `${position.top}px`,
+          "--occ-height": `${position.height}px`,
+          "--occ-left": position.left,
+          "--occ-width": position.width,
+        } as CSSProperties
+      }
+    >
+      <span className="truncate font-medium">{displayTitle(occurrence.entity)}</span>
+      <span className="truncate">
+        {formatClock(occurrence.startTime)} to {formatClock(occurrence.endTime)}
+      </span>
+    </button>
+  );
+}
+
 /// One Session occurrence as a single line in a month cell.
 export function SessionChip({
   spaceId,
@@ -204,7 +250,11 @@ export function SessionChip({
           highlighted && "ring-2 ring-(--session-color)",
         )}
         // SAFETY: see `SessionBlock` above — a hex color or the `--primary` token.
-        style={{ "--session-color": accentColor ?? "var(--primary)" } as CSSProperties}
+        style={
+          {
+            "--session-color": accentColor ?? "var(--primary)",
+          } as CSSProperties
+        }
         {...entityTarget(occurrence.entity, occurrence)}
       >
         <span className="shrink-0 tabular-nums">{formatClock(occurrence.startTime)}</span>

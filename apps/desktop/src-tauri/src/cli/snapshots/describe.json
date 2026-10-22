@@ -385,6 +385,13 @@
         "writableOnUpdate": true
       },
       {
+        "description": "Read only. While it follows the Course's next session: the local moment (YYYY-MM-DD HH:MM) that was set. It follows the session that was next then, even once that session has started or ended. Changing only dueSessionOffsetDays keeps it; empty for any other due date.",
+        "kind": "text",
+        "name": "dueSessionAfter",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
+      },
+      {
         "description": "A session of the Course the due day follows, instead of its next session, shifted by dueSessionOffsetDays (0 when not given). dueDate reads the resolved day, which follows that session when it moves. Pass null to follow the next session again; setting dueDate drops it too.",
         "kind": {
           "entityType": "session",
@@ -395,7 +402,7 @@
         "writableOnUpdate": true
       },
       {
-        "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
+        "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. The next session is the one next when it was set (see dueSessionAfter), so it stays put once that session starts. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
         "kind": "integer",
         "name": "dueSessionOffsetDays",
         "requiredOnCreate": false,

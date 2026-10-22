@@ -27,6 +27,9 @@ pub struct Assignment {
     /// The one session the due day follows, instead of the next one. Read from the
     /// `assignment-due-session` link; `None` while it follows the next session.
     pub due_session_id: Option<String>,
+    /// While it follows the next session: the local moment (`YYYY-MM-DD HH:MM`) that was
+    /// set, so it follows the session next then, even once that one has started.
+    pub due_session_after: Option<String>,
     /// Its share of the course's grade, like an exam's: a fraction, or a whole
     /// percentage. `None` splits what the weighted work leaves evenly.
     pub weight: Option<f64>,
@@ -46,6 +49,7 @@ fn row_to_assignment(row: &rusqlite::Row) -> rusqlite::Result<Assignment> {
         due_date: row.get("due_date")?,
         due_session_offset_days: row.get("due_session_offset_days")?,
         due_session_id: None,
+        due_session_after: row.get("due_session_after")?,
         weight: row.get("weight")?,
         status: row.get("status")?,
         grade: row.get("grade")?,
@@ -81,6 +85,7 @@ pub fn create_assignment(
             due_date,
             due_session_offset_days: None,
             due_session_id: None,
+            due_session_after: None,
             weight: None,
             status: "not_started".into(),
             grade: None,
@@ -115,7 +120,7 @@ pub fn create_assignment_due_before_session(
 
 pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.due_session_after, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -126,7 +131,7 @@ pub fn list_assignments(conn: &Connection, space_id: &str) -> AppResult<Vec<Assi
 /// Cross-Space, for the Dashboard briefing's Exam/Assignment clause.
 pub fn list_assignments_all_spaces(conn: &Connection) -> AppResult<Vec<Assignment>> {
     let mut stmt = conn.prepare(
-        "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
+        "SELECT e.*, a.due_date, a.due_session_offset_days, a.due_session_after, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
          JOIN assignments a ON a.entity_id = e.id
          WHERE e.deleted_at IS NULL ORDER BY a.due_date ASC",
     )?;
@@ -178,7 +183,8 @@ pub fn update_assignment_due_date(
     due_date: Option<String>,
 ) -> AppResult<()> {
     let affected = conn.execute(
-        "UPDATE assignments SET due_date = ?1, due_session_offset_days = NULL WHERE entity_id = ?2",
+        "UPDATE assignments SET due_date = ?1, due_session_offset_days = NULL, due_session_after = NULL
+         WHERE entity_id = ?2",
         params![due_date, entity_id],
     )?;
     crate::db::require_row(affected, "assignment", entity_id)?;
@@ -226,9 +232,29 @@ pub fn update_assignment_due_before_session(
         ));
     }
     crate::db::atomically(conn, || {
+        // Following the next session means the one next now, so it stays put once that
+        // session starts. Changing only the days keeps the moment it already has.
+        let after = match (offset_days, &session_id) {
+            (Some(_), None) => Some(
+                conn.query_row(
+                    "SELECT a.due_session_after FROM assignments a
+                     WHERE a.entity_id = ?1 AND a.due_session_offset_days IS NOT NULL
+                       AND NOT EXISTS (SELECT 1 FROM relationships r
+                                       WHERE r.from_entity_id = a.entity_id
+                                         AND r.relationship_type = 'assignment-due-session')",
+                    params![entity_id],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()?
+                .flatten()
+                .unwrap_or_else(|| format!("{} {}", today(), clock_now())),
+            ),
+            _ => None,
+        };
         let affected = conn.execute(
-            "UPDATE assignments SET due_session_offset_days = ?1 WHERE entity_id = ?2",
-            params![offset_days, entity_id],
+            "UPDATE assignments SET due_session_offset_days = ?1, due_session_after = ?2
+             WHERE entity_id = ?3",
+            params![offset_days, after, entity_id],
         )?;
         crate::db::require_row(affected, "assignment", entity_id)?;
         clear_due_session(conn, entity_id)?;
@@ -382,6 +408,12 @@ fn resolve_due_date(
             return Ok(());
         }
     }
+    // The session that was next when it was set, not the one next now.
+    let (today, now) = assignment
+        .due_session_after
+        .as_deref()
+        .and_then(|after| after.split_once(' '))
+        .unwrap_or((today, now));
     let course_id = course_of(conn, "assignment-course", &assignment.entity.id)?;
     assignment.due_date = match course_id {
         Some(course_id) => next_session_due(conn, &course_id, offset, today, now)?,
@@ -428,7 +460,7 @@ pub fn set_assignment_course(
 pub fn get_assignment(conn: &Connection, entity_id: &str) -> AppResult<Assignment> {
     let mut assignment = conn
         .query_row(
-            "SELECT e.*, a.due_date, a.due_session_offset_days, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
+            "SELECT e.*, a.due_date, a.due_session_offset_days, a.due_session_after, a.weight, a.status, a.grade, a.ungraded, a.evaluated_at FROM entities e
          JOIN assignments a ON a.entity_id = e.id WHERE e.id = ?1",
             params![entity_id],
             row_to_assignment,
@@ -461,7 +493,7 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         kind: FieldKind::Integer,
         required_on_create: false,
         writable_on_update: true,
-        description: "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
+        description: "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. The next session is the one next when it was set (see dueSessionAfter), so it stays put once that session starts. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
     },
     FieldDef {
         name: "dueSessionId",
@@ -469,6 +501,13 @@ const ASSIGNMENT_FIELDS: &[FieldDef] = &[
         required_on_create: false,
         writable_on_update: true,
         description: "A session of the Course the due day follows, instead of its next session, shifted by dueSessionOffsetDays (0 when not given). dueDate reads the resolved day, which follows that session when it moves. Pass null to follow the next session again; setting dueDate drops it too.",
+    },
+    FieldDef {
+        name: "dueSessionAfter",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "Read only. While it follows the Course's next session: the local moment (YYYY-MM-DD HH:MM) that was set. It follows the session that was next then, even once that session has started or ended. Changing only dueSessionOffsetDays keeps it; empty for any other due date.",
     },
     FieldDef {
         name: "weight",

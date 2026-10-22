@@ -465,6 +465,9 @@ export interface Assignment {
   dueSessionOffsetDays: number | null;
   /// The one session the due day follows instead of the next one; null otherwise.
   dueSessionId: string | null;
+  /// While it follows the next session: the local moment (`YYYY-MM-DD HH:MM`) that was
+  /// set, so it keeps the session next then once that one starts; null otherwise.
+  dueSessionAfter: string | null;
   /// Its share of the course's grade: a fraction, or a whole percentage in older data.
   weight: number | null;
   status: string;

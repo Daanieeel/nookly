@@ -108,6 +108,7 @@ export function makeAssignment(
     dueDate: null,
     dueSessionOffsetDays: null,
     dueSessionId: null,
+    dueSessionAfter: null,
     weight: null,
     status: "not_started",
     grade: null,

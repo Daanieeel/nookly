@@ -1,6 +1,20 @@
 {
   "versions": [
     {
+      "version": "0.42.2",
+      "date": "2026-10-22",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "When an assignment is due before a specific session, you pick it from a week of your calendar, so you can see which session is which.",
+          "The due date menu always opens below the field."
+        ],
+        "Fixed": [
+          "An assignment due before the next session now stays on that session once it starts, instead of moving on to the one after it."
+        ]
+      }
+    },
+    {
       "version": "0.42.1",
       "date": "2026-10-22",
       "title": "Sharper formulas and plots",

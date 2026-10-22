@@ -2,6 +2,7 @@ import { format, isToday, isWeekend } from "date-fns";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
+import type { SessionOccurrence } from "#/lib/api/types.ts";
 import { formatClock, formatWeekday } from "#/lib/datetime.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
@@ -28,7 +29,7 @@ import {
   rangeForDay,
   topPxFor,
 } from "./calendar-model";
-import { SessionBlock } from "./SessionBlock";
+import { SessionBlock, SessionPickBlock } from "./SessionBlock";
 import { useTodayStyle } from "./today-style";
 
 const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i);
@@ -101,6 +102,7 @@ export function TimeGrid({
   emphasisIds,
   onSelect,
   onPickDay,
+  onPickSession,
   slotCreateNoun,
   spaceColor,
   secondaryKind,
@@ -119,8 +121,11 @@ export function TimeGrid({
   /// Omitted on an embedded, read only slice of the calendar: empty time is then
   /// not draggable and creates nothing.
   onSelect?: (range: SlotRange) => void;
-  /// Opens one day on its own, from its header.
-  onPickDay: (day: Date) => void;
+  /// Opens one day on its own, from its header. Omitted, the headers are plain labels.
+  onPickDay?: (day: Date) => void;
+  /// Turns the Sessions into choices: a click picks one instead of opening it, and
+  /// `highlightIds` marks the picked one.
+  onPickSession?: (occurrence: SessionOccurrence) => void;
   /// What a right-click on an empty slot offers to create ("Session" or
   /// "Calendar Entry"). Omitted (the unified cross-Space Calendar page) drops
   /// the right-click create action entirely, since that page has no creation
@@ -210,8 +215,8 @@ export function TimeGrid({
             <button
               key={key}
               type="button"
-              onClick={() => onPickDay(day)}
-              disabled={single}
+              onClick={() => onPickDay?.(day)}
+              disabled={single || !onPickDay}
               aria-label={`Open ${formatWeekday(day)} on its own`}
               className={cn(
                 "flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-border py-2 text-xs text-muted-foreground enabled:hover:bg-accent/60",
@@ -338,7 +343,12 @@ export function TimeGrid({
                 const minutes = minutesAt(e);
                 const currentCol = allowMultiDay ? columnAt(e) : dayIndex;
                 if (minutes !== drag.currentMin || currentCol !== drag.currentCol) {
-                  setDrag({ ...drag, currentMin: minutes, currentCol, moved: true });
+                  setDrag({
+                    ...drag,
+                    currentMin: minutes,
+                    currentCol,
+                    moved: true,
+                  });
                 }
               }}
               onPointerUp={() => {
@@ -349,7 +359,10 @@ export function TimeGrid({
                   onSelect(dragToRange(drag, columns));
                 } else {
                   const startMin = Math.floor(drag.anchorMin / 30) * 30;
-                  onSelect({ date: day, ...defaultSlotFrom(startMin, createKind) });
+                  onSelect({
+                    date: day,
+                    ...defaultSlotFrom(startMin, createKind),
+                  });
                 }
               }}
               onPointerCancel={() => setDrag(null)}
@@ -397,6 +410,17 @@ export function TimeGrid({
                   heightPxFor(item.startMin, item.endMin),
                   lanes.get(item) ?? { lane: 0, lanes: 1 },
                 );
+                if (item.kind === "session" && onPickSession) {
+                  return (
+                    <SessionPickBlock
+                      key={item.occurrence.entity.id}
+                      occurrence={item.occurrence}
+                      position={position}
+                      picked={highlightIds.has(item.occurrence.entity.id)}
+                      onPick={() => onPickSession(item.occurrence)}
+                    />
+                  );
+                }
                 if (item.kind === "session") {
                   return (
                     <SessionBlock
