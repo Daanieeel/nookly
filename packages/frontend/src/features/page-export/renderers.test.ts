@@ -2,10 +2,11 @@ import JSZip from "jszip";
 import { Packer } from "docx";
 import { describe, expect, it } from "vitest";
 import type { ExportDocument, ExportImage } from "./document-model.ts";
-import { type PageExportOptions, defaultOptions } from "./export-options.ts";
+import { type PageExportOptions, TEXT_SIZES, defaultOptions } from "./export-options.ts";
+import { INLINE_MATH_EM_PX } from "./print-style.ts";
 import { docxDocument } from "./render-docx.ts";
 import { escapeXml, odfText, odtBytes, odtFiles } from "./render-odt.ts";
-import { pdfDefinition } from "./render-pdf.ts";
+import { pdfLayout } from "./render-pdf.ts";
 
 /// A 1x1 PNG.
 const PNG = Uint8Array.from(
@@ -67,6 +68,8 @@ const options = (patch: Partial<PageExportOptions> = {}): PageExportOptions => (
   ...patch,
 });
 
+const pdfDefinition = (d: ExportDocument, o: PageExportOptions) => pdfLayout(d, o).definition;
+
 describe("pdfDefinition", () => {
   it("puts the title on top only when asked", () => {
     const withTitle = pdfDefinition(doc, options({ includeTitle: true }));
@@ -102,6 +105,36 @@ describe("pdfDefinition", () => {
     expect(JSON.stringify(pdfDefinition(math, options()).content)).toContain(
       '"text":"A ∧ 𝔹","italics":true,"font":"Math"',
     );
+  });
+
+  it("leaves room in the line for a drawn inline formula, which is placed over it", () => {
+    const formula: ExportImage = { png: PNG, width: 16, height: 40, depth: 12 };
+    const math: ExportDocument = {
+      title: "",
+      blocks: [
+        {
+          kind: "paragraph",
+          runs: [
+            { kind: "text", text: "so " },
+            { kind: "math", latex: "\\frac{a}{b}", image: formula },
+          ],
+        },
+      ],
+    };
+    const { definition, formulas } = pdfLayout(math, options());
+    const content = JSON.stringify(definition.content);
+    expect(content).toContain('"link":"nookly-formula:0"');
+    expect(content).not.toContain("frac");
+    const pt = TEXT_SIZES[options().textSize].points / INLINE_MATH_EM_PX;
+    expect(formulas).toEqual([
+      {
+        image: formula,
+        width: 16 * pt,
+        ascent: 28 * pt,
+        depth: 12 * pt,
+        fontSize: expect.any(Number),
+      },
+    ]);
   });
 
   it("embeds drawn figures and shows the source of one that could not be drawn", () => {
@@ -151,6 +184,29 @@ describe("docxDocument", () => {
   it("packs the figure as a picture", async () => {
     const zip = await JSZip.loadAsync(await Packer.toBuffer(docxDocument(doc, options())));
     expect(Object.keys(zip.files).some((name) => name.startsWith("word/media/"))).toBe(true);
+  });
+
+  it("writes inline math as a Word equation, and as its picture where Word can't read it", async () => {
+    const xml = await docxXml(
+      {
+        title: "",
+        blocks: [
+          {
+            kind: "paragraph",
+            runs: [
+              { kind: "text", text: "so " },
+              { kind: "math", latex: "\\frac{x}{y} + \\sum_{i=1}^{n} i", image },
+              { kind: "math", latex: "\\R", image },
+            ],
+          },
+        ],
+      },
+      options(),
+    );
+    expect(xml).toContain("<m:oMath>");
+    expect(xml).toContain("<m:f>");
+    expect(xml).toContain('<m:chr m:val="∑"/>');
+    expect(xml.match(/<w:drawing>/g)).toHaveLength(1);
   });
 });
 

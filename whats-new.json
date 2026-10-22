@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "0.42.1",
+      "date": "2026-10-22",
+      "title": "Sharper formulas and plots",
+      "summary": "Exported formulas look like the ones in your notes, and plots read more easily.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too.",
+          "The legend in the corner of a plot is larger and easier to read."
+        ],
+        "Fixed": [
+          "Inline math in PDF exports and the export preview is drawn as real formulas, and Word files get real equations you can edit."
+        ]
+      }
+    },
+    {
       "version": "0.42.0",
       "date": "2026-10-21",
       "title": "Plots",

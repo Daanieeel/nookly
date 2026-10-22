@@ -8,7 +8,7 @@
 /// a = 3                 a constant the other lines can use
 /// A = (2, f(2))         a point
 /// x = 4                 a vertical line
-/// x: -5..5              the window (each axis optional)
+/// window: -5..5, -2..8  the window across, then up and down (optional)
 /// # a comment
 /// ```
 
@@ -279,12 +279,15 @@ type Line =
   | { kind: "constant"; name: string; body: string }
   | { kind: "point"; name: string; body: [string, string] }
   | { kind: "vertical"; label: string; body: string }
-  | { kind: "window"; axis: "x" | "y"; from: string; to: string };
+  | { kind: "window"; ranges: { axis: "x" | "y"; from: string; to: string }[] };
 
 const NAME = String.raw`[\p{L}_][\p{L}_\d]*`;
 const FUNCTION_HEAD = new RegExp(String.raw`^(${NAME})\s*\(\s*(${NAME})\s*\)$`, "u");
 const PLAIN_NAME = new RegExp(`^${NAME}$`, "u");
-const WINDOW = /^([xy])\s*:\s*(.+?)\s*\.\.\s*(.+)$/;
+const WINDOW = /^window\s*:\s*(.+)$/;
+/// The first plots set each axis on its own line, `x: -5..5`, which still reads.
+const AXIS_WINDOW = /^([xy])\s*:\s*(.+)$/;
+const RANGE = /^(.+?)\s*\.\.\s*(.+)$/;
 
 /// `(a, b)` as its two parts, `null` when `text` is not one bracket around a list.
 function tuple(text: string): string[] | null {
@@ -313,11 +316,43 @@ function point(name: string, body: string): Line {
   return { kind: "point", name, body: [parts[0] ?? "", parts[1] ?? ""] };
 }
 
+/// `-5..5` as its two ends.
+function range(axis: "x" | "y", text: string) {
+  const ends = RANGE.exec(text.trim());
+  if (!ends) throw new PlotError("the window is written like -10..10");
+  return { axis, from: ends[1] ?? "", to: ends[2] ?? "" };
+}
+
+/// `text` split at the commas outside brackets.
+function topLevelParts(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (c === "," && depth === 0) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
 function readLine(text: string): Line {
   const window = WINDOW.exec(text);
   if (window) {
-    const axis = window[1] === "y" ? "y" : "x";
-    return { kind: "window", axis, from: window[2] ?? "", to: window[3] ?? "" };
+    const parts = topLevelParts(window[1] ?? "");
+    if (parts.length > 2) throw new PlotError("the window is written like -10..10, -5..5");
+    const axes = ["x", "y"] as const;
+    return { kind: "window", ranges: parts.map((part, i) => range(axes[i] ?? "x", part)) };
+  }
+  const axisWindow = AXIS_WINDOW.exec(text);
+  if (axisWindow) {
+    const axis = axisWindow[1] === "y" ? "y" : "x";
+    return { kind: "window", ranges: [range(axis, axisWindow[2] ?? "")] };
   }
   const equals = text.indexOf("=");
   if (equals < 0) {
@@ -482,14 +517,15 @@ export function parsePlot(source: string): Plot {
       case "vertical":
         plot.verticals.push({ label: parsed.label, x: value(parsed.body, line) });
         break;
-      case "window": {
-        const range: [number, number] = [value(parsed.from, line), value(parsed.to, line)];
-        if (!(range[0] < range[1])) {
-          throw lineError(line, "the window must go from smaller to larger");
+      case "window":
+        for (const { axis, from, to } of parsed.ranges) {
+          const ends: [number, number] = [value(from, line), value(to, line)];
+          if (!(ends[0] < ends[1])) {
+            throw lineError(line, "the window must go from smaller to larger");
+          }
+          plot.window[axis] = ends;
         }
-        plot.window[parsed.axis] = range;
         break;
-      }
     }
   }
   return plot;

@@ -17,6 +17,7 @@ import {
   TextRun,
   WidthType,
 } from "docx";
+import { Math as WordMath, latexToMath } from "docx/math";
 import type {
   ExportBlock,
   ExportDocument,
@@ -41,6 +42,16 @@ import {
   columnWidths,
   fitImage,
 } from "./print-style.ts";
+
+/// The formula as a Word equation, which Word draws and lets the reader edit, or null for
+/// one with a command Word's reader doesn't know (a KaTeX alias, the user's own).
+function wordEquation(latex: string): WordMath | null {
+  try {
+    return new WordMath({ children: latexToMath(latex) });
+  } catch {
+    return null;
+  }
+}
 
 /// Word measures pages in twentieths of a point, text in half points and images in pixels.
 const twips = (points: number) => Math.round(points * 20);
@@ -80,6 +91,8 @@ export function docxDocument(doc: ExportDocument, options: PageExportOptions): D
   const runs = (items: Run[], base: Omit<RunStyle, "text"> = {}): ParagraphChild[] =>
     items.flatMap((run): ParagraphChild[] => {
       if (run.kind === "math") {
+        const equation = wordEquation(run.latex);
+        if (equation) return [equation];
         if (!run.image) return textRuns(run.latex, { ...base, italics: true, font: FONTS.mono });
         const scale = size / PX_TO_PT / INLINE_MATH_EM_PX;
         return [

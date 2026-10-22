@@ -1038,8 +1038,9 @@ inventory::submit! {
         content_format: "Functions, points and lines in a coordinate system, one per line \
                          (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression \
                          in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" \
-                         a point, \"x = 4\" a vertical line. \"x: -5..5\" and \"y: -2..8\" set the window, \
-                         each optional; without them it shows -10 to 10 across at one scale for both axes. \
+                         a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \
+                         \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across \
+                         at one scale for both axes. \
                          + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, \
                          atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         attrs: &[VIEW_ATTR],

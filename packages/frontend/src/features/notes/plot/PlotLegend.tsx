@@ -6,7 +6,7 @@ export function PlotLegend() {
     <CodeLegend
       summary={
         <>
-          <code>f(x) = x^2 - 2</code> · <code>A = (1, 2)</code> · <code>x: -5..5</code> window
+          <code>f(x) = x^2 - 2</code> · <code>A = (1, 2)</code> · <code>window: -5..5</code>
         </>
       }
     >
@@ -15,8 +15,8 @@ export function PlotLegend() {
         <code>x^3</code>. A constant the other lines can use: <code>a = 3</code>.
       </p>
       <p>
-        A point: <code>A = (2, f(2))</code>. A vertical line: <code>x = 4</code>. The window:{" "}
-        <code>x: -5..5</code> and <code>y: -2..8</code>, each optional.
+        A point: <code>A = (2, f(2))</code>. A vertical line: <code>x = 4</code>. The window, across
+        and optionally up and down: <code>window: -5..5</code> or <code>window: -5..5, -2..8</code>.
       </p>
       <p>
         <code>+ - * / ^</code>, brackets, <code>2x</code> for 2 times x, <code>pi</code>,{" "}

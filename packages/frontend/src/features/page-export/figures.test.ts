@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fileUrl, svgSize } from "./figure-renderers.ts";
+import { fileUrl, svgDepth, svgSize } from "./figure-renderers.ts";
 import { mathJaxMacros, texToSvg } from "./mathjax-svg.ts";
 
 const svgOf = (markup: string) => {
@@ -58,6 +58,16 @@ describe("svgSize", () => {
       height: 120,
     });
     expect(svgSize(svgOf('<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBeNull();
+  });
+});
+
+describe("svgDepth", () => {
+  it("reads how far a formula reaches below the line, in pixels", () => {
+    expect(svgDepth(svgOf(texToSvg("\\frac{a}{b}", false, {})))).toBeGreaterThan(4);
+    expect(
+      svgDepth(svgOf('<svg xmlns="http://www.w3.org/2000/svg" style="vertical-align: -0.5ex"/>')),
+    ).toBe(4);
+    expect(svgDepth(svgOf('<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBe(0);
   });
 });
 

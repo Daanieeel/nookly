@@ -83,6 +83,7 @@
     "mathjax-full": "3.2.2",
     "mermaid": "^12",
     "motion": "^14.3.0",
+    "pdf-lib": "1.17.1",
     "pdfmake": "0.3.12",
     "prettier": "^3.9.10",
     "react-flagpack": "^2.0.6",

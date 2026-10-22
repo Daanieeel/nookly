@@ -23,6 +23,7 @@ import {
   COLORS,
   HEADING_SCALE,
   HIGHLIGHT_FILLS,
+  INLINE_MATH_EM_PX,
   TEXT_COLOR_FILLS,
   TITLE_SCALE,
   fitImage,
@@ -48,6 +49,58 @@ function mathRuns(text: string): ContentText[] {
 }
 
 const hex = (color: string) => `#${color}`;
+
+/// Inter's regular face as pdfkit measures it, per point of font size: how far it reaches
+/// above and below the baseline, and how wide a no break space is.
+export const BODY_METRICS = { ascent: 0.96875, descent: 0.2412109375, space: 0.28125 } as const;
+
+const LINE_HEIGHT = 1.3;
+
+/// A drawn inline formula, in points, and the size of the room left for it in the text.
+export interface InlineFormula {
+  image: ExportImage;
+  width: number;
+  ascent: number;
+  depth: number;
+  /// The font size of the placeholder, whose top and this give the baseline.
+  fontSize: number;
+}
+
+export interface PdfLayout {
+  definition: TDocumentDefinitions;
+  formulas: InlineFormula[];
+}
+
+/// The link that marks a formula's room, for `placeFormulas` to find and replace.
+export const formulaLink = (index: number) => `nookly-formula:${index}`;
+
+/// Room in the line for a drawn formula: two invisible no break spaces as wide as the
+/// formula, sized to reach as far above the baseline and set tall enough to reach as far
+/// below it. pdfmake can't place a picture inside a line of text, so `placeFormulas` draws
+/// the formula over this room once the lines are laid out.
+function formulaRoom(formula: Omit<InlineFormula, "fontSize">, size: number, index: number) {
+  const { ascent, descent, space } = BODY_METRICS;
+  const fontSize = Math.max(size, formula.ascent / ascent);
+  const below = formula.depth + size * 0.2;
+  return {
+    formula: { ...formula, fontSize },
+    run: {
+      text: "\u00a0\u00a0",
+      font: PDF_FONTS.body,
+      bold: false,
+      italics: false,
+      fontSize,
+      characterSpacing: formula.width - 2 * space * fontSize,
+      lineHeight: Math.max(
+        LINE_HEIGHT,
+        (ascent * fontSize + below) / ((ascent + descent) * fontSize),
+      ),
+      link: formulaLink(index),
+      preserveLeadingSpaces: true,
+      preserveTrailingSpaces: true,
+    } satisfies ContentText,
+  };
+}
 
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -96,23 +149,39 @@ const tableLayout = (header: boolean, lines: "rows" | "grid"): CustomTableLayout
         paddingBottom: () => 4,
       };
 
-/// Lays the page out as a pdfmake document. Pure: the fonts and the PDF bytes come in
-/// `pdf-file.ts`, so this stays testable without a renderer.
-export function pdfDefinition(
-  doc: ExportDocument,
-  options: PageExportOptions,
-): TDocumentDefinitions {
+/// Lays the page out as a pdfmake document, with the inline formulas to draw over it. Pure:
+/// the fonts and the PDF bytes come in `pdf-file.ts`, so this stays testable without a
+/// renderer.
+export function pdfLayout(doc: ExportDocument, options: PageExportOptions): PdfLayout {
   const size = TEXT_SIZES[options.textSize].points;
   const margin = MARGINS[options.margins].points;
   const page = pageDimensions(options);
   const contentWidth = page.width - margin * 2;
   const contentHeight = page.height - margin * 2;
+  const formulas: InlineFormula[] = [];
+  /// Formula pictures are drawn at `INLINE_MATH_EM_PX` to the em of the body text.
+  const pt = size / INLINE_MATH_EM_PX;
 
   const runs = (items: Run[]): ContentText[] =>
     items.flatMap((run): ContentText[] => {
-      // pdfmake can't place a picture inside a line of text: inline math is spelled out in
-      // text where it can be, and shown as TeX where it can't.
-      if (run.kind === "math") return mathRuns(latexToText(run.latex) ?? run.latex);
+      if (run.kind === "math") {
+        // A formula that could not be drawn is spelled out in text where it can be, and
+        // shown as TeX where it can't.
+        if (!run.image) return mathRuns(latexToText(run.latex) ?? run.latex);
+        const depth = (run.image.depth ?? 0) * pt;
+        const room = formulaRoom(
+          {
+            image: run.image,
+            width: run.image.width * pt,
+            ascent: run.image.height * pt - depth,
+            depth,
+          },
+          size,
+          formulas.length,
+        );
+        formulas.push(room.formula);
+        return [room.run];
+      }
       return [
         {
           text: run.text,
@@ -273,7 +342,7 @@ export function pdfDefinition(
                 font: PDF_FONTS.mono,
                 fontSize: size * CODE_SCALE,
                 preserveLeadingSpaces: true,
-                lineHeight: 1.3,
+                lineHeight: LINE_HEIGHT,
               },
             ],
           },
@@ -381,14 +450,14 @@ export function pdfDefinition(
     ? [{ text: doc.title, fontSize: size * TITLE_SCALE, bold: true, margin: [0, 0, 0, size * 0.9] }]
     : [];
 
-  return {
+  const definition: TDocumentDefinitions = {
     info: { title: doc.title, creator: "Nookly" },
     pageSize: { width: page.width, height: page.height },
     pageMargins: margin,
     defaultStyle: {
       font: PDF_FONTS.body,
       fontSize: size,
-      lineHeight: 1.3,
+      lineHeight: LINE_HEIGHT,
       color: hex(COLORS.text),
     },
     // A heading never ends a page: it moves to the next one with the text it heads.
@@ -396,4 +465,5 @@ export function pdfDefinition(
       node.headlineLevel !== undefined && following.getFollowingNodesOnPage().length === 0,
     content: [...title, ...doc.blocks.map(block)],
   };
+  return { definition, formulas };
 }

@@ -207,18 +207,21 @@ export function drawPlot(
     })),
   ];
   if (entries.length > 0) {
-    const rowHeight = 18;
+    // A fifth larger than the axis numbers, so it reads at a glance.
+    const scale = 1.2;
+    const rowHeight = 18 * scale;
+    const pad = 4 * scale;
     const longest = Math.max(...entries.map((e) => e.label.length));
-    const boxWidth = Math.min(width - 16, 34 + longest * 6.6);
+    const boxWidth = Math.min(width - 16, (34 + longest * 6.6) * scale);
     out.push(
-      `<rect x="8" y="8" width="${n(boxWidth)}" height="${entries.length * rowHeight + 8}" rx="6" ` +
+      `<rect x="8" y="8" width="${n(boxWidth)}" height="${n(entries.length * rowHeight + pad * 2)}" rx="6" ` +
         `style="fill: ${page}" fill-opacity="0.9" stroke="currentColor" stroke-opacity="0.15"/>`,
     );
     entries.forEach((entry, i) => {
-      const y = 8 + 4 + i * rowHeight + rowHeight / 2;
+      const y = 8 + pad + i * rowHeight + rowHeight / 2;
       out.push(
-        `<line x1="16" y1="${y}" x2="30" y2="${y}" stroke="${entry.color}" stroke-width="2.5" stroke-linecap="round"/>`,
-        `<text x="36" y="${y + 4}" fill="currentColor" stroke="none" font-size="12">${escapeXml(entry.label)}</text>`,
+        `<line x1="${n(8 + 8 * scale)}" y1="${n(y)}" x2="${n(8 + 22 * scale)}" y2="${n(y)}" stroke="${entry.color}" stroke-width="${n(2.5 * scale)}" stroke-linecap="round"/>`,
+        `<text x="${n(8 + 28 * scale)}" y="${n(y + 4 * scale)}" fill="currentColor" stroke="none" font-size="${n(12 * scale)}">${escapeXml(entry.label)}</text>`,
       );
     });
   }
