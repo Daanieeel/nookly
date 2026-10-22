@@ -58,7 +58,7 @@
     {
       "layers" : [
         {
-          "glass" : false,
+          "glass" : true,
           "image-name" : "flames.png",
           "name" : "flames",
           "position" : {

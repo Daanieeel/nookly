@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.42.3"
+version = "0.42.4"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
@@ -111,6 +111,7 @@ tauri = { version = "2", features = ["protocol-asset", "test"] }
 objc2 = "0.6"
 block2 = "0.6"
 objc2-foundation = { version = "0.3", features = [
+  "NSBundle",
   "NSData",
   "NSDictionary",
   "NSError",
@@ -120,6 +121,8 @@ objc2-foundation = { version = "0.3", features = [
   "NSArray",
 ] }
 objc2-app-kit = { version = "0.3", features = [
+  "NSApplication",
+  "NSResponder",
   "NSImage",
   "NSImageRep",
   "NSBitmapImageRep",

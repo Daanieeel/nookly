@@ -347,8 +347,15 @@ pub fn run() {
             commands::agent_files::reveal_agent_dir,
             commands::settings_file::open_settings_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app, _event| {
+            // Tauri sets `icon.png` as the dev dock icon on `Ready`, so ours goes after it.
+            #[cfg(all(target_os = "macos", debug_assertions))]
+            if let tauri::RunEvent::Ready = _event {
+                set_dev_dock_icon();
+            }
+        });
 }
 
 /// Installs a panic hook that appends a human-readable record to
@@ -374,6 +381,29 @@ fn install_panic_hook() {
             }
         }
     }));
+}
+
+/// Shows the Icon Composer icon in the dock during `tauri dev`, which runs the bare
+/// binary and would otherwise show `icon.png`. `build.rs` compiles it into a bundle.
+#[cfg(all(target_os = "macos", debug_assertions))]
+fn set_dev_dock_icon() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSBundleImageExtension};
+    use objc2_foundation::{NSBundle, NSString};
+
+    let Some(path) = option_env!("NOOKLY_DEV_ICON_BUNDLE") else {
+        return;
+    };
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let Some(image) = NSBundle::bundleWithPath(&NSString::from_str(path))
+        .and_then(|bundle| bundle.imageForResource(&NSString::from_str("Nookly")))
+    else {
+        return;
+    };
+    // SAFETY: called on the main thread with a valid image.
+    unsafe { NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image)) };
 }
 
 /// WKWebView's own pinch-to-zoom (magnifying the whole page) fights with the
