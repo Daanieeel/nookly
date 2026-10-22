@@ -46,6 +46,12 @@ describe("drawPlot", () => {
     expect(text).toEqual(expect.arrayContaining(["f(x) = x^2 - 2", "y = 2x", "A", "2", "-4"]));
   });
 
+  it("draws the legend a fifth larger than the axis numbers", () => {
+    const svg = svgOf(drawPlot(parsePlot("y = 2x"), false));
+    const label = [...svg.querySelectorAll("text")].find((t) => t.textContent === "y = 2x");
+    expect(label?.getAttribute("font-size")).toBe("14.4");
+  });
+
   it("lifts the pen at a pole instead of drawing a wall", () => {
     const svg = svgOf(drawPlot(parsePlot("y = tan(x)"), false));
     const d = svg.querySelector("path[data-function]")?.getAttribute("d") ?? "";

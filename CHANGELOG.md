@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.42.1 (2026-10-22)
+
+### Changed
+
+- **Plot window.** Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too.
+- **Plot legend.** The legend in the corner of a plot is larger and easier to read.
+
+### Fixed
+
+- **Formulas in PDF and Word exports.** Inline math in PDFs is now drawn as real formulas, with proper fractions and sums, and the export preview shows them that way too. Word files get real Word equations you can edit.
+
 ## 0.42.0 (2026-10-21)
 
 ### Added

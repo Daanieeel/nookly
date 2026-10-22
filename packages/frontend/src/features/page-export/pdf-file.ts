@@ -9,7 +9,7 @@ import monoBoldItalic from "@expo-google-fonts/source-code-pro/700Bold_Italic/So
 import mathRegular from "@expo-google-fonts/noto-sans-math/400Regular/NotoSansMath_400Regular.ttf?url";
 import type { ExportDocument } from "./document-model.ts";
 import type { PageExportOptions } from "./export-options.ts";
-import { PDF_FONTS, bytesToBase64, pdfDefinition } from "./render-pdf.ts";
+import { PDF_FONTS, bytesToBase64, pdfLayout } from "./render-pdf.ts";
 
 /// The fonts the PDF embeds, bundled with the app (it runs offline) and full, not a latin
 /// subset, so Greek, Cyrillic and accented text print too. TrueType, not WOFF2: the PDF
@@ -73,6 +73,8 @@ export async function pdfBytes(
   options: PageExportOptions,
 ): Promise<Uint8Array> {
   const pdfMake = await loadPdfMake();
-  const buffer = await pdfMake.createPdf(pdfDefinition(doc, options)).getBuffer();
-  return new Uint8Array(buffer);
+  const { definition, formulas } = pdfLayout(doc, options);
+  const bytes = new Uint8Array(await pdfMake.createPdf(definition).getBuffer());
+  if (formulas.length === 0) return bytes;
+  return (await import("./pdf-formulas.ts")).placeFormulas(bytes, formulas);
 }

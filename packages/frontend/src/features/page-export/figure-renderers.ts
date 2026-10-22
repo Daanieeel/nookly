@@ -42,6 +42,13 @@ export function svgSize(svg: SVGSVGElement): { width: number; height: number } |
   return null;
 }
 
+/// How far an SVG reaches below the text line: MathJax lowers a formula with a negative
+/// `vertical-align`, in `ex`.
+export function svgDepth(svg: SVGSVGElement): number {
+  const lowered = lengthPx(svg.style.verticalAlign.replace(/^-/, ""));
+  return svg.style.verticalAlign.startsWith("-") && lowered ? lowered : 0;
+}
+
 function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return new Promise((resolve, reject) =>
     canvas.toBlob((blob) => {
@@ -71,6 +78,7 @@ export async function svgToPng(markup: string): Promise<ExportImage | null> {
   if (!(svg instanceof SVGSVGElement)) return null;
   const size = svgSize(svg);
   if (!size) return null;
+  const depth = svgDepth(svg);
   svg.setAttribute("width", String(size.width));
   svg.setAttribute("height", String(size.height));
   svg.setAttribute("color", `#${COLORS.text}`);
@@ -79,7 +87,8 @@ export async function svgToPng(markup: string): Promise<ExportImage | null> {
   const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" });
   const url = URL.createObjectURL(blob);
   try {
-    return { png: await drawToPng(url, size.width, size.height, SCALE), ...size };
+    const png = await drawToPng(url, size.width, size.height, SCALE);
+    return { png, ...size, ...(depth > 0 && { depth }) };
   } finally {
     URL.revokeObjectURL(url);
   }

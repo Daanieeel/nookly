@@ -45,6 +45,11 @@ describe("parsePlot", () => {
     expect(plot.window).toEqual({ x: [-5, 5], y: [-2, 8] });
   });
 
+  it("reads the window across, and up and down after a comma", () => {
+    expect(parsePlot("window: -10..10").window).toEqual({ x: [-10, 10] });
+    expect(parsePlot("window: -5 .. 5, -2..8").window).toEqual({ x: [-5, 5], y: [-2, 8] });
+  });
+
   it("gives a value outside a function's domain as NaN, not an error", () => {
     expect(fn("y = sqrt(x)", -1)).toBeNaN();
     expect(fn("y = 1/x", 0)).toBe(Infinity);
@@ -56,6 +61,8 @@ describe("parsePlot", () => {
     ["\ny = (x", 'Line 2: a "(" is never closed'],
     ["f(x) = g(x)\ng(x) = f(x)", 'Line 1: "f" depends on itself'],
     ["x: 5..1", "Line 1: the window must go from smaller to larger"],
+    ["window: 0..4, 3..1", "Line 1: the window must go from smaller to larger"],
+    ["window: 0..4, 1", "Line 1: the window is written like -10..10"],
     ["A = (1, 2, 3)", "Line 1: a point has two coordinates"],
     ["f(x) = x\nf(x) = 2", 'Line 2: "f" is defined twice'],
     ["y = sin(1, 2)", 'Line 1: "sin" takes one value'],

@@ -10,6 +10,8 @@ export interface ExportImage {
   png: Uint8Array;
   width: number;
   height: number;
+  /// How far a formula reaches below the line of text it sits on, in CSS pixels.
+  depth?: number;
 }
 
 export interface TextRun {
