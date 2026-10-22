@@ -67,7 +67,7 @@ describe("CreateAssignmentDialog due date", () => {
     ]);
     await user.click(screen.getByRole("button", { name: "Change Due Date" }));
     await user.click(await screen.findByRole("button", { name: /^Specific session/ }));
-    await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
+    await user.click(await screen.findByRole("button", { name: /Lecture/ }));
     await user.click(screen.getByRole("button", { name: "2 days" }));
     await user.click(screen.getByRole("button", { name: /Create assignment/ }));
     await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));

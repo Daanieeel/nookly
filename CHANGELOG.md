@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.42.2 (2026-10-22)
+
+### Changed
+
+- **Picking a session for a due date.** When an assignment is due before a specific session, you now pick it from a week of your calendar, so you can see which session is which. The due date menu also always opens below the field.
+
+### Fixed
+
+- **Due before the next session.** An assignment due before the next session now stays on that session once it starts, instead of moving on to the one after it.
+
 ## 0.42.1 (2026-10-22)
 
 ### Changed
@@ -954,4 +964,3 @@ All notable changes to Nookly are listed here.
 - Update 05-ui-ux-direction.md
 - README & License
 - Update AGENTS.md
-

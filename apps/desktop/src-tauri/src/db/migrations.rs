@@ -797,6 +797,20 @@ fn all() -> Vec<M<'static>> {
         WHERE module IN ('tasks', 'tasks-overview', 'assignments', 'assignments-overview')
           AND CASE WHEN json_valid(config) THEN json_type(config, '$.filters') = 'array' ELSE 0 END;
         ",
+    ), M::up(
+        "
+        -- An assignment due before the course's next session follows the session that
+        -- was next at this local moment (`YYYY-MM-DD HH:MM`), so one that starts does not
+        -- hand the due day on to the session after it. NULL for any other due date.
+        -- Those already following the next session follow the one next right now, the
+        -- one they show today.
+        ALTER TABLE assignments ADD COLUMN due_session_after TEXT;
+        UPDATE assignments SET due_session_after = strftime('%Y-%m-%d %H:%M', 'now', 'localtime')
+        WHERE due_session_offset_days IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM relationships r
+                          WHERE r.from_entity_id = assignments.entity_id
+                            AND r.relationship_type = 'assignment-due-session');
+        ",
     )]
 }
 
@@ -1493,6 +1507,76 @@ mod overridden_fields_backfill {
 }
 
 #[cfg(test)]
+mod due_session_after_backfill {
+    use super::{MIGRATIONS, MIGRATION_COUNT};
+    use rusqlite::{params, Connection};
+
+    /// The schema version before assignments remembered when they began following the
+    /// next session.
+    const BEFORE: usize = 46;
+
+    fn assignment(conn: &Connection, id: &str, n: i64, offset: Option<i64>) {
+        conn.execute(
+            "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at)
+             VALUES ('space', 'S', '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+             VALUES (?1, 'space', 'assignment', ?1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'ASG', ?2)",
+            params![id, n],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO assignments (entity_id, due_date, status, due_session_offset_days)
+             VALUES (?1, '2026-04-01', 'not_started', ?2)",
+            params![id, offset],
+        )
+        .unwrap();
+    }
+
+    fn after(conn: &Connection, id: &str) -> Option<String> {
+        conn.query_row(
+            "SELECT due_session_after FROM assignments WHERE entity_id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn only_assignments_following_the_next_session_get_the_upgrade_moment() {
+        assert!(*MIGRATION_COUNT > BEFORE);
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        assignment(&conn, "next", 1, Some(2));
+        assignment(&conn, "picked", 2, Some(0));
+        assignment(&conn, "fixed", 3, None);
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+             VALUES ('s', 'space', 'session', 'S', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'SES', 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at)
+             VALUES ('r', 'picked', 's', 'assignment-due-session', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        let before = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        let next = after(&conn, "next").expect("the upgrade moment");
+        assert!(next >= before && next.len() == 16, "{next}");
+        assert_eq!(after(&conn, "picked"), None);
+        assert_eq!(after(&conn, "fixed"), None);
+    }
+}
+
+#[cfg(test)]
 mod history {
     use super::all;
     use std::collections::hash_map::DefaultHasher;
@@ -1558,6 +1642,7 @@ mod history {
         0x1997bcb69ec851a0,
         0x6e30f1a43205502b,
         0xafdae1e221857ce0,
+        0x1500e2b69ba5ee38,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

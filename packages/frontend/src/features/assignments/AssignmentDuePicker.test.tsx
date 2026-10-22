@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { formatDate } from "#/lib/datetime.ts";
 import { makeAssignment, makeEntity, makeSession } from "#/test/fixtures.ts";
@@ -104,7 +104,11 @@ describe("AssignmentDuePicker", () => {
   });
 
   describe("specific session", () => {
-    const course = makeEntity({ id: "course-1", type: "course", title: "Algo" });
+    const course = makeEntity({
+      id: "course-1",
+      type: "course",
+      title: "Algo",
+    });
     const rel = (from: string) => ({
       id: `rel-${from}`,
       fromEntityId: from,
@@ -136,13 +140,31 @@ describe("AssignmentDuePicker", () => {
       ]);
     }
 
-    it("lists only the course's upcoming sessions and follows the one picked", async () => {
+    it("opens on the week of the next session, with only the course's upcoming sessions", async () => {
+      backend();
+      const { user } = await open();
+      await user.click(screen.getByRole("button", { name: /^Specific session/ }));
+      const week = await screen.findByRole("region", {
+        name: "Upcoming sessions",
+      });
+      expect(within(week).getByRole("button", { name: /Graphs/ })).toBeInTheDocument();
+      expect(within(week).queryByRole("button", { name: /Dynamic programming/ })).toBeNull();
+      expect(screen.getByRole("button", { name: "Previous week" })).toBeDisabled();
+      await expectNoA11yViolations();
+    });
+
+    it("steps through the weeks up to the last upcoming session and picks one", async () => {
       backend();
       const { onSelect, user } = await open();
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
-      const list = await screen.findByRole("list", { name: "Upcoming sessions" });
-      expect(list.querySelectorAll("li")).toHaveLength(2);
-      await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
+      await screen.findByRole("button", { name: /Graphs/ });
+      await user.click(screen.getByRole("button", { name: "Next week" }));
+      expect(screen.getByRole("button", { name: "Next week" })).toBeDisabled();
+      await user.click(screen.getByRole("button", { name: /Dynamic programming/ }));
+      expect(screen.getByRole("button", { name: /Dynamic programming/ })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
       await user.click(screen.getByRole("button", { name: "Day of" }));
       expect(onSelect).toHaveBeenCalledWith({
         kind: "session",
@@ -151,19 +173,31 @@ describe("AssignmentDuePicker", () => {
       });
     });
 
-    it("shows each session's name next to its date", async () => {
+    it("opens on the week of the session it already follows", async () => {
       backend();
-      const { user } = await open();
+      const { user } = await open(
+        makeAssignment({ dueSessionId: "s-later", dueSessionOffsetDays: 1 }),
+      );
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
-      expect(await screen.findByText("Graphs")).toBeInTheDocument();
-      expect(screen.getByText("Dynamic programming")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: /Dynamic programming/ })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    it("opens below the field", async () => {
+      await open();
+      expect(screen.getByRole("dialog", { name: "Due date" })).toHaveAttribute(
+        "data-side",
+        "bottom",
+      );
     });
 
     it("offers the same spans as the next session, one click for a common one", async () => {
       backend();
       const { onSelect, user } = await open();
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
-      await user.click(await screen.findByRole("button", { name: /Mar 12/ }));
+      await user.click(await screen.findByRole("button", { name: /Graphs/ }));
       await user.click(screen.getByRole("button", { name: "1 week" }));
       expect(onSelect).toHaveBeenCalledWith({
         kind: "session",
@@ -176,7 +210,7 @@ describe("AssignmentDuePicker", () => {
       backend();
       const { onSelect, user } = await open();
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
-      await user.click(await screen.findByRole("button", { name: /Mar 12/ }));
+      await user.click(await screen.findByRole("button", { name: /Graphs/ }));
       const days = screen.getByRole("spinbutton");
       await user.clear(days);
       await user.type(days, "2");
@@ -192,7 +226,7 @@ describe("AssignmentDuePicker", () => {
       backend();
       const { onSelect, user } = await open();
       await user.click(screen.getByRole("button", { name: /^Specific session/ }));
-      await screen.findByRole("list", { name: "Upcoming sessions" });
+      await screen.findByRole("button", { name: /Graphs/ });
       expect(screen.getByRole("button", { name: "1 week" })).toBeDisabled();
       expect(screen.getByRole("button", { name: "Set" })).toBeDisabled();
       expect(onSelect).not.toHaveBeenCalled();
@@ -213,7 +247,11 @@ describe("AssignmentDuePicker", () => {
       const onSelect = vi.fn<(due: AssignmentDue) => void>();
       const { user } = renderWithProviders(
         <DuePicker
-          value={{ dueDate: null, dueSessionOffsetDays: null, dueSessionId: null }}
+          value={{
+            dueDate: null,
+            dueSessionOffsetDays: null,
+            dueSessionId: null,
+          }}
           spaceId="space-1"
           onSelect={onSelect}
         >
