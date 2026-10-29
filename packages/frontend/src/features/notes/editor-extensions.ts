@@ -33,6 +33,7 @@ import { Highlight } from "./highlight-extension";
 import { TextColor } from "./text-color-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
+import { DuplicateLine } from "./duplicate-line-extension";
 import { TabIndent } from "./tab-indent-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -110,6 +111,7 @@ export function editorExtensions({
     Mention.configure({ getEntities, hasPages, sessionOf }),
     Emoji,
     TabIndent,
+    DuplicateLine,
     Callout,
     Timeline,
     Progress,

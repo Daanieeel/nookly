@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.46.0 (2026-10-29)
+
+### Added
+
+- **Duplicate a line.** Press Cmd+D, or Ctrl+D on Windows and Linux, in a page to copy the current line right below it. It works for text, list entries, tasks and lines of code, and one undo takes the copy away. The shortcut is listed in Settings under Shortcuts.
+
 ## 0.45.0 (2026-10-29)
 
 ### Added

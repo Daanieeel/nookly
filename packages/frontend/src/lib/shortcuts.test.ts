@@ -233,6 +233,13 @@ describe("fixed shortcuts", () => {
     }
   });
 
+  it("lists Duplicate the current line on Mod+D, for pages only", () => {
+    const duplicate = FIXED_SHORTCUTS.find((f) => f.label.startsWith("Duplicate the current line"));
+    expect(duplicate?.keys).toEqual(["Mod+D"]);
+    expect(duplicate?.scopes).toEqual(["page"]);
+    expect(findConflict({ ...HOTKEYS }, "findInPage", "Mod+D")?.kind).toBe("fixed");
+  });
+
   it("cannot be taken by a default", () => {
     const names: ShortcutName[] = [...SHORTCUT_NAMES];
     expect(names.every((n) => findConflict({ ...HOTKEYS }, n, HOTKEYS[n]) === null)).toBe(true);

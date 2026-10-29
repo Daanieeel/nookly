@@ -378,6 +378,7 @@ export const FIXED_SHORTCUTS: FixedShortcut[] = [
   { label: "Open the context menu", keys: ["ContextMenu", "Shift+F10"], scopes: GLOBAL },
   { label: "Submit a form or a card", keys: ["Mod+Enter"], scopes: GLOBAL },
   { label: "Highlight the selected text in a page", keys: ["Mod+Shift+H"], scopes: GLOBAL },
+  { label: "Duplicate the current line in a page", keys: ["Mod+D"], scopes: ["page"] },
   {
     label: "Move between rows",
     keys: ["ArrowUp", "ArrowDown", "J", "K"],

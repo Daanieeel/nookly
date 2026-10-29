@@ -1,6 +1,20 @@
 {
   "versions": [
     {
+      "version": "0.46.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Duplicate a line",
+          "description": "Press the shortcut in a page to copy the line you are on right below it, for text, list entries, tasks and code.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+D"]
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.45.0",
       "date": "2026-10-29",
       "highlights": [
