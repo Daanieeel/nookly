@@ -162,9 +162,9 @@ registerActions("entity", [
   {
     id: "copy-link",
     group: "share",
-    label: "Copy Link",
+    label: "Copy Mention",
     icon: IconLink,
-    successLabel: "Link copied",
+    successLabel: "Mention copied",
     run: ({ entity }) => copyEntityLink(entity),
   },
   {

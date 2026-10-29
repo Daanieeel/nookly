@@ -6,7 +6,7 @@ import { actionsFor } from "./registry.ts";
 import "./entity-actions.tsx";
 
 describe("the right click Copy ID", () => {
-  it("sits directly below Copy Link", () => {
+  it("sits directly below Copy Mention", () => {
     const ids = actionsFor("entity").map((a) => a.id);
     expect(ids.indexOf("copy-id")).toBe(ids.indexOf("copy-link") + 1);
   });

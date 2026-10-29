@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.43.1 (2026-10-29)
+
+### Changed
+
+- **Copy Mention.** Copy Link on an item is now called Copy Mention, and Copy Link to Block is now Copy Mention for Block, because that is what they put on your clipboard.
+
 ## 0.43.0 (2026-10-29)
 
 ### Added

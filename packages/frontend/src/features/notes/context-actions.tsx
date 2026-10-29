@@ -242,9 +242,9 @@ registerActions("note.block", [
   {
     id: "copy-block-link",
     group: "share",
-    label: "Copy Link to Block",
+    label: "Copy Mention for Block",
     icon: IconLink,
-    successLabel: "Link copied",
+    successLabel: "Mention copied",
     run: async ({ blockId, entityId, resolveStoredId }, helpers) => {
       const [storedId, entity] = await Promise.all([
         resolveStoredId(blockId),
