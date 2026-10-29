@@ -40,6 +40,7 @@ import { TextColorBar } from "./TextColorBar";
 import { TableControls } from "./TableControls";
 import { VimIndicator } from "./VimIndicator";
 import { FindBar, selectedSearchText } from "./FindBar";
+import { selectQuote } from "./quote-range";
 import { tablePartElements } from "./table-part-focus";
 import { misspelledWordAt } from "../spellcheck/spellcheck-extension";
 import { TableColumnHandles } from "./TableColumnHandles";
@@ -370,7 +371,7 @@ function HydratedBlockEditor({
   useEffect(() => {
     // A page of a file is for the file viewer, not for a page's editor.
     if (!editor || focusBlock?.entityId !== entityId || !focusBlock.blockId) return;
-    const { blockId, row, column } = focusBlock;
+    const { blockId, row, column, quote } = focusBlock;
     // Blocks created earlier in this editor session still carry their client
     // id, so map the server id back first.
     const clientId = [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId;
@@ -427,9 +428,12 @@ function HydratedBlockEditor({
         element.scrollIntoView({ block: "center" });
         // `Selection.near` finds the first text position inside the block, which
         // for a table is its first cell rather than the table node itself.
-        const { state } = editor.view;
-        const start = Math.min(pos + 1, state.doc.content.size);
-        editor.view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(start))));
+        // A link to selected text selects it; when the text has changed, the block is shown.
+        if (!quote || !selectQuote(editor.view, pos, quote)) {
+          const { state } = editor.view;
+          const start = Math.min(pos + 1, state.doc.content.size);
+          editor.view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(start))));
+        }
         editor.commands.focus(null, { scrollIntoView: false });
       }, 300);
     }

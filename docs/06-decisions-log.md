@@ -455,3 +455,13 @@ Words added with Add to Dictionary go to `dictionary.json` in the app data folde
 **Why:** a list that grows without bound does not belong in `settings.json`, and a plain file can be edited, shared and backed up by hand, which a row of chips in Settings could not.
 
 **Rejected:** keeping the words in a setting with a management row (it grows without limit and every word saved rewrites all settings).
+
+---
+
+### A mention of selected text carries the text, not its place
+
+`[cat](mention:NOT-58#<block>_q<text>)` points at a piece of text in a block. The fragment is the block, `_q`, and the text as base64url (at most 120 characters, the start of a longer selection), which fits the characters a fragment already allows, so the backlink index, rename sync and the Rust patterns did not change. Opening it finds the text in the block again, across formatting and list items, and selects it; if the text is gone, the block is shown as for any block link. Copy Mention for Selection and Copy Link for Selection sit in their own group above the block copies.
+
+**Why:** a character offset would point somewhere else after the first edit above it, while the text itself still finds its way.
+
+**Rejected:** offsets into the block (they break on every edit) and a fragment per selection stored in the database (a new table for a link).

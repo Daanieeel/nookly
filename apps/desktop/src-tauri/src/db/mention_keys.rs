@@ -165,6 +165,33 @@ mod tests {
     }
 
     #[test]
+    fn a_mention_of_selected_text_keeps_its_fragment_and_its_backlink() {
+        let f = fixture();
+        // The fragment is the block, `_q`, and the text as base64url: "Wahrscheinlichkeit grösser".
+        let fragment = "blk-1_qV2FocnNjaGVpbmxpY2hrZWl0IGdyw7ZzZXI";
+        let block = add(
+            &f,
+            "paragraph",
+            &format!("[text](mention:{}#{fragment})", f.target.key),
+        );
+        assert_eq!(
+            block.content,
+            format!("[text](mention:{}#{fragment})", f.target.id)
+        );
+        assert_eq!(
+            list_mentioning_entities(&f.conn, &f.target.id)
+                .unwrap()
+                .len(),
+            1
+        );
+        let shown = ids_to_keys(&f.conn, &block.content).unwrap();
+        assert_eq!(
+            shown,
+            format!("[text](mention:{}#{fragment})", f.target.key)
+        );
+    }
+
+    #[test]
     fn an_edit_with_a_key_is_saved_with_the_id() {
         let f = fixture();
         let block = add(&f, "paragraph", "plain");

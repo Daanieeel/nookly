@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   extractMentionIds,
+  MAX_QUOTE_CHARS,
   isEntityKey,
   mentionMarkdown,
   parseMentionHref,
+  quoteFragment,
   tablePartFragment,
 } from "./mention-utils.ts";
 
@@ -108,5 +110,53 @@ describe("a row or column of a table in a mention", () => {
   it("names a row and a column in a link to them", () => {
     expect(tablePartFragment(block, "row", 3)).toBe(`${block}_r3`);
     expect(tablePartFragment(block, "column", 1)).toBe(`${block}_c1`);
+  });
+});
+
+describe("selected text in a mention", () => {
+  const block = "955c5287-1f00-437d-9e6a-7abb422aefdd";
+
+  it("keeps the selected text in the fragment, in characters a fragment may hold", () => {
+    const fragment = quoteFragment(block, "Wahrscheinlichkeit größer als 0.5?");
+    expect(fragment).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(parseMentionHref(`mention:abc-123#${fragment}`)).toEqual({
+      entityId: "abc-123",
+      blockId: block,
+      quote: "Wahrscheinlichkeit größer als 0.5?",
+    });
+  });
+
+  it("round trips any text, emoji and line breaks included", () => {
+    for (const quote of ["a", "Über 😀 emoji", "two words", "tab\there", "~!@#$%^&*()+= ?/<>"]) {
+      const fragment = quoteFragment(block, quote);
+      expect(parseMentionHref(`mention:x#${fragment}`)?.quote).toBe(quote);
+    }
+  });
+
+  it("is not taken for a row, a column or a page", () => {
+    // The text itself may end like a row or a column.
+    const fragment = quoteFragment(block, "ends like _r3");
+    expect(parseMentionHref(`mention:x#${fragment}`)).toMatchObject({
+      blockId: block,
+      quote: "ends like _r3",
+    });
+    expect(parseMentionHref(`mention:x#${fragment}`)?.row).toBeUndefined();
+  });
+
+  it("falls back to the block when the text cannot be read", () => {
+    expect(parseMentionHref(`mention:x#${block}_q***`)).toEqual({
+      entityId: "x",
+      blockId: `${block}_q***`,
+    });
+    expect(parseMentionHref(`mention:x#${block}_q_`)).toMatchObject({ blockId: block });
+    expect(parseMentionHref(`mention:x#${block}_q_`)?.quote).toBeUndefined();
+  });
+
+  it("shortens a long selection to its start", () => {
+    const long = "word ".repeat(100);
+    const fragment = quoteFragment(block, long);
+    const quote = parseMentionHref(`mention:x#${fragment}`)?.quote ?? "";
+    expect(quote.length).toBe(MAX_QUOTE_CHARS);
+    expect(long.startsWith(quote)).toBe(true);
   });
 });

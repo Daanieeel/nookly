@@ -34,8 +34,8 @@ export function copyDeepLink(entity: Entity, blockId?: string): Promise<void> {
 /// A mention of an entity, or one block of a page: pasted into a Note it becomes a mention,
 /// anywhere else the markdown form `[Title](mention:JOT-12)` with the readable key. The rich
 /// copy keeps the id, which is what a mention is stored with.
-export function copyEntityLink(entity: Entity, blockId?: string): Promise<void> {
-  const title = displayTitle(entity);
+export function copyEntityLink(entity: Entity, blockId?: string, label?: string): Promise<void> {
+  const title = label ?? displayTitle(entity);
   const withBlock = (target: string) => (blockId ? `${target}#${blockId}` : target);
   return writeHtml(
     `<a href="mention:${escapeHtml(withBlock(entity.id))}">${escapeHtml(title)}</a>`,

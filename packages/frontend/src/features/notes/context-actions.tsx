@@ -24,6 +24,7 @@ import type { ChainedCommands, Editor } from "@tiptap/react";
 import { labelsAction } from "#/components/context-menu/entity-actions.tsx";
 import {
   type EntityRecord,
+  type MenuHelpers,
   type MenuSubItem,
   registerActions,
   registerEntityType,
@@ -36,6 +37,8 @@ import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./b
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
 import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
 import { refineJotIntoNote } from "./refine-jot";
+import { quoteFragment } from "../relationships/mention-utils";
+import { selectionQuote } from "./quote-range";
 import type { MisspelledWord } from "../spellcheck/spellcheck-extension";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
@@ -74,6 +77,34 @@ function locateBlock(editor: Editor, blockId: string): LocatedBlock | null {
     if (!found && node.attrs.blockId === blockId) found = { pos, node };
   });
   return found;
+}
+
+/// The text selected inside the right clicked block, which a link to the selection carries.
+function selectedQuote({ editor, blockId }: NoteBlockTarget): string | null {
+  const block = locateBlock(editor, blockId);
+  return block ? selectionQuote(editor.state, block.pos, block.pos + block.node.nodeSize) : null;
+}
+
+/// What a label of a mention of selected text shows: the text, shortened.
+const LABEL_CHARS = 60;
+function quoteLabel(quote: string): string {
+  const chars = Array.from(quote);
+  return chars.length > LABEL_CHARS ? `${chars.slice(0, LABEL_CHARS).join("")}…` : quote;
+}
+
+/// The selected text, the stored id of its block and the page, for a link to the selection.
+async function selectionLinkParts(target: NoteBlockTarget, helpers: MenuHelpers) {
+  const quote = selectedQuote(target);
+  if (quote === null) throw new Error("Nothing is selected");
+  const [storedId, entity] = await Promise.all([
+    target.resolveStoredId(target.blockId),
+    helpers.queryClient.fetchQuery({
+      queryKey: qk.entity.byId(target.entityId),
+      queryFn: () => getEntity(target.entityId),
+    }),
+  ]);
+  if (!storedId) throw new Error("Block not saved yet");
+  return { quote, storedId, entity };
 }
 
 /// Every kind the block can turn into with its slash menu entry, so the picker
@@ -277,6 +308,30 @@ registerActions("note.block", [
       ]);
       if (!storedId) throw new Error("Block not saved yet");
       await copyDeepLink(entity, storedId);
+    },
+  },
+  {
+    id: "copy-selection-mention",
+    group: "selection",
+    label: "Copy Mention for Selection",
+    icon: IconLink,
+    successLabel: "Mention copied",
+    when: (target) => selectedQuote(target) !== null,
+    run: async (target, helpers) => {
+      const { quote, storedId, entity } = await selectionLinkParts(target, helpers);
+      await copyEntityLink(entity, quoteFragment(storedId, quote), quoteLabel(quote));
+    },
+  },
+  {
+    id: "copy-selection-deep-link",
+    group: "selection",
+    label: "Copy Link for Selection",
+    icon: IconExternalLink,
+    successLabel: "Link copied",
+    when: (target) => selectedQuote(target) !== null,
+    run: async (target, helpers) => {
+      const { quote, storedId, entity } = await selectionLinkParts(target, helpers);
+      await copyDeepLink(entity, quoteFragment(storedId, quote));
     },
   },
   {

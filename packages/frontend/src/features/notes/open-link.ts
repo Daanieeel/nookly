@@ -59,7 +59,7 @@ export function openLink(event: MouseEvent, spaceId: string): boolean {
 /// Opens what a mention points at, in `entity`'s own Space: the entity, and the block of a
 /// page, the page of a file, or the row or column of a table it names.
 export function openMention(
-  { blockId, page, row, column }: MentionTarget,
+  { blockId, page, row, column, quote }: MentionTarget,
   entity: { id: string; spaceId: string },
 ) {
   useNavStore
@@ -67,6 +67,6 @@ export function openMention(
     .openEntity(
       entity.id,
       entity.spaceId,
-      blockId || page ? { entityId: entity.id, blockId, page, row, column } : undefined,
+      blockId || page ? { entityId: entity.id, blockId, page, row, column, quote } : undefined,
     );
 }

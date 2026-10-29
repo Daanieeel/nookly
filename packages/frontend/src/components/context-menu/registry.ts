@@ -54,6 +54,7 @@ export const ACTION_GROUPS = [
   "type",
   "edit",
   "organize",
+  "selection",
   "share",
   "danger",
   "app",

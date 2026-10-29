@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.56.0 (2026-10-29)
+
+### Added
+
+- **Links to selected text.** Select text in a block, right click, and choose Copy Mention for Selection or Copy Link for Selection. Opening the link shows the page and selects that text. If the text has changed, the block is shown instead.
+
 ## 0.55.4 (2026-10-29)
 
 ### Changed

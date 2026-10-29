@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.56.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Link to selected text",
+          "description": "Select text, right click and choose **Copy Mention for Selection** or **Copy Link for Selection**. Opening it selects that text on the page.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.55.4",
       "date": "2026-10-29",
       "highlights": [],
