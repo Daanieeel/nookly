@@ -384,7 +384,42 @@ fn dispatch_atomic(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     }
 }
 
+/// Runs a command, then writes every mention in its output with the readable key of what it
+/// points at (`mention:JOT-12`) instead of the id it is stored with. The key is accepted
+/// back by every command that takes block content.
 fn dispatch_command(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
+    let mut value = dispatch_command_raw(conn, argv)?;
+    show_mention_keys(conn, &mut value);
+    Ok(value)
+}
+
+fn show_mention_keys(conn: &Connection, value: &mut Value) {
+    match value {
+        Value::String(text) => {
+            if text.contains("](mention:") {
+                if let Ok(readable) = crate::db::mention_keys::ids_to_keys(conn, text) {
+                    *text = readable;
+                }
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|v| show_mention_keys(conn, v)),
+        Value::Object(fields) => {
+            // Source text (a code block) is shown exactly as it is stored.
+            let verbatim = fields
+                .get("blockType")
+                .and_then(Value::as_str)
+                .is_some_and(|t| !crate::db::mention_keys::holds_mentions(t));
+            for (name, field) in fields.iter_mut() {
+                if !(verbatim && name == "content") {
+                    show_mention_keys(conn, field);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     let Some(head) = argv.first().cloned() else {
         return Ok(top_level_help());
     };
@@ -766,6 +801,9 @@ Blocks beyond plain markdown (callout, checklist, timeline, ...). Their settings
 `--attr <name>=<value>` flags (repeatable, an empty value clears one). `describe note` lists
 every type's content format and attrs under `contentFormats` and `blockAttrs`; multi column
 formats separate cells with a tab, like tables.
+
+A mention points at an entity by its key, `[Midterm](mention:EXM-3)`, or by its id; blocks are saved
+with the id and read back with the key. Add `#<block-id>` to point at one block of a page.
 
 ```
 nookly cli note add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning

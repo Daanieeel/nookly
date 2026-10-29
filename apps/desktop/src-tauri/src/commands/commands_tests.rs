@@ -807,6 +807,19 @@ fn entities_create_in_unknown_space_is_not_found() {
 }
 
 #[test]
+fn entities_get_takes_the_readable_key_as_well_as_the_id() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let created = h.ok(
+        "create_entity",
+        json!({ "spaceId": space, "type": "jot", "title": "Lecture", "icon": null }),
+    );
+    let by_key = h.ok("get_entity", json!({ "id": created["key"] }));
+    assert_eq!(by_key, created);
+    h.app_err("get_entity", json!({ "id": "JOT-9999" }), "NotFound");
+}
+
+#[test]
 fn entities_get_unknown_is_not_found() {
     let h = Harness::new();
     let message = h.app_err("get_entity", json!({ "id": MISSING }), "NotFound");

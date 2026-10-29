@@ -385,3 +385,13 @@ A page turns into one print layout (`page-document.ts`) of a few shared pieces, 
 **Why:** formulas, diagrams and circuits are drawn by the frontend already, so the exports show them as pictures instead of source. One layout keeps the three formats alike, and a new block type needs one entry, not three.
 
 **Rejected:** printing the webview to PDF (no control over pages from the app, and no Word or OpenDocument), writing the files in Rust (every figure would come out as source), and embedding fonts in Word and OpenDocument files (a much bigger file for fonts readers mostly have stand ins for).
+
+---
+
+### A mention is stored with the id and written out with the key
+
+A mention is saved as `[Title](mention:<id>)`. Wherever it is written out as text (Copy Mention, Copy as Markdown, the Markdown export, the CLI) it reads `[Title](mention:JOT-12)` with the readable key. Content that comes in with a key (CLI blocks, a pasted link) is turned into the id before it is saved, in `db/mention_keys.rs`. Both forms open the same page and count as the same backlink. Code and other source blocks are left exactly as typed.
+
+**Why:** ids survive renames and every stored mention already uses them, so nothing in an existing database changes. The key is what people see in the app, so it is what they should read and write.
+
+**Rejected:** storing the key (needs a rewrite of every stored mention, and a key lookup on every read) and rewriting old mentions to keys (touches user data for no gain).

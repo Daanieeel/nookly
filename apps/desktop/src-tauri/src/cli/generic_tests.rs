@@ -3620,3 +3620,103 @@ fn a_dry_run_import_shows_the_result_and_writes_nothing() {
     assert_eq!(fingerprint(&fx.conn), before);
     let _ = std::fs::remove_file(&path);
 }
+
+// --- mentions with readable keys ---------------------------------------------------
+
+/// A note to write into, and a jot to point at; both through the generic `create`.
+fn mention_fixture(fx: &Fx) -> (String, String, String) {
+    let page = cli(
+        &fx.conn,
+        &["note", "create", "--space", &fx.space, "--title", "Summary"],
+    )
+    .unwrap();
+    let target = cli(
+        &fx.conn,
+        &["jot", "create", "--space", &fx.space, "--title", "Lecture"],
+    )
+    .unwrap();
+    let id_of = |v: &Value| v["data"]["entity"]["id"].as_str().unwrap().to_string();
+    let key_of = |v: &Value| v["data"]["entity"]["key"].as_str().unwrap().to_string();
+    (id_of(&page), id_of(&target), key_of(&target))
+}
+
+#[test]
+fn a_block_added_with_a_key_mention_points_at_the_entity_and_reads_back_with_the_key() {
+    let fx = fx();
+    let (page, target_id, key) = mention_fixture(&fx);
+    let content = format!("See [Lecture](mention:{key}) now");
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "paragraph",
+            "--content",
+            &content,
+        ],
+    )
+    .unwrap();
+    // Written out with the key, the same way it was typed.
+    assert_eq!(added["block"]["content"], content);
+    // Stored with the id, which survives renames.
+    let stored: String = fx
+        .conn
+        .query_row(
+            "SELECT content FROM blocks WHERE entity_id = ?1",
+            [&page],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, format!("See [Lecture](mention:{target_id}) now"));
+
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["items"][0]["content"], content);
+}
+
+#[test]
+fn a_mention_made_with_an_id_reads_back_with_the_key() {
+    let fx = fx();
+    let (page, target_id, key) = mention_fixture(&fx);
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "paragraph",
+            "--content",
+            &format!("[Lecture](mention:{target_id}#blk_1)"),
+        ],
+    )
+    .unwrap();
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(
+        blocks["items"][0]["content"],
+        format!("[Lecture](mention:{key}#blk_1)")
+    );
+}
+
+#[test]
+fn a_code_block_is_shown_exactly_as_stored() {
+    let fx = fx();
+    let (page, target_id, _) = mention_fixture(&fx);
+    let content = format!("[Lecture](mention:{target_id})");
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "code",
+            "--content",
+            &content,
+        ],
+    )
+    .unwrap();
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["items"][0]["content"], content);
+}

@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { parseMentionHref } from "#/features/relationships/mention-utils.ts";
+import { isEntityKey, parseMentionHref } from "#/features/relationships/mention-utils.ts";
+import { getEntity } from "#/lib/api/entities.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 
 /// Links the app may hand to the system: web and mail addresses only, never a file path
@@ -31,8 +32,18 @@ export function openLink(event: MouseEvent, spaceId: string): boolean {
   event.preventDefault();
   if (event.metaKey || event.ctrlKey) armNewTabIntent();
   const { entityId, blockId, page } = mention;
-  useNavStore
-    .getState()
-    .openEntity(entityId, spaceId, blockId || page ? { entityId, blockId, page } : undefined);
+  const open = (id: string, space: string) =>
+    useNavStore
+      .getState()
+      .openEntity(id, space, blockId || page ? { entityId: id, blockId, page } : undefined);
+  if (isEntityKey(entityId)) {
+    // A mention written with its readable key opens the page that key names. A key that
+    // names nothing opens nothing.
+    getEntity(entityId)
+      .then((entity) => open(entity.id, entity.spaceId))
+      .catch(() => {});
+  } else {
+    open(entityId, spaceId);
+  }
   return true;
 }

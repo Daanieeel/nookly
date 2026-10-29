@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractMentionIds, mentionMarkdown, parseMentionHref } from "./mention-utils.ts";
+import {
+  extractMentionIds,
+  isEntityKey,
+  mentionMarkdown,
+  parseMentionHref,
+} from "./mention-utils.ts";
 
 describe("parseMentionHref", () => {
   it("reads a plain mention", () => {
@@ -44,5 +49,23 @@ describe("mentions of a page of a file", () => {
 
   it("builds the plain markdown form", () => {
     expect(mentionMarkdown("Slides", "f1")).toBe("[Slides](mention:f1)");
+  });
+});
+
+describe("isEntityKey", () => {
+  it.each(["JOT-12", "NOT-4", "tsk-1", "ENT-100"])("takes %s for a key", (value) => {
+    expect(isEntityKey(value)).toBe(true);
+  });
+
+  it.each([
+    "66fd9c8e-3d3a-403a-b29d-89b2903c3c57",
+    "abc123",
+    "ab-123",
+    "JOT-",
+    "JOT-12a",
+    "JOTS-12",
+    "",
+  ])("does not take %s for a key", (value) => {
+    expect(isEntityKey(value)).toBe(false);
   });
 });

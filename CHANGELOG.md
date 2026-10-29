@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.48.0 (2026-10-29)
+
+### Changed
+
+- **Readable mentions.** A copied mention, a Markdown export and the command line now show a page by its short ID, like JOT-12 or NOT-4, instead of a long code. Mentions you made before keep working and open the same page.
+
 ## 0.47.0 (2026-10-29)
 
 ### Changed

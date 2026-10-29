@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { callsOf, mockCommand } from "#/test/tauri.ts";
+import { describe, expect, it, vi } from "vitest";
+import { makeEntity } from "#/test/fixtures.ts";
+import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { currentTabs, useNavStore } from "#/lib/store/nav.ts";
 import { openExternalLink, openLink } from "./open-link.ts";
 
@@ -69,6 +70,39 @@ describe("openLink on a mention", () => {
     const before = currentTabs(useNavStore.getState()).length;
     expect(openLink(click("mention:def456", { metaKey: true }), "space1")).toBe(true);
     expect(currentTabs(useNavStore.getState())).toHaveLength(before + 1);
+  });
+
+  it("opens the entity a readable key names, under its real id", async () => {
+    mockCommand("touch_entity_opened", null);
+    mockCommand(
+      "get_entity",
+      makeEntity({ id: "66fd9c8e-3d3a", spaceId: "space2", type: "jot", key: "JOT-12" }),
+    );
+    const event = click("mention:JOT-12#blk_1");
+    expect(openLink(event, "space1")).toBe(true);
+    expect(event.defaultPrevented).toBe(true);
+    await vi.waitFor(() =>
+      expect(useNavStore.getState().view).toMatchObject({
+        kind: "entity",
+        entityId: "66fd9c8e-3d3a",
+        spaceId: "space2",
+      }),
+    );
+    expect(callsOf("get_entity")[0]).toMatchObject({ id: "JOT-12" });
+    expect(useNavStore.getState().focusBlock).toMatchObject({
+      entityId: "66fd9c8e-3d3a",
+      blockId: "blk_1",
+    });
+  });
+
+  it("changes nothing for a key that names no entity", async () => {
+    mockCommandWith("get_entity", () => {
+      throw new Error("entity JOT-9999 not found");
+    });
+    const before = useNavStore.getState().view;
+    expect(openLink(click("mention:JOT-9999"), "space1")).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(useNavStore.getState().view).toEqual(before);
   });
 
   it("still opens web links on Cmd click", () => {

@@ -23,13 +23,14 @@ function escapeHtml(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/// A link to an entity, or one block of a page: pasted into a Note it becomes a
-/// mention, anywhere else the markdown form `[Title](mention:id)`.
+/// A mention of an entity, or one block of a page: pasted into a Note it becomes a mention,
+/// anywhere else the markdown form `[Title](mention:JOT-12)` with the readable key. The rich
+/// copy keeps the id, which is what a mention is stored with.
 export function copyEntityLink(entity: Entity, blockId?: string): Promise<void> {
   const title = displayTitle(entity);
-  const target = blockId ? `${entity.id}#${blockId}` : entity.id;
+  const withBlock = (target: string) => (blockId ? `${target}#${blockId}` : target);
   return writeHtml(
-    `<a href="mention:${escapeHtml(target)}">${escapeHtml(title)}</a>`,
-    mentionMarkdown(title, target),
+    `<a href="mention:${escapeHtml(withBlock(entity.id))}">${escapeHtml(title)}</a>`,
+    mentionMarkdown(title, withBlock(entity.key)),
   );
 }

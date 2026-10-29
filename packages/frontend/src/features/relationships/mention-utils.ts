@@ -26,6 +26,14 @@ export function parseMentionHref(href: string): MentionTarget | null {
   return page ? { entityId, page: Number(page) } : { entityId, blockId: fragment };
 }
 
+const ENTITY_KEY = /^[A-Za-z]{3}-\d+$/;
+
+/// Whether a mention's target is a readable key (`JOT-12`) rather than an id. Ids are
+/// stored, keys are what people see and write; both open the same page.
+export function isEntityKey(target: string): boolean {
+  return ENTITY_KEY.test(target);
+}
+
 export function extractMentionIds(content: string): string[] {
   const ids = new Set<string>();
   for (const match of content.matchAll(MENTION_PATTERN)) {

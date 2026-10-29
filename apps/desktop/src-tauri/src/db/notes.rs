@@ -1,5 +1,6 @@
 use crate::db::block_types::{self, BlockAttrs};
 use crate::db::entities::{row_to_entity, Entity};
+use crate::db::mention_keys;
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -449,6 +450,8 @@ fn sync_page_mentions(conn: &Connection, entity_id: &str, markdown: &str) -> App
     let mut stmt = conn
         .prepare("INSERT OR IGNORE INTO mentions (from_entity_id, to_entity_id) VALUES (?1, ?2)")?;
     for target in extract_mention_ids(markdown) {
+        // A target written with its key counts for the entity it names.
+        let target = super::entities::resolve_entity_ref(conn, &target).unwrap_or(target);
         if target != entity_id {
             stmt.execute(params![entity_id, target])?;
         }
@@ -551,6 +554,11 @@ pub fn create_block_with_attrs(
     attrs: BlockAttrs,
 ) -> AppResult<Block> {
     block_types::validate_attrs(&block_type, &attrs)?;
+    let content = if mention_keys::holds_mentions(&block_type) {
+        mention_keys::keys_to_ids(conn, &content)?
+    } else {
+        content
+    };
     block_types::validate_content(&block_type, &content)?;
     let mut merged = BlockAttrs::new();
     block_types::merge_attrs(&block_type, &mut merged, attrs);
@@ -635,6 +643,9 @@ pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> App
     }
     if block.block_type == "table" {
         block.content = normalize_table_content(&block.content).0;
+    }
+    if mention_keys::holds_mentions(&block.block_type) {
+        block.content = mention_keys::keys_to_ids(conn, &block.content)?;
     }
     let attrs_patch = patch.attrs.unwrap_or_default();
     block_types::validate_attrs(&block.block_type, &attrs_patch)?;
@@ -798,7 +809,8 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
         .map(block_to_markdown)
         .collect::<Vec<_>>()
         .join("\n\n");
-    resolve_file_links(conn, &markdown)
+    // Mentions are written out with the readable key (`JOT-12`), not the id they are stored with.
+    mention_keys::ids_to_keys(conn, &resolve_file_links(conn, &markdown)?)
 }
 
 /// Mention links to File entities (an image block, a file mentioned in text)
@@ -1792,7 +1804,8 @@ mod tests {
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
         // The stored copy wins over the link it was downloaded from.
         assert!(markdown.contains("[Slides](file://"));
-        assert!(markdown.contains(&format!("[Other](mention:{})", other.id)));
+        // A mention of a page is written out with its readable key, not the id it is stored with.
+        assert!(markdown.contains(&format!("[Other](mention:{})", other.key)));
     }
 
     #[test]
@@ -1845,7 +1858,8 @@ mod tests {
         )
         .unwrap();
         let markdown = render_page_markdown(&conn, &page.id).unwrap();
-        assert!(markdown.contains(&format!("[Other](mention:{}#p12)", other.id)));
+        // Written with the readable key; what is not a file keeps its fragment.
+        assert!(markdown.contains(&format!("[Other](mention:{}#p12)", other.key)));
     }
 
     #[test]

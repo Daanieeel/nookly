@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.48.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Readable mentions",
+          "description": "A mention you copy or export now names the page by its short ID, like **JOT-12**, instead of a long code. Older mentions keep working.",
+          "icon": "link",
+          "tag": "Improved"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.47.0",
       "date": "2026-10-29",
       "highlights": [
