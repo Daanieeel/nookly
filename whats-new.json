@@ -6,7 +6,7 @@
       "highlights": [
         {
           "title": "Spell checker",
-          "description": "Misspelled words get a wavy underline, and a right click offers corrections. Pick several languages at once, like **English and German**, and mix them on one page. It is off until you turn it on.",
+          "description": "Misspelled words get a wavy underline and a right click offers corrections. Pick several languages, like **English and German**. Off until you turn it on.",
           "icon": "sparkles",
           "tag": "New"
         }
