@@ -36,7 +36,7 @@ import {
   SwitchControl,
   WeekStartControl,
 } from "./setting-controls.tsx";
-import { SpellLanguagesControl, SpellWordsControl } from "../spellcheck/SpellcheckControls.tsx";
+import { DictionaryFileButton, SpellLanguagesControl } from "../spellcheck/SpellcheckControls.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   SETTING_IDS,
@@ -165,7 +165,6 @@ const SETTING_UI = {
     control: <SwitchControl settingId="notes.spellcheck" label="Check spelling" />,
   },
   "notes.spellcheckLanguages": { section: "Spelling", control: <SpellLanguagesControl /> },
-  "notes.spellcheckWords": { section: "Spelling", control: <SpellWordsControl /> },
   "notes.arrowLigatures": {
     section: "Editing",
     control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,
@@ -174,6 +173,23 @@ const SETTING_UI = {
 
 /// Rows that open something or run something instead of storing a value.
 const ACTION_ROWS: RowSpec[] = [
+  {
+    id: "notes.dictionary",
+    category: "notes",
+    section: "Spelling",
+    title: "Your dictionary",
+    description:
+      "The words you added with Add to Dictionary are kept in dictionary.json, a plain file you can edit. Words are always spelled right, in every language.",
+    synonyms: [
+      "personal dictionary",
+      "custom words",
+      "added words",
+      "ignore words",
+      "learned words",
+      "dictionary file",
+    ],
+    control: <DictionaryFileButton />,
+  },
   {
     id: "agent.files",
     category: "agent",

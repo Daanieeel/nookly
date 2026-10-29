@@ -76,8 +76,16 @@ impl Speller {
                 self.active.push(name);
             }
         }
-        self.personal = personal.iter().map(|word| word.to_lowercase()).collect();
+        self.set_personal(personal);
         self.active.iter().map(|code| (*code).to_string()).collect()
+    }
+
+    /// Sets the user's own words. Returns whether they are not the ones it had.
+    pub fn set_personal(&mut self, personal: &[String]) -> bool {
+        let next: HashSet<String> = personal.iter().map(|word| word.to_lowercase()).collect();
+        let changed = next != self.personal;
+        self.personal = next;
+        changed
     }
 
     /// Accepts a word until the app is closed, without saving it anywhere.
@@ -212,6 +220,14 @@ mod tests {
         assert!(!english.is_correct("Nookly"));
         english.ignore("Nookly");
         assert!(english.is_correct("nookly"));
+    }
+
+    #[test]
+    fn setting_the_words_says_whether_they_changed() {
+        let mut english = speller(&["en"]);
+        assert!(english.set_personal(&["Nookly".to_string()]));
+        assert!(!english.set_personal(&["nookly".to_string()]));
+        assert!(english.set_personal(&[]));
     }
 
     #[test]

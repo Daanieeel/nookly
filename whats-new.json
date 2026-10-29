@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.55.3",
+      "date": "2026-10-29",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The words you add to the spell checker are kept in a plain file you can open and edit with Show dictionary file in Settings."
+        ]
+      }
+    },
+    {
       "version": "0.55.2",
       "date": "2026-10-29",
       "highlights": [],

@@ -2,17 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { settings } from "#/lib/settings/settings.ts";
 import { type SpellApi, createSpellController } from "./spell-controller";
 
-function api(over: Partial<SpellApi> = {}): SpellApi & { configured: [string[], string[]][] } {
-  const configured: [string[], string[]][] = [];
+function api(over: Partial<SpellApi> = {}): SpellApi & { configured: string[][]; added: string[] } {
+  const configured: string[][] = [];
+  const added: string[] = [];
   return {
     configured,
-    configure: async (languages, personal) => {
-      configured.push([languages, personal]);
+    added,
+    configure: async (languages) => {
+      configured.push(languages);
       return languages;
     },
     check: async (words) => words.map((w) => w !== "wrong"),
     suggest: async () => ["right"],
     ignore: async () => {},
+    addWord: async (word) => {
+      added.push(word);
+    },
+    reloadWords: async () => false,
     ...over,
   };
 }
@@ -20,7 +26,6 @@ function api(over: Partial<SpellApi> = {}): SpellApi & { configured: [string[], 
 beforeEach(() => {
   settings.reset("notes.spellcheck");
   settings.reset("notes.spellcheckLanguages");
-  settings.reset("notes.spellcheckWords");
 });
 
 describe("the spell checker is off until it is turned on", () => {
@@ -33,17 +38,16 @@ describe("the spell checker is off until it is turned on", () => {
     controller.dispose();
   });
 
-  it("starts checking when it is turned on, with the languages and words chosen", async () => {
+  it("starts checking when it is turned on, with the languages chosen", async () => {
     const backend = api();
     const controller = createSpellController(backend);
     const changed = vi.fn();
     controller.subscribe(changed);
     settings.set("notes.spellcheckLanguages", ["en", "de"]);
-    settings.set("notes.spellcheckWords", ["nookly"]);
     settings.set("notes.spellcheck", true);
     await vi.waitFor(() => expect(changed).toHaveBeenCalled());
     expect(controller.enabled()).toBe(true);
-    expect(backend.configured.at(-1)).toEqual([["en", "de"], ["nookly"]]);
+    expect(backend.configured.at(-1)).toEqual(["en", "de"]);
     expect(await controller.check(["wrong", "fine"])).toEqual([false, true]);
     controller.dispose();
   });
@@ -69,10 +73,7 @@ describe("a change of settings", () => {
     controller.subscribe(changed);
     settings.set("notes.spellcheckLanguages", ["de"]);
     await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
-    expect(backend.configured.at(-1)?.[0]).toEqual(["de"]);
-    settings.set("notes.spellcheckWords", ["haus"]);
-    await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(2));
-    expect(backend.configured.at(-1)?.[1]).toEqual(["haus"]);
+    expect(backend.configured.at(-1)).toEqual(["de"]);
     controller.dispose();
   });
 
@@ -90,13 +91,63 @@ describe("a change of settings", () => {
 });
 
 describe("words", () => {
-  it("adds a word to the user's dictionary once, without changing case", async () => {
+  it("adds a word to the dictionary file through the backend, and tells the listeners", async () => {
     settings.set("notes.spellcheck", true);
-    const controller = createSpellController(api());
-    controller.addWord("Nookly");
-    controller.addWord("Nookly");
-    controller.addWord("  ");
-    expect(settings.get("notes.spellcheckWords")).toEqual(["Nookly"]);
+    const backend = api();
+    const controller = createSpellController(backend);
+    await controller.check([]);
+    const changed = vi.fn();
+    controller.subscribe(changed);
+    await controller.addWord("Nookly");
+    await controller.addWord("   ");
+    expect(backend.added).toEqual(["Nookly"]);
+    expect(changed).toHaveBeenCalledTimes(1);
+    controller.dispose();
+  });
+
+  it("does not tell the listeners when the word could not be saved", async () => {
+    settings.set("notes.spellcheck", true);
+    const controller = createSpellController(
+      api({
+        addWord: async () => {
+          throw new Error("dictionary.json can't be read");
+        },
+      }),
+    );
+    await controller.check([]);
+    const changed = vi.fn();
+    controller.subscribe(changed);
+    await expect(controller.addWord("Nookly")).rejects.toThrow("can't be read");
+    expect(changed).not.toHaveBeenCalled();
+    controller.dispose();
+  });
+
+  it("reads the dictionary file again when the window comes back, and says when it changed", async () => {
+    settings.set("notes.spellcheck", true);
+    let changedOnDisk = false;
+    const backend = api({ reloadWords: async () => changedOnDisk });
+    const controller = createSpellController(backend);
+    await controller.check([]);
+    const changed = vi.fn();
+    controller.subscribe(changed);
+    window.dispatchEvent(new Event("focus"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(changed).not.toHaveBeenCalled();
+    changedOnDisk = true;
+    window.dispatchEvent(new Event("focus"));
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+    controller.dispose();
+    window.dispatchEvent(new Event("focus"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not look at the dictionary file while it is off", async () => {
+    const reloadWords = vi.fn(async () => true);
+    const controller = createSpellController(api({ reloadWords }));
+    window.dispatchEvent(new Event("focus"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reloadWords).not.toHaveBeenCalled();
     controller.dispose();
   });
 
@@ -141,8 +192,5 @@ describe("the settings that go with the spell checker", () => {
     // SAFETY: wrong value on purpose.
     settings.set("notes.spellcheck", "yes" as never);
     expect(settings.get("notes.spellcheck")).toBe(false);
-    // SAFETY: wrong value on purpose.
-    settings.set("notes.spellcheckWords", [1, "ok"] as never);
-    expect(settings.get("notes.spellcheckWords")).toEqual([]);
   });
 });

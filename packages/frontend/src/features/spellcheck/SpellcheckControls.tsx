@@ -1,4 +1,7 @@
-import { IconX } from "@tabler/icons-react";
+import { IconFileCode } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
+import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { openDictionaryFile } from "#/lib/api/spell.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Checkbox } from "@nookly/ui/components/checkbox";
 import { SPELL_LANGUAGES } from "#/lib/spell-languages.ts";
@@ -45,31 +48,23 @@ export function SpellLanguagesControl() {
   return <LanguageChecklist value={languages} onChange={setLanguages} />;
 }
 
-/// The words the user added to their own dictionary, each with a way to take it out again.
-export function SpellWordsControl() {
-  const [words, setWords] = useSetting("notes.spellcheckWords");
-  if (words.length === 0) {
-    return <span className="text-xs text-muted-foreground">No words added yet.</span>;
-  }
+/// Opens `dictionary.json`, the user's own words, in their editor. The result shows on the button.
+export function DictionaryFileButton() {
+  const open = useMutation({ mutationFn: openDictionaryFile });
+  const status = useActionStatus(open);
   return (
-    <ul aria-label="Words you added" className="flex max-w-sm flex-wrap justify-end gap-1.5">
-      {words.map((word) => (
-        <li
-          key={word}
-          className="flex items-center gap-1 rounded-md border border-border bg-muted/40 py-0.5 pr-0.5 pl-2 text-xs"
-        >
-          {word}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-5"
-            aria-label={`Remove ${word}`}
-            onClick={() => setWords(words.filter((w) => w !== word))}
-          >
-            <IconX size={11} />
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <Button
+      variant="secondary"
+      size="sm"
+      aria-label="Show dictionary file"
+      onClick={() => !open.isPending && open.mutate()}
+    >
+      <StatusButtonContent
+        status={status}
+        icon={<IconFileCode size={14} />}
+        label="Show dictionary file"
+        errorLabel="Couldn't open, try again"
+      />
+    </Button>
   );
 }

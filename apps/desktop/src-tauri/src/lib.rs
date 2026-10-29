@@ -4,6 +4,7 @@ mod backup;
 mod cli;
 mod commands;
 mod db;
+mod dictionary_file;
 mod error;
 mod external_calendars;
 mod spelling;
@@ -375,6 +376,9 @@ pub fn run() {
             commands::spell::spell_check,
             commands::spell::spell_suggest,
             commands::spell::spell_ignore,
+            commands::spell::spell_reload_words,
+            commands::spell::spell_add_word,
+            commands::spell::open_dictionary_file,
             commands::local_files::check_local_path,
             commands::local_files::open_local_path,
             commands::local_files::reveal_local_path,

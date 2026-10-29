@@ -497,22 +497,6 @@ export const SETTINGS = {
     default: ["en"],
     schema: z.array(z.string().refine(isSpellLanguage)).max(SPELL_LANGUAGE_CODES.length),
   }),
-  "notes.spellcheckWords": define<string[]>({
-    id: "notes.spellcheckWords",
-    category: "notes",
-    title: "Your dictionary",
-    description:
-      "Words you added with Add to Dictionary. They are always spelled right, in every language.",
-    synonyms: [
-      "personal dictionary",
-      "custom words",
-      "added words",
-      "ignore words",
-      "learned words",
-    ],
-    default: [],
-    schema: z.array(z.string().trim().min(1).max(80)).max(5000),
-  }),
   "notes.arrowLigatures": define({
     id: "notes.arrowLigatures",
     category: "notes",

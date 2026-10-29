@@ -445,3 +445,13 @@ Misspelled words come from Hunspell dictionaries read by the `spellbook` crate i
 **Why:** German is written in compounds (Straßenbahn, Prüfungsvorbereitung), which `nspell`, the JavaScript Hunspell, flagged as wrong in a trial, and every language has to work at once on one page. `spellbook` knows compounds, loads a dictionary in about 15 ms and keeps typing off the UI thread. The webview's own spell checker is not an option: it follows the system's settings, differs per platform and cannot take several languages chosen in the app.
 
 **Rejected:** `nspell` in a worker (wrong on compounds), the platform's spell checker (no control over languages), and downloading dictionaries on demand (the app works offline and needs nothing fetched).
+
+---
+
+### The spell checker's own words are a file, not a setting
+
+Words added with Add to Dictionary go to `dictionary.json` in the app data folder, written by the backend (`dictionary_file.rs`). Settings show only a Show dictionary file button, like the settings file. A file that cannot be read is reported and left exactly as it is, and the checker reads it again when the window comes back, so an edit shows up without a restart.
+
+**Why:** a list that grows without bound does not belong in `settings.json`, and a plain file can be edited, shared and backed up by hand, which a row of chips in Settings could not.
+
+**Rejected:** keeping the words in a setting with a management row (it grows without limit and every word saved rewrites all settings).

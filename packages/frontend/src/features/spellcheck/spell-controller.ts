@@ -1,6 +1,13 @@
 import type { SettingId } from "#/lib/settings/registry.ts";
 import { settings, subscribeSetting } from "#/lib/settings/settings.ts";
-import { checkWords, configureSpell, ignoreWord, suggestWords } from "#/lib/api/spell.ts";
+import {
+  addWord,
+  checkWords,
+  configureSpell,
+  ignoreWord,
+  reloadWords,
+  suggestWords,
+} from "#/lib/api/spell.ts";
 
 /// What the spell checker asks of the backend.
 export interface SpellApi {
@@ -8,13 +15,11 @@ export interface SpellApi {
   check: typeof checkWords;
   suggest: typeof suggestWords;
   ignore: typeof ignoreWord;
+  addWord: typeof addWord;
+  reloadWords: typeof reloadWords;
 }
 
-const SPELL_SETTINGS: SettingId[] = [
-  "notes.spellcheck",
-  "notes.spellcheckLanguages",
-  "notes.spellcheckWords",
-];
+const SPELL_SETTINGS: SettingId[] = ["notes.spellcheck", "notes.spellcheckLanguages"];
 
 /// The spell checker as the editors see it: whether it is on, the answers, and a signal when
 /// they may have changed (a language, the user's words or a word that was ignored). It keeps
@@ -25,6 +30,8 @@ export function createSpellController(
     check: checkWords,
     suggest: suggestWords,
     ignore: ignoreWord,
+    addWord,
+    reloadWords,
   },
 ) {
   const listeners = new Set<() => void>();
@@ -40,11 +47,20 @@ export function createSpellController(
       return;
     }
     ready = api
-      .configure(settings.get("notes.spellcheckLanguages"), settings.get("notes.spellcheckWords"))
+      .configure(settings.get("notes.spellcheckLanguages"))
       .catch(() => [])
       .then(notify);
   };
   const stops = SPELL_SETTINGS.map((id) => subscribeSetting(id, sync));
+  // The dictionary file is one the user can edit: it is read again when the window comes back.
+  const onFocus = () => {
+    if (!enabled()) return;
+    void api
+      .reloadWords()
+      .then((changed) => changed && notify())
+      .catch(() => {});
+  };
+  window.addEventListener("focus", onFocus);
   if (enabled()) sync();
 
   return {
@@ -70,15 +86,17 @@ export function createSpellController(
       await api.ignore(word).catch(() => {});
       notify();
     },
-    /// Adds a word to the user's own dictionary, which is kept in the settings.
-    addWord(word: string) {
+    /// Adds a word to the user's own dictionary, the file `dictionary.json`. Rejects when the
+    /// file cannot be written, leaving it as it is.
+    async addWord(word: string) {
       const trimmed = word.trim();
-      const words = settings.get("notes.spellcheckWords");
-      if (!trimmed || words.includes(trimmed)) return;
-      settings.set("notes.spellcheckWords", [...words, trimmed]);
+      if (!trimmed) return;
+      await api.addWord(trimmed);
+      notify();
     },
     dispose() {
       for (const stop of stops) stop();
+      window.removeEventListener("focus", onFocus);
       listeners.clear();
     },
   };

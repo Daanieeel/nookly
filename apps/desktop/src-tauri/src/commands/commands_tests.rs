@@ -314,6 +314,9 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("spell_check", "spell_underlying_calls"),
     ("spell_suggest", "spell_underlying_calls"),
     ("spell_ignore", "spell_underlying_calls"),
+    ("spell_reload_words", "spell_underlying_calls"),
+    ("spell_add_word", "spell_underlying_calls"),
+    ("open_dictionary_file", "spell_underlying_calls"),
     // `AppHandle` parameter, and it opens an app: the part that can run is the file it makes.
     (
         "open_settings_file",
@@ -607,6 +610,14 @@ fn spell_underlying_calls() {
     assert!(speller.suggest("hause").contains(&"house".to_string()));
     speller.ignore("hause");
     assert!(speller.is_correct("hause"));
+    // The user's words come from the dictionary file.
+    let dir = std::env::temp_dir().join(format!("nookly-cmd-dict-{}", db::new_id()));
+    crate::dictionary_file::add_word(&dir, "Nookly").unwrap();
+    let words = crate::dictionary_file::read_words(&dir).unwrap();
+    assert!(speller.set_personal(&words));
+    assert!(speller.is_correct("nookly"));
+    assert!(!speller.set_personal(&words));
+    crate::dictionary_file::ensure_file(&dir).unwrap();
 }
 
 #[test]

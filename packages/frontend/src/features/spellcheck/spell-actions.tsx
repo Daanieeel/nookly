@@ -65,7 +65,7 @@ registerActions("note.block", [
     icon: IconBookmarkPlus,
     when: onMisspelled,
     run: ({ misspelled }) => {
-      if (misspelled) spellController().addWord(misspelled.word);
+      if (misspelled) return spellController().addWord(misspelled.word);
     },
   },
 ]);

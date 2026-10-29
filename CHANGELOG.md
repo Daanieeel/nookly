@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.55.3 (2026-10-29)
+
+### Changed
+
+- **Your dictionary is a file.** Words you add to the spell checker are kept in a plain file, dictionary.json, which you can edit. Settings has a Show dictionary file button for it, like the settings file.
+
 ## 0.55.2 (2026-10-29)
 
 ### Changed

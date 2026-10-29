@@ -23,11 +23,11 @@ afterEach(() => editor?.destroy());
 
 beforeEach(() => {
   settings.reset("notes.spellcheck");
-  settings.reset("notes.spellcheckWords");
   settings.set("notes.spellcheck", true);
   mockCommand("spell_configure", ["en"]);
   mockCommand("spell_suggest", ["wrong", "wring", "wrung"]);
   mockCommand("spell_ignore", null);
+  mockCommand("spell_add_word", null);
 });
 
 function open() {
@@ -78,18 +78,17 @@ describe("the spelling actions of a block's menu", () => {
     }
   });
 
-  it("add the word to the user's dictionary, once", async () => {
+  it("add the word to the dictionary file", async () => {
     const e = open();
     await action("spell-add")?.run?.(target(e), helpers);
-    await action("spell-add")?.run?.(target(e), helpers);
-    expect(settings.get("notes.spellcheckWords")).toEqual(["wrng"]);
+    expect(callsOf("spell_add_word")).toEqual([{ word: "wrng" }]);
   });
 
   it("ignore the word for now, without saving it", async () => {
     const e = open();
     await action("spell-ignore")?.run?.(target(e), helpers);
     expect(callsOf("spell_ignore")).toEqual([{ word: "wrng" }]);
-    expect(settings.get("notes.spellcheckWords")).toEqual([]);
+    expect(callsOf("spell_add_word")).toEqual([]);
   });
 });
 
