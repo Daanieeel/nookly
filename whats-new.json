@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.43.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Share a file",
+          "description": "Send a file to someone from its details sidebar, with the share button at the top or **Share** in the more actions menu.",
+          "icon": "share",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.42.2",
       "date": "2026-10-22",
       "highlights": [],

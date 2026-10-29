@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.43.0 (2026-10-29)
+
+### Added
+
+- **Sharing files.** A file now has a Share button in its details sidebar, and Share in its more actions menu, to send the file itself through the share menu of your computer.
+
 ## 0.42.2 (2026-10-22)
 
 ### Changed

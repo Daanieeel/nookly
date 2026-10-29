@@ -131,6 +131,7 @@ export const qk = {
     ...spaceList("files"),
     byId: (id: string | undefined) => ["file", id] as const,
     text: (id: string) => ["file-text", id] as const,
+    shareBytes: (id: string, path: string | null) => ["file-share-bytes", id, path] as const,
     workbook: (id: string, src: string) => ["workbook", id, src] as const,
     openWithApps: (id: string, path: string | null) => ["open-with-apps", id, path] as const,
     officePdf: ["office-pdf"] as const,

@@ -18,6 +18,7 @@ import {
   PageExportMenu,
 } from "#/features/notes/PageExportMenu.tsx";
 import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
+import { ShareFileButton, ShareFileMenuItem } from "#/features/files/ShareFile.tsx";
 import { ShareButton, ShareMenuSub } from "#/features/notes/SharePage.tsx";
 import { SaveNooklyFileItem } from "#/features/portable/save-nookly-file.tsx";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
@@ -60,6 +61,7 @@ export function EntityActions({
   return (
     <div className={cn("flex items-center gap-0.5", className)}>
       {exportable && <ShareButton entity={entity} />}
+      {entity.type === "file" && <ShareFileButton entity={entity} />}
       {exportable && <PageExportMenu entity={entity} />}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -129,6 +131,7 @@ export function EntityActions({
               <ShareMenuSub entity={entity} onDone={closeMenu} />
             </>
           )}
+          {entity.type === "file" && <ShareFileMenuItem entity={entity} onDone={closeMenu} />}
           {!exportable && isPortableType(entity.type) && (
             <>
               <DropdownMenuSeparator />
