@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.49.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Find a heading by typing",
+          "description": "On a long page, open the section list at the bottom and type to find a heading. The match is marked, and **Enter** jumps to it.",
+          "icon": "filter",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.48.0",
       "date": "2026-10-29",
       "highlights": [

@@ -395,3 +395,13 @@ A mention is saved as `[Title](mention:<id>)`. Wherever it is written out as tex
 **Why:** ids survive renames and every stored mention already uses them, so nothing in an existing database changes. The key is what people see in the app, so it is what they should read and write.
 
 **Rejected:** storing the key (needs a rewrite of every stored mention, and a key lookup on every read) and rewriting old mentions to keys (touches user data for no gain).
+
+---
+
+### The section search is a new component next to `ScrollProgress`
+
+The section navigator of a page (`ScrollProgressSearch`) is a copy of `ScrollProgress` with a search field in its open list, and Notes and Jots use it. The field only shows from six headings on. The box is always sized by the full list, so it keeps its size while a query narrows the rows.
+
+**Why:** primitives in `packages/ui` are frozen, so the search is added beside the old one instead of changing it.
+
+**Rejected:** a `search` prop on `ScrollProgress` (edits a primitive) and locking the height when the first letter is typed (the full list already gives the same height without the extra state).

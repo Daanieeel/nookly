@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.49.0 (2026-10-29)
+
+### Added
+
+- **Search the headings of a page.** On a long page, the section list at the bottom now has a search field. Type a few letters to find a heading, use the arrow keys and Enter to jump to it, and press Escape to clear the search.
+
 ## 0.48.0 (2026-10-29)
 
 ### Changed
