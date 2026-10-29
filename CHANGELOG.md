@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.44.0 (2026-10-29)
+
+### Added
+
+- **Assembly in code blocks.** Assembly is now a language in code blocks, with colors for instructions, registers, labels, numbers, directives and comments. Typing asm or nasm after the three backticks picks it too.
+
 ## 0.43.2 (2026-10-29)
 
 ### Changed

@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.44.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Assembly code blocks",
+          "description": "Pick **Assembly** as the language of a code block to see instructions, registers, labels and numbers in their own colors.",
+          "icon": "terminal",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.43.2",
       "date": "2026-10-29",
       "highlights": [],

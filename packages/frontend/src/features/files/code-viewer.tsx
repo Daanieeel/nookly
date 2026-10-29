@@ -36,6 +36,9 @@ const LANGUAGE_BY_EXTENSION = {
   java: "java",
   php: "php",
   rb: "ruby",
+  asm: "asm",
+  nasm: "asm",
+  s: "asm",
 } satisfies Record<string, string>;
 
 function hasLanguage(extension: string): extension is keyof typeof LANGUAGE_BY_EXTENSION {

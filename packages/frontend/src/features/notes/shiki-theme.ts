@@ -77,5 +77,19 @@ export const nooklyShikiTheme: ThemeRegistrationRaw = {
       ],
       settings: { foreground: "var(--accent-blue)" },
     },
+    // Assembly: the grammar's own scopes, kept off the other languages by its root scope.
+    // Mnemonics are `keyword` (pink) and labels `entity.name.function` (purple) above.
+    {
+      scope: ["source.asm.x86_64 constant.numeric"],
+      settings: { foreground: "var(--accent-yellow)" },
+    },
+    {
+      scope: ["source.asm.x86_64 constant.language.register"],
+      settings: { foreground: "var(--accent-blue)" },
+    },
+    {
+      scope: ["source.asm.x86_64 entity.directive", "source.asm.x86_64 meta.preprocessor"],
+      settings: { foreground: "var(--accent-pink)" },
+    },
   ],
 };

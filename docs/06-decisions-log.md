@@ -172,7 +172,7 @@ The full list is now Dashboard, Pinned, Search, and Recents.
 
 ### Code blocks highlight with twinkleplop, Shiki is the fallback
 
-Every language twinkleplop ships goes through it. Shiki only covers the picker languages twinkleplop lacks (C++, C#, Java, PHP, Ruby, INI, JSONC). Both map onto the same accent tokens.
+Every language twinkleplop ships goes through it. Shiki only covers the picker languages twinkleplop lacks (C++, C#, Java, PHP, Ruby, INI, JSONC, Assembly). Both map onto the same accent tokens.
 
 **Why:** the edited block is retokenized synchronously on every keystroke. Shiki's JS engine takes about 16ms for an 80 line block, a full frame, while twinkleplop takes under 0.1ms. First highlight after launch drops from about 300ms to about 20ms.
 

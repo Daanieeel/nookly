@@ -14,6 +14,7 @@ import { nooklyShikiTheme, NOOKLY_THEME_NAME } from "./shiki-theme";
 /// rather than coloring them. Each module embeds its own aliases, so a raw `--language` value
 /// like `c++` or `rb` resolves with no extra mapping.
 const LANGUAGE_LOADERS = {
+  asm: () => import("@shikijs/langs/asm"),
   cpp: () => import("@shikijs/langs/cpp"),
   csharp: () => import("@shikijs/langs/csharp"),
   ini: () => import("@shikijs/langs/ini"),
@@ -42,6 +43,24 @@ function getShikiHighlighter(): Promise<HighlighterCore> {
   return highlighterPromise;
 }
 
+/// Other spellings of assembly that a fence or the CLI may store; the grammar itself only
+/// answers to `asm`.
+const ALIASES = {
+  assembly: "asm",
+  nasm: "asm",
+  yasm: "asm",
+  gas: "asm",
+  s: "asm",
+} satisfies Record<string, keyof typeof LANGUAGE_LOADERS>;
+
+function isAlias(language: string): language is keyof typeof ALIASES {
+  return language in ALIASES;
+}
+
+function canonical(language: string): string {
+  return isAlias(language) ? ALIASES[language] : language;
+}
+
 /// Languages Shiki renders without a grammar; there is nothing to load or tokenize for them.
 const PLAIN_LANGUAGES = new Set(["plaintext", "text", "txt", "plain"]);
 
@@ -54,7 +73,8 @@ const languageLoads = new Map<string, Promise<boolean>>();
 /// Loads `language`'s grammar into the shared highlighter, resolving to whether it can now be
 /// tokenized. A value that isn't a loader key (an alias like `ts`, or a typo from the CLI) falls
 /// back to loading every grammar once, since each module registers its own aliases.
-export function ensureShikiLanguage(language: string): Promise<boolean> {
+export function ensureShikiLanguage(requested: string): Promise<boolean> {
+  const language = canonical(requested);
   if (PLAIN_LANGUAGES.has(language)) return Promise.resolve(false);
   let load = languageLoads.get(language);
   if (!load) {
@@ -74,7 +94,7 @@ export function ensureShikiLanguage(language: string): Promise<boolean> {
 }
 
 export function isShikiLanguageLoaded(language: string): boolean {
-  return highlighter?.getLoadedLanguages().includes(language) ?? false;
+  return highlighter?.getLoadedLanguages().includes(canonical(language)) ?? false;
 }
 
 /// Standard TextMate/VS Code bitmask values (`vscode-textmate`'s own `FontStyle` enum, defined
@@ -99,7 +119,10 @@ function decorationStyle(token: ThemedToken): string | null {
 export function shikiSpans(language: string, code: string): TokenSpan[] {
   if (!highlighter) return [];
   const spans: TokenSpan[] = [];
-  const lines = highlighter.codeToTokensBase(code, { lang: language, theme: NOOKLY_THEME_NAME });
+  const lines = highlighter.codeToTokensBase(code, {
+    lang: canonical(language),
+    theme: NOOKLY_THEME_NAME,
+  });
   for (const line of lines) {
     for (const token of line) {
       const style = decorationStyle(token);
