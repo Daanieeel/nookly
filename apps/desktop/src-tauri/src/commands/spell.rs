@@ -85,12 +85,13 @@ pub async fn spell_add_word(
     locked(&state, |speller| speller.set_personal(&personal)).map(|_| ())
 }
 
-/// Opens `dictionary.json` in the default app, creating it first when it does not exist.
+/// Shows `dictionary.json` in Finder (or the platform's file manager), creating it first when
+/// it does not exist.
 #[tauri::command]
-pub fn open_dictionary_file(app: AppHandle) -> AppResult<()> {
+pub fn reveal_dictionary_file(app: AppHandle) -> AppResult<()> {
     use tauri_plugin_opener::OpenerExt;
     let path = dictionary_file::ensure_file(&dictionary_dir(&app)?)?;
     app.opener()
-        .open_path(path.to_string_lossy().to_string(), None::<&str>)
+        .reveal_item_in_dir(path)
         .map_err(|e| AppError::Io(e.to_string()))
 }

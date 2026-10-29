@@ -20,9 +20,9 @@ export function addWord(word: string): Promise<void> {
   return invoke("spell_add_word", { word });
 }
 
-/// Opens `dictionary.json` in the default editor, creating it first when it does not exist.
-export function openDictionaryFile(): Promise<void> {
-  return invoke("open_dictionary_file");
+/// Shows `dictionary.json` in Finder (the file manager), creating it first when it does not exist.
+export function revealDictionaryFile(): Promise<void> {
+  return invoke("reveal_dictionary_file");
 }
 
 /// Whether each word is spelled right, in the same order.

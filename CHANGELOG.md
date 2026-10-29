@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.55.4 (2026-10-29)
+
+### Changed
+
+- **Links use readable IDs.** Copy Link now names the page by its short ID, like nookly://open/NOT-58, the same way mentions do. Show dictionary file now shows the file in Finder.
+
 ## 0.55.3 (2026-10-29)
 
 ### Changed

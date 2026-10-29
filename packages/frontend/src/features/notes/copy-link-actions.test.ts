@@ -30,11 +30,11 @@ describe("the Copy Link actions", () => {
     expect(link?.group).toBe(actionsFor("entity").find((a) => a.id === "copy-link")?.group);
   });
 
-  it("copy a nookly link to the entity", async () => {
+  it("copy a nookly link to the entity, by its readable key", async () => {
     const link = actionsFor("entity").find((a) => a.id === "copy-deep-link");
-    await link?.run?.({ entity: makeEntity({ id: "abc-123" }) }, helpers);
+    await link?.run?.({ entity: makeEntity({ id: "abc-123", key: "NOT-58" }) }, helpers);
     expect(callsOf("plugin:clipboard-manager|write_text")[0]).toMatchObject({
-      text: "nookly://open/abc-123",
+      text: "nookly://open/NOT-58",
     });
   });
 
@@ -43,7 +43,7 @@ describe("the Copy Link actions", () => {
     expect(ids.indexOf("copy-block-deep-link")).toBe(ids.indexOf("copy-block-link") + 1);
     const link = actionsFor("note.block").find((a) => a.id === "copy-block-deep-link");
     expect(link?.label).toBe("Copy Link for Block");
-    mockCommand("get_entity", makeEntity({ id: "page-1" }));
+    mockCommand("get_entity", makeEntity({ id: "page-1", key: "NOT-58" }));
     await link?.run?.(
       {
         editor: NO_EDITOR,
@@ -54,7 +54,7 @@ describe("the Copy Link actions", () => {
       helpers,
     );
     expect(callsOf("plugin:clipboard-manager|write_text")[0]).toMatchObject({
-      text: "nookly://open/page-1#stored-9",
+      text: "nookly://open/NOT-58#stored-9",
     });
   });
 

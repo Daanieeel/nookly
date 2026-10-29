@@ -50,20 +50,20 @@ describe("SpellLanguagesControl", () => {
 });
 
 describe("DictionaryFileButton", () => {
-  it("opens the dictionary file", async () => {
-    mockCommand("open_dictionary_file", null);
+  it("shows the dictionary file in the file manager", async () => {
+    mockCommand("reveal_dictionary_file", null);
     const { user } = renderWithProviders(<DictionaryFileButton />);
     await user.click(screen.getByRole("button", { name: "Show dictionary file" }));
-    await waitFor(() => expect(callsOf("open_dictionary_file")).toHaveLength(1));
+    await waitFor(() => expect(callsOf("reveal_dictionary_file")).toHaveLength(1));
   });
 
   it("says when the file could not be opened", async () => {
-    mockCommandWith("open_dictionary_file", () => {
+    mockCommandWith("reveal_dictionary_file", () => {
       throw new Error("nope");
     });
     const { user } = renderWithProviders(<DictionaryFileButton />);
     await user.click(screen.getByRole("button", { name: "Show dictionary file" }));
-    expect((await screen.findAllByText("Couldn't open, try again")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Couldn't show, try again")).length).toBeGreaterThan(0);
   });
 
   it("has no accessibility violations", async () => {

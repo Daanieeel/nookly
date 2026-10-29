@@ -25,9 +25,10 @@ function escapeHtml(text: string): string {
 }
 
 /// A `nookly://` link to an entity, or one block of a page: opens Nookly on it from anywhere
-/// on this computer. It carries local ids, so it only works where it was copied.
+/// on this computer. It names the page by its readable key (`NOT-58`), like a mention does, and
+/// only works where it was copied.
 export function copyDeepLink(entity: Entity, blockId?: string): Promise<void> {
-  return copyText(deepLinkFor(entity.id, blockId));
+  return copyText(deepLinkFor(entity.key, blockId));
 }
 
 /// A mention of an entity, or one block of a page: pasted into a Note it becomes a mention,

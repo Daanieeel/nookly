@@ -316,7 +316,7 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("spell_ignore", "spell_underlying_calls"),
     ("spell_reload_words", "spell_underlying_calls"),
     ("spell_add_word", "spell_underlying_calls"),
-    ("open_dictionary_file", "spell_underlying_calls"),
+    ("reveal_dictionary_file", "spell_underlying_calls"),
     // `AppHandle` parameter, and it opens an app: the part that can run is the file it makes.
     (
         "open_settings_file",

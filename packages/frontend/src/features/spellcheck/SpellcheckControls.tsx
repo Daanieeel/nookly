@@ -1,7 +1,7 @@
 import { IconFileCode } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
-import { openDictionaryFile } from "#/lib/api/spell.ts";
+import { revealDictionaryFile } from "#/lib/api/spell.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Checkbox } from "@nookly/ui/components/checkbox";
 import { SPELL_LANGUAGES } from "#/lib/spell-languages.ts";
@@ -48,9 +48,9 @@ export function SpellLanguagesControl() {
   return <LanguageChecklist value={languages} onChange={setLanguages} />;
 }
 
-/// Opens `dictionary.json`, the user's own words, in their editor. The result shows on the button.
+/// Shows `dictionary.json`, the user's own words, in Finder. The result shows on the button.
 export function DictionaryFileButton() {
-  const open = useMutation({ mutationFn: openDictionaryFile });
+  const open = useMutation({ mutationFn: revealDictionaryFile });
   const status = useActionStatus(open);
   return (
     <Button
@@ -63,7 +63,7 @@ export function DictionaryFileButton() {
         status={status}
         icon={<IconFileCode size={14} />}
         label="Show dictionary file"
-        errorLabel="Couldn't open, try again"
+        errorLabel="Couldn't show, try again"
       />
     </Button>
   );

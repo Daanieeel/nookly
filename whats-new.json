@@ -1,6 +1,17 @@
 {
   "versions": [
     {
+      "version": "0.55.4",
+      "date": "2026-10-29",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Copy Link names the page by its short ID, like NOT-58, the same way mentions do.",
+          "Show dictionary file in Settings shows the file in Finder."
+        ]
+      }
+    },
+    {
       "version": "0.55.3",
       "date": "2026-10-29",
       "highlights": [],
