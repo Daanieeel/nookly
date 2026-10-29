@@ -176,7 +176,7 @@ function mentionCard(block: Block): ExportBlock[] {
 
 const TIMELINE_STATES = { done: "Done", now: "Now", next: "Next" } as const;
 
-const CALLOUT_TONES: readonly CalloutTone[] = ["note", "tip", "warning", "danger"];
+const CALLOUT_TONES: readonly CalloutTone[] = ["note", "tip", "warning", "danger", "ai"];
 
 const cell = (runs: Run[], extra: Partial<TableCell> = {}): TableCell => ({ runs, ...extra });
 

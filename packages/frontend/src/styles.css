@@ -452,6 +452,9 @@
   .tiptap-content .callout[data-variant="danger"] {
     --callout-tone: var(--destructive);
   }
+  .tiptap-content .callout[data-variant="ai"] {
+    --callout-tone: var(--accent-purple);
+  }
   .tiptap-content .callout-icon {
     color: var(--callout-tone);
   }

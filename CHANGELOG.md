@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.45.0 (2026-10-29)
+
+### Added
+
+- **AI Comment callout.** A new callout type, AI Comment, marks comments written by an AI, for example about what it changed when refining a jot. It has its own purple look, so you can tell it apart from the standard callouts at a glance. Pick it from the callout icon, or let your agent use it.
+
 ## 0.44.0 (2026-10-29)
 
 ### Added

@@ -54,7 +54,7 @@ export interface TableCell {
   bar?: number;
 }
 
-export type CalloutTone = "note" | "tip" | "warning" | "danger";
+export type CalloutTone = "note" | "tip" | "warning" | "danger" | "ai";
 
 export type ExportBlock =
   | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; runs: Run[] }

@@ -372,7 +372,7 @@ fn accept_anything(_: &str) -> Result<(), String> {
 
 // --- callout ---------------------------------------------------------------
 
-const CALLOUT_VARIANTS: &[&str] = &["note", "tip", "warning", "danger"];
+const CALLOUT_VARIANTS: &[&str] = &["note", "tip", "warning", "danger", "ai"];
 
 fn callout_to_markdown(block: &Block) -> String {
     let variant = block.attrs.get("variant").map_or("note", String::as_str);
@@ -380,6 +380,7 @@ fn callout_to_markdown(block: &Block) -> String {
         "tip" => "+",
         "warning" => "!",
         "danger" => "×",
+        "ai" => "*",
         _ => "i",
     };
     let wrapped: Vec<String> = block
@@ -412,7 +413,7 @@ inventory::submit! {
         attrs: &[BlockAttrDef {
             name: "variant",
             kind: AttrKind::Enum(CALLOUT_VARIANTS),
-            description: "Tone and icon of the callout. Defaults to note.",
+            description: "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
         }],
         validate: accept_anything,
         to_markdown: callout_to_markdown,
@@ -1325,6 +1326,13 @@ mod tests {
     }
 
     #[test]
+    fn an_ai_callout_has_its_own_glyph_and_label() {
+        let md = callout_to_markdown(&block("callout", "Merged two lines", &[("variant", "ai")]));
+        assert!(md.contains("[ AI ]"));
+        assert_eq!(body(&md), vec!["*  Merged two lines"]);
+    }
+
+    #[test]
     fn progress_draws_a_track_with_the_goal_marked() {
         let md = progress_to_markdown(&block(
             "progress",
@@ -1529,6 +1537,7 @@ mod tests {
 
         let attrs = |k: &str, v: &str| BlockAttrs::from([(k.to_string(), v.to_string())]);
         assert!(validate_attrs("callout", &attrs("variant", "tip")).is_ok());
+        assert!(validate_attrs("callout", &attrs("variant", "ai")).is_ok());
         assert!(validate_attrs("callout", &attrs("variant", "loud")).is_err());
         assert!(validate_attrs("callout", &attrs("title", "x")).is_err());
         assert!(validate_attrs("paragraph", &attrs("title", "x")).is_err());

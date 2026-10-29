@@ -66,10 +66,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -879,10 +880,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -1277,10 +1279,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -2058,10 +2061,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -2447,10 +2451,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -3476,10 +3481,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -3904,10 +3910,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",

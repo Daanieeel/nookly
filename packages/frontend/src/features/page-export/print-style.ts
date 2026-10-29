@@ -52,6 +52,7 @@ export const CALLOUTS = {
   tip: { label: "Tip", fill: "F0FDF4", accent: "16A34A" },
   warning: { label: "Warning", fill: "FFFBEB", accent: "D97706" },
   danger: { label: "Danger", fill: "FEF2F2", accent: "DC2626" },
+  ai: { label: "AI comment", fill: "FAF5FF", accent: "9333EA" },
 } satisfies Record<CalloutTone, { label: string; fill: string; accent: string }>;
 
 /// Fonts a Word or OpenDocument file names. Those files don't carry their fonts, so they

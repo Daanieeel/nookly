@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.45.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "AI Comment callout",
+          "description": "Mark what an AI changed with the new purple **AI Comment** callout, so it stands out from your own notes and the standard callouts.",
+          "icon": "robot",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.44.0",
       "date": "2026-10-29",
       "highlights": [

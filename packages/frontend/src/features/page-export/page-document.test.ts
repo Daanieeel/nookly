@@ -9,6 +9,11 @@ const block = (blockType: BlockType, content: string, patch: Partial<Block> = {}
 const one = (b: Block) => pageDocument("Page", [b]).blocks;
 
 describe("pageDocument", () => {
+  it("keeps the AI comment tone of a callout", () => {
+    const [callout] = one(block("callout", "Changed the order", { attrs: { variant: "ai" } }));
+    expect(callout).toMatchObject({ kind: "callout", tone: "ai" });
+  });
+
   it("keeps the blocks in page order", () => {
     const doc = pageDocument("Physics", [
       block("paragraph", "second", { position: 2 }),
