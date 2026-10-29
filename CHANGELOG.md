@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.43.2 (2026-10-29)
+
+### Changed
+
+- **Relationships in a fixed order.** In the details sidebar, related items are grouped in the same order every time: bookmarks, assignments, tasks, notes, jots, files, courses and so on, no matter when they were linked.
+
 ## 0.43.1 (2026-10-29)
 
 ### Changed

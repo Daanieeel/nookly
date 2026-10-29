@@ -121,6 +121,7 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
       />
 
       <TypeGroups
+        ranked
         items={rows}
         renderRow={(r) => (
           <div className="group flex items-center gap-1">

@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.43.2",
+      "date": "2026-10-29",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Related items in the details sidebar are grouped in a fixed order, starting with bookmarks, assignments, tasks and notes."
+        ]
+      }
+    },
+    {
       "version": "0.43.1",
       "date": "2026-10-29",
       "highlights": [],
