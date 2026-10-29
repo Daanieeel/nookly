@@ -70,11 +70,11 @@ interface NavItem {
   section?: string;
 }
 
+type ChildPage = Omit<NavItem, "category" | "icon" | "child">;
+
 /// The pages under a category, each holding one section of its rows. A new section of
 /// shortcuts is a new page here without any other change.
-const CHILD_PAGES: Partial<
-  Record<SettingCategory, Omit<NavItem, "category" | "icon" | "child">[]>
-> = {
+const CHILD_PAGES = {
   notes: [{ id: "latex", label: "LaTeX", section: "LaTeX" }],
   shortcuts: SHORTCUT_PAGES.map((section) => ({
     id: `shortcuts-${section.toLowerCase()}`,
@@ -83,12 +83,18 @@ const CHILD_PAGES: Partial<
     ariaLabel: `${section} shortcuts`,
     section,
   })),
-};
+} satisfies Partial<Record<SettingCategory, ChildPage[]>>;
+
+function childPagesOf(category: SettingCategory): ChildPage[] {
+  if (category === "notes") return CHILD_PAGES.notes;
+  if (category === "shortcuts") return CHILD_PAGES.shortcuts;
+  return [];
+}
 
 /// The navigation: every category, and under it the pages it has.
 const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => [
   { id, category: id, ...CATEGORY_META[id] },
-  ...(CHILD_PAGES[id] ?? []).map((page) => ({
+  ...childPagesOf(id).map((page) => ({
     ...page,
     category: id,
     icon: IconCornerDownRight,
@@ -100,7 +106,7 @@ const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => [
 /// and the category's own page the rows no page of its own takes.
 function onPage(row: RowSpec, page: NavItem): boolean {
   if (row.category !== page.category) return false;
-  const children = CHILD_PAGES[page.category] ?? [];
+  const children = childPagesOf(page.category);
   if (children.length === 0) return true;
   if (page.section) return row.section === page.section;
   return !children.some((child) => child.section === row.section);

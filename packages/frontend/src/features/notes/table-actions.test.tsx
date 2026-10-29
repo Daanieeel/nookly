@@ -70,7 +70,7 @@ function helpers(over: Partial<MenuHelpers> = {}): MenuHelpers {
 const labels = (kind: "note.table-row" | "note.table-column", e: Editor, index: number) =>
   actionsFor(kind)
     .filter((a) => !a.when || a.when(target(e, index)))
-    .map((a) => (typeof a.label === "function" ? a.label(target(e, index)) : a.label));
+    .map((a) => (a.label instanceof Function ? a.label(target(e, index)) : a.label));
 
 async function run(kind: "note.table-row" | "note.table-column", id: string, t: TablePartTarget) {
   const action = actionsFor(kind).find((a) => a.id === id);
