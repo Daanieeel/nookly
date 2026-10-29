@@ -33,6 +33,7 @@ import { Highlight } from "./highlight-extension";
 import { TextColor } from "./text-color-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
+import { DeepLinkPaste } from "./deep-link-paste-extension";
 import { DuplicateLine } from "./duplicate-line-extension";
 import { spellController } from "../spellcheck/spell-controller";
 import { Spellcheck, type SpellSource } from "../spellcheck/spellcheck-extension";
@@ -78,7 +79,10 @@ export function editorExtensions({
       link: {
         openOnClick: false,
         autolink: false,
-        protocols: [{ scheme: "mention", optionalSlashes: true }],
+        protocols: [
+          { scheme: "mention", optionalSlashes: true },
+          { scheme: "nookly", optionalSlashes: true },
+        ],
       },
       // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
       codeBlock: false,
@@ -117,6 +121,7 @@ export function editorExtensions({
     Emoji,
     TabIndent,
     DuplicateLine,
+    DeepLinkPaste,
     Spellcheck.configure({ source: spellSource }),
     Callout,
     Timeline,

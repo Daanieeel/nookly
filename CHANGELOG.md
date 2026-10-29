@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.55.1 (2026-10-29)
+
+### Fixed
+
+- **Pasted Nookly links.** A link that opens Nookly, like one from Copy Link, now becomes a clickable link when you paste it into a page, and clicking it opens what it points at.
+
 ## 0.55.0 (2026-10-29)
 
 ### Added

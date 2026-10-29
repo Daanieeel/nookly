@@ -5,6 +5,7 @@ import {
   parseMentionHref,
 } from "#/features/relationships/mention-utils.ts";
 import { getEntity } from "#/lib/api/entities.ts";
+import { parseDeepLink } from "#/lib/deep-link-url.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 
 /// Links the app may hand to the system: web and mail addresses only, never a file path
@@ -32,6 +33,13 @@ export function openLink(event: MouseEvent, spaceId: string): boolean {
   const link = event.target instanceof Element ? event.target.closest("a") : null;
   const href = link?.getAttribute("href");
   const mention = href ? parseMentionHref(href) : null;
+  if (href && !mention && parseDeepLink(href)) {
+    // A `nookly://` link in a page opens right here, without a trip through the system.
+    event.preventDefault();
+    if (event.metaKey || event.ctrlKey) armNewTabIntent();
+    void import("#/lib/deep-link.ts").then((m) => m.openDeepLink(href));
+    return true;
+  }
   if (!mention) return openExternalLink(event);
   event.preventDefault();
   if (event.metaKey || event.ctrlKey) armNewTabIntent();
