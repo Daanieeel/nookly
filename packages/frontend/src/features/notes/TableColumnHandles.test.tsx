@@ -6,6 +6,8 @@ import { renderWithProviders } from "#/test/render.tsx";
 import { blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { editorExtensions } from "./editor-extensions";
 import { TableColumnHandles } from "./TableColumnHandles";
+import { TableRowHandles } from "./TableRowHandles";
+import { claimFor } from "#/components/context-menu/registry.ts";
 
 let editor: Editor | null = null;
 afterEach(() => {
@@ -44,7 +46,12 @@ function setup() {
   const view = renderWithProviders(
     <div>
       <EditorContent editor={editor} />
-      <TableColumnHandles editor={editor} />
+      <TableColumnHandles
+        editor={editor}
+        entityId="note-1"
+        resolveStoredId={async () => "stored-1"}
+      />
+      <TableRowHandles editor={editor} entityId="note-1" resolveStoredId={async () => "stored-1"} />
     </div>,
   );
   return { ...view, editor };
@@ -108,5 +115,49 @@ describe("TableColumnHandles", () => {
     document.elementFromPoint = () => document.body;
     fireEvent.mouseUp(document, { clientX: 900, clientY: 900 });
     expect(stored(target)).toBe("A\tB\tC\n1\t2\t3");
+  });
+});
+
+/// The target a right click on `element` resolves to, as the menu host would read it.
+function rightClick(element: HTMLElement) {
+  let seen: Event | null = null;
+  const listen = (event: Event) => {
+    seen = event;
+  };
+  document.addEventListener("contextmenu", listen);
+  fireEvent.contextMenu(element);
+  document.removeEventListener("contextmenu", listen);
+  return seen ? claimFor(seen) : undefined;
+}
+
+describe("right clicking the grips", () => {
+  it("opens the column menu for the column the grip is over", async () => {
+    const { editor: target } = setup();
+    fireEvent.mouseMove(cell(1));
+    await frame();
+    const claimed = rightClick(grip());
+    if (claimed?.kind !== "note.table-column") throw new Error("not a column target");
+    expect(claimed.data.editor === target).toBe(true);
+    expect(claimed.data).toMatchObject({
+      index: 1,
+      tablePos: 0,
+      entityId: "note-1",
+      blockId: expect.any(String),
+    });
+  });
+
+  it("opens the row menu for the row the grip is beside", async () => {
+    const { editor: target } = setup();
+    fireEvent.mouseMove(cell(4));
+    await frame();
+    const claimed = rightClick(screen.getByTestId("table-row-grip"));
+    if (claimed?.kind !== "note.table-row") throw new Error("not a row target");
+    expect(claimed.data.editor === target).toBe(true);
+    expect(claimed.data).toMatchObject({ index: 1, tablePos: 0, entityId: "note-1" });
+  });
+
+  it("opens no menu for a grip that is not over anything", () => {
+    setup();
+    expect(rightClick(grip())).toBeUndefined();
   });
 });

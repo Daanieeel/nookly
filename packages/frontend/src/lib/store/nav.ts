@@ -122,6 +122,9 @@ export interface FocusBlock {
   entityId: string;
   blockId?: string;
   page?: number;
+  /// A row (from 1) or column (from 1) of the table `blockId` is, to mark once it is shown.
+  row?: number;
+  column?: number;
 }
 
 interface NavState {

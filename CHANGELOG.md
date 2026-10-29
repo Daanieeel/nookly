@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.51.0 (2026-10-29)
+
+### Added
+
+- **Table row and column menus.** Right click the grip of a table row or column to copy a mention to it, add a row or column, duplicate, move, clear or delete it. Opening a mention of a row or column shows the table and marks those cells.
+
 ## 0.50.0 (2026-10-29)
 
 ### Added

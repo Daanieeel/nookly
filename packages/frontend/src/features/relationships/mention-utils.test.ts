@@ -4,6 +4,7 @@ import {
   isEntityKey,
   mentionMarkdown,
   parseMentionHref,
+  tablePartFragment,
 } from "./mention-utils.ts";
 
 describe("parseMentionHref", () => {
@@ -67,5 +68,45 @@ describe("isEntityKey", () => {
     "",
   ])("does not take %s for a key", (value) => {
     expect(isEntityKey(value)).toBe(false);
+  });
+});
+
+describe("a row or column of a table in a mention", () => {
+  const block = "955c5287-1f00-437d-9e6a-7abb422aefdd";
+
+  it("reads the row after the block", () => {
+    expect(parseMentionHref(`mention:abc-123#${block}_r3`)).toEqual({
+      entityId: "abc-123",
+      blockId: block,
+      row: 3,
+    });
+  });
+
+  it("reads the column after the block", () => {
+    expect(parseMentionHref(`mention:abc-123#${block}_c12`)).toEqual({
+      entityId: "abc-123",
+      blockId: block,
+      column: 12,
+    });
+  });
+
+  it("leaves an id that merely ends like one alone", () => {
+    expect(parseMentionHref("mention:abc-123#blk_r")).toEqual({
+      entityId: "abc-123",
+      blockId: "blk_r",
+    });
+    expect(parseMentionHref("mention:abc-123#blk_r3x")).toEqual({
+      entityId: "abc-123",
+      blockId: "blk_r3x",
+    });
+    expect(parseMentionHref("mention:abc-123#_r3")).toEqual({
+      entityId: "abc-123",
+      blockId: "_r3",
+    });
+  });
+
+  it("names a row and a column in a link to them", () => {
+    expect(tablePartFragment(block, "row", 3)).toBe(`${block}_r3`);
+    expect(tablePartFragment(block, "column", 1)).toBe(`${block}_c1`);
   });
 });

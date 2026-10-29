@@ -405,3 +405,13 @@ The section navigator of a page (`ScrollProgressSearch`) is a copy of `ScrollPro
 **Why:** primitives in `packages/ui` are frozen, so the search is added beside the old one instead of changing it.
 
 **Rejected:** a `search` prop on `ScrollProgress` (edits a primitive) and locking the height when the first letter is typed (the full list already gives the same height without the extra state).
+
+---
+
+### A mention of a table row or column adds `_r2` or `_c3` to the block
+
+`[Notes](mention:<id>#<block>_r2)` points at the second row of a table block, `_c3` at the third column, counted from 1 with the header as row 1. The block stays the target of backlinks and rename sync, so no stored pattern changes: the fragment alphabet already allows `_`. Opening it shows the table and marks those cells; a row or column that is gone still opens the table.
+
+**Why:** a table is one block, and the position is the only stable way to name a row or column that has no id of its own.
+
+**Rejected:** ids on rows and columns (a new field in every stored table) and a separate link syntax (a fourth way to link, see [the relationship system](01-philosophy.md#the-relationship-system-links-everything)).

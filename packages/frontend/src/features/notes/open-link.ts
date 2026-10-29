@@ -31,11 +31,15 @@ export function openLink(event: MouseEvent, spaceId: string): boolean {
   if (!mention) return openExternalLink(event);
   event.preventDefault();
   if (event.metaKey || event.ctrlKey) armNewTabIntent();
-  const { entityId, blockId, page } = mention;
+  const { entityId, blockId, page, row, column } = mention;
   const open = (id: string, space: string) =>
     useNavStore
       .getState()
-      .openEntity(id, space, blockId || page ? { entityId: id, blockId, page } : undefined);
+      .openEntity(
+        id,
+        space,
+        blockId || page ? { entityId: id, blockId, page, row, column } : undefined,
+      );
   if (isEntityKey(entityId)) {
     // A mention written with its readable key opens the page that key names. A key that
     // names nothing opens nothing.

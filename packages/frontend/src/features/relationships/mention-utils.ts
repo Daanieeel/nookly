@@ -9,11 +9,23 @@ export interface MentionTarget {
   entityId: string;
   blockId?: string;
   page?: number;
+  /// A row (counted from 1, the header being row 1) of the table `blockId` is.
+  row?: number;
+  /// A column (counted from 1) of the table `blockId` is.
+  column?: number;
 }
 
 const MENTION_HREF_PREFIX = "mention:";
 
 const PAGE_FRAGMENT = /^p(\d+)$/;
+
+/// A block followed by `_r3` or `_c2`: a row or column of that table.
+const TABLE_PART_FRAGMENT = /^([A-Za-z0-9-][A-Za-z0-9_-]*)_([rc])(\d+)$/;
+
+/// The fragment that points at a row or column of a table block.
+export function tablePartFragment(blockId: string, part: "row" | "column", index: number): string {
+  return `${blockId}_${part === "row" ? "r" : "c"}${index}`;
+}
 
 /// Reads a `mention:` href, or `null` for any other link. A fragment that is `p` and
 /// digits only is a page; every real block id has other characters.
@@ -23,7 +35,15 @@ export function parseMentionHref(href: string): MentionTarget | null {
   if (!entityId) return null;
   if (!fragment) return { entityId };
   const page = PAGE_FRAGMENT.exec(fragment)?.[1];
-  return page ? { entityId, page: Number(page) } : { entityId, blockId: fragment };
+  if (page) return { entityId, page: Number(page) };
+  const part = TABLE_PART_FRAGMENT.exec(fragment);
+  if (part) {
+    const [, blockId, kind, index] = part;
+    return kind === "r"
+      ? { entityId, blockId, row: Number(index) }
+      : { entityId, blockId, column: Number(index) };
+  }
+  return { entityId, blockId: fragment };
 }
 
 const ENTITY_KEY = /^[A-Za-z]{3}-\d+$/;

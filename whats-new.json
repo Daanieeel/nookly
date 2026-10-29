@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.51.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Table row and column menus",
+          "description": "Right click the grip next to a table row or above a column to add, duplicate, move, clear or delete it, or to copy a mention that points at it.",
+          "icon": "table",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.50.0",
       "date": "2026-10-29",
       "highlights": [

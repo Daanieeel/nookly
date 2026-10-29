@@ -11,6 +11,8 @@ import {
   useDragHandleState,
 } from "./drag-overlays";
 import { keepIfEqual } from "./pointer-frame";
+import { tableOf } from "./table-target";
+import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
 
 interface ResolvedRow {
   start: number;
@@ -48,7 +50,17 @@ function findEnclosingTableRow(node: ProseMirrorNode, pos: number): ResolvedRow 
 /// drops the same two events in WebKit while working correctly in Chromium. Plain mouse events
 /// have no such native-drag-session semantics to go wrong — same as the hover-tracking below,
 /// which already relies on them.
-export function TableRowHandles({ editor }: { editor: Editor | null }) {
+export function TableRowHandles({
+  editor,
+  entityId,
+  resolveStoredId,
+}: {
+  editor: Editor | null;
+  /// The page the table is in, and the means to find the stored id of its block: what the
+  /// grip's right click menu needs for its mention.
+  entityId: string;
+  resolveStoredId: (blockId: string) => Promise<string | null>;
+}) {
   // The grip button is *always* mounted (never conditionally rendered) and toggled purely via
   // `visible`/CSS. A conditionally-rendered grip can unmount mid-gesture from a stray mousemove
   // landing outside the hover-tolerance zone below — confirmed as a real, reproducible failure
@@ -194,6 +206,21 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
 
   if (!editor) return null;
 
+  /// A right click on the grip is on the row it floats beside.
+  const gripContextTarget = contextTargetAt(() => {
+    const row = hoveredRowRef.current;
+    const table = row && tableOf(editor, row);
+    if (!row || !table) return undefined;
+    return makeTarget("note.table-row", {
+      editor,
+      tablePos: table.pos,
+      index: row.rowIndex,
+      blockId: table.blockId,
+      entityId,
+      resolveStoredId,
+    });
+  });
+
   return (
     <>
       <button
@@ -201,6 +228,7 @@ export function TableRowHandles({ editor }: { editor: Editor | null }) {
         type="button"
         aria-label="Drag to reorder row"
         data-testid="table-row-grip"
+        {...gripContextTarget}
         onMouseDown={(event) => {
           const row = hoveredRowRef.current;
           if (!row) return;
