@@ -79,7 +79,8 @@ describe("the shortcuts pages", () => {
     for (const section of SHORTCUT_PAGES) {
       const page = within(nav).getByRole("button", { name: `${section} shortcuts` });
       expect(page).toHaveTextContent(section);
-      expect(page.className).toMatch(/pl-/);
+      expect(page.closest("[data-nested]")?.className).toMatch(/border-l/);
+      expect(page.querySelector("svg")).toBeNull();
       expect(
         previous.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.55.2 (2026-10-29)
+
+### Changed
+
+- **Settings navigation.** Pages under a category, like LaTeX under Editor and the shortcut groups, now hang on a guide line under it instead of showing an arrow icon.
+
 ## 0.55.1 (2026-10-29)
 
 ### Fixed

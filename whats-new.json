@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.55.2",
+      "date": "2026-10-29",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Pages under a category in Settings hang on a guide line under it instead of showing an arrow icon."
+        ]
+      }
+    },
+    {
       "version": "0.55.1",
       "date": "2026-10-29",
       "highlights": [],

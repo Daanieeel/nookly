@@ -2,7 +2,6 @@ import {
   IconArchive,
   IconFileCode,
   IconCalendar,
-  IconCornerDownRight,
   IconKeyboard,
   IconNotes,
   IconPalette,
@@ -63,8 +62,9 @@ interface NavItem {
   title?: string;
   /// The name a screen reader hears, when the label alone is ambiguous.
   ariaLabel?: string;
-  icon: TablerIcon;
-  /// Drawn indented under the item before it, with a corner connector as its icon.
+  /// Not drawn for a page under another one.
+  icon?: TablerIcon;
+  /// Drawn indented under the item before it, on a guide line, as a page of that category.
   child?: boolean;
   /// The section of the category whose rows the page holds.
   section?: string;
@@ -97,7 +97,6 @@ const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => [
   ...childPagesOf(id).map((page) => ({
     ...page,
     category: id,
-    icon: IconCornerDownRight,
     child: true,
   })),
 ]);
@@ -268,6 +267,34 @@ export function SettingsDialog() {
 
   useAppHotkey("settings", () => setOpen(!useNavStore.getState().settingsOpen));
 
+  function navButton(item: NavItem) {
+    const { label, icon: Icon } = item;
+    const count = results.filter((r) => onPage(r, item)).length;
+    const active = !searching && page.id === item.id;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        aria-current={active ? "page" : undefined}
+        aria-label={item.ariaLabel}
+        onClick={() => pick(item)}
+        className={cn(
+          "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+          active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
+          searching && count === 0 && "opacity-50",
+        )}
+      >
+        {Icon && <Icon size={16} className="shrink-0" />}
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {searching && (
+          <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
+            {count}
+          </span>
+        )}
+      </button>
+    );
+  }
+
   function pick(next: NavItem) {
     setPageId(next.id);
     if (!searching) return;
@@ -315,32 +342,21 @@ export function SettingsDialog() {
               aria-label="Settings categories"
               className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
             >
-              {NAV.map((item) => {
-                const { label, icon: Icon } = item;
-                const count = results.filter((r) => onPage(r, item)).length;
-                const active = !searching && page.id === item.id;
+              {NAV.filter((item) => !item.child).map((item) => {
+                const children = NAV.filter((c) => c.child && c.category === item.category);
                 return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-current={active ? "page" : undefined}
-                    aria-label={item.ariaLabel}
-                    onClick={() => pick(item)}
-                    className={cn(
-                      "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                      item.child && "pl-7",
-                      active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
-                      searching && count === 0 && "opacity-50",
+                  <Fragment key={item.id}>
+                    {navButton(item)}
+                    {children.length > 0 && (
+                      // The guide line starts under the parent's icon, as in the app sidebar.
+                      <div
+                        data-nested
+                        className="ml-[18px] flex flex-col gap-0.5 border-l border-border pl-2"
+                      >
+                        {children.map(navButton)}
+                      </div>
                     )}
-                  >
-                    <Icon size={item.child ? 14 : 16} className="shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{label}</span>
-                    {searching && (
-                      <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
+                  </Fragment>
                 );
               })}
             </nav>
