@@ -13,6 +13,7 @@ pub mod exams;
 pub mod external_calendars;
 pub mod files;
 pub mod labels;
+pub mod local_files;
 pub mod notes;
 pub mod office;
 pub mod office_install;

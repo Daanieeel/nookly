@@ -3720,3 +3720,199 @@ fn a_code_block_is_shown_exactly_as_stored() {
     let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
     assert_eq!(blocks["items"][0]["content"], content);
 }
+
+// --- file blocks that point at a path on this computer ------------------------------
+
+fn path_fixture() -> (Fx, String) {
+    let fx = fx();
+    let page = cli(
+        &fx.conn,
+        &["note", "create", "--space", &fx.space, "--title", "Uni"],
+    )
+    .unwrap();
+    let id = page["data"]["entity"]["id"].as_str().unwrap().to_string();
+    (fx, id)
+}
+
+fn temp_file(name: &str) -> String {
+    let dir = std::env::temp_dir().join(format!("nookly-cli-path-{}", crate::db::new_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join(name);
+    std::fs::write(&file, b"%PDF").unwrap();
+    file.to_string_lossy().to_string()
+}
+
+#[test]
+fn a_file_block_takes_the_path_of_a_file_that_is_there() {
+    let (fx, page) = path_fixture();
+    let path = temp_file("Handout_Woche3.pdf");
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "file",
+            "--content",
+            &path,
+        ],
+    )
+    .unwrap();
+    assert_eq!(added["block"]["content"], path);
+    assert!(added.get("warning").is_none(), "{added}");
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["items"][0]["fileStatus"]["state"], "ok");
+}
+
+#[test]
+fn a_path_that_cannot_be_reached_is_kept_and_the_reason_is_said_plainly() {
+    let (fx, page) = path_fixture();
+    for (path, state, words) in [
+        (
+            "/tmp/__nookly_gone__/Handout.pdf",
+            "missing",
+            "moved, renamed or deleted",
+        ),
+        (
+            "/Volumes/__nookly_no_drive__/Uni/Handout.pdf",
+            "unavailable",
+            "drive or network volume",
+        ),
+    ] {
+        let added = cli(
+            &fx.conn,
+            &[
+                "note",
+                "add-block",
+                &page,
+                "--type",
+                "file",
+                "--content",
+                path,
+            ],
+        )
+        .unwrap();
+        // Saved exactly as given, so it works again once the file or the drive is back.
+        assert_eq!(added["block"]["content"], path);
+        let warning = added["warning"].as_str().unwrap_or_default();
+        assert!(warning.contains(path), "{warning}");
+        assert!(warning.contains(words), "{warning}");
+        let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+        let item = blocks["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["content"] == path)
+            .unwrap();
+        assert_eq!(item["fileStatus"]["state"], state);
+        assert!(item["fileStatus"]["message"]
+            .as_str()
+            .unwrap()
+            .contains(path));
+    }
+}
+
+#[test]
+fn reading_a_page_with_a_missing_file_does_not_fail() {
+    let (fx, page) = path_fixture();
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "file",
+            "--content",
+            "/tmp/__nookly_gone__/a.pdf",
+        ],
+    )
+    .unwrap();
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "paragraph",
+            "--content",
+            "Still here",
+        ],
+    )
+    .unwrap();
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["count"], 2);
+    assert!(cli(&fx.conn, &["note", "get", &page]).is_ok());
+}
+
+#[test]
+fn an_empty_or_malformed_target_is_refused_with_a_reason() {
+    let (fx, page) = path_fixture();
+    let before = scalar(&fx.conn, "SELECT COUNT(*) FROM blocks");
+    for (content, words) in [
+        ("", "empty"),
+        ("   ", "empty"),
+        ("Handout.pdf", "full path"),
+        ("~/Handout.pdf", "full path"),
+        ("file:///a.pdf", "full path"),
+    ] {
+        let err = err_of(cli(
+            &fx.conn,
+            &[
+                "note",
+                "add-block",
+                &page,
+                "--type",
+                "file",
+                "--content",
+                content,
+            ],
+        ));
+        assert_eq!(kind_of(&err), "InvalidInput", "{content:?}");
+        assert!(err.to_string().contains(words), "{content:?}: {err}");
+    }
+    assert_eq!(scalar(&fx.conn, "SELECT COUNT(*) FROM blocks"), before);
+}
+
+#[test]
+fn changing_a_block_to_a_missing_path_warns_and_keeps_the_path() {
+    let (fx, page) = path_fixture();
+    let path = temp_file("a.pdf");
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "file",
+            "--content",
+            &path,
+        ],
+    )
+    .unwrap();
+    let block_id = added["block"]["id"].as_str().unwrap().to_string();
+    let updated = cli(
+        &fx.conn,
+        &[
+            "note",
+            "update-block",
+            &block_id,
+            "--content",
+            "/tmp/__nookly_gone__/b.pdf",
+        ],
+    )
+    .unwrap();
+    assert_eq!(updated["block"]["content"], "/tmp/__nookly_gone__/b.pdf");
+    assert!(updated["warning"]
+        .as_str()
+        .unwrap()
+        .contains("/tmp/__nookly_gone__/b.pdf"));
+    let err = err_of(cli(
+        &fx.conn,
+        &["note", "update-block", &block_id, "--content", ""],
+    ));
+    assert_eq!(kind_of(&err), "InvalidInput");
+}

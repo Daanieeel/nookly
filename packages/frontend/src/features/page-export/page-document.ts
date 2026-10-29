@@ -7,6 +7,7 @@ import {
   parseTree,
 } from "#/features/notes/custom-block-rows.ts";
 import { mathBlockLatex } from "#/features/notes/math.ts";
+import { fileUrl, isLocalPath } from "#/features/notes/media-target.ts";
 import { parseHighlightColor } from "#/features/notes/highlight-colors.ts";
 import { parseTextColor } from "#/features/notes/text-colors.ts";
 import type { Block, BlockType } from "#/lib/api/types.ts";
@@ -131,12 +132,16 @@ function figure(type: "math" | "diagram" | "circuit" | "plot", latex = false): B
 }
 
 /// A media block's name and where it points: the mention's File, or the plain URL.
-function mediaTarget(block: Block): { name: string; fileId?: string; url?: string } | null {
+function mediaTarget(
+  block: Block,
+): { name: string; fileId?: string; url?: string; path?: string } | null {
   const content = block.content.trim();
   if (!content) return null;
   const mention = MENTION.exec(content);
   if (mention) return { name: mention[1] ?? "", fileId: mention[2] };
-  return { name: content.split("/").filter(Boolean).at(-1) ?? content, url: content };
+  // A file on this computer is named by its last part, and linked as a `file://` URL.
+  const name = content.split(/[/\\]/).filter(Boolean).at(-1) ?? content;
+  return { name, url: isLocalPath(content) ? fileUrl(content) : content, path: content };
 }
 
 const MEDIA_NOUNS = { video: "Video", audio: "Audio", file: "File" } as const;
@@ -339,7 +344,7 @@ export const BLOCK_EXPORTERS = {
     return [
       {
         kind: "figure",
-        source: { type: "image", fileId: target.fileId, url: target.url },
+        source: { type: "image", fileId: target.fileId, url: target.url, path: target.path },
         fallback: caption ?? target.name,
         caption,
       },

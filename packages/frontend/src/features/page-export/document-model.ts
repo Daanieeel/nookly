@@ -94,7 +94,7 @@ export type FigureSource =
   | { type: "circuit"; source: string }
   | { type: "plot"; source: string }
   /// An image file the page shows, by File id or URL.
-  | { type: "image"; fileId?: string; url?: string };
+  | { type: "image"; fileId?: string; url?: string; path?: string };
 
 export interface ExportDocument {
   title: string;

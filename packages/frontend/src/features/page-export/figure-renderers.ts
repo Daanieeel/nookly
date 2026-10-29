@@ -8,6 +8,8 @@ import { parsePlot } from "#/features/notes/plot/parse.ts";
 import { latexMacros } from "#/features/notes/math.ts";
 import { getBookmark } from "#/lib/api/bookmarks.ts";
 import { getFile } from "#/lib/api/files.ts";
+import { checkLocalPath } from "#/lib/api/local-files.ts";
+import { fileUrl } from "#/features/notes/media-target.ts";
 import type { ExportImage } from "./document-model.ts";
 import { COLORS } from "./print-style.ts";
 import type { FigureRenderers } from "./resolve-document.ts";
@@ -117,11 +119,7 @@ async function fetchBlob(url: string): Promise<Blob> {
   return response.blob();
 }
 
-/// A local path as a `file://` URL, the way the markdown export links a File.
-export function fileUrl(path: string): string {
-  const slashed = path.replace(/\\/g, "/");
-  return `file://${slashed.startsWith("/") ? "" : "/"}${encodeURI(slashed)}`;
-}
+export { fileUrl };
 
 export const appFigureRenderers: FigureRenderers = {
   math: async (latex, inline) => {
@@ -140,7 +138,12 @@ export const appFigureRenderers: FigureRenderers = {
   },
   circuit: async (source) => svgToPng(drawCircuit(layoutCircuit(parseCircuit(source)))),
   plot: async (source) => svgToPng(drawPlot(parsePlot(source), false)),
-  image: async ({ fileId, url }) => {
+  image: async ({ fileId, url, path: localPath }) => {
+    // A file on this computer, when it is there: a missing one leaves the caption instead.
+    if (localPath) {
+      const found = await checkLocalPath(localPath).catch(() => null);
+      return found?.state === "ok" ? photoToPng(await fetchBlob(convertFileSrc(localPath))) : null;
+    }
     if (fileId) {
       const file = await getFile(fileId);
       const path = file.localPath ?? file.sourcePath;

@@ -12,6 +12,7 @@
 //! export complete and readable anywhere.
 
 use crate::db::ascii_frame::{col_width, fence, frame, pad_end, pad_start, wrap_text};
+use crate::db::local_path;
 use crate::db::notes::Block;
 use crate::error::{AppError, AppResult};
 use std::collections::{BTreeMap, HashMap};
@@ -1079,18 +1080,21 @@ inventory::submit! {
 
 // --- image, video, audio, file ---------------------------------------------
 
-/// A media block's target: a File entity mention, or a plain URL.
+/// A media block's target: a File entity mention, a plain URL, or the full path of a file on
+/// this computer.
 fn validate_media(content: &str) -> Result<(), String> {
     let content = content.trim();
     if content.is_empty()
         || validate_mention_link(content).is_ok()
         || content.starts_with("http://")
         || content.starts_with("https://")
+        || local_path::is_local_path(content)
     {
         Ok(())
     } else {
         Err(
-            "expected a mention of a file entity, [name](mention:<file-id>), or an http(s) URL"
+            "expected the full path of a file on this computer (like /Users/you/file.pdf), \
+             an http(s) URL, or a mention of a file entity, [name](mention:<file-id>)"
                 .into(),
         )
     }
@@ -1127,10 +1131,17 @@ fn media_link(block: &Block) -> Option<(String, String)> {
         ),
         None => {
             let name = content
-                .rsplit('/')
+                .rsplit(['/', '\\'])
                 .find(|s| !s.is_empty())
                 .unwrap_or(content);
-            (caption.unwrap_or(name).to_string(), content.to_string())
+            // A file on this computer is a `file://` link in an export.
+            let target = if local_path::is_local_path(content) {
+                url::Url::from_file_path(content)
+                    .map_or_else(|()| content.to_string(), |url| url.to_string())
+            } else {
+                content.to_string()
+            };
+            (caption.unwrap_or(name).to_string(), target)
         }
     })
 }
@@ -1154,8 +1165,9 @@ const PAGE_TO_ATTR: BlockAttrDef = BlockAttrDef {
 };
 
 const MEDIA_FORMAT: &str = "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into \
-                            Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under \
-                            its Mentioned in.";
+                            Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, \
+                            like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written \
+                            when the file is not there). Mentioning the file lists this page under its Mentioned in.";
 
 inventory::submit! {
     BlockTypeDef {
@@ -1460,6 +1472,34 @@ mod tests {
         assert!(validate_content("audio", "[a.mp3](mention:f-2)").is_ok());
         assert!(validate_content("image", "photo.png").is_err());
         assert!(validate_content("image", "https://x.dev/a.png").is_ok());
+    }
+
+    #[test]
+    fn a_media_block_takes_the_full_path_of_a_file() {
+        for block_type in ["file", "image", "video", "audio"] {
+            assert!(
+                validate_content(block_type, "/Users/daniel/Downloads/Handout_Woche3.pdf").is_ok()
+            );
+            assert!(validate_content(block_type, "C:\\Users\\me\\a.pdf").is_ok());
+        }
+        // Not a full path, a link or a mention.
+        for bad in [
+            "Handout.pdf",
+            "./Handout.pdf",
+            "~/Handout.pdf",
+            "file:///a.pdf",
+            "ftp://x/a",
+        ] {
+            let err = validate_content("file", bad).unwrap_err();
+            assert!(err.to_string().contains("full path"), "{bad}: {err}");
+        }
+        let file = block("file", "/Users/me/Uni/Handout 3.pdf", &[]);
+        assert_eq!(
+            (lookup("file").unwrap().to_markdown)(&file),
+            "[Handout 3.pdf](file:///Users/me/Uni/Handout%203.pdf)"
+        );
+        let windows = block("file", "C:\\Uni\\a.pdf", &[]);
+        assert!((lookup("file").unwrap().to_markdown)(&windows).starts_with("[a.pdf]("));
     }
 
     #[test]

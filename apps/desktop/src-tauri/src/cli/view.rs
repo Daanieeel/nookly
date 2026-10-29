@@ -3,6 +3,7 @@
 //! Everything here works on the generic JSON an `EntitySchemaDef` returns, so it
 //! applies to every registered entity type with no per-module code.
 
+use crate::db::local_path::{inspect, media_target, MediaTarget};
 use crate::db::notes::Block;
 use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
@@ -173,6 +174,15 @@ pub fn blocks_json(blocks: &[Block]) -> Vec<Value> {
             let mut value = json!(block);
             if let Some(display) = list_display(block, i.checked_sub(1).map(|p| &blocks[p])) {
                 value["display"] = display;
+            }
+            // A file that is not there is reported, never an error: the path stays as stored.
+            if matches!(
+                block.block_type.as_str(),
+                "file" | "image" | "video" | "audio"
+            ) {
+                if let MediaTarget::Path(path) = media_target(&block.content) {
+                    value["fileStatus"] = json!(inspect(path));
+                }
             }
             value
         })

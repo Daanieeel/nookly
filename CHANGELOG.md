@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.53.0 (2026-10-29)
+
+### Added
+
+- **Files by path.** Add a file to a page by its full path, such as /Users/you/Downloads/handout.pdf, with the new Path option. Nookly only reads the file, never changes it. If the file is moved, renamed or on a drive that is not connected, the block says so and keeps the path, so it works again once the file is back. You can edit the path or replace the file at any time.
+
 ## 0.52.0 (2026-10-29)
 
 ### Added

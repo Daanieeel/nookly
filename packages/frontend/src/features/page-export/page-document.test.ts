@@ -8,6 +8,33 @@ const block = (blockType: BlockType, content: string, patch: Partial<Block> = {}
 
 const one = (b: Block) => pageDocument("Page", [b]).blocks;
 
+describe("media blocks with the path of a file on this computer", () => {
+  it("name the file and link it as a file URL", () => {
+    const [line] = one(block("file", "/Users/me/Uni/Handout 3.pdf"));
+    expect(line).toMatchObject({
+      kind: "paragraph",
+      runs: [
+        { text: "File: " },
+        { text: "Handout 3.pdf", link: "file:///Users/me/Uni/Handout%203.pdf" },
+      ],
+    });
+  });
+
+  it("name a Windows file by its last part", () => {
+    const [line] = one(block("file", "C:\\Uni\\a.pdf"));
+    expect(line).toMatchObject({ runs: [{ text: "File: " }, { text: "a.pdf" }] });
+  });
+
+  it("draw an image from the path, with the name as its fallback", () => {
+    const [figure] = one(block("image", "/Users/me/campus.png"));
+    expect(figure).toMatchObject({
+      kind: "figure",
+      source: { type: "image", path: "/Users/me/campus.png" },
+      fallback: "campus.png",
+    });
+  });
+});
+
 describe("pageDocument", () => {
   it("keeps the AI comment tone of a callout", () => {
     const [callout] = one(block("callout", "Changed the order", { attrs: { variant: "ai" } }));

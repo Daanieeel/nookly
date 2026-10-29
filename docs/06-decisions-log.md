@@ -415,3 +415,13 @@ The section navigator of a page (`ScrollProgressSearch`) is a copy of `ScrollPro
 **Why:** a table is one block, and the position is the only stable way to name a row or column that has no id of its own.
 
 **Rejected:** ids on rows and columns (a new field in every stored table) and a separate link syntax (a fourth way to link, see [the relationship system](01-philosophy.md#the-relationship-system-links-everything)).
+
+---
+
+### A media block can name a file on this computer by its path
+
+`/file`, `/image`, `/video` and `/audio` accept the full path of a file next to a mention and a link (`db/local_path.rs`). Nookly only reads it. The path is stored exactly as written and never rewritten: when the file is moved, renamed, unreadable or on a drive that is not connected, the block shows why and the path keeps working once the file is back. The CLI reports the same reasons (`fileStatus` when reading, a `warning` when writing) and refuses only an empty or malformed value. Programs (`.app`, `.exe`, `.sh`, ...) are not opened from a path.
+
+**Why:** a path is the lightest way to point at a file that lives elsewhere, and a reference that is never edited cannot lose anyone's data.
+
+**Rejected:** importing the file on save (a path is for files people want to leave where they are), checking the file before saving it (a drive that is off would make the path impossible to write), and a hard failure on a missing file (it would break reading a whole page).

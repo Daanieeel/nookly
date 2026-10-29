@@ -29,6 +29,7 @@ mod grade_report_tests;
 pub mod labels;
 #[cfg(test)]
 mod labels_tests;
+pub mod local_path;
 pub mod mention_keys;
 #[cfg(test)]
 pub(crate) mod migration_upgrade_tests;

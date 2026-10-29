@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.53.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Files by path",
+          "description": "The **/file** block now takes the full path of a file on your computer. If the file is not there, the block says why and keeps the path until it is back.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.52.0",
       "date": "2026-10-29",
       "highlights": [

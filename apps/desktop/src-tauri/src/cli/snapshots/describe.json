@@ -289,7 +289,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -302,9 +302,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -316,7 +316,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli assignment delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -1103,7 +1103,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -1116,9 +1116,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -1130,7 +1130,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli course delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -1502,7 +1502,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -1515,9 +1515,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -1529,7 +1529,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli exam delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -2284,7 +2284,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -2297,9 +2297,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -2311,7 +2311,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli jot delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -2674,7 +2674,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -2687,9 +2687,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -2701,7 +2701,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli note delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -3704,7 +3704,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -3717,9 +3717,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -3731,7 +3731,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli sub_task delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -4133,7 +4133,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -4146,9 +4146,9 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
         "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
@@ -4160,7 +4160,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli task delete-block <block-id> --yes",
       "knownBlockTypes": [

@@ -818,6 +818,7 @@ nookly cli note add-block <id> --type divider --content ''
 nookly cli note add-block <id> --type entity_card --content '[Midterm](mention:<exam-id>)'
 nookly cli note add-block <id> --type image --content '[campus.jpg](mention:<file-id>)' --attr caption='Main campus'
 nookly cli note add-block <id> --type file --content '[syllabus.pdf](mention:<file-id>)' --attr page=12   # opens on page 12; also video, audio
+nookly cli note add-block <id> --type file --content '/Users/you/Downloads/handout.pdf'   # a file on this computer; Nookly only reads it, and keeps the path as written if the file is not there
 nookly cli note add-block <id> --type bookmark --content '[Rust Book](mention:<bookmark-id>)'
 nookly cli note add-block <id> --type embed --content 'https://www.youtube.com/watch?v=<id>'
 nookly cli note add-block <id> --type toggle --content "$(printf 'What is a monad?\nA monoid in the category of endofunctors.')"
@@ -1782,6 +1783,7 @@ fn block_command(
             args.check_revision(&get_page(conn, &id)?)?;
             let block_type = args.require_flag("type")?;
             let content = args.require_flag("content")?;
+            check_media_content(&block_type, &content)?;
             let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
             // `--language`/`--filename` only mean anything on a `code` block (the
             // markdown editor's code block header row) — harmless no-ops on any other type.
@@ -1813,6 +1815,7 @@ fn block_command(
             if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
                 result["warning"] = json!(warning);
             }
+            add_warning(&mut result, unreachable_file_warning(&block));
             Ok(result)
         }
         "update-block" => {
@@ -1820,6 +1823,12 @@ fn block_command(
             let before = crate::db::notes::get_block(conn, &block_id)?;
             args.check_revision(&get_page(conn, &before.entity_id)?)?;
             let submitted_content = args.flag("content");
+            if let Some(content) = &submitted_content {
+                let block_type = args
+                    .flag("type")
+                    .unwrap_or_else(|| before.block_type.clone());
+                check_media_content(&block_type, content)?;
+            }
             let patch = crate::db::notes::BlockPatch {
                 content: submitted_content.clone(),
                 block_type: args.flag("type"),
@@ -1842,6 +1851,7 @@ fn block_command(
             if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
                 result["warning"] = json!(warning);
             }
+            add_warning(&mut result, unreachable_file_warning(&block));
             Ok(result)
         }
         "delete-block" => {
@@ -1871,6 +1881,57 @@ fn block_command(
         }
         _ => unreachable!("dispatch guarantees verb is one of the block commands"),
     }
+}
+
+/// Media blocks hold a mention, a link or the full path of a file. An empty value or one that
+/// is none of those is refused with the reason; a path that cannot be reached right now is
+/// not (see `unreachable_file_warning`).
+fn check_media_content(block_type: &str, content: &str) -> AppResult<()> {
+    use crate::db::local_path::{media_target, MediaTarget};
+    if !matches!(block_type, "file" | "image" | "video" | "audio") {
+        return Ok(());
+    }
+    match media_target(content) {
+        MediaTarget::Empty => Err(AppError::InvalidInput(format!(
+            "the {block_type} block's content is empty: give the full path of a file \
+             (like /Users/you/file.pdf), an http(s) URL, or a mention of a file"
+        ))),
+        MediaTarget::Invalid => Err(AppError::InvalidInput(format!(
+            "'{}' is not the full path of a file on this computer, an http(s) URL or a mention \
+             of a file: a path starts with / (or a drive letter like C:\\)",
+            content.trim()
+        ))),
+        _ => Ok(()),
+    }
+}
+
+/// The reason a media block's file is not there right now, in plain words, when it holds a
+/// path. The path stays in the block as written either way.
+fn unreachable_file_warning(block: &crate::db::notes::Block) -> Option<String> {
+    use crate::db::local_path::{inspect, media_target, MediaTarget, PathState};
+    if !matches!(
+        block.block_type.as_str(),
+        "file" | "image" | "video" | "audio"
+    ) {
+        return None;
+    }
+    let MediaTarget::Path(path) = media_target(&block.content) else {
+        return None;
+    };
+    let found = inspect(path);
+    (found.state != PathState::Ok).then_some(format!(
+        "{} The block keeps the path, and shows the file again once it can be reached.",
+        found.message
+    ))
+}
+
+/// Adds `warning` to a result, after any it already has.
+fn add_warning(result: &mut Value, warning: Option<String>) {
+    let Some(warning) = warning else { return };
+    result["warning"] = match result.get("warning").and_then(Value::as_str) {
+        Some(existing) => json!(format!("{existing} {warning}")),
+        None => json!(warning),
+    };
 }
 
 /// Nudges an agent that just landed a `paragraph` block whose content still
