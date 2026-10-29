@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.47.0 (2026-10-29)
+
+### Changed
+
+- **Refining a jot opens it beside the note.** Choosing Refine into New Note now shows the jot and the new note side by side, so you can read the jot while you write the note, without switching back and forth.
+
 ## 0.46.0 (2026-10-29)
 
 ### Added
