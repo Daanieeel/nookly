@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.52.0 (2026-10-29)
+
+### Added
+
+- **Open the agent folder in an AI app.** The Agent tab has an Open in button that lists the AI apps on your computer, such as Claude, ChatGPT, Cursor and VS Code, and opens your agent folder in the one you pick. The app you used last is listed first.
+
 ## 0.51.0 (2026-10-29)
 
 ### Added

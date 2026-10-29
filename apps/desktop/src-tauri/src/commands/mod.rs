@@ -1,4 +1,5 @@
 pub mod agent_files;
+pub mod ai_apps;
 pub mod assignments;
 pub mod backup;
 pub mod bookmark_screenshot;

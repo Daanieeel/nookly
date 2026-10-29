@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.52.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Open in an AI app",
+          "description": "On the Agent tab in Settings, **Open in** shows the AI apps on your computer and opens your agent folder in the one you pick.",
+          "icon": "robot",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.51.0",
       "date": "2026-10-29",
       "highlights": [

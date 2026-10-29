@@ -31,6 +31,7 @@ function setup() {
   mockCommand("write_agent_file", null);
   mockCommand("delete_agent_file", null);
   mockCommand("reveal_agent_dir", null);
+  mockCommand("list_ai_apps", []);
   return renderWithProviders(<AgentFilesTab />);
 }
 

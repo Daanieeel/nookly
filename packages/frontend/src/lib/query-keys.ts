@@ -163,6 +163,7 @@ export const qk = {
     folders: ["agent-files", "folders"] as const,
     file: (name: string) => ["agent-files", "file", name] as const,
   },
+  aiApps: ["ai-apps"] as const,
   appVersion: ["app-version"] as const,
   appUpdate: ["app-update"] as const,
   cliInstallStatus: ["cli-install-status"] as const,
