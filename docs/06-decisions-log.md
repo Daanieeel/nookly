@@ -435,3 +435,13 @@ A "Copy Link" action next to "Copy Mention" copies `nookly://open/<entityId>` or
 **Why:** a mention only works inside Nookly. The links carry local ids, so they work on the computer and database they were copied from, and the app does not suggest otherwise.
 
 **Rejected:** a second routing path next to `parseMentionHref` (one place decides what a target means), registering the scheme from `tauri dev` (macOS only registers it from an installed app, so it is tested with a built app), and links that create or change anything.
+
+---
+
+### The spell checker is Hunspell in Rust, off until the user turns it on
+
+Misspelled words come from Hunspell dictionaries read by the `spellbook` crate in the backend, with the dictionaries compiled into the app. A page's words are asked about in batches, and the editor underlines what comes back (`features/spellcheck`). Nothing runs until the user says yes: one question after the update, then a switch in Settings.
+
+**Why:** German is written in compounds (Straßenbahn, Prüfungsvorbereitung), which `nspell`, the JavaScript Hunspell, flagged as wrong in a trial, and every language has to work at once on one page. `spellbook` knows compounds, loads a dictionary in about 15 ms and keeps typing off the UI thread. The webview's own spell checker is not an option: it follows the system's settings, differs per platform and cannot take several languages chosen in the app.
+
+**Rejected:** `nspell` in a worker (wrong on compounds), the platform's spell checker (no control over languages), and downloading dictionaries on demand (the app works offline and needs nothing fetched).

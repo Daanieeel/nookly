@@ -41,6 +41,7 @@ import { TableControls } from "./TableControls";
 import { VimIndicator } from "./VimIndicator";
 import { FindBar, selectedSearchText } from "./FindBar";
 import { tablePartElements } from "./table-part-focus";
+import { misspelledWordAt } from "../spellcheck/spellcheck-extension";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
@@ -582,8 +583,10 @@ function HydratedBlockEditor({
     const element = topLevelElement(dom, probed);
     const block = element && findTopLevelBlock(editor.view, element);
     const blockId = block ? asString(block.node.attrs.blockId) : undefined;
+    const at = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+    const misspelled = (at && misspelledWordAt(editor.state, at.pos)) || undefined;
     return blockId
-      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId })
+      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId, misspelled })
       : makeTarget("note.canvas", {
           editor,
           overText: event.target instanceof Node && dom.contains(event.target),

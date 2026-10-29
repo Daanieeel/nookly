@@ -36,6 +36,7 @@ import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./b
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
 import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
 import { refineJotIntoNote } from "./refine-jot";
+import type { MisspelledWord } from "../spellcheck/spellcheck-extension";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
 
@@ -58,6 +59,8 @@ export interface NoteBlockTarget {
   /// Saves pending edits, then maps the client id to the stored block's id, the
   /// one links point at. `null` if the block never got saved.
   resolveStoredId: (blockId: string) => Promise<string | null>;
+  /// The misspelled word that was right clicked, for the spelling actions.
+  misspelled?: MisspelledWord;
 }
 
 interface LocatedBlock {

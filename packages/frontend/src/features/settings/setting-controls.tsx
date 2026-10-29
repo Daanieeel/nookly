@@ -234,7 +234,7 @@ export function SwitchControl({
 }: {
   settingId: Extract<
     SettingId,
-    "notes.arrowLigatures" | "notes.formatCodeOnPaste" | "notes.vimMode"
+    "notes.arrowLigatures" | "notes.formatCodeOnPaste" | "notes.spellcheck" | "notes.vimMode"
   >;
   label: string;
 }) {

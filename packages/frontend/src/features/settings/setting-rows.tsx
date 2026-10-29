@@ -36,6 +36,7 @@ import {
   SwitchControl,
   WeekStartControl,
 } from "./setting-controls.tsx";
+import { SpellLanguagesControl, SpellWordsControl } from "../spellcheck/SpellcheckControls.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   SETTING_IDS,
@@ -74,7 +75,7 @@ const SECTIONS = {
   general: ["Profile", "Date and time", "Tasks", "About"],
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Current day", "Connections"],
-  notes: ["Code", "Editing", "LaTeX"],
+  notes: ["Code", "Editing", "Spelling", "LaTeX"],
   backup: ["Backup", "Restore"],
   agent: ["Files"],
   shortcuts: [...SHORTCUT_SECTIONS],
@@ -159,6 +160,12 @@ const SETTING_UI = {
     section: "Editing",
     control: <SwitchControl settingId="notes.vimMode" label="Vim keys in pages" />,
   },
+  "notes.spellcheck": {
+    section: "Spelling",
+    control: <SwitchControl settingId="notes.spellcheck" label="Check spelling" />,
+  },
+  "notes.spellcheckLanguages": { section: "Spelling", control: <SpellLanguagesControl /> },
+  "notes.spellcheckWords": { section: "Spelling", control: <SpellWordsControl /> },
   "notes.arrowLigatures": {
     section: "Editing",
     control: <SwitchControl settingId="notes.arrowLigatures" label="Turn arrows into symbols" />,

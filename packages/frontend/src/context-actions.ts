@@ -7,6 +7,7 @@ import "#/components/context-menu/entity-actions.tsx";
 import "#/features/tasks/context-actions.tsx";
 import "#/features/notes/context-actions.tsx";
 import "#/features/notes/table-actions.tsx";
+import "#/features/spellcheck/spell-actions.tsx";
 import "#/features/files/context-actions.tsx";
 import "#/features/bookmarks/context-actions.tsx";
 import "#/features/sessions/context-actions.tsx";

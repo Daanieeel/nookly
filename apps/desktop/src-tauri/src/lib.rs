@@ -6,6 +6,7 @@ mod commands;
 mod db;
 mod error;
 mod external_calendars;
+mod spelling;
 mod store_guard;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -127,6 +128,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .manage(spelling::SpellState::default())
         .setup(|app| {
             // Installed builds register the scheme with the system; this does it for the
             // ones that were not installed.
@@ -369,6 +371,10 @@ pub fn run() {
             commands::agent_files::write_agent_file,
             commands::agent_files::delete_agent_file,
             commands::agent_files::reveal_agent_dir,
+            commands::spell::spell_configure,
+            commands::spell::spell_check,
+            commands::spell::spell_suggest,
+            commands::spell::spell_ignore,
             commands::local_files::check_local_path,
             commands::local_files::open_local_path,
             commands::local_files::reveal_local_path,

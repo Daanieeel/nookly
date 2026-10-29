@@ -56,3 +56,9 @@ A full-width document canvas. The writing surface never uses a list plus detail 
 ## Creation UX
 
 A new Note drops the user straight into the canvas with the cursor focused and ready to type. The title comes first and content follows immediately. There is no intermediate form.
+
+## Spell Checker
+
+Off until the user turns it on: the update that adds it asks once, in a dialog that has no way out but a choice, and Settings under Editor holds the switch, the languages and the user's own words (`notes.spellcheck`, `notes.spellcheckLanguages`, `notes.spellcheckWords`). Misspelled words get a wavy underline while typing, and a right click offers corrections, Ignore Spelling and Add to Dictionary. Several languages can be on at once, and a word is right when it is right in any of them, so a page that mixes languages needs no switching.
+
+Hunspell dictionaries (`src-tauri/dictionaries`, see its README for the licenses) are read by the `spellbook` crate (`src/spelling.rs`), which knows compound words, and a language is read only when it is on. Code blocks, inline code, links, mentions, formulas, numbers, acronyms and addresses are never checked. A text block is read again only when it changed, each word is asked about once, and the word being typed is left alone until the cursor moves on (`features/spellcheck`). Nothing is checked while it is off, and a failure of the checker never turns into underlines.

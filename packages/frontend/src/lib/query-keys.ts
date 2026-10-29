@@ -164,6 +164,7 @@ export const qk = {
     file: (name: string) => ["agent-files", "file", name] as const,
   },
   aiApps: ["ai-apps"] as const,
+  spellSuggestions: (word: string) => ["spell-suggestions", word] as const,
   localFile: (path: string) => ["local-file", path] as const,
   appVersion: ["app-version"] as const,
   appUpdate: ["app-update"] as const,

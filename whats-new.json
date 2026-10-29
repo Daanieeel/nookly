@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.55.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Spell checker",
+          "description": "Misspelled words get a wavy underline, and a right click offers corrections. Pick several languages at once, like **English and German**, and mix them on one page. It is off until you turn it on.",
+          "icon": "sparkles",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.54.0",
       "date": "2026-10-29",
       "highlights": [

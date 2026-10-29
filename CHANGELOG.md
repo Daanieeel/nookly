@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.55.0 (2026-10-29)
+
+### Added
+
+- **Spell checker.** Nookly can now underline misspelled words while you write and offer corrections on a right click, with Ignore Spelling and Add to Dictionary. It is off until you turn it on, and asks you once after this update. Pick several languages at once, and a page that mixes them, like English and German, is checked without any switching. Code, links and mentions are never checked.
+
 ## 0.54.0 (2026-10-29)
 
 ### Added
