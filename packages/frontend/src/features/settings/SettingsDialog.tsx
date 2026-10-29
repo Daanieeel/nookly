@@ -29,7 +29,12 @@ import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { SETTING_CATEGORIES, type SettingCategory } from "#/lib/settings/registry.ts";
 import { searchSettings } from "#/lib/settings/search.ts";
 import { useShortcutMap } from "#/hooks/use-shortcut.ts";
-import { isShortcutName, keySynonyms } from "#/lib/shortcuts.ts";
+import {
+  type FixedShortcut,
+  SHORTCUT_PAGES,
+  isShortcutName,
+  keySynonyms,
+} from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cancelPendingShortcut } from "./shortcut-editing.ts";
 import { ShortcutConflictDialog } from "./ShortcutConflictDialog.tsx";
@@ -47,37 +52,65 @@ const CATEGORY_META = {
   shortcuts: { label: "Shortcuts", icon: IconKeyboard },
 } satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
 
-/// A page of the dialog: a category, or the LaTeX page that sits under Editor.
-type PageId = SettingCategory | "latex";
+/// A page of the dialog: a category, or a page that sits under one.
+type PageId = string;
 
 interface NavItem {
   id: PageId;
   category: SettingCategory;
   label: string;
+  /// The heading of the page, when it is not the label.
+  title?: string;
+  /// The name a screen reader hears, when the label alone is ambiguous.
+  ariaLabel?: string;
   icon: TablerIcon;
   /// Drawn indented under the item before it, with a corner connector as its icon.
   child?: boolean;
+  /// The section of the category whose rows the page holds.
+  section?: string;
 }
 
-/// The navigation: every category, and under Editor its LaTeX page.
-const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => {
-  const item = { id, category: id, ...CATEGORY_META[id] };
-  if (id !== "notes") return [item];
-  return [
-    item,
-    { id: "latex", category: "notes", label: "LaTeX", icon: IconCornerDownRight, child: true },
-  ];
-});
+/// The pages under a category, each holding one section of its rows. A new section of
+/// shortcuts is a new page here without any other change.
+const CHILD_PAGES: Partial<
+  Record<SettingCategory, Omit<NavItem, "category" | "icon" | "child">[]>
+> = {
+  notes: [{ id: "latex", label: "LaTeX", section: "LaTeX" }],
+  shortcuts: SHORTCUT_PAGES.map((section) => ({
+    id: `shortcuts-${section.toLowerCase()}`,
+    label: section,
+    title: `${section} shortcuts`,
+    ariaLabel: `${section} shortcuts`,
+    section,
+  })),
+};
 
-/// The section of Editor that has a page of its own.
-const LATEX_SECTION = "LaTeX";
+/// The navigation: every category, and under it the pages it has.
+const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => [
+  { id, category: id, ...CATEGORY_META[id] },
+  ...(CHILD_PAGES[id] ?? []).map((page) => ({
+    ...page,
+    category: id,
+    icon: IconCornerDownRight,
+    child: true,
+  })),
+]);
 
-/// Whether a row belongs to a page: the LaTeX page holds the LaTeX section of Editor, the
-/// Editor page the rest of it.
+/// Whether a row belongs to a page: a page under a category holds the rows of its section,
+/// and the category's own page the rows no page of its own takes.
 function onPage(row: RowSpec, page: NavItem): boolean {
   if (row.category !== page.category) return false;
-  if (page.category !== "notes") return true;
-  return (row.section === LATEX_SECTION) === (page.id === "latex");
+  const children = CHILD_PAGES[page.category] ?? [];
+  if (children.length === 0) return true;
+  if (page.section) return row.section === page.section;
+  return !children.some((child) => child.section === row.section);
+}
+
+/// The fixed shortcuts a Shortcuts page lists: its own section's, or the ones for the
+/// whole app on the Shortcuts page itself.
+function fixedSectionOf(page: NavItem): FixedShortcut["section"] {
+  const match = SHORTCUT_PAGES.find((section) => section === page.section);
+  return match ?? "General";
 }
 
 function Row({ row }: { row: RowSpec }) {
@@ -120,7 +153,7 @@ function CategoryRows({ page }: { page: NavItem }) {
     <>
       <ShortcutsToolbar />
       {sections}
-      <FixedShortcuts />
+      <FixedShortcuts section={fixedSectionOf(page)} />
     </>
   );
 }
@@ -285,6 +318,7 @@ export function SettingsDialog() {
                     key={item.id}
                     type="button"
                     aria-current={active ? "page" : undefined}
+                    aria-label={item.ariaLabel}
                     onClick={() => pick(item)}
                     className={cn(
                       "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
@@ -310,7 +344,7 @@ export function SettingsDialog() {
           </div>
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
             <h2 className="pb-3 text-lg font-semibold">
-              {searching ? "Search results" : page.label}
+              {searching ? "Search results" : (page.title ?? page.label)}
             </h2>
             {searching ? (
               <SearchResults results={results} query={query} onClear={() => setQuery("")} />

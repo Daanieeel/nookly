@@ -6,6 +6,7 @@ import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
 import { SETTING_IDS } from "#/lib/settings/registry.ts";
 import { settings } from "#/lib/settings/settings.ts";
+import { SHORTCUT_PAGES } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useThemeStore } from "#/lib/theme.ts";
 import { SettingsDialog } from "./SettingsDialog.tsx";
@@ -56,6 +57,7 @@ describe("the settings dialog", () => {
       "Backup",
       "Agent",
       "Shortcuts",
+      ...SHORTCUT_PAGES,
     ]);
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
       "aria-current",
@@ -77,9 +79,10 @@ describe("the settings dialog", () => {
     const { user } = renderOpen();
     await screen.findByRole("dialog");
     const found = new Set<string>();
-    // Every page of the navigation: the categories, and LaTeX under Editor.
+    // Every page of the navigation: the categories, LaTeX under Editor and a page for each
+    // section of the shortcuts.
     const pages = ["General", "Appearance", "Calendar", "Editor", "LaTeX", "Backup", "Agent"];
-    for (const label of [...pages, "Shortcuts"]) {
+    for (const label of [...pages, "Shortcuts", ...SHORTCUT_PAGES.map((p) => `${p} shortcuts`)]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
         const id = row.getAttribute("data-setting-id") ?? "";
@@ -99,7 +102,7 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7);
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7 + SHORTCUT_PAGES.length);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {

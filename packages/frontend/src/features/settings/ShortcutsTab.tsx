@@ -4,7 +4,7 @@ import { Button } from "@nookly/ui/components/button";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { Kbd } from "#/components/kbd.tsx";
 import { useSettingsValues } from "#/lib/settings/settings.ts";
-import { FIXED_SHORTCUTS, displayParts } from "#/lib/shortcuts.ts";
+import { FIXED_SHORTCUTS, type FixedShortcut, displayParts } from "#/lib/shortcuts.ts";
 import { resetAllShortcuts } from "./shortcut-editing.ts";
 
 /// The count of shortcuts the user has changed (stored, so not at their default).
@@ -54,8 +54,11 @@ export function ShortcutsToolbar() {
   );
 }
 
-/// Read only: keys with a fixed meaning, which rebindable shortcuts can't take.
-export function FixedShortcuts() {
+/// Read only: the keys of one page with a fixed meaning, which rebindable shortcuts can't
+/// take. Nothing is drawn for a page that has none.
+export function FixedShortcuts({ section }: { section: FixedShortcut["section"] }) {
+  const shortcuts = FIXED_SHORTCUTS.filter((fixed) => fixed.section === section);
+  if (shortcuts.length === 0) return null;
   return (
     <section aria-labelledby="fixed-shortcuts-heading">
       <h3
@@ -68,7 +71,7 @@ export function FixedShortcuts() {
         These keys have a fixed meaning and can't be changed.
       </p>
       <ul>
-        {FIXED_SHORTCUTS.map((fixed) => (
+        {shortcuts.map((fixed) => (
           <li
             key={fixed.label}
             className="flex items-center justify-between gap-6 border-b border-border/60 py-2.5 text-sm last:border-b-0"

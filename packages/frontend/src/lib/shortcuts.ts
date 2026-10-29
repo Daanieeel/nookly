@@ -26,8 +26,11 @@ export type ShortcutScope =
   | "deck"
   | "study"
   | "pdf"
-  | "page";
+  | "page"
+  | "editor";
 
+/// The sections a rebindable shortcut sits under. Each is a page of its own under Shortcuts
+/// in Settings, so a new section is a new page without any other change.
 export const SHORTCUT_SECTIONS = [
   "Navigation",
   "Tabs",
@@ -36,6 +39,11 @@ export const SHORTCUT_SECTIONS = [
   "Tasks",
   "Study",
 ] as const;
+
+/// Every page under Shortcuts: the sections above, and pages that only list fixed keys.
+/// The page itself (`General`) lists the keys that work everywhere.
+export const SHORTCUT_PAGES = [...SHORTCUT_SECTIONS, "Editor", "Files"] as const;
+export type ShortcutPage = (typeof SHORTCUT_PAGES)[number];
 
 export interface ShortcutMeta {
   title: string;
@@ -48,6 +56,7 @@ export interface ShortcutMeta {
 }
 
 const GLOBAL: ShortcutScope[] = ["global"];
+const EDITOR: ShortcutScope[] = ["editor"];
 
 /// Every entry of `HOTKEYS` must be described here; the type and a test enforce it.
 export const SHORTCUT_META = {
@@ -241,6 +250,14 @@ export const SHORTCUT_META = {
     section: "Create",
     scopes: GLOBAL,
   },
+  quickAssignment: {
+    title: "Quick assignment",
+    description:
+      "Open the New assignment dialog from anywhere. During a session it starts in that session's course and links the assignment to the session.",
+    synonyms: ["new assignment", "create assignment", "homework", "exercise sheet", "session"],
+    section: "Create",
+    scopes: GLOBAL,
+  },
   import: {
     title: "Import",
     description:
@@ -357,40 +374,123 @@ export function shortcutSettingId<N extends ShortcutName>(name: N) {
 /// rebindable shortcut may take its keys.
 export interface FixedShortcut {
   label: string;
+  /// The Settings page that lists it: one of `SHORTCUT_PAGES`, or `General` for the
+  /// Shortcuts page itself.
+  section: ShortcutPage | "General";
   /// TanStack hotkey strings; each is one way to do it.
   keys: string[];
   scopes: ShortcutScope[];
 }
 
 export const FIXED_SHORTCUTS: FixedShortcut[] = [
-  { label: "Copy", keys: ["Mod+C"], scopes: GLOBAL },
-  { label: "Cut", keys: ["Mod+X"], scopes: GLOBAL },
-  { label: "Paste", keys: ["Mod+V"], scopes: GLOBAL },
-  { label: "Paste without formatting", keys: ["Mod+Shift+V"], scopes: GLOBAL },
-  { label: "Select all", keys: ["Mod+A"], scopes: GLOBAL },
-  { label: "Undo", keys: ["Mod+Z"], scopes: GLOBAL },
-  { label: "Redo", keys: ["Mod+Shift+Z", "Mod+Y"], scopes: GLOBAL },
+  { label: "Copy", section: "General", keys: ["Mod+C"], scopes: GLOBAL },
+  { label: "Cut", section: "General", keys: ["Mod+X"], scopes: GLOBAL },
+  { label: "Paste", section: "General", keys: ["Mod+V"], scopes: GLOBAL },
+  { label: "Paste without formatting", section: "General", keys: ["Mod+Shift+V"], scopes: GLOBAL },
+  { label: "Select all", section: "General", keys: ["Mod+A"], scopes: GLOBAL },
+  { label: "Undo", section: "General", keys: ["Mod+Z"], scopes: GLOBAL },
+  { label: "Redo", section: "General", keys: ["Mod+Shift+Z", "Mod+Y"], scopes: GLOBAL },
   {
     label: "Close a dialog or menu, stop editing, or go back to the list",
+    section: "General",
     keys: ["Escape"],
     scopes: GLOBAL,
   },
-  { label: "Open the context menu", keys: ["ContextMenu", "Shift+F10"], scopes: GLOBAL },
-  { label: "Submit a form or a card", keys: ["Mod+Enter"], scopes: GLOBAL },
-  { label: "Highlight the selected text in a page", keys: ["Mod+Shift+H"], scopes: GLOBAL },
-  { label: "Duplicate the current line in a page", keys: ["Mod+D"], scopes: ["page"] },
+  {
+    label: "Open the context menu",
+    section: "General",
+    keys: ["ContextMenu", "Shift+F10"],
+    scopes: GLOBAL,
+  },
+  { label: "Submit a form or a card", section: "General", keys: ["Mod+Enter"], scopes: GLOBAL },
   {
     label: "Move between rows",
+    section: "Navigation",
     keys: ["ArrowUp", "ArrowDown", "J", "K"],
     scopes: ["lists"],
   },
-  { label: "Find in a PDF", keys: ["Mod+F"], scopes: ["pdf"] },
-  { label: "Show the answer, then rate Good", keys: ["Space", "Enter"], scopes: ["study"] },
-  { label: "Rate a card", keys: ["1", "2", "3", "4"], scopes: ["study"] },
-  { label: "Undo the last rating", keys: ["Z"], scopes: ["study"] },
+  { label: "Find in a PDF", section: "Files", keys: ["Mod+F"], scopes: ["pdf"] },
+  { label: "Next match in a PDF", section: "Files", keys: ["Enter"], scopes: ["pdf"] },
+  { label: "Previous match in a PDF", section: "Files", keys: ["Shift+Enter"], scopes: ["pdf"] },
+  {
+    label: "Show the answer, then rate Good",
+    section: "Study",
+    keys: ["Space", "Enter"],
+    scopes: ["study"],
+  },
+  { label: "Rate a card", section: "Study", keys: ["1", "2", "3", "4"], scopes: ["study"] },
+  { label: "Undo the last rating", section: "Study", keys: ["Z"], scopes: ["study"] },
+  {
+    label: "Flip between front and back while writing a card",
+    section: "Study",
+    keys: ["Tab"],
+    scopes: ["deck"],
+  },
+  {
+    label: "Add the card you are writing",
+    section: "Study",
+    keys: ["Mod+Enter"],
+    scopes: ["deck"],
+  },
+  // The page editor's own keys. Its scope never clashes with a rebindable shortcut: while the
+  // cursor is in a page the editor has these keys, and elsewhere the shortcut keeps them.
+  { label: "Bold", section: "Editor", keys: ["Mod+B"], scopes: EDITOR },
+  { label: "Italic", section: "Editor", keys: ["Mod+I"], scopes: EDITOR },
+  { label: "Underline", section: "Editor", keys: ["Mod+U"], scopes: EDITOR },
+  { label: "Strikethrough", section: "Editor", keys: ["Mod+Shift+S"], scopes: EDITOR },
+  { label: "Inline code", section: "Editor", keys: ["Mod+E"], scopes: EDITOR },
+  {
+    label: "Highlight the selected text",
+    section: "Editor",
+    keys: ["Mod+Shift+H"],
+    scopes: EDITOR,
+  },
+  { label: "Normal text", section: "Editor", keys: ["Mod+Alt+0"], scopes: EDITOR },
+  { label: "Heading 1", section: "Editor", keys: ["Mod+Alt+1"], scopes: EDITOR },
+  { label: "Heading 2", section: "Editor", keys: ["Mod+Alt+2"], scopes: EDITOR },
+  { label: "Heading 3", section: "Editor", keys: ["Mod+Alt+3"], scopes: EDITOR },
+  { label: "Heading 4", section: "Editor", keys: ["Mod+Alt+4"], scopes: EDITOR },
+  { label: "Heading 5", section: "Editor", keys: ["Mod+Alt+5"], scopes: EDITOR },
+  { label: "Heading 6", section: "Editor", keys: ["Mod+Alt+6"], scopes: EDITOR },
+  { label: "Bulleted list", section: "Editor", keys: ["Mod+Shift+8"], scopes: EDITOR },
+  { label: "Numbered list", section: "Editor", keys: ["Mod+Shift+7"], scopes: EDITOR },
+  { label: "Checklist", section: "Editor", keys: ["Mod+Shift+9"], scopes: EDITOR },
+  { label: "Quote", section: "Editor", keys: ["Mod+Shift+B"], scopes: EDITOR },
+  { label: "Code block", section: "Editor", keys: ["Mod+Alt+C"], scopes: EDITOR },
+  { label: "Duplicate the current line", section: "Editor", keys: ["Mod+D"], scopes: EDITOR },
+  { label: "New line inside a block", section: "Editor", keys: ["Shift+Enter"], scopes: EDITOR },
+  { label: "Indent a list item or a line", section: "Editor", keys: ["Tab"], scopes: EDITOR },
+  {
+    label: "Outdent a list item or a line",
+    section: "Editor",
+    keys: ["Shift+Tab"],
+    scopes: EDITOR,
+  },
+  {
+    label: "Show the result of a formula, diagram, circuit or plot",
+    section: "Editor",
+    keys: ["Mod+Enter"],
+    scopes: EDITOR,
+  },
+  { label: "Next match in Find in page", section: "Editor", keys: ["Enter"], scopes: EDITOR },
+  {
+    label: "Previous match in Find in page",
+    section: "Editor",
+    keys: ["Shift+Enter"],
+    scopes: EDITOR,
+  },
+  {
+    label: "Delete the selected blocks",
+    section: "Editor",
+    keys: ["Backspace", "Delete"],
+    scopes: EDITOR,
+  },
 ];
 
 export function scopesOverlap(a: readonly ShortcutScope[], b: readonly ShortcutScope[]): boolean {
+  // The page editor's keys are its own: the editor has them while typing, so they are never
+  // a clash for a shortcut that works elsewhere.
+  if (a.includes("editor") !== b.includes("editor")) return false;
   if (a.includes("global") || b.includes("global")) return true;
   return a.some((scope) => b.includes(scope));
 }

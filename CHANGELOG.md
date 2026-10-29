@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.50.0 (2026-10-29)
+
+### Added
+
+- **Quick assignment.** Press Cmd+Shift+A, or Ctrl+Shift+A on Windows and Linux, to create an assignment from anywhere. While a session is running, it starts in that session's course and is linked to the session. You can change the shortcut in Settings.
+
+### Changed
+
+- **Shortcuts in Settings.** Shortcuts now have a page for each group, such as Navigation, Tabs and Create, and the editor keys like bold, headings and lists are listed too.
+
 ## 0.49.0 (2026-10-29)
 
 ### Added

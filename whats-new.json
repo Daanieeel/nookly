@@ -1,6 +1,24 @@
 {
   "versions": [
     {
+      "version": "0.50.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Quick assignment",
+          "description": "Create an assignment from anywhere. During a session it starts in that session's course and links to the session.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+A"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Settings has a page for each group of shortcuts, and lists the keys of the page editor, like bold, headings and lists."
+        ]
+      }
+    },
+    {
       "version": "0.49.0",
       "date": "2026-10-29",
       "highlights": [
