@@ -31,9 +31,11 @@ import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
+import { deepLinks, openDeepLink } from "#/lib/deep-link.ts";
 import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
+import { useEffect } from "react";
 import "#/context-actions.ts";
 
 const queryClient = new QueryClient();
@@ -69,8 +71,15 @@ function MainContent({ view }: { view: View }) {
   }
 }
 
+/// Opens the `nookly://` links that reach the app, the one that started it included: they
+/// wait in `deepLinks` until the app is up and this is mounted.
+function useDeepLinks() {
+  useEffect(() => deepLinks.attach((url) => void openDeepLink(url)), []);
+}
+
 function Shell() {
   useRefreshBlocksOnRename();
+  useDeepLinks();
   const splitShown = useSplitShown();
   const focusedGroupId = useNavStore((s) => s.focusedGroupId);
   const twoGroups = useNavStore((s) => s.groups.length > 1);

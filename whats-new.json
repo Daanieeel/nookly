@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.54.0",
+      "date": "2026-10-29",
+      "highlights": [
+        {
+          "title": "Links that open Nookly",
+          "description": "Right click an item or a block and choose **Copy Link**. Clicking that link anywhere on your computer opens Nookly on it.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.53.0",
       "date": "2026-10-29",
       "highlights": [

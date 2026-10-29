@@ -1,5 +1,9 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { isEntityKey, parseMentionHref } from "#/features/relationships/mention-utils.ts";
+import {
+  type MentionTarget,
+  isEntityKey,
+  parseMentionHref,
+} from "#/features/relationships/mention-utils.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 
@@ -31,23 +35,30 @@ export function openLink(event: MouseEvent, spaceId: string): boolean {
   if (!mention) return openExternalLink(event);
   event.preventDefault();
   if (event.metaKey || event.ctrlKey) armNewTabIntent();
-  const { entityId, blockId, page, row, column } = mention;
-  const open = (id: string, space: string) =>
-    useNavStore
-      .getState()
-      .openEntity(
-        id,
-        space,
-        blockId || page ? { entityId: id, blockId, page, row, column } : undefined,
-      );
+  const { entityId } = mention;
   if (isEntityKey(entityId)) {
     // A mention written with its readable key opens the page that key names. A key that
     // names nothing opens nothing.
     getEntity(entityId)
-      .then((entity) => open(entity.id, entity.spaceId))
+      .then((entity) => openMention(mention, entity))
       .catch(() => {});
   } else {
-    open(entityId, spaceId);
+    openMention(mention, { id: entityId, spaceId });
   }
   return true;
+}
+
+/// Opens what a mention points at, in `entity`'s own Space: the entity, and the block of a
+/// page, the page of a file, or the row or column of a table it names.
+export function openMention(
+  { blockId, page, row, column }: MentionTarget,
+  entity: { id: string; spaceId: string },
+) {
+  useNavStore
+    .getState()
+    .openEntity(
+      entity.id,
+      entity.spaceId,
+      blockId || page ? { entityId: entity.id, blockId, page, row, column } : undefined,
+    );
 }

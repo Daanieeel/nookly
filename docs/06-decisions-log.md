@@ -425,3 +425,13 @@ The section navigator of a page (`ScrollProgressSearch`) is a copy of `ScrollPro
 **Why:** a path is the lightest way to point at a file that lives elsewhere, and a reference that is never edited cannot lose anyone's data.
 
 **Rejected:** importing the file on save (a path is for files people want to leave where they are), checking the file before saving it (a drive that is off would make the path impossible to write), and a hard failure on a missing file (it would break reading a whole page).
+
+---
+
+### `nookly://open/<id>` links open Nookly on an entity or a block
+
+A "Copy Link" action next to "Copy Mention" copies `nookly://open/<entityId>` or `nookly://open/<entityId>#<blockId>`, which opens Nookly on it from a browser, a chat or any other app. A running Nookly takes the link in its window (`tauri-plugin-single-instance`, release builds only, so `tauri dev` never hands over to the installed app); a closed one starts, and the link waits in a queue (`lib/deep-link.ts`) until the app has mounted. The link is untrusted input: it is parsed strictly (`lib/deep-link-url.ts`), it only navigates, and it reuses the mention navigation. An entity that is not on this computer shows a "nothing to open here" notice and changes nothing, a trashed entity opens faded, a missing block falls back to its page.
+
+**Why:** a mention only works inside Nookly. The links carry local ids, so they work on the computer and database they were copied from, and the app does not suggest otherwise.
+
+**Rejected:** a second routing path next to `parseMentionHref` (one place decides what a target means), registering the scheme from `tauri dev` (macOS only registers it from an installed app, so it is tested with a built app), and links that create or change anything.

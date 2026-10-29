@@ -102,8 +102,25 @@ pub fn run() {
         eprintln!("Launching the Nookly GUI. For the command-line interface instead, run: nookly cli --help");
     }
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // A second launch, such as a `nookly://` link clicked while Nookly runs, hands its link to
+    // the running window and brings it forward instead of starting another instance. Only in a
+    // release build: a development build shares the app's identifier, and would otherwise
+    // just focus the installed app. Must be the first plugin.
+    #[cfg(all(
+        not(debug_assertions),
+        any(target_os = "macos", windows, target_os = "linux")
+    ))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+    builder
         .menu(app_menu)
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -111,6 +128,13 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
+            // Installed builds register the scheme with the system; this does it for the
+            // ones that were not installed.
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
             db::setup(app)?;
             store_guard::preserve_unreadable_stores(&db::resolve_app_data_dir(
                 app.path().app_data_dir()?,

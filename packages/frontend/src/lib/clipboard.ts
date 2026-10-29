@@ -2,6 +2,7 @@ import { readText, writeHtml, writeText } from "@tauri-apps/plugin-clipboard-man
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
+import { deepLinkFor } from "#/lib/deep-link-url.ts";
 
 /// Clipboard access through the Tauri plugin rather than `navigator.clipboard`:
 /// the webview asks for a separate confirmation on every read, which would turn
@@ -21,6 +22,12 @@ function escapeHtml(text: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+/// A `nookly://` link to an entity, or one block of a page: opens Nookly on it from anywhere
+/// on this computer. It carries local ids, so it only works where it was copied.
+export function copyDeepLink(entity: Entity, blockId?: string): Promise<void> {
+  return copyText(deepLinkFor(entity.id, blockId));
 }
 
 /// A mention of an entity, or one block of a page: pasted into a Note it becomes a mention,

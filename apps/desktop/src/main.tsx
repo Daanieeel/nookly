@@ -21,6 +21,9 @@ async function start() {
     import("@nookly/frontend/lib/theme"),
   ]);
   initTheme();
+  // Links that open Nookly (`nookly://open/...`) wait in a queue until the app has mounted.
+  const { startDeepLinks } = await import("@nookly/frontend/lib/deep-link");
+  void startDeepLinks();
 
   // SAFETY: index.html always defines #root.
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.54.0 (2026-10-29)
+
+### Added
+
+- **Links that open Nookly.** Right click an item or a block and choose Copy Link to get a link that opens Nookly right there when you click it in a browser, a chat or any other app. If Nookly is already open, the link opens in that window. The links only work on the computer they were copied from.
+
 ## 0.53.0 (2026-10-29)
 
 ### Added

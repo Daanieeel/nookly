@@ -5,6 +5,7 @@ import {
   IconClipboard,
   IconCode,
   IconCopyPlus,
+  IconExternalLink,
   IconFileDownload,
   IconFileExport,
   IconItalic,
@@ -29,7 +30,7 @@ import {
 } from "#/components/context-menu/registry.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { renderPageMarkdown } from "#/lib/api/notes.ts";
-import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
+import { copyDeepLink, copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
 import { useState } from "react";
 import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./block-conversion";
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
@@ -255,6 +256,24 @@ registerActions("note.block", [
       ]);
       if (!storedId) throw new Error("Block not saved yet");
       await copyEntityLink(entity, storedId);
+    },
+  },
+  {
+    id: "copy-block-deep-link",
+    group: "share",
+    label: "Copy Link for Block",
+    icon: IconExternalLink,
+    successLabel: "Link copied",
+    run: async ({ blockId, entityId, resolveStoredId }, helpers) => {
+      const [storedId, entity] = await Promise.all([
+        resolveStoredId(blockId),
+        helpers.queryClient.fetchQuery({
+          queryKey: qk.entity.byId(entityId),
+          queryFn: () => getEntity(entityId),
+        }),
+      ]);
+      if (!storedId) throw new Error("Block not saved yet");
+      await copyDeepLink(entity, storedId);
     },
   },
   {
