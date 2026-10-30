@@ -172,7 +172,7 @@ The full list is now Dashboard, Pinned, Search, and Recents.
 
 ### Code blocks highlight with twinkleplop, Shiki is the fallback
 
-Every language twinkleplop ships goes through it. Shiki only covers the picker languages twinkleplop lacks (C++, C#, Java, PHP, Ruby, INI, JSONC). Both map onto the same accent tokens.
+Every language twinkleplop ships goes through it. Shiki only covers the picker languages twinkleplop lacks (C++, C#, Java, PHP, Ruby, INI, JSONC, Assembly). Both map onto the same accent tokens.
 
 **Why:** the edited block is retokenized synchronously on every keystroke. Shiki's JS engine takes about 16ms for an 80 line block, a full frame, while twinkleplop takes under 0.1ms. First highlight after launch drops from about 300ms to about 20ms.
 
@@ -385,3 +385,83 @@ A page turns into one print layout (`page-document.ts`) of a few shared pieces, 
 **Why:** formulas, diagrams and circuits are drawn by the frontend already, so the exports show them as pictures instead of source. One layout keeps the three formats alike, and a new block type needs one entry, not three.
 
 **Rejected:** printing the webview to PDF (no control over pages from the app, and no Word or OpenDocument), writing the files in Rust (every figure would come out as source), and embedding fonts in Word and OpenDocument files (a much bigger file for fonts readers mostly have stand ins for).
+
+---
+
+### A mention is stored with the id and written out with the key
+
+A mention is saved as `[Title](mention:<id>)`. Wherever it is written out as text (Copy Mention, Copy as Markdown, the Markdown export, the CLI) it reads `[Title](mention:JOT-12)` with the readable key. Content that comes in with a key (CLI blocks, a pasted link) is turned into the id before it is saved, in `db/mention_keys.rs`. Both forms open the same page and count as the same backlink. Code and other source blocks are left exactly as typed.
+
+**Why:** ids survive renames and every stored mention already uses them, so nothing in an existing database changes. The key is what people see in the app, so it is what they should read and write.
+
+**Rejected:** storing the key (needs a rewrite of every stored mention, and a key lookup on every read) and rewriting old mentions to keys (touches user data for no gain).
+
+---
+
+### The section search is a new component next to `ScrollProgress`
+
+The section navigator of a page (`ScrollProgressSearch`) is a copy of `ScrollProgress` with a search field in its open list, and Notes and Jots use it. The field only shows from six headings on. The box is always sized by the full list, so it keeps its size while a query narrows the rows.
+
+**Why:** primitives in `packages/ui` are frozen, so the search is added beside the old one instead of changing it.
+
+**Rejected:** a `search` prop on `ScrollProgress` (edits a primitive) and locking the height when the first letter is typed (the full list already gives the same height without the extra state).
+
+---
+
+### A mention of a table row or column adds `_r2` or `_c3` to the block
+
+`[Notes](mention:<id>#<block>_r2)` points at the second row of a table block, `_c3` at the third column, counted from 1 with the header as row 1. The block stays the target of backlinks and rename sync, so no stored pattern changes: the fragment alphabet already allows `_`. Opening it shows the table and marks those cells; a row or column that is gone still opens the table.
+
+**Why:** a table is one block, and the position is the only stable way to name a row or column that has no id of its own.
+
+**Rejected:** ids on rows and columns (a new field in every stored table) and a separate link syntax (a fourth way to link, see [the relationship system](01-philosophy.md#the-relationship-system-links-everything)).
+
+---
+
+### A media block can name a file on this computer by its path
+
+`/file`, `/image`, `/video` and `/audio` accept the full path of a file next to a mention and a link (`db/local_path.rs`). Nookly only reads it. The path is stored exactly as written and never rewritten: when the file is moved, renamed, unreadable or on a drive that is not connected, the block shows why and the path keeps working once the file is back. The CLI reports the same reasons (`fileStatus` when reading, a `warning` when writing) and refuses only an empty or malformed value. Programs (`.app`, `.exe`, `.sh`, ...) are not opened from a path.
+
+**Why:** a path is the lightest way to point at a file that lives elsewhere, and a reference that is never edited cannot lose anyone's data.
+
+**Rejected:** importing the file on save (a path is for files people want to leave where they are), checking the file before saving it (a drive that is off would make the path impossible to write), and a hard failure on a missing file (it would break reading a whole page).
+
+---
+
+### `nookly://open/<id>` links open Nookly on an entity or a block
+
+A "Copy Link" action next to "Copy Mention" copies `nookly://open/<entityId>` or `nookly://open/<entityId>#<blockId>`, which opens Nookly on it from a browser, a chat or any other app. A running Nookly takes the link in its window (`tauri-plugin-single-instance`, release builds only, so `tauri dev` never hands over to the installed app); a closed one starts, and the link waits in a queue (`lib/deep-link.ts`) until the app has mounted. The link is untrusted input: it is parsed strictly (`lib/deep-link-url.ts`), it only navigates, and it reuses the mention navigation. An entity that is not on this computer shows a "nothing to open here" notice and changes nothing, a trashed entity opens faded, a missing block falls back to its page.
+
+**Why:** a mention only works inside Nookly. The links carry local ids, so they work on the computer and database they were copied from, and the app does not suggest otherwise.
+
+**Rejected:** a second routing path next to `parseMentionHref` (one place decides what a target means), registering the scheme from `tauri dev` (macOS only registers it from an installed app, so it is tested with a built app), and links that create or change anything.
+
+---
+
+### The spell checker is Hunspell in Rust, off until the user turns it on
+
+Misspelled words come from Hunspell dictionaries read by the `spellbook` crate in the backend, with the dictionaries compiled into the app. A page's words are asked about in batches, and the editor underlines what comes back (`features/spellcheck`). Nothing runs until the user says yes: one question after the update, then a switch in Settings.
+
+**Why:** German is written in compounds (Straßenbahn, Prüfungsvorbereitung), which `nspell`, the JavaScript Hunspell, flagged as wrong in a trial, and every language has to work at once on one page. `spellbook` knows compounds, loads a dictionary in about 15 ms and keeps typing off the UI thread. The webview's own spell checker is not an option: it follows the system's settings, differs per platform and cannot take several languages chosen in the app.
+
+**Rejected:** `nspell` in a worker (wrong on compounds), the platform's spell checker (no control over languages), and downloading dictionaries on demand (the app works offline and needs nothing fetched).
+
+---
+
+### The spell checker's own words are a file, not a setting
+
+Words added with Add to Dictionary go to `dictionary.json` in the app data folder, written by the backend (`dictionary_file.rs`). Settings show only a Show dictionary file button, like the settings file. A file that cannot be read is reported and left exactly as it is, and the checker reads it again when the window comes back, so an edit shows up without a restart.
+
+**Why:** a list that grows without bound does not belong in `settings.json`, and a plain file can be edited, shared and backed up by hand, which a row of chips in Settings could not.
+
+**Rejected:** keeping the words in a setting with a management row (it grows without limit and every word saved rewrites all settings).
+
+---
+
+### A mention of selected text carries the text, not its place
+
+`[cat](mention:NOT-58#<block>_q<text>)` points at a piece of text in a block. The fragment is the block, `_q`, and the text as base64url (at most 120 characters, the start of a longer selection), which fits the characters a fragment already allows, so the backlink index, rename sync and the Rust patterns did not change. Opening it finds the text in the block again, across formatting and list items, and selects it; if the text is gone, the block is shown as for any block link. Copy Mention for Selection and Copy Link for Selection sit in their own group above the block copies.
+
+**Why:** a character offset would point somewhere else after the first edit above it, while the text itself still finds its way.
+
+**Rejected:** offsets into the block (they break on every edit) and a fragment per selection stored in the database (a new table for a link).

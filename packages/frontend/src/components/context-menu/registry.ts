@@ -48,11 +48,13 @@ export interface EntityRecord {
 /// Groups render in this order, divided by separators. `app` holds the app wide
 /// fallbacks (Search, Quick Jot) that trail any contextual actions.
 export const ACTION_GROUPS = [
+  "spelling",
   "open",
   "create",
   "type",
   "edit",
   "organize",
+  "selection",
   "share",
   "danger",
   "app",
@@ -154,6 +156,7 @@ export const BASELINE_IDS = [
   "relate",
   "move",
   "copy-link",
+  "copy-deep-link",
   "copy-id",
   "restore",
   "delete",

@@ -1,4 +1,4 @@
-import { IconDatabase } from "@tabler/icons-react";
+import { IconCpu, IconDatabase } from "@tabler/icons-react";
 import type { SVGProps } from "react";
 
 /// Colored brand marks for the code block language picker (§ code block header) — a plain
@@ -214,4 +214,9 @@ export function JsonMark(props: SVGProps<SVGSVGElement>) {
 /// not monochrome" treatment as every other entry in this file.
 export function SqlMark({ className }: { className?: string }) {
   return <IconDatabase className={className} style={{ color: "#4479A1" }} />;
+}
+
+/// Assembly has no brand mark either: Tabler's outline chip icon in a fixed color, like `SqlMark`.
+export function AssemblyMark({ className }: { className?: string }) {
+  return <IconCpu className={className} style={{ color: "#6E7B8B" }} />;
 }

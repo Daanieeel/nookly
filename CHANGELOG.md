@@ -2,6 +2,130 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.56.0 (2026-10-29)
+
+### Added
+
+- **Links to selected text.** Select text in a block, right click, and choose Copy Mention for Selection or Copy Link for Selection. Opening the link shows the page and selects that text. If the text has changed, the block is shown instead.
+
+## 0.55.4 (2026-10-29)
+
+### Changed
+
+- **Links use readable IDs.** Copy Link now names the page by its short ID, like nookly://open/NOT-58, the same way mentions do. Show dictionary file now shows the file in Finder.
+
+## 0.55.3 (2026-10-29)
+
+### Changed
+
+- **Your dictionary is a file.** Words you add to the spell checker are kept in a plain file, dictionary.json, which you can edit. Settings has a Show dictionary file button for it, like the settings file.
+
+## 0.55.2 (2026-10-29)
+
+### Changed
+
+- **Settings navigation.** Pages under a category, like LaTeX under Editor and the shortcut groups, now hang on a guide line under it instead of showing an arrow icon.
+
+## 0.55.1 (2026-10-29)
+
+### Fixed
+
+- **Pasted Nookly links.** A link that opens Nookly, like one from Copy Link, now becomes a clickable link when you paste it into a page, and clicking it opens what it points at.
+
+## 0.55.0 (2026-10-29)
+
+### Added
+
+- **Spell checker.** Nookly can now underline misspelled words while you write and offer corrections on a right click, with Ignore Spelling and Add to Dictionary. It is off until you turn it on, and asks you once after this update. Pick several languages at once, and a page that mixes them, like English and German, is checked without any switching. Code, links and mentions are never checked.
+
+## 0.54.0 (2026-10-29)
+
+### Added
+
+- **Links that open Nookly.** Right click an item or a block and choose Copy Link to get a link that opens Nookly right there when you click it in a browser, a chat or any other app. If Nookly is already open, the link opens in that window. The links only work on the computer they were copied from.
+
+## 0.53.0 (2026-10-29)
+
+### Added
+
+- **Files by path.** Add a file to a page by its full path, such as /Users/you/Downloads/handout.pdf, with the new Path option. Nookly only reads the file, never changes it. If the file is moved, renamed or on a drive that is not connected, the block says so and keeps the path, so it works again once the file is back. You can edit the path or replace the file at any time.
+
+## 0.52.0 (2026-10-29)
+
+### Added
+
+- **Open the agent folder in an AI app.** The Agent tab has an Open in button that lists the AI apps on your computer, such as Claude, ChatGPT, Cursor and VS Code, and opens your agent folder in the one you pick. The app you used last is listed first.
+
+## 0.51.0 (2026-10-29)
+
+### Added
+
+- **Table row and column menus.** Right click the grip of a table row or column to copy a mention to it, add a row or column, duplicate, move, clear or delete it. Opening a mention of a row or column shows the table and marks those cells.
+
+## 0.50.0 (2026-10-29)
+
+### Added
+
+- **Quick assignment.** Press Cmd+Shift+A, or Ctrl+Shift+A on Windows and Linux, to create an assignment from anywhere. While a session is running, it starts in that session's course and is linked to the session. You can change the shortcut in Settings.
+
+### Changed
+
+- **Shortcuts in Settings.** Shortcuts now have a page for each group, such as Navigation, Tabs and Create, and the editor keys like bold, headings and lists are listed too.
+
+## 0.49.0 (2026-10-29)
+
+### Added
+
+- **Search the headings of a page.** On a long page, the section list at the bottom now has a search field. Type a few letters to find a heading, use the arrow keys and Enter to jump to it, and press Escape to clear the search.
+
+## 0.48.0 (2026-10-29)
+
+### Changed
+
+- **Readable mentions.** A copied mention, a Markdown export and the command line now show a page by its short ID, like JOT-12 or NOT-4, instead of a long code. Mentions you made before keep working and open the same page.
+
+## 0.47.0 (2026-10-29)
+
+### Changed
+
+- **Refining a jot opens it beside the note.** Choosing Refine into New Note now shows the jot and the new note side by side, so you can read the jot while you write the note, without switching back and forth.
+
+## 0.46.0 (2026-10-29)
+
+### Added
+
+- **Duplicate a line.** Press Cmd+D, or Ctrl+D on Windows and Linux, in a page to copy the current line right below it. It works for text, list entries, tasks and lines of code, and one undo takes the copy away. The shortcut is listed in Settings under Shortcuts.
+
+## 0.45.0 (2026-10-29)
+
+### Added
+
+- **AI Comment callout.** A new callout type, AI Comment, marks comments written by an AI, for example about what it changed when refining a jot. It has its own purple look, so you can tell it apart from the standard callouts at a glance. Pick it from the callout icon, or let your agent use it.
+
+## 0.44.0 (2026-10-29)
+
+### Added
+
+- **Assembly in code blocks.** Assembly is now a language in code blocks, with colors for instructions, registers, labels, numbers, directives and comments. Typing asm or nasm after the three backticks picks it too.
+
+## 0.43.2 (2026-10-29)
+
+### Changed
+
+- **Relationships in a fixed order.** In the details sidebar, related items are grouped in the same order every time: bookmarks, assignments, tasks, notes, jots, files, courses and so on, no matter when they were linked.
+
+## 0.43.1 (2026-10-29)
+
+### Changed
+
+- **Copy Mention.** Copy Link on an item is now called Copy Mention, and Copy Link to Block is now Copy Mention for Block, because that is what they put on your clipboard.
+
+## 0.43.0 (2026-10-29)
+
+### Added
+
+- **Sharing files.** A file now has a Share button in its details sidebar, and Share in its more actions menu, to send the file itself through the share menu of your computer.
+
 ## 0.42.2 (2026-10-22)
 
 ### Changed

@@ -384,7 +384,42 @@ fn dispatch_atomic(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     }
 }
 
+/// Runs a command, then writes every mention in its output with the readable key of what it
+/// points at (`mention:JOT-12`) instead of the id it is stored with. The key is accepted
+/// back by every command that takes block content.
 fn dispatch_command(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
+    let mut value = dispatch_command_raw(conn, argv)?;
+    show_mention_keys(conn, &mut value);
+    Ok(value)
+}
+
+fn show_mention_keys(conn: &Connection, value: &mut Value) {
+    match value {
+        Value::String(text) => {
+            if text.contains("](mention:") {
+                if let Ok(readable) = crate::db::mention_keys::ids_to_keys(conn, text) {
+                    *text = readable;
+                }
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|v| show_mention_keys(conn, v)),
+        Value::Object(fields) => {
+            // Source text (a code block) is shown exactly as it is stored.
+            let verbatim = fields
+                .get("blockType")
+                .and_then(Value::as_str)
+                .is_some_and(|t| !crate::db::mention_keys::holds_mentions(t));
+            for (name, field) in fields.iter_mut() {
+                if !(verbatim && name == "content") {
+                    show_mention_keys(conn, field);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value> {
     let Some(head) = argv.first().cloned() else {
         return Ok(top_level_help());
     };
@@ -767,6 +802,9 @@ Blocks beyond plain markdown (callout, checklist, timeline, ...). Their settings
 every type's content format and attrs under `contentFormats` and `blockAttrs`; multi column
 formats separate cells with a tab, like tables.
 
+A mention points at an entity by its key, `[Midterm](mention:EXM-3)`, or by its id; blocks are saved
+with the id and read back with the key. Add `#<block-id>` to point at one block of a page.
+
 ```
 nookly cli note add-block <id> --type callout --content 'Bring a calculator' --attr variant=warning
 nookly cli note add-block <id> --type timeline --attr title=Semester --content "$(printf 'Oct 14\tLectures start\nNov 30\tMidterm\tnow\nFeb 10\tFinal exam\tnext')"
@@ -780,6 +818,7 @@ nookly cli note add-block <id> --type divider --content ''
 nookly cli note add-block <id> --type entity_card --content '[Midterm](mention:<exam-id>)'
 nookly cli note add-block <id> --type image --content '[campus.jpg](mention:<file-id>)' --attr caption='Main campus'
 nookly cli note add-block <id> --type file --content '[syllabus.pdf](mention:<file-id>)' --attr page=12   # opens on page 12; also video, audio
+nookly cli note add-block <id> --type file --content '/Users/you/Downloads/handout.pdf'   # a file on this computer; Nookly only reads it, and keeps the path as written if the file is not there
 nookly cli note add-block <id> --type bookmark --content '[Rust Book](mention:<bookmark-id>)'
 nookly cli note add-block <id> --type embed --content 'https://www.youtube.com/watch?v=<id>'
 nookly cli note add-block <id> --type toggle --content "$(printf 'What is a monad?\nA monoid in the category of endofunctors.')"
@@ -1744,6 +1783,7 @@ fn block_command(
             args.check_revision(&get_page(conn, &id)?)?;
             let block_type = args.require_flag("type")?;
             let content = args.require_flag("content")?;
+            check_media_content(&block_type, &content)?;
             let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
             // `--language`/`--filename` only mean anything on a `code` block (the
             // markdown editor's code block header row) — harmless no-ops on any other type.
@@ -1775,6 +1815,7 @@ fn block_command(
             if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
                 result["warning"] = json!(warning);
             }
+            add_warning(&mut result, unreachable_file_warning(&block));
             Ok(result)
         }
         "update-block" => {
@@ -1782,6 +1823,12 @@ fn block_command(
             let before = crate::db::notes::get_block(conn, &block_id)?;
             args.check_revision(&get_page(conn, &before.entity_id)?)?;
             let submitted_content = args.flag("content");
+            if let Some(content) = &submitted_content {
+                let block_type = args
+                    .flag("type")
+                    .unwrap_or_else(|| before.block_type.clone());
+                check_media_content(&block_type, content)?;
+            }
             let patch = crate::db::notes::BlockPatch {
                 content: submitted_content.clone(),
                 block_type: args.flag("type"),
@@ -1804,6 +1851,7 @@ fn block_command(
             if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
                 result["warning"] = json!(warning);
             }
+            add_warning(&mut result, unreachable_file_warning(&block));
             Ok(result)
         }
         "delete-block" => {
@@ -1833,6 +1881,57 @@ fn block_command(
         }
         _ => unreachable!("dispatch guarantees verb is one of the block commands"),
     }
+}
+
+/// Media blocks hold a mention, a link or the full path of a file. An empty value or one that
+/// is none of those is refused with the reason; a path that cannot be reached right now is
+/// not (see `unreachable_file_warning`).
+fn check_media_content(block_type: &str, content: &str) -> AppResult<()> {
+    use crate::db::local_path::{media_target, MediaTarget};
+    if !matches!(block_type, "file" | "image" | "video" | "audio") {
+        return Ok(());
+    }
+    match media_target(content) {
+        MediaTarget::Empty => Err(AppError::InvalidInput(format!(
+            "the {block_type} block's content is empty: give the full path of a file \
+             (like /Users/you/file.pdf), an http(s) URL, or a mention of a file"
+        ))),
+        MediaTarget::Invalid => Err(AppError::InvalidInput(format!(
+            "'{}' is not the full path of a file on this computer, an http(s) URL or a mention \
+             of a file: a path starts with / (or a drive letter like C:\\)",
+            content.trim()
+        ))),
+        _ => Ok(()),
+    }
+}
+
+/// The reason a media block's file is not there right now, in plain words, when it holds a
+/// path. The path stays in the block as written either way.
+fn unreachable_file_warning(block: &crate::db::notes::Block) -> Option<String> {
+    use crate::db::local_path::{inspect, media_target, MediaTarget, PathState};
+    if !matches!(
+        block.block_type.as_str(),
+        "file" | "image" | "video" | "audio"
+    ) {
+        return None;
+    }
+    let MediaTarget::Path(path) = media_target(&block.content) else {
+        return None;
+    };
+    let found = inspect(path);
+    (found.state != PathState::Ok).then_some(format!(
+        "{} The block keeps the path, and shows the file again once it can be reached.",
+        found.message
+    ))
+}
+
+/// Adds `warning` to a result, after any it already has.
+fn add_warning(result: &mut Value, warning: Option<String>) {
+    let Some(warning) = warning else { return };
+    result["warning"] = match result.get("warning").and_then(Value::as_str) {
+        Some(existing) => json!(format!("{existing} {warning}")),
+        None => json!(warning),
+    };
 }
 
 /// Nudges an agent that just landed a `paragraph` block whose content still

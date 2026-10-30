@@ -14,6 +14,8 @@ import { Button } from "@nookly/ui/components/button";
 import { DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
 import { EvaluationToggle } from "./EvaluationToggle";
 import { listSpaces } from "#/lib/api/spaces.ts";
+import { createRelationship } from "#/lib/api/relationships.ts";
+import { notify } from "#/components/notify.tsx";
 import { cn } from "@nookly/ui/lib/utils";
 import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
@@ -245,11 +247,17 @@ export function CreateAssignmentDialog({
   spaces,
   open,
   onOpenChange,
+  initialCourse = null,
+  session = null,
 }: {
   spaceId: string;
   spaces?: Space[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /// The Course the dialog starts with, each time it opens.
+  initialCourse?: Entity | null;
+  /// A Session the new assignment is linked to when it is created.
+  session?: Entity | null;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
@@ -268,10 +276,20 @@ export function CreateAssignmentDialog({
   });
   const course = useStore(form.store, (state) => state.values.course);
 
+  // A dialog opened from outside starts in the Space and Course it was given.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      setSpaceId(initialSpaceId);
+      form.setFieldValue("course", initialCourse);
+    }
+    wasOpen.current = open;
+  }, [open, initialSpaceId, initialCourse, form]);
+
   const create = useMutation({
-    mutationFn: ({ title, course: picked, due, ungraded }: AssignmentValues) => {
+    mutationFn: async ({ title, course: picked, due, ungraded }: AssignmentValues) => {
       if (!picked) throw new Error("pick a course");
-      return createAssignment(
+      const created = await createAssignment(
         spaceId,
         title.trim() || `${displayTitle(picked)} Assignment`,
         picked.id,
@@ -280,6 +298,13 @@ export function CreateAssignmentDialog({
         due.dueSessionId,
         ungraded,
       );
+      if (session) {
+        // The assignment exists either way, so a failed link is reported, not retried.
+        await createRelationship(created.entity.id, session.id, "relates-to").catch(() =>
+          notify.caution("Assignment created, but not linked to the session"),
+        );
+      }
+      return created;
     },
     onSuccess: async (created, { course: picked }) => {
       await Promise.all([

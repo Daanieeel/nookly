@@ -54,7 +54,7 @@ export interface TableCell {
   bar?: number;
 }
 
-export type CalloutTone = "note" | "tip" | "warning" | "danger";
+export type CalloutTone = "note" | "tip" | "warning" | "danger" | "ai";
 
 export type ExportBlock =
   | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; runs: Run[] }
@@ -94,7 +94,7 @@ export type FigureSource =
   | { type: "circuit"; source: string }
   | { type: "plot"; source: string }
   /// An image file the page shows, by File id or URL.
-  | { type: "image"; fileId?: string; url?: string };
+  | { type: "image"; fileId?: string; url?: string; path?: string };
 
 export interface ExportDocument {
   title: string;

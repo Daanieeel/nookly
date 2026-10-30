@@ -304,6 +304,19 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("write_agent_file", "agent_files_underlying_calls"),
     ("delete_agent_file", "agent_files_underlying_calls"),
     ("reveal_agent_dir", "agent_files_underlying_calls"),
+    // They need an `AppHandle` or the spell checker's state: the logic each one delegates to.
+    ("list_ai_apps", "ai_apps_listing_underlying_call"),
+    ("open_agent_dir_in", "ai_apps_listing_underlying_call"),
+    ("check_local_path", "local_files_underlying_calls"),
+    ("open_local_path", "local_files_underlying_calls"),
+    ("reveal_local_path", "local_files_underlying_calls"),
+    ("spell_configure", "spell_underlying_calls"),
+    ("spell_check", "spell_underlying_calls"),
+    ("spell_suggest", "spell_underlying_calls"),
+    ("spell_ignore", "spell_underlying_calls"),
+    ("spell_reload_words", "spell_underlying_calls"),
+    ("spell_add_word", "spell_underlying_calls"),
+    ("reveal_dictionary_file", "spell_underlying_calls"),
     // `AppHandle` parameter, and it opens an app: the part that can run is the file it makes.
     (
         "open_settings_file",
@@ -567,6 +580,47 @@ fn every_registered_command_is_covered() {
 }
 
 #[test]
+fn ai_apps_listing_underlying_call() {
+    // Whatever is installed here, every app listed has an id and a name.
+    for app in crate::commands::ai_apps::list_ai_apps() {
+        assert!(!app.id.is_empty() && !app.name.is_empty());
+    }
+}
+
+#[test]
+fn local_files_underlying_calls() {
+    use crate::db::local_path::{inspect, PathState};
+    let dir = std::env::temp_dir().join(format!("nookly-cmd-local-{}", db::new_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("a.pdf");
+    std::fs::write(&file, b"%PDF").unwrap();
+    assert_eq!(inspect(file.to_str().unwrap()).state, PathState::Ok);
+    assert_eq!(
+        inspect(dir.join("gone.pdf").to_str().unwrap()).state,
+        PathState::Missing
+    );
+}
+
+#[test]
+fn spell_underlying_calls() {
+    let mut speller = crate::spelling::Speller::default();
+    assert_eq!(speller.configure(&["en".to_string()], &[]), vec!["en"]);
+    assert!(speller.is_correct("house"));
+    assert!(!speller.is_correct("hause"));
+    assert!(speller.suggest("hause").contains(&"house".to_string()));
+    speller.ignore("hause");
+    assert!(speller.is_correct("hause"));
+    // The user's words come from the dictionary file.
+    let dir = std::env::temp_dir().join(format!("nookly-cmd-dict-{}", db::new_id()));
+    crate::dictionary_file::add_word(&dir, "Nookly").unwrap();
+    let words = crate::dictionary_file::read_words(&dir).unwrap();
+    assert!(speller.set_personal(&words));
+    assert!(speller.is_correct("nookly"));
+    assert!(!speller.set_personal(&words));
+    crate::dictionary_file::ensure_file(&dir).unwrap();
+}
+
+#[test]
 fn unknown_command_is_rejected() {
     let h = Harness::new();
     let err = h.call("no_such_command", json!({})).unwrap_err();
@@ -804,6 +858,19 @@ fn entities_create_in_unknown_space_is_not_found() {
     assert!(h
         .db(|c| db::entities::list_entities(c, None, true).unwrap())
         .is_empty());
+}
+
+#[test]
+fn entities_get_takes_the_readable_key_as_well_as_the_id() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let created = h.ok(
+        "create_entity",
+        json!({ "spaceId": space, "type": "jot", "title": "Lecture", "icon": null }),
+    );
+    let by_key = h.ok("get_entity", json!({ "id": created["key"] }));
+    assert_eq!(by_key, created);
+    h.app_err("get_entity", json!({ "id": "JOT-9999" }), "NotFound");
 }
 
 #[test]

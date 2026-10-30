@@ -2,6 +2,7 @@ import { readText, writeHtml, writeText } from "@tauri-apps/plugin-clipboard-man
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
+import { deepLinkFor } from "#/lib/deep-link-url.ts";
 
 /// Clipboard access through the Tauri plugin rather than `navigator.clipboard`:
 /// the webview asks for a separate confirmation on every read, which would turn
@@ -23,13 +24,21 @@ function escapeHtml(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/// A link to an entity, or one block of a page: pasted into a Note it becomes a
-/// mention, anywhere else the markdown form `[Title](mention:id)`.
-export function copyEntityLink(entity: Entity, blockId?: string): Promise<void> {
-  const title = displayTitle(entity);
-  const target = blockId ? `${entity.id}#${blockId}` : entity.id;
+/// A `nookly://` link to an entity, or one block of a page: opens Nookly on it from anywhere
+/// on this computer. It names the page by its readable key (`NOT-58`), like a mention does, and
+/// only works where it was copied.
+export function copyDeepLink(entity: Entity, blockId?: string): Promise<void> {
+  return copyText(deepLinkFor(entity.key, blockId));
+}
+
+/// A mention of an entity, or one block of a page: pasted into a Note it becomes a mention,
+/// anywhere else the markdown form `[Title](mention:JOT-12)` with the readable key. The rich
+/// copy keeps the id, which is what a mention is stored with.
+export function copyEntityLink(entity: Entity, blockId?: string, label?: string): Promise<void> {
+  const title = label ?? displayTitle(entity);
+  const withBlock = (target: string) => (blockId ? `${target}#${blockId}` : target);
   return writeHtml(
-    `<a href="mention:${escapeHtml(target)}">${escapeHtml(title)}</a>`,
-    mentionMarkdown(title, target),
+    `<a href="mention:${escapeHtml(withBlock(entity.id))}">${escapeHtml(title)}</a>`,
+    mentionMarkdown(title, withBlock(entity.key)),
   );
 }

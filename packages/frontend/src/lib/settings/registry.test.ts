@@ -47,11 +47,16 @@ describe("settings registry", () => {
     for (const id of SETTING_IDS) {
       const def = definitionOf(id);
       for (const junk of [null, 42.5, {}, [], false, ""]) {
-        if ((id === "backup.auto" || id === "notes.arrowLigatures") && junk === false) {
+        if (
+          (id === "backup.auto" || id === "notes.arrowLigatures" || id === "notes.spellcheck") &&
+          junk === false
+        ) {
           continue;
         }
         // No macros at all is a value of its own, not garbage.
         if (id === "notes.latexMacros" && junk === "") continue;
+        // No spelling language at all is a value of its own, not garbage.
+        if (id === "notes.spellcheckLanguages" && Array.isArray(junk)) continue;
         // A shortcut's null means unassigned, which is a value of its own.
         if (id.startsWith("shortcuts.") && junk === null) continue;
         expect(def.parse(junk)).toEqual(def.default);

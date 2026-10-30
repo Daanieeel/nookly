@@ -46,6 +46,70 @@ describe("RelationshipsPanel", () => {
   });
 });
 
+describe("RelationshipsPanel order", () => {
+  // Created in the opposite order, so only the fixed order can produce the expected one.
+  const created = [
+    "session",
+    "view",
+    "semester",
+    "study_block",
+    "recipe",
+    "index_card_deck",
+    "course_notes",
+    "calendar_entry",
+    "exam",
+    "course",
+    "file",
+    "jot",
+    "note",
+    "task",
+    "assignment",
+    "bookmark",
+  ];
+
+  it("lists the groups in the fixed order, whatever order they were created in", async () => {
+    const me = makeEntity({ id: "me", type: "course" });
+    mockCommand(
+      "list_relationships",
+      created.map((t) => ({
+        ...base,
+        id: `r-${t}`,
+        fromEntityId: "me",
+        toEntityId: t,
+        relationshipType: "relates-to",
+      })),
+    );
+    mockCommand("list_relationship_types", [type("relates-to", "Related to", "Related from")]);
+    mockCommand("list_spaces", []);
+    mockCommandWith("get_entity", (args) => {
+      const id = args && "id" in args ? String(args.id) : "";
+      return makeEntity({ id, title: `Item ${id}`, type: id });
+    });
+    renderWithProviders(<RelationshipsPanel entity={me} />);
+
+    await screen.findByRole("group", { name: "Session" });
+    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(created.length));
+    expect(screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Bookmark",
+      "Assignment",
+      "Task",
+      "Note",
+      "Jot",
+      "File",
+      "Course",
+      "Exam",
+      "Item",
+      "Course Notes",
+      "Deck",
+      "Recipe",
+      "Study Block",
+      "Semester",
+      "View",
+      "Session",
+    ]);
+  });
+});
+
 const RELATES: RelationshipTypeInfo = {
   name: "relates-to",
   label: "Related to",

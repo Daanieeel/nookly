@@ -33,6 +33,10 @@ import { Highlight } from "./highlight-extension";
 import { TextColor } from "./text-color-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
+import { DeepLinkPaste } from "./deep-link-paste-extension";
+import { DuplicateLine } from "./duplicate-line-extension";
+import { spellController } from "../spellcheck/spell-controller";
+import { Spellcheck, type SpellSource } from "../spellcheck/spellcheck-extension";
 import { TabIndent } from "./tab-indent-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
@@ -55,6 +59,8 @@ export interface EditorExtensionOptions {
   hasPages?: (entity: Entity) => boolean;
   /// Read live: the occurrence behind a session, so the "@" menu finds it by its day and time.
   sessionOf?: (entity: Entity) => SessionOccurrence | undefined;
+  /// The spell checker the editor underlines with; the app's shared one by default.
+  spellSource?: SpellSource;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -65,6 +71,7 @@ export function editorExtensions({
   getNewCodeLanguage = () => null,
   hasPages = () => false,
   sessionOf = () => undefined,
+  spellSource = spellController(),
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
@@ -72,7 +79,10 @@ export function editorExtensions({
       link: {
         openOnClick: false,
         autolink: false,
-        protocols: [{ scheme: "mention", optionalSlashes: true }],
+        protocols: [
+          { scheme: "mention", optionalSlashes: true },
+          { scheme: "nookly", optionalSlashes: true },
+        ],
       },
       // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
       codeBlock: false,
@@ -110,6 +120,9 @@ export function editorExtensions({
     Mention.configure({ getEntities, hasPages, sessionOf }),
     Emoji,
     TabIndent,
+    DuplicateLine,
+    DeepLinkPaste,
+    Spellcheck.configure({ source: spellSource }),
     Callout,
     Timeline,
     Progress,

@@ -6,6 +6,7 @@ import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
 import { SETTING_IDS } from "#/lib/settings/registry.ts";
 import { settings } from "#/lib/settings/settings.ts";
+import { SHORTCUT_PAGES } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useThemeStore } from "#/lib/theme.ts";
 import { SettingsDialog } from "./SettingsDialog.tsx";
@@ -23,6 +24,11 @@ function rowFor(id: string) {
 beforeEach(() => {
   act(() => useNavStore.getState().setSettingsOpen(false));
 });
+
+/// The indented group with the guide line a child page of the navigation sits in.
+function nestedGroup(button: HTMLElement): HTMLElement | null {
+  return button.closest("[data-nested]");
+}
 
 describe("the settings dialog", () => {
   it("stays closed until opened, then focuses the search", async () => {
@@ -56,6 +62,7 @@ describe("the settings dialog", () => {
       "Backup",
       "Agent",
       "Shortcuts",
+      ...SHORTCUT_PAGES,
     ]);
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
       "aria-current",
@@ -77,9 +84,10 @@ describe("the settings dialog", () => {
     const { user } = renderOpen();
     await screen.findByRole("dialog");
     const found = new Set<string>();
-    // Every page of the navigation: the categories, and LaTeX under Editor.
+    // Every page of the navigation: the categories, LaTeX under Editor and a page for each
+    // section of the shortcuts.
     const pages = ["General", "Appearance", "Calendar", "Editor", "LaTeX", "Backup", "Agent"];
-    for (const label of [...pages, "Shortcuts"]) {
+    for (const label of [...pages, "Shortcuts", ...SHORTCUT_PAGES.map((p) => `${p} shortcuts`)]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
         const id = row.getAttribute("data-setting-id") ?? "";
@@ -99,7 +107,7 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7);
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7 + SHORTCUT_PAGES.length);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {
@@ -300,15 +308,16 @@ describe("the settings dialog", () => {
       const editor = within(nav).getByRole("button", { name: "Editor" });
       const latex = within(nav).getByRole("button", { name: "LaTeX" });
       expect(editor.compareDocumentPosition(latex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(latex.className).toMatch(/pl-/);
-      expect(editor.className).not.toMatch(/pl-/);
+      expect(nestedGroup(latex)).not.toBeNull();
+      expect(nestedGroup(editor)).toBeNull();
     });
 
-    it("shows a corner connector icon to mark it as subordinate to Editor", async () => {
+    it("hangs on a guide line under Editor, with no icon of its own", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
       const latex = within(nav).getByRole("button", { name: "LaTeX" });
-      expect(latex.querySelector("svg")).toHaveClass("tabler-icon-corner-down-right");
+      expect(latex.querySelector("svg")).toBeNull();
+      expect(nestedGroup(latex)?.className).toMatch(/border-l/);
     });
 
     it("holds the LaTeX macros, and the Editor page does not", async () => {

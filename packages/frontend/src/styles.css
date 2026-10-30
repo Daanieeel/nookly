@@ -452,6 +452,14 @@
   .tiptap-content .callout[data-variant="danger"] {
     --callout-tone: var(--destructive);
   }
+  .tiptap-content .callout[data-variant="ai"] {
+    --callout-tone: var(--accent-purple);
+  }
+  .tiptap-content .spell-error {
+    text-decoration: underline wavy var(--destructive);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
+  }
   .tiptap-content .callout-icon {
     color: var(--callout-tone);
   }

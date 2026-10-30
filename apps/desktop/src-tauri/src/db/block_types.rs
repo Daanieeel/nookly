@@ -12,6 +12,7 @@
 //! export complete and readable anywhere.
 
 use crate::db::ascii_frame::{col_width, fence, frame, pad_end, pad_start, wrap_text};
+use crate::db::local_path;
 use crate::db::notes::Block;
 use crate::error::{AppError, AppResult};
 use std::collections::{BTreeMap, HashMap};
@@ -372,7 +373,7 @@ fn accept_anything(_: &str) -> Result<(), String> {
 
 // --- callout ---------------------------------------------------------------
 
-const CALLOUT_VARIANTS: &[&str] = &["note", "tip", "warning", "danger"];
+const CALLOUT_VARIANTS: &[&str] = &["note", "tip", "warning", "danger", "ai"];
 
 fn callout_to_markdown(block: &Block) -> String {
     let variant = block.attrs.get("variant").map_or("note", String::as_str);
@@ -380,6 +381,7 @@ fn callout_to_markdown(block: &Block) -> String {
         "tip" => "+",
         "warning" => "!",
         "danger" => "×",
+        "ai" => "*",
         _ => "i",
     };
     let wrapped: Vec<String> = block
@@ -412,7 +414,7 @@ inventory::submit! {
         attrs: &[BlockAttrDef {
             name: "variant",
             kind: AttrKind::Enum(CALLOUT_VARIANTS),
-            description: "Tone and icon of the callout. Defaults to note.",
+            description: "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
         }],
         validate: accept_anything,
         to_markdown: callout_to_markdown,
@@ -1078,18 +1080,21 @@ inventory::submit! {
 
 // --- image, video, audio, file ---------------------------------------------
 
-/// A media block's target: a File entity mention, or a plain URL.
+/// A media block's target: a File entity mention, a plain URL, or the full path of a file on
+/// this computer.
 fn validate_media(content: &str) -> Result<(), String> {
     let content = content.trim();
     if content.is_empty()
         || validate_mention_link(content).is_ok()
         || content.starts_with("http://")
         || content.starts_with("https://")
+        || local_path::is_local_path(content)
     {
         Ok(())
     } else {
         Err(
-            "expected a mention of a file entity, [name](mention:<file-id>), or an http(s) URL"
+            "expected the full path of a file on this computer (like /Users/you/file.pdf), \
+             an http(s) URL, or a mention of a file entity, [name](mention:<file-id>)"
                 .into(),
         )
     }
@@ -1126,10 +1131,16 @@ fn media_link(block: &Block) -> Option<(String, String)> {
         ),
         None => {
             let name = content
-                .rsplit('/')
+                .rsplit(['/', '\\'])
                 .find(|s| !s.is_empty())
                 .unwrap_or(content);
-            (caption.unwrap_or(name).to_string(), content.to_string())
+            // A file on this computer is a `file://` link in an export.
+            let target = if local_path::is_local_path(content) {
+                local_path::file_url(content).unwrap_or_else(|| content.to_string())
+            } else {
+                content.to_string()
+            };
+            (caption.unwrap_or(name).to_string(), target)
         }
     })
 }
@@ -1153,8 +1164,9 @@ const PAGE_TO_ATTR: BlockAttrDef = BlockAttrDef {
 };
 
 const MEDIA_FORMAT: &str = "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into \
-                            Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under \
-                            its Mentioned in.";
+                            Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, \
+                            like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written \
+                            when the file is not there). Mentioning the file lists this page under its Mentioned in.";
 
 inventory::submit! {
     BlockTypeDef {
@@ -1325,6 +1337,13 @@ mod tests {
     }
 
     #[test]
+    fn an_ai_callout_has_its_own_glyph_and_label() {
+        let md = callout_to_markdown(&block("callout", "Merged two lines", &[("variant", "ai")]));
+        assert!(md.contains("[ AI ]"));
+        assert_eq!(body(&md), vec!["*  Merged two lines"]);
+    }
+
+    #[test]
     fn progress_draws_a_track_with_the_goal_marked() {
         let md = progress_to_markdown(&block(
             "progress",
@@ -1455,6 +1474,37 @@ mod tests {
     }
 
     #[test]
+    fn a_media_block_takes_the_full_path_of_a_file() {
+        for block_type in ["file", "image", "video", "audio"] {
+            assert!(
+                validate_content(block_type, "/Users/daniel/Downloads/Handout_Woche3.pdf").is_ok()
+            );
+            assert!(validate_content(block_type, "C:\\Users\\me\\a.pdf").is_ok());
+        }
+        // Not a full path, a link or a mention.
+        for bad in [
+            "Handout.pdf",
+            "./Handout.pdf",
+            "~/Handout.pdf",
+            "file:///a.pdf",
+            "ftp://x/a",
+        ] {
+            let err = validate_content("file", bad).unwrap_err();
+            assert!(err.to_string().contains("full path"), "{bad}: {err}");
+        }
+        let file = block("file", "/Users/me/Uni/Handout 3.pdf", &[]);
+        assert_eq!(
+            (lookup("file").unwrap().to_markdown)(&file),
+            "[Handout 3.pdf](file:///Users/me/Uni/Handout%203.pdf)"
+        );
+        let windows = block("file", "C:\\Uni\\a.pdf", &[]);
+        assert_eq!(
+            (lookup("file").unwrap().to_markdown)(&windows),
+            "[a.pdf](file:///C:/Uni/a.pdf)"
+        );
+    }
+
+    #[test]
     fn a_file_block_can_open_on_a_page() {
         let on_page = block("file", "[a.pdf](mention:f-1)", &[("page", "12")]);
         let to_markdown = lookup("file").unwrap().to_markdown;
@@ -1529,6 +1579,7 @@ mod tests {
 
         let attrs = |k: &str, v: &str| BlockAttrs::from([(k.to_string(), v.to_string())]);
         assert!(validate_attrs("callout", &attrs("variant", "tip")).is_ok());
+        assert!(validate_attrs("callout", &attrs("variant", "ai")).is_ok());
         assert!(validate_attrs("callout", &attrs("variant", "loud")).is_err());
         assert!(validate_attrs("callout", &attrs("title", "x")).is_err());
         assert!(validate_attrs("paragraph", &attrs("title", "x")).is_err());

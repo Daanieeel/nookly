@@ -5,6 +5,8 @@ import { cn } from "@nookly/ui/lib/utils";
 import { DragPreview, trackDocumentMouse, useDragHandleState } from "./drag-overlays";
 import { keepIfEqual } from "./pointer-frame";
 import { dropIndex, moveColumn } from "./table-column-move";
+import { tableOf } from "./table-target";
+import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
 
 /// Where the grip sits: above one column of the hovered table, as wide as the column.
 interface ColumnGrip {
@@ -37,7 +39,17 @@ function columnIndex(cell: Cell): number {
 /// mounted). A grip floats over the top edge of whichever column the mouse is over; dragging
 /// it onto another column moves the whole column, in every row, through `moveColumn`. The
 /// table is stored row by row, so the new order saves as it is.
-export function TableColumnHandles({ editor }: { editor: Editor | null }) {
+export function TableColumnHandles({
+  editor,
+  entityId,
+  resolveStoredId,
+}: {
+  editor: Editor | null;
+  /// The page the table is in, and the means to find the stored id of its block: what the
+  /// grip's right click menu needs for its mention.
+  entityId: string;
+  resolveStoredId: (blockId: string) => Promise<string | null>;
+}) {
   const { visible, setVisible, dragPreview, setDragPreview, draggingRef } = useDragHandleState();
   const [grip, setGrip] = useState<ColumnGrip>({ top: -9999, left: -9999, width: 0 });
   const [indicator, setIndicator] = useState<ColumnIndicator | null>(null);
@@ -162,6 +174,21 @@ export function TableColumnHandles({ editor }: { editor: Editor | null }) {
 
   if (!editor) return null;
 
+  /// A right click on the grip is on the column it floats over.
+  const gripContextTarget = contextTargetAt(() => {
+    const cell = hoveredRef.current;
+    const table = cell && tableOf(editor, cell);
+    if (!cell || !table) return undefined;
+    return makeTarget("note.table-column", {
+      editor,
+      tablePos: table.pos,
+      index: columnIndex(cell),
+      blockId: table.blockId,
+      entityId,
+      resolveStoredId,
+    });
+  });
+
   return (
     <>
       <button
@@ -169,6 +196,7 @@ export function TableColumnHandles({ editor }: { editor: Editor | null }) {
         type="button"
         aria-label="Drag to reorder column"
         data-testid="table-column-grip"
+        {...gripContextTarget}
         onMouseDown={(event) => {
           const cell = hoveredRef.current;
           const table = cell?.closest("table");

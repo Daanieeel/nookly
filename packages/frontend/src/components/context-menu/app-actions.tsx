@@ -1,4 +1,5 @@
 import {
+  IconClipboardCheck,
   IconCommand,
   IconFeather,
   IconFileSearch,
@@ -63,6 +64,15 @@ export function appActions<T>(): MenuAction<T>[] {
       shortcutName: "quickJot",
       afterClose: true,
       run: () => useNavStore.getState().setQuickJotOpen(true),
+    },
+    {
+      id: "quick-assignment",
+      group: "app",
+      label: "Quick Assignment",
+      icon: IconClipboardCheck,
+      shortcutName: "quickAssignment",
+      afterClose: true,
+      run: () => useNavStore.getState().setNewAssignmentOpen(true),
     },
     {
       id: "dashboard",

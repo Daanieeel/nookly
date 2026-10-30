@@ -4,8 +4,10 @@ mod backup;
 mod cli;
 mod commands;
 mod db;
+mod dictionary_file;
 mod error;
 mod external_calendars;
+mod spelling;
 mod store_guard;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -102,15 +104,40 @@ pub fn run() {
         eprintln!("Launching the Nookly GUI. For the command-line interface instead, run: nookly cli --help");
     }
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // A second launch, such as a `nookly://` link clicked while Nookly runs, hands its link to
+    // the running window and brings it forward instead of starting another instance. Only in a
+    // release build: a development build shares the app's identifier, and would otherwise
+    // just focus the installed app. Must be the first plugin.
+    #[cfg(all(
+        not(debug_assertions),
+        any(target_os = "macos", windows, target_os = "linux")
+    ))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+    builder
         .menu(app_menu)
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .manage(spelling::SpellState::default())
         .setup(|app| {
+            // Installed builds register the scheme with the system; this does it for the
+            // ones that were not installed.
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
             db::setup(app)?;
             store_guard::preserve_unreadable_stores(&db::resolve_app_data_dir(
                 app.path().app_data_dir()?,
@@ -345,6 +372,18 @@ pub fn run() {
             commands::agent_files::write_agent_file,
             commands::agent_files::delete_agent_file,
             commands::agent_files::reveal_agent_dir,
+            commands::spell::spell_configure,
+            commands::spell::spell_check,
+            commands::spell::spell_suggest,
+            commands::spell::spell_ignore,
+            commands::spell::spell_reload_words,
+            commands::spell::spell_add_word,
+            commands::spell::reveal_dictionary_file,
+            commands::local_files::check_local_path,
+            commands::local_files::open_local_path,
+            commands::local_files::reveal_local_path,
+            commands::ai_apps::list_ai_apps,
+            commands::ai_apps::open_agent_dir_in,
             commands::settings_file::open_settings_file,
         ])
         .build(tauri::generate_context!())

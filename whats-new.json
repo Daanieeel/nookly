@@ -1,6 +1,109 @@
 {
   "versions": [
     {
+      "version": "0.56.0",
+      "date": "2026-10-29",
+      "title": "Spell checker, links that open Nookly and more",
+      "summary": "Check your spelling, link to files and selected text, and get a lot more done from the keyboard.",
+      "highlights": [
+        {
+          "title": "Share a file",
+          "description": "Send a file to someone from its details sidebar, with the share button at the top or **Share** in the more actions menu.",
+          "icon": "share",
+          "tag": "New"
+        },
+        {
+          "title": "Assembly code blocks",
+          "description": "Pick **Assembly** as the language of a code block to see instructions, registers, labels and numbers in their own colors.",
+          "icon": "terminal",
+          "tag": "New"
+        },
+        {
+          "title": "AI Comment callout",
+          "description": "Mark what an AI changed with the new purple **AI Comment** callout, so it stands out from your own notes and the standard callouts.",
+          "icon": "robot",
+          "tag": "New"
+        },
+        {
+          "title": "Duplicate a line",
+          "description": "Press the shortcut in a page to copy the line you are on right below it, for text, list entries, tasks and code.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+D"]
+        },
+        {
+          "title": "Refine side by side",
+          "description": "Refine a jot into a note and both open next to each other, so you can read the jot while you write the note.",
+          "icon": "layout-columns",
+          "tag": "Improved"
+        },
+        {
+          "title": "Readable mentions",
+          "description": "A mention you copy or export now names the page by its short ID, like **JOT-12**, instead of a long code. Older mentions keep working.",
+          "icon": "link",
+          "tag": "Improved"
+        },
+        {
+          "title": "Find a heading by typing",
+          "description": "On a long page, open the section list at the bottom and type to find a heading. The match is marked, and **Enter** jumps to it.",
+          "icon": "filter",
+          "tag": "New"
+        },
+        {
+          "title": "Quick assignment",
+          "description": "Create an assignment from anywhere. During a session it starts in that session's course and links to the session.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+A"]
+        },
+        {
+          "title": "Table row and column menus",
+          "description": "Right click the grip next to a table row or above a column to add, duplicate, move, clear or delete it, or to copy a mention that points at it.",
+          "icon": "table",
+          "tag": "New"
+        },
+        {
+          "title": "Open in an AI app",
+          "description": "On the Agent tab in Settings, **Open in** shows the AI apps on your computer and opens your agent folder in the one you pick.",
+          "icon": "robot",
+          "tag": "New"
+        },
+        {
+          "title": "Files by path",
+          "description": "The **/file** block now takes the full path of a file on your computer. If the file is not there, the block says why and keeps the path until it is back.",
+          "icon": "file-text",
+          "tag": "New"
+        },
+        {
+          "title": "Links that open Nookly",
+          "description": "Right click an item or a block and choose **Copy Link**. Clicking that link anywhere on your computer opens Nookly on it.",
+          "icon": "link",
+          "tag": "New"
+        },
+        {
+          "title": "Spell checker",
+          "description": "Misspelled words get a wavy underline and a right click offers corrections. Pick several languages, like **English and German**. Off until you turn it on.",
+          "icon": "sparkles",
+          "tag": "New"
+        },
+        {
+          "title": "Link to selected text",
+          "description": "Select text, right click and choose **Copy Mention for Selection** or **Copy Link for Selection**. Opening it selects that text on the page.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Copying a mention is now called Copy Mention, and Copy Link now copies a link that opens Nookly.",
+          "Related items in the details sidebar are grouped in a fixed order, starting with bookmarks, assignments, tasks and notes.",
+          "Settings has a page for each group of shortcuts, and lists the keys of the page editor, like bold, headings and lists.",
+          "Pages under a category in Settings, like LaTeX, hang on a guide line under it instead of showing an arrow icon.",
+          "The words you add to the spell checker are kept in a plain file, dictionary.json, which Show dictionary file in Settings shows in Finder."
+        ]
+      }
+    },
+    {
       "version": "0.42.2",
       "date": "2026-10-22",
       "highlights": [],

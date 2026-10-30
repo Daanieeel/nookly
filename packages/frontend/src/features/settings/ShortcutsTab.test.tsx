@@ -8,6 +8,8 @@ import {
   FIXED_SHORTCUTS,
   SHORTCUT_META,
   SHORTCUT_NAMES,
+  SHORTCUT_PAGES,
+  type ShortcutName,
   shortcutSettingId,
 } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -20,10 +22,19 @@ function rowFor(id: string) {
   return row;
 }
 
-async function openShortcuts() {
+type User = ReturnType<typeof renderWithProviders>["user"];
+
+/// A page under Shortcuts, which the navigation names "<section> shortcuts".
+async function showPage(user: User, section: string) {
+  await user.click(screen.getByRole("button", { name: `${section} shortcuts` }));
+}
+
+/// Opens Shortcuts, and the page of `name`'s section when one is given.
+async function openShortcuts(name?: ShortcutName) {
   const rendered = renderWithProviders(<SettingsDialog />);
   act(() => useNavStore.getState().setSettingsOpen(true));
   await rendered.user.click(await screen.findByRole("button", { name: "Shortcuts" }));
+  if (name) await showPage(rendered.user, SHORTCUT_META[name].section);
   return rendered;
 }
 
@@ -46,59 +57,122 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("the shortcuts tab", () => {
-  it("lists every registered shortcut with its title, id and current key", async () => {
-    await openShortcuts();
-    for (const name of SHORTCUT_NAMES) {
-      const row = rowFor(shortcutSettingId(name));
-      expect(row.textContent, name).toContain(SHORTCUT_META[name].title);
-      expect(row.textContent, name).toContain(shortcutSettingId(name));
-      expect(recorder(name), name).toBeInTheDocument();
+describe("the shortcuts pages", () => {
+  it("lists every registered shortcut on the page of its section, with its title, id and key", async () => {
+    const { user } = await openShortcuts();
+    for (const section of SHORTCUT_PAGES) {
+      await showPage(user, section);
+      for (const name of SHORTCUT_NAMES.filter((n) => SHORTCUT_META[n].section === section)) {
+        const row = rowFor(shortcutSettingId(name));
+        expect(row.textContent, name).toContain(SHORTCUT_META[name].title);
+        expect(row.textContent, name).toContain(shortcutSettingId(name));
+        expect(recorder(name), name).toBeInTheDocument();
+      }
     }
   });
 
-  it("groups them under section headings and lists the fixed shortcuts last", async () => {
+  it("puts a page for every section under Shortcuts, indented, in order", async () => {
     await openShortcuts();
-    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(headings).toEqual([
-      "Navigation",
-      "Tabs",
-      "Create",
-      "Calendar",
-      "Tasks",
-      "Study",
-      "Fixed shortcuts",
-    ]);
+    const nav = screen.getByRole("navigation", { name: "Settings categories" });
+    const shortcuts = within(nav).getByRole("button", { name: "Shortcuts" });
+    let previous: HTMLElement = shortcuts;
+    for (const section of SHORTCUT_PAGES) {
+      const page = within(nav).getByRole("button", { name: `${section} shortcuts` });
+      expect(page).toHaveTextContent(section);
+      expect(page.closest("[data-nested]")?.className).toMatch(/border-l/);
+      expect(page.querySelector("svg")).toBeNull();
+      expect(
+        previous.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      previous = page;
+    }
+  });
+
+  it("shows only the shortcuts of the page you are on", async () => {
+    const { user } = await openShortcuts("newTab");
+    expect(screen.getByRole("heading", { level: 2, name: "Tabs shortcuts" })).toBeInTheDocument();
+    expect(document.querySelector('[data-setting-id="shortcuts.newTab"]')).not.toBeNull();
+    expect(document.querySelector('[data-setting-id="shortcuts.search"]')).toBeNull();
+    await showPage(user, "Navigation");
+    expect(document.querySelector('[data-setting-id="shortcuts.search"]')).not.toBeNull();
+    expect(document.querySelector('[data-setting-id="shortcuts.newTab"]')).toBeNull();
+  });
+
+  it("lists the keys that work everywhere on the Shortcuts page, with how to reset", async () => {
+    await openShortcuts();
+    expect(screen.getByRole("heading", { level: 2, name: "Shortcuts" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset all shortcuts" })).toBeInTheDocument();
     const fixed = screen.getByRole("region", { name: "Fixed shortcuts" });
-    for (const shortcut of FIXED_SHORTCUTS) {
+    for (const shortcut of FIXED_SHORTCUTS.filter((f) => f.section === "General")) {
       expect(within(fixed).getByText(shortcut.label)).toBeInTheDocument();
     }
+    expect(within(fixed).queryByText("Bold")).toBeNull();
+  });
+
+  it("lists the fixed shortcuts of a section on its own page, after its shortcuts", async () => {
+    const { user } = await openShortcuts();
+    for (const section of SHORTCUT_PAGES) {
+      await showPage(user, section);
+      const own = FIXED_SHORTCUTS.filter((f) => f.section === section);
+      const region = screen.queryByRole("region", { name: "Fixed shortcuts" });
+      if (own.length === 0) {
+        expect(region, section).toBeNull();
+        continue;
+      }
+      if (!region) throw new Error(`${section} lists no fixed shortcuts`);
+      for (const shortcut of own) {
+        expect(within(region).getByText(shortcut.label), shortcut.label).toBeInTheDocument();
+      }
+    }
+  });
+
+  it("lists the page editor's keys on the Editor page", async () => {
+    const { user } = await openShortcuts();
+    await showPage(user, "Editor");
+    const fixed = screen.getByRole("region", { name: "Fixed shortcuts" });
+    expect(within(fixed).getByText("Bold")).toBeInTheDocument();
+    expect(within(fixed).getByText("Duplicate the current line")).toBeInTheDocument();
   });
 
   it("shows the current key, in the platform's words", async () => {
-    await openShortcuts();
+    const { user } = await openShortcuts("commands");
     expect(within(rowFor("shortcuts.commands")).getByText("Shift")).toBeInTheDocument();
+    await showPage(user, "Calendar");
     expect(within(rowFor("shortcuts.today")).getByText("T")).toBeInTheDocument();
   });
 
   it("shows Not set for an unassigned shortcut, which can still be recorded", async () => {
     settings.set("shortcuts.search", null);
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("search");
     expect(within(rowFor("shortcuts.search")).getByText("Not set")).toBeInTheDocument();
     await user.click(recorder("search"));
     await user.keyboard("{Control>}{Alt>}k{/Alt}{/Control}");
     expect(settings.get("shortcuts.search")).toBe("Mod+Alt+K");
   });
 
-  it("has no axe violations", async () => {
-    await openShortcuts();
+  it("has no axe violations on the Shortcuts page or a section page", async () => {
+    const { user } = await openShortcuts();
     await expectNoA11yViolations();
+    await showPage(user, "Tabs");
+    await expectNoA11yViolations();
+    await showPage(user, "Editor");
+    await expectNoA11yViolations();
+  });
+
+  it("counts the matches of a search on the section page they are on", async () => {
+    const { user } = await openShortcuts();
+    await user.type(screen.getByRole("searchbox"), "split view");
+    const nav = screen.getByRole("navigation", { name: "Settings categories" });
+    const tabs = within(nav).getByRole("button", { name: "Tabs shortcuts" });
+    expect(within(tabs).getByLabelText(/matches$/).textContent).not.toBe("0");
+    const navigation = within(nav).getByRole("button", { name: "Navigation shortcuts" });
+    expect(within(navigation).getByLabelText(/matches$/).textContent).toBe("0");
   });
 });
 
 describe("recording a shortcut", () => {
   it("saves the pressed combination as Mod and shows it", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("newTab");
     await user.click(recorder("newTab"));
     expect(recorder("newTab")).toHaveTextContent("Press a shortcut");
     await user.keyboard("{Control>}{Shift>}y{/Shift}{/Control}");
@@ -108,7 +182,7 @@ describe("recording a shortcut", () => {
   });
 
   it("keeps listening through a bare modifier", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("newTab");
     await user.click(recorder("newTab"));
     await user.keyboard("{Control}");
     expect(recorder("newTab")).toHaveTextContent("Press a shortcut");
@@ -116,7 +190,7 @@ describe("recording a shortcut", () => {
   });
 
   it("cancels on Escape without closing the dialog or changing anything", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("newTab");
     await user.click(recorder("newTab"));
     await user.keyboard("{Escape}");
     expect(settings.get("shortcuts.newTab")).toBe(HOTKEYS.newTab);
@@ -125,7 +199,7 @@ describe("recording a shortcut", () => {
   });
 
   it("does not fire the app's own shortcuts while recording", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("newTab");
     await user.click(recorder("newTab"));
     // Ctrl+, is Settings' own key: if it reached the app it would close this dialog, and
     // instead it is recorded, found to be taken, and asked about.
@@ -137,7 +211,7 @@ describe("recording a shortcut", () => {
 
   it("stores nothing when the default is recorded again", async () => {
     settings.set("shortcuts.newTab", "Mod+Shift+Y");
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("newTab");
     await user.click(recorder("newTab"));
     await user.keyboard("{Control>}t{/Control}");
     expect(settings.get("shortcuts.newTab")).toBe("Mod+T");
@@ -145,7 +219,7 @@ describe("recording a shortcut", () => {
   });
 
   it("refuses a bare key for a shortcut that needs a modifier", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("search");
     await user.click(recorder("search"));
     await user.keyboard("k");
     expect(await screen.findByRole("alert")).toHaveTextContent("Hold Cmd, Ctrl or Alt");
@@ -153,14 +227,14 @@ describe("recording a shortcut", () => {
   });
 
   it("accepts a bare key for a shortcut that is a bare key today", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("today");
     await user.click(recorder("today"));
     await user.keyboard("g");
     expect(settings.get("shortcuts.today")).toBe("G");
   });
 
   it("refuses a key a fixed shortcut owns, with a message instead of a dialog", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("search");
     await user.click(recorder("search"));
     await user.keyboard("{Control>}c{/Control}");
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -171,7 +245,7 @@ describe("recording a shortcut", () => {
   });
 
   it("lets the same key serve shortcuts on different screens without asking", async () => {
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("today");
     await user.click(recorder("today"));
     await user.keyboard("j");
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -182,7 +256,7 @@ describe("recording a shortcut", () => {
 
 describe("a key that is already used", () => {
   async function recordSearchKeyOnQuickJot() {
-    const rendered = await openShortcuts();
+    const rendered = await openShortcuts("quickJot");
     await rendered.user.click(recorder("quickJot"));
     await rendered.user.keyboard("{Control>}k{/Control}");
     return rendered;
@@ -228,6 +302,7 @@ describe("a key that is already used", () => {
       { id: "shortcuts.search", value: null },
       { id: "shortcuts.quickJot", value: "Mod+K" },
     ]);
+    await showPage(user, "Navigation");
     expect(within(rowFor("shortcuts.search")).getByText("Not set")).toBeInTheDocument();
   });
 
@@ -236,7 +311,7 @@ describe("a key that is already used", () => {
       { id: "shortcuts.search", value: null },
       { id: "shortcuts.quickJot", value: "Mod+K" },
     ]);
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("search");
     await user.click(
       within(rowFor("shortcuts.search")).getByRole("button", {
         name: "Reset Search to default",
@@ -251,7 +326,7 @@ describe("a key that is already used", () => {
 
   it("resets a shortcut straight away when its default is free", async () => {
     settings.set("shortcuts.newTab", "Mod+Shift+Y");
-    const { user } = await openShortcuts();
+    const { user } = await openShortcuts("newTab");
     await user.click(
       within(rowFor("shortcuts.newTab")).getByRole("button", { name: "Reset New tab to default" }),
     );

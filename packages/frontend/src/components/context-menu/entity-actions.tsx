@@ -1,6 +1,7 @@
 import {
   IconArrowUpRight,
   IconCopyPlus,
+  IconExternalLink,
   IconFingerprint,
   IconFileExport,
   IconFolderShare,
@@ -28,7 +29,7 @@ import { isPortableType } from "#/lib/api/portable.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
 import type { Entity } from "#/lib/api/types.ts";
-import { copyEntityLink, copyText } from "#/lib/clipboard.ts";
+import { copyDeepLink, copyEntityLink, copyText } from "#/lib/clipboard.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import {
@@ -162,10 +163,18 @@ registerActions("entity", [
   {
     id: "copy-link",
     group: "share",
-    label: "Copy Link",
+    label: "Copy Mention",
     icon: IconLink,
-    successLabel: "Link copied",
+    successLabel: "Mention copied",
     run: ({ entity }) => copyEntityLink(entity),
+  },
+  {
+    id: "copy-deep-link",
+    group: "share",
+    label: "Copy Link",
+    icon: IconExternalLink,
+    successLabel: "Link copied",
+    run: ({ entity }) => copyDeepLink(entity),
   },
   {
     id: "copy-id",

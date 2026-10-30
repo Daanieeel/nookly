@@ -5,6 +5,7 @@ import {
   IconClipboard,
   IconCode,
   IconCopyPlus,
+  IconExternalLink,
   IconFileDownload,
   IconFileExport,
   IconItalic,
@@ -23,18 +24,22 @@ import type { ChainedCommands, Editor } from "@tiptap/react";
 import { labelsAction } from "#/components/context-menu/entity-actions.tsx";
 import {
   type EntityRecord,
+  type MenuHelpers,
   type MenuSubItem,
   registerActions,
   registerEntityType,
 } from "#/components/context-menu/registry.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { renderPageMarkdown } from "#/lib/api/notes.ts";
-import { copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
+import { copyDeepLink, copyEntityLink, copyText, readClipboardText } from "#/lib/clipboard.ts";
 import { useState } from "react";
 import { type BlockKind, convertedBlocks, isFlowBlock, turnIntoKinds } from "./block-conversion";
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
 import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
 import { refineJotIntoNote } from "./refine-jot";
+import { quoteFragment } from "../relationships/mention-utils";
+import { selectionQuote } from "./quote-range";
+import type { MisspelledWord } from "../spellcheck/spellcheck-extension";
 import { SLASH_ITEMS, toListItem } from "./slash-command-extension";
 import { SuggestionList } from "./suggestion-list";
 
@@ -57,6 +62,8 @@ export interface NoteBlockTarget {
   /// Saves pending edits, then maps the client id to the stored block's id, the
   /// one links point at. `null` if the block never got saved.
   resolveStoredId: (blockId: string) => Promise<string | null>;
+  /// The misspelled word that was right clicked, for the spelling actions.
+  misspelled?: MisspelledWord;
 }
 
 interface LocatedBlock {
@@ -70,6 +77,34 @@ function locateBlock(editor: Editor, blockId: string): LocatedBlock | null {
     if (!found && node.attrs.blockId === blockId) found = { pos, node };
   });
   return found;
+}
+
+/// The text selected inside the right clicked block, which a link to the selection carries.
+function selectedQuote({ editor, blockId }: NoteBlockTarget): string | null {
+  const block = locateBlock(editor, blockId);
+  return block ? selectionQuote(editor.state, block.pos, block.pos + block.node.nodeSize) : null;
+}
+
+/// What a label of a mention of selected text shows: the text, shortened.
+const LABEL_CHARS = 60;
+function quoteLabel(quote: string): string {
+  const chars = Array.from(quote);
+  return chars.length > LABEL_CHARS ? `${chars.slice(0, LABEL_CHARS).join("")}…` : quote;
+}
+
+/// The selected text, the stored id of its block and the page, for a link to the selection.
+async function selectionLinkParts(target: NoteBlockTarget, helpers: MenuHelpers) {
+  const quote = selectedQuote(target);
+  if (quote === null) throw new Error("Nothing is selected");
+  const [storedId, entity] = await Promise.all([
+    target.resolveStoredId(target.blockId),
+    helpers.queryClient.fetchQuery({
+      queryKey: qk.entity.byId(target.entityId),
+      queryFn: () => getEntity(target.entityId),
+    }),
+  ]);
+  if (!storedId) throw new Error("Block not saved yet");
+  return { quote, storedId, entity };
 }
 
 /// Every kind the block can turn into with its slash menu entry, so the picker
@@ -242,9 +277,9 @@ registerActions("note.block", [
   {
     id: "copy-block-link",
     group: "share",
-    label: "Copy Link to Block",
+    label: "Copy Mention for Block",
     icon: IconLink,
-    successLabel: "Link copied",
+    successLabel: "Mention copied",
     run: async ({ blockId, entityId, resolveStoredId }, helpers) => {
       const [storedId, entity] = await Promise.all([
         resolveStoredId(blockId),
@@ -255,6 +290,48 @@ registerActions("note.block", [
       ]);
       if (!storedId) throw new Error("Block not saved yet");
       await copyEntityLink(entity, storedId);
+    },
+  },
+  {
+    id: "copy-block-deep-link",
+    group: "share",
+    label: "Copy Link for Block",
+    icon: IconExternalLink,
+    successLabel: "Link copied",
+    run: async ({ blockId, entityId, resolveStoredId }, helpers) => {
+      const [storedId, entity] = await Promise.all([
+        resolveStoredId(blockId),
+        helpers.queryClient.fetchQuery({
+          queryKey: qk.entity.byId(entityId),
+          queryFn: () => getEntity(entityId),
+        }),
+      ]);
+      if (!storedId) throw new Error("Block not saved yet");
+      await copyDeepLink(entity, storedId);
+    },
+  },
+  {
+    id: "copy-selection-mention",
+    group: "selection",
+    label: "Copy Mention for Selection",
+    icon: IconLink,
+    successLabel: "Mention copied",
+    when: (target) => selectedQuote(target) !== null,
+    run: async (target, helpers) => {
+      const { quote, storedId, entity } = await selectionLinkParts(target, helpers);
+      await copyEntityLink(entity, quoteFragment(storedId, quote), quoteLabel(quote));
+    },
+  },
+  {
+    id: "copy-selection-deep-link",
+    group: "selection",
+    label: "Copy Link for Selection",
+    icon: IconExternalLink,
+    successLabel: "Link copied",
+    when: (target) => selectedQuote(target) !== null,
+    run: async (target, helpers) => {
+      const { quote, storedId, entity } = await selectionLinkParts(target, helpers);
+      await copyDeepLink(entity, quoteFragment(storedId, quote));
     },
   },
   {

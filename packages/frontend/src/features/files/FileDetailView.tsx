@@ -11,7 +11,7 @@ import {
   IconFolderOpen,
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
@@ -35,7 +35,6 @@ import {
   listOpenWithApps,
   openFileWith,
   downloadLinkedFile,
-  exportFile,
   getFile,
   openFile,
   replaceFile,
@@ -47,6 +46,7 @@ import { formatDate } from "#/lib/datetime.ts";
 import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
 import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { MarkdownViewer } from "./MarkdownViewer.tsx";
+import { saveFileCopy } from "./share-file.ts";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -409,14 +409,7 @@ function FileProperties({ file }: { file: FileEntity }) {
       ]),
   });
   const saveCopy = useMutation({
-    mutationFn: async () => {
-      const path = await save({
-        defaultPath: file.originalFilename ?? displayTitle(file.entity),
-      });
-      if (!path) return null;
-      await exportFile(file.entity.id, path);
-      return path;
-    },
+    mutationFn: () => saveFileCopy(file),
   });
   const saveStatusRaw = useActionStatus(saveCopy);
   // A cancelled save dialog resolves `null`: back to rest, not success.

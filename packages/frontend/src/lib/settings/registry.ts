@@ -2,6 +2,7 @@ import { z } from "zod";
 import { BACKUP_KEEP } from "#/lib/api/backup.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
 import { DEFAULT_LATEX_MACROS, serializeLatexMacros } from "#/lib/latex-macros.ts";
+import { SPELL_LANGUAGE_CODES, isSpellLanguage } from "#/lib/spell-languages.ts";
 import {
   SHORTCUT_META,
   SHORTCUT_NAMES,
@@ -455,6 +456,46 @@ export const SETTINGS = {
     ],
     default: false,
     schema: z.boolean(),
+  }),
+  "notes.spellcheck": define({
+    id: "notes.spellcheck",
+    category: "notes",
+    title: "Check spelling",
+    description:
+      "Underline misspelled words while you write in pages, and offer corrections on a right click. Nothing is checked while this is off. Code, links and mentions are never checked.",
+    synonyms: [
+      "spell checker",
+      "spelling",
+      "typos",
+      "autocorrect",
+      "proofread",
+      "grammar",
+      "dictionary",
+      "red underline",
+    ],
+    default: false,
+    schema: z.boolean(),
+  }),
+  "notes.spellcheckLanguages": define({
+    id: "notes.spellcheckLanguages",
+    category: "notes",
+    title: "Spelling languages",
+    description:
+      "The languages words are checked in. A word is right when it is right in any of them, so a page that mixes languages is checked as it is, without switching anything.",
+    synonyms: [
+      "language",
+      "dictionary",
+      "english",
+      "german",
+      "deutsch",
+      "french",
+      "spanish",
+      "italian",
+      "multilingual",
+      "bilingual",
+    ],
+    default: ["en"],
+    schema: z.array(z.string().refine(isSpellLanguage)).max(SPELL_LANGUAGE_CODES.length),
   }),
   "notes.arrowLigatures": define({
     id: "notes.arrowLigatures",

@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.42.4"
+version = "0.56.0"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
@@ -45,6 +45,8 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-store = "2"
+# `nookly://open/<id>` links that open Nookly on an entity or a block, from outside the app.
+tauri-plugin-deep-link = "2"
 tokio = { version = "1", features = ["sync", "time"] }
 base64 = "0.23"
 sha2 = "0.11"
@@ -88,7 +90,7 @@ pdf-inspector = { version = "1", features = ["ocr"] }
 
 # Office document text extraction for search indexing (`db/office_text.rs`):
 # xlsx via calamine, docx/pptx by walking their OOXML zip/XML parts directly.
-calamine = "0.36"
+calamine = "0.37"
 quick-xml = "0.42"
 zip = "9"
 
@@ -96,6 +98,7 @@ zip = "9"
 # pdf-inspector's own `ocr-oar` feature already depends on `image`; pinning the
 # same major version here keeps one copy in the dependency tree.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+spellbook = "0.4"
 
 # `tauri::test` (MockRuntime, `get_ipc_response`) for the IPC command tests in
 # `commands/commands_tests.rs`. The feature adds no dependencies and dev
@@ -146,3 +149,8 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+# A second launch (a `nookly://` link clicked while Nookly runs) hands its link to the running
+# window instead of starting another instance.
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

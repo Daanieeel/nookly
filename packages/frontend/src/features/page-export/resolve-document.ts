@@ -16,7 +16,7 @@ export interface FigureRenderers {
   diagram: (source: string) => Promise<ExportImage | null>;
   circuit: (source: string) => Promise<ExportImage | null>;
   plot: (source: string) => Promise<ExportImage | null>;
-  image: (source: { fileId?: string; url?: string }) => Promise<ExportImage | null>;
+  image: (source: { fileId?: string; url?: string; path?: string }) => Promise<ExportImage | null>;
   /// Where a link to an entity points outside Nookly (a File's or Bookmark's URL), or null
   /// when it points nowhere there, which leaves its text unlinked.
   mentionUrl: (entityId: string) => Promise<string | null>;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
-import { ScrollProgress } from "@nookly/ui/components/scroll-progress";
+import { ScrollProgressSearch } from "@nookly/ui/components/scroll-progress-search";
 import type { Entity } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { BlockEditor } from "./BlockEditor";
@@ -22,7 +22,7 @@ export function PageDetailView({ entity }: { entity: Entity }) {
       exportable
       bodyOverlay={(scrollContainer) =>
         showSections && (
-          <ScrollProgress
+          <ScrollProgressSearch
             sections={sections}
             containerRef={scrollContainer}
             className="absolute bottom-4"

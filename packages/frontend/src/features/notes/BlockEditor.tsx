@@ -40,6 +40,9 @@ import { TextColorBar } from "./TextColorBar";
 import { TableControls } from "./TableControls";
 import { VimIndicator } from "./VimIndicator";
 import { FindBar, selectedSearchText } from "./FindBar";
+import { selectQuote } from "./quote-range";
+import { tablePartElements } from "./table-part-focus";
+import { misspelledWordAt } from "../spellcheck/spellcheck-extension";
 import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
@@ -368,7 +371,7 @@ function HydratedBlockEditor({
   useEffect(() => {
     // A page of a file is for the file viewer, not for a page's editor.
     if (!editor || focusBlock?.entityId !== entityId || !focusBlock.blockId) return;
-    const { blockId } = focusBlock;
+    const { blockId, row, column, quote } = focusBlock;
     // Blocks created earlier in this editor session still carry their client
     // id, so map the server id back first.
     const clientId = [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId;
@@ -407,6 +410,16 @@ function HydratedBlockEditor({
         ],
         { duration: 1800, easing: "ease-out" },
       );
+      // A link to a row or column of a table marks just those cells, a little stronger.
+      for (const cell of tablePartElements(element, { row, column })) {
+        cell.animate(
+          [
+            { backgroundColor: "color-mix(in oklab, var(--primary) 30%, transparent)" },
+            { backgroundColor: "transparent" },
+          ],
+          { duration: 2400, easing: "ease-out" },
+        );
+      }
       // Re-center once late layout (syntax highlighting, images) has settled,
       // and only place the cursor after the closing overlay released focus.
       settle = setTimeout(() => {
@@ -415,9 +428,12 @@ function HydratedBlockEditor({
         element.scrollIntoView({ block: "center" });
         // `Selection.near` finds the first text position inside the block, which
         // for a table is its first cell rather than the table node itself.
-        const { state } = editor.view;
-        const start = Math.min(pos + 1, state.doc.content.size);
-        editor.view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(start))));
+        // A link to selected text selects it; when the text has changed, the block is shown.
+        if (!quote || !selectQuote(editor.view, pos, quote)) {
+          const { state } = editor.view;
+          const start = Math.min(pos + 1, state.doc.content.size);
+          editor.view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(start))));
+        }
         editor.commands.focus(null, { scrollIntoView: false });
       }, 300);
     }
@@ -571,8 +587,10 @@ function HydratedBlockEditor({
     const element = topLevelElement(dom, probed);
     const block = element && findTopLevelBlock(editor.view, element);
     const blockId = block ? asString(block.node.attrs.blockId) : undefined;
+    const at = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+    const misspelled = (at && misspelledWordAt(editor.state, at.pos)) || undefined;
     return blockId
-      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId })
+      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId, misspelled })
       : makeTarget("note.canvas", {
           editor,
           overText: event.target instanceof Node && dom.contains(event.target),
@@ -582,8 +600,8 @@ function HydratedBlockEditor({
   return (
     <div className="relative" {...blockContextTarget}>
       <TableControls editor={editor} />
-      <TableRowHandles editor={editor} />
-      <TableColumnHandles editor={editor} />
+      <TableRowHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
+      <TableColumnHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
       <BlockHandles editor={editor} />
       <HighlightColorBar editor={editor} />
       <TextColorBar editor={editor} />

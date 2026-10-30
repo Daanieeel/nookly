@@ -39,4 +39,6 @@ export const STORAGE_KEYS = {
   backupError: "nookly:backup-error",
   gradeSemesters: "nookly:grade-semesters",
   pageExport: "nookly:page-export",
+  agentOpenIn: "nookly:agent-open-in",
+  spellcheckAsked: "nookly:spellcheck-asked",
 } as const;

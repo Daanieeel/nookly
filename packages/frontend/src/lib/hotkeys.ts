@@ -14,6 +14,7 @@ export const HOTKEYS = {
   quickJot: "Mod+J",
   quickJotSession: "Mod+Shift+J",
   newTask: "Mod+Shift+T",
+  quickAssignment: "Mod+Shift+A",
   import: "Mod+I",
   filter: "Mod+Shift+F",
   findInPage: "Mod+F",

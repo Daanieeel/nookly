@@ -122,6 +122,11 @@ export interface FocusBlock {
   entityId: string;
   blockId?: string;
   page?: number;
+  /// A row (from 1) or column (from 1) of the table `blockId` is, to mark once it is shown.
+  row?: number;
+  column?: number;
+  /// Text of the block `blockId` to select once it is shown.
+  quote?: string;
 }
 
 interface NavState {
@@ -178,6 +183,8 @@ interface NavState {
   /// The open What's new dialog lists every version, not just what changed since the last one seen.
   whatsNewHistory: boolean;
   quickJotOpen: boolean;
+  /// The open Quick assignment dialog, which starts in the course of the session running now.
+  newAssignmentOpen: boolean;
   /// The open New task dialog: the Space it creates in and the title it starts with.
   newTask: { spaceId: string; title: string } | null;
   /// The session the open Quick Jot writes into; null for a plain Jot.
@@ -223,6 +230,7 @@ interface NavState {
   setImportOpen: (open: boolean) => void;
   setWhatsNewOpen: (open: boolean, history?: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;
+  setNewAssignmentOpen: (open: boolean) => void;
   setNewTask: (draft: { spaceId: string; title: string } | null) => void;
   clearFocusBlock: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -537,6 +545,7 @@ const NO_OVERLAY = {
   importOpen: false,
   whatsNewOpen: false,
   newTask: null,
+  newAssignmentOpen: false,
   bookmarkSheetId: null,
 };
 
@@ -554,6 +563,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   whatsNewOpen: false,
   whatsNewHistory: false,
   quickJotOpen: false,
+  newAssignmentOpen: false,
   newTask: null,
   focusBlock: null,
   focusBlockGroupId: null,
@@ -770,6 +780,8 @@ export const useNavStore = create<NavState>((set, get) => ({
   // Never closed by another overlay opening, since it may hold unsaved text.
   setQuickJotOpen: (quickJotOpen) =>
     set(quickJotOpen ? { ...NO_OVERLAY, quickJotOpen } : { quickJotOpen }),
+  setNewAssignmentOpen: (newAssignmentOpen) =>
+    set(newAssignmentOpen ? { ...NO_OVERLAY, newAssignmentOpen } : { newAssignmentOpen }),
   setNewTask: (newTask) => set(newTask ? { ...NO_OVERLAY, newTask } : { newTask }),
   clearFocusBlock: () => set({ focusBlock: null }),
   setSidebarCollapsed: (sidebarCollapsed) => {

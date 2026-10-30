@@ -3,6 +3,7 @@ import { HOTKEYS } from "./hotkeys.ts";
 import {
   FIXED_SHORTCUTS,
   SHORTCUT_META,
+  SHORTCUT_PAGES,
   SHORTCUT_NAMES,
   type ShortcutName,
   checkBinding,
@@ -224,6 +225,46 @@ describe("showing a key", () => {
   });
 });
 
+describe("shortcut pages", () => {
+  it("has a page for every section a shortcut sits under, and for the fixed ones", () => {
+    for (const name of SHORTCUT_NAMES) {
+      expect(SHORTCUT_PAGES, name).toContain(SHORTCUT_META[name].section);
+    }
+    for (const fixed of FIXED_SHORTCUTS) {
+      expect([...SHORTCUT_PAGES, "General"], fixed.label).toContain(fixed.section);
+    }
+    expect(SHORTCUT_PAGES).toContain("Editor");
+    expect(SHORTCUT_PAGES).toContain("Files");
+  });
+
+  it("lists what the page editor does with its keys, on the Editor page", () => {
+    const editor = (label: string) =>
+      FIXED_SHORTCUTS.find((f) => f.section === "Editor" && f.label === label)?.keys;
+    expect(editor("Bold")).toEqual(["Mod+B"]);
+    expect(editor("Italic")).toEqual(["Mod+I"]);
+    expect(editor("Underline")).toEqual(["Mod+U"]);
+    expect(editor("Heading 1")).toEqual(["Mod+Alt+1"]);
+    expect(editor("Bulleted list")).toEqual(["Mod+Shift+8"]);
+    expect(editor("Duplicate the current line")).toEqual(["Mod+D"]);
+  });
+
+  it("keeps the editor's own keys from taking a key away from a shortcut", () => {
+    // The editor takes Mod+I while typing, and the Import shortcut still has it elsewhere.
+    expect(findConflict({ ...HOTKEYS }, "import", "Mod+I")).toBeNull();
+    expect(resolveShortcuts({}).import).toBe("Mod+I");
+    expect(resolveShortcuts({}).toggleDetailSidebar).toBe("Mod+Shift+S");
+  });
+
+  it("lists every fixed shortcut once per section", () => {
+    const seen = new Set<string>();
+    for (const fixed of FIXED_SHORTCUTS) {
+      const id = `${fixed.section}|${fixed.label}`;
+      expect(seen.has(id), id).toBe(false);
+      seen.add(id);
+    }
+  });
+});
+
 describe("fixed shortcuts", () => {
   it("are listed with a label and keys", () => {
     expect(FIXED_SHORTCUTS.length).toBeGreaterThan(0);
@@ -231,6 +272,12 @@ describe("fixed shortcuts", () => {
       expect(fixed.label).not.toBe("");
       expect(fixed.keys.length).toBeGreaterThan(0);
     }
+  });
+
+  it("lists Duplicate the current line on Mod+D, for the page editor", () => {
+    const duplicate = FIXED_SHORTCUTS.find((f) => f.label.startsWith("Duplicate the current line"));
+    expect(duplicate?.keys).toEqual(["Mod+D"]);
+    expect(duplicate?.scopes).toEqual(["editor"]);
   });
 
   it("cannot be taken by a default", () => {
