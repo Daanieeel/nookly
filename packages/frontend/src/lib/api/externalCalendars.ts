@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 /// External calendars are a read only overlay on the Sessions calendar, never
 /// entities. See `src-tauri/src/external_calendars/mod.rs`.
-export type CalendarProvider = "google" | "icloud";
+export type CalendarProvider = "google" | "icloud" | "moodle";
 
 export interface RemoteCalendar {
   id: string;
@@ -57,6 +57,11 @@ export function connectIcloudCalendar(
   appPassword: string,
 ): Promise<CalendarConnection> {
   return invoke("connect_icloud_calendar", { appleId, appPassword });
+}
+
+/// `link` is the calendar export link from Moodle; its token is kept in the keychain.
+export function connectMoodleCalendar(link: string): Promise<CalendarConnection> {
+  return invoke("connect_moodle_calendar", { link });
 }
 
 export function setExternalCalendarSelected(

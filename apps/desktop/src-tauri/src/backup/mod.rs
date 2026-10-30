@@ -2,7 +2,7 @@
 //! snapshot of `nookly.db` plus every other file in the app data folder
 //! (stored files, recipe banners, bookmark previews, device preferences,
 //! external calendar settings), so a restore brings back the whole app, not
-//! only its notes. Caches that rebuild themselves (`office-previews`) are left out.
+//! only its notes. Caches that rebuild themselves (`office-previews`, `moodle-cache`) are left out.
 //!
 //! Backups are written to a temporary name, verified end to end, and only then
 //! renamed into place, so a folder never holds a half written backup under a
@@ -91,7 +91,12 @@ fn io_err(e: impl std::fmt::Display) -> AppError {
 fn is_excluded(name: &str) -> bool {
     matches!(
         name,
-        "office-previews" | "crash.log" | RESTORE_ERROR_LOG | PENDING_DIR | SAFETY_DIR
+        "office-previews"
+            | "moodle-cache"
+            | "crash.log"
+            | RESTORE_ERROR_LOG
+            | PENDING_DIR
+            | SAFETY_DIR
     ) || name.ends_with(".tmp")
         || name.ends_with(".partial")
 }

@@ -36,12 +36,13 @@ Sessions are created in context from the calendar by dragging across time or cli
 
 ## External Calendar Overlay
 
-Google Calendar and iCloud events are drawn on the calendar as a read only overlay (see [the decision](../06-decisions-log.md#external-calendars-are-a-read-only-overlay-not-sessions)). Connect each provider separately under Settings, then pick which calendars to show.
+Google Calendar, iCloud and Moodle events are drawn on the calendar as a read only overlay (see [the decision](../06-decisions-log.md#external-calendars-are-a-read-only-overlay-not-sessions)). Connect each provider separately under Settings, then pick which calendars to show.
 
-| Provider        | Access                                                             |
-| --------------- | ------------------------------------------------------------------ |
-| Google Calendar | OAuth in the browser, read only calendar list and events scopes    |
-| iCloud          | CalDAV with an app specific password from the user's Apple Account |
+| Provider        | Access                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| Google Calendar | OAuth in the browser, read only calendar list and events scopes         |
+| iCloud          | CalDAV with an app specific password from the user's Apple Account      |
+| Moodle          | The calendar export link (an iCalendar feed), which also works with SSO |
 
 - Code lives in `apps/desktop/src-tauri/src/external_calendars/`. Events and connections are cached in `external-calendars.json` in the app data folder, credentials in the OS keychain.
 - The overlay polls every 15 minutes while the window is visible and always renders from cache. A failed sync keeps the cached events and shows its error in the connections dialog.

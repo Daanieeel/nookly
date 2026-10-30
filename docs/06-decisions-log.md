@@ -246,11 +246,23 @@ A `ChildCollectionDef` registered next to a type's schema gives the CLI `<plural
 
 ### External calendars are a read only overlay, not Sessions
 
-Google Calendar and iCloud events show on the Sessions calendar but are never entities: no Space, no relationships, no Course, no CLI exposure. Nookly never writes to either calendar.
+Google Calendar, iCloud and Moodle events show on the Sessions calendar but are never entities: no Space, no relationships, no Course, no CLI exposure. Nookly never writes to any of them.
 
 **Why:** converting them to Sessions would force a Course onto events like "Dentist" and break the Session and Course structural rule.
 
 **Rejected:** importing external events as Sessions or any other entity type, and two way sync.
+
+---
+
+### Moodle is a read only module with no entities
+
+Moodle courses, assignments, grades and forum posts are read from the user's site and shown in a Moodle module that can be added to any Space. They are not entities: no Space of their own, no relationships, no search, no CLI exposure. Nookly never writes to Moodle.
+
+**Why:** the data belongs to the university, changes there without Nookly knowing, and can disappear after a term. Copying it into entities would need conflict rules and would put a second, possibly stale, copy of someone else's records in the user's data. Files the user downloads stay on disk, so nothing they saved is lost when a course closes.
+
+**Rejected:** importing Moodle into Courses and Assignments (conflict handling and stale copies), and a username and password login (fails on single sign on sites).
+
+**Open:** linking a Moodle course to a Nookly Course, so the Moodle pages show inside it, needs a relationship to something that is not an entity. Not decided.
 
 ---
 

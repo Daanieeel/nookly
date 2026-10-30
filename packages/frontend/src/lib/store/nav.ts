@@ -36,6 +36,7 @@ export const MODULE_KEYS = [
   "bookmarks",
   "recipes",
   "grades",
+  "moodle",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -47,7 +48,15 @@ export type View =
   | { kind: "tasks"; viewId?: string }
   | { kind: "assignments"; viewId?: string }
   | { kind: "trash" }
-  | { kind: "module"; spaceId: string; module: ModuleKey; filterCourseId?: string; viewId?: string }
+  | {
+      kind: "module";
+      spaceId: string;
+      module: ModuleKey;
+      filterCourseId?: string;
+      viewId?: string;
+      /// Where the Moodle module is, see `features/moodle/moodle-path.ts`.
+      moodlePath?: string;
+    }
   | { kind: "entity"; entityId: string; spaceId: string };
 
 /// A stable name for a view, for anything that remembers something per view (where it was
@@ -58,7 +67,7 @@ export function viewKey(view: View): string {
     case "assignments":
       return `${view.kind}:${view.viewId ?? ""}`;
     case "module":
-      return `module:${view.spaceId}:${view.module}:${view.viewId ?? ""}:${view.filterCourseId ?? ""}`;
+      return `module:${view.spaceId}:${view.module}:${view.viewId ?? ""}:${view.filterCourseId ?? ""}:${view.moodlePath ?? ""}`;
     case "entity":
       return `entity:${view.entityId}`;
     default:
@@ -79,6 +88,7 @@ const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
     module: z.enum(MODULE_KEYS),
     filterCourseId: z.string().optional(),
     viewId: z.string().optional(),
+    moodlePath: z.string().optional(),
   }),
   z.object({ kind: z.literal("entity"), entityId: z.string(), spaceId: z.string() }),
 ]);

@@ -1,4 +1,11 @@
-import { IconBrandApple, IconBrandGoogle, IconClock, IconMapPin } from "@tabler/icons-react";
+import {
+  IconBrandApple,
+  IconBrandGoogle,
+  IconClock,
+  IconMapPin,
+  IconSchool,
+  type TablerIcon,
+} from "@tabler/icons-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import type { CalendarProvider, ExternalEvent } from "#/lib/api/externalCalendars.ts";
@@ -9,7 +16,14 @@ import { type BlockPosition, safeColor } from "./overlay-layout";
 export const PROVIDER_LABELS = {
   google: "Google Calendar",
   icloud: "iCloud",
+  moodle: "Moodle",
 } satisfies Record<CalendarProvider, string>;
+
+const PROVIDER_ICONS = {
+  google: IconBrandGoogle,
+  icloud: IconBrandApple,
+  moodle: IconSchool,
+} satisfies Record<CalendarProvider, TablerIcon>;
 
 export function ProviderIcon({
   provider,
@@ -18,11 +32,8 @@ export function ProviderIcon({
   provider: CalendarProvider;
   size?: number;
 }) {
-  return provider === "google" ? (
-    <IconBrandGoogle size={size} className="shrink-0" />
-  ) : (
-    <IconBrandApple size={size} className="shrink-0" />
-  );
+  const Icon = PROVIDER_ICONS[provider];
+  return <Icon size={size} className="shrink-0" />;
 }
 
 /// A timed external event on the week grid. Dashed and muted next to the solid

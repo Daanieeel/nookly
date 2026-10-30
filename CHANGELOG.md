@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.0 (2026-10-30)
+
+### Added
+
+- **Moodle.** A new module that lets you read your university's Moodle inside Nookly. Browse your courses, open and download files, read assignments with your submission status and feedback, check your grades and read announcements and forum posts, without opening the website. Every page has an Open in Moodle button. You sign in through your university's own login page, so single sign on works. Nookly only reads from Moodle and never changes anything there.
+- **Moodle deadlines on your calendar.** Connect the link from Moodle's Export calendar under Calendar connections, and its deadlines and classes show on your Calendar next to your sessions.
+
 ## 0.56.4 (2026-10-30)
 
 ### Fixed

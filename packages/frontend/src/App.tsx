@@ -1,5 +1,5 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
@@ -32,6 +32,7 @@ import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
+import { completeMoodleLogin, isMoodleCallback } from "#/features/moodle/moodle-login.ts";
 import { deepLinks, openDeepLink } from "#/lib/deep-link.ts";
 import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
@@ -63,6 +64,7 @@ function MainContent({ view }: { view: View }) {
           module={view.module}
           filterCourseId={view.filterCourseId}
           viewId={view.viewId}
+          moodlePath={view.moodlePath}
         />
       );
     case "entity":
@@ -75,7 +77,16 @@ function MainContent({ view }: { view: View }) {
 /// Opens the `nookly://` links that reach the app, the one that started it included: they
 /// wait in `deepLinks` until the app is up and this is mounted.
 function useDeepLinks() {
-  useEffect(() => deepLinks.attach((url) => void openDeepLink(url)), []);
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      deepLinks.attach((url) => {
+        // The sign in to Moodle comes back as `nookly://token=...`, not as a link to a page.
+        if (isMoodleCallback(url)) void completeMoodleLogin(queryClient, url);
+        else void openDeepLink(url);
+      }),
+    [queryClient],
+  );
 }
 
 function Shell() {

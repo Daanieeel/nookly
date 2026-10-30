@@ -12,7 +12,7 @@ Spaces are a hard wall. By default there is no browsing, filtering, or module vi
 
 The user can create as many Spaces as they like using the "+" in the sidebar. A new Space can start from a lightweight template, and the community can contribute templates the same way it contributes modules.
 
-Spaces only contain pages and entities. Modules cannot be enabled or disabled per Space, because module config is always global (see [philosophy](01-philosophy.md#module-config-is-always-global)).
+Spaces only contain pages and entities (plus modules without entities, such as Grades and Moodle). Modules cannot be enabled or disabled per Space, because module config is always global (see [philosophy](01-philosophy.md#module-config-is-always-global)).
 
 The active Space's color carries into the UI beyond its sidebar label: active state highlights, accent borders and buttons, and a subtle tint across its views.
 

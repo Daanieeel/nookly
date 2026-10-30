@@ -16,7 +16,7 @@
     },
     "apps/desktop": {
       "name": "@nookly/desktop",
-      "version": "0.56.0",
+      "version": "0.57.0",
       "dependencies": {
         "@nookly/frontend": "workspace:*",
         "@nookly/ui": "workspace:*",
@@ -106,6 +106,7 @@
         "date-fns": "^4.4.0",
         "docx": "9.14.0",
         "docx-preview": "^0.4.1",
+        "dompurify": "^3.4.17",
         "exceljs": "^4.4.0",
         "jszip": "3.10.2",
         "katex": "^0.19",

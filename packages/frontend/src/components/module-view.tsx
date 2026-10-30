@@ -7,6 +7,7 @@ import { DecksListView } from "#/features/exams/DecksListView.tsx";
 import { ExamsListView } from "#/features/exams/ExamsListView.tsx";
 import { GradeReportView } from "#/features/grades/GradeReportView.tsx";
 import { FilesListView } from "#/features/files/FilesListView.tsx";
+import { MoodleView } from "#/features/moodle/MoodleView.tsx";
 import { JotsListView } from "#/features/notes/JotsListView.tsx";
 import { NotesListView } from "#/features/notes/NotesListView.tsx";
 import { RecipesListView } from "#/features/recipes/RecipesListView.tsx";
@@ -19,11 +20,13 @@ export function ModuleView({
   module,
   filterCourseId,
   viewId,
+  moodlePath,
 }: {
   spaceId: string;
   module: ModuleKey;
   filterCourseId?: string;
   viewId?: string;
+  moodlePath?: string;
 }) {
   switch (module) {
     case "tasks":
@@ -56,5 +59,7 @@ export function ModuleView({
       return <RecipesListView spaceId={spaceId} />;
     case "grades":
       return <GradeReportView spaceId={spaceId} />;
+    case "moodle":
+      return <MoodleView spaceId={spaceId} moodlePath={moodlePath} />;
   }
 }

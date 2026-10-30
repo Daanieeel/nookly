@@ -1,0 +1,6 @@
+{
+  "productName": "Nookly Dev",
+  "identifier": "com.nookly.app.dev",
+  "bundle": { "createUpdaterArtifacts": false },
+  "plugins": { "deep-link": { "desktop": { "schemes": ["nookly-dev"] } } }
+}

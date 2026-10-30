@@ -212,10 +212,23 @@ ipc_commands![
     external_calendars::external_calendar_status,
     external_calendars::cancel_google_calendar_connect,
     external_calendars::connect_icloud_calendar,
+    external_calendars::connect_moodle_calendar,
     external_calendars::set_external_calendar_selected,
     external_calendars::disconnect_external_calendar,
     external_calendars::sync_external_calendars,
     external_calendars::list_external_events,
+    moodle::moodle_status,
+    moodle::moodle_begin_login,
+    moodle::moodle_finish_login,
+    moodle::moodle_courses,
+    moodle::moodle_contents,
+    moodle::moodle_assignments,
+    moodle::moodle_assignment_status,
+    moodle::moodle_grades,
+    moodle::moodle_forums,
+    moodle::moodle_discussions,
+    moodle::moodle_posts,
+    moodle::moodle_file_text,
     backup::list_backups,
     backup::inspect_backup,
 ];
@@ -322,6 +335,9 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "open_settings_file",
         "settings_file_is_created_without_touching_an_existing_one",
     ),
+    // These reach the OS keychain or open a file with an app: the logic is tested in `moodle::service`.
+    ("moodle_disconnect", "moodle_commands_without_a_site_say_so"),
+    ("moodle_open_file", "moodle_commands_without_a_site_say_so"),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -375,6 +391,10 @@ impl Harness {
             .manage(DbState(Mutex::new(db::test_conn())))
             .manage(crate::external_calendars::ExternalCalendarState::load(
                 dir.path(),
+            ))
+            .manage(crate::moodle::service::MoodleState::load(
+                dir.path(),
+                "nookly",
             ))
             .invoke_handler(handler())
             .build(mock_context(noop_assets()))
@@ -4043,11 +4063,69 @@ fn external_calendars_argument_errors_never_reach_the_network_or_keychain() {
         json!({ "appleId": "me@icloud.com" }),
     );
     assert!(message.contains("appPassword"), "{message}");
+    let message = h.args_err("connect_moodle_calendar", json!({}));
+    assert!(message.contains("link"), "{message}");
     h.args_err(
         "disconnect_external_calendar",
         json!({ "provider": "Google" }),
     );
     h.args_err("disconnect_external_calendar", json!({}));
+}
+
+#[test]
+fn moodle_commands_without_a_site_say_so() {
+    let h = Harness::new();
+    let status = h.ok("moodle_status", json!({}));
+    assert_eq!(status["connected"], false);
+    assert_eq!(status["needsReconnect"], false);
+    assert_eq!(status["siteUrl"], Value::Null);
+    for (cmd, args) in [
+        ("moodle_courses", json!({})),
+        ("moodle_contents", json!({ "courseId": 4 })),
+        ("moodle_assignments", json!({ "courseId": 4 })),
+        ("moodle_assignment_status", json!({ "assignmentId": 3 })),
+        ("moodle_grades", json!({ "courseId": 4 })),
+        ("moodle_forums", json!({ "courseId": 4 })),
+        ("moodle_discussions", json!({ "forumId": 1 })),
+        ("moodle_posts", json!({ "discussionId": 1 })),
+        ("moodle_file_text", json!({ "url": "https://uni.edu/f" })),
+    ] {
+        let message = h.app_err(cmd, args, "Remote");
+        assert!(message.contains("isn't connected"), "{cmd}: {message}");
+    }
+    // A link from a web page cannot sign in anyone: no sign in was started.
+    let message = h.app_err(
+        "moodle_finish_login",
+        json!({ "callback": "nookly://token=YWJjOjo6ZGVm" }),
+        "Remote",
+    );
+    assert!(message.contains("No Moodle sign in"), "{message}");
+    // Plain http would send the sign in over the network in the clear.
+    h.app_err(
+        "moodle_begin_login",
+        json!({ "site": "http://uni.edu" }),
+        "Remote",
+    );
+    let url = h.ok("moodle_begin_login", json!({ "site": "uni.edu/my" }));
+    assert!(url
+        .as_str()
+        .unwrap()
+        .starts_with("https://uni.edu/admin/tool/mobile/launch.php?"));
+}
+
+#[test]
+fn moodle_rejects_a_link_that_is_not_an_export_before_any_network_call() {
+    let h = Harness::new();
+    let message = h.app_err(
+        "connect_moodle_calendar",
+        json!({ "link": "https://moodle.uni.edu/my/" }),
+        "Remote",
+    );
+    assert!(message.contains("Moodle calendar link"), "{message}");
+    assert_eq!(
+        h.ok("external_calendar_status", json!({}))["connections"],
+        json!([])
+    );
 }
 
 #[test]

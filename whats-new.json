@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "0.57.0",
+      "date": "2026-10-30",
+      "highlights": [
+        {
+          "title": "Moodle inside Nookly",
+          "description": "Read your courses, download files, check assignments and grades and read announcements without opening the website. Add the Moodle module to a Space to connect.",
+          "icon": "notebook",
+          "tag": "New"
+        },
+        {
+          "title": "Moodle deadlines on your calendar",
+          "description": "Connect the link from Moodle's Export calendar under Calendar connections to see deadlines next to your sessions.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.56.4",
       "date": "2026-10-30",
       "highlights": [],

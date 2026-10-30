@@ -322,12 +322,61 @@ fn backup_before_migration(
 /// database the GUI does — dev or production.
 pub fn standalone_app_data_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     let base = dirs::data_dir().ok_or("could not resolve platform data directory")?;
-    Ok(resolve_app_data_dir(base.join("com.nookly.app")))
+    Ok(resolve_app_data_dir(default_data_dir(&base, &identifier())))
+}
+
+/// The bundle identifier of the real app.
+const DEFAULT_IDENTIFIER: &str = "com.nookly.app";
+
+static IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Records the running app's bundle identifier, before anything that runs without a Tauri
+/// `App` (the CLI, the crash log) looks for the data folder. A build installed next to the
+/// real app has an identifier of its own, and so a data folder of its own.
+pub fn set_identifier(identifier: &str) {
+    let _ = IDENTIFIER.set(identifier.to_string());
+}
+
+/// The running app's bundle identifier.
+pub fn identifier() -> String {
+    identifier_or_default(IDENTIFIER.get().map(String::as_str))
+}
+
+fn identifier_or_default(set: Option<&str>) -> String {
+    set.unwrap_or(DEFAULT_IDENTIFIER).to_string()
+}
+
+/// Where Tauri puts an app's data: the platform's data folder and the identifier.
+fn default_data_dir(base: &std::path::Path, identifier: &str) -> std::path::PathBuf {
+    base.join(identifier)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_data_folder_follows_the_bundle_identifier() {
+        let base = std::path::Path::new("/data");
+        assert_eq!(
+            default_data_dir(base, "com.nookly.app"),
+            base.join("com.nookly.app")
+        );
+        // A build installed next to the real app never shares its folder.
+        assert_eq!(
+            default_data_dir(base, "com.nookly.app.dev"),
+            base.join("com.nookly.app.dev")
+        );
+    }
+
+    #[test]
+    fn without_an_identifier_it_is_the_real_apps() {
+        assert_eq!(identifier_or_default(None), "com.nookly.app");
+        assert_eq!(
+            identifier_or_default(Some("com.nookly.app.dev")),
+            "com.nookly.app.dev"
+        );
+    }
 
     fn data_version(conn: &Connection) -> i64 {
         conn.query_row("PRAGMA data_version", [], |row| row.get(0))

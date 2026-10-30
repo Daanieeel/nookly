@@ -12,6 +12,7 @@ import {
   IconFile,
   IconNotes,
   IconReportAnalytics,
+  IconSchool,
   IconToolsKitchen2,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
@@ -36,6 +37,7 @@ export const MODULE_LABELS = {
   bookmarks: "Bookmarks",
   recipes: "Recipes",
   grades: "Grades",
+  moodle: "Moodle",
 } satisfies Record<ModuleKey, string>;
 
 export const MODULE_DESCRIPTIONS = {
@@ -53,6 +55,7 @@ export const MODULE_DESCRIPTIONS = {
   bookmarks: "Save links you want to come back to.",
   recipes: "Track recipes with ingredients and steps.",
   grades: "See your grades and averages by course and semester.",
+  moodle: "Read your Moodle courses, assignments, grades and announcements.",
 } satisfies Record<ModuleKey, string>;
 
 export const MODULE_ICONS = {
@@ -70,6 +73,7 @@ export const MODULE_ICONS = {
   bookmarks: IconBookmark,
   recipes: IconToolsKitchen2,
   grades: IconReportAnalytics,
+  moodle: IconSchool,
 } satisfies Record<ModuleKey, TablerIcon>;
 
 /// Which underlying entity `type`s belong to each module. Mirrors
@@ -91,6 +95,8 @@ export const MODULE_ENTITY_TYPES = {
   recipes: ["recipe"],
   // A report on Exams and Assignments, with no entities of its own.
   grades: [],
+  // A read only view of the user's Moodle site, with no entities of its own.
+  moodle: [],
 } satisfies Record<ModuleKey, string[]>;
 
 /// Modules that ride along with another module rather than being offered on

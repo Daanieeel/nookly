@@ -39,6 +39,8 @@ Run from the repo root.
 | `bun run check`                  | TypeScript and `cargo check`.                            |
 | `bun run lint`, `bun run format` | oxlint, oxfmt, clippy and rustfmt.                       |
 
+`bun run build:side-by-side` builds "Nookly Dev" (`src-tauri/tauri.side-by-side.conf.json`), a release build that can run while the installed Nookly is open. It has its own bundle identifier, so its own data folder, single instance lock and updates, and its own `nookly-dev://` link scheme. A plain `bun run tauri build` shares the real app's data folder and identifier, so never run it next to your real data. The app is in `src-tauri/target/release/bundle/macos/`. Use it to try anything that needs a registered link scheme, such as signing in to Moodle.
+
 `bun run dev` and any debug build (`cargo run`, `cargo test`) never touch the real app's data: they read and write `apps/desktop/src-tauri/.dev-data/` instead, a gitignored folder created on first run. Set `NOOKLY_DATA_DIR` to point either one at a specific folder instead (CI, scripted testing, a scratch profile). Only a release build (`bun run tauri build`, or the installed app) uses the real one. See `db::resolve_app_data_dir`.
 
 ## Config

@@ -1,6 +1,6 @@
 use crate::error::AppResult;
 use crate::external_calendars::{
-    google, icloud, Connection, ExternalCalendarState, ExternalEvent, Provider,
+    google, icloud, moodle, Connection, ExternalCalendarState, ExternalEvent, Provider,
 };
 use serde::Serialize;
 use tauri::State;
@@ -43,6 +43,14 @@ pub async fn connect_icloud_calendar(
     app_password: String,
 ) -> AppResult<Connection> {
     icloud::connect(&state, &apple_id, &app_password).await
+}
+
+#[tauri::command]
+pub async fn connect_moodle_calendar(
+    state: State<'_, ExternalCalendarState>,
+    link: String,
+) -> AppResult<Connection> {
+    moodle::connect(&state, &link).await
 }
 
 #[tauri::command]

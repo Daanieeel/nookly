@@ -7,6 +7,7 @@ mod db;
 mod dictionary_file;
 mod error;
 mod external_calendars;
+mod moodle;
 mod spelling;
 mod store_guard;
 
@@ -68,6 +69,11 @@ fn app_menu<R: tauri::Runtime>(
 }
 
 pub fn run() {
+    // Anything that runs without the app (the CLI, the crash log) finds the data folder by
+    // the bundle identifier, so it is recorded before either can run.
+    let context = tauri::generate_context!();
+    db::set_identifier(&context.config().identifier);
+
     // Capture panics to a crash log before `panic = "abort"` kills the process,
     // so any future startup crash is diagnosable without a debug build.
     install_panic_hook();
@@ -144,6 +150,10 @@ pub fn run() {
             ));
             app.manage(external_calendars::ExternalCalendarState::load(
                 &db::resolve_app_data_dir(app.path().app_data_dir()?),
+            ));
+            app.manage(moodle::service::MoodleState::load(
+                &db::resolve_app_data_dir(app.path().app_data_dir()?),
+                &moodle::login::configured_scheme(&app.config().plugins.0),
             ));
             #[cfg(target_os = "macos")]
             disable_trackpad_magnification(app);
@@ -355,10 +365,25 @@ pub fn run() {
             commands::external_calendars::connect_google_calendar,
             commands::external_calendars::cancel_google_calendar_connect,
             commands::external_calendars::connect_icloud_calendar,
+            commands::external_calendars::connect_moodle_calendar,
             commands::external_calendars::set_external_calendar_selected,
             commands::external_calendars::disconnect_external_calendar,
             commands::external_calendars::sync_external_calendars,
             commands::external_calendars::list_external_events,
+            commands::moodle::moodle_status,
+            commands::moodle::moodle_begin_login,
+            commands::moodle::moodle_finish_login,
+            commands::moodle::moodle_disconnect,
+            commands::moodle::moodle_courses,
+            commands::moodle::moodle_contents,
+            commands::moodle::moodle_assignments,
+            commands::moodle::moodle_assignment_status,
+            commands::moodle::moodle_grades,
+            commands::moodle::moodle_forums,
+            commands::moodle::moodle_discussions,
+            commands::moodle::moodle_posts,
+            commands::moodle::moodle_file_text,
+            commands::moodle::moodle_open_file,
             commands::backup::create_backup,
             commands::backup::list_backups,
             commands::backup::inspect_backup,
@@ -386,7 +411,7 @@ pub fn run() {
             commands::ai_apps::open_agent_dir_in,
             commands::settings_file::open_settings_file,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while running tauri application")
         .run(|_app, _event| {
             // Tauri sets `icon.png` as the dev dock icon on `Ready`, so ours goes after it.
