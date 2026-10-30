@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.56.4 (2026-10-30)
+
+### Fixed
+
+- **Typing `^` in an empty code or math block.** The block no longer breaks when you type `^` followed by another key. The copy button on code blocks now has a name for screen readers.
+
 ## 0.56.3 (2026-10-30)
 
 ### Added

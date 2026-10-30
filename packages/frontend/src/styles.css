@@ -112,8 +112,9 @@
   .tiptap-content .code-block-filename::placeholder {
     color: var(--muted-foreground);
   }
+  /* No `position` here: in WebKit a positioned <pre> is dissolved by the first dead key (`^`)
+     typed in it while empty, which takes the text out of the block (#124). */
   .tiptap-content pre.code-block-body {
-    position: relative;
     margin: 0;
     padding: 0.75rem;
     background: var(--block-surface);

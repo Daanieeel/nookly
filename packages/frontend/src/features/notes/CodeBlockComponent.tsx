@@ -51,21 +51,26 @@ export function CodeBlockComponent({ node, updateAttributes, editor, getPos }: R
         editable={editor.isEditable}
         onFormat={format}
       />
-      <pre className="code-block-body">
-        <NodeViewContent<"div"> as="div" />
-        {hovered && (
-          <div className="absolute right-2 top-2 animate-in fade-in-0" contentEditable={false}>
+      {/* The copy button anchors to this zero height box, not to the <pre>, which must not be
+          positioned (see `pre.code-block-body` in `styles.css`). */}
+      {hovered && (
+        <div className="relative h-0" contentEditable={false}>
+          <div className="absolute right-2 top-2 z-10 animate-in fade-in-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <CopyButton
                   value={node.textContent}
+                  aria-label="Copy code"
                   className="flex items-center justify-center rounded-md border border-border bg-card p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
                 />
               </TooltipTrigger>
               <TooltipContent>Copy code</TooltipContent>
             </Tooltip>
           </div>
-        )}
+        </div>
+      )}
+      <pre className="code-block-body">
+        <NodeViewContent<"div"> as="div" />
       </pre>
     </NodeViewWrapper>
   );
