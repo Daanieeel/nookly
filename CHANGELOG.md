@@ -2,6 +2,19 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.56.1 (2026-10-30)
+
+### Added
+
+- **Vectors in plots.** Draw an arrow between two points with `(0, 0) -> A` or `A -> B`. Name the points once, like `A = (1, 2)`, or write the coordinates out.
+- **Named vectors in plots.** Name a vector with `a = 0 -> A`, where `0` is the origin, then draw sums and differences with `a + b` and `a - b`. A result can be named too, like `c = a + b`, and used in later lines.
+- **Hidden lines in plots.** Start a line with `!#` and it still works, so other lines can use its points, vectors and values, but the plot does not draw it or list it in the legend. A line that starts with `#` is a comment.
+- **Lines without a variable in plots.** A line like `z_1 = 2` is now drawn as a horizontal line, the same as `z_1(x) = 2`. A value that other lines use, like `a = 3` in `y = a x`, stays a plain value.
+
+### Changed
+
+- **Formulas in the plot legend.** The legend in the corner of a plot now shows each line as a formula, like fractions, roots and subscripts, in the app and in exports.
+
 ## 0.56.0 (2026-10-29)
 
 ### Added

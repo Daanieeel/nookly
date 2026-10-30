@@ -4,6 +4,7 @@ import { drawCircuit } from "#/features/notes/circuit/draw.ts";
 import { layoutCircuit } from "#/features/notes/circuit/layout.ts";
 import { parseCircuit } from "#/features/notes/circuit/parse.ts";
 import { drawPlot } from "#/features/notes/plot/draw.ts";
+import { loadFormulas } from "#/features/notes/plot/formula.ts";
 import { parsePlot } from "#/features/notes/plot/parse.ts";
 import { latexMacros } from "#/features/notes/math.ts";
 import { getBookmark } from "#/lib/api/bookmarks.ts";
@@ -86,7 +87,9 @@ export async function svgToPng(markup: string): Promise<ExportImage | null> {
   svg.setAttribute("color", `#${COLORS.text}`);
   svg.style.color = `#${COLORS.text}`;
   svg.style.maxWidth = "none";
-  const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" });
+  const blob = new Blob([new XMLSerializer().serializeToString(svg)], {
+    type: "image/svg+xml",
+  });
   const url = URL.createObjectURL(blob);
   try {
     const png = await drawToPng(url, size.width, size.height, SCALE);
@@ -107,7 +110,11 @@ async function photoToPng(blob: Blob): Promise<ExportImage> {
     const width = img.naturalWidth * shrink;
     const height = img.naturalHeight * shrink;
     // Shown at half its pixels, like a photo on a sharp screen.
-    return { png: await drawToPng(url, width, height, 1), width: width / 2, height: height / 2 };
+    return {
+      png: await drawToPng(url, width, height, 1),
+      width: width / 2,
+      height: height / 2,
+    };
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -137,7 +144,10 @@ export const appFigureRenderers: FigureRenderers = {
     return error ? null : svgToPng(element.innerHTML);
   },
   circuit: async (source) => svgToPng(drawCircuit(layoutCircuit(parseCircuit(source)))),
-  plot: async (source) => svgToPng(drawPlot(parsePlot(source), false)),
+  plot: async (source) => {
+    const formulas = await loadFormulas().catch(() => undefined);
+    return svgToPng(drawPlot(parsePlot(source), false, formulas));
+  },
   image: async ({ fileId, url, path: localPath }) => {
     // A file on this computer, when it is there: a missing one leaves the caption instead.
     if (localPath) {

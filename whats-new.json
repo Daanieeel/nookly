@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "0.56.1",
+      "date": "2026-10-30",
+      "highlights": [
+        {
+          "title": "Vectors in plots",
+          "description": "Draw an arrow between two points with `(0, 0) -> A` or `A -> B`. Name vectors with `a = 0 -> A`, then draw `a + b` and `a - b`.",
+          "icon": "chart-line",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The legend of a plot shows each line as a formula, with fractions, roots and subscripts.",
+          "Start a line in a plot with `!#` to use it without showing it, for example a point that only a vector needs.",
+          "A line like `z_1 = 2` is drawn as a horizontal line, without needing `(x)`."
+        ]
+      }
+    },
+    {
       "version": "0.56.0",
       "date": "2026-10-29",
       "title": "Spell checker, links that open Nookly and more",

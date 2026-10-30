@@ -15,6 +15,17 @@ const DEFAULT_SPAN = 20;
 
 type Range = [number, number];
 
+/// A formula drawn as SVG, in pixels.
+export interface Formula {
+  width: number;
+  height: number;
+  /// The formula as an `<svg>` element with its top left corner at `x`, `y`.
+  at: (x: number, y: number) => string;
+}
+
+/// Draws LaTeX at a text size in pixels, or `null` when it can't.
+export type FormulaRenderer = (latex: string, fontSize: number) => Formula | null;
+
 /// The part of the plane a plot shows.
 interface PlotView {
   x: Range;
@@ -22,7 +33,8 @@ interface PlotView {
 }
 
 /// What the picture shows, in plot units. An axis the code leaves out keeps the other
-/// axis's scale, so a circle stays round; points outside the default window widen it.
+/// axis's scale, so a circle stays round; points and vector ends outside the default
+/// window widen it.
 export function plotWindow(plot: Plot, width: number, height: number): PlotView {
   const { x, y } = plot.window;
   if (x && y) return { x, y };
@@ -30,7 +42,8 @@ export function plotWindow(plot: Plot, width: number, height: number): PlotView 
   if (y) return { x: around(0, ((y[1] - y[0]) * width) / height), y };
   let xs: Range = around(0, DEFAULT_SPAN);
   let ys: Range = around(0, (DEFAULT_SPAN * height) / width);
-  for (const p of plot.points) {
+  const shown = [...plot.points, ...plot.vectors.flatMap((v) => [v.from, v.to])];
+  for (const p of shown) {
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
     xs = [Math.min(xs[0], p.x - 1), Math.max(xs[1], p.x + 1)];
     ys = [Math.min(ys[0], p.y - 1), Math.max(ys[1], p.y + 1)];
@@ -112,12 +125,37 @@ function curve(
   return parts.join("");
 }
 
+/// An arrow from `from` to `to`, in picture pixels: a line to the base of a filled head.
+function arrow(from: [number, number], to: [number, number], color: string): string {
+  const [dx, dy] = [to[0] - from[0], to[1] - from[1]];
+  const length = Math.hypot(dx, dy);
+  if (!(length > 0) || !Number.isFinite(length)) return "";
+  const [ux, uy] = [dx / length, dy / length];
+  // The head shrinks with a short arrow, so it never passes the tail.
+  const head = Math.min(10, length);
+  const base: [number, number] = [to[0] - ux * head, to[1] - uy * head];
+  const side = head * 0.4;
+  const corners = [
+    to,
+    [base[0] - uy * side, base[1] + ux * side],
+    [base[0] + uy * side, base[1] - ux * side],
+  ];
+  return (
+    `<g data-vector="" stroke="${color}">` +
+    `<line x1="${n(from[0])}" y1="${n(from[1])}" x2="${n(base[0])}" y2="${n(base[1])}" stroke-width="2" stroke-linecap="round"/>` +
+    `<polygon points="${corners.map(([x, y]) => `${n(x ?? 0)},${n(y ?? 0)}`).join(" ")}" fill="${color}" stroke-width="1" stroke-linejoin="round"/>` +
+    `</g>`
+  );
+}
+
 /// The plot as an SVG string: grid, axes with their numbers, the functions, vertical
-/// lines and points, and a legend of the functions as typed. Text and axes are
+/// lines, vectors and points, and a legend of the functions as typed. Text and axes are
 /// `currentColor`, so the picture takes the color of the text around it.
 export function drawPlot(
   plot: Plot,
   dark: boolean,
+  /// Draws the legend in LaTeX; without it the legend is the code as typed.
+  formulas?: FormulaRenderer,
   width = PLOT_WIDTH,
   height = PLOT_HEIGHT,
 ): string {
@@ -166,6 +204,12 @@ export function drawPlot(
       `<path data-function="" d="${d}" stroke="${color(i)}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`,
     );
   });
+  plot.vectors.forEach((v, i) => {
+    const ends = [v.from.x, v.from.y, v.to.x, v.to.y];
+    if (!ends.every(Number.isFinite)) return;
+    const c = color(plot.functions.length + plot.verticals.length + i);
+    out.push(arrow([toX(v.from.x), toY(v.from.y)], [toX(v.to.x), toY(v.to.y)], c));
+  });
   for (const p of plot.points) {
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
     const cx = n(toX(p.x));
@@ -198,32 +242,55 @@ export function drawPlot(
     `</g>`,
   );
 
-  // The legend: what each colored line is, as typed, over a patch of the page.
+  // The legend: what each colored line is, over a patch of the page.
   const entries = [
-    ...plot.functions.map((fn, i) => ({ label: fn.label, color: color(i) })),
+    ...plot.functions.map((fn, i) => ({
+      label: fn.label,
+      latex: fn.latex,
+      color: color(i),
+    })),
     ...plot.verticals.map((line, i) => ({
       label: line.label,
+      latex: line.latex,
       color: color(plot.functions.length + i),
+    })),
+    ...plot.vectors.map((v, i) => ({
+      label: v.label,
+      latex: v.latex,
+      color: color(plot.functions.length + plot.verticals.length + i),
     })),
   ];
   if (entries.length > 0) {
     // A fifth larger than the axis numbers, so it reads at a glance.
     const scale = 1.2;
-    const rowHeight = 18 * scale;
+    const fontSize = 12 * scale;
     const pad = 4 * scale;
-    const longest = Math.max(...entries.map((e) => e.label.length));
-    const boxWidth = Math.min(width - 16, (34 + longest * 6.6) * scale);
+    const rows = entries.map((entry) => {
+      const formula = formulas?.(entry.latex, fontSize) ?? null;
+      return {
+        ...entry,
+        formula,
+        height: Math.max(18 * scale, (formula?.height ?? 0) + pad),
+        width: formula?.width ?? entry.label.length * 6.6 * scale,
+      };
+    });
+    const boxWidth = Math.min(width - 16, 34 * scale + Math.max(...rows.map((r) => r.width)));
+    const boxHeight = rows.reduce((sum, r) => sum + r.height, pad * 2);
     out.push(
-      `<rect x="8" y="8" width="${n(boxWidth)}" height="${n(entries.length * rowHeight + pad * 2)}" rx="6" ` +
+      `<rect x="8" y="8" width="${n(boxWidth)}" height="${n(boxHeight)}" rx="6" ` +
         `style="fill: ${page}" fill-opacity="0.9" stroke="currentColor" stroke-opacity="0.15"/>`,
     );
-    entries.forEach((entry, i) => {
-      const y = 8 + pad + i * rowHeight + rowHeight / 2;
+    let top = 8 + pad;
+    for (const row of rows) {
+      const y = top + row.height / 2;
       out.push(
-        `<line x1="${n(8 + 8 * scale)}" y1="${n(y)}" x2="${n(8 + 22 * scale)}" y2="${n(y)}" stroke="${entry.color}" stroke-width="${n(2.5 * scale)}" stroke-linecap="round"/>`,
-        `<text x="${n(8 + 28 * scale)}" y="${n(y + 4 * scale)}" fill="currentColor" stroke="none" font-size="${n(12 * scale)}">${escapeXml(entry.label)}</text>`,
+        `<line x1="${n(8 + 8 * scale)}" y1="${n(y)}" x2="${n(8 + 22 * scale)}" y2="${n(y)}" stroke="${row.color}" stroke-width="${n(2.5 * scale)}" stroke-linecap="round"/>`,
+        row.formula
+          ? row.formula.at(8 + 28 * scale, y - row.formula.height / 2)
+          : `<text x="${n(8 + 28 * scale)}" y="${n(y + 4 * scale)}" fill="currentColor" stroke="none" font-size="${n(fontSize)}">${escapeXml(row.label)}</text>`,
       );
-    });
+      top += row.height;
+    }
   }
   out.push(`</svg>`);
   return out.join("");
