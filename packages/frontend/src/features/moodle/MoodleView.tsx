@@ -22,7 +22,7 @@ export function MoodleView({ spaceId, moodlePath }: { spaceId: string; moodlePat
   const at = parseMoodlePath(moodlePath);
   switch (at.page) {
     case "courses":
-      return <CoursesPage spaceId={spaceId} siteUrl={siteUrl} />;
+      return <CoursesPage spaceId={spaceId} status={status} siteUrl={siteUrl} />;
     case "course":
       return (
         <CoursePage

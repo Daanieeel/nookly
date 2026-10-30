@@ -1,8 +1,9 @@
 import { IconSchool } from "@tabler/icons-react";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { Badge } from "@nookly/ui/components/badge";
-import type { MoodleCourse } from "#/lib/api/moodle.ts";
+import type { MoodleCourse, MoodleStatus } from "#/lib/api/moodle.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
+import { MoodleAccount } from "./MoodleAccount.tsx";
 import { Loading, MoodleFrame, useMoodleNavigate } from "./MoodleFrame.tsx";
 import { coursePath, moodleWebUrl } from "./moodle-path.ts";
 import { useMoodleCourses } from "./moodle-queries.ts";
@@ -15,7 +16,15 @@ export function sortCourses(courses: MoodleCourse[], now = Date.now() / 1000): M
     .sort((a, b) => Number(over(a)) - Number(over(b)) || a.fullName.localeCompare(b.fullName));
 }
 
-export function CoursesPage({ spaceId, siteUrl }: { spaceId: string; siteUrl: string }) {
+export function CoursesPage({
+  spaceId,
+  status,
+  siteUrl,
+}: {
+  spaceId: string;
+  status: MoodleStatus;
+  siteUrl: string;
+}) {
   const query = useMoodleCourses();
   const go = useMoodleNavigate(spaceId);
   const courses = query.data ? sortCourses(query.data.data) : null;
@@ -28,6 +37,7 @@ export function CoursesPage({ spaceId, siteUrl }: { spaceId: string; siteUrl: st
       fetchedAt={query.data?.fetchedAt}
       offline={query.data?.offline}
     >
+      <MoodleAccount status={status} />
       {!courses ? (
         <Loading query={query} />
       ) : courses.length === 0 ? (

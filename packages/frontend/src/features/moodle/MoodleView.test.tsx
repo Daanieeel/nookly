@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
+import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import type { MoodleCourse, MoodleFile } from "#/lib/api/moodle.ts";
 import { MoodleView } from "./MoodleView.tsx";
@@ -147,6 +148,34 @@ describe("courses", () => {
     });
     open();
     expect(await screen.findByText("Your Moodle sign in expired. Connect again.")).toBeTruthy();
+  });
+
+  it("signs out, forgets what it showed and asks to connect again", async () => {
+    let signedIn = true;
+    mockCommandWith("moodle_status", () => ({ ...connected, connected: signedIn }));
+    mockCommand("moodle_courses", answer([course()]));
+    mockCommandWith("moodle_disconnect", () => {
+      signedIn = false;
+      return null;
+    });
+    const { user, queryClient } = open();
+    expect(await screen.findByText(/Ada Lovelace/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(callsOf("moodle_disconnect")).toHaveLength(1));
+    expect(await screen.findByText("Connect your Moodle")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Maths 1/ })).toBeNull();
+    expect(queryClient.getQueryData(qk.moodle.courses)).toBeUndefined();
+  });
+
+  it("says why signing out failed and stays signed in", async () => {
+    mockCommand("moodle_courses", answer([course()]));
+    mockCommandWith("moodle_disconnect", () => {
+      throw { kind: "Remote", message: "Couldn't access the system keychain: locked" };
+    });
+    const { user } = open();
+    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(await screen.findByText(/system keychain/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Maths 1/ })).toBeTruthy();
   });
 
   it("has a way to open an empty list", async () => {
