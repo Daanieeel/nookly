@@ -249,6 +249,7 @@ export function CreateAssignmentDialog({
   onOpenChange,
   initialCourse = null,
   session = null,
+  openInBackground = false,
 }: {
   spaceId: string;
   spaces?: Space[];
@@ -258,9 +259,12 @@ export function CreateAssignmentDialog({
   initialCourse?: Entity | null;
   /// A Session the new assignment is linked to when it is created.
   session?: Entity | null;
+  /// Opens the new assignment in a tab behind the current one, so the user stays where they are.
+  openInBackground?: boolean;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const openInNewTab = useNavStore((s) => s.openInNewTab);
   const [spaceId, setSpaceId] = useState(initialSpaceId);
   const [createMore, setCreateMore] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -317,7 +321,14 @@ export function CreateAssignmentDialog({
         requestAnimationFrame(() => titleRef.current?.focus());
       } else {
         handleOpenChange(false);
-        openEntity(created.entity.id, spaceId);
+        if (openInBackground) {
+          openInNewTab(
+            { kind: "entity", entityId: created.entity.id, spaceId },
+            { activate: false },
+          );
+        } else {
+          openEntity(created.entity.id, spaceId);
+        }
       }
     },
   });

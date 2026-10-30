@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.56.2",
+      "date": "2026-10-30",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "A new assignment from the quick assignment shortcut opens in a background tab, so you stay in your jot or note."
+        ]
+      }
+    },
+    {
       "version": "0.56.1",
       "date": "2026-10-30",
       "highlights": [

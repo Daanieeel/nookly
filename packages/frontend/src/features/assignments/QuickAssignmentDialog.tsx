@@ -33,7 +33,7 @@ async function findRunningSession(queryClient: QueryClient): Promise<RunningSess
 
 /// The New assignment dialog from anywhere (`quickAssignment`). During a session it starts in
 /// that session's Course and links the assignment to the session; otherwise it opens as the
-/// Assignments page does. Mounted once at the app root.
+/// Assignments page does. The new assignment opens in a background tab, so the user stays put. Mounted once at the app root.
 export function QuickAssignmentDialog() {
   const queryClient = useQueryClient();
   const open = useNavStore((s) => s.newAssignmentOpen);
@@ -72,6 +72,7 @@ export function QuickAssignmentDialog() {
       onOpenChange={setOpen}
       initialCourse={running?.course ?? null}
       session={running?.session ?? null}
+      openInBackground
     />
   );
 }

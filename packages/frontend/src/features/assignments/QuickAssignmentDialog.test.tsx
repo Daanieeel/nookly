@@ -75,6 +75,21 @@ describe("QuickAssignmentDialog", () => {
     await waitFor(() => expect(useNavStore.getState().newAssignmentOpen).toBe(false));
   });
 
+  it("opens the new assignment in a background tab and keeps the current view", async () => {
+    const { user } = renderWithProviders(<QuickAssignmentDialog />);
+    act(() => useNavStore.getState().setNewAssignmentOpen(true));
+    await waitFor(async () => expect(await courseButton()).toHaveTextContent("Algo"));
+    const { view, activeTabId } = useNavStore.getState();
+    const tabsBefore = useNavStore.getState().tabs.length;
+    await user.type(screen.getByRole("textbox", { name: "Assignment title" }), "Sheet 4");
+    await user.click(screen.getByRole("button", { name: /Create assignment/ }));
+    await waitFor(() => expect(useNavStore.getState().tabs).toHaveLength(tabsBefore + 1));
+    const state = useNavStore.getState();
+    expect(state.activeTabId).toBe(activeTabId);
+    expect(state.view).toEqual(view);
+    expect(state.tabs.at(-1)?.view).toMatchObject({ kind: "entity", entityId: "asg-new" });
+  });
+
   it("still opens when no session is running, with no course picked", async () => {
     mockCommand("list_sessions_all", []);
     renderWithProviders(<QuickAssignmentDialog />);

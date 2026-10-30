@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.56.2 (2026-10-30)
+
+### Changed
+
+- **Quick assignment keeps you where you are.** An assignment added with the quick assignment shortcut now opens in a new tab in the background, so you can keep working in your jot or note.
+
 ## 0.56.1 (2026-10-30)
 
 ### Added
