@@ -90,7 +90,7 @@ pdf-inspector = { version = "1", features = ["ocr"] }
 
 # Office document text extraction for search indexing (`db/office_text.rs`):
 # xlsx via calamine, docx/pptx by walking their OOXML zip/XML parts directly.
-calamine = "0.36"
+calamine = "0.37"
 quick-xml = "0.42"
 zip = "9"
 
