@@ -1,31 +1,39 @@
 export interface PageRect {
-  page: number;
   top: number;
   height: number;
 }
 
 export interface ZoomAnchor {
   page: number;
-  /// How far down the page the top of the scroll area sits, 0 to 1.
+  /// How far down the page the anchored spot sits, 0 to 1.
   fraction: number;
 }
 
-/// Finds the spot to hold still across a zoom: the page at the top of the
-/// scroll area (or the next one when the top sits in a gap) and how far into
-/// it the top reaches. Tops are viewport coordinates.
-export function findZoomAnchor(rootTop: number, rects: PageRect[]): ZoomAnchor | null {
-  const hit = rects.find((r) => r.top + r.height > rootTop);
-  if (!hit) return null;
-  const fraction = Math.max(0, (rootTop - hit.top) / hit.height);
-  return { page: hit.page, fraction };
+/// Finds the spot to hold still across a zoom: the page at viewport height `y` (or
+/// the next one when `y` sits in a gap) and how far into it `y` reaches. `pages` are
+/// the page numbers in order, `rectOf` measures one. Pages are stacked, so a binary
+/// search measures a handful of them rather than the whole document.
+export function findZoomAnchor(
+  y: number,
+  pages: number[],
+  rectOf: (page: number) => PageRect | undefined,
+): ZoomAnchor | null {
+  let low = 0;
+  let high = pages.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    const rect = rectOf(pages[mid]);
+    if (rect && rect.top + rect.height > y) high = mid;
+    else low = mid + 1;
+  }
+  const page = pages[low];
+  const hit = page === undefined ? undefined : rectOf(page);
+  if (page === undefined || !hit) return null;
+  return { page, fraction: Math.max(0, (y - hit.top) / hit.height) };
 }
 
-/// How far to scroll so the anchored spot is back at the top of the scroll
-/// area once the pages have their new layout.
-export function scrollDeltaForAnchor(
-  anchor: ZoomAnchor,
-  rect: { top: number; height: number },
-  rootTop: number,
-): number {
-  return rect.top + anchor.fraction * rect.height - rootTop;
+/// How far to scroll so the anchored spot is back at viewport height `y` once the
+/// pages have their new layout.
+export function scrollDeltaForAnchor(anchor: ZoomAnchor, rect: PageRect, y: number): number {
+  return rect.top + anchor.fraction * rect.height - y;
 }

@@ -18,9 +18,11 @@ interface Loads {
   crashesOnceReadable: boolean;
   /// When set, the first page's size arrives when this resolves, not at once.
   firstPage: Promise<FirstPage> | null;
+  /// Sizes of single pages, by page number; any other page is 100 by 100.
+  sizes: Record<number, { width: number; height: number }>;
 }
 
-const loads: Loads = { failures: 0, crashesOnceReadable: false, firstPage: null };
+const loads: Loads = { failures: 0, crashesOnceReadable: false, firstPage: null, sizes: {} };
 
 /// The document pdf.js hands the viewer once a file has loaded.
 type PdfDocument = Parameters<PdfDocumentProps["onLoadSuccess"]>[0];
@@ -40,22 +42,24 @@ function FakeDocument({ onLoadSuccess, onLoadError, error, children }: PdfDocume
     // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- a stub of pdf.js's document proxy, cast through unknown
     onLoadSuccess({
       numPages: 2,
-      getPage: () =>
-        loads.firstPage ?? Promise.resolve({ getViewport: () => ({ width: 100, height: 100 }) }),
+      getPage: (n: number) =>
+        (n === 1 ? loads.firstPage : null) ??
+        Promise.resolve({ getViewport: () => loads.sizes[n] ?? { width: 100, height: 100 } }),
     } as unknown as PdfDocument);
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- one load per mount, like pdf.js
   }, []);
   return failing ? error : <div>{children}</div>;
 }
 
-const viewer = (props: { initialPage?: number; onInitialPageShown?: () => void } = {}) => (
-  <PdfViewer src="asset://a.pdf" name="a.pdf" documentComponent={FakeDocument} {...props} />
-);
+const viewer = (
+  props: { src?: string; initialPage?: number; onInitialPageShown?: () => void } = {},
+) => <PdfViewer src="asset://a.pdf" name="a.pdf" documentComponent={FakeDocument} {...props} />;
 
 beforeEach(() => {
   loads.failures = 0;
   loads.crashesOnceReadable = false;
   loads.firstPage = null;
+  loads.sizes = {};
   // jsdom has none; pages never count as near the viewport, which is all these tests need.
   vi.stubGlobal(
     "IntersectionObserver",
@@ -318,5 +322,76 @@ describe("PdfViewer across tab switches", () => {
     expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Zoom Level" }).value).toBe(
       zoomed,
     );
+  });
+});
+
+describe("PdfViewer zoom", () => {
+  // The zoom of a file is remembered by its path: each test opens its own file.
+  let file = 0;
+  beforeEach(() => {
+    file += 1;
+  });
+  const open = () => viewer({ src: `asset://zoom-${file}.pdf` });
+  const zoomLevel = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Zoom Level" });
+
+  it("zooms in by a share of the current zoom, not a fixed amount", async () => {
+    const { user } = renderWithProviders(open());
+    const zoomIn = await screen.findByRole("button", { name: "Zoom In" });
+    await user.click(zoomIn);
+    expect(zoomLevel().value).toBe("125");
+    await user.click(zoomIn);
+    expect(zoomLevel().value).toBe("156");
+  });
+
+  it("zooms out by the same share, so one step each way comes back", async () => {
+    const { user } = renderWithProviders(open());
+    await user.click(await screen.findByRole("button", { name: "Zoom In" }));
+    await user.click(screen.getByRole("button", { name: "Zoom Out" }));
+    expect(zoomLevel().value).toBe("100");
+    await user.click(screen.getByRole("button", { name: "Zoom Out" }));
+    expect(zoomLevel().value).toBe("80");
+  });
+
+  it("zooms with a trackpad pinch by a share of the current zoom", async () => {
+    const { container } = renderWithProviders(open());
+    await screen.findByText("/ 2");
+    const root = container.querySelector(".overflow-auto");
+    if (!(root instanceof HTMLElement)) throw new Error("the scroll area is missing");
+    act(() => {
+      root.dispatchEvent(
+        new WheelEvent("wheel", { ctrlKey: true, deltaY: -20, bubbles: true, cancelable: true }),
+      );
+    });
+    await waitFor(() => expect(Number(zoomLevel().value)).toBeGreaterThan(100));
+    // A pinch of 20 is exp(0.2): 22 percent, not the 20 a fixed amount would give.
+    expect(zoomLevel().value).toBe("122");
+  });
+
+  it("fits the page to the width of the viewer", async () => {
+    // jsdom has no layout: the scroll area is 232px wide, 200px after its padding, and
+    // the pages are 100px wide.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(232);
+    const { user } = renderWithProviders(open());
+    await screen.findByText("/ 2");
+    const fit = screen.getByRole("button", { name: "Fit Width" });
+    await waitFor(() => expect(fit).toBeEnabled());
+    await user.click(fit);
+    expect(zoomLevel().value).toBe("200");
+  });
+});
+
+describe("PdfViewer page sizes", () => {
+  it("lays out every page at its own size before it has been drawn", async () => {
+    loads.sizes = { 2: { width: 200, height: 300 } };
+    const { container } = renderWithProviders(viewer());
+    await screen.findByText("/ 2");
+    // No page is near the viewport (see the stubbed observer), so none has been drawn.
+    await waitFor(() => {
+      const second = container.querySelector<HTMLElement>('[data-page="2"]');
+      expect(second?.style.getPropertyValue("--page-width")).toBe("200");
+      expect(second?.style.getPropertyValue("--page-height")).toBe("300");
+    });
+    const first = container.querySelector<HTMLElement>('[data-page="1"]');
+    expect(first?.style.getPropertyValue("--page-width")).toBe("100");
   });
 });

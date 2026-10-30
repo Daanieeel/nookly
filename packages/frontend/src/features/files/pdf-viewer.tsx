@@ -1,5 +1,6 @@
 import { useHasGroupFocus } from "#/components/tab-group-scope.ts";
 import {
+  IconArrowAutofitWidth,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -19,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  memo,
   useMemo,
   useRef,
   useState,
@@ -36,16 +38,21 @@ import { cn } from "@nookly/ui/lib/utils";
 import { useRememberedScroll } from "#/hooks/use-remembered-scroll.ts";
 import { InvertibleDocument } from "./document-frame";
 import { findZoomAnchor, scrollDeltaForAnchor, type ZoomAnchor } from "./pdf-zoom-anchor";
+import {
+  canvasPixelRatio,
+  clampScale,
+  fitWidthScale,
+  MAX_SCALE,
+  MIN_SCALE,
+  pinchScale,
+  stepScale,
+} from "./pdf-zoom";
 
 // Vite bundles the worker as its own asset; pdf.js can't run without one.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
 ).toString();
-
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 3;
-const ZOOM_STEP = 0.1;
 
 function escapeHtml(value: string): string {
   return value
@@ -59,23 +66,46 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// How far past the visible area a page still stays rendered. A long PDF drawn
-// all at once (canvas, text layer and annotations per page) is what made big
-// documents crawl, so only pages near the viewport are mounted.
-const RENDER_MARGIN = "1500px 0px";
+// How far past the visible area a page still stays rendered: one scroll area height
+// each way, whatever the zoom. A long PDF drawn all at once (canvas, text layer and
+// annotations per page) is what made big documents crawl, so only pages near the
+// viewport are mounted.
+const RENDER_MARGIN = "100% 0px";
 const THUMBNAIL_MARGIN = "600px 0px";
 const FALLBACK_PAGE_SIZE = { width: 612, height: 792 };
 /// How long a requested page is held at the top while pages above it are measured.
 const PIN_MS = 3000;
+/// How long a page just outside the viewport waits to redraw at a new zoom, so the
+/// pages in view get the drawing time first.
+const OFFSCREEN_REDRAW_MS = 300;
+/// Pages measured at once while the sizes of the whole document are read.
+const SIZE_BATCH = 25;
+/// The padding around the pages in the scroll area (`p-4`, both sides).
+const SCROLL_PADDING = 32;
 
 interface PageSize {
   width: number;
   height: number;
 }
 
+/// The sizes `updates` add to `sizes`; the same object when none differs.
+function withPageSizes(
+  sizes: Record<number, PageSize>,
+  updates: Array<readonly [number, PageSize]>,
+): Record<number, PageSize> {
+  let next = sizes;
+  for (const [page, size] of updates) {
+    const known = next[page];
+    if (known?.width === size.width && known.height === size.height) continue;
+    if (next === sizes) next = { ...sizes };
+    next[page] = size;
+  }
+  return next;
+}
+
 /// Mounts `children` only while this box is within `margin` of the scroll area
-/// `rootRef` and leaves a box of `height` otherwise, so layout and scroll
-/// positions hold still while pages come and go.
+/// `rootRef` and leaves a box of `width` by `minHeight` (CSS lengths) otherwise, so
+/// layout and scroll positions hold still while pages come and go.
 function LazyMount({
   rootRef,
   margin,
@@ -85,8 +115,8 @@ function LazyMount({
 }: {
   rootRef: RefObject<HTMLElement | null>;
   margin: string;
-  width: number;
-  minHeight: number;
+  width: string;
+  minHeight: string;
   children: ReactNode;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -104,14 +134,8 @@ function LazyMount({
   return (
     <div
       ref={boxRef}
-      // SAFETY: both custom properties only ever receive plain pixel lengths;
-      // `CSSProperties` just doesn't model custom properties.
-      style={
-        {
-          "--lazy-width": `${width}px`,
-          "--lazy-height": `${minHeight}px`,
-        } as CSSProperties
-      }
+      // SAFETY: only custom properties, which `CSSProperties` does not model.
+      style={{ "--lazy-width": width, "--lazy-height": minHeight } as CSSProperties}
       className="min-h-(--lazy-height) w-(--lazy-width)"
     >
       {near ? children : null}
@@ -119,27 +143,44 @@ function LazyMount({
   );
 }
 
-/// A page drawn at `renderScale` but laid out and shown at `scale`: the box
-/// follows `scale` at once and the page inside is stretched to match. While
-/// pdf.js redraws at the new `renderScale` (react-pdf hides the canvas for
-/// that), a copy of the last drawn canvas stays visible behind it, so zooming
-/// never flashes blank.
+/// `value`, but following a change only after `ms` unless `immediate`.
+function useLagged<T>(value: T, ms: number, immediate: boolean): T {
+  const [lagged, setLagged] = useState(value);
+  if (immediate && lagged !== value) setLagged(value);
+  useEffect(() => {
+    if (immediate) return;
+    const id = setTimeout(() => setLagged(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms, immediate]);
+  return immediate ? value : lagged;
+}
+
+/// A page drawn at `renderScale` but laid out and shown at the viewer's zoom
+/// (`--pdf-scale`): the box follows the zoom at once, with no render, and the page
+/// inside is stretched to match. While pdf.js redraws at the new `renderScale`
+/// (react-pdf hides the canvas for that), a copy of the last drawn canvas stays
+/// visible behind it, so zooming never flashes blank. `width` and `height` are the
+/// page's size at zoom 1. Only a `visible` page gets a text and annotation layer,
+/// a copy of its canvas and an instant redraw; pages around it follow a moment later.
 function ScaledPage({
   width,
   height,
-  scale,
-  renderScale,
+  renderScale: wantedRenderScale,
+  visible,
   onRenderSuccess,
   ...pageProps
 }: {
   width: number;
   height: number;
-  scale: number;
   renderScale: number;
+  visible: boolean;
 } & Omit<ComponentProps<typeof Page>, "scale">) {
+  const renderScale = useLagged(wantedRenderScale, OFFSCREEN_REDRAW_MS, visible);
   const staleRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   // Runs before react-pdf's own effect clears the canvas for the redraw.
   useLayoutEffect(() => {
     if (firstRender.current) {
@@ -148,7 +189,8 @@ function ScaledPage({
     }
     const canvas = hostRef.current?.querySelector("canvas");
     const stale = staleRef.current;
-    if (!canvas || !stale || canvas.width === 0 || canvas.style.visibility === "hidden") return;
+    if (!visibleRef.current || !canvas || !stale) return;
+    if (canvas.width === 0 || canvas.style.visibility === "hidden") return;
     const copy = document.createElement("canvas");
     copy.width = canvas.width;
     copy.height = canvas.height;
@@ -157,22 +199,28 @@ function ScaledPage({
     stale.replaceChildren(copy);
   }, [renderScale]);
   return (
-    <div
-      ref={hostRef}
-      // SAFETY: both custom properties only ever receive plain numbers;
-      // `CSSProperties` just doesn't model custom properties.
-      style={{ "--page-width": `${width}px`, "--page-height": `${height}px` } as CSSProperties}
-      className="relative h-(--page-height) w-(--page-width) overflow-hidden"
-    >
+    <div ref={hostRef} className="relative h-(--box-height) w-(--box-width) overflow-hidden">
       <div ref={staleRef} className="absolute inset-0" aria-hidden />
       <div
-        // SAFETY: `--page-stretch` only ever receives `scale / renderScale`.
-        style={{ "--page-stretch": scale / renderScale } as CSSProperties}
+        // SAFETY: only custom properties, which `CSSProperties` does not model.
+        style={
+          {
+            "--page-stretch": `calc(var(--pdf-scale) / ${renderScale})`,
+          } as CSSProperties
+        }
         className="absolute top-0 left-0 origin-top-left scale-(--page-stretch)"
       >
         <Page
           {...pageProps}
           scale={renderScale}
+          renderTextLayer={visible}
+          renderAnnotationLayer={visible}
+          devicePixelRatio={canvasPixelRatio(
+            window.devicePixelRatio || 1,
+            width,
+            height,
+            renderScale,
+          )}
           onRenderSuccess={(page) => {
             staleRef.current?.replaceChildren();
             onRenderSuccess?.(page);
@@ -182,6 +230,76 @@ function ScaledPage({
     </div>
   );
 }
+
+interface PdfPageRowProps {
+  page: number;
+  /// The page's size at zoom 1.
+  width: number;
+  height: number;
+  renderScale: number;
+  visible: boolean;
+  pageClass: string;
+  scrollRef: RefObject<HTMLElement | null>;
+  register: (page: number, el: HTMLDivElement | null) => void;
+  customTextRenderer: ComponentProps<typeof Page>["customTextRenderer"];
+  onPageSize: (page: number, size: PageSize) => void;
+  onTextLayer: (page: number) => void;
+}
+
+/// One page of the document. Memoized, with every prop a plain value or a stable
+/// function, so a change to one page (or to the viewer's own state) leaves the
+/// other pages alone. Zooming does not touch its props at all: the box follows
+/// `--pdf-scale` in CSS.
+const PdfPageRow = memo(function PdfPageRow({
+  page,
+  width,
+  height,
+  renderScale,
+  visible,
+  pageClass,
+  scrollRef,
+  register,
+  customTextRenderer,
+  onPageSize,
+  onTextLayer,
+}: PdfPageRowProps) {
+  return (
+    <div
+      data-page={page}
+      ref={(el) => register(page, el)}
+      // SAFETY: only custom properties, which `CSSProperties` does not model.
+      style={
+        {
+          "--page-width": width,
+          "--page-height": height,
+          "--box-width": "calc(var(--page-width) * var(--pdf-scale) * 1px)",
+          "--box-height": "calc(var(--page-height) * var(--pdf-scale) * 1px)",
+        } as CSSProperties
+      }
+      className={cn("shadow-sm", pageClass)}
+    >
+      <LazyMount
+        rootRef={scrollRef}
+        margin={RENDER_MARGIN}
+        width="var(--box-width)"
+        minHeight="var(--box-height)"
+      >
+        <ScaledPage
+          pageNumber={page}
+          width={width}
+          height={height}
+          renderScale={renderScale}
+          visible={visible}
+          customTextRenderer={customTextRenderer}
+          onLoadSuccess={(loaded) =>
+            onPageSize(page, { width: loaded.originalWidth, height: loaded.originalHeight })
+          }
+          onRenderTextLayerSuccess={() => onTextLayer(page)}
+        />
+      </LazyMount>
+    </div>
+  );
+});
 
 /// The zoom each file was left at, so coming back to its tab shows the same zoom the
 /// scroll position was saved under. Lives for the session, like the scroll positions.
@@ -276,6 +394,36 @@ export function PdfViewer({
     setSizeKnown(false);
   };
 
+  // Reads every page's size up front: a page's box is laid out at its real size
+  // before it is ever drawn, so pages of different sizes do not shift the ones
+  // below them as they come into view.
+  useEffect(() => {
+    if (!pdf) return;
+    let cancelled = false;
+    void (async () => {
+      for (let first = 1; first <= pdf.numPages; first += SIZE_BATCH) {
+        const last = Math.min(pdf.numPages, first + SIZE_BATCH - 1);
+        const batch = await Promise.all(
+          Array.from({ length: last - first + 1 }, async (_, i) => {
+            try {
+              const view = (await pdf.getPage(first + i)).getViewport({ scale: 1 });
+              return [first + i, { width: view.width, height: view.height }] as const;
+            } catch {
+              // This page is laid out at the first page's size until it is drawn.
+              return null;
+            }
+          }),
+        );
+        if (cancelled) return;
+        const sizes = batch.filter((entry) => entry !== null);
+        setPageSizes((known) => withPageSizes(known, sizes));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdf]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   useRememberedScroll(scrollRef, `pdf:${src}`, numPages > 0);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
@@ -283,9 +431,13 @@ export function PdfViewer({
   const thumbnailsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const clampScale = (next: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
-  const zoomIn = () => applyScale(scaleRef.current + ZOOM_STEP);
-  const zoomOut = () => applyScale(scaleRef.current - ZOOM_STEP);
+  const zoomIn = () => applyScale(stepScale(scaleRef.current, 1));
+  const zoomOut = () => applyScale(stepScale(scaleRef.current, -1));
+  const fitWidth = () => {
+    const room = (scrollRef.current?.clientWidth ?? 0) - SCROLL_PADDING;
+    const next = fitWidthScale(room, (pageSizes[currentPage] ?? defaultSize).width);
+    if (next) applyScale(next);
+  };
 
   // Re-rendering a page's canvas at a new scale is expensive, so `<Page>`
   // renders at `renderScale`, catching up to `scale` only once zooming pauses
@@ -300,27 +452,29 @@ export function PdfViewer({
   }, [scale]);
 
   // Every page grows or shrinks with `scale`, so the same scroll offset would
-  // point somewhere else. The spot at the middle of the viewport is noted
-  // before the layout changes and put back right after.
+  // point somewhere else. The spot at the middle of the viewport (or under the
+  // cursor, for a pinch) is noted before the layout changes and put back right after.
   const scaleRef = useRef(scale);
   // Unrounded zoom: a trackpad pinch sends many tiny wheel deltas, each far
   // under the 1% the shown scale rounds to, so they must add up here.
   const targetScaleRef = useRef(scale);
-  const zoomAnchor = useRef<ZoomAnchor | null>(null);
-  const applyScale = (next: number) => {
+  const zoomAnchor = useRef<(ZoomAnchor & { y: number }) | null>(null);
+  const pageNumbersRef = useRef(pageNumbers);
+  pageNumbersRef.current = pageNumbers;
+  /// `anchorY` is the viewport height to hold still, the middle of the scroll area
+  /// without one.
+  const applyScale = (next: number, anchorY?: number) => {
     targetScaleRef.current = clampScale(next);
     const clamped = Math.round(targetScaleRef.current * 100) / 100;
     if (clamped === scaleRef.current) return;
     const root = scrollRef.current;
     if (root && !zoomAnchor.current) {
       const box = root.getBoundingClientRect();
-      const rects = [...pageRefs.current.entries()]
-        .sort(([x], [y]) => x - y)
-        .map(([page, el]) => {
-          const { top, height } = el.getBoundingClientRect();
-          return { page, top, height };
-        });
-      zoomAnchor.current = findZoomAnchor(box.top + box.height / 2, rects);
+      const y = Math.min(Math.max(anchorY ?? box.top + box.height / 2, box.top), box.bottom);
+      const anchor = findZoomAnchor(y, pageNumbersRef.current, (page) =>
+        pageRefs.current.get(page)?.getBoundingClientRect(),
+      );
+      zoomAnchor.current = anchor && { ...anchor, y };
     }
     scaleRef.current = clamped;
     setScale(clamped);
@@ -328,12 +482,13 @@ export function PdfViewer({
   useLayoutEffect(() => {
     const anchor = zoomAnchor.current;
     zoomAnchor.current = null;
-    const root = scrollRef.current;
     const el = anchor && pageRefs.current.get(anchor.page);
-    if (!anchor || !root || !el) return;
-    const box = root.getBoundingClientRect();
-    const { top, height } = el.getBoundingClientRect();
-    root.scrollTop += scrollDeltaForAnchor(anchor, { top, height }, box.top + box.height / 2);
+    if (!anchor || !scrollRef.current || !el) return;
+    scrollRef.current.scrollTop += scrollDeltaForAnchor(
+      anchor,
+      el.getBoundingClientRect(),
+      anchor.y,
+    );
   }, [scale]);
 
   // Trackpad pinch: WebKit (and every other engine) reports it as a wheel
@@ -347,14 +502,16 @@ export function PdfViewer({
     // step re-lays out all the pages, so deltas pile up in the target and
     // are applied once per frame.
     let frame = 0;
+    let cursorY = 0;
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      targetScaleRef.current = clampScale(targetScaleRef.current - e.deltaY * 0.01);
+      targetScaleRef.current = pinchScale(targetScaleRef.current, e.deltaY);
+      cursorY = e.clientY;
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        applyScale(targetScaleRef.current);
+        applyScale(targetScaleRef.current, cursorY);
       });
     }
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -454,22 +611,38 @@ export function PdfViewer({
     setEditingPage(false);
   };
 
-  // Tracks which page is most visible while scrolling, for the page indicator.
+  // Tracks which pages are in view while scrolling: the most visible one for the page
+  // indicator, the whole range for which pages are drawn first. Entries only report
+  // the pages that changed, so the ratios of all of them are kept here.
+  const [visibleRange, setVisibleRange] = useState<readonly [number, number]>([0, 0]);
   useEffect(() => {
     const root = scrollRef.current;
     if (!root || numPages === 0) return;
+    const ratios = new Map<number, number>();
     const observer = new IntersectionObserver(
       (entries) => {
-        const mostVisible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        // SAFETY: every observed target is one of the page divs below, each
-        // given a `data-page` attribute; `IntersectionObserverEntry.target`
-        // just isn't typed narrower than `Element`.
-        const page = Number((mostVisible?.target as HTMLElement | undefined)?.dataset.page);
-        if (page) setCurrentPage(page);
+        for (const entry of entries) {
+          // SAFETY: every observed target is one of the page divs below, each
+          // given a `data-page` attribute; `IntersectionObserverEntry.target`
+          // just isn't typed narrower than `Element`.
+          const page = Number((entry.target as HTMLElement).dataset.page);
+          if (entry.isIntersecting) ratios.set(page, entry.intersectionRatio);
+          else ratios.delete(page);
+        }
+        let mostVisible = 0;
+        let first = 0;
+        let last = 0;
+        for (const [page, ratio] of ratios) {
+          if (!first || page < first) first = page;
+          last = Math.max(last, page);
+          if (ratio > (ratios.get(mostVisible) ?? -1)) mostVisible = page;
+        }
+        if (mostVisible) setCurrentPage(mostVisible);
+        setVisibleRange((range) =>
+          range[0] === first && range[1] === last ? range : [first, last],
+        );
       },
-      { root, threshold: [0.25, 0.5, 0.75, 1] },
+      { root, threshold: [0, 0.25, 0.5, 0.75, 1] },
     );
     for (const el of pageRefs.current.values()) observer.observe(el);
     return () => observer.disconnect();
@@ -563,9 +736,17 @@ export function PdfViewer({
     }
   }, [activeMatch, pageMatches, renderTick]);
 
-  const onTextLayerRendered = (page: number) => {
+  const onTextLayerRendered = useCallback((page: number) => {
     if (page === activePage.current) setRenderTick((t) => t + 1);
-  };
+  }, []);
+  const registerPage = useCallback((page: number, el: HTMLDivElement | null) => {
+    if (el) pageRefs.current.set(page, el);
+    else pageRefs.current.delete(page);
+  }, []);
+  const onPageSize = useCallback(
+    (page: number, size: PageSize) => setPageSizes((known) => withPageSizes(known, [[page, size]])),
+    [],
+  );
 
   const stepMatch = (delta: number) => {
     scrollStage.current = 1;
@@ -751,6 +932,20 @@ export function PdfViewer({
           </TooltipTrigger>
           <TooltipContent>Zoom In</TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label="Fit Width"
+              disabled={!sizeKnown}
+              onClick={fitWidth}
+            >
+              <IconArrowAutofitWidth />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Fit Width</TooltipContent>
+        </Tooltip>
 
         <div className="min-w-0 flex-1" />
 
@@ -852,8 +1047,8 @@ export function PdfViewer({
                     rootRef={thumbnailsRef}
                     margin={THUMBNAIL_MARGIN}
                     // 96px wide thumbnail plus its 4px borders.
-                    width={104}
-                    minHeight={(size.height / size.width) * 96 + 8}
+                    width="104px"
+                    minHeight={`${(size.height / size.width) * 96 + 8}px`}
                   >
                     <Thumbnail
                       pdf={pdf ?? undefined}
@@ -877,7 +1072,11 @@ export function PdfViewer({
         <InvertibleDocument className="block min-w-0 flex-1">
           {(pageClass) => (
             <div ref={scrollRef} className="size-full overflow-auto p-4">
-              <div ref={contentRef}>
+              <div
+                ref={contentRef}
+                // SAFETY: only custom properties, which `CSSProperties` does not model.
+                style={{ "--pdf-scale": scale } as CSSProperties}
+              >
                 <PdfDocument
                   key={retry}
                   file={src}
@@ -925,45 +1124,20 @@ export function PdfViewer({
                   {pageNumbers.map((page) => {
                     const size = pageSizes[page] ?? defaultSize;
                     return (
-                      <div
+                      <PdfPageRow
                         key={page}
-                        data-page={page}
-                        ref={(el) => {
-                          if (el) pageRefs.current.set(page, el);
-                          else pageRefs.current.delete(page);
-                        }}
-                        className={cn("shadow-sm", pageClass)}
-                      >
-                        <LazyMount
-                          rootRef={scrollRef}
-                          margin={RENDER_MARGIN}
-                          width={size.width * scale}
-                          minHeight={size.height * scale}
-                        >
-                          <ScaledPage
-                            pageNumber={page}
-                            width={size.width * scale}
-                            height={size.height * scale}
-                            scale={scale}
-                            renderScale={renderScale}
-                            customTextRenderer={renderMatch}
-                            onLoadSuccess={(loaded) =>
-                              setPageSizes((sizes) =>
-                                sizes[page]?.width === loaded.originalWidth
-                                  ? sizes
-                                  : {
-                                      ...sizes,
-                                      [page]: {
-                                        width: loaded.originalWidth,
-                                        height: loaded.originalHeight,
-                                      },
-                                    },
-                              )
-                            }
-                            onRenderTextLayerSuccess={() => onTextLayerRendered(page)}
-                          />
-                        </LazyMount>
-                      </div>
+                        page={page}
+                        width={size.width}
+                        height={size.height}
+                        renderScale={renderScale}
+                        visible={page >= visibleRange[0] && page <= visibleRange[1]}
+                        pageClass={pageClass}
+                        scrollRef={scrollRef}
+                        register={registerPage}
+                        customTextRenderer={renderMatch}
+                        onPageSize={onPageSize}
+                        onTextLayer={onTextLayerRendered}
+                      />
                     );
                   })}
                 </PdfDocument>

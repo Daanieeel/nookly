@@ -2,6 +2,21 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.56.3 (2026-10-30)
+
+### Added
+
+- **Fit Width for PDFs.** A new button in the PDF toolbar makes the page as wide as the viewer.
+
+### Changed
+
+- **Smoother PDF zoom.** Each zoom step now changes the size by the same share at every zoom level, so zooming in and out feels even. Pinching on the trackpad zooms around your cursor.
+
+### Fixed
+
+- **Faster PDFs.** Zooming and scrolling through long PDFs is quicker, and pages no longer jump around while they load.
+- **Blank pages when zoomed far in.** Very large pages at a high zoom no longer turn blank.
+
 ## 0.56.2 (2026-10-30)
 
 ### Changed

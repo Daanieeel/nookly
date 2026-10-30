@@ -1,6 +1,28 @@
 {
   "versions": [
     {
+      "version": "0.56.3",
+      "date": "2026-10-30",
+      "highlights": [
+        {
+          "title": "Fit Width for PDFs",
+          "description": "A new button in the PDF toolbar makes the page as wide as the viewer.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Zooming a PDF changes the size by the same share at every level, and pinching zooms around your cursor.",
+          "Zooming and scrolling through long PDFs is faster."
+        ],
+        "Fixed": [
+          "Pages no longer jump around while a PDF with pages of different sizes loads.",
+          "Very large pages at a high zoom no longer turn blank."
+        ]
+      }
+    },
+    {
       "version": "0.56.2",
       "date": "2026-10-30",
       "highlights": [],
