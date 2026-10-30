@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.56.4",
+      "date": "2026-10-30",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Typing `^` in an empty code or math block no longer breaks the block."]
+      }
+    },
+    {
       "version": "0.56.3",
       "date": "2026-10-30",
       "highlights": [
