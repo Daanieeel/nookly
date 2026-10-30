@@ -1136,8 +1136,7 @@ fn media_link(block: &Block) -> Option<(String, String)> {
                 .unwrap_or(content);
             // A file on this computer is a `file://` link in an export.
             let target = if local_path::is_local_path(content) {
-                url::Url::from_file_path(content)
-                    .map_or_else(|()| content.to_string(), |url| url.to_string())
+                local_path::file_url(content).unwrap_or_else(|| content.to_string())
             } else {
                 content.to_string()
             };
@@ -1499,7 +1498,10 @@ mod tests {
             "[Handout 3.pdf](file:///Users/me/Uni/Handout%203.pdf)"
         );
         let windows = block("file", "C:\\Uni\\a.pdf", &[]);
-        assert!((lookup("file").unwrap().to_markdown)(&windows).starts_with("[a.pdf]("));
+        assert_eq!(
+            (lookup("file").unwrap().to_markdown)(&windows),
+            "[a.pdf](file:///C:/Uni/a.pdf)"
+        );
     }
 
     #[test]

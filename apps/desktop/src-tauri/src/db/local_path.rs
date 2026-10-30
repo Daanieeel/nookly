@@ -5,6 +5,26 @@
 use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
 
+/// A path as a `file://` link, the same on every platform: a Unix path on Windows and a Windows
+/// path on a Mac still become links (`url::Url::from_file_path` only takes the paths of the
+/// machine it runs on). Spaces and other characters a link cannot hold are encoded.
+pub fn file_url(path: &str) -> Option<String> {
+    let slashed = path.trim().replace('\\', "/");
+    if slashed.starts_with("//") {
+        // A network share: `//server/share/a.pdf` has a host.
+        return url::Url::parse(&format!("file:{slashed}"))
+            .ok()
+            .map(String::from);
+    }
+    let mut link = url::Url::parse("file:///").ok()?;
+    link.set_path(&if slashed.starts_with('/') {
+        slashed
+    } else {
+        format!("/{slashed}")
+    });
+    Some(link.into())
+}
+
 /// Whether `text` is the full path of a file: `/Users/me/a.pdf`, `C:\Users\me\a.pdf`,
 /// `C:/Users/me/a.pdf` or `\\server\share\a.pdf`. A relative path, `~/a.pdf` and a link are not.
 pub fn is_local_path(text: &str) -> bool {
@@ -191,6 +211,26 @@ mod tests {
         ] {
             assert!(!is_local_path(text), "{text}");
         }
+    }
+
+    #[test]
+    fn a_path_becomes_a_file_link_on_every_platform() {
+        assert_eq!(
+            file_url("/Users/me/Uni/Handout 3.pdf").as_deref(),
+            Some("file:///Users/me/Uni/Handout%203.pdf")
+        );
+        assert_eq!(
+            file_url("C:\\Uni\\a.pdf").as_deref(),
+            Some("file:///C:/Uni/a.pdf")
+        );
+        assert_eq!(
+            file_url("c:/Uni/a b.pdf").as_deref(),
+            Some("file:///c:/Uni/a%20b.pdf")
+        );
+        assert_eq!(
+            file_url("\\\\server\\share\\a.pdf").as_deref(),
+            Some("file://server/share/a.pdf")
+        );
     }
 
     #[test]
