@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.1 (2026-11-01)
+
+### Added
+
+- **A hint for switching Spaces.** A quiet line at the bottom of the sidebar tells you that you can swipe sideways with two fingers to switch Spaces. It goes away for good the first time you do.
+
 ## 0.57.0 (2026-11-01)
 
 ### Added

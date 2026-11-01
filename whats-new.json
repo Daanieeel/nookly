@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.57.1",
+      "date": "2026-11-01",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "A short hint at the bottom of the sidebar tells you about swiping between Spaces, and goes away once you have tried it."
+        ]
+      }
+    },
+    {
       "version": "0.57.0",
       "date": "2026-11-01",
       "title": "A calmer sidebar",

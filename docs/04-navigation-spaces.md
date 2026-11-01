@@ -26,7 +26,7 @@ The active Space's color carries into the UI beyond its sidebar label: active st
 
 ### Bottom row
 
-From left to right: a shared "+", up to four slots of Space icons, a divider, then Trash and Collapse sidebar as small icon buttons. The CLI install card and the update cards stay above the row and only show when needed.
+From left to right: a shared "+", up to four slots of Space icons, a divider, then Trash and Collapse sidebar as small icon buttons. The CLI install card and the update cards stay above the row and only show when needed. So does a one line hint about the two finger swipe, which shows while there is more than one Space and goes for good the first time the swipe is used (`nookly:swipe-hint-done`).
 
 - The "+" opens a popover with New Space and Add Module. Add Module adds to the active Space.
 - A slot shows a Space's own icon in its accent color. The active Space is highlighted. Right click a slot for Rename, Change Icon, Change Color, Labels, Add Module and Delete Space. Rename and the two Change entries open the Space's settings, where name, icon and color sit together. Delete asks for confirmation first.

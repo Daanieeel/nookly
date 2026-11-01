@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { SidebarProvider } from "@nookly/ui/components/sidebar";
 import "#/components/sidebar/context-actions.tsx";
+import { preferences } from "#/lib/preferences.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { useSwipeHint } from "#/lib/swipe-hint.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { makeSpace } from "#/test/fixtures.ts";
@@ -29,6 +32,8 @@ beforeEach(() => {
   mockCommand("list_tasks_all_spaces", []);
   mockCommand("list_entities", []);
   useNavStore.setState({ view: { kind: "dashboard" }, activeSpaceId: null });
+  preferences.remove(STORAGE_KEYS.swipeHintDone);
+  useSwipeHint.setState({ done: false });
 });
 
 function setup(list = spaces) {
@@ -154,6 +159,53 @@ describe("switching with the keyboard and a swipe", () => {
     setup();
     fireEvent.wheel(await slot("Uni"), { deltaX: 2, deltaY: 120 });
     expect(useNavStore.getState().activeSpaceId).toBeNull();
+  });
+});
+
+describe("the swipe hint", () => {
+  const hint = () => screen.queryByText(/Swipe sideways with two fingers/);
+
+  it("teases the swipe at the bottom while there is more than one Space", async () => {
+    setup();
+    await slot("Uni");
+    expect(hint()).toBeInTheDocument();
+  });
+
+  it("stays away with a single Space, where there is nothing to swipe to", async () => {
+    setup(spaces.slice(0, 1));
+    await slot("Uni");
+    expect(hint()).toBeNull();
+  });
+
+  it("goes for good once the swipe was used", async () => {
+    setup();
+    fireEvent.wheel(await slot("Uni"), { deltaX: 100, deltaY: 0 });
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    expect(hint()).toBeNull();
+    expect(preferences.get(STORAGE_KEYS.swipeHintDone)).toBe("1");
+  });
+
+  it("stays on after a sideways scroll too short to count, and after other ways of switching", async () => {
+    const { user } = setup();
+    fireEvent.wheel(await slot("Uni"), { deltaX: 20, deltaY: 0 });
+    await user.click(await slot("Work"));
+    await user.keyboard("{Control>}{Alt>}{ArrowDown}{/Alt}{/Control}");
+    expect(hint()).toBeInTheDocument();
+    expect(preferences.get(STORAGE_KEYS.swipeHintDone)).toBeNull();
+  });
+
+  it("stays gone on the next launch", async () => {
+    preferences.set(STORAGE_KEYS.swipeHintDone, "1");
+    useSwipeHint.setState({ done: true });
+    setup();
+    await slot("Uni");
+    expect(hint()).toBeNull();
+  });
+
+  it("has no accessibility violations", async () => {
+    setup();
+    await slot("Uni");
+    await expectNoA11yViolations();
   });
 });
 

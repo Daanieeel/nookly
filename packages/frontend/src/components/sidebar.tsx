@@ -19,6 +19,7 @@ import { listSpaces } from "#/lib/api/spaces.ts";
 import type { Space } from "#/lib/api/types.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cycleSpaceId } from "#/lib/space-row.ts";
+import { useSwipeHint } from "#/lib/swipe-hint.ts";
 import { createSwipeTracker } from "#/lib/swipe-tracker.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { UpdateCard } from "#/components/update-card.tsx";
@@ -31,6 +32,7 @@ import {
   SidebarTrashButton,
 } from "./sidebar/sidebar-items";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
+import { SwipeHint } from "./sidebar/swipe-hint";
 import { CreateSpaceDialog, type SpaceDialog, SpaceDialogs } from "./sidebar/space-dialogs";
 import { SidebarAddMenu, SpaceSwitcher } from "./sidebar/space-switcher";
 import { qk } from "#/lib/query-keys.ts";
@@ -88,7 +90,9 @@ export function AppSidebar() {
   const swipe = useRef(createSwipeTracker());
   function onWheel(event: React.WheelEvent) {
     const step = swipe.current(event.deltaX, event.deltaY, event.timeStamp);
-    if (step !== 0) stepSpace(step, false);
+    if (step === 0) return;
+    stepSpace(step, false);
+    useSwipeHint.getState().markDone();
   }
 
   // Collapsed, the sidebar is gone and the page takes the whole window, like Arc or
@@ -167,6 +171,7 @@ export function AppSidebar() {
             <UpdatedCard />
           </SidebarMenuItem>
         </SidebarMenu>
+        <SwipeHint spaceCount={spaces.length} />
         <div className="flex items-center gap-0.5">
           <SidebarAddMenu space={activeSpace} onNewSpace={() => setCreateOpen(true)} />
           <SpaceSwitcher
