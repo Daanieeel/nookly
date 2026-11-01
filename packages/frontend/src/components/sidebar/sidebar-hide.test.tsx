@@ -1,13 +1,13 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SidebarMenu, SidebarProvider } from "@nookly/ui/components/sidebar";
+import { SidebarProvider } from "@nookly/ui/components/sidebar";
 import { preferences } from "#/lib/preferences.ts";
 import { useSidebarHidden } from "#/lib/sidebar-items.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
-import { SidebarCustomizeButton, SidebarTrashItem } from "./sidebar-items.tsx";
+import { SidebarCustomizeButton, SidebarTrashButton } from "./sidebar-items.tsx";
 
 // jsdom has no matchMedia, which the sidebar uses to tell a phone from a desktop.
 beforeEach(() => {
@@ -26,9 +26,7 @@ function setup() {
   return renderWithProviders(
     <SidebarProvider>
       <SidebarCustomizeButton />
-      <SidebarMenu>
-        <SidebarTrashItem />
-      </SidebarMenu>
+      <SidebarTrashButton />
     </SidebarProvider>,
   );
 }

@@ -193,6 +193,20 @@ export const SHORTCUT_META = {
     section: "Tabs",
     scopes: GLOBAL,
   },
+  previousSpace: {
+    title: "Previous Space",
+    description: "Switch the sidebar to the Space before this one.",
+    synonyms: ["switch space", "cycle spaces", "space up", "workspace"],
+    section: "Navigation",
+    scopes: GLOBAL,
+  },
+  nextSpace: {
+    title: "Next Space",
+    description: "Switch the sidebar to the Space after this one.",
+    synonyms: ["switch space", "cycle spaces", "space down", "workspace"],
+    section: "Navigation",
+    scopes: GLOBAL,
+  },
   splitRight: {
     title: "Split right",
     description: "Open the current tab again in a group on the right, side by side.",
@@ -240,6 +254,13 @@ export const SHORTCUT_META = {
     description:
       "Open the jot of the session happening now, creating it first. Shows an error when no session is running.",
     synonyms: ["capture", "session jot", "lecture", "class notes", "current session"],
+    section: "Create",
+    scopes: GLOBAL,
+  },
+  newPage: {
+    title: "New page",
+    description: "Create a new note in the Space you are working in and start writing.",
+    synonyms: ["create page", "add page", "new note", "write", "document"],
     section: "Create",
     scopes: GLOBAL,
   },

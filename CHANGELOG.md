@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.0 (2026-11-01)
+
+### Added
+
+- **One Space at a time in the sidebar.** The sidebar now shows only the modules of the Space you are in, as a simple list. Your Spaces sit in a row at the bottom: click one to switch, right click it to rename it, change its icon or color, or delete it, and drag to reorder. With more than four Spaces, the rest are under a three dot button.
+- **Switch Spaces quickly.** Swipe left or right with two fingers on the sidebar, or press `Cmd+Option+Up` and `Cmd+Option+Down` (`Ctrl+Alt+Up` and `Ctrl+Alt+Down` on Windows and Linux). Opening something from another Space switches the sidebar to it.
+- **New Page.** A new command and shortcut (`Cmd+Shift+N`) start a blank page in your current Space from anywhere.
+
+### Changed
+
+- **One plus button.** The plus at the bottom left of the sidebar adds a new Space or a module to the Space you are in. Trash and Collapse sidebar are now small icons next to your Spaces.
+
 ## 0.56.4 (2026-10-30)
 
 ### Fixed

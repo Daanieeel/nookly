@@ -12,6 +12,7 @@ import {
   IconMoon,
   IconPin,
   IconFileCode,
+  IconFilePlus,
   IconFileImport,
   IconHighlight,
   IconSettings,
@@ -23,6 +24,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 import { Command } from "cmdk";
 import { useEffect, useState } from "react";
 import { notify } from "#/components/notify.tsx";
+import { startNewPage } from "#/features/notes/new-page.ts";
 import type { ReactNode } from "react";
 import {
   StatusAnnouncer,
@@ -464,6 +466,25 @@ export function QuickActions({
             node: createItem(intent ?? { ...c, title: "" }),
           };
         })
+      : []),
+    ...(spaces.length > 0
+      ? [
+          {
+            id: "new-page",
+            category: "create" as const,
+            words: "New Page create add note document write blank",
+            node: simpleItem(
+              "new-page",
+              IconFilePlus,
+              "New Page",
+              () => {
+                void startNewPage(queryClient);
+                onDone();
+              },
+              <ShortcutKbd name="newPage" />,
+            ),
+          },
+        ]
       : []),
     {
       id: "new-tab",
