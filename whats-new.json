@@ -1,6 +1,34 @@
 {
   "versions": [
     {
+      "version": "0.57.0",
+      "date": "2026-11-01",
+      "title": "A calmer sidebar",
+      "summary": "The sidebar now shows one Space at a time, with all your Spaces in a row at the bottom.",
+      "highlights": [
+        {
+          "title": "One Space at a time",
+          "description": "See only the modules of the Space you are in, and switch from the row of Spaces at the bottom. Right click a Space to rename it or change its icon or color.",
+          "icon": "layout-columns",
+          "tag": "New"
+        },
+        {
+          "title": "Switch Spaces quickly",
+          "description": "Swipe sideways with two fingers and the list moves with your fingers, springing back if you let go early. Or step through your Spaces with the keyboard.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Alt+Up", "Mod+Alt+Down"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The plus at the bottom left of the sidebar adds a new Space or a module to your current Space.",
+          "Trash and Collapse sidebar are now small icons next to your Spaces.",
+          "A short hint at the bottom of the sidebar tells you about swiping between Spaces, and goes away once you have tried it."
+        ]
+      }
+    },
+    {
       "version": "0.56.4",
       "date": "2026-10-30",
       "highlights": [],

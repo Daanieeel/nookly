@@ -1024,3 +1024,20 @@
     transition: opacity 150ms linear;
   }
 }
+
+/* Thin steps of backdrop blur, finer toward the top. Several stacked, each shorter than the one
+   before, blur more the closer to the bottom they reach, which tapers the blur off without a mask:
+   a mask on a backdrop blur is not applied by every engine, and a blur that ignores it ends in a
+   hard edge. */
+@utility backdrop-blur-step-1 {
+  backdrop-filter: blur(0.4px);
+}
+@utility backdrop-blur-step-2 {
+  backdrop-filter: blur(0.8px);
+}
+@utility backdrop-blur-step-3 {
+  backdrop-filter: blur(1.2px);
+}
+@utility backdrop-blur-step-4 {
+  backdrop-filter: blur(1.6px);
+}

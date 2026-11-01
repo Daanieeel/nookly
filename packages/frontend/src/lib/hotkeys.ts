@@ -31,6 +31,8 @@ export const HOTKEYS = {
   previousTab: "Control+Shift+Tab",
   nextTabAlt: "Mod+Alt+ArrowRight",
   previousTabAlt: "Mod+Alt+ArrowLeft",
+  previousSpace: "Mod+Alt+ArrowUp",
+  nextSpace: "Mod+Alt+ArrowDown",
   splitRight: "Mod+Alt+Shift+ArrowRight",
   splitLeft: "Mod+Alt+Shift+ArrowLeft",
   focusLeftGroup: "Mod+1",

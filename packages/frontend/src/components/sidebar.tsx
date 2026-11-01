@@ -1,168 +1,93 @@
-import {
-  DndContext,
-  type DragEndEvent,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
-import { CSS } from "@dnd-kit/utilities";
-import {
-  IconChevronRight,
-  IconDotsVertical,
-  IconFolder,
-  IconGripVertical,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
-  IconPlus,
-  IconSettings,
-  IconTag,
-  IconTrash,
-} from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { statusOf, useCloseAfterSuccess } from "#/components/action-feedback.tsx";
-import { AddModuleMenu } from "#/components/add-module-menu.tsx";
+import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type CSSProperties, useEffect, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
-import { renderIconValue } from "#/components/entity-icon.tsx";
-import { RemoveModuleDialog } from "#/components/sidebar/remove-module-dialog.tsx";
-import { EntityMention } from "#/components/entity-mention.tsx";
-import { SpaceFormDialog, useSpaceForm, type SpaceValues } from "./sidebar/space-form-fields.tsx";
-import { LabelsDialog } from "#/components/label-manager.tsx";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@nookly/ui/components/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@nookly/ui/components/dropdown-menu";
+import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupAction,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   useSidebar,
 } from "@nookly/ui/components/sidebar";
-import { listEntities } from "#/lib/api/entities.ts";
-import { ACCENT_COLORS } from "#/lib/colors.ts";
-import {
-  addSpaceModule,
-  createSpace,
-  deleteSpace,
-  listSpaceModules,
-  listSpaces,
-  reorderSpaceModules,
-  reorderSpaces,
-  updateSpace,
-} from "#/lib/api/spaces.ts";
-import type { Space } from "#/lib/api/types.ts";
-import {
-  MODULE_ICONS,
-  MODULE_KEYS,
-  MODULE_LABELS,
-  MODULE_PASSENGERS,
-  type ModuleKey,
-} from "#/lib/modules.ts";
+import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { cycleSpaceId } from "#/lib/space-row.ts";
+import { useSwipeHint } from "#/lib/swipe-hint.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import {
-  EXPANDABLE_MODULE_KEYS,
-  ExpandableModuleChildren,
-} from "./sidebar/expandable-module-children";
 import { UpdateCard } from "#/components/update-card.tsx";
 import { UpdatedCard } from "#/components/updated-card.tsx";
+import { ActiveSpaceModules, SpaceHeader } from "./sidebar/active-space-modules";
 import { CliInstallCard } from "./sidebar/cli-install-card";
-import { ModuleRowMeta } from "./sidebar/module-row-meta";
-import { SidebarCustomizeButton, SidebarNavItems, SidebarTrashItem } from "./sidebar/sidebar-items";
+import {
+  SidebarCustomizeButton,
+  SidebarNavItems,
+  SidebarTrashButton,
+} from "./sidebar/sidebar-items";
+import { useSpacePager } from "./sidebar/use-space-pager";
+import { ProgressiveBlur } from "./sidebar/progressive-blur";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
+import { SwipeHint } from "./sidebar/swipe-hint";
+import { CreateSpaceDialog, type SpaceDialog, SpaceDialogs } from "./sidebar/space-dialogs";
+import { SidebarAddMenu, SpaceSwitcher } from "./sidebar/space-switcher";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-
-const SPACE_COLORS = ACCENT_COLORS;
-
-/// The floating preview a Space row shows while it follows the pointer during a drag.
-function SpaceDragPreview({ space }: { space: Space }) {
-  return (
-    <div className="flex items-center gap-2 rounded-md border bg-sidebar px-2 py-1.5 text-sm shadow-md">
-      <span
-        className="flex size-4 shrink-0 items-center justify-center text-(--space-color)"
-        // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-        // string — `CSSProperties` just doesn't model custom properties.
-        style={{ "--space-color": space.color } as CSSProperties}
-      >
-        {space.icon ? renderIconValue(space.icon, 16) : <IconFolder className="size-4" />}
-      </span>
-      <span className="truncate">{space.name}</span>
-    </div>
-  );
-}
-
-/// The floating preview a module row shows while it follows the pointer during a drag.
-function ModuleDragPreview({ moduleKey }: { moduleKey: ModuleKey }) {
-  const Icon = MODULE_ICONS[moduleKey];
-  return (
-    <div className="flex items-center gap-2 rounded-md border bg-sidebar px-2 py-1.5 text-sm shadow-md">
-      <Icon className="size-4" />
-      <span className="truncate">{MODULE_LABELS[moduleKey]}</span>
-    </div>
-  );
-}
+import { useElementHeight } from "#/hooks/use-element-height.ts";
 
 export function AppSidebar() {
-  const { expandedSpaceIds } = useNavStore();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [dialog, setDialog] = useState<SpaceDialog | null>(null);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
-  const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
-  const spaceSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  );
-  const reorder = useMutation({
-    mutationFn: reorderSpaces,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
+  const activeSpaceId = useNavStore((s) => s.activeSpaceId);
+  const setActiveSpace = useNavStore((s) => s.setActiveSpace);
+  // The sidebar follows the focused tab, so this is the Space of the page being shown, or
+  // the one picked in the row. A deleted or unknown one falls back to the first Space.
+  const activeSpace = spaces.find((s) => s.id === activeSpaceId) ?? spaces[0] ?? null;
+  const pager = useSpacePager({
+    ids: spaces.map((s) => s.id),
+    activeId: activeSpace?.id ?? null,
+    onSwipe: (id) => {
+      setActiveSpace(id);
+      useSwipeHint.getState().markDone();
+    },
   });
+  // The Spaces on either side are fetched ahead, so one that slides in during a swipe has its
+  // modules at once instead of drawing empty first.
+  const activeIndex = spaces.findIndex((s) => s.id === activeSpace?.id);
+  const nearbyIds = [spaces[activeIndex - 1]?.id, spaces[activeIndex + 1]?.id].filter(
+    (id) => id !== undefined,
+  );
+  useEffect(() => {
+    for (const id of nearbyIds) {
+      void queryClient.prefetchQuery({
+        queryKey: qk.spaceModules(id),
+        queryFn: () => listSpaceModules(id),
+      });
+    }
+    // `nearbyIds` is rebuilt every render; its content is what matters.
+    // oxlint-disable-next-line react/exhaustive-deps
+  }, [queryClient, nearbyIds.join()]);
+  // The Space that is shown, and the one beside it while one slides in.
+  const panes = [pager.shownId, pager.neighborId].flatMap(
+    (id) => spaces.find((s) => s.id === id) ?? [],
+  );
 
-  function handleSpaceDragEnd(event: DragEndEvent) {
-    setActiveSpaceId(null);
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const ids = spaces.map((s) => s.id);
-    const from = ids.indexOf(String(active.id));
-    const to = ids.indexOf(String(over.id));
-    if (from === -1 || to === -1) return;
-    const nextIds = arrayMove(ids, from, to);
-    const byId = new Map(spaces.map((s) => [s.id, s]));
-    queryClient.setQueryData<Space[]>(
-      ["spaces"],
-      nextIds.flatMap((id) => byId.get(id) ?? []),
+  function stepSpace(step: 1 | -1, wrap: boolean) {
+    const next = cycleSpaceId(
+      spaces.map((s) => s.id),
+      activeSpace?.id ?? null,
+      step,
+      wrap,
     );
-    reorder.mutate(nextIds);
+    if (next && next !== activeSpace?.id) setActiveSpace(next);
   }
-
-  const activeSpace = spaces.find((s) => s.id === activeSpaceId);
+  useAppHotkey("previousSpace", () => stepSpace(-1, true));
+  useAppHotkey("nextSpace", () => stepSpace(1, true));
 
   // Collapsed, the sidebar is gone and the page takes the whole window, like Arc or
   // Zen. Resting the pointer on the left edge slides it back over the page until the
@@ -175,12 +100,17 @@ export function AppSidebar() {
     if (!collapsed) setPeeking(false);
   }, [collapsed]);
   const peekOpen = collapsed && peeking;
+  const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  // The footer floats over the end of the list, which scrolls behind its fade, so the list
+  // leaves room for the footer's height at its end.
+  const [footerRef, footerHeight] = useElementHeight();
 
   return (
     <Sidebar
       collapsible="offcanvas"
       variant="floating"
       className={cn(peekOpen && "left-0! z-30")}
+      onWheel={pager.onWheel}
       onMouseLeave={() => {
         // A menu or dialog opened from the sidebar keeps it open while the pointer is in it.
         if (!document.querySelector("[role=menu],[role=dialog],[role=alertdialog]")) {
@@ -208,549 +138,87 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Spaces</SidebarGroupLabel>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <SidebarGroupAction onClick={() => setCreateOpen(true)}>
-                <IconPlus />
-                <span className="sr-only">New Space</span>
-              </SidebarGroupAction>
-            </TooltipTrigger>
-            <TooltipContent side="top">New Space</TooltipContent>
-          </Tooltip>
-          <SidebarGroupContent>
-            <DndContext
-              sensors={spaceSensors}
-              onDragStart={(e) => setActiveSpaceId(String(e.active.id))}
-              onDragEnd={handleSpaceDragEnd}
-              onDragCancel={() => setActiveSpaceId(null)}
+      <div ref={pager.stageRef} className="relative min-h-0 flex-1 overflow-hidden">
+        {/* A pane per Space on screen: the shown one, and the next or previous one while a swipe
+            has it half in. Each is a header over its own scrolling list, so the whole Space
+            moves together, and the name stays put however the list inside scrolls. */}
+        {panes.map((space) => (
+          <div
+            key={space.id}
+            ref={pager.paneRef(space.id)}
+            data-space-pane={space.id}
+            className="absolute inset-0 flex flex-col"
+          >
+            <div className="shrink-0 px-2 pb-1">
+              <SpaceHeader space={space} onOpenDialog={setDialog} />
+            </div>
+            <SidebarContent
+              className="overflow-x-hidden p-2 pt-0 pb-(--sidebar-footer-height) overscroll-contain"
+              // SAFETY: `--sidebar-footer-height` is a plain pixel length — `CSSProperties` just
+              // doesn't model custom properties.
+              style={{ "--sidebar-footer-height": `${footerHeight}px` } as CSSProperties}
             >
-              <SortableContext
-                items={spaces.map((s) => s.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <SidebarMenu>
-                  {spaces.map((space) => (
-                    <SpaceMenuItem
-                      key={space.id}
-                      space={space}
-                      expanded={expandedSpaceIds.includes(space.id)}
-                    />
-                  ))}
-                </SidebarMenu>
-              </SortableContext>
-              <DragOverlay dropAnimation={null}>
-                {activeSpace && <SpaceDragPreview space={activeSpace} />}
-              </DragOverlay>
-            </DndContext>
-            {spaces.length === 0 && (
-              <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
-                Use "+" to create your first Space
-              </p>
-            )}
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+              <ActiveSpaceModules space={space} />
+            </SidebarContent>
+          </div>
+        ))}
+        {panes.length === 0 && (
+          <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60">
+            Use "+" to create your first Space
+          </p>
+        )}
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <CliInstallCard />
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <UpdateCard className="group-data-[collapsible=icon]:hidden" />
-            <UpdatedCard className="group-data-[collapsible=icon]:hidden" />
-          </SidebarMenuItem>
-          <SidebarTrashItem />
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={{
-                children: (
-                  <span className="flex items-center gap-2">
-                    {collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    <ShortcutKbd name="toggleSidebar" />
-                  </span>
-                ),
-              }}
-              onClick={toggleSidebar}
-            >
-              {collapsed ? <IconLayoutSidebarLeftExpand /> : <IconLayoutSidebarLeftCollapse />}
-              <span>{collapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
-              <ShortcutKbd
-                name="toggleSidebar"
-                className="ml-auto group-data-[collapsible=icon]:hidden"
+        <SidebarFooter ref={footerRef} className="absolute inset-x-0 bottom-0 z-10">
+          {/* The list scrolls behind a blur that is strongest at the bottom and tapers off upward. */}
+          <ProgressiveBlur />
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <CliInstallCard />
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <UpdateCard />
+              <UpdatedCard />
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <div className="flex flex-col gap-1">
+            <SwipeHint spaceCount={spaces.length} />
+            <div className="flex items-center gap-0.5">
+              <SidebarAddMenu space={activeSpace} onNewSpace={() => setCreateOpen(true)} />
+              <SpaceSwitcher
+                spaces={spaces}
+                activeSpace={activeSpace}
+                onActivate={(space) => setActiveSpace(space.id)}
+                onOpenDialog={setDialog}
               />
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+              <span aria-hidden className="mx-1 ml-auto h-4 w-px shrink-0 bg-sidebar-border" />
+              <SidebarTrashButton />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="iconSm"
+                    aria-label={toggleLabel}
+                    onClick={toggleSidebar}
+                  >
+                    {collapsed ? (
+                      <IconLayoutSidebarLeftExpand />
+                    ) : (
+                      <IconLayoutSidebarLeftCollapse />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="flex items-center gap-2">
+                  {toggleLabel}
+                  <ShortcutKbd name="toggleSidebar" />
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </SidebarFooter>
+      </div>
 
       <CreateSpaceDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <SpaceDialogs dialog={dialog} onClose={() => setDialog(null)} />
     </Sidebar>
-  );
-}
-
-function SpaceMenuItem({ space, expanded }: { space: Space; expanded: boolean }) {
-  const { view, setView, toggleExpandedSpace } = useNavStore();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: space.id,
-  });
-  const dragStyle = { transform: CSS.Transform.toString(transform), transition };
-  const queryClient = useQueryClient();
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [labelsOpen, setLabelsOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [addModuleOpen, setAddModuleOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  // Also fetched (not just when expanded) once the delete dialog is open, so its
-  // "X items" count isn't stuck at 0 for a Space the user never expanded.
-  const { data: entities = [] } = useQuery({
-    queryKey: qk.entities.bySpace(space.id),
-    queryFn: () => listEntities(space.id, false),
-    enabled: expanded || deleteConfirmOpen,
-  });
-  // Source of truth for which module rows show — intentional/sticky (added via
-  // "+" or by creating a first entity), not re-derived from live entity counts
-  // (§ sidebar module visibility must not disappear when content is deleted).
-  // Also fetched once the "+" menu opens, so an unexpanded row's "already added"
-  // list is accurate before it computes `unusedKeys`.
-  const { data: addedModules = [] } = useQuery({
-    queryKey: qk.spaceModules(space.id),
-    queryFn: () => listSpaceModules(space.id),
-    enabled: expanded || addModuleOpen,
-  });
-  const passengerKeys = new Set([...MODULE_PASSENGERS.values()].flat());
-  const used = new Set(addedModules);
-  // Manually ordered (§ drag-to-reorder), not the fixed `MODULE_KEYS` order.
-  const usedKeys = addedModules.filter((k): k is ModuleKey =>
-    MODULE_KEYS.some((known) => known === k),
-  );
-  const unusedKeys = MODULE_KEYS.filter((k) => !used.has(k) && !passengerKeys.has(k));
-  const [activeModuleKey, setActiveModuleKey] = useState<ModuleKey | null>(null);
-  const moduleSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  );
-  const reorderModules = useMutation({
-    mutationFn: (keys: string[]) => reorderSpaceModules(space.id, keys),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaceModules(space.id) }),
-  });
-
-  function handleModuleDragEnd(event: DragEndEvent) {
-    setActiveModuleKey(null);
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const keys = [...usedKeys];
-    // SAFETY: `active.id` comes from this row's own SortableContext, whose `items`
-    // is `usedKeys` — every id here is one of this space's module keys.
-    const from = keys.indexOf(String(active.id) as ModuleKey);
-    // SAFETY: same as above — `over.id` is also one of this SortableContext's ids.
-    const to = keys.indexOf(String(over.id) as ModuleKey);
-    if (from === -1 || to === -1) return;
-    const nextKeys = arrayMove(keys, from, to);
-    queryClient.setQueryData(qk.spaceModules(space.id), nextKeys);
-    reorderModules.mutate(nextKeys);
-  }
-
-  const addModule = useMutation({
-    mutationFn: async (key: ModuleKey) => {
-      await addSpaceModule(space.id, key);
-      for (const passenger of MODULE_PASSENGERS.get(key) ?? []) {
-        await addSpaceModule(space.id, passenger);
-      }
-    },
-    onSuccess: (_data, key) => {
-      queryClient.invalidateQueries({ queryKey: qk.spaceModules(space.id) });
-      setView({ kind: "module", spaceId: space.id, module: key });
-    },
-  });
-
-  const del = useMutation({ mutationFn: () => deleteSpace(space.id) });
-  useCloseAfterSuccess(del, () => {
-    setDeleteConfirmOpen(false);
-    queryClient.invalidateQueries({ queryKey: qk.spaces });
-    if ("spaceId" in view && view.spaceId === space.id) setView({ kind: "dashboard" });
-  });
-  const delStatus = statusOf(del);
-
-  // The hover-revealed "+"/"…" toolbar must stay visible for as long as either
-  // popover it opens is open — group-hover/focus-within alone drop out once
-  // focus moves into the portaled popover/dropdown content, which lives
-  // outside this row's DOM subtree.
-  const toolbarForcedVisible = addModuleOpen || menuOpen;
-
-  return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={() => toggleExpandedSpace(space.id)}
-      className="group/space"
-    >
-      <SidebarMenuItem
-        ref={setNodeRef}
-        style={dragStyle}
-        className={cn(isDragging && "z-10")}
-        {...contextTarget("space", {
-          space,
-          expanded,
-          toggle: () => toggleExpandedSpace(space.id),
-          openSettings: () => setSettingsOpen(true),
-          openLabels: () => setLabelsOpen(true),
-        })}
-      >
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={space.name} className="pr-16">
-            <span className="relative flex size-4 shrink-0 items-center justify-center">
-              <span
-                className="flex items-center justify-center text-(--space-color) transition-opacity group-hover/menu-item:opacity-0"
-                // SAFETY: `--space-color` only ever receives `space.color`, a plain hex
-                // string — `CSSProperties` just doesn't model custom properties.
-                style={{ "--space-color": space.color } as CSSProperties}
-              >
-                {space.icon ? renderIconValue(space.icon, 16) : <IconFolder className="size-4" />}
-              </span>
-              <IconChevronRight className="absolute inset-0 size-4 opacity-0 transition group-hover/menu-item:opacity-100 group-data-[state=open]/space:rotate-90" />
-            </span>
-            <span className="truncate">{space.name}</span>
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-
-        <div
-          className={cn(
-            "absolute top-1.5 right-1 flex items-center gap-0.5 group-focus-within/menu-item:opacity-100 group-data-[collapsible=icon]:hidden",
-            toolbarForcedVisible ? "opacity-100" : "opacity-0 group-hover/menu-item:opacity-100",
-          )}
-        >
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            tabIndex={-1}
-            aria-label={`Drag to reorder ${space.name}`}
-            className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:cursor-grabbing [&>svg]:size-3.5"
-          >
-            <IconGripVertical />
-          </button>
-          <AddModuleMenu
-            moduleKeys={unusedKeys}
-            onSelect={(key) => addModule.mutateAsync(key)}
-            onOpenChange={setAddModuleOpen}
-            tooltip={`Add module to ${space.name}`}
-            trigger={
-              <button
-                type="button"
-                aria-label={`Add module to ${space.name}`}
-                onClick={(e) => e.stopPropagation()}
-                className="flex size-5 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&>svg]:size-3.5"
-              >
-                <IconPlus />
-              </button>
-            }
-          />
-
-          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`${space.name} settings`}
-                onClick={(e) => e.stopPropagation()}
-                className="flex size-5 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&>svg]:size-3.5"
-              >
-                <IconDotsVertical />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onSelect={() => setLabelsOpen(true)}>
-                <IconTag className="size-4" />
-                Labels
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-                <IconSettings className="size-4" />
-                Space settings
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={() => setDeleteConfirmOpen(true)}>
-                <IconTrash className="size-4" />
-                Delete Space
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        <CollapsibleContent>
-          <DndContext
-            sensors={moduleSensors}
-            // SAFETY: this context's SortableContext `items` is `usedKeys`, so
-            // `active.id` is always one of this space's module keys.
-            onDragStart={(e) => setActiveModuleKey(String(e.active.id) as ModuleKey)}
-            onDragEnd={handleModuleDragEnd}
-            onDragCancel={() => setActiveModuleKey(null)}
-          >
-            <SortableContext items={usedKeys} strategy={verticalListSortingStrategy}>
-              <SidebarMenuSub>
-                {usedKeys.map((moduleKey) => {
-                  const active =
-                    view.kind === "module" &&
-                    view.spaceId === space.id &&
-                    view.module === moduleKey &&
-                    !view.viewId;
-                  return (
-                    <ModuleSubRow
-                      key={moduleKey}
-                      space={space}
-                      moduleKey={moduleKey}
-                      active={active}
-                      onNavigate={() =>
-                        setView({ kind: "module", spaceId: space.id, module: moduleKey })
-                      }
-                    />
-                  );
-                })}
-                {usedKeys.length === 0 && (
-                  <p className="px-2 py-1.5 text-xs text-sidebar-foreground/50">No modules yet</p>
-                )}
-              </SidebarMenuSub>
-            </SortableContext>
-            <DragOverlay dropAnimation={null}>
-              {activeModuleKey && <ModuleDragPreview moduleKey={activeModuleKey} />}
-            </DragOverlay>
-          </DndContext>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-
-      <SpaceSettingsDialog space={space} open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <LabelsDialog
-        spaceId={space.id}
-        spaceName={space.name}
-        open={labelsOpen}
-        onOpenChange={setLabelsOpen}
-      />
-
-      <ConfirmPermanentDialog
-        open={deleteConfirmOpen}
-        onOpenChange={(open) => {
-          setDeleteConfirmOpen(open);
-          if (!open && !del.isSuccess) del.reset();
-        }}
-        title={
-          <>
-            Delete
-            <EntityMention
-              icon={space.icon ? renderIconValue(space.icon, 13) : <IconFolder size={13} />}
-              label={space.name}
-            />
-            ?
-          </>
-        }
-        description="This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash."
-        stats={[{ value: entities.length, label: entities.length === 1 ? "Item" : "Items" }]}
-        phrase={space.name}
-        actionLabel="Delete Space"
-        successLabel="Space deleted"
-        errorLabel="Couldn't delete, try again"
-        status={delStatus}
-        error={del.isError && del.error.message}
-        onConfirm={() => del.mutate()}
-      />
-    </Collapsible>
-  );
-}
-
-function ModuleSubRow({
-  space,
-  moduleKey,
-  active,
-  onNavigate,
-}: {
-  space: Space;
-  moduleKey: ModuleKey;
-  active: boolean;
-  onNavigate: () => void;
-}) {
-  const Icon = MODULE_ICONS[moduleKey];
-  const openViewModule = useNavStore(
-    (s) =>
-      s.view.kind === "module" &&
-      s.view.spaceId === space.id &&
-      s.view.module === moduleKey &&
-      !!s.view.viewId,
-  );
-  const [childrenOpen, setChildrenOpen] = useState(false);
-  const [removeOpen, setRemoveOpen] = useState(false);
-  // Opening a View from anywhere (the palette, Back) reveals it in the sidebar.
-  useEffect(() => {
-    if (openViewModule) setChildrenOpen(true);
-  }, [openViewModule]);
-  const expandable = EXPANDABLE_MODULE_KEYS.has(moduleKey);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: moduleKey,
-  });
-  const dragStyle = { transform: CSS.Transform.toString(transform), transition };
-
-  return (
-    <>
-      <SidebarMenuSubItem
-        ref={setNodeRef}
-        style={dragStyle}
-        className={cn("group/module relative", isDragging && "z-10")}
-        {...contextTarget("space-module", {
-          spaceId: space.id,
-          module: moduleKey,
-          removeModule: () => setRemoveOpen(true),
-        })}
-      >
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          tabIndex={-1}
-          aria-label={`Drag to reorder ${MODULE_LABELS[moduleKey]}`}
-          className="absolute top-1/2 left-0.5 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-sidebar-foreground/0 group-hover/module:text-sidebar-foreground/40 active:cursor-grabbing"
-        >
-          <IconGripVertical size={12} />
-        </button>
-        <SidebarMenuSubButton
-          isActive={active}
-          onClick={onNavigate}
-          className={expandable ? "pr-6" : undefined}
-        >
-          <Icon />
-          <span className="truncate">{MODULE_LABELS[moduleKey]}</span>
-          <ModuleRowMeta moduleKey={moduleKey} spaceId={space.id} />
-        </SidebarMenuSubButton>
-        {expandable && (
-          <button
-            type="button"
-            aria-label={
-              childrenOpen
-                ? `Collapse ${MODULE_LABELS[moduleKey]}`
-                : `Expand ${MODULE_LABELS[moduleKey]}`
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              setChildrenOpen((v) => !v);
-            }}
-            className="absolute top-1/2 right-1 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          >
-            <IconChevronRight
-              className={cn("size-3.5 transition-transform", childrenOpen && "rotate-90")}
-            />
-          </button>
-        )}
-      </SidebarMenuSubItem>
-      <ExpandableModuleChildren moduleKey={moduleKey} spaceId={space.id} open={childrenOpen} />
-      <RemoveModuleDialog
-        spaceId={space.id}
-        module={moduleKey}
-        open={removeOpen}
-        onOpenChange={setRemoveOpen}
-      />
-    </>
-  );
-}
-
-function CreateSpaceDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const queryClient = useQueryClient();
-  const setActiveSpace = useNavStore((s) => s.setActiveSpace);
-  const toggleExpandedSpace = useNavStore((s) => s.toggleExpandedSpace);
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
-  const emptySpace: SpaceValues = { name: "", color: SPACE_COLORS[0], icon: null };
-  const form = useSpaceForm(emptySpace, (value) => {
-    if (createStatus === "idle" || createStatus === "error") create.mutate(value);
-  });
-
-  useEffect(() => {
-    if (open) nameInputRef.current?.focus();
-    else form.reset();
-  }, [open, form]);
-
-  const create = useMutation({
-    mutationFn: ({ name, icon, color }: SpaceValues) => createSpace(name.trim(), icon, color),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
-  });
-  useCloseAfterSuccess(create, () => {
-    if (create.data) {
-      setActiveSpace(create.data.id);
-      toggleExpandedSpace(create.data.id);
-    }
-    onOpenChange(false);
-  });
-  const createStatus = statusOf(create);
-  const { reset: resetCreate } = create;
-  useEffect(() => {
-    if (!open) resetCreate();
-  }, [open, resetCreate]);
-
-  return (
-    <SpaceFormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="New Space"
-      form={form}
-      nameId="new-space-name"
-      nameInputRef={nameInputRef}
-      status={createStatus}
-      label="Create"
-      successLabel="Space created"
-      errorLabel="Couldn't create, try again"
-    />
-  );
-}
-
-function SpaceSettingsDialog({
-  space,
-  open,
-  onOpenChange,
-}: {
-  space: Space;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const queryClient = useQueryClient();
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
-  const current: SpaceValues = { name: space.name, color: space.color, icon: space.icon };
-  const form = useSpaceForm(current, (value) => {
-    if (saveStatus === "idle" || saveStatus === "error") save.mutate(value);
-  });
-
-  useEffect(() => {
-    if (open) {
-      form.reset({ name: space.name, color: space.color, icon: space.icon });
-      nameInputRef.current?.focus();
-    }
-  }, [open, space, form]);
-
-  const save = useMutation({
-    mutationFn: ({ name, icon, color }: SpaceValues) =>
-      updateSpace(space.id, { name: name.trim(), icon: icon ?? "", color }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.spaces }),
-  });
-  useCloseAfterSuccess(save, () => onOpenChange(false));
-  const saveStatus = statusOf(save);
-  const { reset: resetSave } = save;
-  useEffect(() => {
-    if (!open) resetSave();
-  }, [open, resetSave]);
-
-  return (
-    <SpaceFormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Space settings"
-      form={form}
-      nameId="space-settings-name"
-      nameInputRef={nameInputRef}
-      status={saveStatus}
-      label="Save"
-      successLabel="Saved"
-      errorLabel="Couldn't save, try again"
-    />
   );
 }

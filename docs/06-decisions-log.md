@@ -465,3 +465,13 @@ Words added with Add to Dictionary go to `dictionary.json` in the app data folde
 **Why:** a character offset would point somewhere else after the first edit above it, while the text itself still finds its way.
 
 **Rejected:** offsets into the block (they break on every edit) and a fragment per selection stored in the database (a new table for a link).
+
+---
+
+### The sidebar shows one Space at a time
+
+The sidebar lists the active Space's modules only. All Spaces sit in a row of icons at the bottom, four slots wide, with the rest behind a three dot button. The active Space follows the focused tab, so opening anything in another Space moves the sidebar there. Switching is a click, a two finger swipe or `Cmd+Option+Up` and `Cmd+Option+Down`. The old multi expand state (`nookly:expanded-spaces`) is gone; a leftover value is ignored. System is no longer mentioned in the docs as a pinned item, since the sidebar never had one.
+
+**Why:** stacking every Space with its modules made the sidebar long and noisy, and it only gets worse as modules are added. Spaces are a hard wall, so showing one at a time matches how they behave. Arc and Zen do the same.
+
+**Rejected:** keeping Spaces as collapsible folders (the growth problem stays), a Space switcher at the top (the bottom row keeps the global block where it is and puts the switch near the thumb and the trackpad), and wrapping the swipe around (an overshoot would jump from the last Space to the first).
