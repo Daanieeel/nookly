@@ -163,7 +163,7 @@ describe("switching with the keyboard and a swipe", () => {
 });
 
 describe("the swipe hint", () => {
-  const hint = () => screen.queryByText(/Swipe sideways with two fingers/);
+  const hint = () => screen.queryByText(/Swipe to switch Spaces/);
 
   it("teases the swipe at the bottom while there is more than one Space", async () => {
     setup();

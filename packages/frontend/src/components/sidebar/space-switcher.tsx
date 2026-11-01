@@ -140,7 +140,9 @@ function SpaceSlot({
           onClick={() => onActivate(space)}
           className={cn(
             "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md ring-sidebar-ring outline-hidden transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-2",
-            active && "bg-sidebar-accent",
+            // The foreground color: light in dark mode, dark in light mode, and see through so the
+            // Space's own color still shows.
+            active && "bg-sidebar-foreground/20",
             isDragging && "opacity-40",
             isOver && !isDragging && "ring-2 ring-sidebar-ring",
           )}

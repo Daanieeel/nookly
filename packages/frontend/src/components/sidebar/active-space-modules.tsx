@@ -60,14 +60,8 @@ function ModuleDragPreview({ moduleKey }: { moduleKey: ModuleKey }) {
   );
 }
 
-/// The one Space the sidebar shows: its name, and its modules as a flat list, no folders.
-export function ActiveSpaceModules({
-  space,
-  onOpenDialog,
-}: {
-  space: Space;
-  onOpenDialog: (dialog: SpaceDialog) => void;
-}) {
+/// The modules of the Space the sidebar shows, as a flat list, no folders.
+export function ActiveSpaceModules({ space }: { space: Space }) {
   const queryClient = useQueryClient();
   const view = useNavStore((s) => s.view);
   const setView = useNavStore((s) => s.setView);
@@ -92,48 +86,46 @@ export function ActiveSpaceModules({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <SpaceHeader space={space} onOpenDialog={onOpenDialog} />
-      <DndContext
-        sensors={sensors}
-        onDragStart={(e) => setActiveModuleKey(usedKeys.find((k) => k === e.active.id) ?? null)}
-        onDragEnd={handleModuleDragEnd}
-        onDragCancel={() => setActiveModuleKey(null)}
-      >
-        <SortableContext items={usedKeys} strategy={verticalListSortingStrategy}>
-          <SidebarMenu>
-            {usedKeys.map((moduleKey) => (
-              <ModuleRow
-                key={moduleKey}
-                space={space}
-                moduleKey={moduleKey}
-                active={
-                  view.kind === "module" &&
-                  view.spaceId === space.id &&
-                  view.module === moduleKey &&
-                  !view.viewId
-                }
-                onNavigate={() => setView({ kind: "module", spaceId: space.id, module: moduleKey })}
-              />
-            ))}
-            {usedKeys.length === 0 && (
-              <li className="px-2 py-1.5 text-xs text-sidebar-foreground/50">
-                No modules yet. Use + to add one.
-              </li>
-            )}
-          </SidebarMenu>
-        </SortableContext>
-        <DragOverlay dropAnimation={null}>
-          {activeModuleKey && <ModuleDragPreview moduleKey={activeModuleKey} />}
-        </DragOverlay>
-      </DndContext>
-    </div>
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e) => setActiveModuleKey(usedKeys.find((k) => k === e.active.id) ?? null)}
+      onDragEnd={handleModuleDragEnd}
+      onDragCancel={() => setActiveModuleKey(null)}
+    >
+      <SortableContext items={usedKeys} strategy={verticalListSortingStrategy}>
+        <SidebarMenu>
+          {usedKeys.map((moduleKey) => (
+            <ModuleRow
+              key={moduleKey}
+              space={space}
+              moduleKey={moduleKey}
+              active={
+                view.kind === "module" &&
+                view.spaceId === space.id &&
+                view.module === moduleKey &&
+                !view.viewId
+              }
+              onNavigate={() => setView({ kind: "module", spaceId: space.id, module: moduleKey })}
+            />
+          ))}
+          {usedKeys.length === 0 && (
+            <li className="px-2 py-1.5 text-xs text-sidebar-foreground/50">
+              No modules yet. Use + to add one.
+            </li>
+          )}
+        </SidebarMenu>
+      </SortableContext>
+      <DragOverlay dropAnimation={null}>
+        {activeModuleKey && <ModuleDragPreview moduleKey={activeModuleKey} />}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
 /// The Space's name over its modules, with a menu for its settings. Its right click menu
-/// is the same one the Space's icon in the bottom row has.
-function SpaceHeader({
+/// is the same one the Space's icon in the bottom row has. It sits outside the scrolling list,
+/// so it never moves with it, not even when the list is pulled past its end.
+export function SpaceHeader({
   space,
   onOpenDialog,
 }: {

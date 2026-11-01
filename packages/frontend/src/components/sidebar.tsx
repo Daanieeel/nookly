@@ -1,6 +1,6 @@
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -24,19 +24,21 @@ import { createSwipeTracker } from "#/lib/swipe-tracker.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { UpdateCard } from "#/components/update-card.tsx";
 import { UpdatedCard } from "#/components/updated-card.tsx";
-import { ActiveSpaceModules } from "./sidebar/active-space-modules";
+import { ActiveSpaceModules, SpaceHeader } from "./sidebar/active-space-modules";
 import { CliInstallCard } from "./sidebar/cli-install-card";
 import {
   SidebarCustomizeButton,
   SidebarNavItems,
   SidebarTrashButton,
 } from "./sidebar/sidebar-items";
+import { ProgressiveBlur } from "./sidebar/progressive-blur";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 import { SwipeHint } from "./sidebar/swipe-hint";
 import { CreateSpaceDialog, type SpaceDialog, SpaceDialogs } from "./sidebar/space-dialogs";
 import { SidebarAddMenu, SpaceSwitcher } from "./sidebar/space-switcher";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { useElementHeight } from "#/hooks/use-element-height.ts";
 
 /// Which way the list of modules slides in when the Space changes: from the right when
 /// the new Space comes later in the stored order, from the left when it comes earlier.
@@ -107,6 +109,9 @@ export function AppSidebar() {
   }, [collapsed]);
   const peekOpen = collapsed && peeking;
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  // The footer floats over the end of the list, which scrolls behind its fade, so the list
+  // leaves room for the footer's height at its end.
+  const [footerRef, footerHeight] = useElementHeight();
 
   return (
     <Sidebar
@@ -141,65 +146,86 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="overflow-x-hidden p-2 pt-0">
-        {activeSpace ? (
-          <div
-            // Remounted per Space, which plays the slide.
-            key={activeSpace.id}
-            className={cn(
-              direction && "animate-in duration-200 fade-in motion-reduce:animate-none",
-              direction === "next" && "slide-in-from-right-6",
-              direction === "previous" && "slide-in-from-left-6",
-            )}
-          >
-            <ActiveSpaceModules space={activeSpace} onOpenDialog={setDialog} />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* Outside the scroll container, so the Space's name stays put however the list moves. */}
+        {activeSpace && (
+          <div className="shrink-0 px-2 pb-1">
+            <SpaceHeader space={activeSpace} onOpenDialog={setDialog} />
           </div>
-        ) : (
-          <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60">
-            Use "+" to create your first Space
-          </p>
         )}
-      </SidebarContent>
+        <SidebarContent
+          className="overflow-x-hidden p-2 pt-0 pb-(--sidebar-footer-height) overscroll-contain"
+          // SAFETY: `--sidebar-footer-height` is a plain pixel length — `CSSProperties` just
+          // doesn't model custom properties.
+          style={{ "--sidebar-footer-height": `${footerHeight}px` } as CSSProperties}
+        >
+          {activeSpace ? (
+            <div
+              // Remounted per Space, which plays the slide.
+              key={activeSpace.id}
+              className={cn(
+                direction && "animate-in duration-200 fade-in motion-reduce:animate-none",
+                direction === "next" && "slide-in-from-right-6",
+                direction === "previous" && "slide-in-from-left-6",
+              )}
+            >
+              <ActiveSpaceModules space={activeSpace} />
+            </div>
+          ) : (
+            <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60">
+              Use "+" to create your first Space
+            </p>
+          )}
+        </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <CliInstallCard />
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <UpdateCard />
-            <UpdatedCard />
-          </SidebarMenuItem>
-        </SidebarMenu>
-        <SwipeHint spaceCount={spaces.length} />
-        <div className="flex items-center gap-0.5">
-          <SidebarAddMenu space={activeSpace} onNewSpace={() => setCreateOpen(true)} />
-          <SpaceSwitcher
-            spaces={spaces}
-            activeSpace={activeSpace}
-            onActivate={(space) => setActiveSpace(space.id)}
-            onOpenDialog={setDialog}
-          />
-          <span aria-hidden className="mx-1 ml-auto h-4 w-px shrink-0 bg-sidebar-border" />
-          <SidebarTrashButton />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="iconSm"
-                aria-label={toggleLabel}
-                onClick={toggleSidebar}
-              >
-                {collapsed ? <IconLayoutSidebarLeftExpand /> : <IconLayoutSidebarLeftCollapse />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="flex items-center gap-2">
-              {toggleLabel}
-              <ShortcutKbd name="toggleSidebar" />
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </SidebarFooter>
+        <SidebarFooter ref={footerRef} className="absolute inset-x-0 bottom-0 z-10">
+          {/* The list scrolls behind a blur that is strongest at the bottom and tapers off upward. */}
+          <ProgressiveBlur />
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <CliInstallCard />
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <UpdateCard />
+              <UpdatedCard />
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <div className="flex flex-col gap-1">
+            <SwipeHint spaceCount={spaces.length} />
+            <div className="flex items-center gap-0.5">
+              <SidebarAddMenu space={activeSpace} onNewSpace={() => setCreateOpen(true)} />
+              <SpaceSwitcher
+                spaces={spaces}
+                activeSpace={activeSpace}
+                onActivate={(space) => setActiveSpace(space.id)}
+                onOpenDialog={setDialog}
+              />
+              <span aria-hidden className="mx-1 ml-auto h-4 w-px shrink-0 bg-sidebar-border" />
+              <SidebarTrashButton />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="iconSm"
+                    aria-label={toggleLabel}
+                    onClick={toggleSidebar}
+                  >
+                    {collapsed ? (
+                      <IconLayoutSidebarLeftExpand />
+                    ) : (
+                      <IconLayoutSidebarLeftCollapse />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="flex items-center gap-2">
+                  {toggleLabel}
+                  <ShortcutKbd name="toggleSidebar" />
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </SidebarFooter>
+      </div>
 
       <CreateSpaceDialog open={createOpen} onOpenChange={setCreateOpen} />
       <SpaceDialogs dialog={dialog} onClose={() => setDialog(null)} />
